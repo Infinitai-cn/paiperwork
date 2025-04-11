@@ -1,3 +1,5 @@
+# Source code coming soon! 
+
 # Paiperwork 
 
 This repository contains the public files and documentation for Paiperwork, an AI-powered document management application for Ollama.
