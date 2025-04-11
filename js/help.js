@@ -123,7 +123,7 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
   imageContainer.style.cursor = "zoom-in";
 
   const imageElement = document.createElement("img");
-  imageElement.src = `../images/help/${imageSrc}`;
+  imageElement.src = `paiperwork/images/help/${imageSrc}`;
   imageElement.alt = imageAlt;
   imageElement.className = "help-image";
   imageElement.setAttribute("loading", "lazy");
@@ -142,7 +142,7 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
   });
 
   imageElement.addEventListener("error", function () {
-      this.src = "../images/help/placeholder.png";
+      this.src = "paiperwork/images/help/placeholder.png";
       this.classList.add("loaded");
       console.log(`Image not found: ${imageSrc}, using placeholder instead`);
   });
@@ -328,7 +328,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const closeButton = document.getElementById("close-help");
   if (closeButton) {
     closeButton.addEventListener("click", function () {
-      window.location.href = "../../welcome.html";
+      window.location.href = "paiperwork/index.html";
     });
   }
 
