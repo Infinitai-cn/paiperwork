@@ -12,7 +12,7 @@ function setAppropriateHelpImage() {
 }
 
 // In createFigureElement function:
-imageElement.src = `images/help/${imageSrc}`; // Updated path
+imageElement.src = `/images/help/${imageSrc}`;
 
 function setupNavigation() {
   const navItems = document.querySelectorAll(".nav-item");
