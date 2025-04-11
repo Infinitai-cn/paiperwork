@@ -1,3 +1,4 @@
+
 function setAppropriateHelpImage() {
   const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const logoImg = document.getElementById("help-logo");
@@ -11,8 +12,6 @@ function setAppropriateHelpImage() {
   }
 }
 
-// In createFigureElement function:
-imageElement.src = `/images/help/${imageSrc}`;
 
 function setupNavigation() {
   const navItems = document.querySelectorAll(".nav-item");
