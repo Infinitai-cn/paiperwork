@@ -4,8 +4,8 @@ function setAppropriateHelpImage() {
   const logoImg = document.getElementById("help-logo");
   if (logoImg) {
     logoImg.src = isDarkMode
-      ? "/images/Paiperwork-APP-dark.png"  // Updated path
-      : "/images/Paiperwork-APP-light.png"; // Updated path
+      ? "/paiperwork/images/Paiperwork-APP-dark.png"  // Updated path
+      : "/paiperwork/images/Paiperwork-APP-light.png"; // Updated path
     console.log("Help logo set to:", logoImg.src);
   } else {
     console.warn("Help logo element not found");
@@ -122,7 +122,7 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
   imageContainer.style.cursor = "zoom-in";
 
   const imageElement = document.createElement("img");
-  imageElement.src = `/images/help/${imageSrc}`;
+  imageElement.src = `/paiperwork/images/help/${imageSrc}`;
   imageElement.alt = imageAlt;
   imageElement.className = "help-image";
   imageElement.setAttribute("loading", "lazy");
@@ -141,7 +141,7 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
   });
 
   imageElement.addEventListener("error", function () {
-      this.src = "/images/help/placeholder.png";
+      this.src = "/paiperwork/images/help/placeholder.png";
       this.classList.add("loaded");
       console.log(`Image not found: ${imageSrc}, using placeholder instead`);
   });
