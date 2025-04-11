@@ -2,7 +2,7 @@
 
 This repository contains the public files and documentation for Paiperwork, an AI-powered document management application for Ollama.
 
-Visit our [documentation site](https://Infinitai-cn/paiperwork.github.io/) to learn more.
+Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) to learn more.
 
 ## Features
 
@@ -11,6 +11,3 @@ Visit our [documentation site](https://Infinitai-cn/paiperwork.github.io/) to le
 - Research assistant
 - Custom model support
 
-## Getting Started
-
-[View our quick start guide]([https://github.com/Infinitai-cn/paiperwork.github.io/#index.html))
