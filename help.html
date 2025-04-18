@@ -1,0 +1,49 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paiperwork - Help</title>
+     <link rel="stylesheet" href="styles/help.css">
+</head>
+
+<body>
+     <div class="help-container">
+        <!-- Header with GitHub link -->
+    <div class="help-container">
+        <div class="help-header">
+            <img id="help-logo" class="help-logo" src="/paiperwork/images/Paiperwork-APP-light.png" alt="Paiperwork Logo">
+            <h1 class="help-title">Help & Documentation</h1>
+            <a href="https://github.com/Infinitai-cn/paiperwork" class="github-link">View on GitHub</a>
+        </div>
+    </div>
+        <div class="help-navigation-wrapper">
+            <div class="help-navigation" id="help-nav">
+                <div class="nav-item active" data-section="getting-started"><span>Getting Started</span></div>
+                <div class="nav-item" data-section="chat"><span>Chat Features</span></div>
+                <div class="nav-item" data-section="documents"><span>Documents</span></div>
+                <div class="nav-item" data-section="dataviz"><span>Dataviz</span></div>
+                <div class="nav-item" data-section="paperworks"><span>Paperwork</span></div>
+                <div class="nav-item" data-section="paperworks"><span>Research</span></div>
+                <div class="nav-item" data-section="artworks"><span>Artworks</span></div>
+                <div class="nav-item" data-section="models"><span>Models</span></div>
+            </div>
+        </div>
+
+        <div id="help-content-target" class="help-content">
+            <!-- Dynamic content goes here -->
+        </div>
+
+    </div>
+
+    <script>
+        // This helps ensure content is loaded before we try to access it
+        window.helpContentLoaded = false;
+    </script>
+ <script src="/paiperwork/js/help-content.js"></script>
+ <script src="/paiperwork/js/help.js"></script>
+</body>
+
+</html>

@@ -1,49 +1,186 @@
-
+index.html -->
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paiperwork - Help</title>
-     <link rel="stylesheet" href="styles/help.css">
+    <title>Paiperwork - AI Document Processing</title>
+    <link rel="stylesheet" href="styles/index.css">
+    <style>
+        /* Basic styling for the landing page */
+        :root {
+            --primary-color: #007bff;
+            --text-color: #333;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #3a9fff;
+                --text-color: #f0f0f0;
+                --bg-color: #121212;
+                --card-bg: #1e1e1e;
+                --shadow-color: rgba(255, 255, 255, 0.05);
+            }
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .logo {
+            max-width: 300px;
+            margin-bottom: 2rem;
+        }
+
+        .tagline {
+            font-size: 1.8rem;
+            margin-bottom: 2rem;
+            font-weight: 300;
+        }
+
+        .description {
+            max-width: 800px;
+            margin: 0 auto 3rem auto;
+            font-size: 1.1rem;
+        }
+
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 0.8rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px var(--shadow-color);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background-color: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px var(--shadow-color);
+            transition: transform 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        footer {
+            margin-top: 4rem;
+            padding: 1rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    </style>
 </head>
 
 <body>
-     <div class="help-container">
-        <!-- Header with GitHub link -->
-    <div class="help-container">
-        <div class="help-header">
-            <img id="help-logo" class="help-logo" src="/paiperwork/images/Paiperwork-APP-light.png" alt="Paiperwork Logo">
-            <h1 class="help-title">Help & Documentation</h1>
-            <a href="https://github.com/Infinitai-cn/paiperwork" class="github-link">View on GitHub</a>
+    <div class="container">
+        <!-- Logo that changes based on theme -->
+        <img id="main-logo" class="logo" src="/paiperwork/images/Paiperwork-APP-light.png" alt="Paiperwork Logo">
+        
+        <h1 class="tagline">AI-Powered Document Processing</h1>
+        
+        <div class="description">
+            <p>Paiperwork transforms how you work with documents. Our AI-powered platform makes it easy to extract, analyze, 
+            and visualize information from all your documents, enabling faster insights and better decision making.</p>
         </div>
-    </div>
-        <div class="help-navigation-wrapper">
-            <div class="help-navigation" id="help-nav">
-                <div class="nav-item active" data-section="getting-started"><span>Getting Started</span></div>
-                <div class="nav-item" data-section="chat"><span>Chat Features</span></div>
-                <div class="nav-item" data-section="documents"><span>Documents</span></div>
-                <div class="nav-item" data-section="dataviz"><span>Dataviz</span></div>
-                <div class="nav-item" data-section="paperworks"><span>Paperwork</span></div>
-                <div class="nav-item" data-section="paperworks"><span>Research</span></div>
-                <div class="nav-item" data-section="artworks"><span>Artworks</span></div>
-                <div class="nav-item" data-section="models"><span>Models</span></div>
+        
+        <div class="cta-buttons">
+            <a href="https://github.com/Infinitai-cn/paiperwork/releases" class="cta-button">Download App</a>
+            <a href="/paiperwork/help.html" class="cta-button">Documentation</a>
+            <a href="https://github.com/Infinitai-cn/paiperwork" class="cta-button">View on GitHub</a>
+        </div>
+        
+        <div class="features">
+            <div class="feature-card">
+                <h3 class="feature-title">Smart Document Analysis</h3>
+                <p>Extract key information from documents automatically with advanced AI processing.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Data Visualization</h3>
+                <p>Transform document data into meaningful visualizations for better insights.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Chat Interface</h3>
+                <p>Ask questions about your documents and get intelligent answers instantly.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Research Assistant</h3>
+                <p>Organize research materials and discover connections between documents.</p>
             </div>
         </div>
-
-        <div id="help-content-target" class="help-content">
-            <!-- Dynamic content goes here -->
-        </div>
-
+        
+        <footer>
+            <p>© 2025 Paiperwork by Infinitai. Open source project.</p>
+        </footer>
     </div>
 
     <script>
-        // This helps ensure content is loaded before we try to access it
-        window.helpContentLoaded = false;
+        // Set logo based on theme
+        function setAppropriateMainLogo() {
+            const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const logoImg = document.getElementById("main-logo");
+            if (logoImg) {
+                logoImg.src = isDarkMode
+                    ? "/paiperwork/images/Paiperwork-APP-dark.png"
+                    : "/paiperwork/images/Paiperwork-APP-light.png";
+            }
+        }
+
+        // Initial logo setup
+        setAppropriateMainLogo();
+        
+        // Listen for theme changes
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", setAppropriateMainLogo);
     </script>
- <script src="/paiperwork/js/help-content.js"></script>
- <script src="/paiperwork/js/help.js"></script>
 </body>
 
 </html>
