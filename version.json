@@ -1,0 +1,7 @@
+{
+    "version": "1.0.1",
+    "releaseDate": "2025-04-25",
+    "notes": "<p><strong>New Features:</strong></p><ul><li>Added dark mode support</li><li>Improved performance of knowledge base searches</li><li>Fixed bugs with model selection</li></ul>",
+    "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
+    "requiredUpdate": false
+}
