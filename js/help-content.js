@@ -51,7 +51,7 @@ window.helpContent = {
                   <p>Your Master Key acts as an encryption key that secures your conversation data. This means:</p>
                   <ul>
                     <li>Master Key are <strong>case-sensitive</strong> - "My Project" and "my project" are treated as different Master Key</li>
-                    <li>You must enter the exact same topic text to access a previous conversation</li>
+                    <li>You must enter the exact same Master key to access a previous conversation</li>
                     <li>If you forget a Master Key, you cannot recover that conversation</li>
                     <li>Choose short, memorable Master Key that you can easily recall later</li>
                   </ul>
@@ -133,7 +133,7 @@ window.helpContent = {
                 <p>If you want to stop the AI while it's generating a response, simply click the red Cancel button (which replaced the Send button). This immediately stops the generation process and marks the incomplete response.</p>
                 
                 <div class="note">
-                    <p><strong>Tip:</strong> To keep your conversations organized, try using different topics for different subjects or projects.</p>
+                    <p><strong>Tip:</strong> To keep your conversations organized, try using different Master keys for different subjects or projects.</p>
                 </div>
             `,
                 images: [
@@ -242,9 +242,11 @@ window.helpContent = {
 <h4>Context Size Control</h4>
 <p>The context size determines how much of your previous conversation the AI can "remember" and use when generating responses:</p>
 <ul>
-    <li>Select your desired context size from the dropdown menu (from 1K to 10M tokens)</li>
-    <li>Larger context sizes allow for longer conversations but significantly increase memory usage</li>
-    <li>Smaller context sizes are faster but may lose track of earlier parts of the conversation</li>
+    <li><strong>Automatic Context Size</strong> - When selecting a model, the system automatically sets the optimal context size based on the model's capabilities</li>
+    <li><strong>Model-Specific Optimization</strong> - Each model's native context window is detected and applied</li>
+    <li><strong>Resource Conservation</strong> - Initially capped at 32K to prevent excessive resource usage, but can be manually increased</li>
+    <li><strong>Manual Adjustment</strong> - Select your desired context size from the dropdown menu (from 1K to 10M tokens) to override the automatic setting</li>
+    <li><strong>Persistent Settings</strong> - Your context size preference is remembered across sessions</li>
 </ul>
 
 <h5>How Context Size Affects Memory Usage</h5>
@@ -273,7 +275,7 @@ window.helpContent = {
 </ul>
 
 <div class="note">
-    <p><strong>Tip:</strong> Start with a smaller context size and increase gradually while monitoring system performance. If you notice slowdowns or errors, reduce the context size to a more suitable level for your hardware.</p>
+    <p><strong>Tip:</strong> The automatic context size feature ensures optimal performance for each model. Only increase the context size manually if you specifically need longer conversation history and have sufficient system resources to handle it.</p>
 </div>
                 
                 <h4>Image Upload (Visual Models)</h4>
@@ -410,7 +412,7 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Note:</strong> Deleting a session is permanent and cannot be undone. When you delete a conversation group, only that specific thread is removed - all other sessions within the same topic remain intact.</p>
+                    <p><strong>Note:</strong> Deleting a session is permanent and cannot be undone. When you delete a conversation group, only that specific thread is removed - all other sessions within the same Master key remain intact.</p>
                 </div>
             `,
                 image: "conversations-list.png",
@@ -468,14 +470,24 @@ window.helpContent = {
                 <h4>Processing Your Documents</h4>
                 <p>When you upload documents, the system:</p>
                 <ul>
+                    <li>Checks PDF files for extractable text content</li>
                     <li>Splits the content into manageable chunks</li>
                     <li>Creates AI-friendly representations (embeddings) of the content</li>
                     <li>Securely encrypts and stores everything locally</li>
                     <li>Makes the document available for questioning and searching</li>
                 </ul>
                 
+                <h4>PDF Text Detection</h4>
+                <p>Paiperwork automatically checks PDF files to ensure they contain extractable text:</p>
+                <ul>
+                    <li>Each PDF is analyzed to detect text content before processing begins</li>
+                    <li>If a PDF contains no extractable text (such as scanned images without OCR), you'll receive a warning notification</li>
+                    <li>PDFs without text cannot be processed for RAG as they require text content for embedding and searching</li>
+                    <li>For image-only PDFs, consider using a visual AI model for text extraction or OCR tool to convert images to text before uploading</li>
+                </ul>
+                
                 <div class="note">
-                    <p><strong>Important:</strong> Make sure you have selected an AI model before uploading documents. The selected model will be used for processing the documents.</p>
+                    <p><strong>Important:</strong> Make sure you have selected an AI model before uploading documents in the Chat tab. The selected model will be used for processing the documents.</p>
                 </div>
             `,
                 image: "documents-upload.png",
@@ -583,40 +595,49 @@ window.helpContent = {
                 imageCaption:
                     "Chat interface showing Document Mode indicator when asking questions about a specific document",
             },
+
+            // Update the docs-searching article in the documents section
+
             {
                 id: "docs-searching",
-                title: "Searching Documents",
+                title: "Searching Across Documents",
                 content: `
-                <p>The search function helps you find specific information across your document library.</p>
-                
-                <h4>How to Search</h4>
-                <ol>
-                    <li>Enter your search terms in the search box at the top of the search button</li>
-                    <li>Click the search button or press Enter</li>
-                    <li>Review the search results that match your query</li>
-                </ol>
-                
-                <h4>Search Results</h4>
-                <p>Search results display:</p>
-                <ul>
-                    <li>The document name</li>
-                    <li>Relevant text snippet with highlighted matches</li>
-                    <li>Match percentage indicating relevance</li>
-                    <li>Option to copy the text snippet</li>
-                </ul>
-                
-                <h4>Search Tips</h4>
-                <ul>
-                    <li>If the AI model doesn't support embeddings, synthetic embeddings will be created</li>
-                    <li>Use specific terms for better results</li>
-                    <li>Search looks for semantic meaning, not just exact word matches</li>
-                    <li>Clear your search by clicking the "Clear Search" button</li>
-                </ul>
-            `,
-                image: "document_search.png",
-                imageAlt: "Document Search Interface",
-                imageCaption:
-                    "Search interface showing results across multiple documents with relevance scores",
+        <p>Paiperwork makes it easy to search for information across all your uploaded documents directly from the chat interface.</p>
+        
+        <h4>Global Document Search</h4>
+        <p>When you're in the Documents tab, any questions you ask through the Chat interface will automatically search across all your documents:</p>
+        <ol>
+            <li>Switch to the Documents tab first to activate document search functionality</li>
+            <li>Type your search query or question in the chat input field</li>
+            <li>The AI will automatically search across all your documents for relevant information</li>
+            <li>Results from multiple documents will be combined into a comprehensive answer</li>
+        </ol>
+        
+        <h4>Search Results</h4>
+        <p>When using document search, the AI will:</p>
+        <ul>
+            <li>Show a "Searching documents..." indicator while gathering information</li>
+            <li>Find the most relevant passages across all your documents</li>
+            <li>Prioritize results from diverse documents to provide comprehensive coverage</li>
+            <li>Use semantic search to understand the meaning of your query, not just match keywords</li>
+            <li>Generate a response that synthesizes information from all relevant documents</li>
+            <li>Include citations to source documents when appropriate</li>
+        </ul>
+        
+        <h4>Semantic vs. Keyword Search</h4>
+        <p>Paiperwork uses semantic search technology that understands the meaning behind your questions:</p>
+        <ul>
+            <li>You can ask in natural language rather than using specific keywords</li>
+            <li>The system will find conceptually related information even when the exact terms differ</li>
+            <li>Search is context-aware and understands synonyms and related concepts</li>
+            <li>Results are ranked by relevance to your specific question</li>
+        </ul>
+        
+        <div class="note">
+            <p><strong>Tip:</strong> For best results, ask specific questions about the information you're looking for rather than using generic search terms. For example, ask "What are the quarterly sales figures for 2024?" instead of just "sales data."</p>
+        </div>
+    `,
+
             },
         ],
     },
@@ -792,6 +813,12 @@ window.helpContent = {
                 <h4>Radar Chart Example</h4>
                 <p class="example-prompt">"Create a radar chart comparing three smartphones across five categories: Phone A (Battery: 90, Camera: 85, Performance: 95, Design: 80, Price: 70), Phone B (Battery: 75, Camera: 95, Performance: 90, Design: 85, Price: 65), Phone C (Battery: 95, Camera: 75, Performance: 80, Design: 90, Price: 85)."</p>
                 
+                <h4>Heat Map Example</h4>
+                <p class="example-prompt">"Create a heat map showing the correlation between different programming languages and their popularity across various industry sectors in 2025. Include data for languages like Python (AI/ML: 98, Finance: 85, Healthcare: 70, Gaming: 60, E-commerce: 92), JavaScript (Finance: 95, Healthcare: 55, Gaming: 75, E-commerce: 98, Media: 90), Rust (Finance: 45, Healthcare: 35, Gaming: 90, IoT: 80, Cybersecurity: 85), Go (Finance: 55, Healthcare: 45, Gaming: 35, IoT: 95, Cloud: 85), and PHP (E-commerce: 60, Media: 50, Education: 40, Government: 30, Healthcare: 35). Use a color scale from light blue to dark blue, where darker colors represent higher adoption rates."</p>
+
+                <h4>Bubble Chart Example</h4>
+                <p class="example-prompt">"Generate a bubble chart comparing different countries' renewable energy adoption. On the x-axis, show GDP per capita (USA: 65000, Germany: 48000, China: 12000, India: 2500, Brazil: 7000, Japan: 40000). On the y-axis, show percentage of renewable energy in total energy mix (USA: 20%, Germany: 45%, China: 25%, India: 35%, Brazil: 85%, Japan: 30%). Use bubble size to represent population in millions (USA: 330, Germany: 83, China: 1400, India: 1380, Brazil: 212, Japan: 126). Label each bubble with the country name and title the chart 'Renewable Energy Adoption vs. Economic Development (2025)'."</p>
+                
                 <div class="note">
                     <p><strong>Note:</strong> If your first attempt doesn't produce the exact visualization you want, try refining your description with more specific details about categories, values, and relationships.</p>
                 </div>
@@ -875,7 +902,7 @@ window.helpContent = {
                     <li>Export options for various formats</li>
                 </ul>
                 
-                <p>All document processing happens locally on your device, ensuring your sensitive business information remains private and secure. Like all features in Paiperwork, Paperwork uses your topic encryption key to protect any saved templates or forms.</p>
+                <p>All document processing happens locally and on your device, ensuring your sensitive business information remains private and secure. Like all features in Paiperwork, Paperwork uses your Master encryption key to protect any saved templates or forms.</p>
             `,
                 image: "paperworks_intro.png",
                 imageAlt: "Paperwork Tab Overview",
@@ -919,43 +946,96 @@ window.helpContent = {
                 id: "paperworks-technical-reports",
                 title: "Creating Technical Reports",
                 content: `
-                <p>Technical reports offer advanced document design capabilities with section-based layouts and visual elements.</p>
+                <p>The Technical Report creator offers powerful document design capabilities with an intuitive visual editor and AI-assistance.</p>
                 
-                <h4>Technical Report Designer</h4>
+                <h4>Visual Template Designer</h4>
                 <p>When you select the Technical Report template, you'll access the visual template designer that allows you to:</p>
                 <ul>
-                    <li>Build your report by adding different section types</li>
-                    <li>Customize the layout and structure</li>
-                    <li>Add images and visual elements</li>
-                    <li>Preview the document as you build it</li>
+                    <li>Design professional multi-page documents with a visual editor</li>
+                    <li>Build your report by adding different section types from the sidebar</li>
+                    <li>Customize layout and structure with simplicity</li>
+                    <li>Add images and visual elements with easy upload</li>
+                    <li>Preview the document exactly as it will appear when printed</li>
+                    <li>Maximize the designer window for a full-screen editing experience</li>
                 </ul>
                 
                 <h4>Available Section Types</h4>
                 <ul>
-                    <li>Document Header</li>
-                    <li>Section Header</li>
-                    <li>Text Area</li>
-                    <li>Text + Image (Right)</li>
-                    <li>Image + Text (Right)</li>
-                    <li>Picture Gallery</li>
-                    <li>Picture Row</li>
-                    <li>Divider</li>
-                    <li>Empty Space</li>
+                    <li><strong>Document Header</strong> - Title and subtitle for your report</li>
+                    <li><strong>Section Header</strong> - Divides your report into logical sections</li>
+                    <li><strong>Text Area</strong> - For paragraphs and longer text content</li>
+                    <li><strong>Text + Image (Right)</strong> - Text with an image on the right side</li>
+                    <li><strong>Image + Text (Right)</strong> - Image with text on the right side</li>
+                    <li><strong>Picture Gallery</strong> - Grid layout for multiple images</li>
+                    <li><strong>Picture Row</strong> - Horizontal arrangement of images with optional caption</li>
+                    <li><strong>Divider</strong> - Visual separator between sections</li>
+                    <li><strong>Empty Space</strong> - Adjustable blank space with resize capability</li>
                 </ul>
                 
-                <h4>Working with the Template Designer</h4>
-                <p>To create a technical report:</p>
+                <h4>Intelligent Layout Features</h4>
+                <ul>
+                    <li><strong>Multi-page support</strong> - Content automatically flows across multiple pages</li>
+                    <li><strong>Page breaks</strong> - Visual indicators show where content will split between pages</li>
+                    <li><strong>Automatic pagination</strong> - Page numbers are added automatically</li>
+                    <li><strong>A4 format</strong> - Standard document size with proper margins</li>
+                    <li><strong>Section controls</strong> - Move, edit, or delete sections with easy-access buttons</li>
+                    <li><strong>Flexible spacing</strong> - Option to expand empty sections to fill a page</li>
+                </ul>
+                
+                <h4>Content Enhancement</h4>
+                <ul>
+                    <li><strong>AI enhancement</strong> - One-click improvement of text content using AI assistance</li>
+                    <li><strong>Direct editing</strong> - Edit text directly in the preview for WYSIWYG experience</li>
+                    <li><strong>Image uploading</strong> - Drag and drop or click to upload images</li>
+                    <li><strong>Content placeholders</strong> - Helpful placeholders show where to add content</li>
+                    <li><strong>Undo capability</strong> - Revert AI enhancements if needed</li>
+                </ul>
+                <h4>Font Selection and PDF Preview</h4>
+                <ul>
+                    <li><strong>Font Selection</strong> - Choose from a variety of fonts using the dropdown menu above the editor</li>
+                    <li><strong>Font Preview</strong> - See how your document looks with different fonts in real-time</li>
+                    <li><strong>Font Persistence</strong> - Your selected font is remembered between sessions for consistency</li>
+                    <li><strong>Preview PDF</strong> - View an accurate preview of how your document will appear as a PDF</li>
+                    <li><strong>Page Layout</strong> - See exactly how content is distributed across pages with proper A4 sizing</li>
+                    <li><strong>Page Breaks</strong> - Preview shows clear page break indicators between document pages</li>
+                </ul>               
+
+                <h4>Using PDF Preview</h4>
                 <ol>
-                    <li>Enter a name for your report</li>
-                    <li>Click on design presets from the right panel to add them to your report</li>
-                    <li>Fill in the content for each section</li>
-                    <li>Arrange sections by dragging them to your preferred position</li>
-                    <li>Use the action buttons to save, export, or share your report</li>
+                    <li>Click the "Preview" button next to the font selector</li>
+                    <li>A modal window will open showing your document as it would appear in PDF format</li>
+                    <li>Each page is shown at proper A4 size with exact layout positioning</li>
+                    <li>Review pagination and ensure content is properly distributed</li>
+                    <li>Close the preview when finished to return to editing</li>
                 </ol>
-            `,
-                image: "technical_report_designer.png",
-                imageAlt: "Technical Report Designer Interface",
-                imageCaption: "The visual template designer for technical reports",
+                <h4>Creating a Technical Report</h4>
+                <ol>
+                    <li>Enter a name for your report at the top of the designer</li>
+                    <li>Click on design presets from the right panel to add them to your document</li>
+                    <li>Fill in content for each section by clicking and typing directly in the section</li>
+                    <li>Upload images by clicking on image placeholders</li>
+                    <li>Enhance text with the AI buttons beneath editable text areas</li>
+                    <li>Rearrange sections using the up/down arrow controls</li>
+                    <li>Once complete, save your report and export or print it</li>
+                </ol>
+                
+                <div class="note">
+                    <p><strong>Tip:</strong> Maximize the editor window using the maximize button in the top-right corner for a more comfortable editing experience with larger documents. The interface automatically adjusts to provide optimal layout in both regular and maximized views.</p>
+                </div>
+                `,
+                images: [
+                    {
+                        src: "technical_report_designer.png",
+                        alt: "Technical report",
+                        caption:
+                            "The visual technical report designer showing the document layout and section types",
+                    },
+                    {
+                        src: "preview-window-technical-report.png",
+                        alt: "The preview window for technical reports",
+                        caption: "The preview window for technical reports"
+                    }
+                ]
             },
             {
                 id: "paperworks-document-generation",
@@ -1016,6 +1096,302 @@ window.helpContent = {
                 imageAlt: "Document Export Options",
                 imageCaption: "The document export interface showing format options",
             },
+        ],
+    },
+
+    //Research section
+    research: {
+        title: "Research Tab",
+        intro: "The Research Tab provides powerful AI-assisted research capabilities and a personal knowledge base for storing and retrieving information.",
+        articles: [
+            {
+               id: "research-intro",
+title: "Introduction to Research Tools",
+content: `
+    <p>The Research tab offers two powerful tools to help you gather, analyze, and store information:</p>
+    
+    <ul>
+        <li><strong>Research Assistant</strong> - AI-powered web research that helps you find, analyze, and synthesize information on any topic</li>
+        <li><strong>Knowledge Base</strong> - A personal database where you can store, organize, and retrieve important information for future reference</li>
+    </ul>
+    
+    <h4>Privacy and Data Security</h4>
+    <p>The Research tab maintains Paiperwork's commitment to privacy and data security:</p>
+    <ul>
+        <li><strong>Internet Connection Required</strong> - The Research Assistant requires an internet connection to perform web searches</li>
+        <li><strong>Limited Data Transmission</strong> - Only search queries are sent to the internet (via Bing Search). No personal or business data is ever transmitted</li>
+        <li><strong>Local Processing</strong> - All search results are processed locally on your device by your chosen AI model</li>
+        <li><strong>Encrypted Storage</strong> - Research results and knowledge base entries are encrypted using your Master Key in your local database</li>
+        <li><strong>Completely Offline Knowledge Base</strong> - The Knowledge Base operates entirely locally, requiring no internet connection once entries are created</li>
+    </ul>
+    
+    <h4>Switching Between Tools</h4>
+    <p>Use the sub-tab navigation at the top of the Research tab to switch between the Research Assistant and Knowledge Base:</p>
+    <ul>
+        <li>Click <strong>Research</strong> to use the AI-powered web search and analysis tool</li>
+        <li>Click <strong>Knowledge Base</strong> to access your stored information collections</li>
+    </ul>
+    
+    <div class="note">
+        <p><strong>Important:</strong> Select a model from the dropdown before using either research tool. For research tasks, non-reasoning models (like Mistral or LLaMA) perform best, as reasoning models may interfere with web search functionality.</p>
+    </div>
+`,
+image: "research_tab_overview.png",
+imageAlt: "Research Tab Overview",
+imageCaption: "The Research tab showing the sub-tab navigation between Research Assistant and Knowledge Base"
+            },
+            {
+                id: "research-assistant",
+                title: "Using the Research Assistant",
+                content: `
+                <p>The Research Assistant combines web search, AI analysis, and report generation to help you research any topic thoroughly.</p>
+                
+                <h4>Starting Your Research</h4>
+                <ol>
+                    <li>Select a model from the "Research Model" dropdown at the top of the Research tab</li>
+                    <li>Enter your research question in the input field</li>
+                    <li>Click the "Research" button to begin the research process</li>
+                </ol>
+                
+                <h4>Research Process</h4>
+                <p>When you initiate research, the system performs several steps:</p>
+                <ol>
+                    <li><strong>Query Generation</strong> - Creates optimized search queries based on your research question</li>
+                    <li><strong>Web Search</strong> - Searches the web for relevant information using multiple queries</li>
+                    <li><strong>Content Analysis</strong> - Analyzes and extracts key information from search results</li>
+                    <li><strong>PDF Handling</strong> - Identifies and processes relevant PDF documents when available</li>
+                    <li><strong>Report Generation</strong> - Synthesizes all gathered information into a comprehensive report</li>
+                </ol>
+                
+                <p>During the research process, a progress window shows you the current status and allows you to cancel at any time.</p>
+                
+                <h4>Deep Search Option</h4>
+                <p>The Deep Search feature enhances research by following relevant links found in search results:</p>
+                <ul>
+                    <li>Toggle the "Deep Search" option to enable or disable this feature</li>
+                    <li>When enabled, the system will explore links from initial results to find more in-depth information</li>
+                    <li>This provides more thorough coverage but increases research time</li>
+                </ul>
+                
+                <div class="note">
+                    <p><strong>Tip:</strong> For complex or academic topics, enabling Deep Search often provides more comprehensive and authoritative information.</p>
+                </div>
+            `,
+                image: "research_assistant.png",
+                imageAlt: "Research Assistant Interface",
+                imageCaption: "The Research Assistant interface showing query input and controls"
+            },
+            {
+                id: "research-results",
+                title: "Working with Research Results",
+                content: `
+                <p>After your research is complete, the system generates a comprehensive research report with all findings.</p>
+                
+                <h4>Research Report Structure</h4>
+                <p>The research report is structured for clarity and comprehensiveness:</p>
+                <ul>
+                    <li><strong>Introduction</strong> - Summarizes the research question and approach</li>
+                    <li><strong>Main Findings</strong> - Presents key information organized by subtopics</li>
+                    <li><strong>Conclusion</strong> - Synthesizes the most important insights</li>
+                    <li><strong>Sources</strong> - Lists all references with links to the original content</li>
+                </ul>
+                
+                <h4>Report Controls</h4>
+                <p>The results window provides several options for working with your research report:</p>
+                <ul>
+                    <li><strong>Export</strong> - Save the report as plain text, markdown, or HTML</li>
+                    <li><strong>Copy</strong> - Copy the entire report to your clipboard</li>
+                    <li><strong>Save to Knowledge Base</strong> - Store the report in your knowledge base for future reference</li>
+                    <li><strong>Close</strong> - Close the results window</li>
+                </ul>
+                
+                <h4>Exporting Research Reports</h4>
+                <p>When you click the Export button, you can choose from several formats:</p>
+                <ul>
+                    <li><strong>Plain Text (.txt)</strong> - Simple, compatible with all text editors</li>
+                    <li><strong>Markdown (.md)</strong> - Preserves formatting, code blocks, and links</li>
+                    <li><strong>HTML (.html)</strong> - Full formatting with proper styling</li>
+                </ul>
+                
+                <div class="note">
+                    <p><strong>Tip:</strong> If you plan to use your research in other applications, HTML format provides the most complete formatting, while Markdown offers the best balance between formatting and compatibility.</p>
+                </div>
+            `,
+                image: "research_results.png",
+                imageAlt: "Research Results",
+                imageCaption: "A completed research report with export and save options"
+            },
+            {
+                id: "knowledge-base-intro",
+                title: "Knowledge Base Overview",
+                content: `
+                <p>The Knowledge Base allows you to create, organize, and search through collections of information that you want to keep for future reference.</p>
+                
+                <h4>Knowledge Base Structure</h4>
+                <p>Your knowledge is organized into collections and entries:</p>
+                <ul>
+                    <li><strong>Collections</strong> - Folders or categories that contain related entries (e.g., "Project Research" or "Cooking Recipes")</li>
+                    <li><strong>Entries</strong> - Individual pieces of information stored within collections</li>
+                </ul>
+                
+                <h4>Creating a Collection</h4>
+                <ol>
+                    <li>Enter a name for your new collection in the "New collection name..." field</li>
+                    <li>Click the "Create Collection" button</li>
+                    <li>Your new collection will appear in the collections list below</li>
+                </ol>
+                
+                <h4>Managing Collections</h4>
+                <p>Each collection in your list has several action buttons:</p>
+                <ul>
+                    <li><strong>View</strong> - Open the collection to see its contents</li>
+                    <li><strong>Edit</strong> - Rename the collection</li>
+                    <li><strong>Export</strong> - Save the collection and its entries to a file</li>
+                    <li><strong>Delete</strong> - Remove the collection and all its entries</li>
+                </ul>
+                
+                <div class="note">
+                    <p><strong>Important:</strong> Knowledge Base data is encrypted using your Master Key and stored locally on your device. This ensures privacy but also means you must use the same Master Key to access your knowledge in future sessions.</p>
+                </div>
+            `,
+                image: "knowledge_base_collections.png",
+                imageAlt: "Knowledge Base Collections",
+                imageCaption: "The Knowledge Base showing a list of collections with management options"
+            },
+            {
+                id: "knowledge-entries",
+                title: "Working with Knowledge Entries",
+                content: `
+                <p>Knowledge entries are individual pieces of information stored within your collections.</p>
+                
+                <h4>Types of Knowledge Entries</h4>
+                <p>You can create two types of entries in your Knowledge Base:</p>
+                <ul>
+                    <li><strong>Manual Entries</strong> - Information you write or paste directly</li>
+                    <li><strong>Research Entries</strong> - Information saved from your research reports</li>
+                </ul>
+                
+                <h4>Creating a New Entry</h4>
+                <ol>
+                    <li>Open a collection by clicking the "View" button</li>
+                    <li>Click the "+ New Entry" button at the top of the collection view</li>
+                    <li>Enter a title for your entry</li>
+                    <li>Add your content in the text area (Markdown formatting is supported)</li>
+                    <li>Click "Save Entry" to add it to your collection</li>
+                </ol>
+                
+                <h4>Viewing and Managing Entries</h4>
+                <p>From the collection view, you can:</p>
+                <ul>
+                    <li>Click on any entry to view its full content</li>
+                    <li>Use the "Edit Entry" button to modify an entry's content</li>
+                    <li>Use the "Delete Entry" button to remove an entry</li>
+                    <li>Click the "← Back to Entries" button to return to the collection view</li>
+                </ul>
+                
+                <h4>Markdown Support</h4>
+                <p>When creating or editing entries, you can use Markdown formatting:</p>
+                <ul>
+                    <li><strong>Headers</strong> - Use # for heading level 1, ## for level 2, etc.</li>
+                    <li><strong>Formatting</strong> - Use *italic* for italics and **bold** for bold text</li>
+                    <li><strong>Lists</strong> - Create bullet lists with * or numbered lists with 1., 2., etc.</li>
+                    <li><strong>Links</strong> - Create links with [text](URL) syntax</li>
+                </ul>
+                
+                <div class="note">
+                    <p><strong>Tip:</strong> Markdown formatting makes your entries more organized and readable, especially for technical or structured content.</p>
+                </div>
+            `,
+                image: "knowledge_entries.png",
+                imageAlt: "Knowledge Entries",
+                imageCaption: "A collection view showing multiple knowledge entries"
+            },
+            {
+                id: "knowledge-search",
+                title: "Searching Your Knowledge Base",
+                content: `
+                <p>The Knowledge Base includes a powerful search feature that helps you find information across all your collections.</p>
+                
+                <h4>Using the Search Feature</h4>
+                <ol>
+                    <li>Navigate to the Knowledge Base tab</li>
+                    <li>Enter your search query in the "Search your knowledge..." input field</li>
+                    <li>Click the "Search" button</li>
+                    <li>Review the matching entries that appear in the results section</li>
+                </ol>
+                
+                <h4>Search Results</h4>
+                <p>Search results will show:</p>
+                <ul>
+                    <li>The title of each matching entry</li>
+                    <li>The collection it belongs to</li>
+                    <li>A preview of the relevant content</li>
+                    <li>Options to view the full entry or go to its collection</li>
+                </ul>
+                
+                <h4>Optimizing Your Searches</h4>
+                <p>For best results when searching your knowledge base:</p>
+                <ul>
+                    <li>Use specific keywords rather than vague phrases</li>
+                    <li>Try both singular and plural forms if you don't find what you're looking for</li>
+                    <li>Search for major concepts rather than minor details</li>
+                    <li>For complex topics, try multiple shorter searches instead of one long query</li>
+                </ul>
+                
+                <div class="note">
+                    <p><strong>Note:</strong> The search system automatically analyzes your content to understand its meaning, allowing it to find relevant entries even when they don't contain the exact words from your search query.</p>
+                </div>
+            `,
+                image: "knowledge_search.png",
+                imageAlt: "Knowledge Base Search",
+                imageCaption: "The Knowledge Base search interface showing search results"
+            },
+            {
+                id: "research-to-knowledge",
+                title: "From Research to Knowledge",
+                content: `
+                <p>One of the most powerful features of the Research tab is the integration between the Research Assistant and Knowledge Base.</p>
+                
+                <h4>Saving Research to Knowledge Base</h4>
+                <p>After completing a research session:</p>
+                <ol>
+                    <li>Click the "Save to Knowledge Base" button in the research results window</li>
+                    <li>Select an existing collection or create a new one</li>
+                    <li>Confirm your selection to save the research</li>
+                </ol>
+                
+                <p>The research report will be saved as a new entry in your selected collection, including:</p>
+                <ul>
+                    <li>The full research report content</li>
+                    <li>The original research question as the entry title</li>
+                    <li>Metadata about when the research was conducted</li>
+                    <li>All sources from the research</li>
+                </ul>
+                
+                <h4>Source Management</h4>
+                <p>When saving research to your Knowledge Base, you have options for handling sources:</p>
+                <ul>
+                    <li><strong>Save with Sources</strong> - Includes all reference links and citations</li>
+                    <li><strong>Save Content Only</strong> - Saves only the research content without sources</li>
+                </ul>
+                
+                <h4>Building Your Knowledge Library</h4>
+                <p>By regularly saving your research to the Knowledge Base, you can:</p>
+                <ul>
+                    <li>Build a personal library of verified information</li>
+                    <li>Avoid repeating research on topics you've already explored</li>
+                    <li>Quickly reference previous findings in new projects</li>
+                    <li>Create connections between related topics</li>
+                </ul>
+                
+                <div class="note">
+                    <p><strong>Pro Tip:</strong> Create themed collections for different areas of interest or projects, then use the search function to find connections across your entire knowledge library.</p>
+                </div>
+            `,
+                image: "research_to_knowledge.png",
+                imageAlt: "Saving Research to Knowledge Base",
+                imageCaption: "The dialog for saving research results to a Knowledge Base collection"
+            }
         ],
     },
 
