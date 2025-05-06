@@ -8,36 +8,75 @@ Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) to le
 
 ## Features
 
-Paiperwork Features
-Paiperwork is a professional web interface for Ollama that prioritizes data privacy while providing powerful productivity features. All processing happens locally on your device.
+Infinitai-cn: You and I are working together on an ui interface for Ollama, now i would like to introduce all functions our APP has, can you create a functionalities list so i can use for our APP promotion based on our Help file?
 
-Core Features
-Privacy-Focused: All data stays on your device with local encryption
-Ollama Integration: Seamless connection to locally running Ollama models
-Intuitive Chat Interface: Professional UI with conversation history
-Master Key System: Separate encrypted conversations with different keys
+GitHub Copilot: # Paiperwork: A Complete Feature List
 
-AI Capabilities
-Local Model Support: Use any Ollama-compatible models
-Model Management: Browse, download, and configure AI models
-Advanced Context Control: Adjust token context size from 1K to 10M
-Visual Model Support: Process and analyze images with compatible models
-Web Search: Optional internet search enhancement while maintaining privacy
+## Privacy-First Foundation
+- **Local Data Processing** - All AI operations run locally through Ollama, ensuring your data never leaves your device
+- **End-to-End Encryption** - Conversations and documents encrypted using your Master Key
+- **Zero Data Collection** - No telemetry or user data collected
+- **Privacy-Focused Web Search** - Only search queries sent to the internet, never your personal data
 
-Knowledge Management
-Document Processing (RAG): Upload and query your documents
-Research Assistance: Extract insights from papers and web sources
-Data Visualization: Create charts and graphs from your data
-Insights System: Application learns your preferences over time (optional)
+## Intelligent Conversation
+- **Advanced Chat Interface** - Intuitive messaging with regenerate, delete, and copy controls
+- **Custom System Prompts** - Define exactly how the AI responds to your queries
+- **Adaptive Insights** - AI learns your preferences over time for more personalized responses
+- **Flexible Context Control** - Adjust memory capacity from 1K to 10M tokens based on your needs
+- **Visual Understanding** - Upload and discuss images with compatible models
+- **Multiple Conversation Sessions** - Organize chats within the same Master Key topic
+- **Export Options** - Save conversations as text, markdown, or HTML
 
-Productivity Tools
-Paperwork Generator: Create professional documents and templates
-Code Execution: Run HTML code snippets directly in the interface
-Export Options: Save conversations in text, markdown, or HTML formats
-Multi-language Support: Interface available in multiple languages
+## Code & Development
+- **Syntax Highlighting** - Automatic language detection and color coding
+- **Copy Code Functionality** - One-click code copying
+- **Code Execution** - Run HTML code directly in a sandboxed environment
+- **Line Numbers** - For easier code reference and discussion
 
-Developer-Friendly
-System Prompt Customization: Fine-tune AI behavior
-Code Highlighting: Syntax highlighting for multiple languages
-Conversation History: Maintain context across sessions
-Cross-Platform: Works on Windows, macOS, and Linux
+## Document Intelligence
+- **PDF & Text Processing** - Upload and analyze documents while maintaining privacy
+- **Document Q&A** - Ask specific questions about your documents
+- **Comprehensive Summaries** - Generate complete overviews of document content
+- **Cross-Document Search** - Find information across your entire document collection
+- **Semantic Understanding** - Search by meaning, not just keywords
+
+## Data Visualization
+- **Natural Language Charts** - Create visualizations by describing your data
+- **Multiple Chart Types** - Pie, bar, line, scatter, area, radar, heat maps, and bubble charts
+- **Interactive Results** - View and interact with generated visualizations
+- **Custom Styling** - Specify colors, labels, and formatting in natural language
+
+## Professional Document Creation
+- **Document Templates** - Meeting minutes, business letters, technical reports, contracts, and more
+- **Visual Template Designer** - Intuitive interface for creating multi-page documents
+- **AI-Enhanced Content** - Improve text with intelligent suggestions
+- **Export Options** - Share via email or copy formatted text
+
+## Research Assistant
+- **AI-Powered Web Research** - Intelligent search and information synthesis
+- **Deep Search Option** - Follow links from initial results for comprehensive coverage
+- **Research Reports** - Automatically organized findings with sources
+- **Knowledge Base** - Store and organize research findings in personal collections
+- **Knowledge Search** - Find connections across your stored information
+
+## Visual Design Tools
+- **HTML Style Transfer** - Convert image designs into working HTML/CSS code
+- **Text Overlay Generator** - Create responsive text overlays for images
+- **Design Rationale Analysis** - Get professional insights into design principles
+- **Code Preview** - See generated HTML code in action
+
+## Model Management
+- **Ollama Integration** - Browse, download, and manage AI models
+- **Size Options** - Choose model variants based on your hardware capabilities
+- **Local Control** - Full management of your AI models
+- **Parameter Customization** - Fine-tune model behavior for different tasks
+
+## System Management
+- **Database Monitoring** - Track storage usage and performance
+- **Optimization Tools** - Clean and maintain your local database
+- **Multilingual Interface** - Select your preferred language for the application
+- **Performance Controls** - Balance capability and resource usage
+
+---
+
+*Paiperwork combines the power of AI with complete privacy, giving you a professional assistant that respects your data while providing powerful productivity tools across multiple domains.*
