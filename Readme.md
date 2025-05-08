@@ -8,8 +8,6 @@ Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) to le
 
 ## Features
 
-Infinitai-cn: You and I are working together on an ui interface for Ollama, now i would like to introduce all functions our APP has, can you create a functionalities list so i can use for our APP promotion based on our Help file?
-
 GitHub Copilot: # Paiperwork: A Complete Feature List
 
 ## Privacy-First Foundation
