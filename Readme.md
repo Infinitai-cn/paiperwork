@@ -8,7 +8,7 @@ Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) to le
 
 ## Features
 
-GitHub Copilot: # Paiperwork: A Complete Feature List
+# Paiperwork: A Complete Feature List
 
 ## Privacy-First Foundation
 - **Local Data Processing** - All AI operations run locally through Ollama, ensuring your data never leaves your device
