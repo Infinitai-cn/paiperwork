@@ -91,6 +91,8 @@ paiperwork/
 │       └── build.bat         # Production build (Windows)
 ├── github-help/              # Documentation website
 └── go.mod                    # Go module file
+
+// developer.md, readme.md, version.json, and licenses are part of github setup, not needed for project functionality.
 ```
 
 ### Development Builds
