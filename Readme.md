@@ -1,22 +1,30 @@
-# Source code coming soon! 
+# Paiperwork
 
-# Paiperwork 
+**A Privacy-First AI Document Assistant powered by Ollama**
 
-This repository contains the public files and documentation for Paiperwork, an AI-powered document management application for Ollama.
+Paiperwork is a local-first AI application that transforms how you work with documents, data, and knowledge. Built with a Go backend server and modern JavaScript frontend, it provides a comprehensive suite of AI-powered tools while keeping all your data secure and private on your local machine.
 
-Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) to learn more.
+## 🏗️ Architecture
 
-## Features
+- **Backend**: Go server (`main.go`) that handles API requests and Ollama integration
+- **Frontend**: Modern JavaScript application with modular architecture
+- **Database**: Local encrypted storage with master key protection
+- **AI Engine**: Powered by [Ollama](https://ollama.ai/) for local LLM inference
+- **Cross-Platform**: Available for Windows, macOS, and Linux
 
-# Paiperwork: A Complete Feature List
+## 📖 Documentation
 
-## Privacy-First Foundation
+Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) for complete guides and tutorials.
+
+## ✨ Core Features
+
+### 🔒 Privacy-First Foundation
 - **Local Data Processing** - All AI operations run locally through Ollama, ensuring your data never leaves your device
 - **End-to-End Encryption** - Conversations and documents encrypted using your Master Key
 - **Zero Data Collection** - No telemetry or user data collected
 - **Privacy-Focused Web Search** - Only search queries sent to the internet, never your personal data
 
-## Intelligent Conversation
+### 💬 Intelligent Conversation
 - **Advanced Chat Interface** - Intuitive messaging with regenerate, delete, and copy controls
 - **Custom System Prompts** - Define exactly how the AI responds to your queries
 - **Adaptive Insights** - AI learns your preferences over time for more personalized responses
@@ -25,20 +33,20 @@ Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) to le
 - **Multiple Conversation Sessions** - Organize chats within the same Master Key topic
 - **Export Options** - Save conversations as text, markdown, or HTML
 
-## Code & Development
+### 👨‍💻 Code & Development
 - **Syntax Highlighting** - Automatic language detection and color coding
 - **Copy Code Functionality** - One-click code copying
 - **Code Execution** - Run HTML code directly in a sandboxed environment
 - **Line Numbers** - For easier code reference and discussion
 
-## Document Intelligence
+### 📄 Document Intelligence
 - **PDF & Text Processing** - Upload and analyze documents while maintaining privacy
 - **Document Q&A** - Ask specific questions about your documents
 - **Comprehensive Summaries** - Generate complete overviews of document content
 - **Cross-Document Search** - Find information across your entire document collection
 - **Semantic Understanding** - Search by meaning, not just keywords
 
-## Data Visualization
+### 📊 Data Visualization
 - **Natural Language Charts** - Create visualizations by describing your data
 - **Multiple Chart Types** - Pie, bar, line, scatter, area, radar, heat maps, and bubble charts
 - **Interactive Results** - View and interact with generated visualizations
