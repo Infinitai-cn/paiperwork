@@ -4,6 +4,14 @@
 
 Paiperwork is a local-first AI application that transforms how you work with documents, data, and knowledge. Built with a Go backend server and modern JavaScript frontend, it provides a comprehensive suite of AI-powered tools while keeping all your data secure and private on your local machine.
 
+## 🤔 Why Paiperwork?
+
+**Runs on Consumer Hardware** - We tested it with Core i3 laptops with 16GB of RAM and it performed quite well, so Paiperwork is good for not-so-powerful consumer hardware.
+
+**Truly Portable** - Nothing to install, it's a portable app. Simply download and run.
+
+**Version-Safe Updates** - When updating, nothing gets overwritten. You keep both the previous and updated apps in different folders with names like `Paiperwork V1.0.0`, `Paiperwork V1.0.1`, so you can always go back to a previous version if needed (unless there is a database upgrade - we'll inform about this in the app release notes).
+
 ## 🏗️ Architecture
 
 - **Backend**: Go server (`main.go`) that handles API requests and Ollama integration
