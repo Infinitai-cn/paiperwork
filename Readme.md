@@ -8,9 +8,9 @@ Paiperwork is a local-first AI application that transforms how you work with doc
 
 We're grateful to the amazing open-source community and the brilliant developers behind these essential libraries that make Paiperwork possible:
 
-- **[html2canvas](https://html2canvas.hertzen.com/)** - For capturing and converting HTML elements to images, enabling our visual design features
-- **[PDF.js](https://mozilla.github.io/pdf.js/)** - Mozilla's powerful PDF rendering library that powers our document processing capabilities  
-- **[SQL.js](https://sql.js.org/)** - SQLite compiled to JavaScript, providing our local database functionality with privacy-first storage
+- **[html2canvas](https://html2canvas.hertzen.com/)** - For capturing and converting HTML elements to images, enabling our visual design features *(MIT License)*
+- **[PDF.js](https://mozilla.github.io/pdf.js/)** - Mozilla's powerful PDF rendering library that powers our document processing capabilities *(Apache-2.0 License)*
+- **[SQL.js](https://sql.js.org/)** - SQLite compiled to JavaScript, providing our local database functionality with privacy-first storage *(MIT License)*
 
 These incredible tools enable us to deliver a rich, offline-first experience while maintaining our commitment to data privacy. Thank you to all the contributors who make these projects possible! 🚀
 
