@@ -147,8 +147,10 @@ cd dev
 # or
 Paiperwork-server-dev-win.exe  # Windows
 ```
+(double click also will do).
 
-The server will start on `http://localhost:7777` by default.
+
+The server will start on `http://localhost:8182` by default.
 
 ### 2. Frontend Development
 
@@ -192,7 +194,7 @@ The frontend is pure JavaScript/HTML/CSS. Key files:
 
 ### Manual Testing
 1. Start development server
-2. Open `http://localhost:7777` in browser
+2. Open `http://localhost:8182` in browser
 3. Test features:
    - Chat functionality
    - Document upload
@@ -201,7 +203,7 @@ The frontend is pure JavaScript/HTML/CSS. Key files:
 
 ### Browser Developer Tools
 - Use browser DevTools for debugging
-- Check console for JavaScript errors
+- Check browser console for JavaScript errors
 - Monitor network requests to backend
 
 ## 🚦 Common Development Tasks
@@ -230,9 +232,8 @@ go mod tidy
 ### Common Issues
 
 **Server won't start:**
-- Check if Ollama is running
 - Verify Go installation
-- Check for port conflicts (7777)
+- Check for port conflicts (8182)
 
 **Frontend errors:**
 - Check browser console
@@ -245,7 +246,7 @@ go mod tidy
 - Check file permissions on build scripts
 
 ### Debug Mode
-Development builds include additional logging and debug information.
+Development builds include additional logging and debug information (you will need to uncomment the console.log lines).
 
 ## 📝 Code Style
 
@@ -266,7 +267,7 @@ Development builds include additional logging and debug information.
 1. **Fork the repository**
 2. **Create a feature branch**
    ```bash
-   git checkout -b feature/amazing-feature
+   git checkout -b feature/myfork
    ```
 3. **Make your changes**
 4. **Test thoroughly**
@@ -276,7 +277,7 @@ Development builds include additional logging and debug information.
    ```
 6. **Push to your fork**
    ```bash
-   git push origin feature/amazing-feature
+   git push origin feature/myfork
    ```
 7. **Create a Pull Request**
 
