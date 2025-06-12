@@ -14,7 +14,7 @@ Paiperwork is a local-first AI application that transforms how you work with doc
 
 ## 📖 Documentation
 
-Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/){:target="_blank" rel="noopener noreferrer"} for complete guides and tutorials.
+Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) for complete guides and tutorials.
 
 ## ✨ Core Features
 
@@ -28,7 +28,7 @@ Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/){:targ
 - **Advanced Chat Interface** - Intuitive messaging with regenerate, delete, and copy controls
 - **Custom System Prompts** - Define exactly how the AI responds to your queries
 - **Adaptive Insights** - AI learns your preferences over time for more personalized responses
-- **Flexible Context Control** - Adjust memory capacity from 1K to 10M tokens based on your needs
+- **Flexible Context Control** - Adjust memory capacity from 1K to 10M tokens based on your needs and system capabilities.
 - **Visual Understanding** - Upload and discuss images with compatible models
 - **Multiple Conversation Sessions** - Organize chats within the same Master Key topic
 - **Export Options** - Save conversations as text, markdown, or HTML
