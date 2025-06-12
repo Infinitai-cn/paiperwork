@@ -1,5 +1,4 @@
-
-        /* Dark/Light mode variables */
+/* Dark/Light mode variables */
         :root {
             /* Light mode (default) */
             --bg-color: #ffffff;
@@ -76,6 +75,47 @@
             font-weight: 600;
             margin: 0;
             color: var(--text-color);
+        }
+
+        /* Header controls styling */
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .language-selector {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .language-selector:hover {
+            border-color: var(--accent-color);
+        }
+
+        .language-selector:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px var(--accent-color-light);
+        }
+
+        .github-link {
+            color: var(--accent-color);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .github-link:hover {
+            color: var(--accent-color-dark);
+            text-decoration: underline;
         }
 
         /* Navigation styling - sticky */
@@ -349,6 +389,19 @@
 
         /* Responsive adjustments */
         @media (max-width: 768px) {
+            .help-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .header-controls {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+                width: 100%;
+            }
+
             .nav-item {
                 width: 110px;
             }
@@ -359,13 +412,16 @@
         }
 
         @media (max-width: 600px) {
-            .help-header {
-                flex-direction: column;
-                align-items: flex-start;
+            .help-title {
+                margin-top: 0;
             }
 
-            .help-title {
-                margin-top: 15px;
+            .header-controls {
+                width: 100%;
+            }
+
+            .language-selector {
+                width: 100%;
             }
         }
 

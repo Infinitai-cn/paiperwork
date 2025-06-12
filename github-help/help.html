@@ -6,44 +6,146 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Paiperwork - Help</title>
-     <link rel="stylesheet" href="styles/help.css">
+    <link rel="stylesheet" href="styles/help.css">
 </head>
 
 <body>
-     <div class="help-container">
-        <!-- Header with GitHub link -->
     <div class="help-container">
+        <!-- Header with language selector and GitHub link -->
         <div class="help-header">
             <img id="help-logo" class="help-logo" src="/paiperwork/github-help/images/Paiperwork-APP-light.png" alt="Paiperwork Logo">
-            <h1 class="help-title">Help & Documentation</h1>
-            <a href="https://github.com/Infinitai-cn/paiperwork" class="github-link">View on GitHub</a>
+            <h1 class="help-title" id="help-main-title">Help & Documentation</h1>
+            <div class="header-controls">
+                <select id="language-selector" class="language-selector">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="pt">Português</option>
+                    <option value="ru">Русский</option>
+                    <option value="zh">中文</option>
+                </select>
+                <a href="https://github.com/Infinitai-cn/paiperwork" class="github-link" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+            </div>
         </div>
-    </div>
+
         <div class="help-navigation-wrapper">
-            <div class="help-navigation" id="help-nav">
-                <div class="nav-item active" data-section="getting-started"><span>Getting Started</span></div>
-                <div class="nav-item" data-section="chat"><span>Chat Features</span></div>
-                <div class="nav-item" data-section="documents"><span>Documents</span></div>
-                <div class="nav-item" data-section="dataviz"><span>Dataviz</span></div>
-                <div class="nav-item" data-section="paperworks"><span>Paperwork</span></div>
-                <div class="nav-item" data-section="paperworks"><span>Research</span></div>
-                <div class="nav-item" data-section="artworks"><span>Artworks</span></div>
-                <div class="nav-item" data-section="models"><span>Models</span></div>
+            <div class="help-navigation" id="help-navigation">
+                <!-- Navigation will be populated dynamically -->
             </div>
         </div>
 
         <div id="help-content-target" class="help-content">
-            <!-- Dynamic content goes here -->
+            <p id="loading-message">Loading help content...</p>
         </div>
 
+        <!-- Return button -->
+        <button onclick="window.history.back()" class="close-button" id="return-button">Return</button>
     </div>
 
     <script>
-        // This helps ensure content is loaded before we try to access it
+        // Initialize help content loading flag
         window.helpContentLoaded = false;
     </script>
- <script src="/paiperwork/github-help/js/help-content.js"></script>
- <script src="/paiperwork/github-help/js/help.js"></script>
+    
+    <!-- Load language system first -->
+    <script src="/paiperwork/github-help/js/lang.js"></script>
+    
+    <!-- Load help utilities -->
+    <script src="/paiperwork/github-help/js/help.js"></script>
+    
+    <script>
+        // Dynamic content loading based on language
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize language system
+            Lang.initialize();
+            
+            // Get current language from URL parameter or default
+            const urlParams = new URLSearchParams(window.location.search);
+            const requestedLanguage = urlParams.get('lang') || Lang.getCurrentLanguage() || 'en';
+            
+            // Set language selector
+            const languageSelector = document.getElementById('language-selector');
+            languageSelector.value = requestedLanguage;
+            
+            // Load appropriate help content file
+            loadHelpContentForLanguage(requestedLanguage);
+            
+            // Setup language selector change handler
+            languageSelector.addEventListener('change', function() {
+                const newLanguage = this.value;
+                // Update URL with language parameter
+                const url = new URL(window.location);
+                url.searchParams.set('lang', newLanguage);
+                window.history.pushState({}, '', url);
+                
+                // Reload content for new language
+                loadHelpContentForLanguage(newLanguage);
+            });
+        });
+        
+        function loadHelpContentForLanguage(language) {
+            const script = document.createElement('script');
+            script.src = `/paiperwork/github-help/js/help-content-${language}.js`;
+            
+            script.onload = function() {
+                console.log(`Help content loaded for language: ${language}`);
+                window.helpContentLoaded = true;
+                initializeHelpPage();
+            };
+            
+            script.onerror = function() {
+                console.warn(`Failed to load help content for ${language}, falling back to English`);
+                if (language !== 'en') {
+                    loadHelpContentForLanguage('en');
+                } else {
+                    console.error('Failed to load English help content');
+                    document.getElementById('help-content-target').innerHTML = 
+                        '<p>Error loading help content. Please try refreshing the page.</p>';
+                }
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        function initializeHelpPage() {
+            console.log("Help page initialized");
+            
+            // Set logo based on theme
+            setAppropriateHelpImage();
+            
+            // Create navigation from content
+            createHelpNavigation();
+            
+            // Setup tab navigation
+            setupNavigation();
+            
+            // Load first section by default
+            const firstSection = Object.keys(window.helpContent)[0];
+            if (firstSection) {
+                loadSectionContent(firstSection);
+                // Set first nav item as active
+                const firstNavItem = document.querySelector('.nav-item');
+                if (firstNavItem) {
+                    firstNavItem.classList.add('active');
+                }
+            }
+        }
+        
+        function createHelpNavigation() {
+            const navigation = document.getElementById('help-navigation');
+            navigation.innerHTML = '';
+            
+            Object.keys(window.helpContent).forEach(sectionKey => {
+                const section = window.helpContent[sectionKey];
+                const navItem = document.createElement('div');
+                navItem.className = 'nav-item';
+                navItem.setAttribute('data-section', sectionKey);
+                navItem.innerHTML = `<span>${section.title}</span>`;
+                navigation.appendChild(navItem);
+            });
+        }
+    </script>
 </body>
 
 </html>
