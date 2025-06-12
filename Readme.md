@@ -36,7 +36,7 @@ Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) for c
 
 ## 🛠️ For Developers
 
-Want to contribute or build from source? Check out our [**Developer Guide**](DEVELOPER.md) for:
+Want to contribute or build from source? Check out our [**Developer Guide**](developer.md) for:
 - Go environment setup (Windows, macOS, Linux)
 - Source code compilation
 - Development workflow
