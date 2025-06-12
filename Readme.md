@@ -6,7 +6,7 @@ Paiperwork is a local-first AI application that transforms how you work with doc
 
 ## 🤔 Why Paiperwork?
 
-**Runs on Consumer Hardware** - We tested it with Core i3 laptops with 16GB of RAM and it performed quite well, so Paiperwork is good for not-so-powerful consumer hardware.
+**Runs on Consumer Hardware** - We tested it with Core i3 laptops with 16GB of RAM on CPI mode and it performed well, so Paiperwork is good for not-so-powerful consumer hardware.
 
 **Truly Portable** - Nothing to install, it's a portable app. Simply download and run.
 
