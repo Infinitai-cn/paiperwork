@@ -16,22 +16,15 @@ These incredible tools enable us to deliver a rich, offline-first experience whi
 
 ## 🤔 Why Paiperwork?
 
-**Runs on Consumer Hardware** - We tested it with Core i3 laptops with 16GB of RAM on CPI mode and it performed well, so Paiperwork is good for not-so-powerful consumer hardware.
+**Runs on Consumer Hardware** - We tested it with Core i3 laptops with 16GB of RAM on CPU mode (Qwen3 1.7b) and it performed well, so Paiperwork is good for not-so-powerful consumer hardware.
 
 **Truly Portable** - Nothing to install, it's a portable app. Simply download and run.
 
 **Version-Safe Updates** - When updating, nothing gets overwritten. You keep both the previous and updated apps in different folders with names like `Paiperwork V1.0.0`, `Paiperwork V1.0.1`, so you can always go back to a previous version if needed (unless there is a database upgrade - we'll inform about this in the app release notes).
 
-## 🏗️ Architecture
-
-- **Backend**: Go server (`main.go`) that handles API requests and Ollama integration
-- **Frontend**: Modern JavaScript application with modular architecture
-- **Database**: Local encrypted storage with master key protection
-- **AI Engine**: Powered by [Ollama](https://ollama.ai/) for local LLM inference
-- **Cross-Platform**: Available for Windows, macOS, and Linux
-
 ## 📖 Documentation
 
+We strongly suggest to read our documentation first to find our if Paiperwork is good for you or your organization!
 Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) for complete guides and tutorials.
 
 ## 🛠️ For Developers
@@ -42,6 +35,16 @@ Want to contribute or build from source? Check out our [**Developer Guide**](dev
 - Development workflow
 - Build scripts and tools
 - Contribution guidelines
+
+
+## 🏗️ Architecture
+
+- **Backend**: Go server (`main.go`) that handles API requests and Ollama integration
+- **Frontend**: Modern JavaScript application with modular architecture
+- **Database**: Local encrypted storage with master key protection
+- **AI Engine**: Powered by [Ollama](https://ollama.ai/) for local LLM inference
+- **Cross-Platform**: Available for Windows, macOS, and Linux
+
 
 ## ✨ Core Features
 
