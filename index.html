@@ -66,6 +66,24 @@
             flex-wrap: wrap;
         }
 
+        .cta-button {
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            padding: 1rem 2rem;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+            border: 2px solid var(--primary-color);
+        }
+
+        .cta-button:hover {
+            background-color: transparent;
+            color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
         .language-selector-container {
             display: flex;
             justify-content: center;
@@ -98,6 +116,13 @@
         .language-label {
             font-weight: 500;
             color: var(--text-color);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
         }
 
         .feature-card {
@@ -204,6 +229,230 @@
     </div>
 
     <script>
+        // Translations for all supported languages
+        const translations = {
+            en: {
+                title: "Paiperwork - AI Document Processing",
+                tagline: "AI-Powered Document Processing",
+                description: "Paiperwork transforms how you work with documents. Our AI-powered platform makes it easy to extract, analyze, visualize and produce information from all your documents, enabling faster insights and better decision making.",
+                downloadApp: "Download App",
+                documentation: "Documentation", 
+                viewOnGitHub: "View on GitHub",
+                languageLabel: "Language:",
+                features: {
+                    smartDocAnalysis: {
+                        title: "Smart Document Analysis",
+                        description: "Extract key information from documents automatically with advanced AI processing."
+                    },
+                    dataVisualization: {
+                        title: "Data Visualization", 
+                        description: "Transform document data into meaningful visualizations for better insights."
+                    },
+                    chatInterface: {
+                        title: "Chat Interface",
+                        description: "Ask questions about your documents and get intelligent answers instantly."
+                    },
+                    researchAssistant: {
+                        title: "Research Assistant",
+                        description: "Organize research materials and discover connections between documents."
+                    },
+                    visualMode: {
+                        title: "Visual Mode",
+                        description: "Interact with images, generate artworks, and extract text from pictures with advanced OCR capabilities."
+                    },
+                    customAiModels: {
+                        title: "Custom AI Models",
+                        description: "Download and configure Ollama models with customizable parameters like temperature and top-k for tailored AI experiences."
+                    },
+                    aiInsights: {
+                        title: "AI Insights",
+                        description: "Enjoy smarter conversations through AI that learns from your interaction patterns and adapts to your preferences."
+                    },
+                    knowledgeBase: {
+                        title: "Knowledge Base",
+                        description: "Build your own searchable knowledge repository with important research and information for quick AI-powered retrieval."
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. Open source project."
+            },
+            zh: {
+                title: "Paiperwork - AI 文档处理",
+                tagline: "AI 驱动的文档处理",
+                description: "Paiperwork 改变您处理文档的方式。我们的 AI 驱动平台使您能够轻松地从所有文档中提取、分析、可视化和生成信息，实现更快的洞察和更好的决策制定。",
+                downloadApp: "下载应用",
+                documentation: "文档",
+                viewOnGitHub: "在 GitHub 查看",
+                languageLabel: "语言：",
+                features: {
+                    smartDocAnalysis: {
+                        title: "智能文档分析",
+                        description: "使用先进的 AI 处理自动从文档中提取关键信息。"
+                    },
+                    dataVisualization: {
+                        title: "数据可视化",
+                        description: "将文档数据转换为有意义的可视化图表以获得更好的洞察。"
+                    },
+                    chatInterface: {
+                        title: "聊天界面",
+                        description: "询问有关您的文档的问题并即时获得智能答案。"
+                    },
+                    researchAssistant: {
+                        title: "研究助手",
+                        description: "组织研究材料并发现文档之间的联系。"
+                    },
+                    visualMode: {
+                        title: "视觉模式",
+                        description: "与图像交互，生成艺术作品，并使用先进的 OCR 功能从图片中提取文本。"
+                    },
+                    customAiModels: {
+                        title: "自定义 AI 模型",
+                        description: "下载和配置 Ollama 模型，具有可定制的参数，如温度和 top-k，以获得量身定制的 AI 体验。"
+                    },
+                    aiInsights: {
+                        title: "AI 洞察",
+                        description: "通过学习您的交互模式并适应您的偏好的 AI 享受更智能的对话。"
+                    },
+                    knowledgeBase: {
+                        title: "知识库",
+                        description: "构建您自己的可搜索知识存储库，包含重要的研究和信息，以便快速进行 AI 驱动的检索。"
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. 开源项目。"
+            },
+            es: {
+                title: "Paiperwork - Procesamiento de Documentos con IA",
+                tagline: "Procesamiento de Documentos Impulsado por IA",
+                description: "Paiperwork transforma cómo trabajas con documentos. Nuestra plataforma impulsada por IA facilita extraer, analizar, visualizar y producir información de todos tus documentos, permitiendo insights más rápidos y mejor toma de decisiones.",
+                downloadApp: "Descargar App",
+                documentation: "Documentación",
+                viewOnGitHub: "Ver en GitHub",
+                languageLabel: "Idioma:",
+                features: {
+                    smartDocAnalysis: {
+                        title: "Análisis Inteligente de Documentos",
+                        description: "Extrae información clave de documentos automáticamente con procesamiento avanzado de IA."
+                    },
+                    dataVisualization: {
+                        title: "Visualización de Datos",
+                        description: "Transforma datos de documentos en visualizaciones significativas para mejores insights."
+                    },
+                    chatInterface: {
+                        title: "Interfaz de Chat",
+                        description: "Haz preguntas sobre tus documentos y obtén respuestas inteligentes al instante."
+                    },
+                    researchAssistant: {
+                        title: "Asistente de Investigación",
+                        description: "Organiza materiales de investigación y descubre conexiones entre documentos."
+                    },
+                    visualMode: {
+                        title: "Modo Visual",
+                        description: "Interactúa con imágenes, genera obras de arte y extrae texto de imágenes con capacidades avanzadas de OCR."
+                    },
+                    customAiModels: {
+                        title: "Modelos de IA Personalizados",
+                        description: "Descarga y configura modelos Ollama con parámetros personalizables como temperatura y top-k para experiencias de IA a medida."
+                    },
+                    aiInsights: {
+                        title: "Insights de IA",
+                        description: "Disfruta de conversaciones más inteligentes a través de IA que aprende de tus patrones de interacción y se adapta a tus preferencias."
+                    },
+                    knowledgeBase: {
+                        title: "Base de Conocimiento",
+                        description: "Construye tu propio repositorio de conocimiento consultable con investigación e información importante para recuperación rápida impulsada por IA."
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. Proyecto de código abierto."
+            },
+            fr: {
+                title: "Paiperwork - Traitement de Documents IA",
+                tagline: "Traitement de Documents Alimenté par l'IA",
+                description: "Paiperwork transforme la façon dont vous travaillez avec les documents. Notre plateforme alimentée par l'IA facilite l'extraction, l'analyse, la visualisation et la production d'informations à partir de tous vos documents, permettant des insights plus rapides et une meilleure prise de décision.",
+                downloadApp: "Télécharger l'App",
+                documentation: "Documentation",
+                viewOnGitHub: "Voir sur GitHub",
+                languageLabel: "Langue :",
+                features: {
+                    smartDocAnalysis: {
+                        title: "Analyse Intelligente de Documents",
+                        description: "Extrayez automatiquement les informations clés des documents avec un traitement IA avancé."
+                    },
+                    dataVisualization: {
+                        title: "Visualisation de Données",
+                        description: "Transformez les données de documents en visualisations significatives pour de meilleurs insights."
+                    },
+                    chatInterface: {
+                        title: "Interface de Chat",
+                        description: "Posez des questions sur vos documents et obtenez des réponses intelligentes instantanément."
+                    },
+                    researchAssistant: {
+                        title: "Assistant de Recherche",
+                        description: "Organisez les matériaux de recherche et découvrez les connexions entre les documents."
+                    },
+                    visualMode: {
+                        title: "Mode Visuel",
+                        description: "Interagissez avec les images, générez des œuvres d'art et extrayez du texte des images avec des capacités OCR avancées."
+                    },
+                    customAiModels: {
+                        title: "Modèles IA Personnalisés",
+                        description: "Téléchargez et configurez les modèles Ollama avec des paramètres personnalisables comme la température et top-k pour des expériences IA sur mesure."
+                    },
+                    aiInsights: {
+                        title: "Insights IA",
+                        description: "Profitez de conversations plus intelligentes grâce à l'IA qui apprend de vos modèles d'interaction et s'adapte à vos préférences."
+                    },
+                    knowledgeBase: {
+                        title: "Base de Connaissances",
+                        description: "Construisez votre propre dépôt de connaissances consultable avec des recherches et informations importantes pour une récupération rapide alimentée par l'IA."
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. Projet open source."
+            },
+            de: {
+                title: "Paiperwork - KI-Dokumentenverarbeitung",
+                tagline: "KI-gestützte Dokumentenverarbeitung",
+                description: "Paiperwork verändert, wie Sie mit Dokumenten arbeiten. Unsere KI-gestützte Plattform macht es einfach, Informationen aus all Ihren Dokumenten zu extrahieren, zu analysieren, zu visualisieren und zu produzieren, was schnellere Einsichten und bessere Entscheidungsfindung ermöglicht.",
+                downloadApp: "App Herunterladen",
+                documentation: "Dokumentation",
+                viewOnGitHub: "Auf GitHub Ansehen",
+                languageLabel: "Sprache:",
+                features: {
+                    smartDocAnalysis: {
+                        title: "Intelligente Dokumentenanalyse",
+                        description: "Extrahieren Sie automatisch wichtige Informationen aus Dokumenten mit fortschrittlicher KI-Verarbeitung."
+                    },
+                    dataVisualization: {
+                        title: "Datenvisualisierung",
+                        description: "Verwandeln Sie Dokumentendaten in bedeutungsvolle Visualisierungen für bessere Einsichten."
+                    },
+                    chatInterface: {
+                        title: "Chat-Schnittstelle",
+                        description: "Stellen Sie Fragen zu Ihren Dokumenten und erhalten Sie sofort intelligente Antworten."
+                    },
+                    researchAssistant: {
+                        title: "Forschungsassistent",
+                        description: "Organisieren Sie Forschungsmaterialien und entdecken Sie Verbindungen zwischen Dokumenten."
+                    },
+                    visualMode: {
+                        title: "Visueller Modus",
+                        description: "Interagieren Sie mit Bildern, generieren Sie Kunstwerke und extrahieren Sie Text aus Bildern mit fortschrittlichen OCR-Funktionen."
+                    },
+                    customAiModels: {
+                        title: "Benutzerdefinierte KI-Modelle",
+                        description: "Laden Sie Ollama-Modelle herunter und konfigurieren Sie sie mit anpassbaren Parametern wie Temperatur und Top-k für maßgeschneiderte KI-Erfahrungen."
+                    },
+                    aiInsights: {
+                        title: "KI-Einsichten",
+                        description: "Genießen Sie intelligentere Gespräche durch KI, die aus Ihren Interaktionsmustern lernt und sich an Ihre Vorlieben anpasst."
+                    },
+                    knowledgeBase: {
+                        title: "Wissensbasis",
+                        description: "Bauen Sie Ihr eigenes durchsuchbares Wissensrepository mit wichtigen Forschungen und Informationen für schnelle KI-gestützte Abfragen auf."
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. Open-Source-Projekt."
+            }
+        };
+
         // Set logo based on theme
         function setAppropriateMainLogo() {
             const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -213,6 +462,42 @@
                     ? "/paiperwork/github-help/images/Paiperwork-APP-dark.png"
                     : "/paiperwork/github-help/images/Paiperwork-APP-light.png";
             }
+        }
+
+        // Update page content based on selected language
+        function updatePageLanguage(lang) {
+            const t = translations[lang] || translations.en;
+            
+            // Update page title
+            document.title = t.title;
+            
+            // Update main content
+            document.querySelector('.tagline').textContent = t.tagline;
+            document.querySelector('.description p').textContent = t.description;
+            
+            // Update CTA buttons
+            const ctaButtons = document.querySelectorAll('.cta-button');
+            ctaButtons[0].textContent = t.downloadApp;
+            ctaButtons[1].textContent = t.documentation;
+            ctaButtons[2].textContent = t.viewOnGitHub;
+            
+            // Update language label
+            document.querySelector('.language-label').textContent = t.languageLabel;
+            
+            // Update feature cards
+            const featureCards = document.querySelectorAll('.feature-card');
+            const featureKeys = Object.keys(t.features);
+            
+            featureCards.forEach((card, index) => {
+                if (featureKeys[index]) {
+                    const feature = t.features[featureKeys[index]];
+                    card.querySelector('.feature-title').textContent = feature.title;
+                    card.querySelector('p').textContent = feature.description;
+                }
+            });
+            
+            // Update footer
+            document.querySelector('footer p').textContent = t.footer;
         }
 
         // Initial logo setup
@@ -230,6 +515,9 @@
             const storedLanguage = localStorage.getItem('preferredLanguage') || 'en';
             languageSelector.value = storedLanguage;
             
+            // Update page with stored language
+            updatePageLanguage(storedLanguage);
+            
             // Update documentation link with current language
             function updateDocumentationLink(language) {
                 const baseUrl = '/paiperwork/github-help/help.html';
@@ -244,8 +532,8 @@
                 const selectedLanguage = this.value;
                 localStorage.setItem('preferredLanguage', selectedLanguage);
                 updateDocumentationLink(selectedLanguage);
+                updatePageLanguage(selectedLanguage);
                 
-                // Optional: Add some visual feedback or update UI text based on language
                 console.log('Language changed to:', selectedLanguage);
             });
         });
