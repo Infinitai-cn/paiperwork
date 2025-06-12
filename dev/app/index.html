@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Paiperwork - Local AI Interface</title>
+    <link rel="stylesheet" href="core/css/themes.css">
+    <link rel="stylesheet" href="core/css/styles.css">
+    <script src="core/js/translations/lang.js"></script>
+    <style>
+        .landing-container {
+            text-align: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        
+        .main-content {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+        }
+        
+        .feature-list {
+            text-align: left;
+            flex: 1;
+            padding-right: 40px;
+        }
+        
+        .center-content {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .how-it-works {
+            flex: 1;
+            text-align: left;
+            padding-left: 40px;
+        }
+        
+        .run-local-button {
+            padding: 15px 30px;
+            font-size: 18px;
+            background-color: rgb(253,148,7);
+            color: black;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+        
+        .top-navigation {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 10;
+        }
+        
+        .language-selector-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .language-selector-container label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--text-color);
+        }
+        
+        #language-selector {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-size: 13px;
+            cursor: pointer;
+            min-width: 120px;
+        }
+    </style>
+<script>
+    function setAppropriateImage() {
+        const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const logoImg = document.getElementById('logo');
+        logoImg.src = isDarkMode ? 'core/images/Paiperwork-APP-dark.png' : 'core/images/Paiperwork-APP-light.png';
+    }
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setAppropriateImage);
+    
+    document.addEventListener('DOMContentLoaded', async function() {
+        // Initialize language system and WAIT for it to complete
+        await Lang.initialize();
+        
+        // Set up language selector
+        const languageSelector = document.getElementById('language-selector');
+        if (languageSelector) {
+            // Set current language as selected
+            languageSelector.value = Lang.getCurrentLanguage();
+            
+            // Add change event listener (make this async too)
+            languageSelector.addEventListener('change', async function() {
+                await Lang.setLanguage(this.value);
+                updatePageText();
+            });
+        }
+        
+        // Initial page text update - now happens AFTER language initialization
+        updatePageText();
+        setAppropriateImage();
+    });
+    
+    function updatePageText() {
+        // Update page title
+        document.title = Lang.get('indexPageTitle') || 'Paiperwork - Local AI Interface';
+        
+        // Update main heading
+        const mainHeading = document.querySelector('h1');
+        if (mainHeading) {
+            mainHeading.textContent = Lang.get('mainHeading') || 'Secure WebUi Interface for Ollama';
+        }
+        
+        // Update requirements section
+        const requirementsHeading = document.querySelector('.requirements h2');
+        if (requirementsHeading) {
+            requirementsHeading.textContent = Lang.get('requirementsHeading') || 'Requirements:';
+        }
+        
+        // Update requirements text while preserving the Ollama link
+        const requirementsText = document.querySelector('.requirements p');
+        if (requirementsText) {
+            const translatedText = Lang.get('requirementsText') || 'must be installed and running locally on its (default) port 11434, make sure you have updated to the latest version.';
+            const ollamaLinkText = Lang.get('ollamaLinkText') || 'Ollama';
+            
+            // Create the full text with the link
+            requirementsText.innerHTML = `<a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">${ollamaLinkText}</a> ${translatedText}`;
+        }
+        
+        // Update start button
+        const startButton = document.querySelector('.run-local-button');
+        if (startButton) {
+            startButton.textContent = Lang.get('startButtonIndex') || 'Start';
+        }
+        
+        // Update language selector label
+        const languageLabel = document.querySelector('.language-selector-container label');
+        if (languageLabel) {
+            languageLabel.textContent = Lang.get('languageSelectorLabel') || 'Language:';
+        }
+    }
+</script>
+</head>
+<body>
+    <div class="landing-container">
+        <img id="logo" class="logo" alt="Paiperwork Logo">
+        <h1>Secure WebUi Interface for Ollama</h1>
+        
+        <div class="main-content">
+            <div class="center-content">
+                <div class="requirements">
+                    <h2>Requirements:</h2>
+                    <p><a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">Ollama</a> must be installed and running locally on it's (default) port 11434, make sure you have updated to the latest version.</p>
+                </div>
+
+                <button onclick="window.location.href='welcome.html'" class="run-local-button">Start</button>
+                
+                <!-- Language selector moved below start button -->
+                <div class="language-selector-container">
+                    <label for="language-selector">Language:</label>
+                    <select id="language-selector">
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="zh">中文</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                        <option value="ru">Русский</option>
+                        <option value="pt">Português</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
