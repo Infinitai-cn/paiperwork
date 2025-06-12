@@ -14,7 +14,7 @@ Paiperwork is a local-first AI application that transforms how you work with doc
 
 ## 📖 Documentation
 
-Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) for complete guides and tutorials.
+Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/){:target="_blank" rel="noopener noreferrer"} for complete guides and tutorials.
 
 ## ✨ Core Features
 
