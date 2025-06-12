@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -68,27 +67,38 @@
             flex-wrap: wrap;
         }
 
-        .cta-button {
-            display: inline-block;
-            padding: 0.8rem 1.5rem;
+        .language-selector-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .language-selector {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .language-selector:hover {
             background-color: var(--primary-color);
             color: white;
-            text-decoration: none;
-            border-radius: 4px;
+        }
+
+        .language-selector:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.3);
+        }
+
+        .language-label {
             font-weight: 500;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px var(--shadow-color);
-        }
-
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-top: 3rem;
+            color: var(--text-color);
         }
 
         .feature-card {
@@ -132,8 +142,19 @@
         
         <div class="cta-buttons">
             <a href="https://github.com/Infinitai-cn/paiperwork/releases/download/V1.0.0/Paiperwork.v1.0.0.zip" class="cta-button" target="_blank" rel="noopener noreferrer">Download App</a>
-            <a href="/paiperwork/github-help/help.html" class="cta-button" target="_blank">Documentation</a>
+            <a href="/paiperwork/github-help/help.html" class="cta-button" id="documentation-link" target="_blank">Documentation</a>
             <a href="https://github.com/Infinitai-cn/paiperwork" class="cta-button" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+        </div>
+
+        <div class="language-selector-container">
+            <span class="language-label">Language:</span>
+            <select class="language-selector" id="language-select">
+                <option value="en">English</option>
+                <option value="es">Español</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="zh">中文</option>
+            </select>
         </div>
         
         <div class="features">
@@ -200,6 +221,35 @@
         
         // Listen for theme changes
         window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", setAppropriateMainLogo);
+        
+        // Handle language selection
+        document.addEventListener('DOMContentLoaded', function() {
+            const languageSelector = document.getElementById('language-select');
+            const documentationLink = document.getElementById('documentation-link');
+            
+            // Get stored language preference or default to English
+            const storedLanguage = localStorage.getItem('preferredLanguage') || 'en';
+            languageSelector.value = storedLanguage;
+            
+            // Update documentation link with current language
+            function updateDocumentationLink(language) {
+                const baseUrl = '/paiperwork/github-help/help.html';
+                documentationLink.href = `${baseUrl}?lang=${language}`;
+            }
+            
+            // Set initial documentation link
+            updateDocumentationLink(storedLanguage);
+            
+            // Handle language selector change
+            languageSelector.addEventListener('change', function() {
+                const selectedLanguage = this.value;
+                localStorage.setItem('preferredLanguage', selectedLanguage);
+                updateDocumentationLink(selectedLanguage);
+                
+                // Optional: Add some visual feedback or update UI text based on language
+                console.log('Language changed to:', selectedLanguage);
+            });
+        });
     </script>
 </body>
 
