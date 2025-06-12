@@ -26,6 +26,8 @@ These incredible tools enable us to deliver a rich, offline-first experience whi
 
 Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) for complete guides and tutorials (multi language).
 
+Note: You may need to enable Paiperwork in Privacy and security in your system if it is detected as not safe when you try to open it.
+
 ## 🛠️ For Developers
 
 Want to contribute or build from source? Check out our [**Developer Guide**](developer.md) for:
