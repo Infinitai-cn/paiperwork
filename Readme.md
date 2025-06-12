@@ -2,7 +2,7 @@
 
 **A Privacy-First AI Document Assistant powered by Ollama**
 
-Paiperwork is a local-first AI application that transforms how you work with documents, data, and knowledge. Built with a Go backend server and modern JavaScript frontend, it provides a comprehensive suite of AI-powered tools while keeping all your data secure and private on your local machine.
+Paiperwork is a local-first AI Desktop application (not intended for phone use) that transforms how you work with documents, data, and knowledge. Built with a Go backend server and modern JavaScript frontend, it provides a comprehensive suite of AI-powered tools while keeping all your data secure and private on your local machine.
 
 ## 🙏 Credits & Acknowledgments
 
