@@ -24,7 +24,6 @@ These incredible tools enable us to deliver a rich, offline-first experience whi
 
 ## 📖 Documentation
 
-We strongly suggest to read our documentation first to find out if Paiperwork is good for you or your organization!
 Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) for complete guides and tutorials (multi language).
 
 ## 🛠️ For Developers
