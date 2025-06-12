@@ -4,6 +4,16 @@
 
 Paiperwork is a local-first AI application that transforms how you work with documents, data, and knowledge. Built with a Go backend server and modern JavaScript frontend, it provides a comprehensive suite of AI-powered tools while keeping all your data secure and private on your local machine.
 
+## 🙏 Credits & Acknowledgments
+
+We're grateful to the amazing open-source community and the brilliant developers behind these essential libraries that make Paiperwork possible:
+
+- **[html2canvas](https://html2canvas.hertzen.com/)** - For capturing and converting HTML elements to images, enabling our visual design features
+- **[PDF.js](https://mozilla.github.io/pdf.js/)** - Mozilla's powerful PDF rendering library that powers our document processing capabilities  
+- **[SQL.js](https://sql.js.org/)** - SQLite compiled to JavaScript, providing our local database functionality with privacy-first storage
+
+These incredible tools enable us to deliver a rich, offline-first experience while maintaining our commitment to data privacy. Thank you to all the contributors who make these projects possible! 🚀
+
 ## 🤔 Why Paiperwork?
 
 **Runs on Consumer Hardware** - We tested it with Core i3 laptops with 16GB of RAM on CPI mode and it performed well, so Paiperwork is good for not-so-powerful consumer hardware.
