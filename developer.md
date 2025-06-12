@@ -116,6 +116,8 @@ This creates platform-specific development binaries:
 - `Paiperwork-server-dev-osx` 
 - `Paiperwork-server-dev-win.exe`
 
+This binaries will be created at the app folder level.
+
 ### Production Builds
 
 Production builds are optimized and smaller:
@@ -131,6 +133,8 @@ cd dev/server
 cd dev\server
 build.bat
 ```
+
+This binaries and js files will be created inside the dist folder.
 
 ## 🧑‍💻 Development Setup
 
