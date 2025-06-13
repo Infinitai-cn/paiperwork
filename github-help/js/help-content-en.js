@@ -39,7 +39,7 @@ window.helpContent = {
          </div>
         
         <div class="note">
-            <p><strong>Low-End System Compatibility:</strong> Paiperwork has been tested and optimized for compatibility with smaller AI models (such as Qwen3.1 1.7B and Gemma3 4B) to ensure effective performance on low-end systems. These smaller models provide good results while requiring significantly less VRAM and system resources, making Paiperwork accessible to users with limited hardware capabilities.</p>
+            <p><strong>Low-End System Compatibility:</strong> Paiperwork has been tested and optimized for compatibility with smaller AI models (such as Qwen3 1.7B and Gemma3 4B) to ensure effective performance on low-end systems. These smaller models provide good results while requiring significantly less VRAM and system resources, making Paiperwork accessible to users with limited hardware capabilities.</p>
         </div>
         
         <div class="note">
