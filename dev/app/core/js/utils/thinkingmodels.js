@@ -14,7 +14,9 @@ window.THINKING_MODELS = [
     'qwen3:7b',
     'qwen3:14b',
     'qwen3:32b',
-    'qwen3:70b'
+    'qwen3:70b',
+    'magistral',
+    'magistral:24b',
 ];
 
 // Function to extract base model name (remove quantization suffix)
