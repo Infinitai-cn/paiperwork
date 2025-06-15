@@ -1,0 +1,135 @@
+.dataviz-container {
+    padding: 15px;
+    height: calc(100% - 20px);
+    display: flex;
+    flex-direction: column;
+    margin: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-color);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.dataviz-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-color);
+    text-align: center;
+}
+
+.dataviz-description {
+    font-size: 13px;
+    margin-bottom: 15px;
+    color: var(--text-muted);
+    line-height: 1.4;
+    text-align: center;
+}
+
+/* Optimize grid for 2x4 layout */
+.dataviz-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 2 columns */
+    grid-template-rows: repeat(4, 1fr); /* 4 rows */
+    gap: 10px;
+    margin-bottom: 15px;
+    width: 100%;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.dataviz-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 10px;
+    background-color: var(--button-bg, var(--background-secondary));
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    aspect-ratio: 1/1;
+    min-height: 160px;
+    color: var(--text-color);
+    gap: 10px; /* Add gap between elements */
+    position: relative;
+}
+
+/* Improved hover and active states - using app theme variables */
+.dataviz-button:hover {
+    background-color: var(--preview-button-hover, #4f46e5) !important;
+    color: white !important;
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
+    border-color: #4f46e5 !important;
+}
+
+.dataviz-button.active {
+    background-color: var(--primary-color, #4f46e5);
+    color: white;
+    transform: scale(0.98);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1) inset;
+}
+
+.dataviz-label {
+    font-size: 16px;
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 5px;
+    order: 1; /* Ensure label appears first */
+}
+
+.dataviz-icon {
+    order: 2; /* Ensure icon appears after the label */
+    margin-top: 5px;
+    width: 48px;
+    height: 48px;
+}
+
+/* Ensure icons change color on hover and when active */
+.dataviz-button:hover .dataviz-icon {
+    stroke: white;
+}
+
+.dataviz-button.active .dataviz-icon {
+    stroke: white;
+}
+
+/* Fill effects for certain SVG elements on hover */
+.dataviz-button:hover .dataviz-icon [fill="currentColor"] {
+    fill: white;
+}
+
+/* Additional styling for config area */
+#dataviz-config-area {
+    border-radius: 6px;
+    overflow: hidden;
+    color: var(--text-color);
+}
+.cell-text {
+    fill: attr(fill) !important;
+    color: attr(fill) !important;
+    -webkit-text-fill-color: attr(fill) !important;
+}
+/* Make sure the container adapts to small screens */
+@media (max-width: 480px) {
+    .dataviz-grid {
+        gap: 8px;
+    }
+    
+    .dataviz-button {
+        min-height: 120px;
+        padding: 10px 5px;
+    }
+    
+    .dataviz-label {
+        font-size: 14px;
+    }
+    
+    .dataviz-icon {
+        width: 36px;
+        height: 36px;
+    }
+}
