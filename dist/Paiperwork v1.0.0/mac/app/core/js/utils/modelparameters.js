@@ -37,6 +37,10 @@ const MODEL_PARAMETERS = {
     'mistral-small3.1': {
         temperature: 0.15
     },
+    'mistral-small3.2': {
+        temperature: 0.15,
+        top_p: 1
+    },
     'qwq': {
         temperature: 0.6,
         top_k: 40,
