@@ -13,7 +13,7 @@
     <div class="help-container">
         <!-- Header with language selector and GitHub link -->
         <div class="help-header">
-            <img id="help-logo" class="help-logo" src="/paiperwork/github-help/images/Paiperwork-APP-light.png" alt="Paiperwork Logo">
+            <img id="help-logo" class="help-logo" alt="Paiperwork Logo">
             <h1 class="help-title" id="help-main-title">Help & Documentation</h1>
             <div class="header-controls">
                 <select id="language-selector" class="language-selector">
@@ -39,7 +39,7 @@
         </div>
 
         <!-- Return button -->
-        <button onclick="window.history.back()" class="close-button" id="return-button">Return</button>
+        <button class="close-button" id="close-help">Return</button>
     </div>
 
     <script>
@@ -48,10 +48,10 @@
     </script>
     
     <!-- Load language system first -->
-    <script src="/paiperwork/github-help/js/lang.js"></script>
+    <script src="js/lang.js"></script>
     
     <!-- Load help utilities -->
-    <script src="/paiperwork/github-help/js/help.js"></script>
+    <script src="js/help.js"></script>
     
     <script>
         // Dynamic content loading based on language
@@ -85,7 +85,7 @@
         
         function loadHelpContentForLanguage(language) {
             const script = document.createElement('script');
-            script.src = `/paiperwork/github-help/js/help-content-${language}.js`;
+            script.src = `js/help-content-${language}.js`;
             
             script.onload = function() {
                 //console.log(`Help content loaded for language: ${language}`);
