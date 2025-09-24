@@ -1,14 +1,19 @@
 class OllamaAPI {
 
-    static _cachedThinkingEnabled = localStorage.getItem('thinkingEnabled') === 'true';
+    static _cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+        ? window.ThinkingState.getEffectiveThinkingEnabled()
+        : ((localStorage.getItem('thinkingEnabledGptOss') === 'true') || (localStorage.getItem('thinkingEnabled') === 'true'));
     static _lastThinkingCheck = Date.now();
 
     // Add listener for thinking state changes
     static {
         // Listen for storage events (when localStorage changes in other tabs)
         window.addEventListener('storage', (e) => {
-            if (e.key === 'thinkingEnabled') {
-                this._cachedThinkingEnabled = e.newValue === 'true';
+                if (e.key === 'thinkingEnabled' || e.key === 'thinkingEnabledGptOss') {
+                // prefer the gpt-oss-specific key when present
+                this._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+                    ? window.ThinkingState.getEffectiveThinkingEnabled()
+                    : ((localStorage.getItem('thinkingEnabledGptOss') === 'true') || (localStorage.getItem('thinkingEnabled') === 'true'));
                 //console.log('🧠 OllamaAPI: Thinking state changed via storage event:', this._cachedThinkingEnabled);
             }
         });
@@ -102,7 +107,8 @@ class OllamaAPI {
                     Lang.get('ollamaConnectionError') || 'Could not connect to Ollama. Please make sure Ollama is running.' :
                     Lang.get('ollamaLoadError') || 'Error loading models from Ollama.';
 
-                if (confirm(`${errorMessage} Would you like to retry?`)) {
+                const retryText = Lang.get('ollamaRetryPrompt') || 'Would you like to retry? (Make sure Ollama is running)';
+                if (confirm(`${errorMessage} ${retryText}`)) {
                     OllamaAPI.loadOllamaModels();
                 }
             }, 500);
@@ -150,26 +156,122 @@ class OllamaAPI {
         return {};
     }
     // Fetches metadata for a given model from the Ollama API.
-    static async fetchModelMetadata(modelName) {
+    static async fetchModelMetadata(modelName, options = { autoload: true, retryDelayMs: 500 }) {
+        // Returns { data, nativeContext, nativeContextPath } or null on error
         try {
-            //console.log('OllamaAPI: Fetching metadata for model:', modelName);
-            const response = await fetch(`http://localhost:11434/api/show`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    name: modelName
-                })
-            });
+            const doAutoload = options && options.autoload;
 
-            if (!response.ok) {
-                throw new Error(`Failed to fetch model metadata: ${response.status}`);
+            if (doAutoload) {
+                try {
+                    const loadResp = await fetch('http://localhost:11434/api/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model: modelName, keep_alive: '-1s', stream: false, prompt: '' })
+                    });
+                    //console.log('OllamaAPI: Autoload response status:', loadResp.status, 'ok?', loadResp.ok);
+                    try {
+                        const bodyText = await loadResp.text();
+                        //console.log('OllamaAPI: Autoload response body (trimmed):', bodyText ? (bodyText.length > 1000 ? bodyText.substring(0, 1000) + '...[truncated]' : bodyText) : '<empty>');
+                    } catch (e) {
+                        // ignore
+                    }
+                } catch (e) {
+                    console.warn('OllamaAPI: Autoload request failed', e);
+                }
             }
 
-            const data = await response.json();
-            //console.log('OllamaAPI: Model metadata response:', data);
-            return data;
+            const candidateNames = ['context_length', 'context_size', 'num_ctx', 'max_context', 'num_context', 'context'];
+
+            const findContext = (obj, path = '', seen = new Set()) => {
+                if (obj === null || obj === undefined) return undefined;
+                if (seen.has(obj)) return undefined;
+                if (typeof obj === 'number') return { value: obj, path };
+                if (typeof obj === 'string') {
+                    const numericRe = /^\s*\d+(?:\.\d+)?\s*$/;
+                    if (numericRe.test(obj)) return { value: Number(obj), path };
+                    return undefined;
+                }
+                if (typeof obj === 'object') {
+                    seen.add(obj);
+
+                    // Direct candidate names
+                    for (const name of candidateNames) {
+                        if (Object.prototype.hasOwnProperty.call(obj, name)) {
+                            try {
+                                const v = obj[name];
+                                const p = path ? `${path}.${name}` : name;
+                                if (typeof v === 'number') return { value: v, path: p };
+                                if (typeof v === 'string' && /^\s*\d+(?:\.\d+)?\s*$/.test(v)) return { value: Number(v), path: p };
+                                if (Array.isArray(v)) return { value: v.length, path: p };
+                                if (typeof v === 'object' && v !== null && v.length !== undefined) return { value: v.length, path: p };
+                            } catch (e) { /* ignore */ }
+                        }
+                    }
+
+                    // Keys that contain 'context' or match candidate name endings (handles 'gptoss.context_length')
+                    for (const k of Object.keys(obj)) {
+                        const lower = ('' + k).toLowerCase();
+                        if (lower.includes('context') || candidateNames.some(n => lower.endsWith(n))) {
+                            try {
+                                const v = obj[k];
+                                const p = path ? `${path}.${k}` : k;
+                                if (typeof v === 'number') return { value: v, path: p };
+                                if (typeof v === 'string' && /^\s*\d+(?:\.\d+)?\s*$/.test(v)) return { value: Number(v), path: p };
+                                if (Array.isArray(v) && v.length > 0) return { value: v.length, path: p };
+                                const nested = findContext(v, p, seen);
+                                if (nested !== undefined) return nested;
+                            } catch (e) { /* ignore */ }
+                        }
+                    }
+
+                    // Generic recursion into properties (shallow) as a last resort
+                    for (const k of Object.keys(obj)) {
+                        try {
+                            const v = obj[k];
+                            const p = path ? `${path}.${k}` : k;
+                            const nested = findContext(v, p, seen);
+                            if (nested !== undefined) return nested;
+                        } catch (e) { /* ignore */ }
+                    }
+                }
+                return undefined;
+            };
+
+            const attemptFetch = async (attempt) => {
+                try {
+                    //console.log(`OllamaAPI: Fetching metadata for ${modelName} (attempt ${attempt})`);
+                    const response = await fetch(`http://localhost:11434/api/show`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: modelName })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch model metadata: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    // Try to find native context in the returned object
+                    const foundObj = findContext(data);
+                    const nativeContext = (foundObj && typeof foundObj === 'object' && foundObj.value !== undefined) ? foundObj.value : null;
+                    const nativeContextPath = (foundObj && typeof foundObj === 'object' && foundObj.path) ? foundObj.path : null;
+
+                    //console.log('OllamaAPI: /api/show returned metadata; nativeContextPath:', nativeContextPath, 'nativeContext:', nativeContext);
+                    return { data, nativeContext, nativeContextPath };
+                } catch (err) {
+                    console.warn('OllamaAPI: Error fetching model metadata on attempt', attempt, err);
+                    return null;
+                }
+            };
+
+            let result = await attemptFetch(1);
+            if ((!result || result.nativeContext === null) && doAutoload) {
+                // wait and retry once
+                await new Promise(r => setTimeout(r, options.retryDelayMs || 500));
+                result = await attemptFetch(2);
+            }
+
+            return result;
         } catch (error) {
             console.error('OllamaAPI: Error fetching model metadata:', error);
             return null;
@@ -189,7 +291,9 @@ class OllamaAPI {
         const isGemma3 = selectedModel.toLowerCase().includes('gemma3');
 
         //  CRITICAL FIX: Always refresh cache before each request to get latest state
-        this._cachedThinkingEnabled = localStorage.getItem('thinkingEnabled') === 'true';
+        this._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+            ? window.ThinkingState.getEffectiveThinkingEnabled()
+            : (localStorage.getItem('thinkingEnabled') === 'true');
 
         const thinkingEnabled = this._cachedThinkingEnabled;
         const supportsNativeThinking = window.isThinkingModel && window.isThinkingModel(selectedModel);
@@ -199,23 +303,6 @@ class OllamaAPI {
             streamProcessor._cachedThinkingEnabled = thinkingEnabled;
             //console.log('🧠 OllamaAPI: Updated StreamProcessor cache to:', thinkingEnabled);
         }
-
-        /*console.log('🧠 OllamaAPI: Fresh thinking state check:', {
-            thinkingEnabled: thinkingEnabled,
-            supportsNativeThinking: supportsNativeThinking,
-            model: selectedModel,
-            hasStreamProcessor: !!streamProcessor
-        });*/
-
-        //  ENHANCED LOGGING (but throttled):
-        /*console.log('🧠 OllamaAPI: Detailed thinking analysis:', {
-            thinkingEnabled: thinkingEnabled,
-            supportsNativeThinking: supportsNativeThinking,
-            model: selectedModel,
-            hasStreamProcessor: !!streamProcessor,
-            isThinkingModelFunction: typeof window.isThinkingModel,
-            willSetThinkFlag: supportsNativeThinking && thinkingEnabled
-        });*/
 
         let enhancedPrompt = userPrompt;
         const jsonPost = {
@@ -243,15 +330,6 @@ class OllamaAPI {
         } else {
             //console.log('🧠 OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
         }
-
-        //  LOG THE FINAL REQUEST PAYLOAD (excluding sensitive data):
-        /*console.log('🧠 OllamaAPI: Final request payload thinking status:', {
-            model: jsonPost.model,
-            hasThinkFlag: 'think' in jsonPost,
-            thinkValue: jsonPost.think,
-            hasSystemPrompt: !!jsonPost.system,
-            hasStreamProcessor: !!streamProcessor
-        });*/
 
         if (isVisualModel) {
             // First check if we have real images saved from the previous message
@@ -350,30 +428,36 @@ class OllamaAPI {
                                     const data = JSON.parse(line);
 
                                     //  CRITICAL FIX: Always get FRESH thinking state for each chunk
-                                    const currentThinkingEnabled = localStorage.getItem('thinkingEnabled') === 'true';
+                                    const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
+                                        ? window.ThinkingState.getUserThinkingEnabled()
+                                        : (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
+                                            ? window.ThinkingState.getUserThinkingEnabled()
+                                            : (localStorage.getItem('thinkingEnabled') === 'true');
                                     const hasThinkingData = 'thinking' in data;
                                     const hasResponseData = 'response' in data;
 
-                                    //  ENHANCED LOGGING: Add model info to debug
+                                    //  ENHANCED LOGGING: Add model info to debug (throttled)
                                     const shouldLog = (hasThinkingData || hasResponseData) &&
                                         (Date.now() - this._lastThinkingCheck > 5000);
 
-                                    /*if (shouldLog) {
-                                        console.log('🧠 OllamaAPI: Received data chunk - Status check:', {
-                                            thinkingEnabled: currentThinkingEnabled,
-                                            supportsNativeThinking,
-                                            model: selectedModel,
-                                            hasThinkingField: hasThinkingData,
-                                            hasResponseField: hasResponseData,
-                                            thinkingLength: data.thinking ? data.thinking.length : 0,
-                                            responseLength: data.response ? data.response.length : 0,
-                                            isDone: data.done,
-                                            //  NEW: Add raw data sample for debugging
-                                            rawThinkingData: hasThinkingData ? data.thinking.substring(0, 50) + '...' : 'none',
-                                            requestHadThinkFlag: !!jsonPost.think
-                                        });
+                                    if (shouldLog) {
+                                        try {
+                                         /* console.log('🧠 OllamaAPI: thinking presence check', {
+                                                thinkingEnabled: currentThinkingEnabled,
+                                                hasThinkingField: hasThinkingData,
+                                                thinkingLength: hasThinkingData && data.thinking ? (typeof data.thinking === 'string' ? data.thinking.length : (Array.isArray(data.thinking) ? data.thinking.length : 0)) : 0,
+                                                hasResponseField: hasResponseData,
+                                                responseLength: hasResponseData && data.response ? (typeof data.response === 'string' ? data.response.length : (Array.isArray(data.response) ? data.response.length : 0)) : 0,
+                                                model: selectedModel,
+                                                requestHadThinkFlag: !!jsonPost && !!jsonPost.think,
+                                                isDone: !!data.done,
+                                                timestamp: new Date().toISOString()
+                                            }); */
+                                        } catch (logErr) {
+                                            console.warn('🧠 OllamaAPI: Failed to log thinking presence', logErr);
+                                        }
                                         this._lastThinkingCheck = Date.now();
-                                    }*/
+                                    }
 
                                     //  CRITICAL FIX: Check if we need to start native thinking mode
                                     // Even if we don't have thinking data yet, we might need to prepare the container
@@ -455,7 +539,7 @@ class OllamaAPI {
         }
     }
     // Sends a prompt to the Ollama API with web search context, handles streaming and UI updates.
-    static async sendToOllamaWithWebSearch(prompt, systemPrompt = '', includeContext = true, abortSignal = null, documentContext = '', isDocumentWebSearch = false) {
+    static async sendToOllamaWithWebSearch(prompt, systemPrompt, includeContext = true, abortSignal = null, documentContext = '', isDocumentWebSearch = false) {
         //console.log('Websearch OllamaAPI: Sending to Ollama...');
         const progressBar = document.getElementById('progress-bar');
         progressBar.classList.add('active', 'indeterminate');
@@ -484,13 +568,153 @@ class OllamaAPI {
         try {
             // Get the original prompt before any thinking tags removal
             const originalPrompt = prompt;
+            // Create a separate variable for the prompt sent to the model so we don't
+            // overwrite `prompt` which must remain the user's original input for storage.
+            let userPromptForRequest = prompt;
+
+            // --- NEW: Ask the model to create a concise web-search query based on the user's prompt ---
+            let generatedQuery = null;
+
+            try {
+                // Build a short system/user prompt pair that instructs the model to produce a concise search query.
+                // We intentionally do NOT change the external `systemPrompt` passed to the overall websearch flow.
+                // Move the instruction into the user prompt so we do NOT change the external systemPrompt
+                const queryUserPrompt = `You will be asked to produce a single concise web search query (no surrounding text) that best captures the user's information need. Keep it short and focused; do not include commentary or quotes.\n\nCreate a concise web search query for this user request:\n\n${originalPrompt}`;
+
+                // Call sendToOllama to get the model's reply. We'll pass a temporary StreamProcessor so we get identical streaming parsing behavior
+                const qpStreamProcessor = new StreamProcessor();
+                const queryResponse = await OllamaAPI.sendToOllama(queryUserPrompt, systemPrompt, document.getElementById('context-selector').value, null, null, `webquery_${Date.now()}`, qpStreamProcessor);
+
+                // sendToOllama may return { success: true, streamProcessor } when it processed the stream
+                if (!queryResponse) {
+                    generatedQuery = originalPrompt;
+                } else if (queryResponse.success && queryResponse.streamProcessor) {
+                    try {
+                        const sp = queryResponse.streamProcessor || qpStreamProcessor;
+                        // Prefer responseContainer textContent if present
+                        if (sp && sp.responseContainer && sp.responseContainer.textContent) {
+                            generatedQuery = sp.responseContainer.textContent.trim() || originalPrompt;
+                        } else if (sp && sp.getText && typeof sp.getText === 'function') {
+                            generatedQuery = (await sp.getText()).trim() || originalPrompt;
+                        } else if (qpStreamProcessor && qpStreamProcessor.responseContainer && qpStreamProcessor.responseContainer.textContent) {
+                            generatedQuery = qpStreamProcessor.responseContainer.textContent.trim() || originalPrompt;
+                        } else {
+                            generatedQuery = originalPrompt;
+                        }
+                    } catch (e) {
+                        generatedQuery = originalPrompt;
+                    }
+                } else if (queryResponse instanceof Response) {
+                    // Non-streamed fetch Response - read text
+                    try {
+                        const text = await queryResponse.text();
+                        generatedQuery = text.trim() || originalPrompt;
+                    } catch (e) {
+                        generatedQuery = originalPrompt;
+                    }
+                } else if (queryResponse.body && typeof queryResponse.body.getReader === 'function') {
+                    // If we get a raw response-like object, drain it and try to parse it into a query
+                    try {
+                        const reader = queryResponse.body.getReader();
+                        const decoder = new TextDecoder();
+                        let buffer = '';
+                        let extracted = '';
+
+                        while (true) {
+                            const { value, done } = await reader.read();
+                            if (done) break;
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop();
+                            for (const line of lines) {
+                                if (!line.trim()) continue;
+                                try {
+                                    const data = JSON.parse(line);
+                                    if (data.response) {
+                                        if (Array.isArray(data.response)) extracted += data.response.join('');
+                                        else if (typeof data.response === 'string') extracted += data.response;
+                                    } else if (data.text && typeof data.text === 'string') extracted += data.text;
+                                } catch (e) {
+                                    extracted += line;
+                                }
+                            }
+                        }
+
+                        if (buffer && buffer.trim()) {
+                            try {
+                                const data = JSON.parse(buffer);
+                                if (data.response) {
+                                    if (Array.isArray(data.response)) extracted += data.response.join('');
+                                    else if (typeof data.response === 'string') extracted += data.response;
+                                } else if (data.text && typeof data.text === 'string') extracted += data.text;
+                            } catch (e) {
+                                extracted += buffer;
+                            }
+                        }
+
+                        const cleaned = extracted.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+                        generatedQuery = (cleaned && cleaned.length) ? cleaned : (extracted.trim() || originalPrompt);
+                    } catch (e) {
+                        generatedQuery = originalPrompt;
+                    }
+                } else if (queryResponse.success && queryResponse.streamProcessor) {
+                    // If sendToOllama returned a streamProcessor wrapper (from streaming path), try to extract text
+                    try {
+                        const sp = queryResponse.streamProcessor;
+                        // Prefer a `response` or `getText` property if available, else fall back to container text
+                        if (sp && sp.responseContainer) {
+                            generatedQuery = sp.responseContainer.textContent.trim() || originalPrompt;
+                        } else {
+                            generatedQuery = originalPrompt;
+                        }
+                    } catch (e) {
+                        generatedQuery = originalPrompt;
+                    }
+                } else if (typeof queryResponse === 'string') {
+                    generatedQuery = queryResponse.trim() || originalPrompt;
+                } else {
+                    // Unknown shape - fallback
+                    generatedQuery = originalPrompt;
+                }
+            } catch (queryErr) {
+                console.error('Failed to generate websearch query via model:', queryErr);
+                generatedQuery = originalPrompt;
+            }
+
+            // Log the query received from Ollama that we'll use for the web search
+            try {
+                //console.log('Ollama generated websearch query:', generatedQuery);
+            } catch (e) {
+                // ignore console errors in unusual environments
+            }
+
+            // Persist the query so other parts of the app can see what was actually used
+            try {
+                await PaiperworkDB.secureLocalStorageSet('last_docwebsearch_query', generatedQuery);
+            } catch (e) {
+                try { localStorage.setItem('last_docwebsearch_query', generatedQuery); } catch (err) { }
+            }
+
+            // Pass the generated query (instead of raw prompt) to WebSearch.smartSearch
+            const searchQueryToUse = generatedQuery || prompt;
+
+            // Debug log which query will actually be used for WebSearch
+            try {
+                //console.log('Using search query for WebSearch.smartSearch:', searchQueryToUse);
+            } catch (e) {}
 
             // Pass the isDocumentWebSearch flag to WebSearch.smartSearch
-            const webSearchResults = await WebSearch.smartSearch(prompt, new Date(), isDocumentWebSearch);
+            const webSearchResults = await WebSearch.smartSearch(searchQueryToUse, new Date(), isDocumentWebSearch);
 
             // Important: Get the actual search query used (after thinking tags were stripped)
             // This will be different than originalPrompt if thinking tags were removed
-            const actualSearchQuery = localStorage.getItem('last_docwebsearch_query') || prompt;
+            let actualSearchQuery = prompt;
+            try {
+                const got = await PaiperworkDB.secureLocalStorageGet('last_docwebsearch_query');
+                if (got) actualSearchQuery = got;
+            } catch (e) {
+                actualSearchQuery = localStorage.getItem('last_docwebsearch_query') || prompt;
+            }
 
             // Update the UI with search info using the ACTUAL query used (not the thinking output)
             const searchInfo = `
@@ -542,8 +766,11 @@ class OllamaAPI {
                 }
             } else {
                 if (webSearchContext) {
-                    enhancedSystemPrompt += `\n\nWeb search results:\n${webSearchContext}\n\n`;
-                    enhancedSystemPrompt += `\nInstruction: Use the web search results to provide a comprehensive answer. Cite your sources.`;
+                    enhancedSystemPrompt = enhancedSystemPrompt;
+                    // Append web search context to the prompt we'll send to the model,
+                    // but DO NOT mutate the original `prompt` variable which should be
+                    // preserved for database storage and logging.
+                    userPromptForRequest = prompt + `\n\nInstruction: Use the web search results to inform your answer. ALWAYS USE THIS FORMAT for links [source website](url) and cite your sources with the website name.\n\nWeb search results:\n${webSearchContext}`;
                 }
 
             }
@@ -558,7 +785,11 @@ class OllamaAPI {
             const modelParams = this.getModelParameters(selectedModel);
 
             //  CRITICAL FIX: Always refresh cache before each request to get latest state
-            this._cachedThinkingEnabled = localStorage.getItem('thinkingEnabled') === 'true';
+            this._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+                ? window.ThinkingState.getEffectiveThinkingEnabled()
+                : (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+                    ? window.ThinkingState.getEffectiveThinkingEnabled()
+                    : (localStorage.getItem('thinkingEnabled') === 'true');
 
             const thinkingEnabled = this._cachedThinkingEnabled;
             const supportsNativeThinking = window.isThinkingModel && window.isThinkingModel(selectedModel);
@@ -612,7 +843,8 @@ class OllamaAPI {
             // Prepare request body
             const requestBody = {
                 model: selectedModel,
-                prompt: prompt,
+                // Use the separate prompt variable for the request so originalPrompt stays intact
+                prompt: userPromptForRequest,
                 system: enhancedSystemPrompt,
                 stream: true,
                 context: context,
@@ -741,7 +973,9 @@ class OllamaAPI {
                             const data = JSON.parse(line);
 
                             //  CRITICAL FIX: Always get FRESH thinking state for each chunk
-                            const currentThinkingEnabled = localStorage.getItem('thinkingEnabled') === 'true';
+                            const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
+                                ? window.ThinkingState.getUserThinkingEnabled()
+                                : (localStorage.getItem('thinkingEnabled') === 'true');
                             const hasThinkingData = 'thinking' in data;
                             const hasResponseData = 'response' in data;
 
@@ -813,12 +1047,12 @@ class OllamaAPI {
                                     this.handleContextLimitReached();
                                 }
 
-                                // Store conversation if needed
-                                const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                                // Store conversation if needed - use the original user prompt (not the enhanced request prompt)
+                                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                                 //console.log('WebSearch: Saving conversation to database');
                                 await PaiperworkDB.storeConversationOnly(
                                     hashedMasterKey,
-                                    prompt,
+                                    originalPrompt,
                                     aiResponse,
                                     window.forceNewConversationGroup || false,  // Not forcing a new group
                                     window.currentConversationGroup  // Use current group if it exists
@@ -1150,10 +1384,16 @@ class OllamaAPI {
 
                 // Call our own method directly if we have conversations to use
                 if (conversations.length > 0) {
-                    const continueButton = this.createContinueButton(conversations, aiReplies);
+                    // Skip when only the welcome message is present in the UI
+                    const assistantMessagesAllOllama = aiReplies.querySelectorAll('.assistant-message');
+                    const hasOnlyWelcomeOllama = (assistantMessagesAllOllama.length === 1 && assistantMessagesAllOllama[0].classList.contains('welcome-message'));
 
-                    // FIX: Actually append the button to aiReplies
-                    aiReplies.appendChild(continueButton);
+                    if (!hasOnlyWelcomeOllama) {
+                        const continueButton = this.createContinueButton(conversations, aiReplies);
+
+                        // FIX: Actually append the button to aiReplies
+                        aiReplies.appendChild(continueButton);
+                    }
                 }
             }
         }
@@ -1281,6 +1521,51 @@ class OllamaAPI {
         // 3. Insights
         // 4. Temporal context
         const finalPrompt = formattedBasePrompt + languageEnforcement + insightsString + temporalContext;
+
+        // If the gpt-oss reasoning selector is present and a level is set, prepend it to the system prompt
+        try {
+            // Prefer window-level quick-access (set immediately on click), then DOM active button, then localStorage
+            let reasoningLevel = '';
+            try {
+                if (window.gptOssReasoningLevel) {
+                    reasoningLevel = (window.gptOssReasoningLevel || '').toLowerCase().trim();
+                    //console.log('OllamaAPI DEBUG: using window.gptOssReasoningLevel=', reasoningLevel);
+                }
+            } catch (wErr) { /* ignore */ }
+
+            if (!reasoningLevel) {
+                try {
+                    const activeBtn = document.querySelector('#gptoss-reasoning-selector .gptoss-reasoning-btn.active');
+                    if (activeBtn && activeBtn.dataset && activeBtn.dataset.level) {
+                        reasoningLevel = (activeBtn.dataset.level || '').toLowerCase().trim();
+                        //console.log('OllamaAPI DEBUG: using DOM active reasoning level=', reasoningLevel);
+                    }
+                } catch (domErr) {
+                    // ignore DOM read errors
+                }
+            }
+
+            // If still no value, read localStorage
+            if (!reasoningLevel) {
+                const reasoningLevelRaw = localStorage.getItem('gptOssReasoningLevel') || '';
+                reasoningLevel = (reasoningLevelRaw || '').toLowerCase().trim();
+                //console.log('OllamaAPI DEBUG: falling back to stored gptOssReasoningLevel=', reasoningLevel);
+            }
+            // Only apply when the model selector is gpt-oss (or variant) - check base token
+            const modelSelector = document.getElementById('model-selector');
+            const selectedModel = modelSelector ? modelSelector.value : '';
+            const baseModel = (window.getBaseModelName ? window.getBaseModelName(selectedModel) : (selectedModel || '').toLowerCase()).split(':')[0];
+            if (baseModel === 'gpt-oss' && reasoningLevel) {
+                // Map mid -> medium for the token name if needed
+                const mapLevel = reasoningLevel === 'mid' ? 'medium' : reasoningLevel;
+                const reasoningPrefix = `reasoning:${mapLevel}\n\n`;
+                //console.log('OllamaAPI DEBUG: Complete system prompt with reasoning level:', mapLevel);
+                //console.log(reasoningPrefix + finalPrompt);
+                return (reasoningPrefix + finalPrompt).trim();
+            }
+        } catch (e) {
+            console.warn('OllamaAPI: error applying gpt-oss reasoning prefix', e);
+        }
 
         /*console.log('OllamaAPI DEBUG: Final system prompt components:', {
             basePromptLength: formattedBasePrompt.length,
@@ -1459,7 +1744,7 @@ class OllamaAPI {
 
         try {
             // Get the system prompt with insights and temporal context
-            const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             const systemPrompt = await this.buildCompleteSystemPrompt(hashedMasterKey);
             //console.log('OllamaAPI: Got enhanced system prompt for context building');
 
@@ -1539,7 +1824,7 @@ class OllamaAPI {
 
         try {
             window.isGenerating = true;
-            const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
 
             // IMPORTANT: Reset image-related state variables to prevent hanging
             window.selectedImage = null;
@@ -1660,7 +1945,7 @@ class OllamaAPI {
                                 const targetConversationGroup = window.currentConversationGroup;
 
                                 // Store this as a regular conversation turn
-                                const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                                 await PaiperworkDB.storeConversationOnly(
                                     hashedMasterKey,
                                     `${noticeToUser}<div class="continuation-prompt" style="display:none;">${continuationPrompt}</div>`, // Modified
@@ -1758,9 +2043,11 @@ class OllamaAPI {
         continuationDiv.className = 'continuation-container';
         continuationDiv.style.cssText = `
         display: flex;
-        justify-content: center;
-        margin: 20px 0;
+        flex-direction: column;
+        align-items: center;
+        margin: 20px auto;
         padding: 10px;
+        max-width: 900px;
     `;
 
         const continueButton = document.createElement('button');
@@ -1810,7 +2097,7 @@ class OllamaAPI {
                 continuationDiv.remove();
 
                 // IMPROVED: Load only conversations from the current group
-                const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                 const result = await PaiperworkDB.loadConversationsByGroup(
                     hashedMasterKey,
                     window.currentConversationGroup // Use the current group ID
