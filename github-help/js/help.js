@@ -3,8 +3,8 @@ function setAppropriateHelpImage() {
   const logoImg = document.getElementById("help-logo");
   if (logoImg) {
     logoImg.src = isDarkMode
-      ? "../github-help/images/Paiperwork-APP-dark.png"
-      : "../github-help/images/Paiperwork-APP-light.png";
+      ? "../../images/Paiperwork-APP-dark.png"  // Updated path
+      : "../../images/Paiperwork-APP-light.png"; // Updated path
     //console.log("Help logo set to:", logoImg.src);
   } else {
     console.warn("Help logo element not found");
@@ -72,10 +72,10 @@ function createLightbox() {
 let helpLightbox;
 
 function createArticleElement(article) {
-    if (!helpLightbox) {
-        helpLightbox = createLightbox();
-      }
-      
+  if (!helpLightbox) {
+    helpLightbox = createLightbox();
+  }
+
   const articleElement = document.createElement("div");
   articleElement.className = "help-article";
   articleElement.id = article.id;
@@ -91,18 +91,18 @@ function createArticleElement(article) {
   contentElement.innerHTML = article.content;
   articleElement.appendChild(contentElement);
 
-    // Handle images - support both array format and legacy single image format
-    if (article.images && Array.isArray(article.images) && article.images.length > 0) {
-      // Handle multiple images from images array
-      article.images.forEach(imageData => {
-          const figureElement = createFigureElement(imageData.src, imageData.alt || article.title, imageData.caption);
-          articleElement.appendChild(figureElement);
-      });
-  } 
+  // Handle images - support both array format and legacy single image format
+  if (article.images && Array.isArray(article.images) && article.images.length > 0) {
+    // Handle multiple images from images array
+    article.images.forEach(imageData => {
+      const figureElement = createFigureElement(imageData.src, imageData.alt || article.title, imageData.caption);
+      articleElement.appendChild(figureElement);
+    });
+  }
   // Fall back to legacy single image format
   else if (article.image) {
-      const figureElement = createFigureElement(article.image, article.imageAlt || article.title, article.imageCaption);
-      articleElement.appendChild(figureElement);
+    const figureElement = createFigureElement(article.image, article.imageAlt || article.title, article.imageCaption);
+    articleElement.appendChild(figureElement);
   }
 
   return articleElement;
@@ -120,28 +120,28 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
   imageContainer.style.cursor = "zoom-in";
 
   const imageElement = document.createElement("img");
-  imageElement.src = `../github-help/images/help/${imageSrc}`;
+  imageElement.src = `../../images/help/${imageSrc}`;
   imageElement.alt = imageAlt;
   imageElement.className = "help-image";
   imageElement.setAttribute("loading", "lazy");
 
   // Add click event to show the full-size image
   imageContainer.addEventListener("click", function () {
-      const lightboxImg = helpLightbox.querySelector(".help-lightbox-img");
-      lightboxImg.src = imageElement.src;
-      lightboxImg.alt = imageElement.alt;
-      helpLightbox.style.display = "flex";
+    const lightboxImg = helpLightbox.querySelector(".help-lightbox-img");
+    lightboxImg.src = imageElement.src;
+    lightboxImg.alt = imageElement.alt;
+    helpLightbox.style.display = "flex";
   });
 
   // Add load and error event handlers
   imageElement.addEventListener("load", function () {
-      this.classList.add("loaded");
+    this.classList.add("loaded");
   });
 
   imageElement.addEventListener("error", function () {
-      this.src = "../github-help/images/help/placeholder.png";
-      this.classList.add("loaded");
-      //console.log(`Image not found: ${imageSrc}, using placeholder instead`);
+    this.src = "../../images/help/placeholder.png";
+    this.classList.add("loaded");
+    //console.log(`Image not found: ${imageSrc}, using placeholder instead`);
   });
 
   imageContainer.appendChild(imageElement);
@@ -149,9 +149,9 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
 
   // Add caption if available
   if (imageCaption) {
-      const captionElement = document.createElement("figcaption");
-      captionElement.textContent = imageCaption;
-      figureElement.appendChild(captionElement);
+    const captionElement = document.createElement("figcaption");
+    captionElement.textContent = imageCaption;
+    figureElement.appendChild(captionElement);
   }
 
   return figureElement;
@@ -167,7 +167,7 @@ function loadSectionContent(sectionId) {
   // Check if helpContent exists and is loaded using window.helpContent
   if (!window.helpContent || !window.helpContentLoaded) {
     console.error("Help content not loaded yet");
-    contentContainer.innerHTML = "<p>Loading content, please wait...</p>";
+    contentContainer.innerHTML = `<p>${Lang.get('loadingContent') || 'Loading content, please wait...'}</p>`;
 
     // Try again in a moment if content isn't loaded yet
     setTimeout(() => {
@@ -182,7 +182,7 @@ function loadSectionContent(sectionId) {
   const sectionData = window.helpContent[sectionId];
   if (!sectionData) {
     console.warn(`No content found for section: ${sectionId}`);
-    contentContainer.innerHTML = "<p>Content for this section coming soon.</p>";
+    contentContainer.innerHTML = `<p>${Lang.get('contentComingSoon') || 'Content for this section coming soon.'}</p>`;
     return;
   }
 
@@ -216,7 +216,7 @@ function loadSectionContent(sectionId) {
       indexElement.className = "article-index";
 
       const indexTitle = document.createElement("h3");
-      indexTitle.textContent = "In This Section:";
+      indexTitle.textContent = Lang.get('inThisSection') || 'In This Section:';
       indexElement.appendChild(indexTitle);
 
       const indexList = document.createElement("ul");
@@ -230,27 +230,11 @@ function loadSectionContent(sectionId) {
         link.className = "article-index-link";
         link.textContent = article.title;
         link.href = `#${article.id}`;
-
-        // Add click handler for smooth scrolling
         link.addEventListener("click", function (e) {
           e.preventDefault();
-          const target = document.getElementById(article.id);
-          if (target) {
-            // Get the height of the sticky navigation
-            const navHeight = document.querySelector(
-              ".help-navigation-wrapper"
-            ).offsetHeight;
-
-            // Calculate the position to scroll to (element position - navigation height - extra padding)
-            const targetPosition =
-              target.getBoundingClientRect().top + window.pageYOffset;
-            const offsetPosition = targetPosition - navHeight - 20; // 20px extra padding
-
-            // Scroll to the adjusted position
-            window.scrollTo({
-              top: offsetPosition,
-              behavior: "smooth",
-            });
+          const targetArticle = document.getElementById(article.id);
+          if (targetArticle) {
+            targetArticle.scrollIntoView({ behavior: "smooth" });
           }
         });
 
@@ -262,18 +246,15 @@ function loadSectionContent(sectionId) {
       sectionElement.appendChild(indexElement);
     }
 
-    // Add each article with consistent formatting
+    // Add each article
     sectionData.articles.forEach((article) => {
       const articleElement = createArticleElement(article);
       sectionElement.appendChild(articleElement);
     });
   } else {
-    // Add placeholder if no articles
-    const placeholderElement = document.createElement("div");
-    placeholderElement.className = "note";
-    placeholderElement.innerHTML =
-      "<p>Detailed documentation for this section coming soon.</p>";
-    sectionElement.appendChild(placeholderElement);
+    const noArticlesElement = document.createElement("p");
+    noArticlesElement.textContent = Lang.get('noArticlesAvailable') || 'No articles available for this section.';
+    sectionElement.appendChild(noArticlesElement);
   }
 
   contentContainer.appendChild(sectionElement);
@@ -285,26 +266,25 @@ function loadSectionContent(sectionId) {
   }, 0);
 
   // Debug line to confirm header still exists after content is loaded
-  /* console.log(
-    "Header element exists:",
-    !!document.querySelector(".help-header")
-  ); */
-  /* console.log(
-    "Header element is visible:",
-    document.querySelector(".help-header").offsetParent !== null
-  ); */
+  //console.log(
+  //"Header element exists:",
+  //!!document.querySelector(".help-header")
+  //);
+  //console.log(
+  //"Header element is visible:",
+  //document.querySelector(".help-header").offsetParent !== null
+  //);
 }
 
 function setupScrollDetection() {
   window.addEventListener("scroll", function () {
-    const container = document.querySelector(".help-container");
-    if (!container) return;
-
-    // Add 'scrolled' class to container when scrolled down
-    if (window.scrollY > 10) {
-      container.classList.add("scrolled");
-    } else {
-      container.classList.remove("scrolled");
+    const navigationWrapper = document.querySelector(".help-navigation-wrapper");
+    if (navigationWrapper) {
+      if (window.scrollY > 10) {
+        navigationWrapper.parentElement.classList.add("scrolled");
+      } else {
+        navigationWrapper.parentElement.classList.remove("scrolled");
+      }
     }
   });
 }
@@ -324,8 +304,32 @@ document.addEventListener("DOMContentLoaded", function () {
   // Setup return button
   const closeButton = document.getElementById("close-help");
   if (closeButton) {
+    // Instead of redirecting, scroll to the top of the help page so the
+    // navigation tabs become visible. Also focus the first tab for keyboard users.
     closeButton.addEventListener("click", function () {
-      window.location.href = "../../help.html";
+      try {
+        // Smooth scroll to top
+        if (window.scrollTo) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          window.scrollTo(0, 0);
+        }
+
+        // Ensure the navigation wrapper is visible at the top
+        const navWrapper = document.querySelector('.help-navigation-wrapper') || document.querySelector('.help-header');
+        if (navWrapper && navWrapper.scrollIntoView) {
+          navWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Focus the first tab for accessibility
+        const firstNav = document.querySelector('.nav-item');
+        if (firstNav && firstNav.focus) {
+          firstNav.focus();
+        }
+      } catch (err) {
+        // Fallback: instant scroll if anything goes wrong
+        window.scrollTo(0, 0);
+      }
     });
   }
 
@@ -358,5 +362,27 @@ document.addEventListener("DOMContentLoaded", function () {
           "<p>Error loading help content. Please refresh the page and try again.</p>";
       }
     }, 1000);
+  }
+});
+
+// Delegated fallback: ensure the close-help button always scrolls to top
+document.addEventListener('click', function (e) {
+  const target = e.target;
+  if (target && (target.id === 'close-help' || target.closest && target.closest('#close-help'))) {
+    try {
+      if (window.scrollTo) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        window.scrollTo(0, 0);
+      }
+      const navWrapper = document.querySelector('.help-navigation-wrapper') || document.querySelector('.help-header');
+      if (navWrapper && navWrapper.scrollIntoView) {
+        navWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      const firstNav = document.querySelector('.nav-item');
+      if (firstNav && firstNav.focus) firstNav.focus();
+    } catch (err) {
+      window.scrollTo(0, 0);
+    }
   }
 });

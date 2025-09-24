@@ -1016,7 +1016,6 @@ window.helpContent = {
                     <li>Visualiser les relations partie-ensemble dans le temps</li>
                     <li>Souligner l'ampleur des changements</li>
                 </ul>
-                
                 <h4>Graphiques radar</h4>
                 <p>Affichent des données multivariées sous forme de graphique bidimensionnel avec trois variables quantitatives ou plus. Idéaux pour :</p>
                 <ul>
@@ -1465,7 +1464,7 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Explication des Exigences de Contexte :</strong> L'Assistant de Recherche traite les informations en plusieurs étapes - d'abord en résumant les sources individuelles, puis en générant des rapports partiels par lots, et enfin en combinant tout dans le rapport final. Les rapports plus volumineux nécessitent plus de contexte pour maintenir la cohérence entre toutes les sources et assurer une analyse complète. Si vous rencontrez des problèmes de mémoire ou des rapports incomplets, essayez de réduire la taille du rapport ou d'augmenter la taille du contexte dans l'onglet Chat.</p>
+                  <p><strong>Explication des Exigences de Contexte :</strong> L'Assistant de Recherche traite les informations en plusieurs étapes - d'abord en résumant les sources individuelles, puis en générant des rapports partiels par lots, et enfin en combinant tout dans le rapport final. Les rapports plus volumineux nécessitent plus de contexte pour maintenir la cohérence entre toutes les sources et assurer une analyse complète. Si vous rencontrez des problèmes de mémoire ou des rapports incomplets, essayez de réduire la taille du rapport ou d'augmenter la taille du contexte dans l'onglet Chat.</p>
                 </div>
                 
                 <h4>Optimisation des Performances de Recherche</h4>
@@ -1821,7 +1820,7 @@ window.helpContent = {
                         <p><strong>Important :</strong> Lors du changement d'onglet depuis les créations, les données d'image sont effacées de la mémoire pour éviter les problèmes d'utilisation des ressources, et le contexte de chat se remet à zéro pour les conversations régulières.</p>
                     </div>
                 `,
-                image: "artworks_intro.png",
+                image: "tab_overview.png",
                 imageAlt: "Aperçu du Visual Design Studio",
                 imageCaption: "Interface de l'onglet Créations montrant la sélection de modèle et la zone de téléchargement",
             },
@@ -2043,7 +2042,7 @@ window.helpContent = {
                 <li>Examinez et éditez les diapositives dans la fenêtre de prévisualisation, puis exportez.</li>
             </ol>
         `,
-                image: "placeholder.png",
+                image: "tab_overview.png",
                 imageAlt: "Aperçu de l'onglet Présentation",
                 imageCaption: "Aperçu de l'onglet Présentation",
             },
@@ -2060,7 +2059,7 @@ window.helpContent = {
             </ul>
             <p>Vous pouvez annuler la génération à tout moment en utilisant le bouton fermer/abort dans la modale de chargement. L'annulation arrêtera les tâches en arrière-plan et fermera la modale.</p>
         `,
-                image: "placeholder.png",
+                image: "generating_presentation.png",
                 imageAlt: "Génération de présentations",
                 imageCaption: "Processus de génération et indicateurs de progression",
             },
@@ -2077,7 +2076,7 @@ window.helpContent = {
             </ul>
             <p>Conseils : maintenez le texte du document clair pour une meilleure extraction, utilisez un nombre raisonnable de diapositives relatif à la longueur du contenu et ajoutez un prompt supplémentaire lorsque vous avez besoin d'un ton ou d'un style spécifique.</p>
         `,
-                image: "placeholder.png",
+                image: "preview_editing_export.png",
                 imageAlt: "Aperçu et export",
                 imageCaption: "Fenêtre de prévisualisation, édition et options d'export",
             },
@@ -2118,7 +2117,7 @@ window.helpContent = {
             <h4>Intégration avec les helpers</h4>
             <p>La barre latérale repose sur des helpers de sélection attachés aux étapes de la présentation pour effectuer le remplacement d'images, les éditions IA par lots et les opérations sur les nœuds. Si aucun helper n'est trouvé, la barre latérale affiche des messages utiles et bascule vers les flux globaux disponibles.</p>
         `,
-                image: "placeholder.png",
+                image: "sidebar_controls.png",
                 imageAlt: "Barre latérale de présentation",
                 imageCaption: "Contrôles de la barre latérale pour le style, le texte et les images",
             },
@@ -2128,7 +2127,7 @@ window.helpContent = {
                 content: `
             <p><strong>Remarque :</strong> Le bouton <em>Export PDF</em> exporte la présentation exactement telle qu'elle apparaît à l'écran — y compris le texte des diapositives, les images, les formes et les éléments d'arrière-plan.</p>
         `,
-                image: "placeholder.png",
+                image: "export_slides.png",
                 imageAlt: "Remarque Exporter en PDF",
                 imageCaption: "Exporte les diapositives telles qu'elles sont affichées dans la prévisualisation",
             },
@@ -2235,7 +2234,6 @@ window.helpContent = {
                         <li><strong>Tailles plus petites</strong> (3B, 1,5B paramètres) - Plus efficaces mais peuvent avoir des capacités réduites</li>
                         <li><strong>Versions quantifiées</strong> (Q4_K_M, Q5_K_S) - Modèles compressés qui utilisent moins de mémoire tout en maintenant la qualité</li>
                     </ul>
-                    
                     <h4>Exemple d'Exigences VRAM</h4>
                     <p>Pour vous donner une idée des exigences matérielles pour exécuter des modèles avec une fenêtre de contexte de 8K :</p>
                     <ul>
@@ -2319,8 +2317,7 @@ window.helpContent = {
             `,
                 image: "models_managing.png",
                 imageAlt: "Gérer les Modèles Locaux",
-                imageCaption:
-                    "La section modèles locaux montrant les options de gestion des modèles",
+                imageCaption: "La section modèles locaux montrant les options de gestion des modèles",
             },
             {
                 id: "models-configuration",
@@ -2523,7 +2520,7 @@ window.helpContent = {
                 <h4>Identifier les données orphelines</h4>
                 <p>L'onglet Base de données détecte automatiquement les segments orphelins et vous alerte avec :</p>
                 <ul>
-                    <li>Un indicateur d'avertissement jaune dans la section Santé de la Base de données</li>
+                    <li>Un indicateur d'avertissement jaune dans la section Santé de la base de données</li>
                 </ul>
                 
                 <h4>Nettoyer les données orphelines</h4>
@@ -2565,7 +2562,6 @@ window.helpContent = {
                     <li>L'espace supprimé est marqué comme disponible pour réutilisation mais compte toujours dans la taille totale du fichier</li>
                     <li>Seule l'optimisation (VACUUM) réduit réellement la taille du fichier en reconstruisant la base de données</li>
                 </ul>
-                
                 <h4>Exécuter l'optimisation de base de données</h4>
                 <ol>
                     <li>Cliquez sur le bouton "Nettoyer la base de données" dans l'onglet Base de données</li>
