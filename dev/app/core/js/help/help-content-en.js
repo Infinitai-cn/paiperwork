@@ -1,5 +1,6 @@
 
 window.helpContent = {
+
     // Getting Started section
     gettingstarted: {
         title: "Start",
@@ -2056,6 +2057,117 @@ window.helpContent = {
         ],
     },
 
+    // SlideForge Tab section
+    presentation: {
+        title: "SlideForge",
+        intro: "Create slide decks from documents using AI-assisted extraction and a preview editor.",
+        articles: [
+            {
+                id: "presentation-overview",
+                title: "Overview",
+                content: `
+            <p>The SlideForge tab converts supported documents (.pdf, .docx, .txt, .md) into a sequence of slides. The tab extracts text from your file, uses the AI to generate slide content, optionally retrieves images for slides, and opens an interactive preview where you can review and export the result.</p>
+            <p>Quick flow:</p>
+            <ol>
+                <li>Upload a document using drag & drop or the Browse button.</li>
+                <li>Choose number of slides and bullets per slide.</li>
+                <li>Add an optional extra prompt to control tone or style.</li>
+                <li>Click Generate to run extraction and AI generation.</li>
+                <li>Review and edit slides in the preview window, then export.</li>
+            </ol>
+        `,
+                image: "placeholder.png",
+                imageAlt: "SlideForge tab overview",
+                imageCaption: "Overview of the SlideForge tab",
+            },
+            {
+                id: "presentation-generating",
+                title: "Generating SlideForges",
+                content: `
+            <p>After you click Generate the system performs several steps and shows a progress modal:</p>
+            <ul>
+                <li><strong>Text extraction</strong> — document text is extracted for AI consumption.</li>
+                <li><strong>AI generation</strong> — the AI transforms extracted text into slide content (the extra prompt is included when provided).</li>
+                <li><strong>Parsing & images</strong> — AI output is parsed into structured slides and images are downloaded if available.</li>
+                <li><strong>Error handling</strong> — the tab automatically retries once on malformed AI replies; errors are shown in the loading modal.</li>
+            </ul>
+            <p>You can cancel generation at any time using the close/abort button in the loading modal. Aborting will stop background tasks and close the modal.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Generating presentations",
+                imageCaption: "Generation process and progress indicators",
+            },
+            {
+                id: "presentation-preview-export",
+                title: "Preview, Edit & Export",
+                content: `
+            <p>When generation succeeds a full-screen Preview Window opens. Key features of the preview:</p>
+            <ul>
+                <li><strong>Large slide view</strong> — review the currently selected slide rendered as HTML.</li>
+                <li><strong>Thumbnails</strong> — navigate slides with the thumbnail bar and jump to any slide.</li>
+                <li><strong>Inline editing</strong> — edit slide text directly in the preview (the preview applies slide data via the PreviewWindow API).</li>
+                <li><strong>Export options</strong> — use the preview controls to copy slide text, export images, or download HTML (exact export menu is provided by the preview UI).</li>
+            </ul>
+            <p>Tips: keep document text clear for best extraction, use a reasonable slide count relative to content length, and add an extra prompt when you need a specific tone or style.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Preview and export",
+                imageCaption: "Preview window, editing and export options",
+            },
+            {
+                id: "presentation-sidebar",
+                title: "SlideForge Sidebar",
+                content: `
+            <p>The SlideForge Sidebar provides per-slide and global controls to style slides, edit text, manage images, and apply AI-powered text changes.</p>
+            <h4>Tabs</h4>
+            <ul>
+                <li><strong>Style</strong> — pick and apply presentation styles (prebuilt cards such as Classic, Dark mode, Product, Corporate, and many theme presets). The <em>DIY</em> style opens a style manager where you can create or reuse custom styles stored locally.</li>
+                <li><strong>Text</strong> — contains global text controls (font, color, bullets) and node-specific controls for selected text elements.</li>
+                <li><strong>Pic</strong> — image tools including import/replace, change cover image, search images by description, and a thumbnail gallery for quick replacement.</li>
+            </ul>
+
+            <h4>Global vs Selected Controls</h4>
+            <p>The Text tab exposes global text controls applied to bullets and default text styles. When you select a text node on a slide, node-specific controls appear (font size, color, AI text modification) allowing per-node adjustments.</p>
+
+            <h4>AI Text Modification</h4>
+            <ul>
+                <li>Enter an instruction in the AI text box (example: "Translate to Spanish" or "Make these bullets more concise").</li>
+                <li>Use the <em>Modify</em> button to apply changes to the currently selected nodes.</li>
+                <li>Enable the <em>Apply to all text</em> switch to run the modification over all matching text nodes; the sidebar will attempt a batched, progress-reported path when available.</li>
+                <li>The Modify button toggles to <em>Cancel</em> while running — it aborts the operation using the shared presentation AbortController.</li>
+            </ul>
+
+            <h4>Picture Tools</h4>
+            <ul>
+                <li><strong>Import picture</strong> — replace the selected slide image or, when toggled, replace the cover image on the first stage.</li>
+                <li><strong>Change cover</strong> — helper-aware flow to replace a full-stage cover image; falls back to the standard import flow if a helper is not available.</li>
+                <li><strong>Search images</strong> — enter a description and click Search; results populate the thumbnail grid where you can pick an image to replace the selected picture.</li>
+                <li>The picture thumbnail grid is sized to show multiple rows and supplies progress/status messages while importing or replacing images.</li>
+            </ul>
+
+            <h4>Style Cards & DIY</h4>
+            <p>Style cards let you quickly apply visual themes. The DIY card either opens the style manager if custom styles exist (in-memory or in the DB) or launches a creation modal. Cards reflect availability and selection state visually.</p>
+
+            <h4>Helper Integration</h4>
+            <p>The sidebar relies on selection helpers attached to presentation stages to perform image replacement, batch AI edits, and node operations. If a helper is not found, the sidebar displays helpful messages and falls back to available global flows.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "SlideForge sidebar",
+                imageCaption: "Sidebar controls for styling, text, and images",
+            },
+            {
+                id: "presentation-export-note",
+                title: "Export PDF: What is exported",
+                content: `
+            <p><strong>Note:</strong> The <em>Export PDF</em> button exports the presentation exactly as it appears on screen — including slide text, images, shapes, and background visuals.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Export PDF note",
+                imageCaption: "Exports slides as seen in the preview",
+            },
+        ],
+    },
+
     // Models Tab section
     models: {
         title: "Models",
@@ -2621,7 +2733,7 @@ window.helpContent = {
     },
 };
 window.helpContentLoaded = true;
-console.log(
+/* console.log(
     "help-content.js loaded successfully, helpContent object created with sections:",
     Object.keys(helpContent)
-);
+); */
