@@ -28,13 +28,13 @@ class WebSearch {
     // Increments the count of active web search requests.
     static incrementActiveRequest() {
         this.activeRequests++;
-        console.log(`WebSearch: Incremented active requests: ${this.activeRequests}`);
+        //console.log(`WebSearch: Incremented active requests: ${this.activeRequests}`);
     }
 
     // Decrements the count of active web search requests.
     static decrementActiveRequest() {
         if (this.activeRequests > 0) this.activeRequests--;
-        console.log(`WebSearch: Decremented active requests: ${this.activeRequests}`);
+        //console.log(`WebSearch: Decremented active requests: ${this.activeRequests}`);
     }
 
     // Increments the count for a specific operation type (e.g., searches, extractions).
@@ -42,14 +42,14 @@ class WebSearch {
         if (!this.operationCounts) this.operationCounts = {};
         if (!this.operationCounts[type]) this.operationCounts[type] = 0;
         this.operationCounts[type]++;
-        console.log(`WebSearch: Incremented ${type} operations: ${this.operationCounts[type]}`);
+        //console.log(`WebSearch: Incremented ${type} operations: ${this.operationCounts[type]}`);
     }
 
     // Decrements the count for a specific operation type.
     static decrementOperation(type) {
         if (!this.operationCounts) return;
         if (this.operationCounts[type] > 0) this.operationCounts[type]--;
-        console.log(`WebSearch: Decremented ${type} operations: ${this.operationCounts[type]}`);
+        //console.log(`WebSearch: Decremented ${type} operations: ${this.operationCounts[type]}`);
     }
 
     // Returns statistics about current and past web search operations.
@@ -68,7 +68,7 @@ class WebSearch {
     }
     // Performs a smart web search, cleans the query, handles different modes, and enhances results.
     static async smartSearch(query, abortOrDate = new Date(), optionFlag = false) {
-        console.log('Starting web search for query:', query);
+        //console.log('Starting web search for query:', query);
 
         // Track this operation
         this.incrementOperation('searches');
@@ -76,7 +76,7 @@ class WebSearch {
         try {
             // IMPORTANT: Reset cancellation state when a new search starts
             if (this.isCancelled) {
-                console.log('WebSearch: Resetting cancellation state for new search');
+                //console.log('WebSearch: Resetting cancellation state for new search');
                 this.isCancelled = false;
                 // Create a fresh AbortController if needed
                 if (!this.abortController || this.abortController.signal.aborted) {
@@ -135,11 +135,11 @@ class WebSearch {
                     query = query.replace(/^["'](.+)["']$/, '$1');   // Remove outer quotes
                     query = query.replace(/\\"/g, '"');              // Fix escaped quotes
 
-                    console.log('WebSearch: Removed thinking tags from query');
-                    console.log(`Original query (${originalQuery.length} chars) → Cleaned query (${query.length} chars): "${query}"`);
+                    //console.log('WebSearch: Removed thinking tags from query');
+                    //console.log(`Original query (${originalQuery.length} chars) → Cleaned query (${query.length} chars): "${query}"`);
                 }
             }
-            console.log('🔍 CLEANED QUERY FOR SEARCH:', query);
+            //console.log('🔍 CLEANED QUERY FOR SEARCH:', query);
 
             // Parameter detection code
             let abortController = null;
@@ -157,13 +157,13 @@ class WebSearch {
             // Determine what mode we're operating in
             if (abortController && optionFlag === true) {
                 isResearchMode = true;
-                console.log('Research mode detected (PDF processing enabled)');
+                //console.log('Research mode detected (PDF processing enabled)');
             } else {
                 isDocumentWebSearch = optionFlag;
-                console.log(`Mode: ${isDocumentWebSearch ? 'Document+WebSearch' : 'Standard WebSearch'}`);
+                //console.log(`Mode: ${isDocumentWebSearch ? 'Document+WebSearch' : 'Standard WebSearch'}`);
             }
 
-            console.log(`Query characteristics: ${query.length} characters, ~${query.split(/\s+/).length} words`);
+            //console.log(`Query characteristics: ${query.length} characters, ~${query.split(/\s+/).length} words`);
 
             // Check for problematic queries
             if (!query || query.trim().length === 0) {
@@ -182,25 +182,25 @@ class WebSearch {
             // since it's already been optimized (but still cleaned of thinking tags)
             if (isDocumentWebSearch) {
                 // For document+websearch mode, preserve the query (after cleaning thinking tags)
-                console.log('Document+WebSearch mode detected - preserving cleaned search query');
-                console.log(`DOCUMENT+WEBSEARCH QUERY: "${query}"`);
+                //console.log('Document+WebSearch mode detected - preserving cleaned search query');
+                //console.log(`DOCUMENT+WEBSEARCH QUERY: "${query}"`);
 
-                // Save the cleaned query for debugging
-                localStorage.setItem('last_docwebsearch_query', query);
+                // Save the cleaned query for debugging (securely when possible)
+                try { await PaiperworkDB.secureLocalStorageSet('last_docwebsearch_query', query); } catch (e) { try { localStorage.setItem('last_docwebsearch_query', query); } catch (err) {} }
             } else if (isResearchMode) {
                 // Keep the research query as-is as well
-                console.log('Research mode detected - preserving cleaned search query');
-                console.log(`RESEARCH QUERY: "${query}"`);
+                //console.log('Research mode detected - preserving cleaned search query');
+                //console.log(`RESEARCH QUERY: "${query}"`);
             } else if (query.length > 300) {
                 // Only modify query further in standard search mode for long queries
-                console.log('Long query detected in standard search mode - attempting extraction');
+                //console.log('Long query detected in standard search mode - attempting extraction');
 
                 // Attempt to extract a more focused query if this appears to be a complex prompt
                 if (query.includes('Document context:') ||
                     query.includes('Based on') ||
                     query.includes('search query')) {
 
-                    console.log('Extracting focused search query from complex prompt');
+                    //console.log('Extracting focused search query from complex prompt');
 
                     // Try to extract just the query part
                     let focusedQuery = query;
@@ -217,7 +217,7 @@ class WebSearch {
                         const match = query.match(pattern);
                         if (match && match[1] && match[1].length > 3) {
                             focusedQuery = match[1].trim();
-                            console.log(`Extracted focused query using pattern: ${focusedQuery}`);
+                            //console.log(`Extracted focused query using pattern: ${focusedQuery}`);
                             break;
                         }
                     }
@@ -231,24 +231,24 @@ class WebSearch {
                             const questionWords = userQuestionMatch[1].split(/\s+/);
                             if (questionWords.length > 8) {
                                 focusedQuery = questionWords.slice(0, 8).join(' ');
-                                console.log(`Using simplified user question: ${focusedQuery}`);
+                                //console.log(`Using simplified user question: ${focusedQuery}`);
                             } else {
                                 focusedQuery = userQuestionMatch[1];
                             }
                         } else {
                             // Last resort: take just the first 50 characters
                             focusedQuery = query.substring(0, 50).trim();
-                            console.log(`Using truncated query: ${focusedQuery}`);
+                            //console.log(`Using truncated query: ${focusedQuery}`);
                         }
                     }
 
                     // Use the focused query instead
-                    console.log(`Original query (${query.length} chars) -> Focused query (${focusedQuery.length} chars): ${focusedQuery}`);
+                    //console.log(`Original query (${query.length} chars) -> Focused query (${focusedQuery.length} chars): ${focusedQuery}`);
                     query = focusedQuery;
                 } else {
                     // If it's just a long query without a clear structure, truncate it
                     query = query.substring(0, 200).trim();
-                    console.log(`Truncated long query to: ${query}`);
+                    //console.log(`Truncated long query to: ${query}`);
                 }
             }
 
@@ -260,7 +260,7 @@ class WebSearch {
 
             // Process results for PDFs if in research mode
             if (isResearchMode && searchResults && searchResults.items) {
-                console.log(`📄 PDF SCAN: Checking ${searchResults.items.length} search results for PDFs`);
+                //console.log(`📄 PDF SCAN: Checking ${searchResults.items.length} search results for PDFs`);
 
                 searchResults.items.forEach((item, index) => {
                     const url = item.link?.toLowerCase() || '';
@@ -270,7 +270,7 @@ class WebSearch {
                         url.includes('arxiv.org');
 
                     if (isPdf) {
-                        console.log(`📄 PDF DETECTED in search results [${index}]:`, item.link);
+                        //console.log(`📄 PDF DETECTED in search results [${index}]:`, item.link);
                         // Mark the item as PDF
                         item.isPdf = true;
                     }
@@ -278,7 +278,7 @@ class WebSearch {
 
                 // Log summary
                 const pdfCount = searchResults.items.filter(item => item.isPdf).length;
-                console.log(`📄 PDF SCAN COMPLETE: Found ${pdfCount} PDFs in search results`);
+                //console.log(`📄 PDF SCAN COMPLETE: Found ${pdfCount} PDFs in search results`);
             }
 
             // PARALLEL CONTENT ENHANCEMENT - Only if we have search results
@@ -287,11 +287,11 @@ class WebSearch {
                 this.incrementOperation('extractions');
 
                 try {
-                    console.log(`Starting parallel content enhancement for ${Math.min(isResearchMode ? 5 : 3, searchResults.items.length)} results`);
+                    //console.log(`Starting parallel content enhancement for ${Math.min(isResearchMode ? 5 : 5, searchResults.items.length)} results`);
 
                     // Pass the proper flags for content enhancement
                     // Research mode gets more extractions and PDF processing
-                    const extractionLimit = isResearchMode ? 5 : 3;
+                    const extractionLimit = isResearchMode ? 5 : 5;
 
                     // This will run content extraction in parallel
                     const enhancedResults = await this.enhanceWithPageContent(
@@ -317,7 +317,7 @@ class WebSearch {
 
             // Handle cancellation specially
             if (error.name === 'AbortError' || this.isCancelled) {
-                console.log('WebSearch: Search was cancelled');
+                //console.log('WebSearch: Search was cancelled');
                 return {
                     type: 'general',
                     items: [],
@@ -350,7 +350,7 @@ class WebSearch {
         } finally {
             // CRITICAL: Always decrement the search operation counter
             this.decrementOperation('searches');
-            console.log('WebSearch: smartSearch operation complete');
+            //console.log('WebSearch: smartSearch operation complete');
         }
     }
     // Performs a Bing search using the provided query and parses the results from HTML.
@@ -362,23 +362,23 @@ class WebSearch {
 
             // Check cancellation
             if (this.isCancelled) {
-                console.log('WebSearch: Skipping search due to cancellation flag');
+                //console.log('WebSearch: Skipping search due to cancellation flag');
                 throw new DOMException('Search operation was cancelled', 'AbortError');
             }
             this.pendingOperations.push(operationId);
-            console.log('Starting Bing search for query:', query);
-            console.log(`Search type: ${isDocumentWebSearch ? 'Document+WebSearch' : 'Standard WebSearch'}`);
+            //console.log('Starting Bing search for query:', query);
+            //console.log(`Search type: ${isDocumentWebSearch ? 'Document+WebSearch' : 'Standard WebSearch'}`);
 
             const encodedQuery = encodeURIComponent(query);
             const timestamp = new Date().getTime();
 
             // Add a parameter to identify document+websearch queries
             const proxyUrl = `/api/search/bing?q=${encodedQuery}&_t=${timestamp}${isDocumentWebSearch ? '&mode=doc' : ''}`;
-            console.log(`Making Bing search request to: ${proxyUrl}`);
+            //console.log(`Making Bing search request to: ${proxyUrl}`);
 
             // Log the original query for easy copy-pasting to a browser for comparison
             if (isDocumentWebSearch) {
-                console.log(`BING COMPARE URL: https://www.bing.com/search?q=${encodedQuery}`);
+                //console.log(`BING COMPARE URL: https://www.bing.com/search?q=${encodedQuery}`);
             }
 
             const response = await fetch(proxyUrl, {
@@ -397,13 +397,13 @@ class WebSearch {
             const htmlText = await response.text();
 
             // Log details about the response
-            console.log('DEBUG: Response size:', htmlText.length, 'bytes');
-            console.log('DEBUG: Response is valid HTML?', htmlText.startsWith('<!DOCTYPE html>'));
+            //console.log('DEBUG: Response size:', htmlText.length, 'bytes');
+            //console.log('DEBUG: Response is valid HTML?', htmlText.startsWith('<!DOCTYPE html>'));
 
-            // Save search query type and HTML sample for comparison
+            // Save search query type and HTML sample for comparison (securely when possible)
             const searchType = isDocumentWebSearch ? 'document_websearch' : 'normal_websearch';
-            localStorage.setItem(`last_${searchType}_query`, query);
-            localStorage.setItem(`last_${searchType}_html_sample`, htmlText.substring(0, 5000));
+            try { await PaiperworkDB.secureLocalStorageSet(`last_${searchType}_query`, query); } catch (e) { try { localStorage.setItem(`last_${searchType}_query`, query); } catch (err) {} }
+            try { await PaiperworkDB.secureLocalStorageSet(`last_${searchType}_html_sample`, htmlText.substring(0, 5000)); } catch (e) { try { localStorage.setItem(`last_${searchType}_html_sample`, htmlText.substring(0, 5000)); } catch (err) {} }
 
             // Parse the HTML to extract search results
             const parser = new DOMParser();
@@ -413,21 +413,21 @@ class WebSearch {
             const hasResultsList = htmlDoc.querySelector('#b_results') !== null;
             const hasCaptcha = htmlText.includes('captcha') || htmlText.includes('unusual traffic');
 
-            console.log('DEBUG: HTML contains b_results:', hasResultsList);
-            console.log('DEBUG: HTML contains b_algo:', hasSearchResults);
-            console.log('DEBUG: HTML shows signs of CAPTCHA/blocking:', hasCaptcha);
+            //console.log('DEBUG: HTML contains b_results:', hasResultsList);
+            //console.log('DEBUG: HTML contains b_algo:', hasSearchResults);
+            //console.log('DEBUG: HTML shows signs of CAPTCHA/blocking:', hasCaptcha);
 
             // Add a safety check to detect API blocking
             if (hasCaptcha) {
                 console.warn('WARNING: Bing appears to be blocking our requests with a CAPTCHA challenge.');
-                // Save the HTML for debugging
-                localStorage.setItem('bing_blocked_html', htmlText.substring(0, 10000));
+                // Save the HTML for debugging (securely when possible)
+                try { await PaiperworkDB.secureLocalStorageSet('bing_blocked_html', htmlText.substring(0, 10000)); } catch (e) { try { localStorage.setItem('bing_blocked_html', htmlText.substring(0, 10000)); } catch (err) {} }
             }
 
             // If we're missing search results but have HTML, add a special debug file
             if (!hasSearchResults && htmlText.length > 1000) {
                 console.warn('WARNING: Response does not contain search results markers');
-                localStorage.setItem('bing_no_results_html', htmlText.substring(0, 10000));
+                try { await PaiperworkDB.secureLocalStorageSet('bing_no_results_html', htmlText.substring(0, 10000)); } catch (e) { try { localStorage.setItem('bing_no_results_html', htmlText.substring(0, 10000)); } catch (err) {} }
             }
             // Extract search results from the HTML
             const results = {
@@ -442,7 +442,7 @@ class WebSearch {
             const countElement = htmlDoc.querySelector('.sb_count');
             if (countElement) {
                 results.resultCount = countElement.textContent.trim();
-                console.log(`Results count from page: ${results.resultCount}`);
+                //console.log(`Results count from page: ${results.resultCount}`);
             }
 
             // IMPROVED: More comprehensive selector approach
@@ -460,18 +460,18 @@ class WebSearch {
 
             for (const strategy of selectorStrategies) {
                 const elements = htmlDoc.querySelectorAll(strategy.selector);
-                console.log(`Selector strategy '${strategy.name}' (${strategy.selector}): found ${elements.length} elements`);
+                //console.log(`Selector strategy '${strategy.name}' (${strategy.selector}): found ${elements.length} elements`);
 
                 if (elements.length > 0) {
                     resultElements = Array.from(elements);
-                    console.log(`Using strategy: ${strategy.name} with ${resultElements.length} results`);
+                    //console.log(`Using strategy: ${strategy.name} with ${resultElements.length} results`);
                     break;
                 }
             }
 
             // If no structured results found, fall back to all links that look like search results
             if (resultElements.length === 0) {
-                console.log('No results found with structured selectors, falling back to link extraction');
+                //console.log('No results found with structured selectors, falling back to link extraction');
                 const allLinks = htmlDoc.querySelectorAll('a[href^="http"]');
 
                 // Filter links to only include those that look like search results
@@ -488,14 +488,14 @@ class WebSearch {
                         link.textContent.trim().length > 10;
                 });
 
-                console.log(`Extracted ${resultElements.length} potential result links`);
+                //console.log(`Extracted ${resultElements.length} potential result links`);
             }
 
             // Process the found elements
             let refCounter = 1;
             let processedUrls = new Set();
 
-            console.log(`Processing ${resultElements.length} result elements`);
+            //console.log(`Processing ${resultElements.length} result elements`);
 
             // IMPROVED: More robust element processing
             resultElements.forEach((element) => {
@@ -607,11 +607,11 @@ class WebSearch {
             });
 
             // FIXED: Move this log statement outside of catch block
-            console.log(`Found ${processedUrls.size} unique URLs from ${resultElements.length} elements`);
+            //console.log(`Found ${processedUrls.size} unique URLs from ${resultElements.length} elements`);
 
             // Add a fallback result with synthetic data if nothing was found
             if (results.items.length === 0) {
-                console.log('No search results found in the HTML response');
+                //console.log('No search results found in the HTML response');
 
                 // FIXED: Use the proxy URL instead of direct Bing link
                 // Add a synthetic search result that points to the proxy
@@ -629,7 +629,7 @@ class WebSearch {
                     title: Lang.get('webSearchResultsForQuery', { query })
                 });
             } else {
-                console.log(`Successfully extracted ${results.items.length} search results`);
+                //console.log(`Successfully extracted ${results.items.length} search results`);
             }
             const index = this.pendingOperations.indexOf(operationId);
             if (index > -1) this.pendingOperations.splice(index, 1);
@@ -640,7 +640,7 @@ class WebSearch {
 
             // Handle cancellation specially
             if (error.name === 'AbortError' || this.isCancelled) {
-                console.log('WebSearch: Search was cancelled');
+                //console.log('WebSearch: Search was cancelled');
                 return {
                     type: 'general',
                     items: [],
@@ -676,7 +676,7 @@ class WebSearch {
 
     // Formats the search results and enhanced content into a readable string.
     static formatSearchResults(results, isDocumentWebSearch = false) {
-        console.log(`Formatting search results (mode: ${isDocumentWebSearch ? 'Document+WebSearch' : 'Standard WebSearch'})`);
+        //console.log(`Formatting search results (mode: ${isDocumentWebSearch ? 'Document+WebSearch' : 'Standard WebSearch'})`);
 
         let formattedResults = '';
 
@@ -716,10 +716,20 @@ class WebSearch {
         formattedResults += `${Lang.get('webSearchResults')}:\n\n`;
 
         // Add the actual search results
+        // Use numeric refs internally (item.refId) but present markdown links for UI and model consumption.
+        const escapeMarkdown = (text = '') => {
+            // Escape characters that can break markdown links or formatting
+            return String(text).replace(/[\\\[\]\(\)\*_`]/g, '\\$&');
+        };
+
         if (results.items && results.items.length > 0) {
             results.items.forEach(item => {
-                formattedResults += `[${item.refId}] ${item.title}\n`;
-                formattedResults += `${item.link}\n`;
+                const title = item.title || item.link || '';
+                const safeTitle = escapeMarkdown(title);
+                const safeUrl = item.link || '';
+
+                // Format: [refId] [Title](<url>) — wrap URL in angle brackets to avoid breaking markdown when URLs contain parentheses
+                formattedResults += `[${item.refId}] [${safeTitle}](<${safeUrl}>)\n`;
 
                 if (item.snippet) {
                     formattedResults += `${item.snippet}\n`;
@@ -741,11 +751,11 @@ class WebSearch {
     static async enhanceWithPageContent(results, maxExtractionsCount = 5, isResearchMode = false) {
         // Add proper operation tracking here
         this.incrementOperation('extractions');
-        console.log(`🔍 [Content Extraction] Starting parallel extraction of content for ${Math.min(maxExtractionsCount, results.items?.length || 0)} results`);
+        //console.log(`🔍 [Content Extraction] Starting parallel extraction of content for ${Math.min(maxExtractionsCount, results.items?.length || 0)} results`);
 
         try {
             if (this.isCancelled) {
-                console.log('WebSearch: Skipping content enhancement due to cancellation');
+                //console.log('WebSearch: Skipping content enhancement due to cancellation');
                 return results;
             }
 
@@ -754,7 +764,7 @@ class WebSearch {
             const topResults = extractionLimit > 0 ? results.items.slice(0, extractionLimit) : [];
 
             if (!topResults.length) {
-                console.log('🔍 [Content Extraction] No results to enhance');
+                //console.log('🔍 [Content Extraction] No results to enhance');
                 return results;
             }
 
@@ -763,7 +773,7 @@ class WebSearch {
             enhancedResults.enhancedContent = [];
 
             // PARALLEL PROCESSING: Process all extractions simultaneously
-            console.log(`🔍 [Content Extraction] Beginning parallel extraction of ${topResults.length} results`);
+            //console.log(`🔍 [Content Extraction] Beginning parallel extraction of ${topResults.length} results`);
 
             // Create an array of promises for parallel execution
             const extractionPromises = topResults.map((item, index) =>
@@ -771,19 +781,19 @@ class WebSearch {
             );
 
             // Wait for all extractions to complete in parallel
-            console.log(`🔍 [Content Extraction] Waiting for ${extractionPromises.length} parallel extractions to complete`);
+            //console.log(`🔍 [Content Extraction] Waiting for ${extractionPromises.length} parallel extractions to complete`);
             const extractionResults = await Promise.all(extractionPromises);
 
             // Filter out null results (failed extractions)
             enhancedResults.enhancedContent = extractionResults.filter(result => result !== null);
 
             // Log extraction summary
-            console.log(`🔍 [Content Extraction] Completed with ${enhancedResults.enhancedContent.length}/${topResults.length} successful extractions`);
+            //console.log(`🔍 [Content Extraction] Completed with ${enhancedResults.enhancedContent.length}/${topResults.length} successful extractions`);
 
             // PDF summary if in research mode
             if (isResearchMode) {
                 const pdfCount = enhancedResults.enhancedContent.filter(r => r.isPdf || r.contentType === 'pdf').length;
-                console.log(`📄 PDF DETECTION: Found ${pdfCount} PDFs among the enhanced content`);
+                //console.log(`📄 PDF DETECTION: Found ${pdfCount} PDFs among the enhanced content`);
             }
 
             return enhancedResults;
@@ -795,7 +805,7 @@ class WebSearch {
         } finally {
             // CRITICAL: Always decrement the extraction operation counter
             this.decrementOperation('extractions');
-            console.log('🔍 [Content Extraction] Enhancement operation complete');
+            //console.log('🔍 [Content Extraction] Enhancement operation complete');
         }
     }
     // Extracts content from a single search result, handling PDFs and HTML pages.
@@ -806,7 +816,7 @@ class WebSearch {
             // Skip if URL doesn't look valid
             const url = item.link;
             if (!url || !url.startsWith('http')) {
-                console.log(`🔍 [Content Extraction] [${index + 1}] ⚠️ Skipping invalid URL: ${url}`);
+                //console.log(`🔍 [Content Extraction] [${index + 1}] ⚠️ Skipping invalid URL: ${url}`);
                 return null;
             }
 
@@ -822,7 +832,7 @@ class WebSearch {
                 url.includes('.png') ||
                 url.includes('/image') ||
                 url.includes('/video')) {
-                console.log(`🔍 [Content Extraction] [${index + 1}] ${isResearchMode ? '📄 Processing PDF in research mode:' : '⚠️ Skipping non-HTML content URL:'} ${url}`);
+                //console.log(`🔍 [Content Extraction] [${index + 1}] ${isResearchMode ? '📄 Processing PDF in research mode:' : '⚠️ Skipping non-HTML content URL:'} ${url}`);
 
                 // If we're in research mode and this is a PDF, return a special marker
                 if (isPdf && isResearchMode) {
@@ -864,7 +874,7 @@ class WebSearch {
 
             const extractionData = await response.json();
 
-            console.log(`🔍 [Content Extraction] [${index + 1}] ✅ Extracted ${extractionData.content.length} chars from ${url} in ${Math.round(performance.now() - startTime)}ms`);
+            //console.log(`🔍 [Content Extraction] [${index + 1}] ✅ Extracted ${extractionData.content.length} chars from ${url} in ${Math.round(performance.now() - startTime)}ms`);
 
             return {
                 originalIndex: index,
@@ -888,7 +898,7 @@ class WebSearch {
     }
     // Cancels all ongoing and pending web search operations.
     static cancelAllOperations() {
-        console.log('WebSearch: Cancelling all search operations');
+        //console.log('WebSearch: Cancelling all search operations');
 
         // Set cancellation flag immediately
         this.isCancelled = true;
@@ -905,11 +915,11 @@ class WebSearch {
 
         // Reset the flag after a delay to allow for new operations
         setTimeout(() => {
-            console.log('WebSearch: Resetting cancellation state');
+            //console.log('WebSearch: Resetting cancellation state');
             this.isCancelled = false;
         }, 1000);
 
-        console.log('WebSearch: Cancellation complete');
+        //console.log('WebSearch: Cancellation complete');
         return true;
     }
 
