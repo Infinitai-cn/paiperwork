@@ -20,7 +20,7 @@ function setAppropriateHelpImage() {
     logoImg.src = isDarkMode
       ? `${basePath}images/Paiperwork-APP-dark.png`
       : `${basePath}images/Paiperwork-APP-light.png`;
-    console.log("Help logo set to:", logoImg.src);
+    //console.log("Help logo set to:", logoImg.src);
   } else {
     console.warn("Help logo element not found");
   }

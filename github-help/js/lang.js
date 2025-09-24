@@ -36,10 +36,10 @@ static async loadLanguage(lang) {
         const isGitHubPages = window.location.hostname.includes('github.io') || window.location.hostname.includes('githubusercontent.com');
         let langPath;
         
-        console.log('Current path for language loading:', currentPath); // Debug log
-        console.log('Is GitHub Pages:', isGitHubPages); // Debug log
-        console.log('Current hostname:', window.location.hostname); // Debug log
-        console.log('Full URL:', window.location.href); // Debug log
+        //console.log('Current path for language loading:', currentPath); // Debug log
+        //console.log('Is GitHub Pages:', isGitHubPages); // Debug log
+        //console.log('Current hostname:', window.location.hostname); // Debug log
+        //console.log('Full URL:', window.location.href); // Debug log
         
         if (isGitHubPages) {
             // When hosted on GitHub Pages, construct full path relative to github-help directory
@@ -52,7 +52,7 @@ static async loadLanguage(lang) {
             }
         } 
         
-        console.log('Using language path:', langPath); // Debug log
+        //console.log('Using language path:', langPath); // Debug log
         script.src = langPath;
         
         return new Promise((resolve, reject) => {
