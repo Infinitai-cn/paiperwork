@@ -4,11 +4,7 @@ if (!window.jsPDF && window.jspdf && window.jspdf.jsPDF) {
 }
 
 class pdfExport {
-    /**
-     * Export all Konva stages as images in a landscape PDF.
-     * @param {Array} stages - Array of Konva.Stage objects
-     * @param {Object} [options] - Optional: { pdfName: string, pageWidth: number, pageHeight: number }
-     */
+
     static exportSlideForgePDF(stages, options = {}) {
         //console.log('[pdfExport] Called exportSlideForgePDF', { stages, options, jsPDF: !!window.jsPDF });
         if (!window.jsPDF) {
