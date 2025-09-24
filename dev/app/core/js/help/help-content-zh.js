@@ -112,7 +112,7 @@ window.helpContent = {
                 <ul>
                     <li>防止意外删除您的所有数据和对话</li>
                     <li>在执行"删除所有信息"操作之前需要密码验证</li>
-                    <li>完全可选 - 您可以选择是否设置（仅在从数据库删除所有信息时需要）</li>
+                    <li>完全可选 - 您可以选择是否设置保护密码（仅在从数据库删除所有信息时需要）</li>
                     <li>使用基于盐的哈希加密安全存储</li>
                 </ul>
                 
@@ -2048,7 +2048,7 @@ window.helpContent = {
                 <li>在预览窗口中审阅并编辑幻灯片，然后导出。</li>
             </ol>
         `,
-                image: "placeholder.png",
+                image: "tab_overview.png",
                 imageAlt: "演示选项卡概述",
                 imageCaption: "演示选项卡概述",
             },
@@ -2065,7 +2065,7 @@ window.helpContent = {
             </ul>
             <p>你可以随时使用加载模态中的关闭/中止按钮取消生成。中止会停止后台任务并关闭模态。</p>
         `,
-                image: "placeholder.png",
+                image: "generating_presentation.png",
                 imageAlt: "生成演示文稿",
                 imageCaption: "生成过程和进度指示",
             },
@@ -2082,7 +2082,7 @@ window.helpContent = {
             </ul>
             <p>提示：为获得最佳提取效果，请保持文档文本清晰；根据内容长度选择合理的幻灯片数量；如需特定语气或风格，可添加额外提示。</p>
         `,
-                image: "placeholder.png",
+                image: "preview_editing_export.png",
                 imageAlt: "预览与导出",
                 imageCaption: "预览窗口、编辑与导出选项",
             },
@@ -2123,7 +2123,7 @@ window.helpContent = {
             <h4>与 helpers 的集成</h4>
             <p>侧边栏依赖附加在演示阶段（stage）上的选择 helper 来执行图片替换、批量 AI 编辑和节点操作。如果找不到 helper，侧边栏会显示提示并退回到可用的全局流程。</p>
         `,
-                image: "placeholder.png",
+                image: "sidebar_controls.png",
                 imageAlt: "演示侧边栏",
                 imageCaption: "侧边栏用于样式、文本和图片的控制",
             },
@@ -2133,7 +2133,7 @@ window.helpContent = {
                 content: `
             <p><strong>注意：</strong> <em>导出 PDF</em> 按钮会将演示按屏幕所见完整导出 — 包括幻灯片文本、图片、形状和背景视觉元素。</p>
         `,
-                image: "placeholder.png",
+                image: "export_slides.png",
                 imageAlt: "导出 PDF 说明",
                 imageCaption: "将幻灯片以预览中所见方式导出",
             },

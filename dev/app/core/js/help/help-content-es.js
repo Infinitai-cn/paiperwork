@@ -2057,6 +2057,7 @@ window.helpContent = {
             </ol>
         `,
                 image: "placeholder.png",
+                    image: "tab_overview.png",
                 imageAlt: "Descripción general de la pestaña Presentación",
                 imageCaption: "Descripción general de la pestaña Presentación",
             },
@@ -2074,6 +2075,7 @@ window.helpContent = {
             <p>Puedes cancelar la generación en cualquier momento usando el botón cerrar/abort en el modal de carga. Abortando se detendrán las tareas en segundo plano y se cerrará el modal.</p>
         `,
                 image: "placeholder.png",
+                    image: "generating_presentation.png",
                 imageAlt: "Generación de presentaciones",
                 imageCaption: "Proceso de generación e indicadores de progreso",
             },
@@ -2091,6 +2093,7 @@ window.helpContent = {
             <p>Consejos: mantén el texto del documento claro para una mejor extracción, usa un número razonable de diapositivas en relación con la longitud del contenido y añade un prompt adicional cuando necesites un tono o estilo específico.</p>
         `,
                 image: "placeholder.png",
+                    image: "preview_editing_export.png",
                 imageAlt: "Vista previa y exportar",
                 imageCaption: "Ventana de vista previa, edición y opciones de exportación",
             },
@@ -2132,6 +2135,7 @@ window.helpContent = {
             <p>La barra lateral depende de helpers de selección adjuntos a las etapas de la presentación para realizar reemplazos de imagen, ediciones IA por lotes y operaciones de nodo. Si no se encuentra un helper, la barra lateral muestra mensajes útiles y recurre a los flujos globales disponibles.</p>
         `,
                 image: "placeholder.png",
+                    image: "sidebar_controls.png",
                 imageAlt: "Barra lateral de presentación",
                 imageCaption: "Controles de la barra lateral para estilo, texto e imágenes",
             },
@@ -2142,6 +2146,7 @@ window.helpContent = {
             <p><strong>Nota:</strong> El botón <em>Export PDF</em> exporta la presentación exactamente como aparece en pantalla — incluyendo el texto de las diapositivas, las imágenes, las formas y los elementos de fondo.</p>
         `,
                 image: "placeholder.png",
+                    image: "export_slides.png",
                 imageAlt: "Nota Exportar PDF",
                 imageCaption: "Exporta las diapositivas tal como se muestran en la vista previa",
             },

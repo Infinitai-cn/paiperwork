@@ -412,8 +412,8 @@
             <p id="loading-message">Loading help content...</p>
         </div>
 
-        <!-- Return button -->
-        <button onclick="window.history.back()" class="close-button" id="return-button">Return</button>
+    <!-- Return button -->
+    <button class="close-button" id="close-help">Return</button>
     </div>
 
     <script>
@@ -510,8 +510,8 @@
                 loadingMessage.textContent = Lang.get('loadingHelpContent') || 'Loading help content...';
             }
             
-            // Update return button
-            const returnButton = document.getElementById('return-button');
+            // Update return/close button
+            const returnButton = document.getElementById('close-help');
             if (returnButton) {
                 returnButton.textContent = Lang.get('returnButton') || 'Return';
             }

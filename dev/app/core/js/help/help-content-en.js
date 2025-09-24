@@ -2076,7 +2076,7 @@ window.helpContent = {
                 <li>Review and edit slides in the preview window, then export.</li>
             </ol>
         `,
-                image: "placeholder.png",
+                image: "tab_overview.png",
                 imageAlt: "SlideForge tab overview",
                 imageCaption: "Overview of the SlideForge tab",
             },
@@ -2093,7 +2093,7 @@ window.helpContent = {
             </ul>
             <p>You can cancel generation at any time using the close/abort button in the loading modal. Aborting will stop background tasks and close the modal.</p>
         `,
-                image: "placeholder.png",
+                image: "generating_presentation.png",
                 imageAlt: "Generating presentations",
                 imageCaption: "Generation process and progress indicators",
             },
@@ -2110,7 +2110,7 @@ window.helpContent = {
             </ul>
             <p>Tips: keep document text clear for best extraction, use a reasonable slide count relative to content length, and add an extra prompt when you need a specific tone or style.</p>
         `,
-                image: "placeholder.png",
+                image: "preview_editing_export.png",
                 imageAlt: "Preview and export",
                 imageCaption: "Preview window, editing and export options",
             },
@@ -2151,7 +2151,7 @@ window.helpContent = {
             <h4>Helper Integration</h4>
             <p>The sidebar relies on selection helpers attached to presentation stages to perform image replacement, batch AI edits, and node operations. If a helper is not found, the sidebar displays helpful messages and falls back to available global flows.</p>
         `,
-                image: "placeholder.png",
+                image: "sidebar_controls.png",
                 imageAlt: "SlideForge sidebar",
                 imageCaption: "Sidebar controls for styling, text, and images",
             },
@@ -2161,7 +2161,7 @@ window.helpContent = {
                 content: `
             <p><strong>Note:</strong> The <em>Export PDF</em> button exports the presentation exactly as it appears on screen — including slide text, images, shapes, and background visuals.</p>
         `,
-                image: "placeholder.png",
+                image: "export_slides.png",
                 imageAlt: "Export PDF note",
                 imageCaption: "Exports slides as seen in the preview",
             },
