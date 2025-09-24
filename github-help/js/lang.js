@@ -50,19 +50,7 @@ static async loadLanguage(lang) {
                 // Need to navigate to github-help first
                 langPath = `github-help/js/lang-${lang}.js`;
             }
-        } else if (currentPath.includes('/core/js/help/')) {
-            // help.html at /dev/app/core/js/help/help.html
-            langPath = `../translations/lang-${lang}.js`;
-        } else if (currentPath.endsWith('/generation.html') || currentPath.includes('/core/generation.html')) {
-            // generation.html at /dev/app/core/generation.html
-            langPath = `js/translations/lang-${lang}.js`;
-        } else if (currentPath.includes('/core/')) {
-            // Other files in core directory
-            langPath = `js/translations/lang-${lang}.js`;
-        } else {
-            // index.html, welcome.html at /dev/app/
-            langPath = `core/js/translations/lang-${lang}.js`;
-        }
+        } 
         
         console.log('Using language path:', langPath); // Debug log
         script.src = langPath;
