@@ -88,7 +88,7 @@
             script.src = `/paiperwork/github-help/js/help-content-${language}.js`;
             
             script.onload = function() {
-                console.log(`Help content loaded for language: ${language}`);
+                //console.log(`Help content loaded for language: ${language}`);
                 window.helpContentLoaded = true;
                 initializeHelpPage();
             };
@@ -108,7 +108,7 @@
         }
         
         function initializeHelpPage() {
-            console.log("Help page initialized");
+            //console.log("Help page initialized");
             
             // Set logo based on theme
             setAppropriateHelpImage();

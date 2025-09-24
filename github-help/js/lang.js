@@ -37,12 +37,18 @@ static async loadLanguage(lang) {
         
         //console.log('Current path for language loading:', currentPath); // Debug log
         
-        if (currentPath.includes('/github-help/')) {
-            // help.html at /github-help/help.html
-            langPath = `/paiperwork/github-help/js/lang-${lang}.js`;
+        if (currentPath.includes('/core/js/help/')) {
+            // help.html at /dev/app/core/js/help/help.html
+            langPath = `../translations/lang-${lang}.js`;
+        } else if (currentPath.endsWith('/generation.html') || currentPath.includes('/core/generation.html')) {
+            // generation.html at /dev/app/core/generation.html
+            langPath = `js/translations/lang-${lang}.js`;
+        } else if (currentPath.includes('/core/')) {
+            // Other files in core directory
+            langPath = `js/translations/lang-${lang}.js`;
         } else {
-            // Default path for other locations
-            langPath = `js/lang-${lang}.js`;
+            // index.html, welcome.html at /dev/app/
+            langPath = `core/js/translations/lang-${lang}.js`;
         }
         
         //console.log('Using language path:', langPath); // Debug log

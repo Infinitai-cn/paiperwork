@@ -1,4 +1,5 @@
 window.helpContent = {
+
     gettingstarted: {
         title: "Começando",
         intro: "Bem-vindo ao Paiperwork, uma interface web segura para Ollama que prioriza a privacidade dos dados e facilidade de uso. Este assistente focado em profissionais oferece recursos de produtividade mantendo seus dados locais e protegidos.",
@@ -338,9 +339,9 @@ window.helpContent = {
                 ]
             },
             {
-            id: "chat-advanced-features",
-            title: "Recursos Avançados do Chat",
-            content: `
+                id: "chat-advanced-features",
+                title: "Recursos Avançados do Chat",
+                content: `
                  <h4>Controle do Tamanho do Contexto</h4>
                  <p>O tamanho do contexto determina quanto da sua conversa anterior a IA pode "lembrar" e usar ao gerar respostas:</p>
                  <ul>
@@ -1175,7 +1176,7 @@ window.helpContent = {
             },
         ],
     },
-paperworks: {
+    paperworks: {
         title: "Papelada",
         intro:
             "A aba Papelada ajuda você a criar e gerenciar modelos de documentos profissionais e formulários com assistência de IA, mantendo todos os seus dados privados e locais.",
@@ -1392,7 +1393,7 @@ paperworks: {
             },
         ],
     },
-research: {
+    research: {
         title: "Pesquisa",
         intro: "A aba Pesquisa fornece poderosos recursos de pesquisa assistida por IA e uma base de conhecimento pessoal para armazenar e recuperar informações.",
         articles: [
@@ -1777,7 +1778,7 @@ research: {
             }
         ],
     },
-artworks: {
+    artworks: {
         title: "Design",
         intro:
             "A aba ODesign Visual permite usar modelos de visão de IA para analisar escolhas de design, gerar protótipos de sites baseados em designs visuais e criar sobreposições de texto para imagens.",
@@ -2024,7 +2025,116 @@ artworks: {
             },
         ],
     },
-models: {
+    presentation: {
+        title: "Apresentação",
+        intro: "Crie slides a partir de documentos usando extração assistida por IA e um editor de visualização.",
+        articles: [
+            {
+                id: "presentation-overview",
+                title: "Visão geral",
+                content: `
+            <p>A aba Apresentação converte documentos compatíveis (.pdf, .docx, .txt, .md) em uma sequência de slides. A aba extrai o texto do seu arquivo, usa a IA para gerar o conteúdo dos slides, opcionalmente recupera imagens para os slides e abre uma visualização interativa onde você pode revisar e exportar o resultado.</p>
+            <p>Fluxo rápido:</p>
+            <ol>
+                <li>Envie um documento usando arrastar e soltar ou o botão Procurar.</li>
+                <li>Escolha o número de slides e pontos por slide.</li>
+                <li>Adicione um prompt extra opcional para controlar tom ou estilo.</li>
+                <li>Clique em Gerar para executar extração e geração por IA.</li>
+                <li>Revise e edite os slides na janela de visualização e então exporte.</li>
+            </ol>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Visão geral da aba Apresentação",
+                imageCaption: "Visão geral da aba Apresentação",
+            },
+            {
+                id: "presentation-generating",
+                title: "Gerando apresentações",
+                content: `
+            <p>Depois de clicar em Gerar, o sistema executa vários passos e exibe um modal de progresso:</p>
+            <ul>
+                <li><strong>Extração de texto</strong> — o texto do documento é extraído para consumo pela IA.</li>
+                <li><strong>Geração por IA</strong> — a IA transforma o texto extraído em conteúdo de slides (o prompt extra é incluído quando fornecido).</li>
+                <li><strong>Parsing e imagens</strong> — a saída da IA é analisada em slides estruturados e imagens são baixadas se disponíveis.</li>
+                <li><strong>Tratamento de erros</strong> — a aba automaticamente tenta novamente uma vez em respostas malformadas da IA; erros são exibidos no modal de carregamento.</li>
+            </ul>
+            <p>Você pode cancelar a geração a qualquer momento usando o botão fechar/abort no modal de carregamento. Abortando, as tarefas em segundo plano serão interrompidas e o modal fechado.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Gerando apresentações",
+                imageCaption: "Processo de geração e indicadores de progresso",
+            },
+            {
+                id: "presentation-preview-export",
+                title: "Visualizar, Editar e Exportar",
+                content: `
+            <p>Quando a geração for bem-sucedida, uma Janela de Visualização em tela cheia é aberta. Recursos principais da visualização:</p>
+            <ul>
+                <li><strong>Visualização ampliada do slide</strong> — revise o slide atualmente selecionado renderizado como HTML.</li>
+                <li><strong>Miniaturas</strong> — navegue pelos slides com a barra de miniaturas e vá para qualquer slide.</li>
+                <li><strong>Edição inline</strong> — edite o texto do slide diretamente na visualização (a visualização aplica os dados do slide via a API PreviewWindow).</li>
+                <li><strong>Opções de exportação</strong> — use os controles da visualização para copiar o texto do slide, exportar imagens ou baixar o HTML (o menu exato de exportação é fornecido pela UI da visualização).</li>
+            </ul>
+            <p>Dicas: mantenha o texto do documento claro para melhor extração, use uma quantidade razoável de slides em relação ao comprimento do conteúdo e adicione um prompt extra quando precisar de um tom ou estilo específico.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Visualizar e exportar",
+                imageCaption: "Janela de visualização, edição e opções de exportação",
+            },
+            {
+                id: "presentation-sidebar",
+                title: "Barra lateral da Apresentação",
+                content: `
+            <p>A Barra lateral da Apresentação fornece controles por slide e globais para estilizar slides, editar texto, gerenciar imagens e aplicar alterações de texto com IA.</p>
+            <h4>Abas</h4>
+            <ul>
+                <li><strong>Estilo</strong> — escolha e aplique estilos de apresentação (cartões pré-construídos como Clássico, Modo Escuro, Produto, Corporativo e muitos presets de tema). O estilo <em>DIY</em> abre um gerenciador de estilos onde você pode criar ou reutilizar estilos personalizados armazenados localmente.</li>
+                <li><strong>Texto</strong> — contém controles de texto globais (fonte, cor, marcadores) e controles específicos por nó para elementos de texto selecionados.</li>
+                <li><strong>Imagem</strong> — ferramentas de imagem incluindo importar/substituir, alterar imagem de capa, buscar imagens por descrição e uma galeria de miniaturas para substituição rápida.</li>
+            </ul>
+
+            <h4>Controles globais vs selecionados</h4>
+            <p>A aba Texto expõe controles globais aplicados a marcadores e estilos de texto padrão. Quando você seleciona um nó de texto em um slide, controles específicos do nó aparecem (tamanho da fonte, seletor de cores, modificação de texto por IA) permitindo ajustes por nó.</p>
+
+            <h4>Modificação de texto por IA</h4>
+            <ul>
+                <li>Digite uma instrução no campo de texto da IA (exemplo: "Traduzir para português" ou "Deixe estes marcadores mais concisos").</li>
+                <li>Use o botão <em>Modificar</em> para aplicar as alterações aos nós atualmente selecionados.</li>
+                <li>Ative o interruptor <em>Aplicar a todo o texto</em> para executar a modificação em todos os nós de texto correspondentes; a barra lateral tentará um caminho em lote com relatório de progresso quando disponível.</li>
+                <li>O botão Modificar alterna para <em>Cancelar</em> enquanto estiver em execução — ele aborta a operação usando o SlideForge AbortController compartilhado.</li>
+            </ul>
+
+            <h4>Ferramentas de imagem</h4>
+            <ul>
+                <li><strong>Importar imagem</strong> — substitui a imagem selecionada do slide ou, quando alternado, substitui a imagem de capa no primeiro slide.</li>
+                <li><strong>Alterar capa</strong> — fluxo com suporte a helper para substituir uma imagem de capa em etapa completa; reverte para o fluxo padrão de importação se nenhum helper estiver disponível.</li>
+                <li><strong>Buscar imagens</strong> — insira uma descrição e clique em Buscar; os resultados preenchem a grade de miniaturas onde você pode escolher uma imagem para substituir a imagem selecionada.</li>
+                <li>A grade de miniaturas é dimensionada para mostrar múltiplas linhas e fornece mensagens de progresso/estado durante a importação ou substituição de imagens.</li>
+            </ul>
+
+            <h4>Cartões de estilo e DIY</h4>
+            <p>Os cartões de estilo permitem aplicar rapidamente temas visuais. O cartão DIY abre o gerenciador de estilos se existirem estilos personalizados (em memória ou no BD) ou lança um modal de criação. Os cartões refletem visualmente a disponibilidade e o estado de seleção.</p>
+
+            <h4>Integração com helpers</h4>
+            <p>A barra lateral depende de helpers de seleção anexados aos estágios da apresentação para realizar substituições de imagem, edições em lote por IA e operações de nó. Se um helper não for encontrado, a barra lateral exibe mensagens úteis e recorre aos fluxos globais disponíveis.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Barra lateral da apresentação",
+                imageCaption: "Controles da barra lateral para estilo, texto e imagens",
+            },
+            {
+                id: "presentation-export-note",
+                title: "Exportar PDF: O que é exportado",
+                content: `
+            <p><strong>Nota:</strong> O botão <em>Export PDF</em> exporta a apresentação exatamente como aparece na tela — incluindo texto dos slides, imagens, formas e elementos de fundo.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Nota Exportar PDF",
+                imageCaption: "Exporta os slides como mostrado na visualização",
+            },
+        ],
+    },
+    models: {
         title: "Modelos",
         intro:
             "A aba Modelos permite navegar, baixar e gerenciar modelos de IA do Ollama usados pelo Paiperwork com controle local completo.",
@@ -2327,7 +2437,7 @@ models: {
             }
         ],
     },
-database: {
+    database: {
         title: "Base de Dados",
         intro: "A aba Base de Dados fornece ferramentas para monitorizar e manter a sua base de dados local, garantindo desempenho ótimo e integridade dos dados enquanto preserva completa privacidade.",
         articles: [

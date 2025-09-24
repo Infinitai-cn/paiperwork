@@ -1,4 +1,65 @@
 window.helpContent = {
+    presentation: {
+        title: "Präsentation — Grafiken",
+        intro: "Verwenden Sie Grafiken (Bilder, Illustrationen, Symbole) im Präsentations-Tab, um Folien aufzuwerten. Dieser Abschnitt erklärt, wie Sie Grafiken hinzufügen, positionieren und exportieren.",
+        articles: [
+            {
+                id: "presentation-artworks-overview",
+                title: "Überblick",
+                content: `
+            <p>Der Präsentations-Tab ermöglicht das Einfügen von Grafiken auf Folien, um sie ansprechender zu gestalten. Grafiken können hochgeladene Bilder, generierte Platzhalter oder aus anderen Tabs kopierte Bilder sein.</p>
+            <p>Typische Einsatzfälle:</p>
+            <ul>
+                <li>Einen Punkt mit einem unterstützenden Bild veranschaulichen</li>
+                <li>Icons oder Logos für Branding hinzufügen</li>
+                <li>Dekorative Illustrationen zur Verbesserung des visuellen Flusses verwenden</li>
+            </ul>
+            <p>Übliche Workflows beginnen mit der Auswahl oder dem Hochladen von Bildern, dem Platzieren auf Folien und dem Anpassen von Größe, Zuschnitt und Ausrichtung vor dem Export.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Grafikübersicht",
+                imageCaption: "Überblick über die Verwendung von Grafiken in Präsentationen",
+            },
+            {
+                id: "presentation-artworks-controls",
+                title: "Grafik-Steuerung",
+                content: `
+            <p>Mit den Grafik-Steuerungen können Sie das Erscheinungsbild von Bildern auf Folien verfeinern:</p>
+            <ul>
+                <li><strong>Hochladen / Ersetzen</strong> — laden Sie eigene Bilder hoch oder ersetzen Sie Platzhalter.</li>
+                <li><strong>Größe & Zuschneiden</strong> — ziehen Sie an Griffen, um die Größe zu ändern, oder verwenden Sie das Zuschneidewerkzeug.</li>
+                <li><strong>Ausrichtung</strong> — links/zentriert/rechts ausrichten oder in Ecken verankern.</li>
+                <li><strong>Alt-Text & Beschriftung</strong> — fügen Sie kurze Beschriftungen oder Alt-Text für Barrierefreiheit hinzu.</li>
+            </ul>
+            <p>Nach den Anpassungen Vorschau der Folien prüfen, um Layout und Lesbarkeit vor dem Export sicherzustellen.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Grafiksteuerungen",
+                imageCaption: "Steuerungen zum Platzieren und Bearbeiten von Grafiken",
+            },
+            {
+                id: "presentation-artworks-sources",
+                title: "Bildquellen & Tipps",
+                content: `
+            <p>Wo Sie Bilder bekommen:</p>
+            <ul>
+                <li>Vom Gerät hochladen für volle Kontrolle</li>
+                <li>Platzhalter aus der App für konsistente Größen verwenden</li>
+                <li>Bilder aus anderen Tabs kopieren (Urheberrecht beachten)</li>
+            </ul>
+            <p>Tipps:</p>
+            <ul>
+                <li>Bevorzugen Sie Bilder mit hohem Kontrast für bessere Lesbarkeit</li>
+                <li>Eng zuschneiden, um das Motiv zu betonen und ablenkende Hintergründe zu vermeiden</li>
+                <li>Halten Sie Dateigrößen moderat, um Export-Performance-Probleme zu vermeiden</li>
+            </ul>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Bildquellen",
+                imageCaption: "Gängige Bildquellen und Tipps",
+            },
+        ],
+    },
     gettingstarted: {
         title: "Erste Schritte",
         intro: "Willkommen bei Paiperwork, einer sicheren Web-Oberfläche für Ollama, die Datenschutz und Benutzerfreundlichkeit priorisiert. Dieser professionell ausgerichtete Assistent bietet Produktivitätsfunktionen und hält dabei Ihre Daten lokal und geschützt.",
@@ -2021,6 +2082,115 @@ window.helpContent = {
                 image: "artworks_examples3.png",
                 imageAlt: "Ergebnisverwaltung",
                 imageCaption: "Das interaktive Vorschaufenster mit Bearbeitungs- und Exportfunktionen",
+            },
+        ],
+    },
+    presentation: {
+        title: "Präsentation",
+        intro: "Erstellen Sie Folienpräsentationen aus Dokumenten mithilfe KI-gestützter Extraktion und eines Vorschau-Editors.",
+        articles: [
+            {
+                id: "presentation-overview",
+                title: "Überblick",
+                content: `
+            <p>Der Reiter Präsentation wandelt unterstützte Dokumente (.pdf, .docx, .txt, .md) in eine Abfolge von Folien um. Der Reiter extrahiert Text aus Ihrer Datei, verwendet die KI zur Erstellung von Folieninhalten, lädt gegebenenfalls Bilder für Folien herunter und öffnet eine interaktive Vorschau, in der Sie das Ergebnis überprüfen und exportieren können.</p>
+            <p>Schneller Ablauf:</p>
+            <ol>
+                <li>Laden Sie ein Dokument per Drag & Drop oder über die Schaltfläche Durchsuchen hoch.</li>
+                <li>Wählen Sie die Anzahl der Folien und die Stichpunkte pro Folie.</li>
+                <li>Fügen Sie optional eine zusätzliche Eingabeaufforderung hinzu, um Ton oder Stil zu steuern.</li>
+                <li>Klicken Sie auf Generieren, um Extraktion und KI-Generierung zu starten.</li>
+                <li>Überprüfen und bearbeiten Sie die Folien im Vorschaufenster und exportieren Sie dann.</li>
+            </ol>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Überblick über den Präsentationsreiter",
+                imageCaption: "Überblick über den Reiter Präsentation",
+            },
+            {
+                id: "presentation-generating",
+                title: "Erstellung von Präsentationen",
+                content: `
+            <p>Nachdem Sie auf Generieren klicken, führt das System mehrere Schritte aus und zeigt ein Fortschritts-Modal an:</p>
+            <ul>
+                <li><strong>Text-Extraktion</strong> — der Dokumenttext wird zur Verarbeitung durch die KI extrahiert.</li>
+                <li><strong>KI-Generierung</strong> — die KI wandelt den extrahierten Text in Folieninhalte um (die zusätzliche Eingabeaufforderung wird mitverwendet, falls angegeben).</li>
+                <li><strong>Parsing & Bilder</strong> — KI-Ausgabe wird in strukturierte Folien geparst und Bilder werden bei Verfügbarkeit heruntergeladen.</li>
+                <li><strong>Fehlerbehandlung</strong> — das Reiter versucht bei fehlerhaften KI-Antworten automatisch einmal neu; Fehler werden im Lade-Modal angezeigt.</li>
+            </ul>
+            <p>Sie können die Generierung jederzeit mit der Schließen/Abbrechen-Schaltfläche im Lade-Modal abbrechen. Das Abbrechen stoppt Hintergrundaufgaben und schließt das Modal.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Erstellung von Präsentationen",
+                imageCaption: "Generierungsprozess und Fortschrittsanzeige",
+            },
+            {
+                id: "presentation-preview-export",
+                title: "Vorschau, Bearbeiten & Export",
+                content: `
+            <p>Wenn die Generierung erfolgreich ist, öffnet sich ein Vollbild-Vorschaufenster. Wichtige Funktionen der Vorschau:</p>
+            <ul>
+                <li><strong>Große Folienansicht</strong> — prüfen Sie die aktuell ausgewählte Folie, die als HTML gerendert wird.</li>
+                <li><strong>Thumbnails</strong> — navigieren Sie mit der Thumbnail-Leiste durch die Folien und springen Sie zu jeder beliebigen Folie.</li>
+                <li><strong>Inline-Bearbeitung</strong> — bearbeiten Sie Folientexte direkt in der Vorschau (die Vorschau wendet Folien-Daten über die PreviewWindow-API an).</li>
+                <li><strong>Exportoptionen</strong> — verwenden Sie die Vorschau-Steuerelemente, um Folientext zu kopieren, Bilder zu exportieren oder HTML herunterzuladen (das genaue Exportmenü stellt die Vorschau-UI bereit).</li>
+            </ul>
+            <p>Tipp: Halten Sie den Dokumenttext klar für eine bessere Extraktion, wählen Sie eine angemessene Folienanzahl entsprechend der Inhaltslänge und fügen Sie einen zusätzlichen Prompt hinzu, wenn Sie einen bestimmten Ton oder Stil wünschen.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Vorschau und Export",
+                imageCaption: "Vorschaufenster, Bearbeitung und Exportoptionen",
+            },
+            {
+                id: "presentation-sidebar",
+                title: "Präsentations-Seitenleiste",
+                content: `
+            <p>Die Präsentations-Seitenleiste bietet pro Folie sowie globale Steuerungen, um Folien zu stylen, Text zu bearbeiten, Bilder zu verwalten und KI-gestützte Textänderungen anzuwenden.</p>
+            <h4>Tabs</h4>
+            <ul>
+                <li><strong>Style</strong> — wählen und wenden Sie Präsentationsstile an (vorgefertigte Karten wie Classic, Dark mode, Product, Corporate und viele Themen-Presets). Der <em>DIY</em>-Stil öffnet einen Style-Manager, in dem Sie benutzerdefinierte Stile lokal erstellen oder wiederverwenden können.</li>
+                <li><strong>Text</strong> — enthält globale Textsteuerungen (Schriftart, Farbe, Aufzählungen) und knotenspezifische Controls für ausgewählte Textelemente.</li>
+                <li><strong>Pic</strong> — Bildwerkzeuge einschließlich Import/Ersetzen, Cover-Bild ändern, Bildsuche per Beschreibung und eine Thumbnail-Galerie für schnellen Austausch.</li>
+            </ul>
+
+            <h4>Globale vs. ausgewählte Steuerungen</h4>
+            <p>Der Text-Tab bietet globale Steuerungen, die auf Aufzählungen und Standardtextstile angewendet werden. Wenn Sie einen Textknoten auf einer Folie auswählen, erscheinen knotenspezifische Steuerungen (Schriftgröße, Farbwähler, KI-Textmodifikation), die Anpassungen pro Knoten erlauben.</p>
+
+            <h4>KI-Textmodifikation</h4>
+            <ul>
+                <li>Geben Sie eine Anweisung in das KI-Textfeld ein (Beispiel: "Ins Deutsche übersetzen" oder "Mach diese Aufzählungen prägnanter").</li>
+                <li>Verwenden Sie die Schaltfläche <em>Modify</em>, um Änderungen auf die aktuell ausgewählten Knoten anzuwenden.</li>
+                <li>Aktivieren Sie den Schalter <em>Apply to all text</em>, um die Modifikation auf alle passenden Textknoten auszuführen; die Seitenleiste versucht bei Verfügbarkeit einen batchartigen, fortschrittsberichtenden Ablauf.</li>
+                <li>Die Modify-Schaltfläche wechselt während der Ausführung zu <em>Cancel</em> — sie bricht den Vorgang über den gemeinsamen SlideForge AbortController ab.</li>
+            </ul>
+
+            <h4>Bildwerkzeuge</h4>
+            <ul>
+                <li><strong>Bild importieren</strong> — ersetzt das ausgewählte Folienbild oder, wenn aktiviert, das Cover-Bild der ersten Seite.</li>
+                <li><strong>Cover ändern</strong> — helper-unterstützter Ablauf zum Ersetzen eines vollseitigen Cover-Bildes; fällt auf den Standardimport zurück, wenn kein Helper verfügbar ist.</li>
+                <li><strong>Bilder suchen</strong> — geben Sie eine Beschreibung ein und klicken Sie auf Search; die Ergebnisse füllen das Thumbnail-Grid, in dem Sie ein Bild auswählen können, um das ausgewählte Bild zu ersetzen.</li>
+                <li>Das Thumbnail-Grid ist so dimensioniert, dass mehrere Reihen angezeigt werden, und zeigt während Import/Ersetzen Status-/Fortschrittsmeldungen an.</li>
+            </ul>
+
+            <h4>Style-Karten & DIY</h4>
+            <p>Style-Karten ermöglichen das schnelle Anwenden visueller Themen. Die DIY-Karte öffnet den Style-Manager, falls benutzerdefinierte Stile vorhanden sind (im Speicher oder in der DB), oder startet ein Erstellungs-Modal. Karten zeigen Verfügbarkeit und Auswahlstatus visuell an.</p>
+
+            <h4>Integration mit Helpers</h4>
+            <p>Die Seitenleiste ist auf Auswahl-Helpers angewiesen, die an Präsentationsstages angehängt sind, um Bildersetzungen, batchartige KI-Edits und Knotenoperationen durchzuführen. Findet sich kein Helper, zeigt die Seitenleiste hilfreiche Meldungen und greift auf verfügbare globale Abläufe zurück.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Präsentations-Seitenleiste",
+                imageCaption: "Seitenleistensteuerungen für Style, Text und Bilder",
+            },
+            {
+                id: "presentation-export-note",
+                title: "PDF exportieren: Was exportiert wird",
+                content: `
+            <p><strong>Hinweis:</strong> Die Schaltfläche <em>Export PDF</em> exportiert die Präsentation genau so, wie sie auf dem Bildschirm angezeigt wird — einschließlich Folientext, Bilder, Formen und Hintergrundelemente.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Hinweis Export PDF",
+                imageCaption: "Exportiert die Folien wie in der Vorschau angezeigt",
             },
         ],
     },
