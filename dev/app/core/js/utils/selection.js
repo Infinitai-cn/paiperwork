@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
     const startButton = document.getElementById('Start-button');
-    const deleteAllButton = document.getElementById('delete-all');
     Lang.initialize();
     startButton.addEventListener('click', async function (e) {
         e.preventDefault();
@@ -24,11 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const hashedMasterKey = await PaiperworkDB.hashMasterKeyValue(masterkey);
     
             // Encrypt the masterkey
-            const encryptedMasterKey = await PaiperworkDB.encryptPrompt(hashedMasterKey, masterkey);
+            const encryptedMasterKey = await PaiperworkDB.encrypt(hashedMasterKey, masterkey);
     
             // Store encrypted and hashed values
-            localStorage.setItem('hashedMasterKey', hashedMasterKey);
-            localStorage.setItem('encryptedMasterKey', JSON.stringify(encryptedMasterKey));
+            sessionStorage.setItem('hashedMasterKey', hashedMasterKey);
+            sessionStorage.setItem('encryptedMasterKey', JSON.stringify(encryptedMasterKey));
     
             // Initialize database with tables for this masterkey
             //console.log('Initializing database before navigation');
@@ -59,12 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('Start-button').textContent = Lang.get('startButton');
         document.getElementById('help-button').textContent = Lang.get('helpButton');
         document.getElementById('check-updates').textContent = Lang.get('checkUpdatesButton');
-        document.getElementById('delete-all').textContent = Lang.get('deleteAllButton');
         document.getElementById('logo').alt = Lang.get('logoAltText');
     }
-    deleteAllButton.addEventListener('click', async function () {
-       await SecurityUtils.deleteAllDatabasesSecurely();
-    });
-
 
 });
