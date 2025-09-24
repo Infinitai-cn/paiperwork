@@ -179,6 +179,7 @@
                 <option value="es">Español</option>
                 <option value="fr">Français</option>
                 <option value="de">Deutsch</option>
+                <option value="pt">Português</option>
             </select>
         </div>
         
@@ -221,6 +222,11 @@
             <div class="feature-card">
                 <h3 class="feature-title">Knowledge Base</h3>
                 <p>Build your own searchable knowledge repository with important research and information for quick AI-powered retrieval.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Presentations</h3>
+                <p>Create presentations using document summaries and styled graphics.</p>
             </div>
         </div>
         
@@ -273,6 +279,10 @@
                     knowledgeBase: {
                         title: "Knowledge Base",
                         description: "Build your own searchable knowledge repository with important research and information for quick AI-powered retrieval."
+                    },
+                    presentations: {
+                        title: "Presentations",
+                        description: "Create presentations using document summaries and styled graphics."
                     }
                 },
                 footer: "© 2025 Paiperwork by Infinitai. Open source project."
@@ -318,6 +328,10 @@
                     knowledgeBase: {
                         title: "知识库",
                         description: "构建您自己的可搜索知识存储库，包含重要的研究和信息，以便快速进行 AI 驱动的检索。"
+                    },
+                    presentations: {
+                        title: "演示文稿",
+                        description: "使用文档摘要和样式化图形创建演示文稿。"
                     }
                 },
                 footer: "© 2025 Paiperwork by Infinitai. 开源项目。"
@@ -363,6 +377,10 @@
                     knowledgeBase: {
                         title: "Base de Conocimiento",
                         description: "Construye tu propio repositorio de conocimiento consultable con investigación e información importante para recuperación rápida impulsada por IA."
+                    },
+                    presentations: {
+                        title: "Presentaciones",
+                        description: "Crea presentaciones usando resúmenes de documentos y gráficos con estilo."
                     }
                 },
                 footer: "© 2025 Paiperwork by Infinitai. Proyecto de código abierto."
@@ -408,6 +426,10 @@
                     knowledgeBase: {
                         title: "Base de Connaissances",
                         description: "Construisez votre propre dépôt de connaissances consultable avec des recherches et informations importantes pour une récupération rapide alimentée par l'IA."
+                    },
+                    presentations: {
+                        title: "Présentations",
+                        description: "Créez des présentations en utilisant des résumés de documents et des graphiques stylisés."
                     }
                 },
                 footer: "© 2025 Paiperwork by Infinitai. Projet open source."
@@ -453,9 +475,62 @@
                     knowledgeBase: {
                         title: "Wissensbasis",
                         description: "Bauen Sie Ihr eigenes durchsuchbares Wissensrepository mit wichtigen Forschungen und Informationen für schnelle KI-gestützte Abfragen auf."
+                    },
+                    presentations: {
+                        title: "Präsentationen",
+                        description: "Erstellen Sie Präsentationen mit Dokumentenzusammenfassungen und stilvollen Grafiken."
                     }
                 },
                 footer: "© 2025 Paiperwork by Infinitai. Open-Source-Projekt."
+            },
+            pt: {
+                title: "Paiperwork - Processamento de Documentos com IA",
+                tagline: "Processamento de Documentos Alimentado por IA",
+                description: "O Paiperwork transforma como você trabalha com documentos. Nossa plataforma alimentada por IA facilita extrair, analisar, visualizar e produzir informações de todos os seus documentos, permitindo insights mais rápidos e melhor tomada de decisões.",
+                securityNote: "Nota: Você pode precisar habilitar o Paiperwork em Privacidade e segurança nas configurações do seu sistema se for detectado como não seguro ao tentar abri-lo.",
+                downloadApp: "Baixar App",
+                documentation: "Documentação",
+                viewOnGitHub: "Ver no GitHub",
+                languageLabel: "Idioma:",
+                features: {
+                    smartDocAnalysis: {
+                        title: "Análise Inteligente de Documentos",
+                        description: "Extraia informações importantes de documentos automaticamente com processamento avançado de IA."
+                    },
+                    dataVisualization: {
+                        title: "Visualização de Dados",
+                        description: "Transforme dados de documentos em visualizações significativas para melhores insights."
+                    },
+                    chatInterface: {
+                        title: "Interface de Chat",
+                        description: "Faça perguntas sobre seus documentos e obtenha respostas inteligentes instantaneamente."
+                    },
+                    researchAssistant: {
+                        title: "Assistente de Pesquisa",
+                        description: "Organize materiais de pesquisa e descubra conexões entre documentos."
+                    },
+                    visualMode: {
+                        title: "Modo Visual",
+                        description: "Interaja com imagens, gere obras de arte e extraia texto de imagens com capacidades avançadas de OCR."
+                    },
+                    customAiModels: {
+                        title: "Modelos de IA Personalizados",
+                        description: "Baixe e configure modelos Ollama com parâmetros personalizáveis como temperatura e top-k para experiências de IA sob medida."
+                    },
+                    aiInsights: {
+                        title: "Insights de IA",
+                        description: "Desfrute de conversas mais inteligentes através de IA que aprende com seus padrões de interação e se adapta às suas preferências."
+                    },
+                    knowledgeBase: {
+                        title: "Base de Conhecimento",
+                        description: "Construa seu próprio repositório de conhecimento pesquisável com pesquisa e informações importantes para recuperação rápida alimentada por IA."
+                    },
+                    presentations: {
+                        title: "Apresentações",
+                        description: "Crie apresentações usando resumos de documentos e gráficos estilizados."
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. Projeto de código aberto."
             }
         };
 
@@ -541,7 +616,7 @@
                 updateDocumentationLink(selectedLanguage);
                 updatePageLanguage(selectedLanguage);
                 
-                console.log('Language changed to:', selectedLanguage);
+                //console.log('Language changed to:', selectedLanguage);
             });
         });
     </script>

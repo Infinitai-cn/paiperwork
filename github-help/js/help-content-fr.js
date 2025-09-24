@@ -1,4 +1,5 @@
 window.helpContent = {
+
     gettingstarted: {
         title: "Commencer",
         intro: "Bienvenue dans Paiperwork, une interface web sécurisée pour Ollama qui privilégie la confidentialité des données et la facilité d'utilisation. Cet assistant axé sur les professionnels offre des fonctionnalités de productivité tout en gardant vos données locales et protégées.",
@@ -938,7 +939,7 @@ window.helpContent = {
             }
         ],
     },
-dataviz: {
+    dataviz: {
         title: "DataViz",
         intro:
             "L'onglet DataViz vous permet de créer des visualisations de données interactives en décrivant vos données à l'IA.",
@@ -1175,7 +1176,7 @@ dataviz: {
             },
         ],
     },
-paperworks: {
+    paperworks: {
         title: "Paperasse",
         intro:
             "L'onglet Paperasse vous aide à créer et gérer des modèles de documents professionnels et des formulaires avec l'assistance de l'IA, tout en gardant toutes vos données privées et locales.",
@@ -1392,7 +1393,7 @@ paperworks: {
             },
         ],
     },
-research: {
+    research: {
         title: "Recherche",
         intro: "L'onglet Recherche fournit de puissantes capacités de recherche assistée par IA et une base de connaissances personnelle pour stocker et récupérer des informations.",
         articles: [
@@ -1777,7 +1778,7 @@ research: {
             }
         ],
     },
-artworks: {
+    artworks: {
         title: "Conception",
         intro:
             "L'onglet Conception Visuelle vous permet d'utiliser des modèles de vision IA pour analyser les choix de design, générer des prototypes de sites web basés sur des designs visuels, et créer des superpositions de texte pour les images.",
@@ -2024,7 +2025,116 @@ artworks: {
             },
         ],
     },
-models: {
+    presentation: {
+        title: "Présentation",
+        intro: "Créez des diaporamas à partir de documents en utilisant l'extraction assistée par IA et un éditeur de prévisualisation.",
+        articles: [
+            {
+                id: "presentation-overview",
+                title: "Aperçu",
+                content: `
+            <p>L'onglet Présentation convertit les documents pris en charge (.pdf, .docx, .txt, .md) en une séquence de diapositives. L'onglet extrait le texte de votre fichier, utilise l'IA pour générer le contenu des diapositives, récupère éventuellement des images pour les diapositives et ouvre une prévisualisation interactive où vous pouvez examiner et exporter le résultat.</p>
+            <p>Flux rapide :</p>
+            <ol>
+                <li>Téléversez un document en le glissant-déposant ou via le bouton Parcourir.</li>
+                <li>Choisissez le nombre de diapositives et le nombre de puces par diapositive.</li>
+                <li>Ajoutez un prompt supplémentaire optionnel pour contrôler le ton ou le style.</li>
+                <li>Cliquez sur Générer pour lancer l'extraction et la génération par IA.</li>
+                <li>Examinez et éditez les diapositives dans la fenêtre de prévisualisation, puis exportez.</li>
+            </ol>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Aperçu de l'onglet Présentation",
+                imageCaption: "Aperçu de l'onglet Présentation",
+            },
+            {
+                id: "presentation-generating",
+                title: "Génération de présentations",
+                content: `
+            <p>Après avoir cliqué sur Générer, le système effectue plusieurs étapes et affiche une fenêtre modale de progression :</p>
+            <ul>
+                <li><strong>Extraction du texte</strong> — le texte du document est extrait pour être consommé par l'IA.</li>
+                <li><strong>Génération par IA</strong> — l'IA transforme le texte extrait en contenu de diapositives (le prompt supplémentaire est inclus si fourni).</li>
+                <li><strong>Analyse et images</strong> — la sortie de l'IA est analysée en diapositives structurées et les images sont téléchargées si elles sont disponibles.</li>
+                <li><strong>Gestion des erreurs</strong> — l'onglet réessaie automatiquement une fois en cas de réponses IA mal formées ; les erreurs sont affichées dans la modale de chargement.</li>
+            </ul>
+            <p>Vous pouvez annuler la génération à tout moment en utilisant le bouton fermer/abort dans la modale de chargement. L'annulation arrêtera les tâches en arrière-plan et fermera la modale.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Génération de présentations",
+                imageCaption: "Processus de génération et indicateurs de progression",
+            },
+            {
+                id: "presentation-preview-export",
+                title: "Aperçu, édition et export",
+                content: `
+            <p>Lorsque la génération réussit, une fenêtre de prévisualisation en plein écran s'ouvre. Principales fonctionnalités de la prévisualisation :</p>
+            <ul>
+                <li><strong>Vue large de la diapositive</strong> — consultez la diapositive actuellement sélectionnée rendue en HTML.</li>
+                <li><strong>Vignettes</strong> — naviguez entre les diapositives avec la barre de vignettes et accédez à n'importe quelle diapositive.</li>
+                <li><strong>Édition en ligne</strong> — modifiez le texte de la diapositive directement dans la prévisualisation (la prévisualisation applique les données de la diapositive via l'API PreviewWindow).</li>
+                <li><strong>Options d'export</strong> — utilisez les contrôles de prévisualisation pour copier le texte de la diapositive, exporter des images ou télécharger le HTML (le menu d'export précis est fourni par l'UI de prévisualisation).</li>
+            </ul>
+            <p>Conseils : maintenez le texte du document clair pour une meilleure extraction, utilisez un nombre raisonnable de diapositives relatif à la longueur du contenu et ajoutez un prompt supplémentaire lorsque vous avez besoin d'un ton ou d'un style spécifique.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Aperçu et export",
+                imageCaption: "Fenêtre de prévisualisation, édition et options d'export",
+            },
+            {
+                id: "presentation-sidebar",
+                title: "Barre latérale de Présentation",
+                content: `
+            <p>La barre latérale de Présentation fournit des contrôles par diapositive et globaux pour styliser les diapositives, éditer le texte, gérer les images et appliquer des modifications de texte assistées par IA.</p>
+            <h4>Onglets</h4>
+            <ul>
+                <li><strong>Style</strong> — choisissez et appliquez des styles de présentation (cartes préconstruites comme Classique, Mode sombre, Produit, Corporate et de nombreux presets de thème). Le style <em>DIY</em> ouvre un gestionnaire de styles où vous pouvez créer ou réutiliser des styles personnalisés stockés localement.</li>
+                <li><strong>Texte</strong> — contient des contrôles de texte globaux (police, couleur, puces) et des contrôles spécifiques au nœud pour les éléments de texte sélectionnés.</li>
+                <li><strong>Image</strong> — outils d'image incluant importer/remplacer, changer l'image de couverture, rechercher des images par description et une galerie de vignettes pour un remplacement rapide.</li>
+            </ul>
+
+            <h4>Contrôles globaux vs sélectionnés</h4>
+            <p>L'onglet Texte expose des contrôles globaux appliqués aux puces et aux styles de texte par défaut. Lorsque vous sélectionnez un nœud de texte sur une diapositive, des contrôles spécifiques au nœud apparaissent (taille de police, sélecteur de couleur, modification IA) permettant des ajustements par nœud.</p>
+
+            <h4>Modification de texte par IA</h4>
+            <ul>
+                <li>Entrez une instruction dans la zone de texte IA (exemple : "Traduire en français" ou "Rendre ces puces plus concises").</li>
+                <li>Utilisez le bouton <em>Modifier</em> pour appliquer les changements aux nœuds actuellement sélectionnés.</li>
+                <li>Activez l'interrupteur <em>Appliquer à tout le texte</em> pour exécuter la modification sur tous les nœuds de texte correspondants ; la barre latérale tentera une exécution par lots avec rapport de progression lorsque disponible.</li>
+                <li>Le bouton Modifier bascule en <em>Annuler</em> pendant l'exécution — il interrompt l'opération via le SlideForge AbortController partagé.</li>
+            </ul>
+
+            <h4>Outils d'image</h4>
+            <ul>
+                <li><strong>Importer une image</strong> — remplace l'image sélectionnée de la diapositive ou, lorsqu'activé, remplace l'image de couverture de la première diapositive.</li>
+                <li><strong>Changer la couverture</strong> — flux compatible helper pour remplacer une image de couverture sur une étape complète ; revient au flux d'importation standard si aucun helper n'est disponible.</li>
+                <li><strong>Rechercher des images</strong> — saisissez une description et cliquez sur Rechercher ; les résultats remplissent la grille de vignettes où vous pouvez choisir une image pour remplacer celle sélectionnée.</li>
+                <li>La grille de vignettes est dimensionnée pour afficher plusieurs lignes et fournit des messages de progression/état pendant l'importation ou le remplacement d'images.</li>
+            </ul>
+
+            <h4>Cartes de style et DIY</h4>
+            <p>Les cartes de style vous permettent d'appliquer rapidement des thèmes visuels. La carte DIY ouvre le gestionnaire de styles si des styles personnalisés existent (en mémoire ou dans la BD) ou lance une modale de création. Les cartes reflètent visuellement la disponibilité et l'état de sélection.</p>
+
+            <h4>Intégration avec les helpers</h4>
+            <p>La barre latérale repose sur des helpers de sélection attachés aux étapes de la présentation pour effectuer le remplacement d'images, les éditions IA par lots et les opérations sur les nœuds. Si aucun helper n'est trouvé, la barre latérale affiche des messages utiles et bascule vers les flux globaux disponibles.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Barre latérale de présentation",
+                imageCaption: "Contrôles de la barre latérale pour le style, le texte et les images",
+            },
+            {
+                id: "presentation-export-note",
+                title: "Exporter en PDF : ce qui est exporté",
+                content: `
+            <p><strong>Remarque :</strong> Le bouton <em>Export PDF</em> exporte la présentation exactement telle qu'elle apparaît à l'écran — y compris le texte des diapositives, les images, les formes et les éléments d'arrière-plan.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Remarque Exporter en PDF",
+                imageCaption: "Exporte les diapositives telles qu'elles sont affichées dans la prévisualisation",
+            },
+        ],
+    },
+    models: {
         title: "Modèles",
         intro:
             "L'onglet Modèles vous permet de parcourir, télécharger et gérer les modèles IA d'Ollama utilisés par Paiperwork avec un contrôle local complet.",
@@ -2327,7 +2437,7 @@ models: {
             }
         ],
     },
-database: {
+    database: {
         title: "Données",
         intro: "L'onglet Base de données fournit des outils pour surveiller et maintenir votre base de données locale, garantissant des performances optimales et l'intégrité des données tout en préservant une confidentialité complète.",
         articles: [

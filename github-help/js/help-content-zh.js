@@ -1,4 +1,5 @@
 window.helpContent = {
+
     gettingstarted: {
         title: "开始使用",
         intro: "欢迎使用 Paiperwork，这是一个专注于数据隐私和易用性的 Ollama 安全网页界面。这个面向专业人士的助手提供生产力功能，同时保持您的数据本地化和受保护。",
@@ -338,9 +339,9 @@ window.helpContent = {
                 ]
             },
             {
-                    id: "chat-advanced-features",
-                    title: "高级聊天功能",
-                    content: `
+                id: "chat-advanced-features",
+                title: "高级聊天功能",
+                content: `
                          <h4>上下文大小控制</h4>
                          <p>上下文大小决定了AI在生成回复时能够"记住"和使用多少之前的对话内容：</p>
                          <ul>
@@ -943,7 +944,7 @@ window.helpContent = {
             }
         ],
     },
-dataviz: {
+    dataviz: {
         title: "数据可视化",
         intro:
             "数据可视化选项卡允许您通过向AI描述数据来创建交互式数据可视化图表。",
@@ -1180,10 +1181,10 @@ dataviz: {
             },
         ],
     },
-paperworks: {
+    paperworks: {
         title: "文书",
         intro:
-           "文书选项卡帮助您在AI协助下创建和管理专业文书模板和表单，同时保持所有数据的私密性和本地存储。",
+            "文书选项卡帮助您在AI协助下创建和管理专业文书模板和表单，同时保持所有数据的私密性和本地存储。",
         articles: [
             {
                 id: "paperworks-intro",
@@ -1397,7 +1398,7 @@ paperworks: {
             },
         ],
     },
-research: {
+    research: {
         title: "研究",
         intro: "研究选项卡提供强大的AI辅助研究功能和个人知识库，用于存储和检索信息。",
         articles: [
@@ -1782,7 +1783,7 @@ research: {
             }
         ],
     },
-artworks: {
+    artworks: {
         title: "设计工作室",
         intro:
             "设计工作室选项卡允许您使用AI视觉模型来分析设计选择，基于视觉设计生成网站原型，并为图像创建文本叠加。",
@@ -2029,7 +2030,116 @@ artworks: {
             },
         ],
     },
-models: {
+    presentation: {
+        title: "演示",
+        intro: "使用 AI 辅助的提取和预览编辑器，从文档创建幻灯片演示文稿。",
+        articles: [
+            {
+                id: "presentation-overview",
+                title: "概述",
+                content: `
+            <p>“演示”选项卡可将支持的文档（.pdf、.docx、.txt、.md）转换为一系列幻灯片。该选项卡会从文件中提取文本，使用 AI 生成幻灯片内容，可选择为幻灯片检索图片，并打开交互式预览以供审阅和导出结果。</p>
+            <p>快速流程：</p>
+            <ol>
+                <li>通过拖放或“浏览”按钮上传文档。</li>
+                <li>选择幻灯片数量以及每张幻灯片的要点数。</li>
+                <li>可选：添加额外的提示以控制语气或风格。</li>
+                <li>点击“生成”以运行提取和 AI 生成功能。</li>
+                <li>在预览窗口中审阅并编辑幻灯片，然后导出。</li>
+            </ol>
+        `,
+                image: "placeholder.png",
+                imageAlt: "演示选项卡概述",
+                imageCaption: "演示选项卡概述",
+            },
+            {
+                id: "presentation-generating",
+                title: "生成演示文稿",
+                content: `
+            <p>点击“生成”后，系统会执行多个步骤并显示进度模态：</p>
+            <ul>
+                <li><strong>文本提取</strong> — 从文档中提取文本供 AI 使用。</li>
+                <li><strong>AI 生成</strong> — AI 将提取的文本转换为幻灯片内容（如提供了额外提示，则一并使用）。</li>
+                <li><strong>解析与图片</strong> — 解析 AI 输出为结构化幻灯片，如有图片则下载。</li>
+                <li><strong>错误处理</strong> — 若 AI 返回格式不正确的结果，选项卡会自动重试一次；错误会在加载模态中显示。</li>
+            </ul>
+            <p>你可以随时使用加载模态中的关闭/中止按钮取消生成。中止会停止后台任务并关闭模态。</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "生成演示文稿",
+                imageCaption: "生成过程和进度指示",
+            },
+            {
+                id: "presentation-preview-export",
+                title: "预览、编辑与导出",
+                content: `
+            <p>生成成功后会打开全屏预览窗口。预览的主要功能包括：</p>
+            <ul>
+                <li><strong>大视图幻灯片</strong> — 以 HTML 渲染当前选中的幻灯片供审阅。</li>
+                <li><strong>缩略图</strong> — 使用缩略图栏在幻灯片间导航并跳转到任意幻灯片。</li>
+                <li><strong>内联编辑</strong> — 直接在预览中编辑幻灯片文本（预览通过 PreviewWindow API 应用幻灯片数据）。</li>
+                <li><strong>导出选项</strong> — 使用预览控件复制幻灯片文本、导出图片或下载 HTML（具体导出菜单由预览 UI 提供）。</li>
+            </ul>
+            <p>提示：为获得最佳提取效果，请保持文档文本清晰；根据内容长度选择合理的幻灯片数量；如需特定语气或风格，可添加额外提示。</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "预览与导出",
+                imageCaption: "预览窗口、编辑与导出选项",
+            },
+            {
+                id: "presentation-sidebar",
+                title: "演示侧边栏",
+                content: `
+            <p>演示侧边栏提供每张幻灯片及全局的控制项，用于样式化幻灯片、编辑文本、管理图片并应用 AI 驱动的文本变更。</p>
+            <h4>选项卡</h4>
+            <ul>
+                <li><strong>样式</strong> — 选择并应用演示样式（预置卡片如经典、深色模式、产品、企业等主题预设）。<em>DIY</em> 样式会打开样式管理器，可创建或重用本地保存的自定义样式。</li>
+                <li><strong>文本</strong> — 包含全局文本控制（字体、颜色、要点符号）以及针对所选文本节点的节点级控制。</li>
+                <li><strong>图片</strong> — 图片工具，包括导入/替换、修改封面图片、按描述搜索图片，以及用于快速替换的缩略图库。</li>
+            </ul>
+
+            <h4>全局控制与所选项</h4>
+            <p>“文本”选项卡显示应用于要点和默认文本样式的全局控制。当你在幻灯片上选择文本节点时，会出现节点专属控制（字体大小、颜色选择器、AI 文本修改），以便进行逐节点调整。</p>
+
+            <h4>AI 文本修改</h4>
+            <ul>
+                <li>在 AI 文本框中输入指令（示例："翻译成中文" 或 "把这些要点精简一下"）。</li>
+                <li>使用 <em>修改</em> 按钮将更改应用到当前选中的节点。</li>
+                <li>启用 <em>应用到所有文本</em> 开关可对所有匹配的文本节点执行该修改；在可用时，侧边栏会尝试以批处理并提供进度报告的方式执行。</li>
+                <li>在执行过程中，修改按钮会切换为 <em>取消</em> — 使用共享的 SlideForge AbortController 可中止该操作。</li>
+            </ul>
+
+            <h4>图片工具</h4>
+            <ul>
+                <li><strong>导入图片</strong> — 替换所选幻灯片的图片，或在开启时替换第一页的封面图片。</li>
+                <li><strong>更换封面</strong> — 支持 helper 的流程用于替换整页封面图片；如果没有 helper，则回退到标准导入流程。</li>
+                <li><strong>搜索图片</strong> — 输入描述并点击搜索；结果会填充到缩略图网格，你可以选择一张图片替换当前选中图片。</li>
+                <li>缩略图网格尺寸适用于显示多行缩略图，并在导入或替换图片时显示进度/状态消息。</li>
+            </ul>
+
+            <h4>样式卡与 DIY</h4>
+            <p>样式卡可让你快速应用视觉主题。DIY 卡会在存在自定义样式（内存或数据库中）时打开样式管理器，或启动创建模态。卡片会以视觉方式显示可用性和选中状态。</p>
+
+            <h4>与 helpers 的集成</h4>
+            <p>侧边栏依赖附加在演示阶段（stage）上的选择 helper 来执行图片替换、批量 AI 编辑和节点操作。如果找不到 helper，侧边栏会显示提示并退回到可用的全局流程。</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "演示侧边栏",
+                imageCaption: "侧边栏用于样式、文本和图片的控制",
+            },
+            {
+                id: "presentation-export-note",
+                title: "导出 PDF：导出内容说明",
+                content: `
+            <p><strong>注意：</strong> <em>导出 PDF</em> 按钮会将演示按屏幕所见完整导出 — 包括幻灯片文本、图片、形状和背景视觉元素。</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "导出 PDF 说明",
+                imageCaption: "将幻灯片以预览中所见方式导出",
+            },
+        ],
+    },
+    models: {
         title: "模型",
         intro:
             "模型选项卡允许您浏览、下载和管理Paiperwork使用的Ollama AI模型，并具有完全的本地控制权。",
@@ -2332,7 +2442,7 @@ models: {
             }
         ],
     },
-database: {
+    database: {
         title: "数据库",
         intro: "数据库选项卡提供监控和维护本地数据库的工具，确保最佳性能和数据完整性，同时保持完全的隐私性。",
         articles: [
