@@ -147,18 +147,66 @@ func proxyBingSearch(w http.ResponseWriter, r *http.Request) {
 	// Log the incoming request details
 	log.Printf("Search request received - Query: %q, Mode: %s", query, mode)
 
-	// Build a more complete URL with additional parameters to ensure better results
-	bingURL := "https://www.bing.com/search?q=" + url.QueryEscape(query) +
-		"&form=QBLH" +
-		"&sp=-1" +
-		"&ghc=1" +
-		"&lq=0" +
-		"&pq=" + url.QueryEscape(query) +
-		"&sc=10-" + fmt.Sprintf("%d", len(query)) +
-		"&qs=n" +
-		"&sk=&cvid=" + fmt.Sprintf("RAND%d", time.Now().Unix()) +
-		"&setmkt=en-US" +
-		"&setlang=en"
+	// Detect user's preferred language from the incoming request's Accept-Language header
+	acceptLang := r.Header.Get("Accept-Language")
+	if acceptLang == "" {
+		acceptLang = "en-US"
+	}
+
+	// Extract primary language tag (e.g. "en-US" or "fr")
+	primary := strings.SplitN(acceptLang, ",", 2)[0]
+	primary = strings.TrimSpace(strings.SplitN(primary, ";", 2)[0])
+
+	// Derive setlang (language) and setmkt (market/locale)
+	setlang := "en"
+	setmkt := "en-US"
+	if primary != "" {
+		parts := strings.SplitN(primary, "-", 2)
+		setlang = parts[0]
+		if len(parts) == 2 {
+			setmkt = primary
+		} else {
+			// Map common language codes to reasonable default markets
+			switch setlang {
+			case "en":
+				setmkt = "en-US"
+			case "fr":
+				setmkt = "fr-FR"
+			case "de":
+				setmkt = "de-DE"
+			case "es":
+				setmkt = "es-ES"
+			case "pt":
+				setmkt = "pt-BR"
+			case "zh":
+				setmkt = "zh-CN"
+			case "ja":
+				setmkt = "ja-JP"
+			default:
+				// Fallback: append US as region
+				setmkt = setlang + "-US"
+			}
+		}
+	}
+
+	// Sanitize the query: trim, remove surrounding quotes/parentheses/brackets, collapse whitespace
+	cleanQ := strings.TrimSpace(query)
+	// Remove surrounding matching quotes
+	if (strings.HasPrefix(cleanQ, "\"") && strings.HasSuffix(cleanQ, "\"")) || (strings.HasPrefix(cleanQ, "'") && strings.HasSuffix(cleanQ, "'")) {
+		cleanQ = cleanQ[1:len(cleanQ)-1]
+	}
+	// Remove surrounding parentheses/brackets
+	if (strings.HasPrefix(cleanQ, "(") && strings.HasSuffix(cleanQ, ")")) || (strings.HasPrefix(cleanQ, "[") && strings.HasSuffix(cleanQ, "]")) {
+		cleanQ = cleanQ[1:len(cleanQ)-1]
+	}
+	// Collapse multiple whitespace into single spaces
+	cleanQ = regexp.MustCompile(`\s+`).ReplaceAllString(cleanQ, " ")
+
+	// Build a minimal Bing URL: only q plus detected market/language
+	bingURL := "https://www.bing.com/search?q=" + url.QueryEscape(cleanQ) + "&setmkt=" + url.QueryEscape(setmkt) + "&setlang=" + url.QueryEscape(setlang)
+
+	// Log detected language and chosen parameters for debugging
+	log.Printf("Accept-Language: %q -> setmkt=%s setlang=%s", acceptLang, setmkt, setlang)
 
 	// Log what URL we're building
 	log.Printf("Built Bing URL: %s", bingURL)
@@ -350,6 +398,217 @@ func fetchRawHtmlForLinks(w http.ResponseWriter, r *http.Request) {
 }
 
 // Add after the proxyBingSearch function
+
+// GET returns the raw contents of dev/app/core/js/utils/thinkingmodels.js
+// POST accepts JSON { "content": "...js file contents..." } and safely writes the file
+func thinkingModelsGetHandler(w http.ResponseWriter, r *http.Request) {
+	// Restrict to GET only
+	if r.Method != "GET" && r.Method != "OPTIONS" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	path := filepath.Join("app", "core", "js", "utils", "thinkingmodels.js")
+	// Determine executable directory to build absolute path
+	execDir := filepath.Dir(os.Args[0])
+	fullPath := filepath.Join(execDir, path)
+
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		log.Printf("Error reading thinkingmodels.js: %v", err)
+		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+func thinkingModelsPostHandler(w http.ResponseWriter, r *http.Request) {
+	// Accept POST with JSON body
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Basic CORS
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	type reqBody struct {
+		Content string `json:"content"`
+	}
+
+	var body reqBody
+	dec := json.NewDecoder(io.LimitReader(r.Body, 5*1024*1024))
+	if err := dec.Decode(&body); err != nil {
+		log.Printf("Invalid request body for thinkingmodels POST: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Minimal validation: ensure content contains 'window.THINKING_MODELS' assignment
+	if !strings.Contains(body.Content, "window.THINKING_MODELS") {
+		http.Error(w, "Content validation failed", http.StatusBadRequest)
+		return
+	}
+
+	// Build paths
+	relPath := filepath.Join("app", "core", "js", "utils", "thinkingmodels.js")
+	execDir := filepath.Dir(os.Args[0])
+	fullPath := filepath.Join(execDir, relPath)
+
+	// Make a backup of the existing file
+	backupPath := fullPath + ".bak"
+	if _, err := os.Stat(fullPath); err == nil {
+		// Copy file to backup (overwrite existing backup)
+		input, err := os.ReadFile(fullPath)
+		if err == nil {
+			_ = os.WriteFile(backupPath, input, 0644)
+		}
+	}
+
+	// Write new content atomically: write to temp file then rename
+	dir := filepath.Dir(fullPath)
+	tmpFile, err := os.CreateTemp(dir, "thinkingmodels-*.js")
+	if err != nil {
+		log.Printf("Failed to create temp file for thinkingmodels write: %v", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	tmpPath := tmpFile.Name()
+	if _, err := tmpFile.WriteString(body.Content); err != nil {
+		log.Printf("Failed to write temp thinkingmodels file: %v", err)
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	tmpFile.Close()
+
+	// Rename temp file into place
+	if err := os.Rename(tmpPath, fullPath); err != nil {
+		log.Printf("Failed to replace thinkingmodels.js: %v", err)
+		os.Remove(tmpPath)
+		http.Error(w, "Failed to save file", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, `{"ok":true}`)
+}
+
+// GET/POST handlers for visualmodels.js
+func visualModelsGetHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" && r.Method != "OPTIONS" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	rel := filepath.Join("app", "core", "js", "utils", "visualmodels.js")
+	execDir := filepath.Dir(os.Args[0])
+	fullPath := filepath.Join(execDir, rel)
+
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		log.Printf("Error reading visualmodels.js: %v", err)
+		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+func visualModelsPostHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	type reqBody struct {
+		Content string `json:"content"`
+	}
+	var body reqBody
+	dec := json.NewDecoder(io.LimitReader(r.Body, 5*1024*1024))
+	if err := dec.Decode(&body); err != nil {
+		log.Printf("Invalid request body for visualmodels POST: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Basic validation: ensure content mentions 'window.' to reduce accidental deletion
+	if !strings.Contains(body.Content, "window.") {
+		http.Error(w, "Content validation failed", http.StatusBadRequest)
+		return
+	}
+
+	rel := filepath.Join("app", "core", "js", "utils", "visualmodels.js")
+	execDir := filepath.Dir(os.Args[0])
+	fullPath := filepath.Join(execDir, rel)
+
+	// Backup
+	backupPath := fullPath + ".bak"
+	if _, err := os.Stat(fullPath); err == nil {
+		input, err := os.ReadFile(fullPath)
+		if err == nil {
+			_ = os.WriteFile(backupPath, input, 0644)
+		}
+	}
+
+	// Atomic write
+	dir := filepath.Dir(fullPath)
+	tmpFile, err := os.CreateTemp(dir, "visualmodels-*.js")
+	if err != nil {
+		log.Printf("Failed to create temp file for visualmodels write: %v", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	tmpPath := tmpFile.Name()
+	if _, err := tmpFile.WriteString(body.Content); err != nil {
+		log.Printf("Failed to write temp visualmodels file: %v", err)
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	tmpFile.Close()
+
+	if err := os.Rename(tmpPath, fullPath); err != nil {
+		log.Printf("Failed to replace visualmodels.js: %v", err)
+		os.Remove(tmpPath)
+		http.Error(w, "Failed to save file", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, `{"ok":true}`)
+}
+
+
 
 func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 	// Get URL parameter
@@ -654,6 +913,275 @@ func openBrowser(url string) {
 		log.Printf("Error opening browser: %v", err)
 	}
 }
+
+// Image search handler for SlideForge image inclusion
+func proxyImageSearch(w http.ResponseWriter, r *http.Request) {
+	// Set CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow GET requests
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get query parameter
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		http.Error(w, "Missing query parameter 'q'", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("[%s] Image search request for: %s", time.Now().Format(time.RFC3339), query)
+
+	// Try Pixabay first (more reliable for demo)
+	imageURL, err := searchPixabayImage(query)
+	if err != nil {
+		log.Printf("Pixabay search failed: %v", err)
+		// Try Pexels as backup
+		imageURL, err = searchPexelsImage(query)
+		if err != nil {
+			log.Printf("Pexels search also failed: %v", err)
+			// Return error response
+			response := map[string]interface{}{
+				"success": false,
+				"error":   "No images found from available sources",
+				"query":   query,
+			}
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+	}
+
+	// Return successful response
+	response := map[string]interface{}{
+		"success":  true,
+		"imageUrl": imageURL,
+		"query":    query,
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+// Search for images using Pexels API (primary source)
+func searchPexelsImage(query string) (string, error) {
+	// Pexels API endpoint
+	apiURL := fmt.Sprintf("https://api.pexels.com/v1/search?query=%s&per_page=1&orientation=landscape",
+		url.QueryEscape(query))
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	// Add Pexels API key (you would need to set this as an environment variable or config)
+	// For now, we'll use the public demo endpoint approach
+	req.Header.Set("Authorization", "563492ad6f91700001000001f68e3c65de984e8199c0a6bc3f0a04a7")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("pexels API returned status: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Photos []struct {
+			Src struct {
+				Medium string `json:"medium"`
+			} `json:"src"`
+		} `json:"photos"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+
+	if len(result.Photos) == 0 {
+		return "", errors.New("no images found")
+	}
+
+	return result.Photos[0].Src.Medium, nil
+}
+
+// Search for images using Pixabay API (backup source)
+func searchPixabayImage(query string) (string, error) {
+	// Pixabay API endpoint
+	apiURL := fmt.Sprintf("https://pixabay.com/api/?key=9656065-a4094594c34f9ac14c7fc4c39&q=%s&image_type=photo&per_page=3&min_width=640&orientation=horizontal",
+		url.QueryEscape(query))
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Get(apiURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("pixabay API returned status: %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Hits []struct {
+			WebformatURL string `json:"webformatURL"`
+		} `json:"hits"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+
+	if len(result.Hits) == 0 {
+		return "", errors.New("no images found")
+	}
+
+	return result.Hits[0].WebformatURL, nil
+}
+
+// Multi-image search handler for SlideForge sidebar UI
+func proxyImageSearchMulti(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	query := r.URL.Query().Get("q")
+	if query == "" {
+		http.Error(w, "Missing query parameter 'q'", http.StatusBadRequest)
+		return
+	}
+	log.Printf("[%s] Multi-image search request for: %s", time.Now().Format(time.RFC3339), query)
+
+	var images []string
+	// Try Pixabay first (up to 5 results)
+	pixabayImages, err := searchPixabayImagesMulti(query, 12)
+	if err == nil && len(pixabayImages) > 0 {
+		images = append(images, pixabayImages...)
+	}
+	// Try Pexels (up to 5 results)
+	pexelsImages, err := searchPexelsImagesMulti(query, 12)
+	if err == nil && len(pexelsImages) > 0 {
+		images = append(images, pexelsImages...)
+	}
+	if len(images) == 0 {
+		response := map[string]interface{}{
+			"success": false,
+			"images":  []string{},
+			"error":   "No images found from available sources",
+			"query":   query,
+		}
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	response := map[string]interface{}{
+		"success": true,
+		"images":  images,
+		"query":   query,
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+// Multi-image search for Pixabay (returns up to n images)
+func searchPixabayImagesMulti(query string, n int) ([]string, error) {
+	apiURL := fmt.Sprintf("https://pixabay.com/api/?key=9656065-a4094594c34f9ac14c7fc4c39&q=%s&image_type=photo&per_page=%d&min_width=640&orientation=horizontal", url.QueryEscape(query), n)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(apiURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("pixabay API returned status: %d", resp.StatusCode)
+	}
+	var result struct {
+		Hits []struct {
+			WebformatURL string `json:"webformatURL"`
+		} `json:"hits"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	if len(result.Hits) == 0 {
+		return nil, errors.New("no images found")
+	}
+	var urls []string
+	for i, hit := range result.Hits {
+		if i >= n {
+			break
+		}
+		urls = append(urls, hit.WebformatURL)
+	}
+	return urls, nil
+}
+
+// Multi-image search for Pexels (returns up to n images)
+func searchPexelsImagesMulti(query string, n int) ([]string, error) {
+	apiURL := fmt.Sprintf("https://api.pexels.com/v1/search?query=%s&per_page=%d&orientation=landscape", url.QueryEscape(query), n)
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "563492ad6f91700001000001f68e3c65de984e8199c0a6bc3f0a04a7")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("pexels API returned status: %d", resp.StatusCode)
+	}
+	var result struct {
+		Photos []struct {
+			Src struct {
+				Medium string `json:"medium"`
+			} `json:"src"`
+		} `json:"photos"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+	if len(result.Photos) == 0 {
+		return nil, errors.New("no images found")
+	}
+	var urls []string
+	for i, photo := range result.Photos {
+		if i >= n {
+			break
+		}
+		urls = append(urls, photo.Src.Medium)
+	}
+	return urls, nil
+}
+
 func serverInfoHandler(w http.ResponseWriter, r *http.Request) {
 	port := "8182"
 	if len(os.Args) > 1 {
@@ -701,8 +1229,34 @@ func main() {
 	mux.HandleFunc("/api/search/bing", proxyBingSearch)
 	mux.HandleFunc("/api/extract/raw-html", fetchRawHtmlForLinks)
 	mux.HandleFunc("/api/proxy/pdf", proxyPdfContent)
+	mux.HandleFunc("/api/proxy/image-search", proxyImageSearch)
 	mux.HandleFunc("/api/version-check", proxyVersionCheck)
 	mux.HandleFunc("/api/server-info", serverInfoHandler)
+	mux.HandleFunc("/api/proxy/image-search-multi", proxyImageSearchMulti) // New endpoint
+	// Thinking models management (read/write thinkingmodels.js)
+	mux.HandleFunc("/api/thinkingmodels", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" || r.Method == "OPTIONS" {
+			thinkingModelsGetHandler(w, r)
+			return
+		}
+		if r.Method == "POST" {
+			thinkingModelsPostHandler(w, r)
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	})
+	// Visual models management
+	mux.HandleFunc("/api/visualmodels", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" || r.Method == "OPTIONS" {
+			visualModelsGetHandler(w, r)
+			return
+		}
+		if r.Method == "POST" {
+			visualModelsPostHandler(w, r)
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	})
 
 	// SECURITY: Create server that binds only to localhost
 	server := &http.Server{
