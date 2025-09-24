@@ -304,8 +304,32 @@ document.addEventListener("DOMContentLoaded", function () {
   // Setup return button
   const closeButton = document.getElementById("close-help");
   if (closeButton) {
+    // Instead of redirecting, scroll to the top of the help page so the
+    // navigation tabs become visible. Also focus the first tab for keyboard users.
     closeButton.addEventListener("click", function () {
-      window.location.href = "../../welcome.html";
+      try {
+        // Smooth scroll to top
+        if (window.scrollTo) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          window.scrollTo(0, 0);
+        }
+
+        // Ensure the navigation wrapper is visible at the top
+        const navWrapper = document.querySelector('.help-navigation-wrapper') || document.querySelector('.help-header');
+        if (navWrapper && navWrapper.scrollIntoView) {
+          navWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Focus the first tab for accessibility
+        const firstNav = document.querySelector('.nav-item');
+        if (firstNav && firstNav.focus) {
+          firstNav.focus();
+        }
+      } catch (err) {
+        // Fallback: instant scroll if anything goes wrong
+        window.scrollTo(0, 0);
+      }
     });
   }
 
@@ -338,5 +362,27 @@ document.addEventListener("DOMContentLoaded", function () {
           "<p>Error loading help content. Please refresh the page and try again.</p>";
       }
     }, 1000);
+  }
+});
+
+// Delegated fallback: ensure the close-help button always scrolls to top
+document.addEventListener('click', function (e) {
+  const target = e.target;
+  if (target && (target.id === 'close-help' || target.closest && target.closest('#close-help'))) {
+    try {
+      if (window.scrollTo) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        window.scrollTo(0, 0);
+      }
+      const navWrapper = document.querySelector('.help-navigation-wrapper') || document.querySelector('.help-header');
+      if (navWrapper && navWrapper.scrollIntoView) {
+        navWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      const firstNav = document.querySelector('.nav-item');
+      if (firstNav && firstNav.focus) firstNav.focus();
+    } catch (err) {
+      window.scrollTo(0, 0);
+    }
   }
 });
