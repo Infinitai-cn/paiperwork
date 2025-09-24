@@ -3,8 +3,8 @@ function setAppropriateHelpImage() {
   const logoImg = document.getElementById("help-logo");
   if (logoImg) {
     logoImg.src = isDarkMode
-      ? "../images/Paiperwork-APP-dark.png"  // Updated path
-      : "../images/Paiperwork-APP-light.png"; // Updated path
+      ? "../github-help/images/Paiperwork-APP-dark.png"  // Updated path
+      : "../github-help/images/Paiperwork-APP-light.png"; // Updated path
     //console.log("Help logo set to:", logoImg.src);
   } else {
     console.warn("Help logo element not found");
