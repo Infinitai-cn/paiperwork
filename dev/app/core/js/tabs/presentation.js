@@ -225,7 +225,6 @@ class presentation {
         return result;
     }
 
-    // Shape editing helpers removed — Shape tab and persistence were simplified away
 
     // Heuristic to detect bullet/content text nodes vs titles/subtitles
     _isBulletTextNode(txt) {

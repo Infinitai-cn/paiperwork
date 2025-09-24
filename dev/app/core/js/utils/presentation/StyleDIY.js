@@ -2543,16 +2543,6 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
         document.head.appendChild(style);
     }
 
-    static loadCustomStyle(name) {
-        // TODO: Implement style loading
-        //console.log(`Loading custom style: ${name}`);
-    }
-
-    static listCustomStyles() {
-        // TODO: Implement style listing
-        return [];
-    }
-
     static abortgeneration() {
         //console.log('StyleDIY: Aborting style generation...');
 
