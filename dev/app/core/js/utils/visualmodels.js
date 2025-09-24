@@ -11,6 +11,7 @@ window.VISUAL_MODELS = [
     'moondream',
     'granite3.2-vision',
     'mistral-small3.1',
+    'mistral-small3.2',
     'llama4',
     'qwen2.5vl',
 ];
