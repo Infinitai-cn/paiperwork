@@ -1,6 +1,6 @@
 class ResearchAutomation {
     constructor() {
-        this.hashedMasterKey = localStorage.getItem('hashedMasterKey');
+        this.hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         this.contextSize = document.getElementById('context-selector')?.value || '8192';
         // Basic state
         this.isResearching = false;
@@ -4059,7 +4059,7 @@ class KnowledgeBase {
     constructor() {
         this.collections = [];
         this.selectedModel = '';
-        this.hashedMasterKey = localStorage.getItem('hashedMasterKey');
+        this.hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         this.abortController = null;
         this.usingSyntheticEmbeddings = false;
     }
