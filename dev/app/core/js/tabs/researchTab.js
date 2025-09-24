@@ -1,7 +1,7 @@
 class ResearchTab {
     constructor() {
         this.initialized = false;
-        this.hashedMasterKey = localStorage.getItem('hashedMasterKey');
+        this.hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         this.knowledgeBase = null;
         this.researchAutomation = null;
         this.competitiveAnalysis = null;
