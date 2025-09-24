@@ -1,7 +1,7 @@
 {
-    "version": "1.0.0",
-    "releaseDate": "2025-06-12",
-    "notes": "<p><strong>New Features:</strong></p><ul><li>Added dark mode support</li><li>Improved performance</li><li>Fixed bugs with model selection</li></ul>",
+    "version": "1.0.2",
+    "releaseDate": "2025-09-24",
+    "notes": "<p><strong>New Features:</strong></p><ul><li>Added presentation tab functionality</li><li>Now when selecting a model in any model selector in the APP, previous loaded models are unloaded to save vram/ram (two small models can coexist if enough ram is available)</li><li>GPT-OSS UI update (thinking level buttons)</li><li>Fixed missing translations for Documents creation</li><li>Fixed meeting minutes generator line spacing</li><li>Web search improved</li><li>Added web search to global document RAG</li><li>Added edit thinking models list to models tab</li><li>Portuguese translations revised and cleaned</li><li>In models tab now you can add new thinking models and visual models manually</li><li>Added Portuguese to online help</li></ul>",
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
     "requiredUpdate": false
 }
