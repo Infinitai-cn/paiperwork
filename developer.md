@@ -15,7 +15,7 @@ Welcome to Paiperwork development! This guide will help you set up your developm
 - **Live Server Extension** for frontend testing
 - **Thunder Client** or Postman for API testing
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone the Repository
 
@@ -70,7 +70,7 @@ go mod init Paiperwork
 go mod tidy
 ```
 
-## 🔧 Development Workflow
+## Development Workflow
 
 ### Project Structure
 ```
@@ -136,7 +136,7 @@ build.bat
 
 This binaries and js files will be created inside the dist folder.
 
-## 🧑‍💻 Development Setup
+## Development Setup
 
 ### 1. Start the Development Server
 
@@ -170,7 +170,7 @@ The frontend is pure JavaScript/HTML/CSS. Key files:
    ./dev-build.sh  # or dev-build.bat on Windows
    ```
 
-## 🔍 Key Development Areas
+## Key Development Areas
 
 ### Frontend Architecture
 - **Modular Design** - Each feature is in its own JS module
@@ -190,7 +190,7 @@ The frontend is pure JavaScript/HTML/CSS. Key files:
 - **AI**: Ollama integration for local LLM inference
 - **Database**: Local encrypted storage with SQL.js
 
-## 🧪 Testing
+## Testing
 
 ### Manual Testing
 1. Start development server
@@ -227,7 +227,7 @@ go get package-name
 go mod tidy
 ```
 
-## 🐛 Debugging
+## Debugging
 
 ### Common Issues
 
@@ -248,7 +248,7 @@ go mod tidy
 ### Debug Mode
 Development builds include additional logging and debug information (you will need to uncomment the console.log lines).
 
-## 📝 Code Style
+## Code Style
 
 ### JavaScript
 - Use ES6+ features
@@ -262,7 +262,7 @@ Development builds include additional logging and debug information (you will ne
 - Clear variable names
 - Error handling for all operations
 
-## 🚀 Contributing
+## Contributing
 
 1. **Fork the repository**
 2. **Create a feature branch**
@@ -281,7 +281,7 @@ Development builds include additional logging and debug information (you will ne
    ```
 7. **Create a Pull Request**
 
-## 📚 Additional Resources
+## Additional Resources
 
 ### Go Learning Resources
 - [Official Go Documentation](https://golang.org/doc/)
@@ -297,21 +297,4 @@ Development builds include additional logging and debug information (you will ne
 - [SQL.js Documentation](https://sql.js.org/documentation/)
 - [PDF.js Documentation](https://mozilla.github.io/pdf.js/)
 
-## 💡 Tips for Success
 
-1. **Start Small** - Begin with minor changes to understand the codebase
-2. **Use the Browser** - Most debugging can be done with browser DevTools
-3. **Read the Code** - The JavaScript is well-structured and readable
-4. **Test Often** - Frequent testing prevents complex debugging sessions
-5. **Ask Questions** - Use GitHub Issues for questions and discussions
-
-## 🎯 Next Steps
-
-Ready to contribute? Here are some good starting points:
-
-1. **Fix a Bug** - Check [GitHub Issues](https://github.com/Infinitai-cn/paiperwork/issues) for bugs
-2. **Improve Documentation** - Help make the docs even better
-3. **Add Features** - Propose new functionality
-4. **Optimize Performance** - Find areas for improvement
-
-Happy coding! 🎉
