@@ -55,32 +55,47 @@
     
     <script>
         // Dynamic content loading based on language
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize language system
-            Lang.initialize();
-            
-            // Get current language from URL parameter or default
-            const urlParams = new URLSearchParams(window.location.search);
-            const requestedLanguage = urlParams.get('lang') || Lang.getCurrentLanguage() || 'en';
-            
-            // Set language selector
-            const languageSelector = document.getElementById('language-selector');
-            languageSelector.value = requestedLanguage;
-            
-            // Load appropriate help content file
-            loadHelpContentForLanguage(requestedLanguage);
-            
-            // Setup language selector change handler
-            languageSelector.addEventListener('change', function() {
-                const newLanguage = this.value;
-                // Update URL with language parameter
-                const url = new URL(window.location);
-                url.searchParams.set('lang', newLanguage);
-                window.history.pushState({}, '', url);
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Initialize language system and wait for it to complete
+                await Lang.initialize();
                 
-                // Reload content for new language
-                loadHelpContentForLanguage(newLanguage);
+                // Get current language from URL parameter or default
+                const urlParams = new URLSearchParams(window.location.search);
+                const requestedLanguage = urlParams.get('lang') || Lang.getCurrentLanguage() || 'en';
+                
+                // Set language selector
+                const languageSelector = document.getElementById('language-selector');
+                languageSelector.value = requestedLanguage;
+                
+                // Load appropriate help content file
+                loadHelpContentForLanguage(requestedLanguage);
+                
+                // Setup language selector change handler
+            languageSelector.addEventListener('change', async function() {
+                const newLanguage = this.value;
+                
+                try {
+                    // Load the new language first
+                    await Lang.loadLanguage(newLanguage);
+                    Lang.currentLang = newLanguage;
+                    
+                    // Update URL with language parameter
+                    const url = new URL(window.location);
+                    url.searchParams.set('lang', newLanguage);
+                    window.history.pushState({}, '', url);
+                    
+                    // Reload content for new language
+                    loadHelpContentForLanguage(newLanguage);
+                } catch (error) {
+                    console.error('Failed to load language:', newLanguage, error);
+                }
             });
+            } catch (error) {
+                console.error('Failed to initialize language system:', error);
+                // Fallback: load English content anyway
+                loadHelpContentForLanguage('en');
+            }
         });
         
         function loadHelpContentForLanguage(language) {
