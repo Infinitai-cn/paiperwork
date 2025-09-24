@@ -69,6 +69,47 @@
         --preview-text-color: #e0e0e0;
         --document-bg: #262626;
         --document-text: #e0e0e0;
+        --disabled-color: #444;
+        --hover-bg: #23272e;
+        
+        /* presentation Canvas background */
+        --canvas-bg: #24272D;
+
+    /* SlideForge modal & controls (dark theme defaults) */
+    --presentation-loading-border: rgba(255,255,255,0.06);
+    --presentation-loading-accent: var(--accent-color, #4f46e5);
+    --presentation-loading-text: var(--text-color, #ffffff);
+    --presentation-modal-bg: #222426;
+    --presentation-modal-text: var(--text-color, #ffffff);
+    --presentation-modal-box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+    --presentation-modal-close-color: #ffffff;
+    --presentation-modal-close-bg: #e53935;
+    --presentation-modal-close-box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    --presentation-modal-close-hover-bg: #b71c1c;
+    --presentation-modal-close-hover-shadow: 0 4px 16px rgba(229,57,53,0.25);
+    /* Close button specific colors for modal (dark) */
+    --presentation-modal-close-icon-color: #ffffff;
+    --presentation-modal-close-bg: #e53935; /* already present but keep for clarity */
+    --presentation-modal-close-border: transparent;
+    --presentation-modal-close-hover-bg: #b71c1c;
+    --presentation-modal-close-hover-color: #ffffff;
+
+    /* Export button defaults */
+    --presentation-export-bg: var(--accent-color, #4f46e5);
+    --presentation-export-color: var(--accent-text, #ffffff);
+    --presentation-export-border: transparent;
+    --presentation-export-box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    --presentation-export-hover-bg: var(--accent-color-hover, #4338ca);
+    --presentation-export-hover-color: #ffffff;
+    --presentation-export-hover-box-shadow: 0 4px 16px rgba(67,56,202,0.12);
+    --presentation-export-focus-outline: rgba(255,255,255,0.9);
+
+    /* Browse button defaults */
+    --presentation-browse-color: #ffffff;
+    --presentation-browse-hover-color: #ffffff;
+    --presentation-browse-hover-border: transparent;
+    /* Remove-file button color (visible when showing remove '×' on dark backgrounds) */
+    --presentation-remove-file-color: #fafafa;
     }
 }
 
@@ -140,5 +181,127 @@
         --preview-text-color: #333;
         --document-bg: #ffffff;
         --document-text: #333333;
+        --disabled-color: #e0e0e0;
+        --hover-bg: #f5f5f5;
+        
+        /* presentation Canvas background */
+        --canvas-bg: #ffffff;
+
+    /* SlideForge modal & controls (light theme defaults) */
+    --presentation-loading-border: rgba(0,0,0,0.06);
+    --presentation-loading-accent: var(--accent-color, #4f46e5);
+    --presentation-loading-text: var(--text-color, #1a1a1a);
+    --presentation-modal-bg: #ffffff;
+    --presentation-modal-text: var(--text-color, #1a1a1a);
+    --presentation-modal-box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    --presentation-modal-close-color: #ffffff;
+    --presentation-modal-close-bg: #e53935;
+    --presentation-modal-close-box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --presentation-modal-close-hover-bg: #c92b2b;
+    --presentation-modal-close-hover-shadow: 0 4px 16px rgba(229,57,53,0.12);
+    /* Close button specific colors for modal (light) */
+    --presentation-modal-close-icon-color: #ffffff;
+    --presentation-modal-close-bg: #e53935; /* red background with white icon works on dark hover */
+    --presentation-modal-close-border: transparent;
+    --presentation-modal-close-hover-bg: #c92b2b;
+    --presentation-modal-close-hover-color: #ffffff;
+
+    /* Export button defaults */
+    --presentation-export-bg: var(--accent-color, #4f46e5);
+    --presentation-export-color: var(--accent-text, #ffffff);
+    --presentation-export-border: transparent;
+    --presentation-export-box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    --presentation-export-hover-bg: var(--accent-color-hover, #3730a3);
+    --presentation-export-hover-color: #ffffff;
+    --presentation-export-hover-box-shadow: 0 4px 16px rgba(55,48,163,0.08);
+    --presentation-export-focus-outline: rgba(0,0,0,0.12);
+
+    /* Browse button defaults */
+    --presentation-browse-color: #ffffff;
+    --presentation-browse-hover-color: #ffffff;
+    --presentation-browse-hover-border: transparent;
+    /* Remove-file button color (visible when showing remove '×' on light backgrounds) */
+    --presentation-remove-file-color: #111111;
+    }
+}
+
+/* presentation Style Selector Styles */
+.presentation-style-selector-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.presentation-style-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--button-bg, #f3f4f6);
+    border: 2px solid var(--border-color, #d1d5db);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 44px;
+}
+
+.presentation-style-option:hover {
+    background: var(--hover-bg, #f5f5f5);
+    border-color: var(--accent-color, #4f46e5);
+}
+
+.presentation-style-option.selected {
+    background: var(--accent-color, #4f46e5);
+    border-color: var(--accent-color, #4f46e5);
+    color: var(--accent-text, white);
+}
+
+.presentation-style-name {
+    font-weight: 500;
+    font-size: 14px;
+    color: inherit;
+}
+
+.presentation-style-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: transparent;
+    border: 2px solid var(--border-color, #d1d5db);
+    transition: all 0.2s ease;
+}
+
+.presentation-style-option.selected .presentation-style-indicator {
+    background: var(--accent-text, white);
+    border-color: var(--accent-text, white);
+    position: relative;
+}
+
+.presentation-style-option.selected .presentation-style-indicator::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    background: var(--accent-color, #4f46e5);
+    border-radius: 50%;
+}
+
+@media (prefers-color-scheme: dark) {
+    .presentation-style-option {
+        background: var(--button-bg, #404040);
+        border-color: var(--border-color, #404040);
+        color: var(--text-color, white);
+    }
+    
+    .presentation-style-option:hover {
+        background: var(--hover-bg, #23272e);
+    }
+    
+    .presentation-style-indicator {
+        border-color: var(--border-color, #404040);
     }
 }
