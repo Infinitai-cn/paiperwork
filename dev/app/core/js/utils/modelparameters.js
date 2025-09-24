@@ -51,7 +51,9 @@ const MODEL_PARAMETERS = {
         temperature: 0.6,
         top_p: 0.9,
     },
-
+    'gpt-oss': {
+        temperature: 1,
+    },
 };
 
 // Export for use in OllamaAPI
