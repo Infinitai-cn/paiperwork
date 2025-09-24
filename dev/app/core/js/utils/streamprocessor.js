@@ -431,9 +431,9 @@ class StreamProcessor {
             inMarkdownPattern: false,
             cleanCodeContent: ''
         };
-        this.logger = {
+        /* this.logger = {
             info: (msg, data) => console.log(`[StreamProcessor] ${msg}`, data || '')
-        };
+        }; */
         this.fullResponseText = '';
         this.rawResponseHtml = ''; // Store the raw HTML before processing references
         this.updateTimer = null;
@@ -452,21 +452,25 @@ class StreamProcessor {
         };
 
         //  CRITICAL FIX: Always get fresh localStorage value on initialization
-        this._cachedThinkingEnabled = localStorage.getItem('thinkingEnabled') === 'true';
+    this._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+        ? window.ThinkingState.getEffectiveThinkingEnabled()
+        : ((localStorage.getItem('thinkingEnabledGptOss') === 'true') || (localStorage.getItem('thinkingEnabled') === 'true'));
         this._lastThinkingCheck = Date.now();
 
         // Listen for thinking state changes
         this._setupThinkingStateListener();
         this.finalResponseStarted = false;
 
-        //  NEW: Log the initial state to help debugging
-        //console.log('🧠 StreamProcessor: Initialized with thinking enabled:', this._cachedThinkingEnabled);
+    //  NEW: Log the initial state to help debugging
+    //console.log('🧠 StreamProcessor: Initialized with thinking enabled:', this._cachedThinkingEnabled);
     }
     _setupThinkingStateListener() {
         // Listen for storage events (when localStorage changes in other tabs)
         window.addEventListener('storage', (e) => {
-            if (e.key === 'thinkingEnabled') {
-                this._cachedThinkingEnabled = e.newValue === 'true';
+            if (e.key === 'thinkingEnabled' || e.key === 'thinkingEnabledGptOss') {
+                this._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+                    ? window.ThinkingState.getEffectiveThinkingEnabled()
+                    : ((localStorage.getItem('thinkingEnabledGptOss') === 'true') || (localStorage.getItem('thinkingEnabled') === 'true'));
                 //console.log('🧠 StreamProcessor: Thinking state changed via storage event:', this._cachedThinkingEnabled);
             }
         });
@@ -484,7 +488,38 @@ class StreamProcessor {
         this.fullResponseText += chunk;
 
         //  OPTIMIZED: Use cached thinking state instead of localStorage
-        const thinkingEnabled = this._cachedThinkingEnabled;
+        // But allow a per-model override for gpt-oss: if this response is for a gpt-oss model
+        // and the gpt-oss-specific flag is set, prefer that. We attempt to detect the model
+        // from the nearest assistant message dataset or from a global chatInstance when available.
+        let thinkingEnabled = this._cachedThinkingEnabled;
+    try {
+            // Detect model for this response (safe fallback if not available)
+            let modelForThisResponse = '';
+            const assistantMsg = this.responseContainer.closest('.assistant-message');
+            if (assistantMsg && assistantMsg.dataset && assistantMsg.dataset.model) {
+                modelForThisResponse = assistantMsg.dataset.model;
+            } else if (window.chatInstance && window.chatInstance.currentModel) {
+                modelForThisResponse = window.chatInstance.currentModel;
+            }
+            if (modelForThisResponse) {
+                console.log('🧠 StreamProcessor: detected modelForThisResponse=', modelForThisResponse);
+                const base = (window.getBaseModelName && window.getBaseModelName(modelForThisResponse)) || (modelForThisResponse || '').toLowerCase();
+                const baseOnly = (base || '').split(':')[0];
+                console.log('🧠 StreamProcessor: normalized baseOnly=', baseOnly);
+                if (baseOnly === 'gpt-oss') {
+                    // If the gpt-oss-specific localStorage key is explicitly true, enable thinking
+                    const gptOssFlag = localStorage.getItem('thinkingEnabledGptOss');
+                    console.log('🧠 StreamProcessor: thinkingEnabledGptOss from storage=', gptOssFlag);
+                    if (gptOssFlag === 'true') {
+                        thinkingEnabled = true;
+                    }
+                }
+            }
+        } catch (e) {
+            // If anything goes wrong while detecting model, fall back to cached value
+            //console.warn('StreamProcessor: error detecting per-model thinking override', e);
+            thinkingEnabled = this._cachedThinkingEnabled;
+        }
 
         // Only log this occasionally to avoid spam
         if (Date.now() - this._lastThinkingCheck > 5000) { // Every 5 seconds
@@ -745,7 +780,7 @@ class StreamProcessor {
 
     // Add a method to get conversation ID
     getCurrentConversationId() {
-        return localStorage.getItem('hashedMasterKey') || 'default';
+        return sessionStorage.getItem('hashedMasterKey') || 'default';
     }
     processRegularContent(content) {
         try {
@@ -938,7 +973,7 @@ class StreamProcessor {
         this.rawResponseHtml = this.responseContainer.innerHTML;
     }
     endCodeBlock() {
-        this.logger.info('Ending code block');
+        //this.logger.info('Ending code block');
         if (this.state.currentCodeBlock) {
             const codeElement = this.state.currentCodeBlock.querySelector('code');
             if (codeElement) {
@@ -1081,10 +1116,13 @@ class StreamProcessor {
     }
     processThinking(thinkingText) {
         //  CRITICAL: Always check localStorage fresh for each thinking chunk
-        const currentThinkingEnabled = localStorage.getItem('thinkingEnabled') === 'true';
+        // Prefer centralized ThinkingState helper if available to respect model-specific overrides
+        const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+            ? window.ThinkingState.getEffectiveThinkingEnabled()
+            : (localStorage.getItem('thinkingEnabled') === 'true');
 
         if (!currentThinkingEnabled) {
-            //console.log('🧠 StreamProcessor: Thinking disabled, skipping thinking data');
+            console.log('🧠 StreamProcessor: currentThinkingEnabled is false, skipping thinking data. cached=', this._cachedThinkingEnabled, 'currentEffective=', currentThinkingEnabled);
             return;
         }
 
@@ -1097,7 +1135,7 @@ class StreamProcessor {
 
         // If we don't have a valid native thinking container, start one
         if (!hasValidContainer) {
-            //console.log('🧠 StreamProcessor: Starting native thinking mode - reason: No valid container');
+            console.log('🧠 StreamProcessor: Starting native thinking mode - reason: No valid container');
             this.startNativeThinkingMode();
         }
 
@@ -1489,6 +1527,7 @@ class StreamProcessor {
 
         this.cleanLatexExpressions();
         this.postProcessMarkdownLinks();
+        this.postProcessTextTables();
         //console.log('StreamProcessor: finishResponse - ensuring message actions are added');
 
         // Store the StreamProcessor instance for reference
@@ -2508,6 +2547,41 @@ class StreamProcessor {
         }
     }
 
+        // Converts markdown-style text tables (|...|...|) in the response container to HTML tables for better display
+    postProcessTextTables() {
+        const container = this.responseContainer;
+        if (!container) return;
+        // Use a regex to match markdown tables
+        // This matches a block of lines that start and end with | and have at least one --- separator line
+        const tableRegex = /((?:^|<br>)(?:\|[^\n]*\|(?:<br>|\n))+)/g;
+        let html = container.innerHTML;
+        html = html.replace(tableRegex, (match) => {
+            const lines = match.replace(/<br>/g, '\n').split('\n').map(l => l.trim()).filter(Boolean);
+            if (lines.length < 2) return match;
+            const sepIdx = lines.findIndex(l => /^\|?\s*-+\s*(\|\s*-+\s*)+\|?$/.test(l));
+            if (sepIdx < 1) return match;
+            const header = lines[0];
+            const separator = lines[sepIdx];
+            const rows = lines.slice(sepIdx + 1);
+            const headerCells = header.split('|').map(c => c.trim()).filter(Boolean);
+            if (headerCells.length < 2) return match;
+            let tableHtml = '<div class="markdown-table-container"><table class="markdown-table"><thead><tr>';
+            headerCells.forEach(cell => { tableHtml += `<th>${cell}</th>`; });
+            tableHtml += '</tr></thead><tbody>';
+            rows.forEach(row => {
+                const cells = row.split('|').map(c => c.trim()).filter(Boolean);
+                if (cells.length === headerCells.length) {
+                    tableHtml += '<tr>';
+                    cells.forEach(cell => { tableHtml += `<td>${cell}</td>`; });
+                    tableHtml += '</tr>';
+                }
+            });
+            tableHtml += '</tbody></table></div>';
+            return tableHtml;
+        });
+        container.innerHTML = html;
+    }
+
     looksLikeDomain(text) {
         // Check if text looks like a domain name
         return /^[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}(\.[a-zA-Z]{2,})?$/.test(text.toLowerCase()) ||
@@ -2882,17 +2956,16 @@ class StreamProcessor {
     addSimpleMessageActions() {
         //console.log('Using fallback simple message actions');
 
-        const container = document.createElement('div');
-        container.className = 'message-actions copy-response-container';
-        container.style.cssText = `
-                text-align: right;
-                margin-top: 0.5rem;
-                margin-bottom: 0.5rem;
-                padding-top: 0.5rem;
-                font-size: 0.85rem;
-                opacity: 0.7;
-                border-top: 1px solid var(--border-color);
-            `;
+    const container = document.createElement('div');
+    container.className = 'message-actions copy-response-container';
+    container.style.cssText = `
+        text-align: right;
+        margin-top: 0.5rem;
+        margin-bottom: 0.5rem;
+        padding-top: 0.5rem;
+        opacity: 0.7;
+        border-top: 1px solid var(--border-color);
+        `;
 
         const self = this;
 
@@ -2970,7 +3043,7 @@ class StreamProcessor {
         if (includeMetadata) {
             const model = document.getElementById('model-selector')?.value || 'unknown';
             const timestamp = new Date().toLocaleString();
-            const hashedMasterKey = localStorage.getItem('hashedMasterKey') || 'unknown';
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey') || 'unknown';
 
             // Add metadata footer
             const metadataText = `\n\n---\nGenerated with: ${model}\nDate: ${timestamp}\nMasterKey ID: ${hashedMasterKey}\n`;

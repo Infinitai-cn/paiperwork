@@ -168,13 +168,13 @@ class RAG {
 
       // Encrypt document info
       const encryptedName = JSON.stringify(
-        await PaiperworkDB.encryptPrompt(hashedMasterKey, documentName)
+        await PaiperworkDB.encrypt(hashedMasterKey, documentName)
       );
       const encryptedMetadata = JSON.stringify(
-        await PaiperworkDB.encryptPrompt(hashedMasterKey, JSON.stringify(documentInfo))
+        await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(documentInfo))
       );
       const encryptedDateAdded = JSON.stringify(
-        await PaiperworkDB.encryptPrompt(hashedMasterKey, dateAdded)
+        await PaiperworkDB.encrypt(hashedMasterKey, dateAdded)
       );
 
       // Insert with consistent column names
@@ -319,13 +319,13 @@ class RAG {
 
           // Encrypt chunk data
           const encryptedText = JSON.stringify(
-            await PaiperworkDB.encryptPrompt(hashedMasterKey, chunk)
+            await PaiperworkDB.encrypt(hashedMasterKey, chunk)
           );
           const encryptedEmbedding = JSON.stringify(
-            await PaiperworkDB.encryptPrompt(hashedMasterKey, JSON.stringify(embedding))
+            await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(embedding))
           );
           const encryptedMetadata = JSON.stringify(
-            await PaiperworkDB.encryptPrompt(
+            await PaiperworkDB.encrypt(
               hashedMasterKey,
               JSON.stringify(chunkMetadata)
             )
@@ -419,13 +419,13 @@ class RAG {
 
     // Encrypt document info
     const encryptedName = JSON.stringify(
-      await PaiperworkDB.encryptPrompt(hashedMasterKey, documentName)
+      await PaiperworkDB.encrypt(hashedMasterKey, documentName)
     );
     const encryptedMetadata = JSON.stringify(
-      await PaiperworkDB.encryptPrompt(hashedMasterKey, JSON.stringify(documentInfo))
+      await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(documentInfo))
     );
     const encryptedDateAdded = JSON.stringify(
-      await PaiperworkDB.encryptPrompt(hashedMasterKey, dateAdded)
+      await PaiperworkDB.encrypt(hashedMasterKey, dateAdded)
     );
 
     // Insert with consistent column names
@@ -539,13 +539,13 @@ class RAG {
 
       // Encrypt chunk data (FIXED: using chunk not paragraph)
       const encryptedText = JSON.stringify(
-        await PaiperworkDB.encryptPrompt(hashedMasterKey, chunk)
+        await PaiperworkDB.encrypt(hashedMasterKey, chunk)
       );
       const encryptedEmbedding = JSON.stringify(
-        await PaiperworkDB.encryptPrompt(hashedMasterKey, JSON.stringify(embedding))
+        await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(embedding))
       );
       const encryptedMetadata = JSON.stringify(
-        await PaiperworkDB.encryptPrompt(hashedMasterKey, JSON.stringify(chunkMetadata))
+        await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(chunkMetadata))
       );
 
       // Store chunk with consistent column names
@@ -721,7 +721,7 @@ class RAG {
       encMetadata,
     ] of chunksResult[0].values) {
       const embedding = JSON.parse(
-        await PaiperworkDB.decryptPrompt(hashedMasterKey, JSON.parse(encEmbedding))
+        await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encEmbedding))
       );
       const similarity = this.calculateCosineSimilarity(
         promptEmbedding,
@@ -730,12 +730,12 @@ class RAG {
 
       if (similarity > 0.7) {
         // Only include relevant chunks
-        const text = await PaiperworkDB.decryptPrompt(
+        const text = await PaiperworkDB.decrypt(
           hashedMasterKey,
           JSON.parse(encText)
         );
         const metadata = JSON.parse(
-          await PaiperworkDB.decryptPrompt(hashedMasterKey, JSON.parse(encMetadata))
+          await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encMetadata))
         );
 
         similarities.push({
@@ -785,20 +785,20 @@ class RAG {
       }
 
       // Decrypt and convert data
-      const name = await PaiperworkDB.decryptPrompt(
+      const name = await PaiperworkDB.decrypt(
         hashedMasterKey,
         JSON.parse(encName)
       );
       let metadata;
       try {
         metadata = JSON.parse(
-          await PaiperworkDB.decryptPrompt(hashedMasterKey, JSON.parse(encMetadata))
+          await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encMetadata))
         );
       } catch (error) {
         console.warn("RAG: Error parsing metadata, using empty object:", error);
         metadata = {};
       }
-      const dateAdded = await PaiperworkDB.decryptPrompt(
+      const dateAdded = await PaiperworkDB.decrypt(
         hashedMasterKey,
         JSON.parse(encDateAdded)
       );
@@ -1167,11 +1167,11 @@ class RAG {
           let chunkText, documentName;
 
           try {
-            chunkText = await PaiperworkDB.decryptPrompt(
+            chunkText = await PaiperworkDB.decrypt(
               hashedMasterKey,
               JSON.parse(encryptedText)
             );
-            documentName = await PaiperworkDB.decryptPrompt(
+            documentName = await PaiperworkDB.decrypt(
               hashedMasterKey,
               JSON.parse(encryptedName)
             );
@@ -1184,7 +1184,7 @@ class RAG {
           let similarity = 0;
           try {
             // Safely parse and decrypt the embedding
-            let embeddingText = await PaiperworkDB.decryptPrompt(
+            let embeddingText = await PaiperworkDB.decrypt(
               hashedMasterKey,
               JSON.parse(encryptedEmbedding)
             );
@@ -1261,7 +1261,7 @@ class RAG {
   static async tableExists(tableName) {
     try {
       // Initialize database connection first
-      const hashedMasterKey = localStorage.getItem("hashedMasterKey");
+  const hashedMasterKey = sessionStorage.getItem("hashedMasterKey");
       if (!hashedMasterKey) {
         console.error("RAG: No hashed masterkey available for database access");
         return false;
@@ -1288,8 +1288,8 @@ class RAG {
 
   // Update the db getter to use PaiperworkDB
   static async getDb() {
-    const hashedMasterKey = localStorage.getItem("hashedMasterKey");
-    return await PaiperworkDB.getDatabase(hashedMasterKey);
+  const hashedMasterKey = sessionStorage.getItem("hashedMasterKey");
+  return await PaiperworkDB.getDatabase(hashedMasterKey);
   }
   // Searches document chunks with additional constraints (e.g., by document ID), using embeddings.
   static async searchDocumentsWithConstraint(query, hashedMasterKey, model, constraints) {
@@ -1353,7 +1353,7 @@ class RAG {
       if (metadataResult && metadataResult[0]?.values) {
         for (const [chunkId, docId, encMetadata] of metadataResult[0].values) {
           try {
-            const metadataStr = await PaiperworkDB.decryptPrompt(hashedMasterKey, JSON.parse(encMetadata));
+            const metadataStr = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encMetadata));
             const metadata = JSON.parse(metadataStr);
             chunkMeta.push({
               id: chunkId,
@@ -1452,7 +1452,7 @@ class RAG {
       if (docsResult && docsResult.length > 0 && docsResult[0].values) {
         for (const [docId, encName] of docsResult[0].values) {
           try {
-            documentMap[docId] = await PaiperworkDB.decryptPrompt(
+            documentMap[docId] = await PaiperworkDB.decrypt(
               hashedMasterKey,
               JSON.parse(encName)
             );
@@ -1473,7 +1473,7 @@ class RAG {
 
         for (const [chunkId, docId, encText, encEmbedding, encMetadata] of batch) {
           try {
-            const text = await PaiperworkDB.decryptPrompt(hashedMasterKey, JSON.parse(encText));
+            const text = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encText));
             chunks.push({
               id: chunkId,
               documentId: docId,
@@ -1589,7 +1589,7 @@ class RAG {
         if (!encEmbedding) return null;
 
         return JSON.parse(
-          await PaiperworkDB.decryptPrompt(hashedMasterKey, JSON.parse(encEmbedding))
+          await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encEmbedding))
         );
       }
       return null;
