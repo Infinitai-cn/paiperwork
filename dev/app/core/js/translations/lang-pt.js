@@ -4,10 +4,17 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
 
     const portugueseTranslations = {
 
-
         // ===== HELP.HTML =====
         helpPageTitle: 'Paiperwork - Ajuda',
-        helpMainTitle: 'Ajuda e Documentação',
+    helpMainTitle: 'Ajuda e Documentação',
+    // -- Auto-added missing keys --
+    analysis: "Análise",
+    checkingForUpdates: "Verificando atualizações",
+    collectionWithEntries: "Coleção com entradas",
+    conversationPrefix: "Conversa:",
+    createNewCollectionOption: "Criar nova coleção",
+    currentVersion: "Versão atual",
+    delete: "Excluir",
         loadingHelpContent: 'Carregando conteúdo de ajuda...',
         returnButton: 'Voltar',
         loadingContent: 'Carregando conteúdo, por favor aguarde...',
@@ -30,7 +37,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         masterkeyInput: "Digite a Chave Mestre...",
         startButton: "Iniciar",
         helpButton: "Ajuda",
-        backButton: "← Voltar",
         checkUpdatesButton: "Verificar Atualizações",
         deleteAllButton: "Excluir Todas as Informações",
         logoAltText: "Logo Paiperwork",
@@ -42,12 +48,9 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         // Generation page UI elements
         backButton: "Voltar",
         newChatButton: "Novo Chat",
-        sendButton: "Enviar",
         webButton: "Web",
         enterMessage: "Digite sua mensagem...",
         masterkeyLabel: "Chave Mestre",
-        activateThinking: "Ativar Pensamento",
-        deactivateThinking: "Desativar Pensamento",
         // Tab buttons
         chatTab: "Chat",
         documentsTab: "Documentos",
@@ -55,6 +58,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         paperworkTab: "Papelada",
         researchTab: "Pesquisa",
         artworkTab: "Design",
+        PresentationTab: "SlideForge",
         modelsTab: "Modelos",
         databaseTab: "Banco de Dados",
 
@@ -63,13 +67,16 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         toggleOff: "DESLIGADO",
 
         // Chat tab elements
-        insightsLabel: "Insights",
+    insightsLabel: "Insights",
+    modelMaximumContext: 'Contexto máximo do modelo:',
+    retrievingModelContext: 'Recuperando o tamanho máximo de contexto do modelo...',
         contextSizeLabel: "Tamanho do contexto:",
         contextRemainingLabel: "Contexto restante: ",
         systemPromptLabel: "Prompt do sistema",
         saveButton: "Salvar",
         clearCurrentSession: "Limpar Sessão Atual",
-        loadingCalculator: 'Carregando Calculadora...',
+    loadingCalculator: 'Carregando Calculadora...',
+    loadingSlideForgeTools: 'Carregando ferramentas SlideForge...',
         errorLoadingCalculator: 'Falha ao carregar a calculadora. Por favor, tente novamente.',
         checkingLoadedModels: 'Verificando modelos carregados...',
         unloadingModels: 'Descarregando modelos...',
@@ -77,17 +84,18 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         restoringLoadedModels: 'Restaurando modelos carregados...',
         loadingModel: "Carregando modelo...",
         checkingOllama: "Verificando Ollama...",
-        loadingConversations: "Carregando conversas...",
         conversationsFound: "conversas encontradas",
+        activateThinking: 'Ativar raciocínio',
+        deactivateThinking: 'Desativar raciocínio',
+        reasoningLow: 'Baixo',
+        reasoningMid: 'Médio',
+        reasoningHigh: 'Alto',
 
         // Page title
         generationPageTitle: "Paiperwork - Geração",
 
         // Loading messages
         loadingPreviousChats: "Carregando chats anteriores...",
-        loadingResearchTools: "Carregando ferramentas de pesquisa...",
-        loadingDesignTools: "Carregando ferramentas de design...",
-        loadingDatabaseStats: "Carregando estatísticas do banco de dados...",
 
 
         // ===== APP.JS =====
@@ -95,7 +103,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         loadingDocumentTools: "Carregando ferramentas de documento...",
         loadingResearchTools: "Carregando ferramentas de pesquisa...",
         loadingDesignTools: "Carregando ferramentas de design...",
-        loadingDatabaseStats: "Carregando estatísticas do banco de dados...",
 
         // Tab Error Messages
         failedLoadDocumentTools: "Falha ao carregar ferramentas de documento",
@@ -105,7 +112,173 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         failedLoadArtwork: "Erro ao Carregar Modelos Visuais",
         errorLoadingVisualModels: "Erro ao Carregar Modelos Visuais",
 
-        // Generic Messages
+    // ===== ARTWORKSTAB.JS =====
+
+    // UI
+    artworkSelectVisualModel: "Selecionar Modelo Visual:",
+    artworkSelectMode: "Selecionar Modo:",
+    artworkHtmlStyleTransfer: "Transferência de Estilo HTML",
+    artworkTextOverlay: "Sobreposição de Texto",
+    artworkDesignRationale: "Justificativa de Design",
+    artworkUploadReferenceImage: "Enviar Imagem de Referência:",
+    artworkDragImageOrClick: "Arraste uma imagem aqui ou clique para enviar",
+    artworkUseAsBackground: "Usar como imagem de fundo",
+    artworkDesignInstructions: "Instruções de Design:",
+    artworkDesignInstructionsPlaceholder: "Descreva o estilo desejado (ex.: 'Criar um site brutalista', 'Design em estilo minimalista'), nome do site, botões, etc...",
+    artworkGenerateDesign: "Gerar Design",
+    artworkGeneratedDesign: "Design Gerado:",
+    artworkSelectVisualModelOption: "Selecione um modelo visual",
+    artworkVisualDesignStudio: "Estúdio de Design Visual",
+    artworkCreateDesignsDescription: "Crie designs, sites ou obras usando modelos visuais de IA.",
+
+    // Models
+    artworkNoVisualModelsAvailable: "Nenhum Modelo Visual Disponível",
+    artworkFeatureRequiresVisualModels: "Este recurso requer modelos visuais instalados no Ollama.",
+    artworkNoCompatibleModelsInstalled: "Você não tem modelos visuais compatíveis instalados.",
+    artworkInstallModelsLike: "Instale modelos como LLaVA, Bakllava, Gemma3, Phi3-Vision ou outros com visão",
+    artworkToUseThisFeature: "para usar este recurso.",
+    artworkGoToModelsTab: "Ir para a Aba Modelos",
+
+    // Info
+    artworkPleaseSelectVisualModel: "Por favor selecione um modelo visual",
+    artworkPleaseUploadReferenceImage: "Por favor envie uma imagem de referência",
+    artworkPleaseProvideDesignInstructions: "Por favor forneça instruções de design",
+    artworkPleaseSelectImageFile: "Por favor selecione um arquivo de imagem",
+    artworkImageTooLarge: "Imagem muito grande. O tamanho máximo é 5MB",
+
+    // Overlays
+    artworkStyleModePlaceholder: "Descreva a transformação de estilo desejada (ex.: 'Transformar em um design Brutalist com tipografia forte')",
+    artworkOverlayModePlaceholder: "Insira o texto a sobrepor (ex.: 'Cabeçalho: Nome do Produto, Corpo: Principais características..., Rodapé: Chamada para ação')",
+    artworkRationaleModePlaceholder: "Peça aspectos específicos do design para explicar (ex.: 'Explique as escolhas de layout e como impactam o fluxo do usuário')",
+
+    // Generate artworks
+    artworkGenerating: "Gerando...",
+    artworkGenerationCancelled: "Geração foi cancelada.",
+    artworkImageAnalysisFailed: "Erro: A análise da imagem falhou. Por favor tente novamente.",
+    artworkErrorOccurred: "Erro: {error}",
+    analyzingImage: 'Analisando Imagem',
+    analyzingImageAndGenerating: 'Analisando imagem e gerando design...',
+    artworkGenerationTiming: 'Isto pode levar 30-60 segundos dependendo do modelo',
+
+    // ===== ARTWORKPREVIEWWINDOW.JS =====
+    artworkCopyText: "Copiar Texto",
+    artworkCopyCode: "Copiar Código",
+
+    // Create window
+    artworkCode: "Código",
+    artworkPreview: "Pré-visualizar",
+    artworkExportPNG: "Exportar PNG",
+    artworkClose: "Fechar",
+
+    // Background image
+    artworkBackgroundImageWarning: "IMPORTANTE: Isto está usando uma URL de imagem temporária.",
+    artworkBackgroundImageInstructions: "Ao publicar seu site, substitua isto por um caminho de imagem real como:",
+    artworkBackgroundImageReplace: "Substitua por um caminho de imagem real ao publicar",
+
+    // Copy code
+    artworkCopied: "Copiado!",
+    artworkCopyFailed: "Falha ao copiar o código. Por favor tente novamente.",
+
+    // Download image
+    artworkExportingPNG: "Exportando PNG...",
+    artworkExportWait: "Por favor aguarde enquanto geramos sua imagem.",
+    artworkExportSuccess: "PNG exportado com sucesso!",
+    artworkExportDownloaded: "Sua imagem foi baixada.",
+
+    // Export instructions
+    artworkExportInstructions: "Para salvar como PNG de alta qualidade:",
+    artworkExportScreenshot: "Tire uma captura de tela da área de pré-visualização:",
+    artworkExportMac: "Cmd+Shift+4, e então selecione a área",
+    artworkExportWindows: "Win+Shift+S, e então selecione a área",
+    artworkExportPasteSave: "Cole e salve no editor de imagens de sua preferência",
+    artworkExportGotIt: "Entendi",
+
+    // Extras
+    artworkGenerationCanceled: 'Geração Cancelada',
+    artworkGenerationWasCanceled: 'A geração foi cancelada.',
+    artworkTryAgainDifferentPrompt: 'Você pode tentar novamente com um prompt diferente ou modelo.',
+    artworkGenerationFailed: 'Geração Falhou',
+    artworkTryAgainDifferentPromptOrModel: 'Por favor tente novamente com um prompt ou modelo diferente',
+
+    // ===== MODELSTAB.JS =====
+
+    // Models tab
+    modelRestartOllamaAdvice: "Por favor reinicie o Ollama para limpar completamente arquivos parciais.",
+    modelFetchButton: "Buscar Modelos Ollama",
+    modelSelectPlaceholder: "Nenhum modelo buscado ainda",
+    modelFetching: "Buscando modelos...",
+    modelPleaseWait: "Por favor aguarde, conectando ao Ollama...",
+    modelFetchSuccess: "Encontrados {count} modelos disponíveis",
+    modelFetchRetry: "Tentar novamente",
+    modelSelectLabel: "Selecionar Modelo",
+    modelSizeLabel: "Selecionar Tamanho",
+    modelDeleteSelectOption: "Selecionar modelo...",
+    modelDownloadButton: "Baixar Modelo",
+    modelDeleteButton: "Excluir Modelo Selecionado",
+    modelLocalLabel: "Modelos Locais Atuais",
+    modelDownloadStarting: "Iniciando download...",
+    modelDownloading: "Baixando: {downloaded} / {total}",
+    modelDownloadComplete: "Download Completo",
+    modelDownloadError: "Erro - Tente Novamente",
+    modelDeleteConfirm: "Tem certeza que deseja excluir {model}?",
+    modelDeleting: "Excluindo...",
+    modelDeleted2: "Modelo Excluído",
+    modelDeleteError: "Erro ao Excluir",
+    modelDeleteSuccess: "Removido com sucesso {model}",
+    modelNoTags: "Nenhuma tag disponível para este modelo",
+    modelDownloadSuccess: "Download realizado com sucesso {model}",
+    modelErrorMessage: "Erro: {message}",
+    modelConfigureButton: "Configurar modelo (opcional)",
+    modelConfigureSuccess: "Modelo personalizado '{model}' criado com sucesso baseado em {baseModel}!",
+    modelConfigureError: "Erro ao criar modelo personalizado: {error}",
+    modelChooseOption: "Escolha um modelo...",
+    modelFetchingMessage: "Buscando modelos...",
+    modelResumeDownload: "Retomar Download",
+    modelDownloadResuming: "Retomando download...",
+    modelRefreshingStats: "Atualizando estatísticas de download...",
+    modelFetchDisabledDuringDownload: "Buscar modelos está desativado enquanto um modelo está sendo baixado.",
+    modelName: "Nome do Modelo",
+    baseModel: "Modelo Base",
+    creating: "Criando...",
+    modelLoadingOption: "Carregando modelos locais...",
+    modelFetchError: "Erro ao carregar modelos online",
+    modelFetchingSizes: "Buscando tamanhos...",
+    modelNoSizesFound: "Nenhum tamanho encontrado para este modelo",
+    modelSizesFetchError: "Erro ao carregar tamanhos do modelo",
+    modelSelectBothRequired: "Por favor selecione tanto um modelo quanto um tamanho antes de baixar.",
+    modelCancelButton: "Cancelar Download",
+    modelCancelDownloadConfirm: "Tem certeza que deseja cancelar este download? Downloads parciais serão excluídos.",
+    modelCancellingDownload: "Cancelando download e limpando...",
+    modelDownloadCancelled: "Download cancelado com sucesso, por favor reinicie o Ollama para excluir arquivos parciais baixados.",
+    modelCancellationError: "Erro durante o processo de cancelamento.",
+    modelDownloadInterrupted: "Download interrompido. Por favor tente novamente.",
+    modelSettingsTitle: "Configurações do Modelo",
+    modelSettingsDescription: "Visualize e ajuste configurações para este modelo.",
+    modelConfigTemp: "Temperatura",
+    modelConfigTopP: "Top P",
+    modelConfigTopK: "Top K",
+    modelConfigRepeatPenalty: "Penalidade de Repetição",
+    restoreSettings: "Restaurar Configurações de Fábrica",
+    saveSettings: "Salvar Configurações",
+    modelSettingsSaved: "Configurações salvas para {model}.",
+    modelSettingsError: "Erro ao salvar configurações: {error}",
+    savingSettings: "Salvando configurações...",
+    restoringSettings: "Restaurando configurações de fábrica...",
+    settingsRestored: "Configurações de fábrica restauradas",
+    modelConfigStatus: "Status das Configurações",
+    modelConfigHelp: "Ajuste as configurações para controlar como o modelo gera texto.",
+    modelConfigTempHelp: "Valores mais altos (próximos de 1) tornam a saída mais aleatória, valores baixos mais determinísticos.",
+    modelConfigTopPHelp: "Limita a seleção de tokens a uma porcentagem da massa de probabilidade. Valores mais baixos aumentam foco.",
+    modelConfigTopKHelp: "Limita a seleção de tokens aos top K. Valores mais baixos aumentam foco.",
+    modelConfigRepeatPenaltyHelp: "Valores maiores reduzem repetições penalizando tokens repetidos.",
+    modelConfigResetButton: "Redefinir",
+    modelConfigSaveButton: "Salvar Alterações",
+    viewModelsConfirm: "Você gostaria de ver modelos Ollama disponíveis online?",
+    fetchingModels: "Buscando modelos Ollama...",
+    loadingModelDownloader: "Carregando gerenciador de downloads de modelos...",
+    errorLoadingModels: "Erro ao carregar modelos",
+
+    // Generic Messages
         retryButton: "Tentar Novamente",
         errorOccurred: "Erro: {error}. Por favor, tente novamente.",
         errorTryAgain: "Por favor, tente novamente.",
@@ -134,7 +307,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
 
         // Ollama Connection
         ollamaLoadError: "Erro ao carregar modelos do Ollama.",
-        ollamaRetryPrompt: "Gostaria de tentar novamente?",
+    ollamaRetryPrompt: "Gostaria de tentar novamente? (Certifique-se de que o Ollama está em execução)",
         ollamaContextSizeError: "Erro de comunicação, por favor tente novamente ou reinicie o Ollama.",
         Ollamaerror500: "Erro 500 na resposta do Ollama.",
         ollamaSelectModelPrompt: "Por favor, selecione um modelo antes de enviar uma mensagem.",
@@ -152,7 +325,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         refreshPage: "Por favor, atualize a página e tente novamente.",
 
         // Generation Control
-        generationCancelled: "[Geração cancelada]",
         continueConversation: "Continuar Conversa",
         ollamaContinueButton: "Continuar Conversa",
         ollamaContinueProcessing: "Processando...",
@@ -201,23 +373,16 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         calculateOptimalButton: "Calcular Ótimo",
         resetToDefaultButton: "Redefinir para Padrão",
         calculatingContext: "Calculando...",
-        gettingSystemInfo: "Obtendo informações do sistema...",
-        unloadingModel: "Descarregando modelo...",
-        reloadingModel: "Recarregando modelo...",
-        resetting: "Redefinindo...",
         clickToShowMasterKey: "Clique para mostrar/ocultar chave mestre",
 
         // Insights Management  
         editInsightsButton: "Editar insights",
-        saving: "Salvando...",
-        errorSaving: "Erro ao Salvar",
 
         // Session Management
         loadingConversations: "Carregando conversas...",
         loadingConversationsProgress: "Carregando {current}/{total} conversas...",
         noPreviousConversations: "Nenhuma conversa anterior",
         errorLoadingConversations: "Erro ao carregar conversas",
-        noMessagesFound: "Nenhuma mensagem encontrada para esta conversa",
         deleteSession: "Excluir esta conversa",
         newChat: "Nova Conversa",
         confirmDeleteGroup: "Tem certeza de que deseja excluir esta conversa?",
@@ -297,11 +462,9 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         contextResetNote: "O contexto foi redefinido devido à mudança do prompt do sistema",
 
         // Button States
-        cancelButton: "Cancelar",
         sendButton: "Enviar",
 
         // Visual Model Errors
-        visualModelError: "Erro do Modelo Visual",
         visualModelMissingComponents: "Este modelo parece estar faltando os componentes necessários para processar imagens.",
         visualModelTryDifferent: "Tente usar um modelo visual diferente do seletor de modelos",
         visualModelEnsureConverted: "Se estiver usando um modelo personalizado, certifique-se de que foi convertido adequadamente com capacidades visuais",
@@ -331,6 +494,9 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
 
         // RAG Integration
         ragNoRelevantContent: "Não consegui encontrar informações relevantes no documento selecionado para sua pergunta. Por favor, tente reformular sua pergunta ou selecione um documento diferente.",
+    // RAG Utils messages
+    embeddingModelError: "Não foi possível gerar embeddings para seus documentos. Por favor, verifique a configuração do modelo de embeddings.",
+    embeddingModelSuggestion: "Sugestão: Use um modelo de embeddings compatível ou verifique as configurações da sua API.",
 
         // Message Management
         deleteMessagePairError: "Erro ao excluir par de mensagens. Por favor, tente novamente.",
@@ -348,6 +514,11 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         modelImproperlyQuantized: "O modelo pode ter sido quantizado inadequadamente",
         checkProperVisualModel: "Verifique se está usando uma versão adequadamente construída do modelo visual",
         generationCancelledBeforeStart: "Geração cancelada antes de começar. Por favor, tente novamente.",
+    // Models tab extras
+    editThinkingModelsButton: "Editar lista de modelos Thinking",
+    editThinkingModelsTitle: "Editar lista de modelos Thinking",
+    editVisualModelsButton: "Editar lista de modelos Visuais",
+    editVisualModelsTitle: "Editar lista de modelos Visuais",
 
         // ===== DATABASETAB.JS ===== 
 
@@ -406,7 +577,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         ragPdfCheckError: "Erro ao verificar conteúdo do PDF",
 
         // Processing States
-        ragProcessingStatus: "Processando...",
         ragProcessingPaused: "Processamento de documentos pausado até que a IA termine a conversa atual",
 
         // Search Functionality
@@ -427,7 +597,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         ragDocumentModePriority: "Isto terá prioridade mesmo quando na aba Documentos.",
         ragReturnToChat: "Retornado ao modo de chat regular",
         ragEnableError: "Erro ao ativar modo de questionamento de documentos",
-        ragDocumentModeAsking: "Perguntando: \"{document}\"",
 
         // Summary Management
         resetSummary: "Redefinir resumo",
@@ -436,19 +605,8 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         editableContent: "Este resumo é totalmente editável. Faça alterações conforme necessário antes de exportar ou salvar.",
 
         // Document Metadata Display
-        ragDocumentSectionAuthor: "Autor: {author}",
-        ragDocumentSectionAdded: "Adicionado: {date}",
-        ragDocumentSectionPages: "Páginas: {count}",
-        ragDocumentSectionChunks: "Blocos: {count}",
-        ragDocumentSectionDelete: "Excluir",
-        ragDocumentSectionProcessing: "Processando",
-        ragDocumentSectionIndexed: "Indexado",
-        ragDocumentSectionUntitled: "Sem título",
 
         // Error Handling
-        ragDisplayError: "Erro ao exibir documentos: {error}",
-        ragLoadingError: "Erro ao carregar documentos: {error}",
-        ragDeleteFailed: "Falha ao excluir documento. Tente novamente.",
 
         // Search Results
         ragQuickSearch: "Pesquisa Rápida",
@@ -456,10 +614,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         ragAskAboutThis: "Perguntar sobre isto",
         ragTopResults: "Melhores resultados para \"{query}\"",
         ragNoResults: "Nenhum documento correspondente encontrado",
-        ragSearchPlaceholder: "Pesquisa rápida...",
-        ragSearchButton: "Pesquisar",
-        ragSearchClearButton: "Limpar Pesquisa",
-        ragSearching: "Pesquisando documentos...",
         ragSearchError: "Erro de pesquisa: {error}",
         ragSearchNoResults: "Nenhum documento encontrado correspondendo a \"{query}\"",
         ragSearchResults: "Encontrados {count} resultados para \"{query}\"",
@@ -474,16 +628,11 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         ragErrorStorage: "Erro ao acessar armazenamento de documentos",
         ragNoDocuments: "Nenhum documento encontrado",
         ragUploadPrompt: "Carregue documentos usando a área acima",
-        ragLoadingError: "Erro ao carregar documentos: {error}",
-        ragDisplayError: "Erro ao exibir documentos: {error}",
         ragDeleteConfirm: "Tem certeza de que deseja excluir este documento? Isto não pode ser desfeito.",
         ragDeleting: "Excluindo...",
         ragDeleteSuccess: "Documento excluído com sucesso",
-        ragDeleteError: "Falha ao excluir documento. Tente novamente.",
         ragSearchingDocuments: "Pesquisando documentos...",
-        ragDragDropText: "Arraste e Solte arquivos PDF ou de Texto",
         ragBrowseText: "ou procurar arquivos",
-        ragDocumentSelected: "📄 Documento selecionado",
         ragDeselectButton: "Desselecionar",
         ragGenerateSummary: "Gerar Resumo",
         ragAskQuestions: "Fazer Perguntas",
@@ -496,22 +645,12 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         ragClearSearch: "Limpar Pesquisa",
 
         // Document Summary translations
-        ragSummaryGenerating: "Um resumo já está sendo gerado. Aguarde até que seja concluído.",
         ragSummaryTitle: "Resumo de \"{title}\"",
         ragSummaryPreparing: "Preparando documento para resumo...",
-        ragSummaryCancelConfirm: "Tem certeza de que deseja cancelar a geração do resumo?",
-        ragSummaryContinuing: "A geração do resumo está continuando.",
-        ragSummaryNoContent: "Nenhum conteúdo de documento encontrado para resumir.",
         ragSummarySections: "Encontradas {count} seções do documento",
-        ragSummaryProcessing: "Processando documento ({size}KB)",
-        ragSummaryGenerating: "Gerando resumo do documento...",
         ragSummaryProcessingParts: "Processando documento em {total} partes sequencialmente...",
-        ragSummaryPart: "Resumindo parte {current} de {total}...",
-        ragSummaryFinalizing: "Finalizando resumo...",
         ragSummaryComplete: "Resumo concluído",
         ragSummaryTokens: "Resumo concluído. Usa aproximadamente {tokens} tokens ({percent}% do contexto).",
-        ragSummaryCancelledByUser: "A geração do resumo foi cancelada pelo usuário.",
-        ragSummaryError: "Erro ao gerar resumo: {error}",
         ragSummaryCopy: "Copiar Resumo",
         ragSummaryCopied: "Copiado!",
         ragSummaryCancel: "Cancelar Geração",
@@ -526,7 +665,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         ragDocumentSectionAdded: "Adicionado: {date}",
         ragDocumentSectionPages: "Páginas: {count}",
         ragDocumentSectionChunks: "Blocos: {count}",
-        ragDocumentSectionDelete: "Excluir",
         ragDocumentSectionProcessing: "Processando",
         ragDocumentSectionIndexed: "Indexado",
         ragDocumentSectionUntitled: "Sem título",
@@ -545,7 +683,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         ragDocumentSelected: "📄 Documento selecionado",
         ragDocumentDeselect: "Desselecionar",
         ragDocumentGenerateSummary: "Gerar Resumo",
-        ragDocumentAskQuestions: "Fazer Perguntas",
         ragDocumentModePlaceholder: "Perguntar sobre \"{document}\"...",
         ragDocumentAskQuestions: "Fazer Perguntas",
         ragSummaryCancelled: "Geração cancelada",
@@ -567,6 +704,41 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
 
         //TOC
         tocTitle: "Índice",
+
+               // ===== STREAMPROCESSOR.JS =====
+        modelThinking: 'Modelo a pensar: ',
+        modelThoughtComplete: 'Pensamento concluído: ',
+        toggleThinkingVisibility: 'Alternar visibilidade do processo de pensamento',
+        thinkingTime: 'Tempo de pensamento',
+        thinkingCollapsed: 'Mostrar processo de pensamento',
+        thinkingExpanded: 'Ocultar processo de pensamento',
+        modelThinkingCancelled: 'Pensamento cancelado: ',
+        thinkingCompletedIn: 'Pensamento concluído em {seconds} segundos',
+        
+        // Code Preview messages
+        previewLoadingMessage: 'Carregando pré-visualização...',
+        previewJsError: 'Erro de JavaScript:',
+        previewHtmlError: 'Pré-visualização HTML com erros',
+        previewErrorInCode: 'Erro no código HTML',
+        previewYourCode: 'O seu código é mostrado abaixo com erros:',
+        previewTitle: 'Pré-visualização HTML',
+        previewViewAsDesktop: 'Área de trabalho',
+        previewViewAsTablet: 'Tablet',
+        previewViewAsMobile: 'Dispositivo móvel',
+        previewRefreshTooltip: 'Atualizar pré-visualização',
+        previewMaximize: 'Maximizar',
+        previewRestore: 'Restaurar',
+        previewClose: 'Fechar',
+        // Code Styling messages
+        codeCopyButton: 'Copiar',
+        codeCopied: 'Copiado!',
+        codeRunButton: 'Executar',
+        codeCopyError: 'Erro',
+        codeToggleLineNumbersTitle: 'Alternar números de linha',
+        codeToggleLineNumbers: 'Números de linha',
+        thinkingContentNotRestored: 'O conteúdo do pensamento não pôde ser restaurado. Isto pode acontecer se a IA esteve a pensar brevemente antes de responder.',
+        codeCopyWithLinesButton: 'Copiar com #',
+
 
         // ===== DATAVIZTAB.JS ===== (Elementos de interface para a aba)
         // Elementos principais da interface
@@ -674,155 +846,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         datavizCombinedData: "Dados Combinados",
         datavizValue: "Valor",
 
-        // ===== PAPERWORKTAB.JS ===== 
-        // Main tab content
-        paperworkTabTitle: "Создание Документов",
-        paperworkTabDescription: "Создавайте профессиональные отчеты и документы на основе данных ваших разговоров.",
-
-        // Template grid items
-        paperworkTemplateMeetingMinutes: "Протокол Собрания",
-        paperworkTemplateMeetingMinutesDesc: "Создать структурированный, профессиональный протокол собрания",
-        paperworkTemplateBusinessLetter: "Деловое Письмо",
-        paperworkTemplateBusinessLetterDesc: "Создать профессиональное деловое письмо",
-        paperworkTemplateTechnicalReport: "Технический Отчет",
-        paperworkTemplateTechnicalReportDesc: "Создать подробный технический отчет с разделами и изображениями",
-        paperworkTemplateContract: "Договор",
-        paperworkTemplateContractDesc: "Создать юридический договорный документ",
-        paperworkTemplateProposal: "Предложение",
-        paperworkTemplateProposalDesc: "Создать убедительное предложение",
-        paperworkTemplateMemo: "Служебная Записка",
-        paperworkTemplateMemoDesc: "Создать профессиональную служебную записку компании",
-
-        // Error messages
-        paperworkManagerNotInitialized: "PaperworkTab: paperworkManager не инициализирован",
-        paperworkUIHelpersNotAvailable: "PaperworkTab: uiHelpers недоступны через paperworkManager",
-        paperworkElementNotFound: "PaperworkTab: Невозможно найти элемент вкладки paperwork",
-
-        // Console messages
-        paperworkInitializing: "PaperworkTab: Инициализация интерфейса вкладки paperwork",
-        paperworkTemplateSelected: "PaperworkTab: Выбран тип шаблона: {templateType}",
-
-        // Dashboard section (from CSS comments)
-        paperworkDashboardTitle: "Панель Управления Документами",
-        paperworkToolGroupTitle: "Группа Инструментов",
-
-        // Document template types (for UI display)
-        paperworkBusinessLetter: "Деловое Письмо",
-        paperworkContract: "Договор",
-        paperworkProposal: "Предложение",
-        paperworkMemo: "Служебная Записка",
-        paperworkMeetingMinutes: "Протокол Собрания",
-        paperworkTechnicalReport: "Технический Отчет",
-
-        // Form field labels (these would appear in document generation forms)
-        paperworkRecipientName: "Имя Получателя",
-        paperworkRecipientAddress: "Адрес Получателя",
-        paperworkSenderName: "Имя Отправителя",
-        paperworkSenderAddress: "Адрес Отправителя",
-        paperworkDate: "Дата",
-        paperworkSubject: "Тема",
-        paperworkMessage: "Сообщение",
-        paperworkSignature: "Подпись",
-
-        // Contract fields
-        paperworkPartyOne: "Сторона Первая",
-        paperworkPartyTwo: "Сторона Вторая",
-        paperworkContractTerms: "Условия Договора",
-        paperworkEffectiveDate: "Дата Вступления в Силу",
-        paperworkExpirationDate: "Дата Истечения",
-
-        // Proposal fields
-        paperworkProjectTitle: "Название Проекта",
-        paperworkClientName: "Имя Клиента",
-        paperworkProposalSummary: "Краткое Изложение Предложения",
-        paperworkDeliverables: "Результаты Поставки",
-        paperworkTimeline: "График",
-        paperworkBudget: "Бюджет",
-
-        // Memo fields
-        paperworkMemoTo: "Кому",
-        paperworkMemoFrom: "От",
-        paperworkMemoDate: "Дата",
-        paperworkMemoRe: "Касательно",
-        paperworkMemoBody: "Текст Записки",
-
-        // Meeting minutes fields
-        paperworkMeetingDate: "Дата Собрания",
-        paperworkMeetingTime: "Время Собрания",
-        paperworkAttendees: "Участники",
-        paperworkAgenda: "Повестка Дня",
-        paperworkDiscussion: "Пункты Обсуждения",
-        paperworkActionItems: "Пункты Действий",
-        paperworkNextSteps: "Следующие Шаги",
-
-        // Button labels
-        paperworkGenerate: "Создать Документ",
-        paperworkPreview: "Предварительный Просмотр",
-        paperworkDownload: "Скачать",
-        paperworkEdit: "Редактировать",
-        paperworkSave: "Сохранить",
-        paperworkCancel: "Отменить",
-        paperworkClose: "Закрыть",
-
-        // Status messages
-        paperworkGenerating: "Создание документа...",
-        paperworkGenerationComplete: "Документ успешно создан",
-        paperworkGenerationError: "Ошибка при создании документа",
-        paperworkSaved: "Документ сохранен",
-        paperworkSaveError: "Ошибка при сохранении документа",
-
-        // Template designer
-        paperworkTemplateDesigner: "Конструктор Шаблонов",
-        paperworkAddSection: "Добавить Раздел",
-        paperworkDeleteSection: "Удалить Раздел",
-        paperworkMoveUp: "Переместить Вверх",
-        paperworkMoveDown: "Переместить Вниз",
-        paperworkSectionTitle: "Заголовок Раздела",
-        paperworkSectionContent: "Содержание Раздела",
-
-        // Document preview
-        paperworkDocumentPreview: "Предварительный Просмотр Документа",
-        paperworkPrintView: "Вид для Печати",
-        paperworkFullscreen: "Полноэкранный Режим",
-        paperworkExitFullscreen: "Выйти из Полноэкранного Режима",
-
-        // ===== PAPERWORK.JS - Paperwork Class =====
-        // Console/Debug Messages
-        paperworkInitializing: "Paperwork: Инициализация менеджера документов",
-        paperworkShowingTemplates: "Paperwork: Отображение шаблонов документов",
-        paperworkTabNotAvailable: "Paperwork: Экземпляр PaperworkTab недоступен",
-
-        // UI Component Labels
-        paperworkFloatingWindowHeader: "Заголовок Всплывающего Окна",
-        paperworkFloatingWindowTitle: "Заголовок Окна",
-        paperworkFloatingWindowClose: "Закрыть Окно",
-        paperworkFloatingWindow: "Всплывающее Окно",
-        paperworkFloatingWindowFooter: "Нижний Колонтитул Окна",
-        paperworkFloatingWindowContent: "Содержимое Окна",
-        paperworkBackdrop: "Фон",
-
-        // Form Elements
-        paperworkFormGroup: "Группа Формы",
-        paperworkLabel: "Метка",
-        paperworkInput: "Поле Ввода",
-        paperworkTextarea: "Текстовая Область",
-        paperworkSelect: "Поле Выбора",
-
-        // Buttons
-        paperworkBtn: "Кнопка",
-        paperworkBtnPrimary: "Основная Кнопка",
-        paperworkBtnSecondary: "Вторичная Кнопка",
-
-        // Document Preview and Editor (keep existing)
-        paperworkDocumentPreview: "Предварительный Просмотр Документа",
-        paperworkDocumentEditor: "Редактор Документов",
-        paperworkForm: "Форма",
-
-        // Template Grid (keep existing)
-        paperworkTemplateGrid: "Сетка Шаблонов",
-        paperworkTemplateItem: "Элемент Шаблона",
-        paperworkTemplateIcon: "Иконка Шаблона",
-        paperworkTemplateTitle: "Заголовок Шаблона",
 
         // ===== PAPERWORKTAB.JS ===== 
         // Main tab content
@@ -849,7 +872,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         paperworkElementNotFound: "PaperworkTab: Não foi possível encontrar o elemento da aba paperwork",
 
         // Console messages
-        paperworkInitializing: "PaperworkTab: Inicializando interface da aba paperwork",
         paperworkTemplateSelected: "PaperworkTab: Tipo de modelo selecionado: {templateType}",
 
         // Dashboard section (from CSS comments)
@@ -907,12 +929,8 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
 
         // Button labels
         paperworkGenerate: "Gerar Documento",
-        paperworkPreview: "Visualizar",
         paperworkDownload: "Baixar",
         paperworkEdit: "Editar",
-        paperworkSave: "Salvar",
-        paperworkCancel: "Cancelar",
-        paperworkClose: "Fechar",
 
         // Status messages
         paperworkGenerating: "Gerando documento...",
@@ -931,7 +949,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         paperworkSectionContent: "Conteúdo da Seção",
 
         // Document preview
-        paperworkDocumentPreview: "Visualização do Documento",
         paperworkPrintView: "Visualização de Impressão",
         paperworkFullscreen: "Tela Cheia",
         paperworkExitFullscreen: "Sair da Tela Cheia",
@@ -953,7 +970,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
 
         // Form Elements
         paperworkFormGroup: "Grupo de Formulário",
-        paperworkLabel: "Rótulo",
         paperworkInput: "Campo de Entrada",
         paperworkTextarea: "Área de Texto",
         paperworkSelect: "Campo de Seleção",
@@ -1011,8 +1027,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         paperworkImageTextRightPreset: "Imagem + Texto (Direita)",
         paperworkPictureGalleryPreset: "Galeria de Imagens",
         paperworkPictureRowPreset: "Linha de Imagens",
-        paperworkDividerPreset: "Divisor",
-        paperworkEmptySpacePreset: "Espaço Vazio",
 
         // Template Designer Buttons
         paperworkFontSelectorButton: "Seletor de Fonte",
@@ -1037,7 +1051,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
 
         // Page Controls
         paperworkExpandToPageButton: "Expandir para Página",
-        paperworkPageBreakIndicator: "Quebra de Página",
         paperworkPageNumber: "Página {number}",
 
         // Error Messages
@@ -1047,24 +1060,17 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         // Field labels for edit dialog
         paperworkLabel: "Rótulo",
         paperworkPlaceholder: "Placeholder",
-        paperworkRows: "Linhas",
 
         // Image count options
         paperworkTwoImages: "2 Imagens",
         paperworkFourImages: "4 Imagens",
         paperworkSixImages: "6 Imagens",
-        paperworkNumberOfImages: "Número de Imagens",
 
         // Text placeholder field
-        paperworkTextPlaceholder: "Placeholder de Texto",
 
         // Empty space behavior options (if not already added)
-        paperworkFixedHeight: "Altura fixa",
-        paperworkExpandToEndOfPage: "Expandir até o fim da página",
 
         // Height label 
-        paperworkHeightPixels: "Altura (pixels)",
-        paperworkBehavior: "Comportamento",
 
         //Extras
         paperworkDividerPreset: "Divisor",
@@ -1119,6 +1125,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         paperworkDeleteTemplateConfirm: "Tem certeza de que deseja excluir o modelo \"{templateName}\"?",
         paperworkTemplateLoadedSuccessfully: "Modelo \"{templateName}\" carregado com sucesso",
         paperworkTemplateNameChangeTip: "Dica: Para criar um novo modelo baseado neste, altere o nome antes de salvar.",
+    paperworkTemplateNamePlaceholder: "Nome do Modelo",
         paperworkManageTemplates: "Gerenciar Modelos",
         paperworkTemplateManagementDescription: "Seus modelos salvos estão listados abaixo. Você pode carregá-los ou excluí-los.",
         paperworkNoTemplatesFound: "Nenhum modelo encontrado",
@@ -1173,15 +1180,13 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
 
         // Business letter
         documentGeneratorBusinessLetterFields: "Campos da Carta Comercial",
-        documentGeneratorLocationLabel: "Localização",
         documentGeneratorLocationPlaceholder: "Cidade, País",
-        documentGeneratorDateLabel: "Data",
         documentGeneratorRecipientLabel: "Informações do Destinatário",
         documentGeneratorRecipientPlaceholder: "Nome do Destinatário",
-        documentGeneratorSubjectLabel: "Assunto",
         documentGeneratorSubjectPlaceholder: "Assunto da carta",
         documentGeneratorGreetingLabel: "Saudação",
-        documentGeneratorGreetingPlaceholder: "Caro/Cara Sr./Sra. Sobrenome,",
+    documentGeneratorGreetingPlaceholder: "Caro/Cara Sr./Sra. Sobrenome,",
+    documentGeneratorGreetingDefault1: "Caro(a) Senhor(a)",
         documentGeneratorBodyLabel: "Corpo",
         documentGeneratorBodyPlaceholder: "Escreva o conteúdo principal da sua carta aqui...",
         documentGeneratorToneLabel: "Tom da Carta",
@@ -1215,7 +1220,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         documentGeneratorParty1Placeholder: "Nome legal completo\nEndereço\nInformações de contato",
         documentGeneratorParty2Label: "Informações da Parte 2",
         documentGeneratorParty2Placeholder: "Nome legal completo\nEndereço\nInformações de contato",
-        documentGeneratorEffectiveDateLabel: "Data de Vigência",
         documentGeneratorTermLabel: "Prazo/Duração",
         documentGeneratorTermPlaceholder: "1 ano, 6 meses, até conclusão do projeto, etc.",
         documentGeneratorScopeLabel: "Escopo do Trabalho/Serviços",
@@ -1283,10 +1287,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         documentGeneratorMinutesStyleConcise: "Conciso (Breve e direto ao ponto)",
         documentGeneratorMinutesStyleDetailed: "Detalhado (Documentação abrangente)",
         documentGeneratorMinutesStyleActionFocused: "Focado em Ações (Ênfase nos próximos passos)",
-        documentGeneratorMinutesStyleFormal: "Formal (Estilo comercial tradicional)",
-        documentGeneratorMinutesStyleConcise: "Conciso (Breve e direto ao ponto)",
-        documentGeneratorMinutesStyleDetailed: "Detalhado (Documentação abrangente)",
-        documentGeneratorMinutesStyleActionFocused: "Focado em Ações (Ênfase nos próximos passos)",
         documentGeneratorMinutesNextLabel: "Próxima Reunião",
         documentGeneratorMinutesNextDatePlaceholder: "Data da próxima reunião",
         documentGeneratorMinutesNextTimePlaceholder: "Hora da próxima reunião",
@@ -1322,6 +1322,91 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         proposalStyleLabel: "Estilo da Proposta",
 
         // Messages and alerts
+
+        // Document preview
+    documentGeneratorBusinessLetterPreview: "Visualização da Carta Comercial",
+    documentGeneratorContractPreview: "Visualização do Contrato",
+    documentGeneratorProposalPreview: "Visualização da Proposta",
+    documentGeneratorMeetingMinutesPreview: "Visualização da Ata de Reunião",
+
+        // Loading states
+
+        // Contract fallback headers
+
+        // Proposals
+
+        //Messages and alerts
+
+        // Document preview
+    documentGeneratorMemoPreview: "Visualização do Memorando",
+
+        // Loading states
+
+        // Contract fallback headers
+
+        // Proposals
+
+        //Messages and alerts
+
+        // Document preview
+
+        // Loading states
+
+        // Contract fallback headers
+
+        // Proposals
+
+        //Messages and alerts
+
+        // Document preview
+
+        // Loading states
+
+        // Contract fallback headers
+
+        // Proposals
+
+        //Messages and alerts
+
+        // Document preview
+
+        // Loading states
+
+        // Contract fallback headers
+
+        // Proposals
+
+        //Messages and alerts
+
+        // Document preview
+
+        // Loading states
+
+        // Contract fallback headers
+
+        // Proposals
+
+        //Messages and alerts
+
+        // Document preview
+
+        // Loading states
+
+        // Contract fallback headers
+
+        // Proposals
+
+        //Messages and alerts
+
+        // Document preview
+
+        // Loading states
+
+        // Contract fallback headers
+
+        // Proposals
+
+        //Messages and alerts
         documentGeneratorRequiredFieldsError: "Por favor, preencha os seguintes campos obrigatórios: {fields}",
         documentGeneratorEnhanceFieldError: "Por favor, insira conteúdo no campo antes de aprimorar, ou houve um erro durante o aprimoramento.",
         documentGeneratorEnhanceAllFieldsError: "Por favor, adicione conteúdo a pelo menos um campo de texto antes de aprimorar todos.",
@@ -1349,6 +1434,156 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         documentGeneratorEmailIt: "Enviar por email",
         documentGeneratorGoBack: "Voltar",
         documentGeneratorClose: "Fechar",
+
+    // Additional missing keys (fallbacks / placeholders)
+    documentGeneratorBodyPlaceholder1: "Insira o corpo do documento aqui...",
+    documentGeneratorClosingDefault1: "Atenciosamente,",
+    documentGeneratorClosingDefault2: "Cordialmente,",
+    documentGeneratorContractTitlePlaceholder1: "Título do Contrato",
+    documentGeneratorCopied: "Copiado",
+    documentGeneratorCopiedPlainText: "Copiado como texto simples",
+    documentGeneratorDeleteButton: "Excluir",
+    documentGeneratorDocumentPreview: "Visualização do Documento",
+    documentGeneratorEditButton: "Editar",
+    documentGeneratorImageBadge: "Imagem",
+    documentGeneratorImageDefault: "Imagem Padrão",
+    documentGeneratorInvoicePreview: "Visualização da Fatura",
+    documentGeneratorLocationPlaceholder1: "Cidade, País",
+    documentGeneratorMemoBodyPlaceholder1: "Insira o corpo do memorando...",
+    documentGeneratorMemoFromPlaceholder1: "De: Seu Nome",
+    documentGeneratorMemoSubjectPlaceholder1: "Assunto do memorando",
+    documentGeneratorMemoToPlaceholder1: "Para: Destinatário",
+    documentGeneratorMinutesTitlePlaceholder1: "Título da Reunião",
+    documentGeneratorParty1Placeholder1: "Parte 1: Nome e Endereço",
+    documentGeneratorParty2Placeholder1: "Parte 2: Nome e Endereço",
+    documentGeneratorPaymentPlaceholder1: "Valor e termos de pagamento",
+    documentGeneratorProposalClientPlaceholder1: "Nome do Cliente",
+    documentGeneratorProposalCompanyPlaceholder1: "Nome da Empresa",
+    documentGeneratorProposalTitlePlaceholder1: "Título da Proposta",
+    documentGeneratorRecipientPlaceholder1: "Nome do Destinatário",
+    documentGeneratorScopePlaceholder1: "Descreva o escopo do trabalho",
+    documentGeneratorShowFormattedText: "Mostrar Texto Formatado",
+    documentGeneratorSignaturePlaceholder1: "Assinatura",
+    documentGeneratorSubjectPlaceholder1: "Assunto",
+    documentGeneratorTemplateEmptyState: "Nenhum campo adicionado ainda.",
+    documentGeneratorTermPlaceholder1: "1 ano, 6 meses, etc.",
+    documentGeneratorTextAreaBadge: "Área de Texto",
+    documentGeneratorTextAreaDefault: "Área de Texto",
+    documentGeneratorTextFieldBadge: "Campo de Texto",
+    documentGeneratorTextFieldDefault: "Campo de Texto",
+    downloadUpdate: "Baixar Atualização",
+    edit: "Editar",
+    entries: "Entradas",
+    errorLoadingCollections: "Erro ao carregar coleções",
+    errorStartingConversation: "Erro ao iniciar conversa",
+    export: "Exportar",
+    exportFilename: "Nome do arquivo de exportação",
+    exportUtilityNotAvailable: "Utilitário de exportação não disponível",
+    factsAndStatistics: "Fatos e Estatísticas",
+    failedToCreateNewCollection: "Falha ao criar nova coleção",
+    failedToDeleteEntry: "Falha ao excluir entrada",
+    failedToExtractContent: "Falha ao extrair conteúdo",
+    failedToExtractPDF: "Falha ao extrair PDF",
+    failedToGeneratePartialReport: "Falha ao gerar relatório parcial",
+    failedToSaveToKnowledgeBase: "Falha ao salvar na base de conhecimento",
+    filenameRequired: "Nome do arquivo obrigatório",
+    generatingInsight: "Gerando insights",
+    info: "Informações",
+    initializing: "Inicializando",
+    knowledgeBaseModelRequired: "Modelo de base de conhecimento requerido",
+    lastUpdated: "Última atualização",
+    later: "Mais tarde",
+    latestResearchOn: "Últimas pesquisas sobre",
+    loadingCollections: "Carregando coleções",
+    masterkeyRequired: "Chave mestre requerida",
+    never: "Nunca",
+    newVersion: "Nova versão",
+    newVersionAvailable: "Nova versão disponível",
+    noReportPartsGenerated: "Nenhuma parte do relatório gerada",
+    ok: "OK",
+    paperworkAddACaptionHere: "Adicione uma legenda aqui",
+    paperworkDocumentSubtitle: "Subtítulo do Documento",
+    paperworkDocumentTitle: "Título do Documento",
+    paperworkEnterLongerTextHere: "Digite um texto mais longo aqui",
+    paperworkEnterTextHere: "Digite seu texto aqui",
+    paperworkImageGallery: "Galeria de Imagens",
+    paperworkImageRow: "Linha de Imagens",
+    paperworkImageWithText: "Imagem com Texto",
+    paperworkResize: "Redimensionar Documento",
+    paperworkSectionHeader: "Cabeçalho da Seção",
+    paperworkTextAreaField: "Campo de Área de Texto",
+    paperworkTextWithImage: "Texto com Imagem",
+    pdfCouldNotBeFullyProcessed: "O PDF não pôde ser totalmente processado",
+    pdfCouldNotBeProcessed: "Falha ao processar o PDF",
+    presentationTab: "Apresentação",
+    previewColumn: "Coluna de Pré-visualização",
+    previewErrorOnLine: "Erro de pré-visualização na linha",
+    previewModalCreateError: "Erro ao criar janela de pré-visualização",
+    ragFindEmbeddingModels: "Encontrar modelos de embedding",
+    ragIUnderstand: "Eu entendo",
+    ragModelNotCompatibleMessage: "Modelo não compatível",
+    ragModelNotCompatibleTitle: "Modelo incompatível",
+    ragModelSelectCompatible: "Selecione um modelo compatível",
+    ragProcessingDocuments: "Processando documentos",
+    ragProcessingFile: "Processando arquivo",
+    released: "Lançado",
+    researchReportTitle: "Título do Relatório de Pesquisa",
+    runningLatestVersion: "Executando a versão mais recente",
+    savingSourceInitial: "Salvando fonte inicial",
+    securityConfirmPasswordPlaceholder: "Confirme sua senha",
+    securityDataDeletedSuccess: "Dados excluídos com sucesso",
+    securityDeleteError: "Erro ao deletar",
+    securityDeleting: "Excluindo",
+    securityDeletionError: "Erro ao deletar dados",
+    securityEnterCurrentPasswordFirst: "Insira a senha atual primeiro",
+    securityEnterPasswordPlaceholder: "Digite a senha",
+    securityHidePassword: "Ocultar senha",
+    securityIncorrectCurrentPassword: "Senha atual incorreta",
+    securityIncorrectPassword: "Senha incorreta",
+    securityPasswordSetSuccess: "Senha definida com sucesso",
+    securityPasswordSetupError: "Erro ao configurar senha",
+    securityPasswordTooShort: "Senha muito curta",
+    securityPasswordsNoMatch: "As senhas não coincidem",
+    securityResetPassword: "Redefinir senha",
+    securitySetPassword: "Definir senha",
+    securitySetupPasswordMessage: "Configurar sua senha",
+    securitySetupPasswordTitle: "Configuração de Senha",
+    securityShowPassword: "Mostrar senha",
+    securityVerify: "Verificar",
+    securityVerifyPasswordError: "Erro ao verificar senha",
+    securityVerifyPasswordMessage: "Por favor verifique sua senha",
+    securityVerifyPasswordTitle: "Verificar senha",
+    sourcePrefix: "Fonte:",
+    summaryFailedSuffix: "Resumo falhou",
+    summaryProcessingCompleted: "Processamento do resumo concluído",
+    tryAgainLater: "Tente novamente mais tarde",
+    unableToCheckUpdates: "Não foi possível verificar atualizações",
+    untitledSource: "Fonte sem título",
+    upToDate: "Atualizado",
+    updateAvailable: "Atualização disponível",
+    updateCheckFailed: "Falha ao verificar atualizações",
+    view: "Visualizar",
+    warning: "Aviso",
+    webSearchCancelled: "Pesquisa web cancelada",
+    webSearchDefaultTitle: "Resultados da Pesquisa Web",
+    webSearchEmptyQuery: "Consulta vazia",
+    webSearchEncounteredIssue: "A pesquisa encontrou um problema",
+    webSearchErrorDetails: "Detalhes do erro de pesquisa",
+    webSearchErrorOccurred: "Ocorreu um erro na pesquisa web",
+    webSearchErrorSource: "Fonte de erro da pesquisa web",
+    webSearchExtractedContent: "Conteúdo extraído da web",
+    webSearchFailed: "Falha na pesquisa web",
+    webSearchFromRef: "Pesquisa da referência",
+    webSearchNoResultsFound: "Nenhum resultado encontrado",
+    webSearchProxyMessage: "Mensagem do proxy de pesquisa web",
+    webSearchProxySource: "Fonte do proxy",
+    webSearchResults: "Resultados da pesquisa web",
+    webSearchResultsForQuery: "Resultados para a consulta",
+    webSearchSource: "Fonte de pesquisa",
+    webSearchStrategy: "Estratégia de pesquisa web",
+    webSearchUnknownSource: "Fonte desconhecida",
+    webSearchWeatherInfo: "Informações meteorológicas",
+    whatsNew: "Novidades",
 
         // Loading states
         documentGeneratorEnhancing: "Aprimorando sua carta...",
@@ -1398,630 +1633,428 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         documentGeneratorTermsConditionsPlaceholder: "Inclua quaisquer termos e condições...",
         documentGeneratorProposalStyleLabel: "Estilo da Proposta",
 
-        //Extras 
-        documentGeneratorTemplateEmptyState: "Nenhum campo adicionado ainda. Use os botões acima para adicionar campos.",
-        documentGeneratorTextFieldDefault: "Campo de Texto",
-        documentGeneratorTextFieldBadge: "Texto",
-        documentGeneratorTextAreaDefault: "Área de Texto",
-        documentGeneratorTextAreaBadge: "Área de Texto",
-        documentGeneratorImageDefault: "Imagem",
-        documentGeneratorImageBadge: "Imagem",
-        documentGeneratorEditButton: "Editar",
-        documentGeneratorDeleteButton: "Excluir",
-        documentGeneratorEnhanceFailure: "Falha ao melhorar o conteúdo. Tente novamente ou prossiga com o conteúdo original.",
-        documentGeneratorEnhancingField: "Aprimorando {field}...",
-        documentGeneratorBusinessLetterPreview: 'Pré-visualização da Carta Comercial',
-        documentGeneratorInvoicePreview: 'Pré-visualização da Fatura',
-        documentGeneratorContractPreview: 'Pré-visualização do Contrato',
-        documentGeneratorMemoPreview: 'Pré-visualização do Memorando',
-        documentGeneratorMeetingMinutesPreview: 'Pré-visualização da Ata de Reunião',
-        documentGeneratorDocumentPreview: 'Pré-visualização do Documento',
+         documentGeneratorLocationInfo: "Informações de Localização",
+        documentGeneratorRecipientInfo: "Informações do Destinatário",
+        documentGeneratorSubject: "Assunto",
+        documentGeneratorLetterBody: "Corpo da Carta",
+        documentGeneratorSignature: "Assinatura",
+        documentGeneratorContractTitle: "Título do Contrato",
+        documentGeneratorParty1Info: "Informações Parte 1",
+        documentGeneratorParty2Info: "Informações Parte 2",
+        documentGeneratorTermDuration: "Prazo/Duração",
+        documentGeneratorScopeOfWork: "Escopo do Trabalho",
+        documentGeneratorCompanyInfo: "Informações da Empresa",
+        documentGeneratorClientInfo: "Informações do Cliente",
+        documentGeneratorProposalTitle: "Título da Proposta",
+        documentGeneratorExecutiveSummary: "Resumo Executivo",
+        documentGeneratorProblemStatement: "Descrição do Problema",
+        documentGeneratorProposedSolution: "Solução Proposta",
+        documentGeneratorSenderInfo: "Informações do Remetente",
+        documentGeneratorMemoContent: "Conteúdo do Memorando",
+        documentGeneratorMeetingTitle: "Título da Reunião",
+        documentGeneratorDate: "Data",
+        documentGeneratorAttendees: "Participantes",
+        documentGeneratorDiscussionPoints: "Pontos de Discussão",
+        documentGeneratorAttendeesHeader: "Participantes",
+        documentGeneratorAbsentHeader: "Ausentes",
+        documentGeneratorAgendaHeader: "Pauta",
+        documentGeneratorDiscussionHeader: "Discussão",
+        documentGeneratorDecisionsHeader: "Decisões",
+        documentGeneratorActionItemsHeader: "Ações",
+        documentGeneratorNextMeetingHeader: "Próxima Reunião",
+        documentGeneratorAdditionalNotesHeader: "Notas Adicionais",
+        documentGeneratorMinutesPreparedBy: "Atas preparadas por:",
+        documentGeneratorDateTimeLabel: "Data e Hora:",
+        documentGeneratorLocationLabel: "Local:",
+        documentGeneratorMeetingFacilitatorLabel: "Facilitador da Reunião:",
+        documentGeneratorMemorandum: "MEMORANDO",
+        documentGeneratorDateLabel: "DATA:",
+        documentGeneratorToLabel: "PARA:",
+        documentGeneratorFromLabel: "DE:",
+        documentGeneratorSubjectLabel: "ASSUNTO:",
+        documentGeneratorAttachmentsLabel: "ANEXOS:",
+        documentGeneratorExecutiveSummaryHeader: "Resumo Executivo",
+        documentGeneratorUnderstandingNeedsHeader: "Compreendendo suas necessidades",
+        documentGeneratorOurSolutionHeader: "Nossa Solução",
+        documentGeneratorDeliverablesHeader: "Entregáveis",
+        documentGeneratorTimelineHeader: "Cronograma",
+        documentGeneratorInvestmentHeader: "Investimento",
+        documentGeneratorAboutTeamHeader: "Sobre nossa equipe",
+        documentGeneratorSuccessStoriesHeader: "Histórias de Sucesso",
+        documentGeneratorNextStepsHeader: "Próximos Passos",
+        documentGeneratorTermsConditionsHeader: "Termos e Condições",
+        documentGeneratorContactMessage: "Para perguntas ou para discutir esta proposta, entre em contato:",
+        documentGeneratorPreparedLabel: "Preparado:",
+        documentGeneratorPreparedForLabel: "Preparado para:",
+        documentGeneratorPreparedByLabel: "Preparado por:",
+        documentGeneratorEffectiveDateLabel: "Data de Vigência:",
+    
+  // Presentation Generator
+        loadingPresentationTools: "A carregar ferramentas de apresentação...",
+        summarizeToSlideForge: "Apresentação Clássica",
+        storytellingToPresentation: "Apresentação orientada por dados",
+        createSlideForgeFromDocument: "Criar Apresentação a partir do Documento",
+        dragDropDocuments: "Arraste e solte documentos aqui",
+        supportedFormats: "Formatos suportados",
+        browseFiles: "Procurar ficheiros",
+        colorModeLegend: "Modo de cor",
+        lightMode: "Claro",
+        darkMode: "Escuro",
+        numberOfSlides: "Número de diapositivos",
+        includeImages: "Incluir imagens nas diapositivas",
+        generateSlideForge: "Gerar Apresentação",
+        generatingSlideForge: "A gerar apresentação...",
+        imageSearchIssues: 'Problemas na pesquisa de imagens',
+        slidesCouldNotGetImages: 'as diapositivas não conseguiram obter imagens',
+        commonIssues: 'Problemas comuns',
+        pptStillGenerated: 'A apresentação foi gerada com sucesso na mesma.',
+        pleaseSelectFileAndPages: 'Por favor seleccione um ficheiro e o número de páginas.',
+        unsupportedFileType: 'Tipo de ficheiro não suportado. Suportados: PDF, DOCX, TXT, MD.',
+        supportedFormatsList: 'PDF, DOCX, TXT, MD',
+        presentationBulletsLabel: 'Número de marcadores de texto por diapositiva:',
+        presentationExtraPromptPlaceholder: 'Escreva um pedido extra para a apresentação ou deixe em branco',
+        previewWindowNotFound: 'Módulo da janela de pré‑visualização não encontrado.',
+        presentationPreviewTitle: 'Pré‑visualização da Apresentação',
+        exportPdf: 'Exportar PDF',
+        pdfExportUnavailable: 'A exportação para PDF não está disponível.',
+        konvaNotLoaded: 'Konva.js não carregado',
+        // Presentation global controls
+        presentationGlobalTextControlsHeader: 'Modificações Globais de Texto',
+        presentationLabelFontFamily: 'Tipo de letra',
+        presentationLabelFontSize: 'Tamanho da fonte',
+        presentationLabelTextColor: 'Cor do texto',
+        presentationLabelLineHeight: 'Altura da linha',
+        presentationLabelLetterSpacing: 'Espaçamento entre letras',
+        // Sidebar tooltips and titles
+        sidebarAiEditsAllTextTooltip: 'Se ativado, as edições da IA serão aplicadas a todos os nós de texto correspondentes',
+        sidebarDiyStylesAvailable: 'Estilos personalizados disponíveis',
+        sidebarImportReplaceImage: 'Importe um ficheiro de imagem e substitua a imagem selecionada no palco',
+        sidebarChangeCoverTitle: 'Importe ou escolha uma miniatura para substituir a imagem de capa',
+        sidebarGlobalTextControlsUnavailable: 'Controlo global de texto indisponível',
+        sidebarSelectedTextControls: 'Controlo de texto selecionado',
+        sidebarAiTextModification: 'Modificação de texto por IA',
+        sidebarAiModify: 'Modificar',
+        sidebarAiCancel: 'Cancelar',
+        sidebarApplyToAllText: 'Aplicar a todo o texto',
+        sidebarSlideForgeStylesTitle: 'Estilos de Apresentação',
+        sidebarPictureTools: 'Ferramentas de Imagem',
+        sidebarChangeCoverPicture: 'alterar imagem de capa',
+        sidebarChangeCoverPictureLabel: 'Alterar imagem de capa',
+        sidebarChangeButtonLabel: 'Alterar',
+        sidebarImportPicture: 'Importar imagem',
+        sidebarPicNoFileSelected: 'Nenhum ficheiro seleccionado',
+        sidebarPicImportingCover: 'A importar imagem de capa...',
+        sidebarPicCoverStageUnavailable: 'Palco da capa indisponível.',
+        sidebarPicCoverReplacedFallback: 'Imagem de capa substituída (fallback)',
+        sidebarPicCoverReplaceFailed: 'Falha ao substituir a capa',
+        sidebarPicCoverReplaceFailedLoad: 'Falha ao substituir a capa (carregamento da imagem)',
+        sidebarPicCoverReplaceUnavailable: 'Substituição da capa indisponível.',
+        sidebarPicImportFailed: 'Importação falhada',
+        sidebarPicPleaseSelectPictureFirst: 'Por favor seleccione primeiro uma imagem na apresentação.',
+        sidebarSearchImagesLabel: 'Pesquisar imagens',
+        sidebarPicSearchInputPlaceholder: 'Descreva a imagem...',
+        sidebarSearchImagesButton: 'Pesquisar imagens',
+        sidebarPicNoImagesFound: 'Nenhuma imagem encontrada.',
+        sidebarPicSelectPictureToReplace: 'Seleccione uma imagem para substituir',
+        sidebarPicSelectedNodeNotFound: 'Nó seleccionado não encontrado (obsoleto).',
+        sidebarPicReplaceSelectedImage: 'Imagem seleccionada substituída',
+        sidebarPicNoPicturesToReplace: 'Não há imagens para substituir',
+        sidebarReplaceFailed: 'Substituição falhou',
+        sidebarPicPleaseEnterSearchQuery: 'Por favor introduza uma consulta de pesquisa.',
+        sidebarPicSearching: 'A pesquisar...',
+        sidebarPicDownloadingImages: 'A transferir imagens... ({i}/{total})',
+        sidebarPicSearchReturnedRemote: 'A pesquisa retornou URLs remotos; ative o assistente da janela de pré‑visualização para obter imagens.',
+        sidebarPicImageSearchFailed: 'Pesquisa de imagens falhou',
+        sidebarPicImageSearchUnavailable: 'Pesquisa de imagens indisponível (sem assistente/fornecedor).',
+        sidebarReplaceImageTooltip: 'Substituir imagem {n}',
+        sidebarAiTextInputPlaceholder: 'Introduza a modificação de texto, ex.: Traduzir para espanhol',
+        // Sidebar tab labels
+        sidebarTabStyles: 'Estilo',
+        sidebarTabText: 'Texto',
+        sidebarTabPicture: 'Imagem',
+        sidebarTabShape: 'Forma',
+        // Sidebar style card labels
+        sidebarStyleDiy: 'Estilo Personalizado',
+        sidebarStyleClassic: 'Clássico',
+        sidebarStyleDarkmode: 'Modo Escuro',
+        sidebarStyleLightmode: 'Modo Claro',
+        sidebarStyleProduct: 'Produto',
+        sidebarStyleCorporate: 'Corporativo',
+        sidebarStyleFinance: 'Finanças',
+        sidebarStyleData: 'Dados',
+        sidebarStylePurpleGlass: 'Vidro Roxo',
+        sidebarStyleWilderness: 'Selvagem',
+        sidebarStyleSophie: 'Sophie',
+        sidebarStyleEnchanted: 'Encantado',
+        sidebarStyleHobby: 'Hobby',
+        sidebarStylePets: 'Animais de Estimação',
+        sidebarStyleBrutalist: 'Brutalista',
+        // PDF export failure messages (camelCase keys)
+        pdfExportJsPDFNotLoaded: 'Exportação para PDF falhou: jsPDF não está carregado.',
+        pdfExportStagesNotArray: 'Exportação para PDF falhou: stages não é um array.',
+        pdfExportNoSlides: 'Exportação para PDF falhou: não há diapositivos para exportar.',
+        // SlideStyles UI defaults
+        kawaiiDefaultTitle: 'Apresentação Kawaii',
+        professionalDefaultTitle: 'Apresentação Profissional',
+        slideLabel: 'Diapositivo',
+        contentOverviewTitle: 'Visão Geral do Conteúdo',
+        wildernessDefaultTitle: 'Na Natureza',
+        visualLabel: 'Visual',
+        untitledPresentation: 'APRESENTAÇÃO SEM TÍTULO',
+        figurePrefix: 'FIG.',
+        aiVisionDefaultTitle: 'VISÃO TECNOLÓGICA DA IA',
+        featureHighQuality: 'Alta Qualidade',
+        featureFastShipping: 'Entrega Rápida',
+        featurePremiumSupport: 'Suporte Premium',
+        // StyleDIY modal and labels
+        styleDIYCardActive: '🎨 Estilo Personalizado (Estilo personalizado activo - Clique para gerir estilos)',
+        styleDIYCardSaved: '🎨 Estilo Personalizado (Estilos guardados disponíveis - Clique para gerir estilos)',
+        styleDIYCardCreate: '🎨 Estilo Personalizado (Criar estilos personalizados gerados por IA)',
+        styleDIYModalCreateTitle: 'Criar Estilo Personalizado',
+        styleDIYStatusExistingActive: 'Um estilo personalizado já está activo. Criar um novo substituí‑lo‑á.',
+        styleDIYLabelTemplateReference: 'Referência do Modelo:',
+        styleDIYLabelModel: 'Modelo de IA:',
+        styleDIYPlaceholderLoadingModels: 'A carregar modelos...',
+        // Newly added keys for StyleDIY interactive elements
+        styleDIYManageIconTitle: 'Clique para gerir estilos personalizados',
+        styleDIYSelectModel: 'Seleccionar um modelo...',
+        styleDIYNoModelsFound: 'Nenhum modelo encontrado',
+        styleDIYModelsLoadError: 'Erro ao carregar modelos - verifique a ligação ao Ollama',
+        styleDIYPromptLabel: 'Descrição do Estilo:',
+        styleDIYPromptPlaceholder: 'Exemplo: Criar um estilo de corrida Ferrari com cores vermelho e preto, texturas de fibra de carbono e elementos inspirados na velocidade',
+        styleDIYRegenerateStyle: 'Regenerar Estilo',
+        styleDIYCreateStyle: 'Criar Estilo',
+        styleDIYCancel: 'Cancelar',
+        styleDIYCreateNewCardTitle: 'Criar Novo Estilo',
+        styleDIYCreateNewCardDescription: 'Gerar um novo estilo de apresentação personalizado com IA',
+        styleDIYCurrentStyleDescription: 'O seu último estilo gerado por IA (Actualmente Activo)',
+        styleDIYStatusActive: '✅ Activo',
+        styleDIYSaveStyle: '💾 Guardar Estilo',
+        styleDIYDeleteStyle: '🗑️ Eliminar Estilo',
+        styleDIYSavedStylesHeader: 'Estilos Guardados',
+        styleDIYSavedCount: '{count} Guardados',
+        styleDIYNoSavedStyles: '<div class="diy-placeholder-icon">💾</div><div class="diy-placeholder-text">Ainda não há estilos guardados.<br>Crie vários estilos para os ver aqui.</div>',
+        styleDIYMakeActive: 'Tornar Activo',
+        styleDIYDeleteBtn: 'Eliminar',
+        styleDIYConfirmDeleteStyle: 'Tem a certeza de que pretende eliminar o estilo "{name}"? Esta acção não pode ser desfeita.',
+        styleDIYConfirmDeleteActive: 'Tem a certeza de que pretende eliminar o estilo activo "{name}"? Isto irá voltar para o estilo Clássico.',
+        // StyleDIY keys
+        stylePleaseSelectModel: 'Por favor seleccione um modelo de IA',
+        stylePleaseEnterDescription: 'Por favor introduza uma descrição do estilo',
+        creatingEllipsis: 'A criar...',
+        cancelGeneration: 'Cancelar Geração',
+        preparingAI: 'A preparar a IA...',
+        generatingStyle: 'A gerar estilo...',
+        applyingStyle: 'A aplicar estilo...',
+        customStyleCreatedApplied: 'Estilo personalizado criado e aplicado com sucesso!',
+        styleNotCompatible: 'O estilo gerado pela IA não é compatível com o sistema de apresentação. Por favor tente outra descrição ou modelo.',
+        aiGeneratedCodeIssues: 'O código gerado pela IA tem problemas. Por favor tente outra descrição.',
+        noResponseFromAI: 'Não foi recebida resposta da IA. Por favor tente novamente.',
+        styleGenerationCancelled: 'Geração de estilo cancelada.',
+        errorGeneratingStyleOllama: 'Erro ao gerar estilo. Verifique se o Ollama está a correr e tente novamente.',
+        styleNowActive: 'O estilo "{name}" está agora activo!',
+        errorActivatingStyle: 'Erro ao activar o estilo. Por favor tente novamente.',
+        cannotSaveNoMasterKey: 'Não é possível guardar o estilo: nenhuma chave mestre disponível na sessão. Por favor reabra a aplicação e introduza a sua chave mestre.',
+        styleSavedToDatabase: 'Estilo "{name}" guardado na base de dados!',
+        errorSavingStyleToDatabaseDetails: 'Erro ao guardar o estilo na base de dados. Veja a consola para detalhes.',
+        errorSavingStyleToDatabase: 'Erro ao guardar o estilo na base de dados. Por favor tente novamente.',
+        styleHasBeenDeleted: 'Estilo "{name}" foi eliminado.',
+        errorDeletingStyleDetails: 'Erro ao eliminar o estilo da base de dados. Veja a consola para detalhes.',
+        styleNotFound: 'Estilo não encontrado. Pode já ter sido eliminado.',
+        errorDeletingStyle: 'Erro ao eliminar o estilo. Por favor tente novamente.',
+        noActiveStyleToSave: 'Nenhum estilo activo para guardar.',
+        styleHasBeenSaved: 'Estilo "{name}" foi guardado!',
+        errorSavingStyleDetails: 'Erro ao guardar o estilo. Veja a consola para detalhes.',
+        errorSavingStyle: 'Erro ao guardar o estilo. Por favor tente novamente.',
+        noActiveStyleToDelete: 'Nenhum estilo activo para eliminar.',
+        currentStyleDeletedSwitchedClassic: 'Estilo actual eliminado com sucesso! Alterado para o estilo Clássico.',
+        styleDeletedSwitchIssue: 'Estilo eliminado, mas houve um problema ao mudar para o estilo Clássico. Por favor seleccione o estilo Clássico manualmente.',
+        // Content.js errors
+        imageSearchServiceUnavailable: 'Serviço de pesquisa de imagens temporariamente indisponível.',
+        noRelevantImagesFound: 'Nenhuma imagem relevante encontrada.',
+        imageSearchFailedWithStatus: 'Pesquisa de imagens falhou com estado: {status}',
+        failedToDownloadImage: 'Falha ao transferir imagem.',
+        failedToDownloadImageRetry: 'Falha ao transferir imagem (nova tentativa).',
+        noImageFoundForSlideContent: 'Nenhuma imagem encontrada para o conteúdo desta diapositiva.',
+    failedToExtractContentFrom: 'Falha ao extrair conteúdo de {url}',
+        invalidMarkdownResponseStructure: 'Estrutura de resposta markdown inválida da IA.',
+        noValidJsonOrMarkdownDetected: 'Nenhum JSON ou markdown válido detectado na resposta da IA.',
+        docxWordXmlNotFound: 'Estrutura DOCX inválida: word/document.xml não encontrado.',
+        noTextExtractedFromDocx: 'Nenhum texto extraído do ficheiro DOCX.',
+        noModelSelected: 'Nenhum modelo de IA seleccionado. Por favor escolha um modelo antes de gerar.',
+        requestingAgainDueToIncompleteAIReply: 'Solicitando novamente a apresentação devido à resposta incompleta da IA',
+        extractingTextFromDocument: 'Extraindo texto do documento...',
+        generatingSlidetext: 'Gerando texto dos slides...',
+        aiReplyReceived: 'Resposta da IA recebida',
+        searchingImagesForSlides: 'Procurando imagens para os slides...',
+        creatingSlideForge: 'Criando apresentação...',
+        presentationError: 'Erro na apresentação',
+        noSlidesGenerated: 'A IA não gerou slides.',
 
-        // Template name placeholder
-        paperworkTemplateNamePlaceholder: "Relatório de Status de Engenharia, Relatório de Bug, etc.",
-        paperworkDocumentTitle: "Título do Documento",
-        paperworkDocumentSubtitle: "Subtítulo ou descrição do documento",
-        paperworkSectionHeader: "Cabeçalho da Seção",
-        paperworkTextAreaField: "Campo de Área de Texto",
-        paperworkEnterLongerTextHere: "Digite texto mais longo aqui...",
-        paperworkImageGallery: "Galeria de Imagens",
-        paperworkTextWithImage: "Texto com Imagem",
-        paperworkEnterTextHere: "Digite o texto aqui...",
-        paperworkImageWithText: "Imagem com Texto",
-        paperworkImageRow: "Linha de Imagens",
-        paperworkAddCaptionHere: "Adicione uma legenda aqui",
-        paperworkAddACaptionHere: "Adicione uma legenda aqui",
-        paperworkClickOrDragImage: "Clique ou arraste imagem",
-        paperworkClickToEdit: "Clique para editar",
-        paperworkEmptySpace: "Espaço Vazio",
-        paperworkDragToResize: "Arraste para redimensionar",
-        paperworkPageBreakSpace: "Espaço de quebra de página",
-        paperworkProcessingImage: "Processando imagem...",
-        paperworkImageAdded: "Imagem adicionada ({size}KB)",
-        paperworkImageAddedOptimized: "Imagem adicionada e otimizada ({size}KB)",
-        paperworkErrorProcessingImage: "Erro processando imagem",
-        paperworkImageProcessingError: "Erro ao processar imagem. Tente novamente.",
-        paperworkPleaseSelectImageFile: "Por favor selecione um arquivo de imagem",
-        paperworkResize: "Redimensionar",
+    // ===== RESEARCHTAB.JS =====
 
-        // Placeholders
-        documentGeneratorLocationPlaceholder1: '[Informações de Localização]',
-        documentGeneratorRecipientPlaceholder1: '[Informações do Destinatário]',
-        documentGeneratorSubjectPlaceholder1: '[Assunto]',
-        documentGeneratorGreetingDefault1: 'Prezado(a) Senhor(a),',
-        documentGeneratorBodyPlaceholder1: '[Corpo da Carta]',
-        documentGeneratorClosingDefault1: 'Atenciosamente,',
-        documentGeneratorSignaturePlaceholder1: '[Seu Nome]',
-        documentGeneratorContractTitlePlaceholder1: '[Título do Contrato]',
-        documentGeneratorParty1Placeholder1: '[Informações da Parte 1]',
-        documentGeneratorParty2Placeholder1: '[Informações da Parte 2]',
-        documentGeneratorTermPlaceholder1: '[Prazo do Contrato]',
-        documentGeneratorScopePlaceholder1: '[Escopo do Trabalho]',
-        documentGeneratorPaymentPlaceholder1: '[Termos de Pagamento]',
-        documentGeneratorProposalCompanyPlaceholder1: '[Informações da Empresa]',
-        documentGeneratorProposalClientPlaceholder1: '[Informações do Cliente]',
-        documentGeneratorProposalTitlePlaceholder1: '[Título da Proposta]',
-        documentGeneratorMemoToPlaceholder1: '[Destinatário]',
-        documentGeneratorMemoFromPlaceholder1: '[Remetente]',
-        documentGeneratorMemoSubjectPlaceholder1: '[Assunto]',
-        documentGeneratorMemoBodyPlaceholder1: '[Corpo do Memorando]',
-        documentGeneratorMinutesTitlePlaceholder1: 'Ata de Reunião',
+    // Research
+    researchInitializationFailed: "Falha ao inicializar as ferramentas de Pesquisa",
+    researchErrorMessage: "Erro: {message}",
+    researchSubTab: "Pesquisa",
+    knowledgeBaseSubTab: "Base de Conhecimento",
+    researchAssistantTitle: "Assistente de Pesquisa",
+    researchAssistantDescription: "Pesquise qualquer tópico com busca e sumarização assistidas por IA. Modelos de raciocínio aumentam significativamente o tempo, mas fornecem resultados mais profundos (deepSeek, Qwen3, QwQ, etc).",
+    researchQueryPlaceholder: "Digite sua pergunta de pesquisa...",
+    researchButton: "Pesquisar",
+    knowledgeBaseTitle: "Base de Conhecimento",
+    knowledgeBaseDescription: "Armazene e recupere informações na sua base de conhecimento pessoal.",
+    knowledgeBaseCollectionPlaceholder: "Nome da nova coleção...",
+    knowledgeBaseCreateButton: "Criar Coleção",
+    knowledgeBaseCollectionsTitle: "Suas Coleções de Conhecimento",
+    researchSizeLabel: "Escolha o tamanho aproximado do relatório:",
+    researchSizeTooltip: "Selecione o tamanho desejado para o relatório de pesquisa. Relatórios maiores incluirão mais detalhes, mas podem demorar mais para serem gerados.",
+    researchSizeConcise: "Conciso (500-800 palavras)",
+    researchSizeStandard: "Padrão (1000-1500 palavras)",
+    researchSizeDetailed: "Detalhado (2000-3000 palavras)",
+    researchSizeComprehensive: "Abrangente (4000-5000 palavras)",
+    researchSizeExtensive: "Extenso (6000+ palavras)",
+    modelSelectionRequired: "Seleção de modelo necessária",
 
-        // Extras
-        documentGeneratorProposalPreview: 'Proposta',
-        documentGeneratorClosingDefault2: 'Melhores cumprimentos,',
-        documentGeneratorCopied: 'Copiado!',
-        documentGeneratorCopiedPlainText: 'Copiado (texto simples)',
-        documentGeneratorShowFormattedText: 'Mostrar Texto Formatado',
+    // Knowledge Base search related
+    knowledgeBaseSearchMode: "Modo de Pesquisa da Base de Conhecimento",
+    knowledgeBaseSearchInfo: "Enquanto estiver nesta aba, o prompt principal buscará nas suas coleções de conhecimento.",
+    knowledgeBaseSearchPlaceholder: "Pesquise na sua base de conhecimento...",
+    knowledgeBaseSearching: "Pesquisando na base de conhecimento...",
+    knowledgeBaseNoResults: "Nenhuma entrada correspondente encontrada na sua base de conhecimento para: \"{query}\"",
+    knowledgeBaseSearchTryDifferent: "Tente um termo diferente ou adicione mais conteúdo à sua base de conhecimento.",
+    knowledgeBaseSearchResults: "Encontrados {count} itens na sua base de conhecimento para: \"{query}\"",
+    knowledgeBaseEntryCollection: "Coleção: {name}",
+    knowledgeBaseViewEntry: "Ver Entrada",
+    knowledgeBaseViewCollection: "Ir para Coleção",
+    knowledgeBaseSearchError: "Erro ao pesquisar na base de conhecimento: {error}",
+    knowledgeBaseTryAgain: "Por favor, tente novamente ou verifique o console do navegador para mais detalhes.",
+    knowledgeBaseSearchLabel: "Pesquisar:",
 
-        // ===== ARTWORKSTAB.JS =====
+    // ===== RESEARCH.JS =====
+    // Perform research
+    researchInProgress: "Pesquisa em andamento",
+    researchProcessAlreadyRunning: "Um processo de pesquisa já está em execução. Por favor, aguarde.",
+    researchMissingTopic: "Tópico de Pesquisa em Falta",
+    researchEnterTopicPrompt: "Por favor, insira um tópico de pesquisa no campo acima.",
+    researchModelRequired: "Por favor, selecione um modelo na aba Chat primeiro. Um modelo é necessário para a funcionalidade de pesquisa.",
+    switchToChatTab: "Alternar para a aba Chat",
+    researchProcess: "Processo de Pesquisa",
+    researchStarting: "Iniciando pesquisa...",
+    researchGeneratingQueries: "Gerando consultas de busca...",
+    researchSearchingInfo: "Procurando informações...",
+    researchProcessingSources: "Processando fontes...",
+    researchFinalizingData: "Finalizando dados da pesquisa...",
+    researchGeneratingReport: "Gerando relatório de pesquisa...",
+    researchComplete: "Pesquisa concluída!",
+    researchError: "Erro na pesquisa",
 
-        //UI
-        artworkSelectVisualModel: "Selecionar Modelo Visual:",
-        artworkSelectMode: "Selecionar Modo:",
-        artworkHtmlStyleTransfer: "Transferência de Estilo HTML",
-        artworkTextOverlay: "Sobreposição de Texto",
-        artworkDesignRationale: "Fundamentação do Design",
-        artworkUploadReferenceImage: "Carregar Imagem de Referência:",
-        artworkDragImageOrClick: "Arraste uma imagem aqui ou clique para carregar",
-        artworkUseAsBackground: "Usar como imagem de fundo",
-        artworkDesignInstructions: "Instruções de Design:",
-        artworkDesignInstructionsPlaceholder: "Descreva o estilo que deseja (ex., 'Criar um site brutalista', 'Design em estilo minimalista'), Nome do site, botões, etc...",
-        artworkGenerateDesign: "Gerar Design",
-        artworkGeneratedDesign: "Design Gerado:",
-        artworkSelectVisualModelOption: "Selecionar um modelo visual",
-        artworkVisualDesignStudio: "Estúdio de Design Visual",
-        artworkCreateDesignsDescription: "Criar designs, sites ou obras de arte usando modelos de IA visual.",
+    // Generate title
+    researchInsufficientContent: "Conteúdo insuficiente disponível para sumarização.",
+    researchSummaryProcessingCompleted: "Processamento de resumo concluído.",
+    researchPdfDocumentLabel: "[Documento PDF]",
+    researchUntitledPage: "Página sem título",
 
-        //Models
-        artworkNoVisualModelsAvailable: "Nenhum Modelo Visual Disponível",
-        artworkFeatureRequiresVisualModels: "Esta funcionalidade requer modelos visuais instalados no Ollama.",
-        artworkNoCompatibleModelsInstalled: "Você atualmente não tem nenhum modelo visual compatível instalado.",
-        artworkInstallModelsLike: "Instale modelos como LLaVA, Bakllava, Gemma3, Phi3-Vision, ou outros modelos com capacidade visual",
-        artworkToUseThisFeature: "para usar esta funcionalidade.",
-        artworkGoToModelsTab: "Ir para a Aba de Modelos",
+    // Create results
+    researchResultsTitle: "Resultados da Pesquisa",
+    researchResults: "Resultados da Pesquisa",
+    researchResultsDisplayed: "Seus resultados de pesquisa são exibidos na janela flutuante. Se você a fechou, você pode",
+    researchReopenLink: "clicar aqui para reabrir",
+    researchReportEditable: "Este relatório de pesquisa é totalmente editável. Faça alterações conforme necessário antes de exportar ou salvar.",
+    researchSourcesCount: "Fontes ({count})",
+    researchDeepSourcesIncluded: "Inclui {count} fontes secundárias da busca profunda",
+    researchViewPDF: "Ver PDF",
+    researchExportReport: "Exportar Relatório",
+    esearchSaveToKnowledgeBase: "Salvar na Base de Conhecimento",
+    researchExportPlainText: "Texto Simples (.txt)",
+    researchExportMarkdown: "Markdown (.md)",
+    researchExportHTML: "HTML (.html)",
 
-        //Info
-        artworkPleaseSelectVisualModel: "Por favor, selecione um modelo visual",
-        artworkPleaseUploadReferenceImage: "Por favor, carregue uma imagem de referência",
-        artworkPleaseProvideDesignInstructions: "Por favor, forneça instruções de design",
-        artworkPleaseSelectImageFile: "Por favor, selecione um arquivo de imagem",
-        artworkImageTooLarge: "A imagem é muito grande. Tamanho máximo é 5MB",
+    // Show save
+    researchConfirmRemoveSource: "Remover esta fonte?",
+    researchReopenPrompt: "Se você a fechou, pode clicar aqui para reabrir.",
+    exportButton: "Exportar",
+    knowledgeBaseNotAvailable: "Base de conhecimento não disponível. Por favor, tente novamente mais tarde.",
+    researchModelRequiredForKB: "Por favor, selecione um modelo de pesquisa antes de salvar na base de conhecimento.",
+    saveToKnowledgeBase: "Salvar na Base de Conhecimento",
+    researchSaveDescription: "Salve este relatório de pesquisa na sua base de conhecimento para referência futura.",
+    reportTitle: "Título do Relatório",
+    sourceOptions: "Opções de Fonte",
+    saveSeparateEntries: "Salvar fontes como entradas separadas",
+    includeSourcesInReport: "Incluir fontes apenas no relatório principal",
+    saveToCollection: "Salvar na Coleção",
+    cancelButton: "Cancelar",
 
-        //Overlays
-        artworkStyleModePlaceholder: "Descreva a transformação de estilo que deseja (ex., 'Transformar isto num design Brutalista com tipografia marcante')",
-        artworkOverlayModePlaceholder: "Digite o texto para sobrepor (ex., 'Cabeçalho: Nome do Produto, Corpo: Características principais..., Rodapé: Chamada para ação')",
-        artworkRationaleModePlaceholder: "Pergunte sobre aspectos específicos do design para explicar (ex., 'Explique as escolhas de layout e como impactam o fluxo do usuário')",
+    // Show add entry
+    addNewKnowledgeEntry: "Adicionar Nova Entrada de Conhecimento",
+    entryTitle: "Título da Entrada",
+    content: "Conteúdo",
+    markdownFormattingNote: "Você pode usar formatação Markdown.",
+    saveEntry: "Salvar Entrada",
 
-        //Generate artworks
-        artworkGenerating: "Gerando...",
-        artworkGenerationCancelled: "A geração foi cancelada.",
-        artworkImageAnalysisFailed: "Erro: A análise da imagem falhou. Por favor, tente novamente.",
-        artworkErrorOccurred: "Erro: {error}",
-        analyzingImage: 'Analisando Imagem',
-        analyzingImageAndGenerating: 'Analisando imagem e gerando design...',
-        artworkGenerationTiming: 'Isso pode levar 30-60 segundos dependendo do modelo',
+    // Alerts
+    pleaseEnterTitle: "Por favor, insira um título para esta entrada.",
+    pleaseEnterContent: "Por favor, insira algum conteúdo para esta entrada.",
+    collectionNotFound: "Coleção não encontrada",
+    failedToUpdateCollection: "Falha ao atualizar coleção",
+    failedToDeleteCollection: "Falha ao excluir coleção",
+    pleaseEnterReportTitle: "Por favor, insira um título para o relatório",
+    pleaseSelectCollection: "Por favor, selecione uma coleção",
+    researchSavedSuccessfully: "Pesquisa salva com sucesso na base de conhecimento",
+    failedToUpdateEntry: "Falha ao atualizar entrada",
 
-        // ===== ARTWORKPREVIEWWINDOW.JS =====
-        artworkCopyText: "Copiar Texto",
-        artworkCopyCode: "Copiar Código",
+    // Confirmations
+    confirmDeleteEntry: "Excluir entrada \"{title}\"? Isto não pode ser desfeito.",
+    confirmDeleteCollection: "Excluir coleção \"{name}\" com {count} entradas? Isto não pode ser desfeito.",
 
-        // Create window
-        artworkCode: "Código",
-        artworkPreview: "Visualização",
-        artworkExportPNG: "Exportar PNG",
-        artworkClose: "Fechar",
+    // Buttons
+    backToKnowledgeBase: "← Voltar para a Base de Conhecimento",
+    newEntry: "+ Nova Entrada",
+    backToEntries: "← Voltar às Entradas",
+    editEntry: "Editar Entrada",
+    deleteEntry: "Excluir Entrada",
+    enterNewCollectionName: "Insira um novo nome para a coleção:",
 
-        // Background image
-        artworkBackgroundImageWarning: "IMPORTANTE: Isto está usando uma URL de imagem temporária.",
-        artworkBackgroundImageInstructions: "Ao implantar seu site, substitua isto por um caminho de imagem real como:",
-        artworkBackgroundImageReplace: "Substituir por caminho de imagem real ao implantar",
+    // Status messages
+    savingSourceProgress: "Salvando fonte {current} de {total}...",
+    researchProcessCancelled: "Processo de pesquisa cancelado",
 
-        // Copy code
-        artworkCopied: "Copiado!",
-        artworkCopyFailed: "Falha ao copiar código. Por favor, tente novamente.",
+    // Empty states
+    noKnowledgeCollections: "Ainda não há coleções de conhecimento. Crie sua primeira coleção para começar.",
+    noEntriesInCollection: "Nenhuma entrada nesta coleção ainda. Clique em \"Nova Entrada\" para adicionar conteúdo.",
+    savingSourcesTitle: "Salvando Fontes na Base de Conhecimento",
 
-        // Download image
-        artworkExportingPNG: "Exportando PNG...",
-        artworkExportWait: "Por favor, aguarde enquanto geramos sua imagem.",
-        artworkExportSuccess: "PNG Exportado com Sucesso!",
-        artworkExportDownloaded: "Sua imagem foi baixada.",
+    // Extras
+    editKnowledgeEntry: "Editar Entrada de Conhecimento",
+    created: "Criado",
+    noContentForExport: "Nenhum conteúdo disponível para exportação",
+    exportedOn: "Exportado em",
+    totalEntries: "Total de entradas",
+    source: "Fonte",
+    generatingEmbeddings: "Gerando embeddings...",
+    entrySavedSuccessfully: "Entrada salva com sucesso",
+    error: "Erro",
+    researchSaveToKnowledgeBase: "Salvar na Base de Conhecimento",
+    sourceFromResearch: "Fonte da pesquisa",
+    summary: "Resumo",
+    sourceURL: "URL da Fonte",
+    noSummaryAvailable: "Nenhum resumo disponível",
+    entryCreatedAsSourceReference: "Esta entrada foi criada como referência de fonte para o relatório de pesquisa",
 
-        // Export instructions
-        artworkExportInstructions: "Para salvar como PNG de alta qualidade:",
-        artworkExportScreenshot: "Tire uma captura de tela da área de visualização:",
-        artworkExportMac: "Cmd+Shift+4, depois selecione a área",
-        artworkExportWindows: "Win+Shift+S, depois selecione a área",
-        artworkExportPasteSave: "Cole e salve no seu editor de imagem preferido",
-        artworkExportGotIt: "Entendi",
-
-        // Extras
-        artworkGenerationCanceled: 'Geração Cancelada',
-        artworkGenerationWasCanceled: 'A geração foi cancelada.',
-        artworkTryAgainDifferentPrompt: 'Você pode tentar novamente com um prompt ou modelo diferente.',
-        artworkGenerationFailed: 'Geração Falhou',
-        artworkImageAnalysisFailed: 'A análise da imagem falhou',
-        artworkTryAgainDifferentPromptOrModel: 'Por favor, tente novamente com um prompt ou modelo diferente',
-
-        // ===== MODELSTAB.JS =====
-
-        // Models tab
-        modelRestartOllamaAdvice: "Por favor, reinicie o Ollama para limpar completamente os arquivos parciais.",
-        modelFetchButton: "Buscar Modelos Ollama",
-        modelSelectPlaceholder: "Nenhum modelo buscado ainda",
-        modelFetching: "Buscando modelos...",
-        modelPleaseWait: "Por favor aguarde, conectando ao Ollama...",
-        modelFetchSuccess: "Encontrados {count} modelos disponíveis",
-        modelFetchError: "Erro ao conectar à Biblioteca Ollama",
-        modelFetchRetry: "Tentar Novamente",
-        modelSelectLabel: "Selecionar Modelo",
-        modelSizeLabel: "Selecionar Tamanho",
-        modelDeleteSelectOption: "Selecionar modelo...",
-        modelDownloadButton: "Baixar Modelo",
-        modelDeleteButton: "Excluir Modelo Selecionado",
-        modelLocalLabel: "Modelos Locais Atuais",
-        modelDownloadStarting: "Iniciando download...",
-        modelDownloading: "Baixando: {downloaded} / {total}",
-        modelDownloadComplete: "Download Completo",
-        modelDownloadError: "Erro - Tente Novamente",
-        modelDeleteConfirm: "Tem certeza de que deseja excluir {model}?",
-        modelDeleting: "Excluindo...",
-        modelDeleted2: "Modelo Excluído",
-        modelDeleteError: "Erro ao Excluir",
-        modelDeleteSuccess: "Removido com sucesso {model}",
-        modelNoTags: "Nenhuma tag disponível para este modelo",
-        modelDownloadSuccess: "Baixado com sucesso {model}",
-        modelErrorMessage: "Erro: {message}",
-        modelConfigureButton: "Configurar modelo (opcional)",
-        modelConfigureSuccess: "Modelo personalizado '{model}' criado com sucesso baseado em {baseModel}!",
-        modelConfigureError: "Erro ao criar modelo personalizado: {error}",
-        modelChooseOption: "Escolher um modelo...",
-        modelFetchingMessage: "Buscando modelos...",
-        modelResumeDownload: "Retomar Download",
-        modelDownloadResuming: "Retomando download...",
-        modelRefreshingStats: "Atualizando estatísticas de download...",
-        modelFetchDisabledDuringDownload: "A busca de modelos está desabilitada enquanto um modelo está sendo baixado.",
-        close: "Fechar",
-        save: "Salvar",
-        modelName: "Nome do Modelo",
-        baseModel: "Modelo Base",
-        creating: "Criando...",
-        modelLoadingOption: "Carregando modelos locais...",
-        modelFetchError: "Erro ao carregar modelos online",
-        modelFetchingSizes: "Buscando tamanhos...",
-        modelNoSizesFound: "Nenhum tamanho encontrado para este modelo",
-        modelSizesFetchError: "Erro ao carregar tamanhos do modelo",
-        modelSelectBothRequired: "Por favor, selecione tanto um modelo quanto um tamanho antes de baixar.",
-        modelCancelButton: "Cancelar Download",
-        modelCancelDownloadConfirm: "Tem certeza de que deseja cancelar este download? Downloads parciais serão excluídos.",
-        modelCancellingDownload: "Cancelando download e limpando...",
-        modelDownloadCancelled: "Download cancelado com sucesso, por favor reinicie o Ollama para excluir arquivos parcialmente baixados.",
-        modelCancellationError: "Erro durante o processo de cancelamento.",
-        modelDownloadInterrupted: "Download interrompido. Por favor, tente novamente.",
-        modelSettingsTitle: "Configurações do Modelo",
-        modelSettingsDescription: "Visualizar e ajustar configurações para este modelo.",
-        modelConfigTemp: "Temperatura",
-        modelConfigTopP: "Top P",
-        modelConfigTopK: "Top K",
-        modelConfigRepeatPenalty: "Penalidade de Repetição",
-        restoreSettings: "Restaurar Configurações de Fábrica",
-        saveSettings: "Salvar Configurações",
-        modelSettingsSaved: "Configurações salvas para {model}.",
-        modelSettingsError: "Erro ao salvar configurações: {error}",
-        savingSettings: "Salvando configurações...",
-        restoringSettings: "Restaurando configurações de fábrica...",
-        settingsRestored: "Configurações de fábrica restauradas",
-        modelConfigStatus: "Status das Configurações",
-        modelConfigHelp: "Ajuste as configurações para controlar como o modelo gera texto.",
-        modelConfigTempHelp: "Valores mais altos (mais próximos de 1) tornam a saída mais aleatória, valores mais baixos mais determinísticos.",
-        modelConfigTopPHelp: "Limita a seleção de tokens a uma porcentagem da massa de probabilidade. Valores mais baixos aumentam o foco.",
-        modelConfigTopKHelp: "Limita a seleção de tokens aos top K tokens. Valores mais baixos aumentam o foco.",
-        modelConfigRepeatPenaltyHelp: "Valores mais altos reduzem a repetição penalizando tokens repetidos.",
-        modelConfigResetButton: "Redefinir",
-        modelConfigSaveButton: "Salvar Alterações",
-        viewModelsConfirm: "Gostaria de visualizar modelos Ollama disponíveis online?",
-        fetchingModels: "Buscando modelos Ollama...",
-        loadingModelDownloader: "Carregando baixador de modelos...",
-        errorLoadingModels: "Erro ao Carregar Modelos",
-
-
-
-
-
-        // ===== RESEARCHTAB.JS =====
-
-        //Research
-        researchInitializationFailed: "Falha ao inicializar ferramentas de Pesquisa",
-        researchErrorMessage: "Erro: {message}",
-        researchSubTab: "Pesquisa",
-        knowledgeBaseSubTab: "Base de Conhecimento",
-        researchAssistantTitle: "Assistente de Pesquisa",
-        researchAssistantDescription: "Pesquise qualquer tópico com busca e resumo baseados em IA, modelos de raciocínio aumentarão dramaticamente o tempo de pesquisa mas fornecerão melhores resultados (deepSeek, Qwen3, QwQ, etc).",
-        researchQueryPlaceholder: "Digite sua pergunta de pesquisa...",
-        researchButton: "Pesquisar",
-        knowledgeBaseTitle: "Base de Conhecimento",
-        knowledgeBaseDescription: "Armazene e recupere informações em sua base de dados de conhecimento pessoal.",
-        knowledgeBaseCollectionPlaceholder: "Nome da nova coleção...",
-        knowledgeBaseCreateButton: "Criar Coleção",
-        knowledgeBaseCollectionsTitle: "Suas Coleções de Conhecimento",
-        researchSizeLabel: "Escolha o tamanho aproximado do relatório:",
-        researchSizeTooltip: "Selecione o tamanho desejado do seu relatório de pesquisa. Relatórios maiores incluirão mais detalhes e análise mais profunda, mas podem demorar mais para gerar.",
-        researchSizeConcise: "Conciso (500-800 palavras)",
-        researchSizeStandard: "Padrão (1000-1500 palavras)",
-        researchSizeDetailed: "Detalhado (2000-3000 palavras)",
-        researchSizeComprehensive: "Abrangente (4000-5000 palavras)",
-        researchSizeExtensive: "Extenso (6000+ palavras)",
-        modelSelectionRequired: "Seleção de Modelo Obrigatória",
-
-        // Knowledge Base search related translations
-        knowledgeBaseSearchMode: "Modo de Busca na Base de Conhecimento",
-        knowledgeBaseSearchInfo: "Nesta aba, o prompt principal buscará em suas coleções de conhecimento.",
-        knowledgeBaseSearchPlaceholder: "Buscar em sua base de conhecimento...",
-        knowledgeBaseSearching: "Buscando na base de conhecimento...",
-        knowledgeBaseNoResults: "Nenhuma entrada correspondente encontrada em sua base de conhecimento para: \"{query}\"",
-        knowledgeBaseSearchTryDifferent: "Tente um termo de busca diferente ou adicione mais conteúdo à sua base de conhecimento.",
-        knowledgeBaseSearchResults: "Encontradas {count} entradas em sua base de conhecimento para: \"{query}\"",
-        knowledgeBaseEntryCollection: "Coleção: {name}",
-        knowledgeBaseViewEntry: "Ver Entrada",
-        knowledgeBaseViewCollection: "Ir para Coleção",
-        knowledgeBaseSearchError: "Erro ao buscar na base de conhecimento: {error}",
-        knowledgeBaseTryAgain: "Por favor, tente novamente ou verifique o console do navegador para mais detalhes.",
-        knowledgeBaseSearchLabel: "Buscar:",
-
-        // ===== RESEARCH.JS =====
-        researchEnableDeepSearch: "Ativar Pesquisa Profunda",
-        researchDeepSearchTooltip: "A Pesquisa Profunda segue links nos resultados de pesquisa para descobrir conteúdo adicional relevante. Isso fornece pesquisa mais abrangente, mas pode demorar mais para ser concluída.",
-        researchDeepSearchDepth: "Profundidade:",
-        researchDeepSearchLevel1: "1 nível",
-        researchDeepSearchLevel2: "2 níveis",
-        researchDeepSearchLevel3: "3 níveis",
-        researchDeepSearchLinksPerPage: "Links por página:",
-        researchDeepSearchLink1: "1 link",
-        researchDeepSearchLink2: "2 links",
-        researchDeepSearchLink3: "3 links",
-        researchDeepSearchLink5: "5 links",
-
-        // Perform research
-        researchInProgress: "Pesquisa em Andamento",
-        researchProcessAlreadyRunning: "Um processo de pesquisa já está em execução. Por favor, aguarde.",
-        researchMissingTopic: "Tópico de Pesquisa Ausente",
-        researchEnterTopicPrompt: "Por favor, insira um tópico de pesquisa no campo de entrada acima.",
-        researchModelRequired: "Por favor, selecione um modelo da aba Chat primeiro. Um modelo é necessário para a funcionalidade de pesquisa.",
-        switchToChatTab: "Alternar para a Aba Chat",
-        researchProcess: "Processo de Pesquisa",
-        researchStarting: "Iniciando pesquisa...",
-        researchGeneratingQueries: "Gerando consultas de pesquisa...",
-        researchSearchingInfo: "Procurando por informações...",
-        researchProcessingSources: "Processando fontes...",
-        researchFinalizingData: "Finalizando dados da pesquisa...",
-        researchGeneratingReport: "Gerando relatório de pesquisa...",
-        researchComplete: "Pesquisa concluída!",
-        researchError: "Erro na Pesquisa",
-
-        // Generate title
-        researchInsufficientContent: "Conteúdo insuficiente disponível para resumo.",
-        researchSummaryProcessingCompleted: "Processamento de resumo concluído.",
-        researchPdfDocumentLabel: "[Documento PDF]",
-        researchUntitledPage: "Página Sem Título",
-
-        //Create results
-        researchInsufficientContent: "Conteúdo insuficiente disponível para resumo.",
-        researchResultsTitle: "Resultados da Pesquisa",
-        researchResults: "Resultados da Pesquisa",
-        researchReportEditable: "Este relatório de pesquisa é totalmente editável. Faça alterações conforme necessário antes de exportar ou salvar.",
-        researchSourcesCount: "Fontes ({count})",
-        researchDeepSourcesIncluded: "Inclui {count} fontes secundárias da pesquisa profunda",
-        researchViewPDF: "Ver PDF",
-        researchExportReport: "Exportar Relatório",
-        esearchSaveToKnowledgeBase: "Salvar na Base de Conhecimento",
-        researchExportPlainText: "Texto Simples (.txt)",
-        researchExportMarkdown: "Markdown (.md)",
-        researchExportHTML: "HTML (.html)",
-        // Show save
-        researchConfirmRemoveSource: "Remover esta fonte?",
-        researchResults: "Resultados da Pesquisa",
-        researchReportEditable: "Este relatório de pesquisa é totalmente editável. Faça alterações conforme necessário antes de exportar ou salvar.",
-        researchReopenPrompt: "Se você fechou, pode clicar aqui para reabrir.",
-        exportButton: "Exportar",
-        knowledgeBaseNotAvailable: "Base de conhecimento não disponível. Por favor, tente novamente mais tarde.",
-        researchModelRequiredForKB: "Por favor, selecione um modelo de pesquisa primeiro antes de salvar na base de conhecimento.",
-        saveToKnowledgeBase: "Salvar na Base de Conhecimento",
-        researchSaveDescription: "Salvar este relatório de pesquisa na sua base de conhecimento para referência futura.",
-        reportTitle: "Título do Relatório",
-        sourceOptions: "Opções de Fonte",
-        saveSeparateEntries: "Salvar fontes como entradas separadas",
-        includeSourcesInReport: "Incluir fontes apenas no relatório principal",
-        saveToCollection: "Salvar na Coleção",
-        cancelButton: "Cancelar",
-
-        // Show add entry
-        addNewKnowledgeEntry: "Adicionar Nova Entrada de Conhecimento",
-        entryTitle: "Título da Entrada",
-        content: "Conteúdo",
-        markdownFormattingNote: "Você pode usar formatação Markdown.",
-        cancelButton: "Cancelar",
-        saveEntry: "Salvar Entrada",
-
-        // Alerts
-        researchProcessAlreadyRunning: "Um processo de pesquisa já está em execução. Por favor, aguarde.",
-        pleaseEnterTitle: "Por favor, insira um título para esta entrada.",
-        pleaseEnterContent: "Por favor, insira algum conteúdo para esta entrada.",
-        collectionNotFound: "Coleção não encontrada",
-        failedToUpdateCollection: "Falha ao atualizar coleção",
-        failedToDeleteCollection: "Falha ao excluir coleção",
-        pleaseEnterReportTitle: "Por favor, insira um título para o relatório",
-        pleaseSelectCollection: "Por favor, selecione uma coleção",
-        researchSavedSuccessfully: "Pesquisa salva com sucesso na base de conhecimento",
-        failedToUpdateEntry: "Falha ao atualizar entrada",
-
-        // Confirmations
-        confirmDeleteEntry: "Excluir entrada \"{title}\"? Isso não pode ser desfeito.",
-        confirmDeleteCollection: "Excluir coleção \"{name}\" com {count} entradas? Isso não pode ser desfeito.",
-
-        // Buttons
-        backToKnowledgeBase: "← Voltar à Base de Conhecimento",
-        newEntry: "+ Nova Entrada",
-        backToEntries: "← Voltar às Entradas",
-        editEntry: "Editar Entrada",
-        deleteEntry: "Excluir Entrada",
-        enterNewCollectionName: "Digite o novo nome para a coleção:",
-
-        // Status messages
-        saving: "Salvando...",
-        savingSourceProgress: "Salvando fonte {current} de {total}...",
-        researchProcessCancelled: "Processo de pesquisa cancelado",
-
-        // Empty states
-        noKnowledgeCollections: "Ainda não há coleções de conhecimento. Crie sua primeira coleção para começar.",
-        noEntriesInCollection: "Ainda não há entradas nesta coleção. Clique em \"Nova Entrada\" para adicionar conteúdo.",
-        savingSourcesTitle: "Salvando Fontes na Base de Conhecimento",
-
-        // Extras 
-        editKnowledgeEntry: "Editar Entrada de Conhecimento",
-        saveChanges: "Salvar Alterações",
-        created: "Criado",
-        noContentForExport: "Nenhum conteúdo disponível para exportação",
-        exportedOn: "Exportado em",
-        totalEntries: "Total de entradas",
-        source: "Fonte",
-        saving: "Salvando...",
-        saveChanges: "Salvar Alterações",
-        deleteEntry: "Excluir Entrada",
-        loadingCollections: "Carregando coleções...",
-        errorLoadingCollections: "Erro ao carregar coleções",
-        createNewCollectionOption: "➕ Criar Nova Coleção...",
-        researchReopenPrompt: "Se você fechou, pode clicar aqui para reabrir.",
-        knowledgeBaseModelRequired: "Por favor, selecione um modelo da aba Chat primeiro. Um modelo é necessário para gerar embeddings para exibir o conteúdo da coleção.",
-        selectModel: "Selecionar Modelo",
-        warning: "⚠️ Aviso:",
-        info: "ℹ️ Informação:",
-        collectionWithEntries: "{name} ({count} entradas)",
-        sourcePrefix: "Fonte",
-        untitledSource: "Fonte Sem Título",
-        failedToExtractContent: "Falha ao extrair conteúdo de {url}: {error}",
-        errorLoadingCollections: "Erro ao carregar coleções",
-        savingSourceInitial: "Salvando fonte 0 de {total}...",
-        researchComplete: "Pesquisa concluída!",
-        researchResultsDisplayed: "Seus resultados de pesquisa são exibidos na janela flutuante. Se você a fechou, pode",
-        researchReopenLink: "clicar aqui para reabri-la",
-        failedToDeleteEntry: "Falha ao excluir entrada",
-        factsAndStatistics: "fatos e estatísticas",
-        latestResearchOn: "pesquisa mais recente sobre",
-        analysis: "análise",
-        summaryFailedSuffix: "... (Resumo falhou)",
-        failedToGeneratePartialReport: "Falha ao gerar relatório parcial para fontes {start}-{end}: {error}.",
-        noReportPartsGenerated: "Nenhuma parte do relatório foi gerada.",
-        researchReportTitle: "Relatório de Pesquisa",
-        failedToExtractPDF: "Falha ao extrair conteúdo do PDF",
-        pdfCouldNotBeProcessed: "Documento PDF não pôde ser processado. Clique em 'Ver PDF' para abrir diretamente.",
-        pdfCouldNotBeFullyProcessed: "Documento PDF não pôde ser totalmente processado. Clique em 'Ver PDF' para abrir diretamente.",
-        summaryProcessingCompleted: "Processamento de resumo concluído.",
-        failedToCreateNewCollection: 'Falha ao criar nova coleção: {error}',
-        failedToSaveToKnowledgeBase: 'Falha ao salvar na base de conhecimento: {error}',
-        failedToExtractContentFrom: 'Falha ao extrair conteúdo de {url}',
-        failedToExtractContent: 'Falha ao extrair conteúdo',
-        never: 'Nunca',
-        entries: 'Entradas',
-        lastUpdated: 'Última atualização',
-        view: 'Ver',
-        edit: 'Editar',
-        export: 'Exportar',
-        delete: 'Excluir',
-        exportUtilityNotAvailable: 'Utilitário de exportação não disponível. Por favor, tente novamente mais tarde.',
-        saveEntry: 'Salvar Entrada',
-        saving: 'Salvando',
-        generatingEmbeddings: 'Gerando embeddings...',
-        entrySavedSuccessfully: 'Entrada salva com sucesso',
-        error: 'Erro',
-        researchSaveToKnowledgeBase: 'Salvar na Base de Conhecimento',
-        sourcePrefix: "Fonte",
-        untitledSource: "Fonte Sem Título",
-        sourceFromResearch: "Fonte da pesquisa",
-        summary: "Resumo",
-        sourceURL: "URL da Fonte",
-        noSummaryAvailable: "Nenhum resumo disponível",
-        entryCreatedAsSourceReference: "Esta entrada foi criada como referência de fonte para o relatório de pesquisa",
-
-        // ===== CODEPREVIEW.JS =====
-
-        previewModalCreateError: "Não foi possível criar modal de pré-visualização HTML",
-        previewErrorOnLine: "Erro na linha",
-        previewColumn: "coluna",
-        previewRefreshTooltip: "Atualizar Pré-visualização",
-        previewMaximize: "Maximizar",
-        previewRestore: "Restaurar",
-        previewClose: "Fechar",
+    researchEnableDeepSearch: "Ativar Busca Profunda",
+    researchDeepSearchTooltip: "Busca Profunda segue links dentro dos resultados para descobrir conteúdo adicional relevante. Proporciona pesquisa mais completa, porém pode demorar mais.",
+    researchDeepSearchDepth: "Profundidade:",
+    researchDeepSearchLevel1: "1 nível",
+    researchDeepSearchLevel2: "2 níveis",
+    researchDeepSearchLevel3: "3 níveis",
+    researchDeepSearchLinksPerPage: "Links por página:",
+    researchDeepSearchLink1: "1 link",
+    researchDeepSearchLink2: "2 links",
+    researchDeepSearchLink3: "3 links",
+    researchDeepSearchLink5: "5 links",
 
 
-
-
-        // ===== EXPORT.JS =====
-        conversationPrefix: "Conversa",
-        exportFilename: "Nome do arquivo",
-        filenameRequired: "Por favor, insira um nome de arquivo",
-
-        // ===== STREAMPROCESSOR.JS =====
-
-        modelThinking: 'Modelo pensando: ',
-        modelThoughtComplete: 'Pensamento completo: ',
-        toggleThinkingVisibility: 'Alternar visibilidade do processo de pensamento',
-        thinkingTime: 'Tempo de pensamento',
-        thinkingCollapsed: 'Mostrar processo de pensamento',
-        thinkingExpanded: 'Ocultar processo de pensamento',
-        modelThinkingCancelled: 'Pensamento cancelado: ',
-        // Code Preview messages
-        previewLoadingMessage: "Carregando pré-visualização...",
-        previewJsError: "Erro JavaScript:",
-        previewHtmlError: "Pré-visualização HTML com Erros",
-        previewErrorInCode: "Erro no código HTML",
-        previewYourCode: "Seu código é mostrado abaixo com erros:",
-        previewTitle: "Pré-visualização HTML",
-        previewViewAsDesktop: "Desktop",
-        previewViewAsTablet: "Tablet",
-        previewViewAsMobile: "Móvel",
-        previewRefreshTooltip: "Atualizar Pré-visualização",
-        previewMaximize: "Maximizar",
-        previewRestore: "Restaurar",
-        previewClose: "Fechar",
-        // Code Styling messages
-        codeCopyButton: "Copiar",
-        codeCopied: "Copiado!",
-        codeRunButton: "Executar",
-        codeCopyError: "Erro",
-        codeToggleLineNumbersTitle: "Alternar Números de Linha",
-        codeToggleLineNumbers: "Números de Linha",
-        thinkingContentNotRestored: 'O conteúdo do pensamento não pôde ser restaurado. Isso pode acontecer se a IA estivesse pensando brevemente antes de responder.',
-        codeCopyWithLinesButton: 'Copiar com #',
-
-
-        // ===== RAG.JS =====
-
-        // Notices
-        ragModelNotCompatibleTitle: "Modelo Não Compatível com Busca de Documentos",
-        ragModelNotCompatibleMessage: "O modelo <strong>{model}</strong> não suporta embeddings, que são necessários para busca de documentos e funcionalidade RAG.",
-        ragModelSelectCompatible: "Por favor, selecione um modelo que suporte embeddings (como nomic-embed-text, llama3, mistral ou modelos mixtral).",
-        ragFindEmbeddingModels: "Encontrar modelos com capacidade de embedding",
-        ragIUnderstand: "Eu Entendo",
-        ragProcessingDocuments: "Processando documentos...",
-        ragProcessingFile: "Processando arquivo: {filename}",
-
-        // ===== SECURITYUTILS.JS =====
-
-        securityFinalDeleteWarning: 'AVISO FINAL: Isso excluirá permanentemente TODOS os dados de TODOS os perfis.\n\n' +
-            'Isso inclui:\n' +
-            '• Todas as conversas e histórico de chat\n' +
-            '• Todos os documentos enviados\n' +
-            '• Todos os insights e preferências do usuário\n' +
-            '• Todas as configurações e configurações de modelo\n\n' +
-            'Esta ação não pode ser desfeita. Você tem certeza absoluta?',
-        securityDeleting: 'Excluindo...',
-        securityDataDeletedSuccess: 'Todos os dados foram permanentemente excluídos. O aplicativo irá recarregar agora.',
-        securityDeleteError: 'Erro ao excluir dados. Por favor, tente novamente.',
-        securityDeletionError: 'Ocorreu um erro durante a exclusão. Por favor, tente novamente.',
-        securitySetupPasswordTitle: 'Configurar Senha de Proteção',
-        securitySetupPasswordMessage: 'Para proteger contra exclusão acidental, por favor configure uma senha de proteção:',
-        securityPasswordsNoMatch: 'As senhas não coincidem. Por favor, tente novamente.',
-        securityPasswordTooShort: 'A senha deve ter pelo menos 6 caracteres.',
-        securityPasswordSetSuccess: 'A senha de proteção foi configurada com sucesso.',
-        securityPasswordSetupError: 'Erro ao configurar senha de proteção. Por favor, tente novamente.',
-        securityVerifyPasswordTitle: 'Digite a Senha de Proteção',
-        securityVerifyPasswordMessage: 'Por favor, digite sua senha de proteção para continuar com a exclusão:',
-        securityIncorrectPassword: 'Senha incorreta. Acesso negado.',
-        securityVerifyPasswordError: 'Erro ao verificar senha. Por favor, tente novamente.',
-        securitySetPassword: 'Definir Senha',
-        securityVerify: 'Verificar',
-        securityResetPassword: 'Redefinir Senha',
-        cancel: 'Cancelar',
-        securityEnterCurrentPasswordFirst: 'Por favor, digite sua senha atual primeiro',
-        securityIncorrectCurrentPassword: 'Senha atual incorreta. Não é possível redefinir.',
-        securityEnterPasswordPlaceholder: "Digite a senha de proteção",
-        securityConfirmPasswordPlaceholder: "Confirme a senha de proteção",
-        securityShowPassword: "Mostrar senha",
-        securityHidePassword: "Ocultar senha",
-
-        // ===== SELECTION.JS =====
-
-        masterkeyRequired: 'Por favor, digite uma Chave Mestre anterior ou nova',
-        initializing: 'Inicializando...',
-        errorStartingConversation: 'Houve um erro ao iniciar a conversa. Por favor, tente novamente.',
-
-        // ===== VERSION.JS =====
-        checkingForUpdates: "Verificando atualizações...",
-        updateAvailable: "Atualização Disponível",
-        newVersionAvailable: "Uma nova versão do Paiperwork está disponível!",
-        currentVersion: "Versão atual",
-        newVersion: "Nova versão",
-        released: "Lançado",
-        whatsNew: "O que há de novo",
-        later: "Mais tarde",
-        downloadUpdate: "Baixar Atualização",
-        upToDate: "Você está atualizado",
-        runningLatestVersion: "Você está executando a versão mais recente do Paiperwork",
-        ok: "OK",
-        updateCheckFailed: "Falha na Verificação de Atualização",
-        unableToCheckUpdates: "Não foi possível verificar atualizações.",
-        tryAgainLater: "Por favor, tente novamente mais tarde ou verifique manualmente em nosso site.",
-
-
-        // ===== SUBJECTIVEINTERACTIONS.JS =====
-        generatingInsight: 'Gerando insight...',
-
-        // ===== WEBSEARCH.JS =====
-        webSearchEmptyQuery: "Consulta de busca vazia",
-        webSearchCancelled: "Operação de busca foi cancelada",
-        webSearchErrorDetails: "Erro: {error}. Verifique o console para detalhes.",
-        webSearchFailed: "Busca falhou: {error}",
-
-        // Web Search Error Messages (additional keys)
-        webSearchErrorOccurred: "Erro de busca ocorreu",
-        webSearchErrorSource: "Erro",
-        webSearchDefaultTitle: "Resultado da Busca",
-        webSearchUnknownSource: "Fonte desconhecida",
-        webSearchProxyMessage: "Clique aqui para ver os resultados da busca usando nosso proxy de busca.",
-        webSearchProxySource: "Proxy de Busca",
-
-        // Web Search
-        webSearchEmptyQuery: "Consulta de busca vazia",
-        webSearchCancelled: "Operação de busca foi cancelada",
-        webSearchErrorOccurred: "Erro de busca ocorreu",
-        webSearchErrorDetails: "Erro: {error}. Verifique o console para detalhes.",
-        webSearchErrorSource: "Erro",
-        webSearchFailed: "Busca falhou: {error}",
-        webSearchDefaultTitle: "Resultado da Busca",
-        webSearchUnknownSource: "Fonte desconhecida",
-        webSearchResultsForQuery: "Resultados da busca para \"{query}\"",
-        webSearchProxyMessage: "Clique aqui para ver os resultados da busca usando nosso proxy de busca.",
-        webSearchProxySource: "Proxy de Busca",
-        webSearchPerformed: "Busca realizada",
-        webSearchStrategy: "Estratégia de busca",
-        webSearchEncounteredIssue: "A busca encontrou um problema",
-        webSearchExtractedContent: "Conteúdo Extraído dos Principais Resultados",
-        webSearchFromRef: "De [{refId}] {title}",
-        webSearchWeatherInfo: "Informações do Tempo",
-        webSearchResults: "Resultados da Busca Web",
-        webSearchSource: "Fonte",
-        webSearchNoResultsFound: "Nenhum resultado encontrado",
-
+      
     };
     if (typeof window.Lang !== 'undefined') {
         window.Lang.registerLanguage('pt', portugueseTranslations);
