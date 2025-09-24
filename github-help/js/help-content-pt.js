@@ -1638,7 +1638,7 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Importante:</strong> Dados da Base de Conhecimento são criptografados usando sua Chave Mestre e armazenados localmente em seu dispositivo. Isso garante privacidade, mas também significa que você deve usar a mesma Chave Mestre para acessar seu conhecimento em sessões futuras.</p>
+                    <p><strong>Importante:</strong> Dados da Base de Conhecimento são criptografados usando sua Chave Mestre e armazenados localmente em seu dispositivo. Isso garante privacidade, mas também significa que você deve usar a mesma Chave Mestra para acessar seu conhecimento em sessões futuras.</p>
                 </div>
                 `,
                 image: "knowledge_base_collections.png",
@@ -1945,7 +1945,7 @@ window.helpContent = {
                         src: "artworks_examples2.png",
                         alt: "Resultado final do protótipo",
                         caption: "Exemplo de protótipo de design para uma promoção de fone de ouvido",
-                    },
+                    }
                 ]
 
             },
@@ -2043,7 +2043,7 @@ window.helpContent = {
                 <li>Revise e edite os slides na janela de visualização e então exporte.</li>
             </ol>
         `,
-                image: "placeholder.png",
+                image: "tab_overview.png",
                 imageAlt: "Visão geral da aba Apresentação",
                 imageCaption: "Visão geral da aba Apresentação",
             },
@@ -2060,7 +2060,7 @@ window.helpContent = {
             </ul>
             <p>Você pode cancelar a geração a qualquer momento usando o botão fechar/abort no modal de carregamento. Abortando, as tarefas em segundo plano serão interrompidas e o modal fechado.</p>
         `,
-                image: "placeholder.png",
+                image: "generating_presentation.png",
                 imageAlt: "Gerando apresentações",
                 imageCaption: "Processo de geração e indicadores de progresso",
             },
@@ -2075,9 +2075,10 @@ window.helpContent = {
                 <li><strong>Edição inline</strong> — edite o texto do slide diretamente na visualização (a visualização aplica os dados do slide via a API PreviewWindow).</li>
                 <li><strong>Opções de exportação</strong> — use os controles da visualização para copiar o texto do slide, exportar imagens ou baixar o HTML (o menu exato de exportação é fornecido pela UI da visualização).</li>
             </ul>
+            
             <p>Dicas: mantenha o texto do documento claro para melhor extração, use uma quantidade razoável de slides em relação ao comprimento do conteúdo e adicione um prompt extra quando precisar de um tom ou estilo específico.</p>
         `,
-                image: "placeholder.png",
+                image: "preview_editing_export.png",
                 imageAlt: "Visualizar e exportar",
                 imageCaption: "Janela de visualização, edição e opções de exportação",
             },
@@ -2118,7 +2119,7 @@ window.helpContent = {
             <h4>Integração com helpers</h4>
             <p>A barra lateral depende de helpers de seleção anexados aos estágios da apresentação para realizar substituições de imagem, edições em lote por IA e operações de nó. Se um helper não for encontrado, a barra lateral exibe mensagens úteis e recorre aos fluxos globais disponíveis.</p>
         `,
-                image: "placeholder.png",
+                image: "sidebar_controls.png",
                 imageAlt: "Barra lateral da apresentação",
                 imageCaption: "Controles da barra lateral para estilo, texto e imagens",
             },
@@ -2128,7 +2129,7 @@ window.helpContent = {
                 content: `
             <p><strong>Nota:</strong> O botão <em>Export PDF</em> exporta a apresentação exatamente como aparece na tela — incluindo texto dos slides, imagens, formas e elementos de fundo.</p>
         `,
-                image: "placeholder.png",
+                image: "export_slides.png",
                 imageAlt: "Nota Exportar PDF",
                 imageCaption: "Exporta os slides como mostrado na visualização",
             },
@@ -2694,5 +2695,4 @@ window.helpContent = {
             }
         ],
     },
-
 };
