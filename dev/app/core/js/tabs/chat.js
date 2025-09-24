@@ -87,7 +87,7 @@ class Chat {
             // Add event listener
             newButton.addEventListener('click', async () => {
                 const systemPrompt = document.getElementById('system-prompt').value;
-                const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
 
                 // Check if the system prompt has changed
                 const confirmed = this.handleSystemPromptChange(systemPrompt);
@@ -152,7 +152,7 @@ class Chat {
         // systemPromptText ? systemPromptText.length : 0);
 
 
-        const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         if (!hashedMasterKey) {
             console.error('Cannot enhance prompt: no masterkey ID found');
             return systemPromptText;
@@ -281,19 +281,39 @@ class Chat {
             }
         }
 
-        if (conversations.length > 0) {
+    // If there are no conversation entries, also ensure we don't add a continue button
+    // when the aiReplies container is empty or only contains the welcome message.
+    const assistantMessagesAll = aiReplies.querySelectorAll('.assistant-message');
+    const hasOnlyWelcome = (assistantMessagesAll.length === 1 && assistantMessagesAll[0].classList.contains('welcome-message'));
+
+    if (conversations.length > 0 && !hasOnlyWelcome) {
             const continueButton = OllamaAPI.createContinueButton(conversations, aiReplies);
 
             // Add the system prompt change note
             const resetNote = document.createElement('div');
             resetNote.className = 'context-reset-note';
+            // Make the note full-width and left-aligned while the container centers the button below
+            resetNote.style.cssText = 'width:100%; text-align:center; align-self:flex-start; margin-bottom:8px;';
             resetNote.innerHTML = `<small style="color: #888; font-style: italic;">${Lang.get('contextResetNote') || 'Context was reset due to system prompt change'}</small>`;
 
-            // Insert at the beginning of the continue button
+            // Insert at the beginning of the continue button container
             if (continueButton.firstChild) {
                 continueButton.insertBefore(resetNote, continueButton.firstChild);
             } else {
                 continueButton.appendChild(resetNote);
+            }
+
+            // Ensure any existing continuation container is removed, then append the new one at the end
+            try {
+                const existing = aiReplies.querySelector('.continuation-container');
+                if (existing) {
+                    existing.remove();
+                }
+                aiReplies.appendChild(continueButton);
+                // Ensure the new continue button is visible at the end
+                try { continueButton.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* ignore */ }
+            } catch (e) {
+                console.warn('Chat: error replacing continue button in aiReplies', e);
             }
         }
 
@@ -626,7 +646,7 @@ class Chat {
 
         const baseSystemPrompt = document.getElementById('system-prompt').value;
         const contextSize = document.getElementById('context-selector').value;
-        const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         this.aiResponse = '';
 
         // First load the base system prompt
@@ -647,7 +667,15 @@ class Chat {
 
             // Check if we're in document questioning mode
             const documentId = localStorage.getItem('ragQuestioningDocumentId');
-            const documentName = localStorage.getItem('ragQuestioningDocumentName');
+            // Also allow triggering the document+websearch flow when the Documents tab is selected
+            const isDocumentsTabSelected = document.querySelector('.tab-button[data-tab="documents"]')?.classList.contains('active');
+            let documentName;
+            try {
+                documentName = await PaiperworkDB.secureLocalStorageGet('ragQuestioningDocumentName');
+            } catch (err) {
+                console.error('Chat: could not load secure ragQuestioningDocumentName, falling back to plain localStorage', err);
+                documentName = localStorage.getItem('ragQuestioningDocumentName');
+            }
 
             // Check if web search is enabled
             const webSearchEnabled = document.getElementById('web-search').classList.contains('active');
@@ -658,8 +686,10 @@ class Chat {
 
             const streamProcessor = new StreamProcessor();
 
-            //  CRITICAL FIX: Ensure StreamProcessor has the latest thinking state
-            streamProcessor._cachedThinkingEnabled = localStorage.getItem('thinkingEnabled') === 'true';
+            //  CRITICAL FIX: Ensure StreamProcessor has the latest thinking state (prefer helper if present)
+            streamProcessor._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+                ? window.ThinkingState.getEffectiveThinkingEnabled()
+                : (localStorage.getItem('thinkingEnabled') === 'true');
             //console.log('🧠 Chat: Created StreamProcessor with thinking state:', streamProcessor._cachedThinkingEnabled);
 
             // Detach the auto-created container from aiReplies
@@ -671,22 +701,19 @@ class Chat {
             // Add it to our aiDiv
             aiDiv.appendChild(streamProcessor.responseContainer);
 
-            /*console.log('🧠 Chat: About to send to Ollama, current thinking state:', {
-                thinkingEnabled: localStorage.getItem('thinkingEnabled'),
-                thinkingEnabledBoolean: localStorage.getItem('thinkingEnabled') === 'true',
-                modelSupportsThinking: window.isThinkingModel && window.isThinkingModel(modelSelector.value),
-                selectedModel: modelSelector.value
-            });*/
-
             let response;
-            if (webSearchEnabled && documentId) {
+            // Prefer a stored documentId (single-document RAG). If absent, but the Documents
+            // tab is active, run the RAG over all stored documents and continue with the
+            // same document+websearch flow.
+            if (webSearchEnabled && (documentId || isDocumentsTabSelected)) {
                 try {
                     // Step 1: First get document context
+                    const constraints = documentId ? { documentId: documentId } : {};
                     const ragResults = await RAG.searchDocumentsWithConstraint(
                         prompt,
                         hashedMasterKey,
                         modelSelector.value,
-                        { documentId: documentId }
+                        constraints
                     );
 
                     const documentContext = ragResults.map(result => result.text).join('\n\n');
@@ -2052,15 +2079,12 @@ class Chat {
             let wasWebSearchActive = false;
             let originalImages = [];
 
-            // Check if this was a web search message
-            const webSearchInfo = messageBubble.querySelector('.web-search-info');
-            if (webSearchInfo) {
+            // Determine if web-search was active by checking the web-search button state
+            // We no longer rely on parsing the user message HTML (which could be inconsistent).
+            const webSearchButtonEl = document.getElementById('web-search');
+            if (webSearchButtonEl && webSearchButtonEl.classList.contains('active')) {
                 wasWebSearchActive = true;
-                // Extract the actual search query from the web search info
-                const searchQueryMatch = webSearchInfo.textContent.match(/Search query:\s*"([^"]+)"/);
-                if (searchQueryMatch) {
-                    originalPrompt = searchQueryMatch[1];
-                }
+                // Keep originalPrompt as-is (we'll use the prompt input / model to generate the query in sendToOllamaWithWebSearch)
             }
 
             //  NEW: Check if this message had images
@@ -2245,7 +2269,7 @@ class Chat {
             }
 
             try {
-                const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                 const baseSystemPrompt = document.getElementById('system-prompt').value;
                 let basePrompt;
                 try {
@@ -2261,15 +2285,26 @@ class Chat {
 
                 //  ROUTE TO APPROPRIATE METHOD: Choose the right generation method
                 if (wasWebSearchActive) {
-                    //console.log('Regenerate: Using web search method');
-                    await OllamaAPI.sendToOllamaWithWebSearch(
-                        originalPrompt,
-                        systemPrompt,
-                        true, // includeContext
-                        abortController.signal,
-                        '', // documentContext
-                        false // isDocumentWebSearch
-                    );
+                    //console.log('Regenerate: Using web search method (preserve original system prompt)');
+                    // Per requirement: do NOT pass the enhanced/modified system prompt here — use the base prompt as-is.
+                    // `basePrompt` was loaded from settings or fallback above.
+                    try {
+                        // Keep the web-search button active (it was active before)
+                        const webSearchButton = document.getElementById('web-search');
+                        if (webSearchButton) webSearchButton.classList.add('active');
+
+                        await OllamaAPI.sendToOllamaWithWebSearch(
+                            originalPrompt,
+                            basePrompt, // pass unmodified base prompt per user request
+                            true, // includeContext
+                            abortController.signal,
+                            '', // documentContext
+                            false // isDocumentWebSearch
+                        );
+                    } catch (e) {
+                        console.error('Regenerate: Error during web-search regeneration:', e);
+                        throw e;
+                    }
                 } else if (originalImages.length > 0 && isVisualModel) {
                     //console.log('Regenerate: Using image method');
 
@@ -2416,7 +2451,7 @@ class Chat {
                                 }
 
                                 const aiResponse = streamProcessor.responseContainer.outerHTML;
-                                const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
 
                                 await PaiperworkDB.storeConversationOnly(
                                     hashedMasterKey,
@@ -2593,7 +2628,7 @@ class Chat {
             this.updateDeleteModalStatus(deleteModal, 'database');
 
             // Remove from database
-            const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             if (hashedMasterKey && (userContent || assistantContent)) {
                 try {
                     // Try multiple deletion strategies
@@ -2958,7 +2993,6 @@ class Chat {
             margin-top: 0.5rem;
             margin-bottom: 0.5rem;
             padding-top: 0.5rem;
-            font-size: 0.85rem;
             opacity: 0.7;
             border-top: 1px solid var(--border-color);
             transition: opacity 0.2s;

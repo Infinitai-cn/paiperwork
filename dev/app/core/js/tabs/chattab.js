@@ -56,7 +56,7 @@ class ChatTab {
 
         try {
             // Get the current hashed masterkey
-            const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             if (!hashedMasterKey) {
                 console.error('ChatTab: No hashed masterkey found in localStorage');
                 return false;
@@ -99,7 +99,6 @@ class ChatTab {
             //if (!sessions || sessions.length === 0) {
             this.showWelcomeMessage();
             // }
-            this.checkAndRestoreDocumentQuestioningMode();
 
             // ADD: Check for thinking toggle after model selector is loaded
             //console.log('🧠 ChatTab: Checking for thinking toggle button after initialization');
@@ -249,10 +248,20 @@ class ChatTab {
     // Sets up all UI elements, event handlers, and model/context selectors for the chat tab.
     setupUIElements() {
         //console.log('ChatTab: Setting up UI elements');
-        const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
 
-        // Get all UI elements
-        const modelSelector = document.getElementById('model-selector');
+    // Get all UI elements
+    const modelSelector = document.getElementById('model-selector');
+    // Keep a reference to this ChatTab instance for use inside event handlers
+    const chatTab = this;
+    // Initialize last known value for model selector to avoid unnecessary unloads
+    if (modelSelector) {
+        try {
+            modelSelector.__lastModelValue = modelSelector.value || '';
+        } catch (e) {
+            modelSelector.__lastModelValue = '';
+        }
+    }
         const contextSelector = document.getElementById('context-selector');
         const systemPrompt = document.getElementById('system-prompt');
         const saveButton = document.getElementById('save-prompt');
@@ -386,6 +395,54 @@ class ChatTab {
             //  contextSelector.value = savedSize;
         }
 
+        // Add a small legend below the context selector to show the model's native maximum context
+        try {
+            const contextSelectorEl = document.getElementById('context-selector');
+            if (contextSelectorEl && !document.getElementById('model-native-context-legend')) {
+                const wrapper = document.createElement('div');
+                wrapper.id = 'model-native-context-legend';
+                // Force the legend to occupy a full row so it appears BELOW the selector
+                wrapper.style.display = 'block';
+                wrapper.style.width = '100%';
+                wrapper.style.boxSizing = 'border-box';
+                // If parent is a flex container, ensure this element breaks the line
+                wrapper.style.flexBasis = '100%';
+                wrapper.style.flexGrow = '0';
+                wrapper.style.marginTop = '6px';
+                wrapper.style.fontSize = '12px';
+                wrapper.style.color = 'var(--muted-text-color, #999)';
+                // Center the legend horizontally
+                wrapper.style.textAlign = 'center';
+                wrapper.innerHTML = `${Lang.get('modelMaximumContext') || 'Model Maximum context:'} <span id="model-native-context">—</span>`;
+                // Ensure the inner span is inline-block so centering behaves consistently
+                // We'll set that if the element is added to DOM below.
+                // Prefer inserting INSIDE the nearest .panel ancestor so the legend is visually inside the card
+                let panelAncestor = contextSelectorEl.closest('.panel');
+                if (panelAncestor) {
+                    // Try to find the inner flex-row that holds the label+selector and append after it
+                    const innerRow = panelAncestor.querySelector('div[style*="display: flex"]') || panelAncestor.querySelector('div');
+                    if (innerRow && innerRow.parentNode) {
+                        // Insert the legend immediately after the innerRow so it stays inside the panel
+                        innerRow.parentNode.insertBefore(wrapper, innerRow.nextSibling);
+                        const spanEl = wrapper.querySelector('#model-native-context');
+                        if (spanEl) spanEl.style.display = 'inline-block';
+                    } else {
+                        // As a fallback, append to the panel itself
+                        panelAncestor.appendChild(wrapper);
+                        const spanEl = wrapper.querySelector('#model-native-context');
+                        if (spanEl) spanEl.style.display = 'inline-block';
+                    }
+                } else {
+                    // Fallback: insert after the selector element as before
+                    contextSelectorEl.parentNode.insertBefore(wrapper, contextSelectorEl.nextSibling);
+                    const spanEl = wrapper.querySelector('#model-native-context');
+                    if (spanEl) spanEl.style.display = 'inline-block';
+                }
+            }
+        } catch (e) {
+            console.warn('ChatTab: Could not insert model-native-context legend', e);
+        }
+
 
         // Set system prompt placeholder
         if (systemPrompt && !systemPrompt.hasAttribute('placeholder')) {
@@ -416,11 +473,67 @@ class ChatTab {
                     const savedSize = localStorage.getItem('contextSize') || '8192';
                     contextSelector.value = savedSize;
                 }
+
+                // After visual models are loaded and initial UI is set, fetch the model metadata
+                try {
+                    const initialModel = modelSelector.value;
+                    if (initialModel) {
+                        const nativeCtxEl = document.getElementById('model-native-context');
+                        if (nativeCtxEl) {
+                            nativeCtxEl.textContent = Lang.get('retrievingModelContext') || 'Retrieving model max context size...';
+                        }
+
+                        const metaResult = await OllamaAPI.fetchModelMetadata(initialModel, { autoload: true, retryDelayMs: 500 });
+                        if (nativeCtxEl) {
+                            const displayVal = (metaResult && metaResult.nativeContext !== null && metaResult.nativeContext !== undefined) ? metaResult.nativeContext : 'n/a';
+                            nativeCtxEl.textContent = displayVal;
+                            //console.log('ChatTab: Startup updated native context legend with', displayVal, 'path:', metaResult ? metaResult.nativeContextPath : null);
+                        }
+                    }
+                } catch (startupErr) {
+                    console.warn('ChatTab: Error fetching model metadata on startup', startupErr);
+                    const nativeCtxEl = document.getElementById('model-native-context');
+                    if (nativeCtxEl) nativeCtxEl.textContent = 'n/a';
+                }
             });
 
             modelSelector.addEventListener('change', async (event) => {
                 const selectedModel = modelSelector.value;
                 //console.log('🔄 ChatTab: Model changed to:', selectedModel);
+                try {
+                    const base = (window.getBaseModelName && window.getBaseModelName(selectedModel)) || selectedModel;
+                    //console.log('🔍 ChatTab: base model for selectedModel=', selectedModel, '->', base);
+                } catch (e) {
+                    console.warn('ChatTab: Error computing base model for logging', e);
+                }
+
+                // --- Unload-on-select (consolidated)
+                try {
+                    // Only react for real user interactions
+                    if (event && event.isTrusted) {
+                        const newValue = modelSelector.value || '';
+                        if (newValue !== modelSelector.__lastModelValue) {
+                            if (modelSelector.__unloadDebounceTimeout) clearTimeout(modelSelector.__unloadDebounceTimeout);
+                            modelSelector.__unloadDebounceTimeout = setTimeout(async () => {
+                                try {
+                                    if (chatTab && typeof chatTab.unloadOllamaModels === 'function') {
+                                        //console.log('ChatTab: User changed model — calling ChatTab.unloadOllamaModels() to free memory.');
+                                        await chatTab.unloadOllamaModels();
+                                    } else {
+                                        // If the ChatTab method isn't present, skip unload to avoid calling presentation-only code
+                                        console.warn('ChatTab: unloadOllamaModels not found on ChatTab; skipping unload on model change.');
+                                    }
+                                } catch (err) {
+                                    console.error('ChatTab: Error while unloading Ollama models on model change:', err);
+                                } finally {
+                                    modelSelector.__lastModelValue = newValue;
+                                }
+                            }, 300);
+                        }
+                    }
+                } catch (err) {
+                    console.error('ChatTab: Error in unload-on-select handler:', err);
+                }
 
                 // Save the selected model to the database
                 await PaiperworkDB.saveModel(hashedMasterKey, selectedModel);
@@ -430,25 +543,13 @@ class ChatTab {
                 OllamaAPI.previousContext = null;
                 OllamaAPI.resetContext();
 
-                // Load model-specific context size
+                // Load model-specific context size (legacy vramramcalculator removed)
                 if (selectedModel) {
-                    //console.log('📋 ChatTab: Loading model-specific context for:', selectedModel);
-
-                    if (typeof window.vramramcalculator !== 'undefined') {
-                        const calculator = new window.vramramcalculator();
-                        const modelSpecificData = await calculator.loadModelSpecificContextSize(hashedMasterKey, selectedModel);
-
-                        if (!modelSpecificData) {
-                            //console.log('🔍 ChatTab: No model-specific context found, loading native context');
-                            await calculator.loadNativeContextForModel(selectedModel, hashedMasterKey, contextSelector);
-                        }
-                    } else {
-                        //console.log('⚠️ ChatTab: Calculator not loaded, using default context');
-                        const savedSize = localStorage.getItem('contextSize') || '8192';
-                        contextSelector.value = savedSize;
-                    }
+                    // Previously used vramramcalculator to fetch model-specific context.
+                    // That logic has been removed; fall back to saved context size if present.
+                    const savedSize = localStorage.getItem('contextSize') || '8192';
+                    contextSelector.value = savedSize;
                 } else {
-                    //console.log('⚠️ ChatTab: No model selected, using default context');
                     const savedSize = localStorage.getItem('contextSize') || '8192';
                     contextSelector.value = savedSize;
                 }
@@ -460,12 +561,71 @@ class ChatTab {
                 //console.log('🧠 ChatTab: Updating thinking toggle for model:', selectedModel);
                 this.updateThinkingToggleUI(selectedModel);
 
+                // Ensure the reasoning selector visibility reflects the newly selected model
+                try {
+                    const base = (window.getBaseModelName && window.getBaseModelName(selectedModel)) || (selectedModel || '').toLowerCase();
+                    const baseOnly = (base || '').split(':')[0];
+                    const reasoningSelector = document.getElementById('gptoss-reasoning-selector');
+                    if (baseOnly === 'gpt-oss') {
+                        // ensure selector exists and default is set
+                            if (reasoningSelector) {
+                            reasoningSelector.style.display = '';
+                            if (!localStorage.getItem('gptOssReasoningLevel')) {
+                                // Programmatic initialization: set default to mid without firing user-only handlers
+                                localStorage.setItem('gptOssReasoningLevel', 'mid');
+                                const btn = reasoningSelector.querySelector('.gptoss-reasoning-btn[data-level="mid"]');
+                                if (btn) {
+                                    // update visuals
+                                    const siblings = reasoningSelector.querySelectorAll('.gptoss-reasoning-btn');
+                                    siblings.forEach(s => { s.classList.remove('active'); s.style.backgroundColor = ''; s.style.color = ''; });
+                                    btn.classList.add('active');
+                                    btn.style.backgroundColor = 'var(--accent-color, #4f46e5)';
+                                    btn.style.color = 'white';
+                                    // mirror to quick-access global for immediate reads by OllamaAPI
+                                    window.gptOssReasoningLevel = 'mid';
+                                    // notify other in-tab listeners if needed
+                                    window.dispatchEvent(new CustomEvent('gptOssReasoningChanged', { detail: { level: 'mid' } }));
+                                }
+                            }
+                        } else {
+                            // trigger creation via updateThinkingToggleUI if it's not in DOM
+                            setTimeout(() => this.updateThinkingToggleUI(selectedModel), 50);
+                        }
+                    } else {
+                        if (reasoningSelector) reasoningSelector.style.display = 'none';
+                    }
+                } catch (e) {
+                    console.warn('ChatTab: error updating reasoning selector visibility on model change', e);
+                }
+
                 // Handle Gemma3 specific changes for image modal
                 const isVisualModel = await OllamaAPI.isVisualModel(selectedModel);
                 if (isVisualModel) {
                     const isGemma3 = selectedModel.toLowerCase().includes('gemma3');
                     this.updateImageModalForModel(isGemma3);
                 }
+
+                // Fetch model metadata (autoload then /api/show) and update native context legend
+                try {
+                    const nativeCtxEl = document.getElementById('model-native-context');
+                    if (nativeCtxEl) {
+                        // Show a retrieval message so users know we're fetching the model info
+                        nativeCtxEl.textContent = Lang.get('retrievingModelContext') || 'Retrieving model max context size...';
+                    }
+
+                    const metaResult = await OllamaAPI.fetchModelMetadata(selectedModel, { autoload: true, retryDelayMs: 500 });
+
+                    if (nativeCtxEl) {
+                        const displayVal = (metaResult && metaResult.nativeContext !== null && metaResult.nativeContext !== undefined) ? metaResult.nativeContext : 'n/a';
+                        nativeCtxEl.textContent = displayVal;
+                        //console.log('ChatTab: Updated native context legend with', displayVal, 'path:', metaResult ? metaResult.nativeContextPath : null);
+                    }
+                } catch (metaErr) {
+                    console.warn('ChatTab: Error fetching model metadata after model change', metaErr);
+                    const nativeCtxEl = document.getElementById('model-native-context');
+                    if (nativeCtxEl) nativeCtxEl.textContent = 'n/a';
+                }
+
             });
         }
 
@@ -596,18 +756,18 @@ class ChatTab {
 
                     for (const conv of groupConversations) {
                         try {
-                            const decryptedRole = await PaiperworkDB.decryptPrompt(
+                            const decryptedRole = await PaiperworkDB.decrypt(
                                 hashedMasterKey,
                                 JSON.parse(conv.role)
                             );
 
                             if (decryptedRole === 'user') {
-                                const decryptedMessage = await PaiperworkDB.decryptPrompt(
+                                const decryptedMessage = await PaiperworkDB.decrypt(
                                     hashedMasterKey,
                                     JSON.parse(conv.conversation)
                                 );
 
-                                const decryptedTimestamp = await PaiperworkDB.decryptPrompt(
+                                const decryptedTimestamp = await PaiperworkDB.decrypt(
                                     hashedMasterKey,
                                     JSON.parse(conv.timestamp)
                                 );
@@ -719,7 +879,7 @@ class ChatTab {
 
         // IMPORTANT: Instead of using the session object passed in,
         // load the most up-to-date data from the database for this group
-        const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
 
         try {
             // Load fresh data for this specific group from database
@@ -968,7 +1128,11 @@ class ChatTab {
             }
 
             // CRITICAL: Rebuild the conversation context for proper continuation
-            if (conversationsForContinue.length > 0) {
+            // Skip adding continue button if the UI only shows the welcome message
+            const assistantMessagesAllLoad = aiReplies.querySelectorAll('.assistant-message');
+            const hasOnlyWelcomeLoad = (assistantMessagesAllLoad.length === 1 && assistantMessagesAllLoad[0].classList.contains('welcome-message'));
+
+            if (conversationsForContinue.length > 0 && !hasOnlyWelcomeLoad) {
                 // Store this in OllamaAPI's state for future use when continuing
                 OllamaAPI.previousConversations = conversationsForContinue;
 
@@ -1271,7 +1435,7 @@ class ChatTab {
         }
 
         try {
-            const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             if (!hashedMasterKey) {
                 console.error('ChatTab: No hashed masterkey found');
                 return;
@@ -2515,7 +2679,7 @@ class ChatTab {
                 });
 
                 try {
-                    const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                    const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                     if (hashedMasterKey) {
                         // Reload sessions list from database
                         const sessions = await this.loadSessionsList(hashedMasterKey);
@@ -2586,10 +2750,14 @@ class ChatTab {
                 // Insert after the model selector within the chat tab
                 targetContainer = chatTab;
             }
-
             // Check if this model supports thinking
             const supportsThinking = window.isThinkingModel && window.isThinkingModel(modelName);
-            //console.log('🧠 ChatTab: Model supports thinking:', supportsThinking);
+            // Determine base model without quant suffix for special-casing
+            const baseModelForCheck = (window.getBaseModelName && window.getBaseModelName(modelName)) || (modelName || '').toLowerCase();
+            // Normalize to the token before any ':' so variants like 'gpt-oss:20b' are recognized as gpt-oss
+            const baseOnly = (baseModelForCheck || '').split(':')[0];
+            const isGptOss = baseOnly === 'gpt-oss';
+            //console.log('🧠 ChatTab: updateThinkingToggleUI model=', modelName, 'baseModelForCheck=', baseModelForCheck, 'baseOnly=', baseOnly, 'supportsThinking=', supportsThinking, 'isGptOss=', isGptOss);
 
             if (supportsThinking && !existingThinkingButton) {
                 //console.log('🧠 ChatTab: Creating thinking toggle button');
@@ -2640,69 +2808,192 @@ class ChatTab {
                 `;
 
                 //  CRITICAL FIX: Load initial state BEFORE adding click handler
-                const thinkingEnabled = localStorage.getItem('thinkingEnabled') === 'true';
-                //console.log('🧠 ChatTab: Initial thinking state from localStorage:', thinkingEnabled);
-
-                // Set initial visual state without triggering click
-                if (thinkingEnabled) {
+                if (isGptOss) {
+                    // gpt-oss: always active and non-interactive
                     thinkingButton.classList.add('active');
                     thinkingButton.style.backgroundColor = 'var(--accent-color, #4f46e5)';
                     thinkingButton.style.borderColor = 'var(--accent-color, #4f46e5)';
                     thinkingButton.style.color = 'white';
                     thinkingButton.querySelector('.thinking-toggle-text').textContent =
                         Lang.get('deactivateThinking') || 'Deactivate thinking';
-                    //console.log('🧠 ChatTab: Set initial active state');
-                } else {
-                    thinkingButton.classList.remove('active');
-                    thinkingButton.style.backgroundColor = 'var(--button-bg, #f3f4f6)';
-                    thinkingButton.style.borderColor = 'var(--border-color)';
-                    thinkingButton.style.color = 'var(--text-color)';
-                    thinkingButton.querySelector('.thinking-toggle-text').textContent =
-                        Lang.get('activateThinking') || 'Activate thinking';
-                    //console.log('🧠 ChatTab: Set initial inactive state');
-                }
-
-                // Add click handler AFTER setting initial state
-                thinkingButton.addEventListener('click', () => {
-                    const isActive = thinkingButton.classList.contains('active');
-                    //console.log('🧠 ChatTab: Thinking button clicked, current state:', isActive);
-
-                    if (isActive) {
-                        // Deactivate thinking
-                        thinkingButton.classList.remove('active');
-                        thinkingButton.style.backgroundColor = 'var(--button-bg, #f3f4f6)';
-                        thinkingButton.style.borderColor = 'var(--border-color)';
-                        thinkingButton.style.color = 'var(--text-color)';
-                        thinkingButton.querySelector('.thinking-toggle-text').textContent =
-                            Lang.get('activateThinking') || 'Activate thinking';
-                        localStorage.setItem('thinkingEnabled', 'false');
-                        //console.log('🧠 ChatTab: Thinking deactivated, localStorage set to false');
-
-                        //  CRITICAL: Dispatch custom event for same-tab updates
-                        window.dispatchEvent(new CustomEvent('thinkingStateChanged', {
-                            detail: { enabled: false }
-                        }));
+                    thinkingButton.disabled = true;
+                    // persist the enforced state for gpt-oss only (do not overwrite global setting)
+                    if (window.ThinkingState && typeof window.ThinkingState.setGptOssThinkingEnabled === 'function') {
+                        window.ThinkingState.setGptOssThinkingEnabled(true);
                     } else {
-                        // Activate thinking
+                        localStorage.setItem('thinkingEnabledGptOss', 'true');
+                    }
+                    // mark that no click handler should be attached
+                    thinkingButton._thinkingClickHandler = null;
+                } else {
+                    const thinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+                        ? window.ThinkingState.getEffectiveThinkingEnabled()
+                        : (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+                            ? window.ThinkingState.getEffectiveThinkingEnabled()
+                            : (localStorage.getItem('thinkingEnabled') === 'true');
+                    //console.log('🧠 ChatTab: Initial thinking state from localStorage:', thinkingEnabled);
+
+                    // Set initial visual state without triggering click
+                    if (thinkingEnabled) {
                         thinkingButton.classList.add('active');
                         thinkingButton.style.backgroundColor = 'var(--accent-color, #4f46e5)';
                         thinkingButton.style.borderColor = 'var(--accent-color, #4f46e5)';
                         thinkingButton.style.color = 'white';
                         thinkingButton.querySelector('.thinking-toggle-text').textContent =
                             Lang.get('deactivateThinking') || 'Deactivate thinking';
-                        localStorage.setItem('thinkingEnabled', 'true');
-                        //console.log('🧠 ChatTab: Thinking activated, localStorage set to true');
-
-                        //  CRITICAL: Dispatch custom event for same-tab updates
-                        window.dispatchEvent(new CustomEvent('thinkingStateChanged', {
-                            detail: { enabled: true }
-                        }));
+                        //console.log('🧠 ChatTab: Set initial active state');
+                    } else {
+                        thinkingButton.classList.remove('active');
+                        thinkingButton.style.backgroundColor = 'var(--button-bg, #f3f4f6)';
+                        thinkingButton.style.borderColor = 'var(--border-color)';
+                        thinkingButton.style.color = 'var(--text-color)';
+                        thinkingButton.querySelector('.thinking-toggle-text').textContent =
+                            Lang.get('activateThinking') || 'Activate thinking';
+                        //console.log('🧠 ChatTab: Set initial inactive state');
                     }
 
-                    //  CRITICAL: Verify localStorage was actually set
-                    const verifyState = localStorage.getItem('thinkingEnabled');
-                    //console.log('🧠 ChatTab: Verified localStorage thinkingEnabled after click:', verifyState);
-                });
+                    // Add click handler AFTER setting initial state (named so we can remove later if needed)
+                    const _thinkingHandler = function () {
+                        const isActive = thinkingButton.classList.contains('active');
+
+                        if (isActive) {
+                            // Deactivate thinking
+                            thinkingButton.classList.remove('active');
+                            thinkingButton.style.backgroundColor = 'var(--button-bg, #f3f4f6)';
+                            thinkingButton.style.borderColor = 'var(--border-color)';
+                            thinkingButton.style.color = 'var(--text-color)';
+                            thinkingButton.querySelector('.thinking-toggle-text').textContent =
+                                Lang.get('activateThinking') || 'Activate thinking';
+                            if (window.ThinkingState && typeof window.ThinkingState.setUserThinkingEnabled === 'function') {
+                                window.ThinkingState.setUserThinkingEnabled(false);
+                            } else {
+                                if (window.ThinkingState && typeof window.ThinkingState.setUserThinkingEnabled === 'function') {
+                                    window.ThinkingState.setUserThinkingEnabled(false);
+                                } else {
+                                    localStorage.setItem('thinkingEnabled', 'false');
+                                }
+                            }
+
+                            // Dispatch custom event for same-tab updates
+                            window.dispatchEvent(new CustomEvent('thinkingStateChanged', {
+                                detail: { enabled: false }
+                            }));
+                        } else {
+                            // Activate thinking
+                            thinkingButton.classList.add('active');
+                            thinkingButton.style.backgroundColor = 'var(--accent-color, #4f46e5)';
+                            thinkingButton.style.borderColor = 'var(--accent-color, #4f46e5)';
+                            thinkingButton.style.color = 'white';
+                            thinkingButton.querySelector('.thinking-toggle-text').textContent =
+                                Lang.get('deactivateThinking') || 'Deactivate thinking';
+                            if (window.ThinkingState && typeof window.ThinkingState.setUserThinkingEnabled === 'function') {
+                                window.ThinkingState.setUserThinkingEnabled(true);
+                            } else {
+                                if (window.ThinkingState && typeof window.ThinkingState.setUserThinkingEnabled === 'function') {
+                                    window.ThinkingState.setUserThinkingEnabled(true);
+                                } else {
+                                    localStorage.setItem('thinkingEnabled', 'true');
+                                }
+                            }
+
+                            // Dispatch custom event for same-tab updates
+                            window.dispatchEvent(new CustomEvent('thinkingStateChanged', {
+                                detail: { enabled: true }
+                            }));
+                        }
+                    };
+
+                    thinkingButton.addEventListener('click', _thinkingHandler);
+                    thinkingButton._thinkingClickHandler = _thinkingHandler;
+                }
+
+                // If this is gpt-oss, create a 3-state reasoning selector (Low/Mid/High) placed before the thinking button
+                if (isGptOss) {
+                    // Only create if it doesn't already exist
+                    let reasoningSelector = document.getElementById('gptoss-reasoning-selector');
+                    if (!reasoningSelector) {
+                        reasoningSelector = document.createElement('div');
+                        reasoningSelector.id = 'gptoss-reasoning-selector';
+                        reasoningSelector.className = 'gptoss-reasoning-selector';
+                        // Minimal inline layout to match surrounding controls
+                        reasoningSelector.style.cssText = 'display:flex;gap:8px;margin:8px 16px;justify-content:center;align-items:center;';
+
+                        const levels = [
+                            { id: 'low', label: Lang.get('reasoningLow') || 'Low' },
+                            { id: 'mid', label: Lang.get('reasoningMid') || 'Mid' },
+                            { id: 'high', label: Lang.get('reasoningHigh') || 'High' }
+                        ];
+
+                        // Load saved level or default to mid
+                        const saved = localStorage.getItem('gptOssReasoningLevel') || 'mid';
+                        // Mirror into a window-level quick-access variable for immediate reads
+                        window.gptOssReasoningLevel = saved;
+
+                        levels.forEach(lv => {
+                            const btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'gptoss-reasoning-btn';
+                            btn.dataset.level = lv.id;
+                            btn.textContent = lv.label;
+                            btn.style.cssText = 'padding:6px 10px;border-radius:6px;border:1px solid var(--border-color);background:var(--button-bg);cursor:pointer;';
+                            if (lv.id === saved) {
+                                btn.classList.add('active');
+                                btn.style.backgroundColor = 'var(--accent-color, #4f46e5)';
+                                btn.style.color = 'white';
+                            }
+
+                            btn.addEventListener('click', (event) => {
+                                // Only allow interaction when gpt-oss is active
+                                const current = document.getElementById('gptoss-reasoning-selector');
+                                if (!current || current.style.display === 'none') return;
+                                // update visuals
+                                const siblings = current.querySelectorAll('.gptoss-reasoning-btn');
+                                siblings.forEach(s => {
+                                    s.classList.remove('active');
+                                    s.style.backgroundColor = '';
+                                    s.style.color = '';
+                                });
+                                btn.classList.add('active');
+                                btn.style.backgroundColor = 'var(--accent-color, #4f46e5)';
+                                btn.style.color = 'white';
+
+                                // persist selection
+                                localStorage.setItem('gptOssReasoningLevel', btn.dataset.level);
+                                // mirror to quick-access global for immediate reads by OllamaAPI
+                                window.gptOssReasoningLevel = btn.dataset.level;
+                                // notify other in-tab listeners if needed
+                                window.dispatchEvent(new CustomEvent('gptOssReasoningChanged', { detail: { level: btn.dataset.level } }));
+
+                                // If this is a real user click (not a programmatic .click()), trigger system-prompt-change flow
+                                try {
+                                    if (event && event.isTrusted && window.chatInstance && typeof window.chatInstance.handleSystemPromptChange === 'function') {
+                                        // Directly call the handler; the system prompt content is assembled later in buildCompleteSystemPrompt
+                                        window.chatInstance.handleSystemPromptChange();
+                                    }
+                                } catch (e) {
+                                    console.warn('ChatTab: error calling handleSystemPromptChange after reasoning change', e);
+                                }
+                            });
+
+                            reasoningSelector.appendChild(btn);
+                        });
+
+                        // Insert reasoning selector before the thinking button
+                        if (targetContainer === chatTab) {
+                            const modelSelectorIndex = Array.from(chatTab.children).indexOf(modelSelector);
+                            if (modelSelectorIndex !== -1 && modelSelectorIndex < chatTab.children.length - 1) {
+                                chatTab.insertBefore(reasoningSelector, chatTab.children[modelSelectorIndex + 1]);
+                            } else {
+                                modelSelector.insertAdjacentElement('afterend', reasoningSelector);
+                            }
+                        } else {
+                            modelSelector.insertAdjacentElement('afterend', reasoningSelector);
+                        }
+                    } else {
+                        // ensure visible
+                        reasoningSelector.style.display = '';
+                    }
+                }
 
                 // Find the correct insertion point
                 if (targetContainer === chatTab) {
@@ -2726,7 +3017,127 @@ class ChatTab {
                 //console.log('🧠 ChatTab: Removing thinking toggle button (model not supported)');
                 existingThinkingButton.remove();
             } else if (supportsThinking && existingThinkingButton) {
-                //console.log('🧠 ChatTab: Thinking toggle button already exists for supported model');
+                //console.log('🧠 ChatTab: Thinking toggle button already exists for supported model - updating state if needed');
+
+                // If the selected model is gpt-oss, enforce active + disabled state
+                if (isGptOss) {
+                    // Remove any existing click handler to ensure it cannot be toggled
+                    try {
+                        if (existingThinkingButton._thinkingClickHandler) {
+                            existingThinkingButton.removeEventListener('click', existingThinkingButton._thinkingClickHandler);
+                            existingThinkingButton._thinkingClickHandler = null;
+                        }
+                    } catch (e) {
+                        console.warn('ChatTab: error removing existing thinking click handler', e);
+                    }
+
+                    existingThinkingButton.classList.add('active');
+                    existingThinkingButton.style.backgroundColor = 'var(--accent-color, #4f46e5)';
+                    existingThinkingButton.style.borderColor = 'var(--accent-color, #4f46e5)';
+                    existingThinkingButton.style.color = 'white';
+                    const txt = existingThinkingButton.querySelector('.thinking-toggle-text');
+                    if (txt) txt.textContent = Lang.get('deactivateThinking') || 'Deactivate thinking';
+                    existingThinkingButton.disabled = true;
+                    // persist the enforced state for gpt-oss only (do not overwrite global setting)
+                    if (window.ThinkingState && typeof window.ThinkingState.setGptOssThinkingEnabled === 'function') {
+                        window.ThinkingState.setGptOssThinkingEnabled(true);
+                    } else {
+                        localStorage.setItem('thinkingEnabledGptOss', 'true');
+                        // Notify same-tab listeners that thinking state changed
+                        window.dispatchEvent(new CustomEvent('thinkingStateChanged', { detail: { enabled: true } }));
+                    }
+                } else {
+                    // Non-gpt-oss thinking model: ensure button is interactive and reflects stored state
+                    existingThinkingButton.disabled = false;
+
+                    // Re-attach click handler if it was previously removed
+                    if (!existingThinkingButton._thinkingClickHandler) {
+                        const _handler = function () {
+                            const isActive = existingThinkingButton.classList.contains('active');
+
+                            if (isActive) {
+                                existingThinkingButton.classList.remove('active');
+                                existingThinkingButton.style.backgroundColor = 'var(--button-bg, #f3f4f6)';
+                                existingThinkingButton.style.borderColor = 'var(--border-color)';
+                                existingThinkingButton.style.color = 'var(--text-color)';
+                                const txt = existingThinkingButton.querySelector('.thinking-toggle-text');
+                                if (txt) txt.textContent = Lang.get('activateThinking') || 'Activate thinking';
+                                localStorage.setItem('thinkingEnabled', 'false');
+
+                                window.dispatchEvent(new CustomEvent('thinkingStateChanged', { detail: { enabled: false } }));
+                            } else {
+                                existingThinkingButton.classList.add('active');
+                                existingThinkingButton.style.backgroundColor = 'var(--accent-color, #4f46e5)';
+                                existingThinkingButton.style.borderColor = 'var(--accent-color, #4f46e5)';
+                                existingThinkingButton.style.color = 'white';
+                                const txt = existingThinkingButton.querySelector('.thinking-toggle-text');
+                                if (txt) txt.textContent = Lang.get('deactivateThinking') || 'Deactivate thinking';
+                                localStorage.setItem('thinkingEnabled', 'true');
+
+                                window.dispatchEvent(new CustomEvent('thinkingStateChanged', { detail: { enabled: true } }));
+                            }
+                        };
+
+                        existingThinkingButton.addEventListener('click', _handler);
+                        existingThinkingButton._thinkingClickHandler = _handler;
+                    }
+
+                    // Apply visual state from localStorage
+                    const thinkingEnabledNow = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+                        ? window.ThinkingState.getEffectiveThinkingEnabled()
+                        : (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+                            ? window.ThinkingState.getEffectiveThinkingEnabled()
+                            : (localStorage.getItem('thinkingEnabled') === 'true');
+                    if (thinkingEnabledNow) {
+                        existingThinkingButton.classList.add('active');
+                        existingThinkingButton.style.backgroundColor = 'var(--accent-color, #4f46e5)';
+                        existingThinkingButton.style.borderColor = 'var(--accent-color, #4f46e5)';
+                        existingThinkingButton.style.color = 'white';
+                        const txt = existingThinkingButton.querySelector('.thinking-toggle-text');
+                        if (txt) txt.textContent = Lang.get('deactivateThinking') || 'Deactivate thinking';
+                    } else {
+                        existingThinkingButton.classList.remove('active');
+                        existingThinkingButton.style.backgroundColor = 'var(--button-bg, #f3f4f6)';
+                        existingThinkingButton.style.borderColor = 'var(--border-color)';
+                        existingThinkingButton.style.color = 'var(--text-color)';
+                        const txt = existingThinkingButton.querySelector('.thinking-toggle-text');
+                        if (txt) txt.textContent = Lang.get('activateThinking') || 'Activate thinking';
+                    }
+                }
+                // Manage the reasoning selector visibility for existing button updates
+                try {
+                    let reasoningSelector = document.getElementById('gptoss-reasoning-selector');
+                    if (isGptOss) {
+                        // show or create if missing
+                        if (!reasoningSelector) {
+                            // trigger a fresh UI creation by calling updateThinkingToggleUI again after a small delay
+                            setTimeout(() => this.updateThinkingToggleUI(modelName), 50);
+                        } else {
+                            reasoningSelector.style.display = '';
+                            // ensure a saved default exists
+                            if (!localStorage.getItem('gptOssReasoningLevel')) {
+                                // Programmatic initialization: set default to mid without firing user-only handlers
+                                localStorage.setItem('gptOssReasoningLevel', 'mid');
+                                // update visuals
+                                const btn = reasoningSelector.querySelector('.gptoss-reasoning-btn[data-level="mid"]');
+                                if (btn) {
+                                    const siblings = reasoningSelector.querySelectorAll('.gptoss-reasoning-btn');
+                                    siblings.forEach(s => { s.classList.remove('active'); s.style.backgroundColor = ''; s.style.color = ''; });
+                                    btn.classList.add('active');
+                                    btn.style.backgroundColor = 'var(--accent-color, #4f46e5)';
+                                    btn.style.color = 'white';
+                                    window.gptOssReasoningLevel = 'mid';
+                                    window.dispatchEvent(new CustomEvent('gptOssReasoningChanged', { detail: { level: 'mid' } }));
+                                }
+                            }
+                        }
+                    } else {
+                        // hide if present
+                        if (reasoningSelector) reasoningSelector.style.display = 'none';
+                    }
+                } catch (e) {
+                    console.warn('ChatTab: error managing gpt-oss reasoning selector visibility', e);
+                }
             } else {
                 //console.log('🧠 ChatTab: Model does not support thinking, no button needed');
             }
@@ -2771,7 +3182,7 @@ class ChatTab {
                 localStorage.setItem('insightsEnabled', isToggleOn);
 
                 // Get references to required elements
-                const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                 const systemPrompt = document.getElementById('system-prompt');
 
                 // Process the insights toggle change in a separate async function
@@ -2829,7 +3240,7 @@ class ChatTab {
             });
             // Save system prompt
             saveButton.addEventListener('click', async () => {
-                const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                 const newSystemPrompt = systemPrompt.value;
                 const aiReplies = document.querySelector('.ai-replies');
 
@@ -2947,7 +3358,7 @@ class ChatTab {
 
         // Create new handler with context warning and manual selection saving
         contextSelector._changeHandler = async (event) => {
-            const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             const newContextSize = contextSelector.value;
             const modelSelector = document.getElementById('model-selector');
             const aiReplies = document.querySelector('.ai-replies');
@@ -2960,20 +3371,8 @@ class ChatTab {
 
                 //console.log(`🔧 ChatTab: User manually selected context ${newContextSize} for ${selectedModel}`);
 
-                // Use the new calculator class if loaded
-                if (typeof window.vramramcalculator !== 'undefined') {
-                    const calculator = new window.vramramcalculator();
-                    await calculator.saveModelSpecificContextSize(
-                        hashedMasterKey,
-                        selectedModel,
-                        parseInt(newContextSize),
-                        isKvcacheQ8,
-                        false  // Set to false for manual selections
-                    );
-                } else {
-                    // Fallback - just save to PaiperworkDB directly
-                    await PaiperworkDB.saveModelContextSize(hashedMasterKey, selectedModel, parseInt(newContextSize), isKvcacheQ8, false);
-                }
+                // vramramcalculator removed: save directly to PaiperworkDB
+                await PaiperworkDB.saveModelContextSize(hashedMasterKey, selectedModel, parseInt(newContextSize), isKvcacheQ8, false);
 
                 //console.log(`✅ ChatTab: Saved MANUAL context size ${newContextSize} for model ${selectedModel}`);
             }
@@ -3039,7 +3438,11 @@ class ChatTab {
                     }
                 }
 
-                if (conversations.length > 0) {
+                // Skip adding continue button when only the welcome message exists in the UI
+                const assistantMessagesAllHistory = aiReplies.querySelectorAll('.assistant-message');
+                const hasOnlyWelcomeHistory = (assistantMessagesAllHistory.length === 1 && assistantMessagesAllHistory[0].classList.contains('welcome-message'));
+
+                if (conversations.length > 0 && !hasOnlyWelcomeHistory) {
                     // Remove any existing continue buttons first
                     const existingButtons = aiReplies.querySelectorAll('.continuation-container');
                     existingButtons.forEach(button => button.remove());
@@ -3231,10 +3634,10 @@ class ChatTab {
                                 }
                             } else {
                                 // Check if this was a recently deleted model
-                                const lastDeletedModel = localStorage.getItem('lastDeletedModel');
+                                const lastDeletedModel = sessionStorage.getItem('lastDeletedModel');
                                 if (lastDeletedModel && lastDeletedModel === settings.model) {
                                     alert(Lang.get('modelDeleted').replace('{model}', settings.model));
-                                    localStorage.removeItem('lastDeletedModel');
+                                    sessionStorage.removeItem('lastDeletedModel');
                                 }
                                 await PaiperworkDB.saveModel(hashedMasterKey, '');
                                 console.warn('ChatTab: Previously selected model not found:', settings.model);
@@ -3282,15 +3685,15 @@ class ChatTab {
                 const masterkeyLabel = document.getElementById('masterkey-label');
                 if (masterkeyLabel) {
                     // Get the hashedMasterKey for decryption
-                    const hashedMasterKey = localStorage.getItem('hashedMasterKey');
-                    const encryptedMasterKeyStr = localStorage.getItem('encryptedMasterKey');
+                    const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+                    const encryptedMasterKeyStr = sessionStorage.getItem('encryptedMasterKey');
 
                     if (encryptedMasterKeyStr && hashedMasterKey) {
                         try {
                             const encryptedMasterKey = JSON.parse(encryptedMasterKeyStr);
 
                             // Decrypt the master key
-                            PaiperworkDB.decryptPrompt(hashedMasterKey, encryptedMasterKey)
+                            PaiperworkDB.decrypt(hashedMasterKey, encryptedMasterKey)
                                 .then(decryptedMasterKey => {
                                     // Store the actual master key for toggle functionality
                                     const actualMasterKey = decryptedMasterKey;
@@ -3356,35 +3759,50 @@ class ChatTab {
         }
 
         try {
-            // Check if vramramcalculator class is loaded
-            if (typeof window.vramramcalculator !== 'undefined') {
-                const calculator = new window.vramramcalculator();
-
-                // First, try to load model-specific context data
-                const contextData = await calculator.loadModelSpecificContextSize(hashedMasterKey, modelName);
-
-                if (contextData) {
-                    //console.log('📊 ChatTab: Found context data:', contextData);
-                    //console.log(`✅ ChatTab: Using saved ${contextData.useCalculatedContext ? 'CALCULATED' : 'MANUAL'} context: ${contextData.contextSize}`);
-                    return;
-                } else {
-                    //console.log('🔍 ChatTab: No saved context found, loading native context for:', modelName);
-                    await calculator.loadNativeContextForModel(modelName, hashedMasterKey, contextSelector);
-                }
-            } else {
-                // Fallback if calculator not loaded
-                //console.log('⚠️ ChatTab: Calculator not loaded, using fallback context');
-                const savedSize = localStorage.getItem('contextSize') || '8192';
-                contextSelector.value = savedSize;
-            }
-
-        } catch (error) {
-            console.error('❌ ChatTab: Error in loadAndSetModelContext:', error);
-
-            // Fallback to saved context size
+            // vramramcalculator removed: use saved context size as fallback
             const savedSize = localStorage.getItem('contextSize') || '8192';
             contextSelector.value = savedSize;
-            //console.log('❌ ChatTab: Using fallback context size:', savedSize);
+            // Also fetch and display native model context if available
+            try {
+                if (modelName) {
+                    const nativeCtxEl = document.getElementById('model-native-context');
+                    if (nativeCtxEl) nativeCtxEl.textContent = Lang.get('retrievingModelContext') || 'Retrieving model max context size...';
+
+                    const meta = await OllamaAPI.fetchModelMetadata(modelName);
+
+                    if (nativeCtxEl) {
+                        let nativeVal = 'n/a';
+
+                        // Prefer the standardized return value from OllamaAPI.fetchModelMetadata
+                        if (meta && meta.nativeContext !== undefined && meta.nativeContext !== null) {
+                            nativeVal = meta.nativeContext;
+                        } else if (meta && meta.data) {
+                            // Fallback: attempt legacy heuristics on the raw data object
+                            const d = meta.data;
+                            let v = d.context_size || d.num_ctx || d.max_context || d.num_context || d.context || d.context_length || null;
+                            if (v === null) {
+                                // try searching a few nested vendor keys we sometimes see
+                                v = d.model_info?.context_length || d.model_info?.context || v;
+                            }
+
+                            if (Array.isArray(v)) v = v.length;
+                            if (typeof v === 'object' && v !== null) {
+                                if (v.length !== undefined) v = v.length;
+                                else v = JSON.stringify(v);
+                            }
+                            if (v !== null && v !== undefined) nativeVal = v;
+                        }
+
+                        nativeCtxEl.textContent = nativeVal;
+                    }
+                }
+            } catch (err) {
+                console.warn('ChatTab: Error fetching model metadata during loadAndSetModelContext', err);
+            }
+        } catch (error) {
+            console.error('❌ ChatTab: Error in loadAndSetModelContext:', error);
+            const savedSize = localStorage.getItem('contextSize') || '8192';
+            contextSelector.value = savedSize;
         }
     }
 
@@ -3451,6 +3869,53 @@ class ChatTab {
             return;
         }
 
+        // --- Temporary thinking toggle for gpt-oss ---
+        // If the selected model is a gpt-oss model, and thinking is currently disabled,
+        // enable it temporarily in localStorage so streamprocessor can show native thinking
+        // UI. We'll restore the previous values after the send finishes.
+        const modelVal = modelSelector?.value || '';
+        const isGptOss = modelVal.toLowerCase().includes('gpt-oss') || modelVal.toLowerCase().startsWith('gpt-oss');
+        let _prevThinking = null;
+        let _prevThinkingGptOss = null;
+        let _weToggledThinking = false;
+        if (isGptOss) {
+            try {
+                _prevThinking = localStorage.getItem('thinkingEnabled');
+                _prevThinkingGptOss = localStorage.getItem('thinkingEnabledGptOss');
+
+                const globalEnabled = _prevThinking === 'true';
+                const gptOssEnabled = _prevThinkingGptOss === 'true';
+
+                // If global thinking is disabled, enable the global flag so all
+                // request-prep code paths notice it. We don't rely on the per-model
+                // flag (it may be hardcoded true) — ensuring the global key is set
+                // makes the behavior visible to components that only read `thinkingEnabled`.
+                if (!globalEnabled) {
+                    try {
+                        localStorage.setItem('thinkingEnabled', 'true');
+                        // also ensure the per-model flag is present to be explicit
+                        localStorage.setItem('thinkingEnabledGptOss', 'true');
+                    } catch (e) {
+                        // ignore storage set errors
+                    }
+                    // record that we changed it so we can restore after send
+                    _weToggledThinking = true;
+                    //console.log('ChatTab: Temporarily enabled thinkingEnabled (and thinkingEnabledGptOss) for gpt-oss send');
+
+                    // Dispatch a custom event so in-tab listeners (StreamProcessor, others)
+                    // update their cached thinking state immediately.
+                    try {
+                        const ev = new CustomEvent('thinkingStateChanged', { detail: { enabled: true } });
+                        window.dispatchEvent(ev);
+                    } catch (err) {
+                        // ignore if CustomEvent or dispatch fails in some environments
+                    }
+                }
+            } catch (err) {
+                console.warn('ChatTab: Error toggling thinking flags for gpt-oss', err);
+            }
+        }
+
         // Set this on the chat object to use - don't call its handler directly
         if (window.chat) {
             try {
@@ -3459,6 +3924,37 @@ class ChatTab {
             } catch (error) {
                 console.error('Error sending message:', error);
                 // alert(Lang.get('errorSendingMessage'));
+            } finally {
+                // Restore any thinking flags we changed for gpt-oss
+                if (isGptOss && _weToggledThinking) {
+                    try {
+                        // Restore per-model key
+                        if (_prevThinkingGptOss === null) {
+                            localStorage.removeItem('thinkingEnabledGptOss');
+                        } else {
+                            localStorage.setItem('thinkingEnabledGptOss', _prevThinkingGptOss);
+                        }
+                        // Restore global key
+                        if (_prevThinking === null) {
+                            localStorage.removeItem('thinkingEnabled');
+                        } else {
+                            localStorage.setItem('thinkingEnabled', _prevThinking);
+                        }
+
+                        // Dispatch event to notify listeners the thinking state changed
+                        try {
+                            const prevEnabled = (_prevThinking === 'true') || (_prevThinkingGptOss === 'true');
+                            const ev = new CustomEvent('thinkingStateChanged', { detail: { enabled: !!prevEnabled } });
+                            window.dispatchEvent(ev);
+                        } catch (err) {
+                            // ignore
+                        }
+
+                        //console.log('ChatTab: Restored thinkingEnabled and thinkingEnabledGptOss after gpt-oss send');
+                    } catch (err) {
+                        console.warn('ChatTab: Error restoring thinking flags for gpt-oss', err);
+                    }
+                }
             }
         } else {
             console.error('ChatTab: Chat instance not available');
@@ -3468,7 +3964,7 @@ class ChatTab {
 
     // Opens the modal editor for user insights, allowing editing and saving to the database.
     async openInsightsEditor() {
-        const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         if (!hashedMasterKey) return;
 
         // Load insights from database
@@ -3826,37 +4322,6 @@ class ChatTab {
         }
     }
 
-    // Checks if document-questioning mode should be restored and updates the UI accordingly.
-    checkAndRestoreDocumentQuestioningMode() {
-        const documentId = localStorage.getItem('ragQuestioningDocumentId');
-        const documentName = localStorage.getItem('ragQuestioningDocumentName');
-
-        if (documentId && documentName) {
-            //console.log(`ChatTab: Restoring document questioning mode for "${documentName}" (${documentId})`);
-
-            // Self-contained document mode styling
-            this.addDocumentModeStyles();
-
-            // Update UI with our own implementation
-            setTimeout(() => {
-                this.updateDocumentQuestioningUI(true);
-
-                // Update input placeholder regardless of banner display
-                const promptInput = document.getElementById('prompt-input');
-                if (promptInput) {
-                    const originalPlaceholder = promptInput.getAttribute('placeholder') || 'Ask a question...';
-
-                    // Save original placeholder if not already saved
-                    if (!promptInput.getAttribute('data-original-placeholder')) {
-                        promptInput.setAttribute('data-original-placeholder', originalPlaceholder);
-                    }
-
-                    // Update placeholder
-                    promptInput.setAttribute('placeholder', Lang.get('ragDocumentModePlaceholder', { document: documentName }) || `Ask about ${documentName}...`);
-                }
-            }, 300);
-        }
-    }
 
     // Adds custom CSS styles for document-questioning mode banner.
     addDocumentModeStyles() {
@@ -4010,6 +4475,97 @@ class ChatTab {
             }
         }
     }
+
+        // Helper method to unload all models from Ollama to ensure clean memory
+        async unloadOllamaModels() {
+            try {
+                //console.log('ChatTab: Getting list of loaded Ollama models...');
+
+                // First, get the list of currently loaded models using /api/ps
+                const psResponse = await fetch('http://localhost:11434/api/ps', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!psResponse.ok) {
+                    throw new Error(`HTTP ${psResponse.status}: ${psResponse.statusText}`);
+                }
+
+                const psData = await psResponse.json();
+                //console.log('ChatTab: Ollama /api/ps response:', psData);
+
+                // Extract loaded models from the response
+                let loadedModels = [];
+                if (psData && psData.models && Array.isArray(psData.models)) {
+                    loadedModels = psData.models.map(model => model.name || model.model).filter(Boolean);
+                }
+
+                //console.log('ChatTab: Found loaded models:', loadedModels);
+
+                if (loadedModels.length === 0) {
+                    //console.log('ChatTab: No models currently loaded. Skipping unload.');
+                    return;
+                }
+
+                // Unload each model individually
+                const unloadPromises = loadedModels.map(async (modelName) => {
+                    try {
+                        //console.log('ChatTab: Unloading model:', modelName);
+
+                        const unloadResponse = await fetch('http://localhost:11434/api/generate', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                model: modelName,
+                                keep_alive: 0,
+                                stream: false
+                            })
+                        });
+
+                        let unloadData = null;
+                        try {
+                            unloadData = await unloadResponse.json();
+                        } catch (jsonErr) {
+                            unloadData = null;
+                        }
+
+                        /* console.log(`ChatTab: Unload response for ${modelName}:`, {
+                            status: unloadResponse.status,
+                            ok: unloadResponse.ok,
+                            data: unloadData
+                        }); */
+
+                        if (!unloadResponse.ok) {
+                            console.warn(`ChatTab: Warning - failed to unload ${modelName}: ${unloadResponse.status} ${unloadResponse.statusText}`);
+                        } else {
+                            //console.log(`ChatTab: Successfully triggered unload for model: ${modelName}`);
+                        }
+
+                    } catch (modelError) {
+                        console.error(`ChatTab: Error unloading model ${modelName}:`, modelError);
+                    }
+                });
+
+                // Wait for all unload operations to complete
+                await Promise.all(unloadPromises);
+
+                //console.log('ChatTab: All model unload operations completed');
+
+                // Wait a brief moment for the unloads to complete
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+            } catch (error) {
+                console.error('ChatTab: Error in unloadOllamaModels:', error);
+                if (error && error.message && error.message.includes('Failed to fetch')) {
+                    throw new Error('Could not connect to Ollama to unload models.');
+                }
+                throw error;
+            }
+        }
 
 }
 window.ChatTab = ChatTab;

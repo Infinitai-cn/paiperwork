@@ -2,7 +2,7 @@ class DatabaseTab {
     constructor() {
         this.initialized = false;
         this.tabElement = document.getElementById('database-tab');
-        this.hashedMasterKey = localStorage.getItem('hashedMasterKey');
+        this.hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
     }
 
     // Initializes the DatabaseTab, sets up the tab structure, and loads statistics

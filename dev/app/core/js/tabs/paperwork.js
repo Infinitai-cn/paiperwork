@@ -1266,8 +1266,14 @@ class UIHelpers {
                 this.renderTemplateSections(templateData.sections);
             }
         }, 100);
-        setTimeout(() => {
-            const savedFont = localStorage.getItem('pdf-font-preference') || 'Arial';
+        setTimeout(async () => {
+            let savedFont = 'Arial';
+            try {
+                const got = await PaiperworkDB.secureLocalStorageGet('pdf-font-preference');
+                if (got) savedFont = got;
+            } catch (e) {
+                try { savedFont = localStorage.getItem('pdf-font-preference') || 'Arial'; } catch (err) { savedFont = 'Arial'; }
+            }
 
             // Call through the paperwork.templateDesign instance if it exists
             if (this.paperwork && this.paperwork.templateDesign &&
@@ -1276,7 +1282,7 @@ class UIHelpers {
             } else {
                 console.error('templateDesign.updateReportEditorFont is not available');
             }
-        }, 300);
+    }, 300);
     }
     showFloatingWindow(title, content, buttons = []) {
         // Remove any existing floating window
@@ -3564,7 +3570,7 @@ class TemplateDesign {
             if (existingTemplatesStr) {
                 try {
                     const encryptedTemplates = JSON.parse(existingTemplatesStr);
-                    const decryptedTemplatesStr = await PaiperworkDB.decryptPrompt(hashedMasterKey, encryptedTemplates);
+                    const decryptedTemplatesStr = await PaiperworkDB.decrypt(hashedMasterKey, encryptedTemplates);
                     templates = JSON.parse(decryptedTemplatesStr || '[]');
                 } catch (e) {
                     console.error('Error parsing existing templates:', e);
@@ -3585,7 +3591,7 @@ class TemplateDesign {
 
             // Save updated templates list
             const updatedTemplatesStr = JSON.stringify(templates);
-            const encryptedTemplates = await PaiperworkDB.encryptPrompt(hashedMasterKey, updatedTemplatesStr);
+            const encryptedTemplates = await PaiperworkDB.encrypt(hashedMasterKey, updatedTemplatesStr);
             localStorage.setItem('reportTemplates', JSON.stringify(encryptedTemplates));
 
             this.paperwork.uiHelpers.clearLoadingState();
@@ -3615,7 +3621,7 @@ class TemplateDesign {
             }
 
             const encryptedTemplates = JSON.parse(existingTemplatesStr);
-            const decryptedTemplatesStr = await PaiperworkDB.decryptPrompt(hashedMasterKey, encryptedTemplates);
+            const decryptedTemplatesStr = await PaiperworkDB.decrypt(hashedMasterKey, encryptedTemplates);
             const templates = JSON.parse(decryptedTemplatesStr || '[]');
 
             this.paperwork.uiHelpers.clearLoadingState();
@@ -3798,7 +3804,7 @@ class TemplateDesign {
 
                     // Save updated templates list
                     const updatedTemplatesStr = JSON.stringify(filteredTemplates);
-                    const encryptedTemplates = await PaiperworkDB.encryptPrompt(hashedMasterKey, updatedTemplatesStr);
+                    const encryptedTemplates = await PaiperworkDB.encrypt(hashedMasterKey, updatedTemplatesStr);
                     localStorage.setItem('reportTemplates', JSON.stringify(encryptedTemplates));
 
                     this.paperwork.uiHelpers.clearLoadingState();
@@ -3872,7 +3878,7 @@ class TemplateDesign {
             }
 
             const encryptedTemplates = JSON.parse(existingTemplatesStr);
-            const decryptedTemplatesStr = await PaiperworkDB.decryptPrompt(hashedMasterKey, encryptedTemplates);
+            const decryptedTemplatesStr = await PaiperworkDB.decrypt(hashedMasterKey, encryptedTemplates);
             const templates = JSON.parse(decryptedTemplatesStr || '[]');
 
             this.paperwork.uiHelpers.clearLoadingState();
@@ -4003,7 +4009,7 @@ class TemplateDesign {
 
                         // Save updated templates list
                         const updatedTemplatesStr = JSON.stringify(filteredTemplates);
-                        const encryptedTemplates = await PaiperworkDB.encryptPrompt(hashedMasterKey, updatedTemplatesStr);
+                        const encryptedTemplates = await PaiperworkDB.encrypt(hashedMasterKey, updatedTemplatesStr);
                         localStorage.setItem('reportTemplates', JSON.stringify(encryptedTemplates));
 
                         this.paperwork.uiHelpers.clearLoadingState();
@@ -4074,14 +4080,24 @@ class TemplateDesign {
             fontSelect.appendChild(option);
         });
 
-        // Set default to Arial or previously selected font
-        const savedFont = localStorage.getItem('pdf-font-preference');
-        fontSelect.value = savedFont || 'Arial';
+        // Set default to Arial or previously selected font (try secure storage first)
+        (async () => {
+            try {
+                const got = await PaiperworkDB.secureLocalStorageGet('pdf-font-preference');
+                fontSelect.value = got || 'Arial';
+            } catch (e) {
+                fontSelect.value = (localStorage.getItem('pdf-font-preference') || 'Arial');
+            }
+        })();
 
         // Store the selected font and update both preview and editor
-        fontSelect.addEventListener('change', () => {
+        fontSelect.addEventListener('change', async () => {
             const newFont = fontSelect.value;
-            localStorage.setItem('pdf-font-preference', newFont);
+            try {
+                await PaiperworkDB.secureLocalStorageSet('pdf-font-preference', newFont);
+            } catch (e) {
+                localStorage.setItem('pdf-font-preference', newFont);
+            }
             this.showNotification(Lang.get('paperworkFontSetForPDF', { font: newFont }));
 
             // Update any open PDF preview
@@ -4191,8 +4207,14 @@ class TemplateDesign {
         // Get template name
         const templateName = document.getElementById('template-name').value.trim() || 'Technical Report Preview';
 
-        // Get selected font
-        const selectedFont = localStorage.getItem('pdf-font-preference') || 'Arial';
+        // Get selected font (prefer secure storage)
+        let selectedFont = 'Arial';
+        try {
+            const got = await PaiperworkDB.secureLocalStorageGet('pdf-font-preference');
+            if (got) selectedFont = got;
+        } catch (e) {
+            selectedFont = localStorage.getItem('pdf-font-preference') || 'Arial';
+        }
 
         // Get sections
         const sectionsContainer = document.getElementById('template-sections-container');
@@ -4411,8 +4433,14 @@ class TemplateDesign {
         this.paperwork.uiHelpers.showLoadingState(Lang.get('paperworkGeneratingPDF'));
 
         try {
-            // Get the selected font or use Arial as default
-            const selectedFont = localStorage.getItem('pdf-font-preference') || 'Arial';
+            // Get the selected font or use Arial as default (prefer secure storage)
+            let selectedFont = 'Arial';
+            try {
+                const got = await PaiperworkDB.secureLocalStorageGet('pdf-font-preference');
+                if (got) selectedFont = got;
+            } catch (e) {
+                selectedFont = localStorage.getItem('pdf-font-preference') || 'Arial';
+            }
             //console.log(`Using font: ${selectedFont} for PDF export`);
 
             // Create a hidden container to render the report for PDF conversion

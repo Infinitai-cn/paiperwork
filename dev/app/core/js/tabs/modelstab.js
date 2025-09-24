@@ -1039,6 +1039,481 @@ class ModelDownloader {
             setTimeout(() => this.updateDownloadStatus(true), 100);
         }
 
+        // Add "Edit Thinking models list" button below the local models card (outside of it)
+        try {
+            // Prefer inserting after the local models container so the button appears below that card
+            const localModelsContainer = container.querySelector('.local-models-section-container');
+            const controlsContainer = container.querySelector('.download-section-container') || container;
+            // Create button element
+            const editThinkingBtn = document.createElement('button');
+            editThinkingBtn.id = 'edit-thinking-models-btn';
+            // Reuse download button styling so these buttons follow the same theme variables and states
+            editThinkingBtn.className = 'edit-thinking-models-btn themed-button download-btn';
+            editThinkingBtn.innerHTML = `<span class="btn-text">${Lang.get('editThinkingModelsButton')}</span>`;
+
+            // Keep sizing but let CSS handle background, color and hover/active states
+            editThinkingBtn.style.width = '100%';
+            editThinkingBtn.style.marginTop = '12px';
+            editThinkingBtn.style.padding = '10px 12px';
+            editThinkingBtn.style.borderRadius = '6px';
+            editThinkingBtn.style.fontSize = '14px';
+            editThinkingBtn.style.cursor = 'pointer';
+
+            // Hover effects
+            editThinkingBtn.addEventListener('mouseenter', () => {
+                editThinkingBtn.style.opacity = '0.9';
+            });
+            editThinkingBtn.addEventListener('mouseleave', () => {
+                editThinkingBtn.style.opacity = '1';
+            });
+
+            // Click handler - emit a custom event so other parts of the app can listen
+            editThinkingBtn.addEventListener('click', () => {
+                const event = new CustomEvent('openEditThinkingModels');
+                window.dispatchEvent(event);
+            });
+
+            // Insert after the local models card if present, otherwise append to the download controls container
+            if (!document.getElementById('edit-thinking-models-btn')) {
+                if (localModelsContainer && localModelsContainer.parentNode) {
+                    // Insert immediately after the local models container
+                    localModelsContainer.insertAdjacentElement('afterend', editThinkingBtn);
+                } else if (controlsContainer) {
+                    controlsContainer.appendChild(editThinkingBtn);
+                } else {
+                    // As a last resort, append to the main container
+                    container.appendChild(editThinkingBtn);
+                }
+            }
+            // Add Visual Models button right after the Thinking button
+            try {
+                if (!document.getElementById('edit-visual-models-btn')) {
+                    const visualBtn = document.createElement('button');
+                    visualBtn.id = 'edit-visual-models-btn';
+                    // Reuse download button styling to match theme and interactive states
+                    visualBtn.className = 'edit-visual-models-btn themed-button download-btn';
+                    visualBtn.innerHTML = `<span class="btn-text">${Lang.get('editVisualModelsButton') || 'Edit Visual models list'}</span>`;
+                    visualBtn.style.width = '100%';
+                    visualBtn.style.marginTop = '8px';
+                    visualBtn.style.padding = '10px 12px';
+                    visualBtn.style.borderRadius = '6px';
+                    visualBtn.style.fontSize = '14px';
+                    visualBtn.style.cursor = 'pointer';
+
+                    // Let CSS handle hover/active opacity and colors
+                    visualBtn.addEventListener('mouseenter', () => visualBtn.style.opacity = '0.95');
+                    visualBtn.addEventListener('mouseleave', () => visualBtn.style.opacity = '1');
+
+                    visualBtn.addEventListener('click', () => {
+                        const event = new CustomEvent('openEditVisualModels');
+                        window.dispatchEvent(event);
+                    });
+
+                    // Insert after thinking button
+                    const thinkBtn = document.getElementById('edit-thinking-models-btn');
+                    if (thinkBtn && thinkBtn.parentNode) {
+                        thinkBtn.parentNode.insertBefore(visualBtn, thinkBtn.nextSibling);
+                    } else if (localModelsContainer && localModelsContainer.parentNode) {
+                        localModelsContainer.insertAdjacentElement('afterend', visualBtn);
+                    } else if (controlsContainer) {
+                        controlsContainer.appendChild(visualBtn);
+                    } else {
+                        container.appendChild(visualBtn);
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to append Visual Models button:', e);
+            }
+        } catch (e) {
+            console.warn('Failed to append Edit Thinking button:', e);
+        }
+
+        // Listen for the custom event to open the modal editor
+        if (!this._editThinkingListenerAdded) {
+            window.addEventListener('openEditThinkingModels', async () => {
+                try {
+                    // Build modal if not present
+                    let modal = document.getElementById('edit-thinking-modal');
+                    if (!modal) {
+                        modal = document.createElement('div');
+                        modal.id = 'edit-thinking-modal';
+                        modal.style.position = 'fixed';
+                        modal.style.top = '0';
+                        modal.style.left = '0';
+                        modal.style.width = '100%';
+                        modal.style.height = '100%';
+                        modal.style.display = 'flex';
+                        modal.style.alignItems = 'center';
+                        modal.style.justifyContent = 'center';
+                        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                        modal.style.zIndex = '9999';
+
+                        const dialog = document.createElement('div');
+                        dialog.id = 'edit-thinking-dialog';
+                        dialog.style.width = '90%';
+                        dialog.style.maxWidth = '900px';
+                        dialog.style.height = '80%';
+                        dialog.style.backgroundColor = 'var(--bg-color, #1e1e1e)';
+                        dialog.style.color = 'var(--text-color, #fff)';
+                        dialog.style.border = '1px solid var(--border-color, #333)';
+                        dialog.style.borderRadius = '8px';
+                        dialog.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+                        dialog.style.display = 'flex';
+                        dialog.style.flexDirection = 'column';
+                        dialog.style.padding = '12px';
+                        dialog.style.boxSizing = 'border-box';
+
+                        // Header with title and close X
+                        const header = document.createElement('div');
+                        header.style.display = 'flex';
+                        header.style.justifyContent = 'space-between';
+                        header.style.alignItems = 'center';
+
+                        const title = document.createElement('div');
+                        title.id = 'edit-thinking-title';
+                        title.textContent = Lang.get('editThinkingModelsTitle') || Lang.get('editThinkingModelsButton');
+                        title.style.fontSize = '16px';
+                        title.style.fontWeight = '600';
+
+                        const closeX = document.createElement('button');
+                        closeX.id = 'edit-thinking-close';
+                        closeX.innerHTML = '✖';
+                        closeX.title = Lang.get('close') || 'Close';
+                        closeX.style.background = 'transparent';
+                        closeX.style.border = 'none';
+                        closeX.style.color = 'var(--text-color, #fff)';
+                        closeX.style.cursor = 'pointer';
+                        closeX.style.fontSize = '16px';
+
+                        header.appendChild(title);
+                        header.appendChild(closeX);
+
+                        // Textarea container
+                        const textarea = document.createElement('textarea');
+                        textarea.id = 'edit-thinking-textarea';
+                        textarea.style.flex = '1 1 auto';
+                        textarea.style.width = '100%';
+                        textarea.style.minHeight = '60%';
+                        textarea.style.resize = 'vertical';
+                        textarea.style.marginTop = '8px';
+                        textarea.style.padding = '10px';
+                        textarea.style.fontSize = '13px';
+                        textarea.style.background = 'var(--textarea-bg, rgba(255,255,255,0.02))';
+                        textarea.style.color = 'var(--text-color, #fff)';
+                        textarea.style.border = '1px solid var(--border-color, #333)';
+                        textarea.style.borderRadius = '6px';
+                        textarea.style.boxSizing = 'border-box';
+
+                        // Footer with Save button
+                        const footer = document.createElement('div');
+                        footer.style.display = 'flex';
+                        footer.style.justifyContent = 'flex-end';
+                        footer.style.marginTop = '12px';
+
+                        const saveBtn = document.createElement('button');
+                        saveBtn.id = 'edit-thinking-save';
+                        saveBtn.className = 'edit-thinking-save-btn';
+                        saveBtn.innerHTML = `<span class="btn-text">${Lang.get('save') || 'Save'}</span>`;
+                        saveBtn.style.padding = '10px 16px';
+                        saveBtn.style.borderRadius = '6px';
+                        saveBtn.style.border = '1px solid var(--border-color, #333)';
+                        // Use CSS variables directly so the button updates when theme variables change
+                        try {
+                            saveBtn.style.background = 'var(--button-bg, #404040)';
+                            saveBtn.style.color = 'var(--button-text, #f7f7f7)';
+                            // Hover handlers use CSS var for hover background
+                            saveBtn.addEventListener('mouseenter', () => {
+                                if (!saveBtn.disabled) saveBtn.style.background = 'var(--hover-bg, #505050)';
+                            });
+                            saveBtn.addEventListener('mouseleave', () => {
+                                if (!saveBtn.disabled) saveBtn.style.background = 'var(--button-bg, #404040)';
+                            });
+                        } catch (e) {
+                            // Fallback to safe defaults
+                            saveBtn.style.backgroundColor = '#404040';
+                            saveBtn.style.color = '#f7f7f7';
+                        }
+                        saveBtn.style.cursor = 'pointer';
+
+                        footer.appendChild(saveBtn);
+
+                        dialog.appendChild(header);
+                        dialog.appendChild(textarea);
+                        dialog.appendChild(footer);
+                        modal.appendChild(dialog);
+                        document.body.appendChild(modal);
+
+                        // Close handler
+                        const closeModal = () => {
+                            modal.style.display = 'none';
+                        };
+                        closeX.addEventListener('click', closeModal);
+
+                        // Load current thinkingmodels.js content from server
+                        try {
+                            const resp = await fetch('/api/thinkingmodels');
+                            if (resp.ok) {
+                                const text = await resp.text();
+                                textarea.value = text || '';
+                            } else {
+                                // Server read failed; leave textarea empty or show server error text
+                                textarea.value = '';
+                            }
+                        } catch (e) {
+                            console.warn('Could not fetch thinkingmodels.js from server:', e);
+                            textarea.value = '';
+                        }
+
+                        // Save handler - persist to server and keep encrypted local backup
+                        saveBtn.addEventListener('click', async () => {
+                            const original = saveBtn.innerHTML;
+                            try {
+                                const val = textarea.value || '';
+
+                                // POST to server API
+                                const resp = await fetch('/api/thinkingmodels', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ content: val })
+                                });
+
+                                if (!resp.ok) {
+                                    const text = await resp.text().catch(() => '');
+                                    throw new Error('Server error: ' + resp.status + ' ' + text);
+                                }
+
+                                // No local encrypted backup — server is authoritative
+
+                                // Flash success on the button
+                                saveBtn.innerHTML = (Lang.get('save') || 'Save') + ' ✓';
+                                setTimeout(() => saveBtn.innerHTML = original, 1400);
+
+                                // Notify other modules to reload the list
+                                try {
+                                    window.dispatchEvent(new Event('thinkingModelsUpdated'));
+                                } catch (e) { /* ignore */ }
+
+                                // Close modal after short delay
+                                setTimeout(() => { modal.style.display = 'none'; }, 250);
+                            } catch (e) {
+                                console.error('Error saving thinking models list to server:', e);
+                                alert(Lang.get('errorOccurred', { error: e.message }));
+                                // Restore original button text
+                                saveBtn.innerHTML = original;
+                            }
+                        });
+
+                        // Allow clicking the backdrop to close
+                        modal.addEventListener('click', (ev) => {
+                            if (ev.target === modal) closeModal();
+                        });
+                    } else {
+                        // Modal already exists; just show it and reload value from server
+                        modal.style.display = 'flex';
+                        const textarea = document.getElementById('edit-thinking-textarea');
+                        try {
+                            const resp = await fetch('/api/thinkingmodels');
+                            if (resp.ok) {
+                                const text = await resp.text();
+                                if (textarea) textarea.value = text || '';
+                            } else {
+                                // Server read failed; leave textarea empty
+                                if (textarea) textarea.value = '';
+                            }
+                            if (textarea) textarea.focus();
+                        } catch (e) {
+                            console.warn('Could not fetch thinkingmodels.js from server:', e);
+                            if (textarea) {
+                                textarea.value = '';
+                                textarea.focus();
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to open Edit Thinking modal:', e);
+                }
+            });
+            this._editThinkingListenerAdded = true;
+        }
+
+        // Visual models modal handler
+        if (!this._editVisualListenerAdded) {
+            window.addEventListener('openEditVisualModels', async () => {
+                try {
+                    let modal = document.getElementById('edit-visual-modal');
+                    if (!modal) {
+                        modal = document.createElement('div');
+                        modal.id = 'edit-visual-modal';
+                        modal.style.position = 'fixed';
+                        modal.style.top = '0';
+                        modal.style.left = '0';
+                        modal.style.width = '100%';
+                        modal.style.height = '100%';
+                        modal.style.display = 'flex';
+                        modal.style.alignItems = 'center';
+                        modal.style.justifyContent = 'center';
+                        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                        modal.style.zIndex = '9999';
+
+                        const dialog = document.createElement('div');
+                        dialog.id = 'edit-visual-dialog';
+                        dialog.style.width = '90%';
+                        dialog.style.maxWidth = '900px';
+                        dialog.style.height = '80%';
+                        dialog.style.backgroundColor = 'var(--bg-color, #1e1e1e)';
+                        dialog.style.color = 'var(--text-color, #fff)';
+                        dialog.style.border = '1px solid var(--border-color, #333)';
+                        dialog.style.borderRadius = '8px';
+                        dialog.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+                        dialog.style.display = 'flex';
+                        dialog.style.flexDirection = 'column';
+                        dialog.style.padding = '12px';
+                        dialog.style.boxSizing = 'border-box';
+
+                        const header = document.createElement('div');
+                        header.style.display = 'flex';
+                        header.style.justifyContent = 'space-between';
+                        header.style.alignItems = 'center';
+
+                        const title = document.createElement('div');
+                        title.id = 'edit-visual-title';
+                        title.textContent = Lang.get('editVisualModelsTitle') || 'Edit Visual Models';
+                        title.style.fontSize = '16px';
+                        title.style.fontWeight = '600';
+
+                        const closeX = document.createElement('button');
+                        closeX.id = 'edit-visual-close';
+                        closeX.innerHTML = '✖';
+                        closeX.title = Lang.get('close') || 'Close';
+                        closeX.style.background = 'transparent';
+                        closeX.style.border = 'none';
+                        closeX.style.color = 'var(--text-color, #fff)';
+                        closeX.style.cursor = 'pointer';
+                        closeX.style.fontSize = '16px';
+
+                        header.appendChild(title);
+                        header.appendChild(closeX);
+
+                        const textarea = document.createElement('textarea');
+                        textarea.id = 'edit-visual-textarea';
+                        textarea.style.flex = '1 1 auto';
+                        textarea.style.width = '100%';
+                        textarea.style.minHeight = '60%';
+                        textarea.style.resize = 'vertical';
+                        textarea.style.marginTop = '8px';
+                        textarea.style.padding = '10px';
+                        textarea.style.fontSize = '13px';
+                        textarea.style.background = 'var(--textarea-bg, rgba(255,255,255,0.02))';
+                        textarea.style.color = 'var(--text-color, #fff)';
+                        textarea.style.border = '1px solid var(--border-color, #333)';
+                        textarea.style.borderRadius = '6px';
+                        textarea.style.boxSizing = 'border-box';
+
+                        const footer = document.createElement('div');
+                        footer.style.display = 'flex';
+                        footer.style.justifyContent = 'flex-end';
+                        footer.style.marginTop = '12px';
+
+                        const saveBtn = document.createElement('button');
+                        saveBtn.id = 'edit-visual-save';
+                        saveBtn.className = 'edit-visual-save-btn';
+                        saveBtn.innerHTML = `<span class="btn-text">${Lang.get('save') || 'Save'}</span>`;
+                        // Theme-safe button styling: use CSS variables so light mode button text is dark
+                        saveBtn.style.padding = '10px 16px';
+                        saveBtn.style.borderRadius = '6px';
+                        saveBtn.style.border = '1px solid var(--border-color, #333)';
+                        // Use CSS variables directly so the button updates when theme variables change
+                        try {
+                            saveBtn.style.background = 'var(--button-bg, #ececec)';
+                            saveBtn.style.color = 'var(--button-text, #404040)';
+                            // Hover handlers use CSS var for hover background
+                            saveBtn.addEventListener('mouseenter', () => {
+                                if (!saveBtn.disabled) saveBtn.style.background = 'var(--hover-bg, #dcdcdc)';
+                            });
+                            saveBtn.addEventListener('mouseleave', () => {
+                                if (!saveBtn.disabled) saveBtn.style.background = 'var(--button-bg, #ececec)';
+                            });
+                        } catch (e) {
+                            saveBtn.style.backgroundColor = '#ececec';
+                            saveBtn.style.color = '#404040';
+                        }
+                        saveBtn.style.cursor = 'pointer';
+
+                        footer.appendChild(saveBtn);
+
+                        dialog.appendChild(header);
+                        dialog.appendChild(textarea);
+                        dialog.appendChild(footer);
+                        modal.appendChild(dialog);
+                        document.body.appendChild(modal);
+
+                        const closeModal = () => { modal.style.display = 'none'; };
+                        closeX.addEventListener('click', closeModal);
+
+                        // Load visualmodels.js from server
+                        try {
+                            const resp = await fetch('/api/visualmodels');
+                            if (resp.ok) {
+                                const text = await resp.text();
+                                textarea.value = text || '';
+                            } else {
+                                textarea.value = '';
+                            }
+                        } catch (e) {
+                            console.warn('Could not fetch visualmodels.js from server:', e);
+                            textarea.value = '';
+                        }
+
+                        // Save handler - POST to server
+                        saveBtn.addEventListener('click', async () => {
+                            const original = saveBtn.innerHTML;
+                            try {
+                                const val = textarea.value || '';
+                                const resp = await fetch('/api/visualmodels', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ content: val })
+                                });
+                                if (!resp.ok) {
+                                    const text = await resp.text().catch(() => '');
+                                    throw new Error('Server error: ' + resp.status + ' ' + text);
+                                }
+                                saveBtn.innerHTML = (Lang.get('save') || 'Save') + ' ✓';
+                                setTimeout(() => saveBtn.innerHTML = original, 1400);
+                                try { window.dispatchEvent(new Event('visualModelsUpdated')); } catch (e) {}
+                                setTimeout(() => { modal.style.display = 'none'; }, 250);
+                            } catch (e) {
+                                console.error('Error saving visual models list to server:', e);
+                                alert(Lang.get('errorOccurred', { error: e.message }));
+                                saveBtn.innerHTML = original;
+                            }
+                        });
+
+                        modal.addEventListener('click', (ev) => { if (ev.target === modal) closeModal(); });
+                    } else {
+                        modal.style.display = 'flex';
+                        const textarea = document.getElementById('edit-visual-textarea');
+                        try {
+                            const resp = await fetch('/api/visualmodels');
+                            if (resp.ok) {
+                                const text = await resp.text();
+                                if (textarea) textarea.value = text || '';
+                            } else {
+                                if (textarea) textarea.value = '';
+                            }
+                            if (textarea) textarea.focus();
+                        } catch (e) {
+                            console.warn('Could not fetch visualmodels.js from server:', e);
+                            if (textarea) { textarea.value = ''; textarea.focus(); }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to open Edit Visual modal:', e);
+                }
+            });
+            this._editVisualListenerAdded = true;
+        }
+
         const modelsToUse = models.length > 0 ? models :
             (this.browsingState.models.length > 0 ? this.browsingState.models : []);
 
@@ -1649,11 +2124,11 @@ class ModelDownloader {
             deleteBtn.disabled = true;
 
             // Check if model is in browser settings
-            const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
 
             // Store the deleted model name for reference
-            localStorage.setItem('lastDeletedModel', modelName);
+            sessionStorage.setItem('lastDeletedModel', modelName);
 
             // Delete from Ollama
             const response = await fetch('http://localhost:11434/api/delete', {
@@ -2253,18 +2728,18 @@ class ModelDownloader {
     static async storeEncryptedValue(key, value) {
     // Use a fixed key for non-user data (or derive from a fixed application seed)
     const appKey = await PaiperworkDB.hashMasterKeyValue('application-settings');
-    const encrypted = await PaiperworkDB.encryptPrompt(appKey, value);
-    localStorage.setItem(key, JSON.stringify(encrypted));
+    const encrypted = await PaiperworkDB.encrypt(appKey, value);
+    sessionStorage.setItem(key, JSON.stringify(encrypted));
 }
 
     // Retrieves and decrypts a value from localStorage
     static async retrieveEncryptedValue(key) {
-    const encryptedData = localStorage.getItem(key);
+    const encryptedData = sessionStorage.getItem(key);
     if (!encryptedData) return null;
 
     const appKey = await PaiperworkDB.hashMasterKeyValue('application-settings');
     try {
-        return await PaiperworkDB.decryptPrompt(appKey, JSON.parse(encryptedData));
+        return await PaiperworkDB.decrypt(appKey, JSON.parse(encryptedData));
     } catch (e) {
         console.error('Failed to decrypt localStorage value:', e);
         return null;
