@@ -2551,35 +2551,132 @@ class StreamProcessor {
     postProcessTextTables() {
         const container = this.responseContainer;
         if (!container) return;
-        // Use a regex to match markdown tables
-        // This matches a block of lines that start and end with | and have at least one --- separator line
-        const tableRegex = /((?:^|<br>)(?:\|[^\n]*\|(?:<br>|\n))+)/g;
+        
         let html = container.innerHTML;
-        html = html.replace(tableRegex, (match) => {
-            const lines = match.replace(/<br>/g, '\n').split('\n').map(l => l.trim()).filter(Boolean);
-            if (lines.length < 2) return match;
-            const sepIdx = lines.findIndex(l => /^\|?\s*-+\s*(\|\s*-+\s*)+\|?$/.test(l));
-            if (sepIdx < 1) return match;
-            const header = lines[0];
-            const separator = lines[sepIdx];
-            const rows = lines.slice(sepIdx + 1);
-            const headerCells = header.split('|').map(c => c.trim()).filter(Boolean);
-            if (headerCells.length < 2) return match;
-            let tableHtml = '<div class="markdown-table-container"><table class="markdown-table"><thead><tr>';
-            headerCells.forEach(cell => { tableHtml += `<th>${cell}</th>`; });
-            tableHtml += '</tr></thead><tbody>';
-            rows.forEach(row => {
-                const cells = row.split('|').map(c => c.trim()).filter(Boolean);
-                if (cells.length === headerCells.length) {
-                    tableHtml += '<tr>';
-                    cells.forEach(cell => { tableHtml += `<td>${cell}</td>`; });
-                    tableHtml += '</tr>';
+        
+        // Use a safer approach: find and replace complete table blocks without losing any content
+        // First, identify all valid table blocks with their exact positions
+        const lines = html.split('<br>');
+        let processedHtml = html;
+        
+        // Find table blocks by scanning through lines
+        let i = 0;
+        const tableBlocks = [];
+        
+        while (i < lines.length) {
+            const line = lines[i].trim();
+            
+            // Check if this line could be the start of a table
+            if (line.includes('|') && line.match(/^\s*\|.*\|\s*$/)) {
+                const tableStartIndex = i;
+                const potentialTableLines = [line];
+                let foundSeparator = false;
+                let separatorIndex = -1;
+                
+                // Look for consecutive table-like lines
+                let j = i + 1;
+                while (j < lines.length) {
+                    const nextLine = lines[j].trim();
+                    
+                    // If we hit a completely empty line, stop looking
+                    if (!nextLine) {
+                        break;
+                    }
+                    
+                    // If the line doesn't contain |, it's not part of the table
+                    if (!nextLine.includes('|')) {
+                        break;
+                    }
+                    
+                    // Check if this is a separator line (contains dashes)
+                    if (nextLine.match(/^\s*\|?\s*[-:]+\s*(\|\s*[-:]+\s*)*\|?\s*$/)) {
+                        foundSeparator = true;
+                        separatorIndex = potentialTableLines.length;
+                    }
+                    
+                    potentialTableLines.push(nextLine);
+                    j++;
                 }
-            });
-            tableHtml += '</tbody></table></div>';
-            return tableHtml;
+                
+                // Validate: must have header + separator + at least one data row
+                if (foundSeparator && potentialTableLines.length >= 3 && separatorIndex > 0) {
+                    // This is a valid table, store its position and content
+                    tableBlocks.push({
+                        startIndex: tableStartIndex,
+                        endIndex: j - 1,
+                        lines: potentialTableLines,
+                        originalText: lines.slice(tableStartIndex, j).join('<br>')
+                    });
+                    i = j; // Skip to after this table
+                } else {
+                    // Not a valid table, move to next line
+                    i++;
+                }
+            } else {
+                i++;
+            }
+        }
+        
+        // Now replace each valid table block with its HTML version
+        // Process in reverse order to maintain correct positions
+        for (let t = tableBlocks.length - 1; t >= 0; t--) {
+            const block = tableBlocks[t];
+            const tableHtml = this.convertLinesToTable(block.lines);
+            
+            if (tableHtml) {
+                // Replace the original table text with the HTML table
+                processedHtml = processedHtml.replace(block.originalText, tableHtml);
+            }
+        }
+        
+        container.innerHTML = processedHtml;
+    }
+    
+    // Helper function to convert an array of table lines to HTML table
+    convertLinesToTable(lines) {
+        if (lines.length < 3) return null;
+        
+        // Find the separator line
+        const sepIdx = lines.findIndex(l => /^\s*\|?\s*[-:]+\s*(\|\s*[-:]+\s*)*\|?\s*$/.test(l));
+        if (sepIdx < 1) return null;
+        
+        const headerLine = lines[0];
+        const dataLines = lines.slice(sepIdx + 1);
+        
+        // Parse header cells
+        const headerCells = headerLine.split('|')
+            .map(c => c.trim())
+            .filter(c => c !== ''); // Remove empty cells from start/end
+        
+        if (headerCells.length < 2) return null;
+        
+        // Build table HTML
+        let tableHtml = '<div class="markdown-table-container"><table class="markdown-table"><thead><tr>';
+        headerCells.forEach(cell => {
+            tableHtml += `<th>${cell}</th>`;
         });
-        container.innerHTML = html;
+        tableHtml += '</tr></thead><tbody>';
+        
+        // Process data rows
+        dataLines.forEach(rowLine => {
+            if (!rowLine.trim()) return; // Skip empty lines
+            
+            const cells = rowLine.split('|')
+                .map(c => c.trim())
+                .filter(c => c !== ''); // Remove empty cells from start/end
+            
+            // Only add row if it has the same number of cells as the header
+            if (cells.length === headerCells.length) {
+                tableHtml += '<tr>';
+                cells.forEach(cell => {
+                    tableHtml += `<td>${cell}</td>`;
+                });
+                tableHtml += '</tr>';
+            }
+        });
+        
+        tableHtml += '</tbody></table></div>';
+        return tableHtml;
     }
 
     looksLikeDomain(text) {
