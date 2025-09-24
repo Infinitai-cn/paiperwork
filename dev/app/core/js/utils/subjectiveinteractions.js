@@ -157,7 +157,7 @@ class SubjectiveInteractions {
 
         const insights = [];
         for (const [encryptedInsight] of result[0].values) {
-            const decryptedInsight = await PaiperworkDB.decryptPrompt(
+            const decryptedInsight = await PaiperworkDB.decrypt(
                 hashedMasterKey,
                 JSON.parse(encryptedInsight)
             );
@@ -205,7 +205,7 @@ class SubjectiveInteractions {
         const insightId = crypto.randomUUID();
 
         // Encrypt insight before storage
-        const encryptedInsight = await PaiperworkDB.encryptPrompt(hashedMasterKey, cleanedInsight);
+        const encryptedInsight = await PaiperworkDB.encrypt(hashedMasterKey, cleanedInsight);
 
         db.run(`
         INSERT INTO subjective_insights_${hashedMasterKey}
@@ -243,7 +243,7 @@ class SubjectiveInteractions {
         const insightId = crypto.randomUUID();
 
         // Encrypt insights before storage - USE CLEANED VERSION
-        const encryptedInsights = await PaiperworkDB.encryptPrompt(hashedMasterKey, cleanedInsight);
+        const encryptedInsights = await PaiperworkDB.encrypt(hashedMasterKey, cleanedInsight);
 
         db.run(`
             INSERT INTO subjective_insights_${hashedMasterKey}
