@@ -2,9 +2,13 @@ function setAppropriateHelpImage() {
   const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const logoImg = document.getElementById("help-logo");
   if (logoImg) {
+    // Detect if we're on GitHub Pages or local dev
+    const isGitHubPages = window.location.hostname.includes('github.io') || window.location.hostname.includes('githubusercontent.com');
+    const basePath = isGitHubPages ? '' : '../github-help/';
+    
     logoImg.src = isDarkMode
-      ? "../github-help/images/Paiperwork-APP-dark.png"  // Updated path
-      : "../github-help/images/Paiperwork-APP-light.png"; // Updated path
+      ? `${basePath}images/Paiperwork-APP-dark.png`
+      : `${basePath}images/Paiperwork-APP-light.png`;
     //console.log("Help logo set to:", logoImg.src);
   } else {
     console.warn("Help logo element not found");
@@ -119,31 +123,34 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
   imageContainer.style.cursor = "zoom-in";
 
   const imageElement = document.createElement("img");
-  imageElement.src = `../github-help/images/help/${imageSrc}`;
+  
+  // Detect if we're on GitHub Pages or local dev
+  const isGitHubPages = window.location.hostname.includes('github.io') || window.location.hostname.includes('githubusercontent.com');
+  const basePath = isGitHubPages ? '' : '../github-help/';
+  
+  imageElement.src = `${basePath}images/help/${imageSrc}`;
   imageElement.alt = imageAlt;
   imageElement.className = "help-image";
   imageElement.setAttribute("loading", "lazy");
 
   // Add click event to show the full-size image
   imageContainer.addEventListener("click", function () {
-      const lightboxImg = helpLightbox.querySelector(".help-lightbox-img");
-      lightboxImg.src = imageElement.src;
-      lightboxImg.alt = imageElement.alt;
-      helpLightbox.style.display = "flex";
+    const lightboxImg = helpLightbox.querySelector(".help-lightbox-img");
+    lightboxImg.src = imageElement.src;
+    lightboxImg.alt = imageElement.alt;
+    helpLightbox.style.display = "flex";
   });
 
   // Add load and error event handlers
   imageElement.addEventListener("load", function () {
-      this.classList.add("loaded");
+    this.classList.add("loaded");
   });
 
   imageElement.addEventListener("error", function () {
-      this.src = "../github-help/images/help/placeholder.png";
-      this.classList.add("loaded");
-      console.log(`Image not found: ${imageSrc}, using placeholder instead`);
-  });
-
-  imageContainer.appendChild(imageElement);
+    this.src = `${basePath}images/help/placeholder.png`;
+    this.classList.add("loaded");
+    //console.log(`Image not found: ${imageSrc}, using placeholder instead`);
+  });  imageContainer.appendChild(imageElement);
   figureElement.appendChild(imageContainer);
 
   // Add caption if available
@@ -303,27 +310,33 @@ document.addEventListener("DOMContentLoaded", function () {
   // Setup return button
   const closeButton = document.getElementById("close-help");
   if (closeButton) {
-    // Instead of redirecting, scroll to the top of the help page so the
-    // navigation tabs become visible. Also focus the first tab for keyboard users.
     closeButton.addEventListener("click", function () {
       try {
-        // Smooth scroll to top
-        if (window.scrollTo) {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Check if we're on GitHub Pages
+        const isGitHubPages = window.location.hostname.includes('github.io') || window.location.hostname.includes('githubusercontent.com');
+        
+        if (isGitHubPages) {
+          // On GitHub Pages, go back to the repository main page
+          window.location.href = '../';
         } else {
-          window.scrollTo(0, 0);
-        }
+          // For local development, scroll to top to show tabs
+          if (window.scrollTo) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            window.scrollTo(0, 0);
+          }
 
-        // Ensure the navigation wrapper is visible at the top
-        const navWrapper = document.querySelector('.help-navigation-wrapper') || document.querySelector('.help-header');
-        if (navWrapper && navWrapper.scrollIntoView) {
-          navWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+          // Ensure the navigation wrapper is visible at the top
+          const navWrapper = document.querySelector('.help-navigation-wrapper') || document.querySelector('.help-header');
+          if (navWrapper && navWrapper.scrollIntoView) {
+            navWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
 
-        // Focus the first tab for accessibility
-        const firstNav = document.querySelector('.nav-item');
-        if (firstNav && firstNav.focus) {
-          firstNav.focus();
+          // Focus the first tab for accessibility
+          const firstNav = document.querySelector('.nav-item');
+          if (firstNav && firstNav.focus) {
+            firstNav.focus();
+          }
         }
       } catch (err) {
         // Fallback: instant scroll if anything goes wrong

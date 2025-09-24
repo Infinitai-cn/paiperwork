@@ -31,13 +31,17 @@ static async loadLanguage(lang) {
         // Try to load the language file
         const script = document.createElement('script');
         
-        // Auto-detect correct path based on current location
+        // Auto-detect correct path based on current location and hosting environment
         const currentPath = window.location.pathname;
+        const isGitHubPages = window.location.hostname.includes('github.io') || window.location.hostname.includes('githubusercontent.com');
         let langPath;
         
         //console.log('Current path for language loading:', currentPath); // Debug log
         
-        if (currentPath.includes('/core/js/help/')) {
+        if (isGitHubPages) {
+            // When hosted on GitHub Pages, always use relative path from github-help
+            langPath = `js/lang-${lang}.js`;
+        } else if (currentPath.includes('/core/js/help/')) {
             // help.html at /dev/app/core/js/help/help.html
             langPath = `../translations/lang-${lang}.js`;
         } else if (currentPath.endsWith('/generation.html') || currentPath.includes('/core/generation.html')) {
