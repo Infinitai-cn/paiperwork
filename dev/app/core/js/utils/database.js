@@ -250,6 +250,37 @@ class PaiperworkDB {
             return false;
         }
     }
+
+    // Migrates a plaintext localStorage key to encrypted storage using secureLocalStorageSet.
+    // If the key is already encrypted (JSON with encrypted/iv), this does nothing.
+    static async migratePlaintextLocalStorageKeyToEncrypted(key) {
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return false;
+
+            // If already JSON with encrypted and iv, assume it's encrypted
+            try {
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.encrypted && parsed.iv) {
+                    return false; // already encrypted
+                }
+            } catch (e) {
+                // Not JSON -> plaintext
+            }
+
+            // Encrypt and overwrite using secure helper
+            try {
+                await PaiperworkDB.secureLocalStorageSet(key, raw);
+                return true;
+            } catch (err) {
+                console.error('Error migrating localStorage key to encrypted form:', key, err);
+                return false;
+            }
+        } catch (error) {
+            console.error('migratePlaintextLocalStorageKeyToEncrypted error:', error);
+            return false;
+        }
+    }
     // Ensures the database and storage strategy are set up and available.
     static async ensureDatabaseExists() {
         //console.log('🔧 Ensuring PaiperworkDB database exists and determining storage strategy');
@@ -417,7 +448,7 @@ class PaiperworkDB {
                     // Initialize settings if needed
                     const count = db.exec(`SELECT COUNT(*) FROM user_settings WHERE masterkey_hash = ?`, [hashedMasterKey])[0].values[0][0];
                     if (count === 0) {
-                        const defaultInsightsEnabled = await this.encryptPrompt(hashedMasterKey, 'false');
+                        const defaultInsightsEnabled = await this.encrypt(hashedMasterKey, 'false');
                         db.run(`
                             INSERT INTO user_settings
                             (masterkey_hash, system_prompt, model, context_size, insights_enabled)
@@ -648,11 +679,32 @@ class PaiperworkDB {
                 }
             }
 
-            // Update database version to 8
+            // Version 9: Add custom styles table per-user
+            if (currentVersion < 9) {
+                try {
+                    db.exec(`
+                        CREATE TABLE IF NOT EXISTS custom_styles_${hashedMasterKey} (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name TEXT,
+                            model TEXT,
+                            prompt TEXT,
+                            code TEXT,
+                            is_active INTEGER DEFAULT 0,
+                            created_at TEXT,
+                            updated_at TEXT
+                        )
+                    `);
+                    //console.log('DATABASE MIGRATION: custom_styles table created');
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error creating custom_styles table', error);
+                }
+            }
+
+            // Update database version to 9
             if (currentVersion === 0) {
-                db.run('INSERT INTO db_version (version) VALUES (8)');
+                db.run('INSERT INTO db_version (version) VALUES (9)');
             } else {
-                db.run('UPDATE db_version SET version = 8');
+                db.run('UPDATE db_version SET version = 9');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
@@ -664,6 +716,149 @@ class PaiperworkDB {
         } catch (error) {
             console.error('Error during database migration:', error);
             return false;
+        }
+    }
+
+    // Insert or update a custom style in the per-masterkey custom_styles table
+    static async insertCustomStyle(hashedMasterKey, styleInfo) {
+        try {
+            //console.log('PaiperworkDB.insertCustomStyle called with masterkey:', hashedMasterKey, 'styleInfo:', { name: styleInfo?.name, model: styleInfo?.model });
+            // Ensure database initialized
+            await this.initializeDatabase(hashedMasterKey);
+
+            // Ensure SQL.js loaded
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            // Load existing DB data
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            const db = existingDb ? new this.SQL.Database(existingDb) : new this.SQL.Database();
+
+            // Ensure table exists (defensive)
+            db.run(`
+                CREATE TABLE IF NOT EXISTS custom_styles_${hashedMasterKey} (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT,
+                    model TEXT,
+                    prompt TEXT,
+                    code TEXT,
+                    is_active INTEGER DEFAULT 0,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            const now = new Date().toISOString();
+
+            // Check for existing style by name+prompt+model
+            const selectRes = db.exec(`SELECT id FROM custom_styles_${hashedMasterKey} WHERE name = ? AND prompt = ? AND model = ? LIMIT 1`, [styleInfo.name, styleInfo.prompt, styleInfo.model]);
+            let existingId = null;
+            if (selectRes && selectRes[0] && selectRes[0].values && selectRes[0].values.length) {
+                existingId = selectRes[0].values[0][0];
+            }
+
+            if (existingId) {
+                db.run(`UPDATE custom_styles_${hashedMasterKey} SET code = ?, updated_at = ?, is_active = ? WHERE id = ?`, [styleInfo.code || '', now, styleInfo.is_active ? 1 : 0, existingId]);
+                await this.saveToStorage(db.export(), hashedMasterKey);
+                //console.log('PaiperworkDB.insertCustomStyle: updated existing style id=', existingId, 'name=', styleInfo.name);
+                return existingId;
+            }
+
+            // Insert new
+            db.run(`INSERT INTO custom_styles_${hashedMasterKey} (name, model, prompt, code, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [styleInfo.name || '', styleInfo.model || '', styleInfo.prompt || '', styleInfo.code || '', styleInfo.is_active ? 1 : 0, now, now]);
+
+            // Get last inserted id
+            const last = db.exec(`SELECT last_insert_rowid() AS id`);
+            let newId = null;
+            if (last && last[0] && last[0].values && last[0].values[0]) {
+                newId = last[0].values[0][0];
+            }
+
+            await this.saveToStorage(db.export(), hashedMasterKey);
+            //console.log('PaiperworkDB.insertCustomStyle: inserted new style id=', newId, 'name=', styleInfo.name);
+            return newId;
+        } catch (error) {
+            console.error('insertCustomStyle error:', error && error.stack ? error.stack : error);
+            throw error;
+        }
+    }
+
+    // Retrieve custom styles for a given masterkey
+    static async getCustomStyles(hashedMasterKey) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            if (!existingDb) return [];
+
+            const db = new this.SQL.Database(existingDb);
+
+            // Check table exists
+            const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='custom_styles_${hashedMasterKey}'`);
+            if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) return [];
+
+            const rows = db.exec(`SELECT id, name, model, prompt, code, is_active, created_at, updated_at FROM custom_styles_${hashedMasterKey} ORDER BY created_at DESC`);
+            if (!rows || !rows[0]) return [];
+
+            const result = rows[0].values.map(r => ({
+                id: r[0],
+                name: r[1],
+                model: r[2],
+                prompt: r[3],
+                code: r[4],
+                is_active: r[5],
+                created_at: r[6],
+                updated_at: r[7]
+            }));
+
+            /* console.log(`PaiperworkDB.getCustomStyles: loaded ${result.length} styles for masterkey ${hashedMasterKey}`,
+                result.slice(0, 5).map(s => s.name)); */
+            return result;
+        } catch (error) {
+            console.error('getCustomStyles error:', error);
+            return [];
+        }
+    }
+
+    // Delete a custom style by id for a given masterkey
+    static async deleteCustomStyle(hashedMasterKey, id) {
+        try {
+            if (!hashedMasterKey) throw new Error('Missing master key');
+
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            if (!existingDb) {
+                throw new Error('Database not found');
+            }
+
+            const db = new this.SQL.Database(existingDb);
+
+            // Defensive check for table
+            const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='custom_styles_${hashedMasterKey}'`);
+            if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
+                console.warn('PaiperworkDB.deleteCustomStyle: custom styles table not found');
+                return false;
+            }
+
+            db.run(`DELETE FROM custom_styles_${hashedMasterKey} WHERE id = ?`, [id]);
+
+            await this.saveToStorage(db.export(), hashedMasterKey);
+            //console.log('PaiperworkDB.deleteCustomStyle: deleted style id=', id);
+            return true;
+        } catch (error) {
+            console.error('deleteCustomStyle error:', error);
+            throw error;
         }
     }
 
@@ -874,7 +1069,7 @@ class PaiperworkDB {
     }
 
     // Encrypts a prompt using the master key.
-    static async encryptPrompt(masterkey, prompt) {
+    static async encrypt(masterkey, prompt) {
         const key = await this.generateKey(masterkey);
         const encoder = new TextEncoder();
         const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -892,7 +1087,7 @@ class PaiperworkDB {
     }
 
     // Decrypts an encrypted prompt using the master key.
-    static async decryptPrompt(masterkey, encryptedData) {
+    static async decrypt(masterkey, encryptedData) {
 
 
         try {
@@ -927,6 +1122,57 @@ class PaiperworkDB {
         } catch (error) {
             //console.log('Decryption failed:', error.message);
             return '';
+        }
+    }
+
+    // Securely store a value in localStorage by encrypting it with a master key derived from the storage key
+    static async secureLocalStorageSet(key, value) {
+        try {
+            const hashedMasterKey = await this.hashMasterKeyValue(String(key));
+            const encrypted = await this.encrypt(hashedMasterKey, String(value));
+            localStorage.setItem(key, JSON.stringify(encrypted));
+            return true;
+        } catch (error) {
+            console.error('secureLocalStorageSet error:', error);
+            try {
+                // Fallback to plain storage if encryption fails
+                localStorage.setItem(key, String(value));
+            } catch (e) {
+                console.error('Fallback localStorage.setItem failed:', e);
+            }
+            return false;
+        }
+    }
+
+    // Securely retrieve a value from localStorage by decrypting it with a master key derived from the storage key
+    // If the stored value isn't encrypted (legacy/plaintext), the plaintext value will be returned.
+    static async secureLocalStorageGet(key) {
+        try {
+            const existing = localStorage.getItem(key);
+            if (!existing) return null;
+
+            // Try to parse as JSON - encrypted values are stored as JSON objects
+            let parsed;
+            try {
+                parsed = JSON.parse(existing);
+            } catch (e) {
+                // Not JSON - assume plaintext legacy value
+                return existing;
+            }
+
+            const hashedMasterKey = await this.hashMasterKeyValue(String(key));
+            const decrypted = await this.decrypt(hashedMasterKey, parsed);
+
+            // If decryption failed (empty string), return the original raw value as fallback
+            if (decrypted === '') return existing;
+            return decrypted;
+        } catch (error) {
+            console.error('secureLocalStorageGet error:', error);
+            try {
+                return localStorage.getItem(key);
+            } catch (e) {
+                return null;
+            }
         }
     }
 
@@ -1006,31 +1252,31 @@ class PaiperworkDB {
                         // Decrypt system prompt if it exists
                         if (systemPromptStr) {
                             const encryptedPrompt = JSON.parse(systemPromptStr);
-                            systemPrompt = await this.decryptPrompt(hashedMasterKey, encryptedPrompt);
+                            systemPrompt = await this.decrypt(hashedMasterKey, encryptedPrompt);
                         }
 
                         // Decrypt model if it exists
                         if (modelStr) {
                             const encryptedModel = JSON.parse(modelStr);
-                            model = await this.decryptPrompt(hashedMasterKey, encryptedModel);
+                            model = await this.decrypt(hashedMasterKey, encryptedModel);
                         }
 
                         // Decrypt context size if it exists
                         if (contextSizeStr) {
                             const encryptedSize = JSON.parse(contextSizeStr);
-                            contextSize = await this.decryptPrompt(hashedMasterKey, encryptedSize);
+                            contextSize = await this.decrypt(hashedMasterKey, encryptedSize);
                         }
 
                         // ALWAYS decrypt and load insights_enabled without any conditions
                         if (insightsEnabledStr) {
                             const encryptedInsights = JSON.parse(insightsEnabledStr);
-                            insightsEnabled = await this.decryptPrompt(hashedMasterKey, encryptedInsights);
+                            insightsEnabled = await this.decrypt(hashedMasterKey, encryptedInsights);
                         }
 
                         // Decrypt visual model if it exists
                         if (visualModelStr) {
                             const encryptedVisualModel = JSON.parse(visualModelStr);
-                            visualModel = await this.decryptPrompt(hashedMasterKey, encryptedVisualModel);
+                            visualModel = await this.decrypt(hashedMasterKey, encryptedVisualModel);
                         }
                     } catch (decryptError) {
                         //console.log('Using default values due to decryption error:', decryptError);
@@ -1040,7 +1286,8 @@ class PaiperworkDB {
 
                     // Store model in localStorage for faster access (especially for startup)
                     if (model) {
-                        localStorage.setItem('selectedModel', model);
+                        // Try to store securely; fallback to plaintext if unavailable
+                        try { await this.secureLocalStorageSet('selectedModel', model); } catch (e) { localStorage.setItem('selectedModel', model); }
                     }
 
                     return {
@@ -1079,11 +1326,11 @@ class PaiperworkDB {
 
     // Saves the selected model to the database and localStorage.
     static async saveModel(hashedMasterKey, model) {
-        //console.log('Save model operation started:', { hashedMasterKey, model: model || 'empty' });
+            //console.log('Save model operation started:', { hashedMasterKey, model: model || 'empty' });
 
         try {
             // Always store selected model in localStorage for fast access during startup
-            localStorage.setItem('selectedModel', model);
+            try { await this.secureLocalStorageSet('selectedModel', model); } catch (e) { localStorage.setItem('selectedModel', model); }
 
             // Get SQL.js if not already loaded
             if (!this.SQL) {
@@ -1094,7 +1341,7 @@ class PaiperworkDB {
             }
 
             //console.log('Encrypting model with key:', hashedMasterKey);
-            const encryptedModel = await this.encryptPrompt(hashedMasterKey, model);
+            const encryptedModel = await this.encrypt(hashedMasterKey, model);
 
             // Get existing database - this already checks OPFS first if supported
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
@@ -1131,8 +1378,8 @@ class PaiperworkDB {
         //console.log('Save visual model operation started:', { hashedMasterKey, model: model || 'empty' });
 
         try {
-            // Save to localStorage for quick access
-            localStorage.setItem('selectedVisualModel', model);
+            // Save to localStorage for quick access (secure when possible)
+            try { await this.secureLocalStorageSet('selectedVisualModel', model); } catch (e) { localStorage.setItem('selectedVisualModel', model); }
 
             // Get SQL.js if not already loaded
             if (!this.SQL) {
@@ -1143,7 +1390,7 @@ class PaiperworkDB {
             }
 
             //console.log('Encrypting visual model with key:', hashedMasterKey);
-            const encryptedModel = await this.encryptPrompt(hashedMasterKey, model);
+            const encryptedModel = await this.encrypt(hashedMasterKey, model);
 
             // Get existing database - this already checks OPFS first if supported
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
@@ -1192,8 +1439,8 @@ class PaiperworkDB {
         //console.log('Save context size operation started:', { hashedMasterKey, contextSize });
 
         try {
-            // Save to localStorage for quick access
-            localStorage.setItem('selectedContextSize', contextSize);
+            // Save to localStorage for quick access (secure when possible)
+            try { await this.secureLocalStorageSet('selectedContextSize', contextSize); } catch (e) { localStorage.setItem('selectedContextSize', contextSize); }
 
             // Get SQL.js if not already loaded
             if (!this.SQL) {
@@ -1204,7 +1451,7 @@ class PaiperworkDB {
             }
 
             //console.log('Encrypting context size with key:', hashedMasterKey);
-            const encryptedContextSize = await this.encryptPrompt(hashedMasterKey, contextSize);
+            const encryptedContextSize = await this.encrypt(hashedMasterKey, contextSize);
 
             // Get existing database - this already checks OPFS first if supported
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
@@ -1249,7 +1496,7 @@ class PaiperworkDB {
             }
 
             //console.log('Encrypting system prompt with key:', hashedMasterKey);
-            const encryptedPrompt = await this.encryptPrompt(hashedMasterKey, promptText);
+            const encryptedPrompt = await this.encrypt(hashedMasterKey, promptText);
 
             // Get existing database - this already checks OPFS first if supported
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
@@ -1305,7 +1552,7 @@ class PaiperworkDB {
             const db = new this.SQL.Database(existingDb);
 
             //console.log('Encrypting insights value:', enabled.toString());
-            const encryptedValue = await this.encryptPrompt(hashedMasterKey, enabled.toString());
+            const encryptedValue = await this.encrypt(hashedMasterKey, enabled.toString());
             //console.log('Encrypted insights structure:', encryptedValue);
 
             const jsonString = JSON.stringify(encryptedValue);
@@ -1486,12 +1733,12 @@ class PaiperworkDB {
 
             // Store user message with initial timestamp
             const userTimestamp = baseTime.toISOString();
-            const encryptedUserMessage = await this.encryptPrompt(
+            const encryptedUserMessage = await this.encrypt(
                 hashedMasterKey,
                 processedUserMessage
             );
-            const encryptedUserRole = await this.encryptPrompt(hashedMasterKey, "user");
-            const encryptedUserTimestamp = await this.encryptPrompt(
+            const encryptedUserRole = await this.encrypt(hashedMasterKey, "user");
+            const encryptedUserTimestamp = await this.encrypt(
                 hashedMasterKey,
                 userTimestamp
             );
@@ -1511,12 +1758,12 @@ class PaiperworkDB {
 
             // Store AI message with timestamp + 1 SECOND to ensure proper ordering
             const aiTimestamp = new Date(baseTime.getTime() + 1000).toISOString();
-            const encryptedAiMessage = await this.encryptPrompt(
+            const encryptedAiMessage = await this.encrypt(
                 hashedMasterKey,
                 processedAiMessage
             );
-            const encryptedAiRole = await this.encryptPrompt(hashedMasterKey, "assistant");
-            const encryptedAiTimestamp = await this.encryptPrompt(
+            const encryptedAiRole = await this.encrypt(hashedMasterKey, "assistant");
+            const encryptedAiTimestamp = await this.encrypt(
                 hashedMasterKey,
                 aiTimestamp
             );
@@ -1613,15 +1860,15 @@ class PaiperworkDB {
                 const role = row[2];
                 const group = row[3] || 1; // Default to 1 if null
 
-                const decryptedMessage = await this.decryptPrompt(
+                const decryptedMessage = await this.decrypt(
                     hashedMasterKey,
                     JSON.parse(conversation)
                 );
-                const decryptedRole = await this.decryptPrompt(
+                const decryptedRole = await this.decrypt(
                     hashedMasterKey,
                     JSON.parse(role)
                 );
-                const decryptedTimestamp = await this.decryptPrompt(
+                const decryptedTimestamp = await this.decrypt(
                     hashedMasterKey,
                     JSON.parse(timestamp)
                 );
@@ -1667,7 +1914,6 @@ class PaiperworkDB {
                             copyContainer.style.cssText = `
                                 text-align: right;
                                 margin-top: 0.5rem;
-                                font-size: 0.85rem;
                                 opacity: 0.7;
                                 padding-top: 0.5rem; 
                                 border-top: 1px solid var(--border-color);
@@ -1732,7 +1978,7 @@ class PaiperworkDB {
                             }
                         } else {
                             // If no container, wrap the message but preserve its exact content
-                            const copyContainer = `<div class="copy-response-container" style="text-align: right; margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.7; padding-top: 0.5rem; border-top: 1px solid var(--border-color); transition: opacity 0.2s;">
+                            const copyContainer = `<div class="copy-response-container" style="text-align: right; margin-top: 0.5rem; opacity: 0.7; padding-top: 0.5rem; border-top: 1px solid var(--border-color); transition: opacity 0.2s;">
                                 <a href="#" class="regenerate-message" style="color: inherit; text-decoration: none; cursor: pointer; margin-right: 10px;" onclick="event.preventDefault(); window.chat.regenerateMessage(this.closest('.assistant-message')); return false;">${Lang.get("regenerateMessage") || "Regenerate"}</a>
                                 <a href="#" class="delete-message-pair" style="color: rgb(239, 68, 68); text-decoration: none; cursor: pointer; margin-right: 10px;" onclick="event.preventDefault(); window.chat.deleteConversationPair(this.closest('.assistant-message')); return false;">${Lang.get("deleteMessagePair") || "Delete this message pair"}</a>
                                 <a href="#" class="copy-btn" style="color: inherit; text-decoration: none; cursor: pointer;" onclick="event.preventDefault(); const responseDiv = this.closest('.assistant-message').querySelector('.ai-response-container'); if (!responseDiv) { console.error('Cannot find response container for copying'); return false; } if (responseDiv.streamProcessor && typeof responseDiv.streamProcessor.copyFullResponse === 'function') { responseDiv.streamProcessor.copyFullResponse(); } else { const tempDiv = document.createElement('div'); tempDiv.innerHTML = responseDiv.innerHTML; const actionButtons = tempDiv.querySelectorAll('.message-actions, .copy-response-container'); actionButtons.forEach(el => el.remove()); const cancelNotes = tempDiv.querySelectorAll('.cancel-note'); cancelNotes.forEach(el => el.remove()); const cleanText = tempDiv.textContent.trim(); navigator.clipboard.writeText(cleanText).then(() => { this.textContent = 'Copied!'; setTimeout(() => { this.textContent = 'Copy'; }, 2000); }).catch(err => { console.error('Failed to copy text:', err); this.textContent = 'Error'; setTimeout(() => { this.textContent = 'Copy'; }, 2000); }); } return false;">${Lang.get("copy") || "Copy"}</a>
@@ -1859,15 +2105,15 @@ class PaiperworkDB {
                 const timestamp = row[1];
                 const role = row[2];
 
-                const decryptedMessage = await this.decryptPrompt(
+                const decryptedMessage = await this.decrypt(
                     hashedMasterKey,
                     JSON.parse(conversation)
                 );
-                const decryptedRole = await this.decryptPrompt(
+                const decryptedRole = await this.decrypt(
                     hashedMasterKey,
                     JSON.parse(role)
                 );
-                const decryptedTimestamp = await this.decryptPrompt(
+                const decryptedTimestamp = await this.decrypt(
                     hashedMasterKey,
                     JSON.parse(timestamp)
                 );
@@ -1948,7 +2194,7 @@ class PaiperworkDB {
 
             // Create current timestamp
             const now = new Date().toISOString();
-            const encryptedNow = await this.encryptPrompt(hashedMasterKey, now);
+            const encryptedNow = await this.encrypt(hashedMasterKey, now);
 
             // Update the group_updated_at field for all messages in this group
             db.run(`
@@ -2009,9 +2255,9 @@ class PaiperworkDB {
 
             for (const [rowid, encryptedConversation, encryptedRole, encryptedTimestamp, conversationGroup] of conversationsResult[0].values) {
                 try {
-                    const decryptedRole = await this.decryptPrompt(hashedMasterKey, JSON.parse(encryptedRole));
-                    const decryptedMessage = await this.decryptPrompt(hashedMasterKey, JSON.parse(encryptedConversation));
-                    const decryptedTimestamp = await this.decryptPrompt(hashedMasterKey, JSON.parse(encryptedTimestamp));
+                    const decryptedRole = await this.decrypt(hashedMasterKey, JSON.parse(encryptedRole));
+                    const decryptedMessage = await this.decrypt(hashedMasterKey, JSON.parse(encryptedConversation));
+                    const decryptedTimestamp = await this.decrypt(hashedMasterKey, JSON.parse(encryptedTimestamp));
 
                     //  ENHANCED: Multiple content representations for better matching
                     let cleanContent = decryptedMessage.trim();
@@ -2081,7 +2327,7 @@ class PaiperworkDB {
                     bestUserMatch = userMessages.find(msg =>
                         msg.jsonTextContent && msg.jsonTextContent === targetUserContent
                     );
-                    //if (bestUserMatch) console.log('✅ User match: JSON text content match');
+                    //if (bestUserMatch) //console.log('✅ User match: JSON text content match');
                 }
 
                 // Strategy 3: Content inclusion (either direction)
@@ -2091,7 +2337,7 @@ class PaiperworkDB {
                         msg.content.includes(targetUserContent) ||
                         (msg.jsonTextContent && (targetUserContent.includes(msg.jsonTextContent) || msg.jsonTextContent.includes(targetUserContent)))
                     );
-                    //if (bestUserMatch) console.log('✅ User match: Content inclusion match');
+                    //if (bestUserMatch) //console.log('✅ User match: Content inclusion match');
                 }
 
                 // Strategy 4: Fuzzy word matching (50%+ word overlap)
@@ -2113,7 +2359,7 @@ class PaiperworkDB {
                             }
                         }
                     }
-                    //if (bestUserMatch) console.log(`✅ User match: Fuzzy match (${(bestScore * 100).toFixed(1)}% similarity)`);
+                    //if (bestUserMatch) //console.log(`✅ User match: Fuzzy match (${(bestScore * 100).toFixed(1)}% similarity)`);
                 }
             }
 
@@ -2314,11 +2560,11 @@ class PaiperworkDB {
             const now = new Date().toISOString();
 
             // Encrypt the data
-            const encryptedModelName = await this.encryptPrompt(hashedMasterKey, modelName);
-            const encryptedContextSize = await this.encryptPrompt(hashedMasterKey, contextSize.toString());
-            const encryptedKvcacheQ8 = await this.encryptPrompt(hashedMasterKey, isKvcacheQ8.toString());
-            const encryptedUseCalculated = await this.encryptPrompt(hashedMasterKey, useCalculatedContext.toString());
-            const encryptedTimestamp = await this.encryptPrompt(hashedMasterKey, now);
+            const encryptedModelName = await this.encrypt(hashedMasterKey, modelName);
+            const encryptedContextSize = await this.encrypt(hashedMasterKey, contextSize.toString());
+            const encryptedKvcacheQ8 = await this.encrypt(hashedMasterKey, isKvcacheQ8.toString());
+            const encryptedUseCalculated = await this.encrypt(hashedMasterKey, useCalculatedContext.toString());
+            const encryptedTimestamp = await this.encrypt(hashedMasterKey, now);
 
             //console.log('🔐 PaiperworkDB: Data encrypted, checking for existing record...');
 
@@ -2336,7 +2582,7 @@ class PaiperworkDB {
                 for (const row of allRecords[0].values) {
                     const [encryptedStoredModelName, storedCreatedAt] = row;
                     try {
-                        const decryptedStoredModelName = await this.decryptPrompt(hashedMasterKey, JSON.parse(encryptedStoredModelName));
+                        const decryptedStoredModelName = await this.decrypt(hashedMasterKey, JSON.parse(encryptedStoredModelName));
                         if (decryptedStoredModelName === modelName) {
                             //console.log('🎯 PaiperworkDB: Found existing record for model:', modelName);
                             existingCreatedAt = storedCreatedAt;
@@ -2434,12 +2680,12 @@ class PaiperworkDB {
             for (let i = 0; i < allRecords[0].values.length; i++) {
                 const row = allRecords[0].values[i];
                 try {
-                    const decryptedModelName = await this.decryptPrompt(hashedMasterKey, JSON.parse(row[0]));
-                    const decryptedContextSize = await this.decryptPrompt(hashedMasterKey, JSON.parse(row[1]));
-                    const decryptedKvcacheQ8 = await this.decryptPrompt(hashedMasterKey, JSON.parse(row[2]));
-                    const decryptedUseCalculated = row[3] ? await this.decryptPrompt(hashedMasterKey, JSON.parse(row[3])) : 'true';
-                    const createdAt = row[4] ? await this.decryptPrompt(hashedMasterKey, JSON.parse(row[4])) : 'unknown';
-                    const updatedAt = row[5] ? await this.decryptPrompt(hashedMasterKey, JSON.parse(row[5])) : 'unknown';
+                    const decryptedModelName = await this.decrypt(hashedMasterKey, JSON.parse(row[0]));
+                    const decryptedContextSize = await this.decrypt(hashedMasterKey, JSON.parse(row[1]));
+                    const decryptedKvcacheQ8 = await this.decrypt(hashedMasterKey, JSON.parse(row[2]));
+                    const decryptedUseCalculated = row[3] ? await this.decrypt(hashedMasterKey, JSON.parse(row[3])) : 'true';
+                    const createdAt = row[4] ? await this.decrypt(hashedMasterKey, JSON.parse(row[4])) : 'unknown';
+                    const updatedAt = row[5] ? await this.decrypt(hashedMasterKey, JSON.parse(row[5])) : 'unknown';
 
                     /*console.log(`📋 Record ${i + 1}:`, {
                         modelName: decryptedModelName,
@@ -2535,7 +2781,7 @@ class PaiperworkDB {
             }
 
             // Encrypt the model name to find the record
-            const encryptedModelName = await this.encryptPrompt(hashedMasterKey, modelName);
+            const encryptedModelName = await this.encrypt(hashedMasterKey, modelName);
 
             // Delete the record
             db.exec(`
@@ -2599,23 +2845,23 @@ class PaiperworkDB {
             // Decrypt all records
             for (const row of allRecords[0].values) {
                 try {
-                    const decryptedModelName = await this.decryptPrompt(
+                    const decryptedModelName = await this.decrypt(
                         hashedMasterKey,
                         JSON.parse(row[0])
                     );
-                    const decryptedContextSize = await this.decryptPrompt(
+                    const decryptedContextSize = await this.decrypt(
                         hashedMasterKey,
                         JSON.parse(row[1])
                     );
-                    const decryptedKvcacheQ8 = await this.decryptPrompt(
+                    const decryptedKvcacheQ8 = await this.decrypt(
                         hashedMasterKey,
                         JSON.parse(row[2])
                     );
-                    const decryptedCreatedAt = await this.decryptPrompt(
+                    const decryptedCreatedAt = await this.decrypt(
                         hashedMasterKey,
                         JSON.parse(row[3])
                     );
-                    const decryptedUpdatedAt = await this.decryptPrompt(
+                    const decryptedUpdatedAt = await this.decrypt(
                         hashedMasterKey,
                         JSON.parse(row[4])
                     );
@@ -2673,7 +2919,7 @@ class PaiperworkDB {
             const collections = [];
             for (const [collectionId, encryptedData] of result[0].values) {
                 try {
-                    const decryptedData = await this.decryptPrompt(hashedMasterKey, JSON.parse(encryptedData));
+                    const decryptedData = await this.decrypt(hashedMasterKey, JSON.parse(encryptedData));
                     const collection = JSON.parse(decryptedData);
 
 
@@ -2721,7 +2967,7 @@ class PaiperworkDB {
             }
 
             const collectionStr = JSON.stringify(collection);
-            const encryptedData = await this.encryptPrompt(hashedMasterKey, collectionStr);
+            const encryptedData = await this.encrypt(hashedMasterKey, collectionStr);
             const timestamp = new Date().toISOString();
 
             // Check if collection exists
@@ -3214,21 +3460,58 @@ class PaiperworkDB {
             const exportedDb = db.export();
             const totalSizeInBytes = exportedDb.length;
 
-            // Get document count
-            const docResult = db.exec(`SELECT COUNT(*) FROM documents_${hashedMasterKey}`);
-            const documentCount = docResult[0]?.values[0][0] || 0;
+            // Get document count (guard if table doesn't exist yet)
+            let documentCount = 0;
+            try {
+                const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='documents_${hashedMasterKey}'`);
+                const docTableExists = tableCheck && tableCheck.length > 0 && tableCheck[0]?.values.length > 0;
+                if (docTableExists) {
+                    const docResult = db.exec(`SELECT COUNT(*) FROM documents_${hashedMasterKey}`);
+                    documentCount = docResult[0]?.values[0][0] || 0;
+                } else {
+                    documentCount = 0;
+                }
+            } catch (e) {
+                console.warn('Error checking documents table existence:', e);
+                documentCount = 0;
+            }
 
-            // Get chunk count
-            const chunkResult = db.exec(`SELECT COUNT(*) FROM document_chunks_${hashedMasterKey}`);
-            const chunkCount = chunkResult[0]?.values[0][0] || 0;
+            // Get chunk count (guard if table doesn't exist yet)
+            let chunkCount = 0;
+            try {
+                const chunkTableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='document_chunks_${hashedMasterKey}'`);
+                const chunkTableExists = chunkTableCheck && chunkTableCheck.length > 0 && chunkTableCheck[0]?.values.length > 0;
+                if (chunkTableExists) {
+                    const chunkResult = db.exec(`SELECT COUNT(*) FROM document_chunks_${hashedMasterKey}`);
+                    chunkCount = chunkResult[0]?.values[0][0] || 0;
+                } else {
+                    chunkCount = 0;
+                }
+            } catch (e) {
+                console.warn('Error checking document_chunks table existence:', e);
+                chunkCount = 0;
+            }
 
-            // Check for orphaned chunks (chunks with no parent document)
-            const orphanedResult = db.exec(`
+            // Check for orphaned chunks (chunks with no parent document) - guard if either table is missing
+            let orphanedCount = 0;
+            try {
+                const bothExist = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='document_chunks_${hashedMasterKey}'`);
+                const bothExist2 = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='documents_${hashedMasterKey}'`);
+                const haveBoth = bothExist && bothExist.length > 0 && bothExist[0]?.values.length > 0 && bothExist2 && bothExist2.length > 0 && bothExist2[0]?.values.length > 0;
+                if (haveBoth) {
+                    const orphanedResult = db.exec(`
         SELECT COUNT(*) FROM document_chunks_${hashedMasterKey} dc
         LEFT JOIN documents_${hashedMasterKey} d ON dc.document_id = d.document_id
         WHERE d.document_id IS NULL
       `);
-            const orphanedCount = orphanedResult[0]?.values[0][0] || 0;
+                    orphanedCount = orphanedResult[0]?.values[0][0] || 0;
+                } else {
+                    orphanedCount = 0;
+                }
+            } catch (e) {
+                console.warn('Error checking orphaned chunks:', e);
+                orphanedCount = 0;
+            }
 
             return {
                 totalSize: {
