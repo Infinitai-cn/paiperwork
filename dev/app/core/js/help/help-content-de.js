@@ -1,65 +1,5 @@
 window.helpContent = {
-    presentation: {
-        title: "Präsentation — Grafiken",
-        intro: "Verwenden Sie Grafiken (Bilder, Illustrationen, Symbole) im Präsentations-Tab, um Folien aufzuwerten. Dieser Abschnitt erklärt, wie Sie Grafiken hinzufügen, positionieren und exportieren.",
-        articles: [
-            {
-                id: "presentation-artworks-overview",
-                title: "Überblick",
-                content: `
-            <p>Der Präsentations-Tab ermöglicht das Einfügen von Grafiken auf Folien, um sie ansprechender zu gestalten. Grafiken können hochgeladene Bilder, generierte Platzhalter oder aus anderen Tabs kopierte Bilder sein.</p>
-            <p>Typische Einsatzfälle:</p>
-            <ul>
-                <li>Einen Punkt mit einem unterstützenden Bild veranschaulichen</li>
-                <li>Icons oder Logos für Branding hinzufügen</li>
-                <li>Dekorative Illustrationen zur Verbesserung des visuellen Flusses verwenden</li>
-            </ul>
-            <p>Übliche Workflows beginnen mit der Auswahl oder dem Hochladen von Bildern, dem Platzieren auf Folien und dem Anpassen von Größe, Zuschnitt und Ausrichtung vor dem Export.</p>
-        `,
-                image: "placeholder.png",
-                imageAlt: "Grafikübersicht",
-                imageCaption: "Überblick über die Verwendung von Grafiken in Präsentationen",
-            },
-            {
-                id: "presentation-artworks-controls",
-                title: "Grafik-Steuerung",
-                content: `
-            <p>Mit den Grafik-Steuerungen können Sie das Erscheinungsbild von Bildern auf Folien verfeinern:</p>
-            <ul>
-                <li><strong>Hochladen / Ersetzen</strong> — laden Sie eigene Bilder hoch oder ersetzen Sie Platzhalter.</li>
-                <li><strong>Größe & Zuschneiden</strong> — ziehen Sie an Griffen, um die Größe zu ändern, oder verwenden Sie das Zuschneidewerkzeug.</li>
-                <li><strong>Ausrichtung</strong> — links/zentriert/rechts ausrichten oder in Ecken verankern.</li>
-                <li><strong>Alt-Text & Beschriftung</strong> — fügen Sie kurze Beschriftungen oder Alt-Text für Barrierefreiheit hinzu.</li>
-            </ul>
-            <p>Nach den Anpassungen Vorschau der Folien prüfen, um Layout und Lesbarkeit vor dem Export sicherzustellen.</p>
-        `,
-                image: "placeholder.png",
-                imageAlt: "Grafiksteuerungen",
-                imageCaption: "Steuerungen zum Platzieren und Bearbeiten von Grafiken",
-            },
-            {
-                id: "presentation-artworks-sources",
-                title: "Bildquellen & Tipps",
-                content: `
-            <p>Wo Sie Bilder bekommen:</p>
-            <ul>
-                <li>Vom Gerät hochladen für volle Kontrolle</li>
-                <li>Platzhalter aus der App für konsistente Größen verwenden</li>
-                <li>Bilder aus anderen Tabs kopieren (Urheberrecht beachten)</li>
-            </ul>
-            <p>Tipps:</p>
-            <ul>
-                <li>Bevorzugen Sie Bilder mit hohem Kontrast für bessere Lesbarkeit</li>
-                <li>Eng zuschneiden, um das Motiv zu betonen und ablenkende Hintergründe zu vermeiden</li>
-                <li>Halten Sie Dateigrößen moderat, um Export-Performance-Probleme zu vermeiden</li>
-            </ul>
-        `,
-                image: "placeholder.png",
-                imageAlt: "Bildquellen",
-                imageCaption: "Gängige Bildquellen und Tipps",
-            },
-        ],
-    },
+
     gettingstarted: {
         title: "Erste Schritte",
         intro: "Willkommen bei Paiperwork, einer sicheren Web-Oberfläche für Ollama, die Datenschutz und Benutzerfreundlichkeit priorisiert. Dieser professionell ausgerichtete Assistent bietet Produktivitätsfunktionen und hält dabei Ihre Daten lokal und geschützt.",
@@ -2103,7 +2043,7 @@ window.helpContent = {
                 <li>Überprüfen und bearbeiten Sie die Folien im Vorschaufenster und exportieren Sie dann.</li>
             </ol>
         `,
-                image: "placeholder.png",
+                image: "tab_overview.png",
                 imageAlt: "Überblick über den Präsentationsreiter",
                 imageCaption: "Überblick über den Reiter Präsentation",
             },
@@ -2120,7 +2060,7 @@ window.helpContent = {
             </ul>
             <p>Sie können die Generierung jederzeit mit der Schließen/Abbrechen-Schaltfläche im Lade-Modal abbrechen. Das Abbrechen stoppt Hintergrundaufgaben und schließt das Modal.</p>
         `,
-                image: "placeholder.png",
+                image: "generating_presentation.png",
                 imageAlt: "Erstellung von Präsentationen",
                 imageCaption: "Generierungsprozess und Fortschrittsanzeige",
             },
@@ -2137,7 +2077,7 @@ window.helpContent = {
             </ul>
             <p>Tipp: Halten Sie den Dokumenttext klar für eine bessere Extraktion, wählen Sie eine angemessene Folienanzahl entsprechend der Inhaltslänge und fügen Sie einen zusätzlichen Prompt hinzu, wenn Sie einen bestimmten Ton oder Stil wünschen.</p>
         `,
-                image: "placeholder.png",
+                image: "preview_editing_export.png",
                 imageAlt: "Vorschau und Export",
                 imageCaption: "Vorschaufenster, Bearbeitung und Exportoptionen",
             },
@@ -2178,9 +2118,9 @@ window.helpContent = {
             <h4>Integration mit Helpers</h4>
             <p>Die Seitenleiste ist auf Auswahl-Helpers angewiesen, die an Präsentationsstages angehängt sind, um Bildersetzungen, batchartige KI-Edits und Knotenoperationen durchzuführen. Findet sich kein Helper, zeigt die Seitenleiste hilfreiche Meldungen und greift auf verfügbare globale Abläufe zurück.</p>
         `,
-                image: "placeholder.png",
-                imageAlt: "Präsentations-Seitenleiste",
-                imageCaption: "Seitenleistensteuerungen für Style, Text und Bilder",
+                    image: "sidebar_controls.png",
+                    imageAlt: "Präsentations-Seitenleiste",
+                    imageCaption: "Seitenleistensteuerungen für Style, Text und Bilder",
             },
             {
                 id: "presentation-export-note",
@@ -2188,9 +2128,9 @@ window.helpContent = {
                 content: `
             <p><strong>Hinweis:</strong> Die Schaltfläche <em>Export PDF</em> exportiert die Präsentation genau so, wie sie auf dem Bildschirm angezeigt wird — einschließlich Folientext, Bilder, Formen und Hintergrundelemente.</p>
         `,
-                image: "placeholder.png",
-                imageAlt: "Hinweis Export PDF",
-                imageCaption: "Exportiert die Folien wie in der Vorschau angezeigt",
+                    image: "export_slides.png",
+                    imageAlt: "Hinweis Export PDF",
+                    imageCaption: "Exportiert die Folien wie in der Vorschau angezeigt",
             },
         ],
     },
