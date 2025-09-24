@@ -39,6 +39,23 @@ class TabLoader {
             'models': {
                 scripts: ['js/tabs/modelstab.js']
             },
+            'presentation': {
+                scripts: [
+                    'js/libraries/JSZip/jszip.min.js',
+                    'js/libraries/konvajs/konva.min.js',
+                    'js/libraries/PDFjs/jspdf.umd.min.js',
+                    'js/utils/presentation/SlideStyles.js',
+                    'js/utils/presentation/sidebar.js',
+                    'js/utils/presentation/content.js',
+                    'js/utils/presentation/undoSystem.js',
+                    'js/utils/presentation/component_selectionHelper.js',
+                    'js/tabs/presentation.js',
+                    'js/utils/presentation/previewwindow.js',
+                    'js/utils/presentation/pdfexport.js',
+                    'js/utils/presentation/StyleDIY.js',
+                    'js/tabs/presentationTab.js'
+                ]
+            },
 
         };
 
@@ -162,6 +179,13 @@ class TabLoader {
                 if (window.artworksTab && !window.artworksTab.initialized) {
                     //console.log('TabLoader: Initializing Artwork tab');
                     window.artworksTab.initialize();
+                }
+                break;
+            
+            case 'presentation':
+                if (window.presentationtab && !window.presentationtab.isInitialized) {
+                    //console.log('TabLoader: Initializing presentation tab');
+                    window.presentationtab.initialize();
                 }
                 break;
         }
@@ -305,6 +329,28 @@ class TabLoader {
                                 ArtworksTabLoaded: !!window.ArtworksTabLoaded
                             });
                             reject(new Error('Timeout waiting for Artwork components'));
+                        }
+                    }, 100);
+                });
+            }
+            if (tabName === 'presentation') {
+                await new Promise((resolve, reject) => {
+                    let attempts = 0;
+                    const maxAttempts = 50;
+
+                    const checkInterval = setInterval(() => {
+                        attempts++;
+                        if (window.presentation && window.presentationtab) {
+                            clearInterval(checkInterval);
+                            //console.log('TabLoader: SlideForge components ready');
+                            resolve();
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(checkInterval);
+                            console.error('TabLoader: Component status:', {
+                                presentation: !!window.presentation,
+                                presentationtab: !!window.presentationtab
+                            });
+                            reject(new Error('Timeout waiting for SlideForge components'));
                         }
                     }, 100);
                 });
