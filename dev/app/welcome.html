@@ -8,7 +8,6 @@
         <script src="core/js/libraries/SQLjs/sql-wasm.js"></script>
         <script src="core/js/translations/lang.js"></script>
         <script src="core/js/utils/database.js"></script>
-        <script src="core/js/utils/securityUtils.js"></script>
         <script src="core/js/utils/selection.js"></script>
         <script src="core/js/utils/version.js"></script>
         <style>
@@ -78,17 +77,6 @@
                 border-color: var(--accent-color-hover) !important;
             }
 
-            .top-navigation .utility-button.danger-button {
-                background-color: var(--danger-color) !important;
-                color: white !important;
-                border-color: var(--danger-color) !important;
-                width: 180px !important;
-            }
-
-            .top-navigation .utility-button.danger-button:hover {
-                background-color: var(--danger-color-hover) !important;
-                border-color: var(--danger-color-hover) !important;
-            }
 
             .main-content {
                 padding-top: 40px;
@@ -243,7 +231,6 @@
                     updateElementText('help-button', 'helpButton');
                     updateElementText('back-button', 'backButton');
                     updateElementText('check-updates', 'checkUpdatesButton');
-                    updateElementText('delete-all', 'deleteAllButton');
 
                     const logo = document.getElementById('logo');
                     if (logo) {
@@ -268,13 +255,11 @@
                 </button>
             </div>
             <div class="nav-center">
-                <button id="check-updates" class="utility-button">
-                    Check for Updates
-                </button>
+                <!-- center intentionally left empty to keep logo centered -->
             </div>
             <div class="nav-right">
-                <button id="delete-all" class="utility-button danger-button">
-                    Delete All Information
+                <button id="check-updates" class="utility-button">
+                    Check for Updates
                 </button>
             </div>
         </div>
