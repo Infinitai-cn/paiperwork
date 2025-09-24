@@ -16590,7 +16590,7 @@ function type1FontGlyphMapping(properties, builtInEncoding, glyphNames) {
 function normalizeFontName(name) {
   return name.replaceAll(/[,_]/g, "-").replaceAll(/\s/g, "");
 }
-const getVerticalPresentationForm = getLookupTableFactory(t => {
+const getVerticalSlideForgeForm = getLookupTableFactory(t => {
   t[0x2013] = 0xfe32;
   t[0x2014] = 0xfe31;
   t[0x2025] = 0xfe30;
@@ -25288,7 +25288,7 @@ class Font {
       }
     }
     if (this.missingFile && this.vertical && fontChar.length === 1) {
-      const vertical = getVerticalPresentationForm()[fontChar.charCodeAt(0)];
+      const vertical = getVerticalSlideForgeForm()[fontChar.charCodeAt(0)];
       if (vertical) {
         fontChar = unicode = String.fromCharCode(vertical);
       }
