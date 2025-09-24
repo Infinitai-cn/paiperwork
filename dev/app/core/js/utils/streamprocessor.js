@@ -2678,7 +2678,6 @@ class StreamProcessor {
         tableHtml += '</tbody></table></div>';
         return tableHtml;
     }
-
     looksLikeDomain(text) {
         // Check if text looks like a domain name
         return /^[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,}(\.[a-zA-Z]{2,})?$/.test(text.toLowerCase()) ||
