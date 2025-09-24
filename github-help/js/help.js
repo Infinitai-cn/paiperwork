@@ -4,12 +4,23 @@ function setAppropriateHelpImage() {
   if (logoImg) {
     // Detect if we're on GitHub Pages or local dev
     const isGitHubPages = window.location.hostname.includes('github.io') || window.location.hostname.includes('githubusercontent.com');
-    const basePath = isGitHubPages ? '' : '../github-help/';
+    const currentPath = window.location.pathname;
+    let basePath;
+    
+    if (isGitHubPages) {
+      if (currentPath.includes('/github-help/')) {
+        basePath = '';
+      } else {
+        basePath = 'github-help/';
+      }
+    } else {
+      basePath = '../github-help/';
+    }
     
     logoImg.src = isDarkMode
       ? `${basePath}images/Paiperwork-APP-dark.png`
       : `${basePath}images/Paiperwork-APP-light.png`;
-    //console.log("Help logo set to:", logoImg.src);
+    console.log("Help logo set to:", logoImg.src);
   } else {
     console.warn("Help logo element not found");
   }
@@ -126,7 +137,18 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
   
   // Detect if we're on GitHub Pages or local dev
   const isGitHubPages = window.location.hostname.includes('github.io') || window.location.hostname.includes('githubusercontent.com');
-  const basePath = isGitHubPages ? '' : '../github-help/';
+  const currentPath = window.location.pathname;
+  let basePath;
+  
+  if (isGitHubPages) {
+    if (currentPath.includes('/github-help/')) {
+      basePath = '';
+    } else {
+      basePath = 'github-help/';
+    }
+  } else {
+    basePath = '../github-help/';
+  }
   
   imageElement.src = `${basePath}images/help/${imageSrc}`;
   imageElement.alt = imageAlt;
