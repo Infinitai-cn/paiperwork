@@ -36,11 +36,20 @@ static async loadLanguage(lang) {
         const isGitHubPages = window.location.hostname.includes('github.io') || window.location.hostname.includes('githubusercontent.com');
         let langPath;
         
-        //console.log('Current path for language loading:', currentPath); // Debug log
+        console.log('Current path for language loading:', currentPath); // Debug log
+        console.log('Is GitHub Pages:', isGitHubPages); // Debug log
+        console.log('Current hostname:', window.location.hostname); // Debug log
+        console.log('Full URL:', window.location.href); // Debug log
         
         if (isGitHubPages) {
-            // When hosted on GitHub Pages, always use relative path from github-help
-            langPath = `js/lang-${lang}.js`;
+            // When hosted on GitHub Pages, construct full path relative to github-help directory
+            if (currentPath.includes('/github-help/')) {
+                // Already in github-help directory, use relative path
+                langPath = `js/lang-${lang}.js`;
+            } else {
+                // Need to navigate to github-help first
+                langPath = `github-help/js/lang-${lang}.js`;
+            }
         } else if (currentPath.includes('/core/js/help/')) {
             // help.html at /dev/app/core/js/help/help.html
             langPath = `../translations/lang-${lang}.js`;
@@ -55,7 +64,7 @@ static async loadLanguage(lang) {
             langPath = `core/js/translations/lang-${lang}.js`;
         }
         
-        //console.log('Using language path:', langPath); // Debug log
+        console.log('Using language path:', langPath); // Debug log
         script.src = langPath;
         
         return new Promise((resolve, reject) => {
