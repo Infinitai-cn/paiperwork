@@ -1651,7 +1651,7 @@ class DocumentGenerator {
             };
 
             // Encrypt and store
-            const encryptedData = await PaiperworkDB.encryptPrompt(hashedMasterKey, JSON.stringify(letterData));
+            const encryptedData = await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(letterData));
             localStorage.setItem(`letterData_${templateType}`, JSON.stringify(encryptedData));
         } else if (templateType === 'contract') {
             // Get all contract field values
@@ -1672,7 +1672,7 @@ class DocumentGenerator {
             };
 
             // Encrypt and store
-            const encryptedData = await PaiperworkDB.encryptPrompt(hashedMasterKey, JSON.stringify(contractData));
+            const encryptedData = await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(contractData));
             localStorage.setItem(`letterData_${templateType}`, JSON.stringify(encryptedData));
         } else if (templateType === 'proposal') {
             // Get all proposal field values
@@ -1695,7 +1695,7 @@ class DocumentGenerator {
             };
 
             // Encrypt and store
-            const encryptedData = await PaiperworkDB.encryptPrompt(hashedMasterKey, JSON.stringify(proposalData));
+            const encryptedData = await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(proposalData));
             localStorage.setItem(`letterData_${templateType}`, JSON.stringify(encryptedData));
         } else if (templateType === 'memo') {
             // Get all memo field values
@@ -1711,7 +1711,7 @@ class DocumentGenerator {
             };
 
             // Encrypt and store
-            const encryptedData = await PaiperworkDB.encryptPrompt(hashedMasterKey, JSON.stringify(memoData));
+            const encryptedData = await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(memoData));
             localStorage.setItem(`letterData_${templateType}`, JSON.stringify(encryptedData));
         } else if (templateType === 'meeting-minutes') {
             // Get all meeting minutes field values
@@ -1736,7 +1736,7 @@ class DocumentGenerator {
             };
 
             // Encrypt and store
-            const encryptedData = await PaiperworkDB.encryptPrompt(hashedMasterKey, JSON.stringify(minutesData));
+            const encryptedData = await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(minutesData));
             localStorage.setItem(`letterData_${templateType}`, JSON.stringify(encryptedData));
         }
     }
@@ -1750,7 +1750,7 @@ class DocumentGenerator {
             if (savedData) {
                 // Decrypt the data
                 const encryptedData = JSON.parse(savedData);
-                const decryptedDataStr = await PaiperworkDB.decryptPrompt(hashedMasterKey, encryptedData);
+                const decryptedDataStr = await PaiperworkDB.decrypt(hashedMasterKey, encryptedData);
                 if (decryptedDataStr) {
                     const letterData = JSON.parse(decryptedDataStr);
 
@@ -1844,7 +1844,7 @@ class DocumentGenerator {
 
             if (savedData) {
                 const encryptedData = JSON.parse(savedData);
-                const decryptedDataStr = await PaiperworkDB.decryptPrompt(hashedMasterKey, encryptedData);
+                const decryptedDataStr = await PaiperworkDB.decrypt(hashedMasterKey, encryptedData);
 
                 if (decryptedDataStr) {
                     // Store each template type in its own memory to prevent mixing
@@ -1905,17 +1905,17 @@ class DocumentGenerator {
 
         // Get saved letter data from localStorage
         const getSavedLetterData = async () => {
+                        // Declare bodyContent and minutesHeader here so they're available after the try/catch
+            let bodyContent = '';
+            let minutesHeader = '';
             try {
                 const hashedMasterKey = await PaiperworkDB.hashMasterKeyValue('letterData');
                 const savedData = localStorage.getItem(`letterData_${templateType}`);
 
-                let bodyContent = '';
-                let documentBody = '';
-
                 if (savedData) {
                     // Decrypt the data
                     const encryptedData = JSON.parse(savedData);
-                    const decryptedDataStr = await PaiperworkDB.decryptPrompt(hashedMasterKey, encryptedData);
+                    const decryptedDataStr = await PaiperworkDB.decrypt(hashedMasterKey, encryptedData);
 
                     if (decryptedDataStr) {
                         const letterData = JSON.parse(decryptedDataStr);
@@ -1952,7 +1952,7 @@ class DocumentGenerator {
                                 const savedData = localStorage.getItem(`letterData_${templateType}`);
                                 if (savedData) {
                                     const encryptedData = JSON.parse(savedData);
-                                    const decryptedDataStr = await PaiperworkDB.decryptPrompt(hashedMasterKey, encryptedData);
+                                    const decryptedDataStr = await PaiperworkDB.decrypt(hashedMasterKey, encryptedData);
                                     if (decryptedDataStr) {
                                         const minutesData = JSON.parse(decryptedDataStr);
 
@@ -1963,10 +1963,11 @@ class DocumentGenerator {
                                             formattedDate = this.formatDateForRegion(minutesData.date);
                                         }
 
-                                        // Create a simple header for the meeting minutes preview
-                                        const minutesHeader = `${minutesData.title || 'MEETING MINUTES'}\n\nDate: ${formattedDate} ${minutesData.time || ''}\nLocation: ${minutesData.location || ''}\nFacilitator: ${minutesData.facilitator || ''}\n\nAttendees:\n${minutesData.attendees || ''}\n\n`;
+                                        // Create a simple header for the meeting minutes preview and store it
+                                        minutesHeader = `${minutesData.title || 'MEETING MINUTES'}\n\nDate: ${formattedDate} ${minutesData.time || ''}\nLocation: ${minutesData.location || ''}\nFacilitator: ${minutesData.facilitator || ''}\n\nAttendees:\n${minutesData.attendees || ''}\n\n`;
 
-                                        bodyContent = minutesHeader + documentBody;
+                                        // Keep bodyContent as the (yet-to-be-extracted) document body; we'll prepend the header after extraction
+                                        bodyContent = documentBody;
                                     } else {
                                         bodyContent = documentBody;
                                     }
@@ -2028,52 +2029,42 @@ class DocumentGenerator {
                     }
 
                 } else if (templateType === 'meeting-minutes') {
-                    // For meeting minutes, use the full AI-generated content directly
-                    // The AI generates the complete formatted meeting minutes
-                    documentBody = this.documentContent;
-                    //console.log('Using full AI content for meeting minutes');
+                     // For meeting minutes, parse the AI-generated HTML using DOM methods
+                    // to preserve block structure and spacing (similar approach to business-letter)
+                    try {
+                        if (this.documentContent) {
+                            // Create a temporary container and set the HTML
+                            const tmp = document.createElement('div');
+                            tmp.innerHTML = this.documentContent;
 
-                    // Try to extract just the formatted content if it's wrapped in HTML
-                    if (this.documentContent.includes('<div style="font-family: Arial, sans-serif;')) {
-                        // Strip the outer wrapper but keep the content
-                        const contentMatch = this.documentContent.match(/<div style="font-family: Arial, sans-serif;[^>]*">([\s\S]*?)<\/div>$/);
-                        if (contentMatch && contentMatch[1]) {
-                            // Convert HTML back to plain text for the editor
-                            documentBody = contentMatch[1]
-                                .replace(/<br\s*\/?>/gi, '\n')
-                                .replace(/<\/p>/gi, '\n\n')
-                                .replace(/<p[^>]*>/gi, '')
-                                .replace(/<\/h[1-6]>/gi, '\n\n')
-                                .replace(/<h[1-6][^>]*>/gi, '')
-                                .replace(/<\/td>/gi, '\n')
-                                .replace(/<td[^>]*>/gi, '')
-                                .replace(/<\/tr>/gi, '\n')
-                                .replace(/<tr[^>]*>/gi, '')
-                                .replace(/<\/table>/gi, '\n\n')
-                                .replace(/<table[^>]*>/gi, '')
-                                .replace(/<\/div>/gi, '\n')
-                                .replace(/<div[^>]*>/gi, '')
-                                .replace(/<[^>]+>/g, '') // Remove any remaining HTML tags
-                                .replace(/&nbsp;/g, ' ')
-                                .replace(/&amp;/g, '&')
-                                .replace(/&lt;/g, '<')
-                                .replace(/&gt;/g, '>')
-                                .replace(/\n\s*\n\s*\n/g, '\n\n') // Replace multiple newlines with double newlines
-                                .replace(/^\s+/gm, '') // Remove leading whitespace from each line
-                                .trim();
-                            //console.log('Extracted and cleaned meeting minutes content');
+                            // Remove scripts/styles if present
+                            tmp.querySelectorAll('script,style').forEach(n => n.remove());
+
+                            // Get the visible text with preserved block breaks using innerText
+                            let extractedText = tmp.innerText || tmp.textContent || '';
+
+                            // Normalize line endings and collapse excessive blank lines
+                            extractedText = extractedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+
+                            documentBody = extractedText;
                         }
+                    } catch (err) {
+                        console.error('Error extracting meeting-minutes via DOM, falling back to regex cleanup:', err);
+                        // Fallback: use the raw content as-is
+                        documentBody = this.documentContent || '';
                     }
                 }
             }
             // Create final content for display
             //console.log('Creating bodyContent for display');
-            let bodyContent = '';
+            // Use a single displayBodyContent variable so earlier values (e.g. meeting-minutes header)
+            // set above are not accidentally shadowed.
+            let displayBodyContent = bodyContent || '';
 
             if (templateType === 'business-letter') {
-                bodyContent = `${location}\n${formattedDate}\n\n${documentBody}`;
+                displayBodyContent = `${location}\n${formattedDate}\n\n${documentBody}`;
             } else if (templateType === 'contract') {
-                bodyContent = documentBody;
+                displayBodyContent = documentBody;
             } else if (templateType === 'memo') {
                 // For memos, we should include some header info from saved data
                 try {
@@ -2081,14 +2072,14 @@ class DocumentGenerator {
                     const savedData = localStorage.getItem(`letterData_${templateType}`);
                     if (savedData) {
                         const encryptedData = JSON.parse(savedData);
-                        const decryptedDataStr = await PaiperworkDB.decryptPrompt(hashedMasterKey, encryptedData);
+                        const decryptedDataStr = await PaiperworkDB.decrypt(hashedMasterKey, encryptedData);
                         if (decryptedDataStr) {
                             const memoData = JSON.parse(decryptedDataStr);
                             // Add a simple header for the memo preview
                             const memoHeader = `MEMORANDUM\n\nDATE: ${formattedDate}\nTO: ${memoData.to || ''}\nFROM: ${memoData.from || ''}\nSUBJECT: ${memoData.subject || ''}\n${memoData.attachments ? `ATTACHMENTS: ${memoData.attachments}\n` : ''}\n`;
-                            bodyContent = memoHeader + documentBody;
+                            displayBodyContent = memoHeader + documentBody;
                         } else {
-                            bodyContent = documentBody;
+                            displayBodyContent = documentBody;
                         }
                     } else {
                         bodyContent = documentBody;
@@ -2104,32 +2095,58 @@ class DocumentGenerator {
                     const savedData = localStorage.getItem(`letterData_${templateType}`);
                     if (savedData) {
                         const encryptedData = JSON.parse(savedData);
-                        const decryptedDataStr = await PaiperworkDB.decryptPrompt(hashedMasterKey, encryptedData);
+                        const decryptedDataStr = await PaiperworkDB.decrypt(hashedMasterKey, encryptedData);
                         if (decryptedDataStr) {
                             const proposalData = JSON.parse(decryptedDataStr);
                             // Add a simple header for the proposal preview
-                            const proposalHeader = `${proposalData.title || 'BUSINESS PROPOSAL'}\n\nPrepared: ${formattedDate}\nPrepared by: ${proposalData.companyInfo ? proposalData.companyInfo.split('\n')[0] : ''}\nPrepared for: ${proposalData.clientInfo ? proposalData.clientInfo.split('\n')[0] : ''}\n\n`; bodyContent = proposalHeader + documentBody;
+                            const proposalHeader = `${proposalData.title || 'BUSINESS PROPOSAL'}\n\nPrepared: ${formattedDate}\nPrepared by: ${proposalData.companyInfo ? proposalData.companyInfo.split('\n')[0] : ''}\nPrepared for: ${proposalData.clientInfo ? proposalData.clientInfo.split('\n')[0] : ''}\n\n`;
+                            displayBodyContent = proposalHeader + documentBody;
                         } else {
-                            bodyContent = documentBody;
+                            displayBodyContent = documentBody;
                         }
                     } else {
-                        bodyContent = documentBody;
+                         displayBodyContent = documentBody;
                     }
                 } catch (error) {
                     console.error('Error formatting proposal preview:', error);
-                    bodyContent = documentBody;
+                         displayBodyContent = documentBody;
                 }
-            } else {
+                } else {
                 // Default case for other document types
-                bodyContent = documentBody;
+                displayBodyContent = documentBody;
             }
 
-            //console.log('Final bodyContent:', bodyContent);
+                    // Debug logs to inspect meeting-minutes content flow
+            try {
+                //console.debug('DEBUG: this.documentContent (raw):', this.documentContent);
+                //console.debug('DEBUG: minutesHeader:', minutesHeader);
+                //console.debug('DEBUG: documentBody (after extraction/cleanup):', documentBody);
+                //console.debug('DEBUG: displayBodyContent (final):', displayBodyContent);
+            } catch (e) {
+                // Non-fatal: console may be undefined in some environments
+            }
 
             // Create the UI with the simplified toggle approach
 
+            // Normalize excessive blank lines and whitespace:
+            // - unify CRLF to LF
+            // - strip leading/trailing spaces on each line
+            // - collapse any run of 3+ newline/whitespace-only lines into exactly two newlines
+            try {
+                displayBodyContent = String(displayBodyContent).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                // Remove leading/trailing spaces on each line
+                displayBodyContent = displayBodyContent.replace(/^[ \t]+/gm, '').replace(/[ \t]+$/gm, '');
+                // Collapse runs of 3+ newline+optional-space sequences to exactly two newlines
+                displayBodyContent = displayBodyContent.replace(/(\n[ \t\f\v]*){3,}/g, '\n\n');
+                // Safety: also collapse plain 3+ newlines
+                displayBodyContent = displayBodyContent.replace(/\n{3,}/g, '\n\n');
+                displayBodyContent = displayBodyContent.trim();
+            } catch (e) {
+                // ignore if displayBodyContent is not a string
+            }
+
             // Create a formatted version of the content with Markdown converted to HTML
-            const formattedContent = this.convertMarkdownToHTML(bodyContent);
+            const formattedContent = this.convertMarkdownToHTML(displayBodyContent);
 
             this.showFloatingWindow(
                 title,
@@ -2144,7 +2161,7 @@ class DocumentGenerator {
                     
                     <!-- Initially hidden text editor -->
                     <div id="editor-container" style="display: none;">
-                        <textarea id="document-editor" class="paperwork-textarea" style="min-height: 400px; width: 100%; box-sizing: border-box; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; padding: 15px; background-color: var(--input-bg, white); color: var(--text-color, #333); border: 1px solid var(--border-color, #ddd);">${bodyContent}</textarea>
+                        <textarea id="document-editor" class="paperwork-textarea" style="min-height: 400px; width: 100%; box-sizing: border-box; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; padding: 15px; background-color: var(--input-bg, white); color: var(--text-color, #333); border: 1px solid var(--border-color, #ddd);">${displayBodyContent}</textarea>
                     </div>
                     
                 </div>

@@ -190,7 +190,7 @@ class ArtworksTab {
     // Loads the saved visual model selection from the database and restores it
     async loadSavedModelSelection() {
         try {
-            const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             if (!hashedMasterKey) return;
 
             // Load settings from database
@@ -239,7 +239,7 @@ class ArtworksTab {
             this.artworksInstance.selectedModel = modelSelector.value;
 
             // Save this auto-selection with the visual model key
-            const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             if (hashedMasterKey) {
                 PaiperworkDB.saveVisualModel(hashedMasterKey, this.artworksInstance.selectedModel)
                     .catch(err => console.error('Error saving auto-selected model:', err));
@@ -324,7 +324,7 @@ class ArtworksTab {
                 window.OllamaAPI.resetContext();
 
                 // Rebuild system prompt for text conversation
-                const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                 if (hashedMasterKey) {
                     window.OllamaAPI.buildCompleteSystemPrompt(hashedMasterKey).then(systemPrompt => {
                         //console.log('ArtworksTab: System prompt rebuilt for chat context');
@@ -350,7 +350,7 @@ class ArtworksTab {
         // Only proceed if RAG and OllamaAPI are available
         if (!window.RAG || !window.OllamaAPI) return;
 
-        const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         if (!hashedMasterKey) return;
 
         // Load conversation history
@@ -369,10 +369,16 @@ class ArtworksTab {
                     return; // Button already exists
                 }
 
-                // Add continuation button after the last AI message
-                const continueButton = window.OllamaAPI.createContinueButton(conversations, aiReplies);
-                if (continueButton) {
-                    lastAIMessage.after(continueButton);
+                // Skip adding continuation button if the aiReplies only contains the welcome message
+                const assistantMessagesAllArt = aiReplies.querySelectorAll('.assistant-message');
+                const hasOnlyWelcomeArt = (assistantMessagesAllArt.length === 1 && assistantMessagesAllArt[0].classList.contains('welcome-message'));
+
+                if (!hasOnlyWelcomeArt) {
+                    // Add continuation button after the last AI message
+                    const continueButton = window.OllamaAPI.createContinueButton(conversations, aiReplies);
+                    if (continueButton) {
+                        lastAIMessage.after(continueButton);
+                    }
                 }
             }
         }).catch(error => {
@@ -423,15 +429,49 @@ class ArtworksTab {
             removeImageBtn, promptInput, generateBtn
         } = this.elements;
 
-        // Model selection change - remove warning box logic
-        modelSelector.addEventListener('change', async () => {
+        // Initialize last known value for model selector to avoid unnecessary unloads
+        try {
+            modelSelector.__lastModelValue = modelSelector.value || '';
+        } catch (e) {
+            modelSelector.__lastModelValue = '';
+        }
+
+        // Model selection change - localized unload-on-select logic added
+        modelSelector.addEventListener('change', async (event) => {
             this.artworksInstance.selectedModel = modelSelector.value;
             this.updateGenerateButtonState();
+
+            // --- Unload-on-select (localized to ArtworksTab)
+            try {
+                // Only react for real user interactions
+                if (event && event.isTrusted) {
+                    const newValue = modelSelector.value || '';
+                    if (newValue !== modelSelector.__lastModelValue) {
+                        if (modelSelector.__unloadDebounceTimeout) clearTimeout(modelSelector.__unloadDebounceTimeout);
+                        modelSelector.__unloadDebounceTimeout = setTimeout(async () => {
+                            try {
+                                if (this && typeof this.unloadOllamaModels === 'function') {
+                                    //console.log('ArtworksTab: User changed visual model — calling ArtworksTab.unloadOllamaModels() to free memory.');
+                                    await this.unloadOllamaModels();
+                                } else {
+                                    console.warn('ArtworksTab: unloadOllamaModels not found on ArtworksTab; skipping unload on model change.');
+                                }
+                            } catch (err) {
+                                console.error('ArtworksTab: Error while unloading Ollama models on model change:', err);
+                            } finally {
+                                modelSelector.__lastModelValue = newValue;
+                            }
+                        }, 300);
+                    }
+                }
+            } catch (err) {
+                console.error('ArtworksTab: Error in unload-on-select handler:', err);
+            }
 
             // Save the selected model to database
             if (this.artworksInstance.selectedModel) {
                 try {
-                    const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                    const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                     if (hashedMasterKey) {
                         await PaiperworkDB.saveVisualModel(hashedMasterKey, this.artworksInstance.selectedModel);
                         //console.log('ArtworksTab: Saved selected vision model to database');
@@ -1016,7 +1056,7 @@ class ArtworksTab {
                 //console.log('ArtworksTab: Restored original system prompt');
 
                 // Also rebuild the Ollama context with original prompt
-                const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                 if (hashedMasterKey && window.OllamaAPI) {
                     await window.OllamaAPI.buildCompleteSystemPrompt(hashedMasterKey, this.originalSystemPrompt);
                     // Reset context to ensure clean state
@@ -1832,6 +1872,91 @@ class ArtworksTab {
 
             img.src = `data:image/jpeg;base64,${base64Data}`;
         });
+    }
+    
+    // Helper method to unload all models from Ollama to ensure clean memory (localized to ArtworksTab)
+    async unloadOllamaModels() {
+        try {
+            //console.log('ArtworksTab: Getting list of loaded Ollama models...');
+
+            // First, get the list of currently loaded models using /api/ps
+            const psResponse = await fetch('http://localhost:11434/api/ps', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!psResponse.ok) {
+                throw new Error(`HTTP ${psResponse.status}: ${psResponse.statusText}`);
+            }
+
+            const psData = await psResponse.json();
+            //console.log('ArtworksTab: Ollama /api/ps response:', psData);
+
+            // Extract loaded models from the response
+            let loadedModels = [];
+            if (psData && psData.models && Array.isArray(psData.models)) {
+                loadedModels = psData.models.map(model => model.name || model.model).filter(Boolean);
+            }
+
+            //console.log('ArtworksTab: Found loaded models:', loadedModels);
+
+            if (loadedModels.length === 0) {
+                //console.log('ArtworksTab: No models currently loaded. Skipping unload.');
+                return;
+            }
+
+            // Unload each model individually
+            const unloadPromises = loadedModels.map(async (modelName) => {
+                try {
+                    //console.log('ArtworksTab: Unloading model:', modelName);
+
+                    const unloadResponse = await fetch('http://localhost:11434/api/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: modelName,
+                            keep_alive: 0,
+                            stream: false
+                        })
+                    });
+
+                    let unloadData = null;
+                    try {
+                        unloadData = await unloadResponse.json();
+                    } catch (jsonErr) {
+                        unloadData = null;
+                    }
+
+                    if (!unloadResponse.ok) {
+                        console.warn(`ArtworksTab: Warning - failed to unload ${modelName}: ${unloadResponse.status} ${unloadResponse.statusText}`);
+                    } else {
+                        //console.log(`ArtworksTab: Successfully triggered unload for model: ${modelName}`);
+                    }
+
+                } catch (modelError) {
+                    console.error(`ArtworksTab: Error unloading model ${modelName}:`, modelError);
+                }
+            });
+
+            // Wait for all unload operations to complete
+            await Promise.all(unloadPromises);
+
+            //console.log('ArtworksTab: All model unload operations completed');
+
+            // Wait a brief moment for the unloads to complete
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+        } catch (error) {
+            console.error('ArtworksTab: Error in unloadOllamaModels:', error);
+            if (error && error.message && error.message.includes('Failed to fetch')) {
+                throw new Error('Could not connect to Ollama to unload models.');
+            }
+            throw error;
+        }
     }
 }
 // Export to global scope - IMPORTANT FIX
