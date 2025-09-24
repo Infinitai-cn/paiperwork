@@ -1,6 +1,6 @@
 const AppVersion = {
-    current: "1.0.0",
-    releaseDate: "2025-04-19",
+    current: "1.0.2",
+    releaseDate: "2025-09-24",
 
     // Parse version string into components for comparison
     parseVersion: function (versionStr) {
