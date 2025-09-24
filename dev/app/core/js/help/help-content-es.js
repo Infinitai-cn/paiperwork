@@ -1,4 +1,5 @@
 window.helpContent = {
+
     gettingstarted: {
         title: "Inicio",
         intro:
@@ -2034,6 +2035,115 @@ window.helpContent = {
                 image: "artworks_examples3.png",
                 imageAlt: "Gestión de Resultados",
                 imageCaption: "La ventana de vista previa interactiva con capacidades de edición y exportación",
+            },
+        ],
+    },
+    presentation: {
+        title: "Presentación",
+        intro: "Crea presentaciones a partir de documentos usando extracción asistida por IA y un editor de vista previa.",
+        articles: [
+            {
+                id: "presentation-overview",
+                title: "Descripción general",
+                content: `
+            <p>La pestaña Presentación convierte documentos compatibles (.pdf, .docx, .txt, .md) en una secuencia de diapositivas. La pestaña extrae el texto de tu archivo, utiliza la IA para generar el contenido de las diapositivas, opcionalmente recupera imágenes para las diapositivas y abre una vista previa interactiva donde puedes revisar y exportar el resultado.</p>
+            <p>Flujo rápido:</p>
+            <ol>
+                <li>Sube un documento usando arrastrar y soltar o el botón Examinar.</li>
+                <li>Elige el número de diapositivas y las viñetas por diapositiva.</li>
+                <li>Añade un prompt adicional opcional para controlar el tono o el estilo.</li>
+                <li>Haz clic en Generar para ejecutar la extracción y la generación por IA.</li>
+                <li>Revisa y edita las diapositivas en la ventana de vista previa y luego expórtalas.</li>
+            </ol>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Descripción general de la pestaña Presentación",
+                imageCaption: "Descripción general de la pestaña Presentación",
+            },
+            {
+                id: "presentation-generating",
+                title: "Generando presentaciones",
+                content: `
+            <p>Después de hacer clic en Generar, el sistema realiza varios pasos y muestra un modal de progreso:</p>
+            <ul>
+                <li><strong>Extracción de texto</strong> — se extrae el texto del documento para que la IA lo procese.</li>
+                <li><strong>Generación por IA</strong> — la IA transforma el texto extraído en contenido de diapositivas (el prompt adicional se incluye cuando se proporciona).</li>
+                <li><strong>Parseo e imágenes</strong> — la salida de la IA se analiza en diapositivas estructuradas y se descargan imágenes si están disponibles.</li>
+                <li><strong>Manejo de errores</strong> — la pestaña reintenta automáticamente una vez cuando la respuesta de la IA está malformada; los errores se muestran en el modal de carga.</li>
+            </ul>
+            <p>Puedes cancelar la generación en cualquier momento usando el botón cerrar/abort en el modal de carga. Abortando se detendrán las tareas en segundo plano y se cerrará el modal.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Generación de presentaciones",
+                imageCaption: "Proceso de generación e indicadores de progreso",
+            },
+            {
+                id: "presentation-preview-export",
+                title: "Vista previa, editar y exportar",
+                content: `
+            <p>Cuando la generación tiene éxito, se abre una Ventana de Vista Previa a pantalla completa. Características clave de la vista previa:</p>
+            <ul>
+                <li><strong>Vista amplia de la diapositiva</strong> — revisa la diapositiva actualmente seleccionada renderizada como HTML.</li>
+                <li><strong>Miniaturas</strong> — navega por las diapositivas con la barra de miniaturas y salta a cualquier diapositiva.</li>
+                <li><strong>Edición en línea</strong> — edita el texto de la diapositiva directamente en la vista previa (la vista previa aplica los datos de la diapositiva mediante la API PreviewWindow).</li>
+                <li><strong>Opciones de exportación</strong> — utiliza los controles de la vista previa para copiar el texto de la diapositiva, exportar imágenes o descargar HTML (el menú de exportación exacto lo proporciona la interfaz de la vista previa).</li>
+            </ul>
+            <p>Consejos: mantén el texto del documento claro para una mejor extracción, usa un número razonable de diapositivas en relación con la longitud del contenido y añade un prompt adicional cuando necesites un tono o estilo específico.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Vista previa y exportar",
+                imageCaption: "Ventana de vista previa, edición y opciones de exportación",
+            },
+            {
+                id: "presentation-sidebar",
+                title: "Barra lateral de Presentación",
+                content: `
+            <p>La Barra lateral de Presentación proporciona controles por diapositiva y globales para estilizar diapositivas, editar texto, gestionar imágenes y aplicar cambios de texto impulsados por IA.</p>
+            <h4>Pestañas</h4>
+            <ul>
+                <li><strong>Estilo</strong> — elige y aplica estilos de presentación (tarjetas preconstruidas como Clásico, Modo Oscuro, Producto, Corporativo y muchos presets de tema). El estilo <em>DIY</em> abre un gestor de estilos donde puedes crear o reutilizar estilos personalizados almacenados localmente.</li>
+                <li><strong>Texto</strong> — contiene controles globales de texto (fuente, color, viñetas) y controles específicos por nodo para elementos de texto seleccionados.</li>
+                <li><strong>Imagen</strong> — herramientas de imagen que incluyen importar/reemplazar, cambiar la imagen de portada, buscar imágenes por descripción y una galería de miniaturas para reemplazos rápidos.</li>
+            </ul>
+
+            <h4>Controles globales vs seleccionados</h4>
+            <p>La pestaña Texto expone controles globales aplicados a las viñetas y a los estilos de texto por defecto. Cuando seleccionas un nodo de texto en una diapositiva, aparecen controles específicos del nodo (tamaño de fuente, selector de color, modificación por IA) que permiten ajustes por nodo.</p>
+
+            <h4>Modificación de texto por IA</h4>
+            <ul>
+                <li>Introduce una instrucción en el cuadro de texto de IA (ejemplo: "Traducir a español" o "Haz estas viñetas más concisas").</li>
+                <li>Usa el botón <em>Modificar</em> para aplicar cambios a los nodos actualmente seleccionados.</li>
+                <li>Habilita el interruptor <em>Aplicar a todo el texto</em> para ejecutar la modificación en todos los nodos de texto coincidentes; la barra lateral intentará una ruta por lotes con informe de progreso cuando esté disponible.</li>
+                <li>El botón Modificar cambia a <em>Cancelar</em> mientras se ejecuta — aborta la operación usando el SlideForge AbortController compartido.</li>
+            </ul>
+
+            <h4>Herramientas de imagen</h4>
+            <ul>
+                <li><strong>Importar imagen</strong> — reemplaza la imagen seleccionada de la diapositiva o, cuando está activado, reemplaza la imagen de portada en la primera diapositiva.</li>
+                <li><strong>Cambiar portada</strong> — flujo con soporte de helper para reemplazar una imagen de portada de etapa completa; cae al flujo de importación estándar si no hay helper disponible.</li>
+                <li><strong>Buscar imágenes</strong> — escribe una descripción y haz clic en Buscar; los resultados llenan la cuadrícula de miniaturas donde puedes elegir una imagen para reemplazar la imagen seleccionada.</li>
+                <li>La cuadrícula de miniaturas está dimensionada para mostrar varias filas y proporciona mensajes de progreso/estado mientras se importan o reemplazan imágenes.</li>
+            </ul>
+
+            <h4>Tarjetas de estilo y DIY</h4>
+            <p>Las tarjetas de estilo te permiten aplicar rápidamente temas visuales. La tarjeta DIY abre el gestor de estilos si existen estilos personalizados (en memoria o en la BD) o lanza un modal de creación. Las tarjetas reflejan visualmente la disponibilidad y el estado de selección.</p>
+
+            <h4>Integración con helpers</h4>
+            <p>La barra lateral depende de helpers de selección adjuntos a las etapas de la presentación para realizar reemplazos de imagen, ediciones IA por lotes y operaciones de nodo. Si no se encuentra un helper, la barra lateral muestra mensajes útiles y recurre a los flujos globales disponibles.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Barra lateral de presentación",
+                imageCaption: "Controles de la barra lateral para estilo, texto e imágenes",
+            },
+            {
+                id: "presentation-export-note",
+                title: "Exportar PDF: Qué se exporta",
+                content: `
+            <p><strong>Nota:</strong> El botón <em>Export PDF</em> exporta la presentación exactamente como aparece en pantalla — incluyendo el texto de las diapositivas, las imágenes, las formas y los elementos de fondo.</p>
+        `,
+                image: "placeholder.png",
+                imageAlt: "Nota Exportar PDF",
+                imageCaption: "Exporta las diapositivas tal como se muestran en la vista previa",
             },
         ],
     },

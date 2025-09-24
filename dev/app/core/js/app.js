@@ -2,11 +2,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     //console.log('DOM Content Loaded');
     Lang.initialize();
     OllamaAPI.currentContextSize = parseInt(document.getElementById('context-selector')?.value || 8192);
-
     setupTabSwitching();
 
     // Initialize app with database and UI elements
-    const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+    const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
     if (hashedMasterKey && document.getElementById('model-selector')) {
         //console.log('Starting initialization');
         try {
@@ -29,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 // Sets up tab switching logic and handles tab activation/deactivation events
 function setupTabSwitching() {
+    //console.debug('[app] setupTabSwitching initializing');
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabPanes = document.querySelectorAll('.tab-pane');
 
@@ -72,11 +72,6 @@ function setupTabSwitching() {
                 handleModelsTab();
             } else if (button.dataset.tab === 'chat') {
                 await handleChatTab();
-
-                // Handle document mode UI update when switching to chat tab
-                if (window.RAG_Utils && window.RAG_Utils.handleTabSwitch) {
-                    window.RAG_Utils.handleTabSwitch('chat-tab');
-                }
             } else if (button.dataset.tab === 'documents') {
                 await handleDocumentsTab();
             } else if (button.dataset.tab === 'dataviz') {
@@ -90,15 +85,27 @@ function setupTabSwitching() {
                 if (window.researchTab && typeof window.researchTab.clearModelWarningIfModelSelected === 'function') {
                     window.researchTab.clearModelWarningIfModelSelected();
                 }
+            } else if (button.dataset.tab === 'presentation') {
+                await handlepresentationtab();
             } else if (button.dataset.tab === 'database') {
                 await handleDatabaseTab();
             }
+            // Guarded exit: call the module function if available to avoid ReferenceError
+            if (typeof exitDocumentQuestioningMode === 'function') {
+                exitDocumentQuestioningMode();
+            } else if (window.RAG_Utils && typeof window.RAG_Utils.exitDocumentQuestioningMode === 'function') {
+                window.RAG_Utils.exitDocumentQuestioningMode();
+            }
+
+
             // Notify the new tab it's being activated (if it has a handler)
             const newTabInstance = window[`${button.dataset.tab}Tab`];
             if (newTabInstance && typeof newTabInstance.handleTabChange === 'function') {
                 //console.log(`App: Notifying ${button.dataset.tab}Tab it's being activated`);
                 newTabInstance.handleTabChange(true);
             }
+            // Special case: SlideForge tab (ensure UI always renders)
+           /* ß */
             // Apply consistent styling to tab container
             document.querySelector('.tab-container').classList.add('tab-switched');
             setTimeout(() => {
@@ -205,12 +212,13 @@ async function handleDataVizTab() {
 // Handles refreshing and setting the model selector in the Chat tab
 async function handleChatTab() {
     //console.log('Chat tab clicked - refreshing model list');
-    const hashedMasterKey = localStorage.getItem('hashedMasterKey');
+    const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
     const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-    const lastDeletedModel = localStorage.getItem('lastDeletedModel');
+    const lastDeletedModel = sessionStorage.getItem('lastDeletedModel');
 
     // Give the DOM time to update after tab switch
     setTimeout(async () => {
+                       
         const modelSelector = document.getElementById('model-selector');
         //console.log('Model selector present:', !!modelSelector);
 
@@ -235,7 +243,7 @@ async function handleChatTab() {
                         // Check if this was the model we just deleted
                         if (lastDeletedModel && lastDeletedModel === settings.model) {
                             alert(Lang.get('modelDeleted').replace('{model}', settings.model));
-                            localStorage.removeItem('lastDeletedModel'); // Clear the reference
+                            sessionStorage.removeItem('lastDeletedModel'); // Clear the reference
                         }
                         await PaiperworkDB.saveModel(hashedMasterKey, '');
                         console.warn('Previously selected model not found:', settings.model);
@@ -325,7 +333,7 @@ async function handlePaperworkTab() {
 
         // Check if Paperwork class is available
         if (!window.Paperwork) {
-            console.warn('App: Paperwork class not loaded, waiting...');
+            //console.warn('App: Paperwork class not loaded, waiting...');
 
             // Wait for Paperwork class to be available with timeout
             await new Promise((resolve, reject) => {
@@ -543,6 +551,85 @@ async function handleArtworksTab() {
     }
 }
 
+// Initializes and displays the SlideForge tab and its document processing tools
+async function handlepresentationtab() {
+    //console.log('App: SlideForge tab clicked');
+
+    try {
+        // Wait for scripts to load first
+        if (!window.presentation) {
+            //console.log('App: Waiting for SlideForge library to load...');
+            await new Promise((resolve, reject) => {
+                let attempts = 0;
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    if (window.presentation) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                    if (attempts > 10) { // 2 seconds timeout
+                        clearInterval(checkInterval);
+                        reject(new Error('Timeout waiting for SlideForge to load'));
+                    }
+                }, 200);
+            });
+        }
+
+        // Now initialize SlideForge instance if needed
+        if (!window.presentation) {
+            //console.log('App: Creating new SlideForge instance');
+            window.presentation = new window.presentation();
+            await window.presentation.initialize();
+        }
+
+        // Wait for presentationtab
+        if (!window.presentationtab) {
+            await new Promise((resolve, reject) => {
+                let attempts = 0;
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    if (window.presentationtab) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                    if (attempts > 10) {
+                        clearInterval(checkInterval);
+                        reject(new Error('Timeout waiting for presentationtab to load'));
+                    }
+                }, 200);
+            });
+        }
+
+        // Initialize presentationtab UI
+        if (window.presentationtab) {
+            //console.log('App: Initializing SlideForge UI');
+            await window.presentationtab.initialize();
+        } else {
+            //console.log('App: Creating new presentationtab instance');
+            window.presentationtab = new window.presentationtab();
+            await window.presentationtab.initialize();
+        }
+
+    } catch (error) {
+        console.error('App: Error initializing SlideForge:', error);
+
+        // Show error message in the tab
+        const presentationtab = document.getElementById('presentation-tab');
+        if (presentationtab) {
+            presentationtab.innerHTML = `
+                <div class="presentation-error" style="padding: 20px; text-align: center; color: #e74c3c;">
+                    <h3>${Lang.get('errorLoadingSlideForgeTools') || 'Error Loading SlideForge Tools'}</h3>
+                    <p>${error.message || Lang.get('errorTryAgain') || 'Please try again later.'}</p>
+                    <button onclick="window.handlepresentationtab()" 
+                            style="padding: 8px 16px; margin-top: 10px; background: #4f46e5; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        ${Lang.get('retryButton') || 'Retry'}
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
 // Initializes and displays the Models tab and its model downloader UI
 async function handleModelsTab() {
 
@@ -662,13 +749,6 @@ async function handleDatabaseTab() {
 function setupChatHandlers(sendButton, promptInput) {
     const aiReplies = document.querySelector('.ai-replies');
 
-    // Add document mode styles for the notification banner
-    if (typeof addDocumentModeStyles === 'function') {
-        addDocumentModeStyles();
-    } else {
-        //console.log('Document mode styles will be added when the Documents tab is initialized');
-    }
-
 }
 
 // Cancels the current Ollama generation process and resets UI state
@@ -700,6 +780,20 @@ function cancelOllamaGeneration() {
         sendButton.classList.remove('cancel-state');
     }
 
+    // Additionally, abort any global abort controller used by other flows (e.g., Documents tab)
+    try {
+        if (window.globalAbortController) {
+            try {
+                window.globalAbortController.abort();
+            } catch (e) {
+                // ignore
+            }
+            window.globalAbortController = null;
+        }
+    } catch (err) {
+        console.warn('App: Error aborting globalAbortController during cancel:', err);
+    }
+
     window.isGenerating = false;
     return false;
 }
@@ -707,4 +801,5 @@ function cancelOllamaGeneration() {
 window.cancelOllamaGeneration = cancelOllamaGeneration;
 window.handlePaperworkTab = handlePaperworkTab;
 window.handleArtworksTab = handleArtworksTab;
+window.handlepresentationtab = handlepresentationtab;
 window.handleDatabaseTab = handleDatabaseTab;
