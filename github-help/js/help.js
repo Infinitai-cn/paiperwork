@@ -3,8 +3,8 @@ function setAppropriateHelpImage() {
   const logoImg = document.getElementById("help-logo");
   if (logoImg) {
     logoImg.src = isDarkMode
-      ? "../../images/Paiperwork-APP-dark.png"  // Updated path
-      : "../../images/Paiperwork-APP-light.png"; // Updated path
+      ? "../images/Paiperwork-APP-dark.png"  // Updated path
+      : "../images/Paiperwork-APP-light.png"; // Updated path
     //console.log("Help logo set to:", logoImg.src);
   } else {
     console.warn("Help logo element not found");
@@ -72,10 +72,9 @@ function createLightbox() {
 let helpLightbox;
 
 function createArticleElement(article) {
-  if (!helpLightbox) {
-    helpLightbox = createLightbox();
-  }
-
+    if (!helpLightbox) {
+        helpLightbox = createLightbox();
+      }
   const articleElement = document.createElement("div");
   articleElement.className = "help-article";
   articleElement.id = article.id;
@@ -91,18 +90,18 @@ function createArticleElement(article) {
   contentElement.innerHTML = article.content;
   articleElement.appendChild(contentElement);
 
-  // Handle images - support both array format and legacy single image format
-  if (article.images && Array.isArray(article.images) && article.images.length > 0) {
-    // Handle multiple images from images array
-    article.images.forEach(imageData => {
-      const figureElement = createFigureElement(imageData.src, imageData.alt || article.title, imageData.caption);
-      articleElement.appendChild(figureElement);
-    });
-  }
+    // Handle images - support both array format and legacy single image format
+    if (article.images && Array.isArray(article.images) && article.images.length > 0) {
+      // Handle multiple images from images array
+      article.images.forEach(imageData => {
+          const figureElement = createFigureElement(imageData.src, imageData.alt || article.title, imageData.caption);
+          articleElement.appendChild(figureElement);
+      });
+  } 
   // Fall back to legacy single image format
   else if (article.image) {
-    const figureElement = createFigureElement(article.image, article.imageAlt || article.title, article.imageCaption);
-    articleElement.appendChild(figureElement);
+      const figureElement = createFigureElement(article.image, article.imageAlt || article.title, article.imageCaption);
+      articleElement.appendChild(figureElement);
   }
 
   return articleElement;
@@ -120,28 +119,28 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
   imageContainer.style.cursor = "zoom-in";
 
   const imageElement = document.createElement("img");
-  imageElement.src = `../../images/help/${imageSrc}`;
+  imageElement.src = `../github-help/images/help/${imageSrc}`;
   imageElement.alt = imageAlt;
   imageElement.className = "help-image";
   imageElement.setAttribute("loading", "lazy");
 
   // Add click event to show the full-size image
   imageContainer.addEventListener("click", function () {
-    const lightboxImg = helpLightbox.querySelector(".help-lightbox-img");
-    lightboxImg.src = imageElement.src;
-    lightboxImg.alt = imageElement.alt;
-    helpLightbox.style.display = "flex";
+      const lightboxImg = helpLightbox.querySelector(".help-lightbox-img");
+      lightboxImg.src = imageElement.src;
+      lightboxImg.alt = imageElement.alt;
+      helpLightbox.style.display = "flex";
   });
 
   // Add load and error event handlers
   imageElement.addEventListener("load", function () {
-    this.classList.add("loaded");
+      this.classList.add("loaded");
   });
 
   imageElement.addEventListener("error", function () {
-    this.src = "../../images/help/placeholder.png";
-    this.classList.add("loaded");
-    //console.log(`Image not found: ${imageSrc}, using placeholder instead`);
+      this.src = "../github-help/images/help/placeholder.png";
+      this.classList.add("loaded");
+      console.log(`Image not found: ${imageSrc}, using placeholder instead`);
   });
 
   imageContainer.appendChild(imageElement);
@@ -149,9 +148,9 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
 
   // Add caption if available
   if (imageCaption) {
-    const captionElement = document.createElement("figcaption");
-    captionElement.textContent = imageCaption;
-    figureElement.appendChild(captionElement);
+      const captionElement = document.createElement("figcaption");
+      captionElement.textContent = imageCaption;
+      figureElement.appendChild(captionElement);
   }
 
   return figureElement;
