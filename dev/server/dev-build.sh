@@ -1,8 +1,39 @@
+#!/bin/bash
+
 # Get the directory where the script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" )" && pwd)"
 cd "$SCRIPT_DIR"
 
 echo "🔨 Building Paiperwork server for development..."
+
+build_macos_binary() {
+    local arch="$1"
+    local output="$2"
+
+    local clang_bin
+    local clangxx_bin
+    local sdkroot_path
+
+    clang_bin=$(xcrun --sdk macosx -f clang 2>/dev/null)
+    clangxx_bin=$(xcrun --sdk macosx -f clang++ 2>/dev/null)
+    sdkroot_path=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)
+
+    if [ -z "$clang_bin" ] || [ -z "$clangxx_bin" ] || [ -z "$sdkroot_path" ]; then
+        echo "  ❌ Xcode command line tools are required (clang/clang++/SDK missing)"
+        exit 1
+    fi
+
+    GOOS=darwin GOARCH="$arch" CGO_ENABLED=1 \
+    CC="$clang_bin" CXX="$clangxx_bin" SDKROOT="$sdkroot_path" \
+    go build -ldflags="-linkmode external -s -w" -o "$output" main.go
+
+    if [ $? -ne 0 ]; then
+        echo "  ❌ macOS ($arch) build failed"
+        exit 1
+    fi
+
+    echo "  ✅ macOS ($arch) build successful"
+}
 
 # Check if Go is installed
 if ! command -v go &> /dev/null; then
@@ -13,57 +44,65 @@ fi
 # Check and download dependencies
 echo "📦 Checking dependencies..."
 if [ -f "go.mod" ]; then
-    echo "  Found go.mod, ensuring dependencies are ready..."
+    echo "  Found go.mod, downloading dependencies..."
     go mod download
     if [ $? -ne 0 ]; then
         echo "  ❌ Failed to download dependencies"
         exit 1
     fi
     echo "  ✅ Dependencies ready"
+else
+    echo "  ℹ️  No go.mod found, using standard library only"
 fi
 
-# Build directly in dev folder for development
-echo "Building for macOS..."
-go build -o ../Paiperwork-server-dev-osx main.go
+# Remove previous dev binaries
+echo "🧹 Cleaning previous dev binaries..."
+rm -f ../Paiperwork-server-dev-osx
+rm -f ../Paiperwork-server-dev-win.exe
+rm -f ../Paiperwork-server-dev-linux
 
-# Build directly in dev folder for development
-echo "Building for macOS (current platform)..."
-go build -o ../Paiperwork-server-dev-osx main.go
+echo "📦 Building executables..."
+
+# Build for Windows (AMD64) - Disable CGO for pure Go builds
+echo "  Building for Windows (AMD64)..."
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../Paiperwork-server-dev-win.exe main.go
 
 if [ $? -eq 0 ]; then
-    echo "✅ macOS build successful"
+    echo "  ✅ Windows build successful"
 else
-    echo "❌ macOS build failed"
+    echo "  ❌ Windows build failed"
     exit 1
 fi
 
-# Build for Windows using cross-compilation
-echo "Building for Windows..."
-GOOS=windows GOARCH=amd64 go build -o ../Paiperwork-server-dev-win.exe main.go
+# Build for Mac (Apple Silicon - ARM64)
+echo "  Building for macOS (Apple Silicon)..."
+build_macos_binary arm64 ../Paiperwork-server-dev-osx
+
+# Build for Mac (Intel - AMD64) - for compatibility
+echo "  Building for macOS (Intel)..."
+build_macos_binary amd64 ../Paiperwork-server-dev-osx-intel
+
+# Build for Linux (AMD64)
+echo "  Building for Linux (AMD64)..."
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../Paiperwork-server-dev-linux main.go
 
 if [ $? -eq 0 ]; then
-    echo "✅ Windows build successful"
+    echo "  ✅ Linux build successful"
 else
-    echo "❌ Windows build failed"
+    echo "  ❌ Linux build failed"
     exit 1
 fi
 
-# Build for Linux using cross-compilation
-echo "Building for Linux..."
-GOOS=linux GOARCH=amd64 go build -o ../Paiperwork-server-dev-linux main.go
-
-if [ $? -eq 0 ]; then
-    echo "✅ Linux build successful"
-else
-    echo "❌ Linux build failed"
-    exit 1
-fi
+chmod +x ../Paiperwork-server-dev-osx
+chmod +x ../Paiperwork-server-dev-osx-intel
+chmod +x ../Paiperwork-server-dev-linux
 
 echo ""
 echo "🎉 Development build complete! Executables created in dev folder:"
-echo "   📦 Paiperwork-server-dev-osx (macOS)"
-echo "   📦 Paiperwork-server-dev-win.exe (Windows)"
-echo "   📦 Paiperwork-server-dev-linux (Linux)"
+echo "   📦 Paiperwork-server-dev-osx (macOS arm64)"
+echo "   📦 Paiperwork-server-dev-osx-intel (macOS amd64)"
+echo "   📦 Paiperwork-server-dev-win.exe (Windows amd64)"
+echo "   📦 Paiperwork-server-dev-linux (Linux amd64)"
 echo ""
-echo "💡 To run the development server:"
+echo "💡 To run the development server on macOS:"
 echo "   ./Paiperwork-server-dev-osx"
