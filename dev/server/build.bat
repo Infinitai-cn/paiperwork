@@ -5,6 +5,8 @@ REM Get the directory where the script is located
 cd /d "%~dp0"
 
 echo 🔨 Building Paiperwork for production distribution...
+echo ⚠️  macOS binaries now require Apple's clang/SDK on macOS (Tahoe update).
+echo ⚠️  Run build.sh on macOS to produce mac distributions; this Windows script skips them.
 
 REM Check if Go is installed
 go version >nul 2>&1
@@ -53,29 +55,29 @@ if errorlevel 1 (
 )
 echo   ✅ Windows build successful
 
-REM Build for Mac (Apple Silicon - ARM64)
-echo   Building for macOS (Apple Silicon)...
-set GOOS=darwin
-set GOARCH=arm64
-go build -ldflags="-s -w" -o "..\..\dist\mac\Paiperwork-server" main.go
+REM macOS (Apple Silicon) build disabled on Windows (requires Xcode toolchain)
+REM echo   Building for macOS (Apple Silicon)...
+REM set GOOS=darwin
+REM set GOARCH=arm64
+REM go build -ldflags="-s -w" -o "..\..\dist\mac\Paiperwork-server" main.go
+REM 
+REM if errorlevel 1 (
+REM     echo   ❌ macOS (ARM64) build failed
+REM     exit /b 1
+REM )
+REM echo   ✅ macOS (ARM64) build successful
 
-if errorlevel 1 (
-    echo   ❌ macOS (ARM64) build failed
-    exit /b 1
-)
-echo   ✅ macOS (ARM64) build successful
-
-REM Build for Mac (Intel - AMD64)
-echo   Building for macOS (Intel)...
-set GOOS=darwin
-set GOARCH=amd64
-go build -ldflags="-s -w" -o "..\..\dist\mac\Paiperwork-server-intel" main.go
-
-if errorlevel 1 (
-    echo   ❌ macOS (Intel) build failed
-    exit /b 1
-)
-echo   ✅ macOS (Intel) build successful
+REM macOS (Intel) build disabled on Windows (requires Xcode toolchain)
+REM echo   Building for macOS (Intel)...
+REM set GOOS=darwin
+REM set GOARCH=amd64
+REM go build -ldflags="-s -w" -o "..\..\dist\mac\Paiperwork-server-intel" main.go
+REM 
+REM if errorlevel 1 (
+REM     echo   ❌ macOS (Intel) build failed
+REM     exit /b 1
+REM )
+REM echo   ✅ macOS (Intel) build successful
 
 REM Build for Linux (AMD64)
 echo   Building for Linux (AMD64)...

@@ -5,6 +5,8 @@ REM Get the directory where the script is located
 cd /d "%~dp0"
 
 echo 🔨 Building Paiperwork server for development...
+echo ⚠️  macOS binaries now require Apple's toolchain on macOS (Tahoe update).
+echo ⚠️  This Windows script will build Windows/Linux only. Run dev-build.sh on macOS for mac binaries.
 
 REM Check if Go is installed
 go version >nul 2>&1
@@ -35,17 +37,17 @@ if errorlevel 1 (
 )
 echo ✅ Windows build successful
 
-REM Build for macOS using cross-compilation
-echo Building for macOS...
-set GOOS=darwin
-set GOARCH=amd64
-go build -o "..\Paiperwork-server-dev-osx" main.go
-
-if errorlevel 1 (
-    echo ❌ macOS build failed
-    exit /b 1
-)
-echo ✅ macOS build successful
+REM macOS cross-compilation disabled on Windows (requires Xcode toolchain)
+REM echo Building for macOS...
+REM set GOOS=darwin
+REM set GOARCH=amd64
+REM go build -o "..\Paiperwork-server-dev-osx" main.go
+REM 
+REM if errorlevel 1 (
+REM     echo ❌ macOS build failed
+REM     exit /b 1
+REM )
+REM echo ✅ macOS build successful
 
 REM Build for Linux using cross-compilation
 echo Building for Linux...

@@ -72,6 +72,13 @@ go mod tidy
 
 ## Development Workflow
 
+> ⚠️ **macOS 15 “Tahoe” Notice**
+>
+> - macOS binaries must now include Apple’s `LC_UUID` load command. This requires compiling with Xcode’s clang toolchain using external linking.
+> - Run the shell scripts (`build.sh`, `dev-build.sh`) on a macOS machine with the Xcode Command Line Tools installed. They already use the required flags and place mac binaries in `dev/` or `dist/` as before.
+> - The Windows batch scripts (`build.bat`, `dev-build.bat`) now show a warning and skip macOS targets; they can only produce Windows/Linux binaries. If you need mac outputs from Windows, build inside a macOS VM or CI runner instead.
+> - The Windows batch files still contain the macOS sections in comments for reference so you can re-enable them if Apple changes requirements.
+
 ### Project Structure
 ```
 paiperwork/
@@ -111,12 +118,13 @@ cd dev\server
 dev-build.bat
 ```
 
-This creates platform-specific development binaries:
+This creates platform-specific development binaries in `dev/`:
 - `Paiperwork-server-dev-linux`
-- `Paiperwork-server-dev-osx` 
+- `Paiperwork-server-dev-osx`
+- `Paiperwork-server-dev-osx-intel`
 - `Paiperwork-server-dev-win.exe`
 
-This binaries will be created at the app folder level.
+> ℹ️ On Windows, the `.bat` script skips macOS outputs. Use the mac shell script to generate Tahoe-compatible mac binaries.
 
 ### Production Builds
 
@@ -135,6 +143,8 @@ build.bat
 ```
 
 This binaries and js files will be created inside the dist folder.
+
+> ℹ️ Production macOS binaries also require running `build.sh` on macOS so the external linker can stamp `LC_UUID`. The Windows `.bat` build will only populate Windows/Linux packages.
 
 ## Development Setup
 

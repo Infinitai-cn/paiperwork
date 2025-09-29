@@ -1,10 +1,39 @@
 #!/bin/bash
 
 # Get the directory where the script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" )" && pwd)"
 cd "$SCRIPT_DIR"
 
 echo "🔨 Building Paiperwork for production distribution..."
+
+build_macos_binary() {
+    local arch="$1"
+    local output="$2"
+
+    local clang_bin
+    local clangxx_bin
+    local sdkroot_path
+
+    clang_bin=$(xcrun --sdk macosx -f clang 2>/dev/null)
+    clangxx_bin=$(xcrun --sdk macosx -f clang++ 2>/dev/null)
+    sdkroot_path=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)
+
+    if [ -z "$clang_bin" ] || [ -z "$clangxx_bin" ] || [ -z "$sdkroot_path" ]; then
+        echo "  ❌ Xcode command line tools are required (clang/clang++/SDK missing)"
+        exit 1
+    fi
+
+    GOOS=darwin GOARCH="$arch" CGO_ENABLED=1 \
+    CC="$clang_bin" CXX="$clangxx_bin" SDKROOT="$sdkroot_path" \
+    go build -ldflags="-linkmode external -s -w" -o "$output" main.go
+
+    if [ $? -ne 0 ]; then
+        echo "  ❌ macOS ($arch) build failed"
+        exit 1
+    fi
+
+    echo "  ✅ macOS ($arch) build successful"
+}
 
 # Check if Go is installed
 if ! command -v go &> /dev/null; then
@@ -52,25 +81,11 @@ fi
 
 # Build for Mac (Apple Silicon - ARM64)
 echo "  Building for macOS (Apple Silicon)..."
-CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o ../../dist/mac/Paiperwork-server main.go
-
-if [ $? -eq 0 ]; then
-    echo "  ✅ macOS (ARM64) build successful"
-else
-    echo "  ❌ macOS (ARM64) build failed"
-    exit 1
-fi
+build_macos_binary arm64 ../../dist/mac/Paiperwork-server
 
 # Build for Mac (Intel - AMD64) - for compatibility
 echo "  Building for macOS (Intel)..."
-CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o ../../dist/mac/Paiperwork-server-intel main.go
-
-if [ $? -eq 0 ]; then
-    echo "  ✅ macOS (Intel) build successful"
-else
-    echo "  ❌ macOS (Intel) build failed"
-    exit 1
-fi
+build_macos_binary amd64 ../../dist/mac/Paiperwork-server-intel
 
 # Build for Linux (AMD64)
 echo "  Building for Linux (AMD64)..."
