@@ -13,7 +13,9 @@ class presentationtab {
         //console.log('[SlideForgeTab] createSlideForge - selectedFile:', file && file.name ? `${file.name} (${file.size || 'unknown'} bytes)` : file); 
         } catch (e) {}
         const pagesSelector = document.getElementById('presentation-pages-selector');
+        const modeSelector = document.getElementById('presentation-mode-selector');
         const numPages = pagesSelector ? parseInt(pagesSelector.value, 10) : 1;
+        const mode = modeSelector ? modeSelector.value || 'summarize' : 'summarize';
         if (!file || !numPages) {
             alert(Lang.get('pleaseSelectFileAndPages'));
             return;
@@ -146,15 +148,16 @@ class presentationtab {
                 let parsedSlides = null;
                 try {
                     // If extraPrompt is provided, prefer using it in the AI call when supported by contentInstance
+                    const genOpts = { extraPrompt, mode };
                     if (extraPrompt && extraPrompt.trim() && typeof contentInstance.generateSlideForgeRawAIReply === 'function') {
                         try {
-                            aiReply = await contentInstance.generateSlideForgeRawAIReply(file, numSlides, logCallback, { extraPrompt });
+                            aiReply = await contentInstance.generateSlideForgeRawAIReply(file, numSlides, logCallback, genOpts);
                         } catch (e) {
                             // fallback to original signature
-                            aiReply = await contentInstance.generateSlideForgeRawAIReply(file, numSlides, logCallback);
+                            aiReply = await contentInstance.generateSlideForgeRawAIReply(file, numSlides, logCallback, genOpts);
                         }
                     } else {
-                        aiReply = await contentInstance.generateSlideForgeRawAIReply(file, numSlides, logCallback);
+                        aiReply = await contentInstance.generateSlideForgeRawAIReply(file, numSlides, logCallback, genOpts);
                     }
                     setLoadingMessage(Lang.get('aiReplyReceived'));
                     logCallback('[AI] Raw reply: ' + aiReply);
@@ -179,15 +182,15 @@ class presentationtab {
                             } catch (e) { /* ignore */ }
 
                             // Call the AI again once
-                            try {
-                                let aiReply2 = '';
                                 try {
-                                    aiReply2 = await contentInstance.generateSlideForgeRawAIReply(file, numSlides, logCallback);
-                                } catch (e2) {
-                                    logCallback('[Error] Retry AI call failed: ' + e2.message);
-                                    setLoadingMessage(Lang.get('presentationError') + ': ' + e2.message);
-                                    return;
-                                }
+                                    let aiReply2 = '';
+                                    try {
+                                        aiReply2 = await contentInstance.generateSlideForgeRawAIReply(file, numSlides, logCallback, { extraPrompt, mode });
+                                    } catch (e2) {
+                                        logCallback('[Error] Retry AI call failed: ' + e2.message);
+                                        setLoadingMessage(Lang.get('presentationError') + ': ' + e2.message);
+                                        return;
+                                    }
 
                                 setLoadingMessage(Lang.get('aiReplyReceived'));
                                 logCallback('[AI] Raw reply (retry): ' + aiReply2);
@@ -357,6 +360,7 @@ class presentationtab {
                         <div class="setting-group">
                             <select id="presentation-mode-selector">
                                 <option value="summarize">${Lang.get('summarizeToSlideForge')}</option>
+                                <option value="direct-copy">${Lang.get('directCopyMode') || 'Direct copy'}</option>
                             </select>
                         </div>
                         <div class="setting-group">
