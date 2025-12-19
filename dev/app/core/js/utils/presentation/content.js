@@ -584,7 +584,7 @@ class Content {
         }
     }
 
-    async generateSlideForgeRawAIReply(file, numberOfSlides, onProgress) {
+    async generateSlideForgeRawAIReply(file, numberOfSlides, onProgress, options = {}) {
         try {
             onProgress && onProgress('[Content] Step 1: Extracting text from document...');
             //console.log('[Content] Step 1: Extracting text from document...');
@@ -594,7 +594,10 @@ class Content {
             });
             onProgress && onProgress('[Content] Step 2: Building AI prompt...');
             //console.log('[Content] Step 2: Building AI prompt...');
-            const prompt = Content.buildSlideForgeStructuringPrompt(extractedText, numberOfSlides);
+            const mode = (options && options.mode) ? options.mode : 'summarize';
+            const prompt = (mode === 'direct-copy')
+                ? Content.buildDirectCopyStructuringPrompt(extractedText, numberOfSlides)
+                : Content.buildSlideForgeStructuringPrompt(extractedText, numberOfSlides);
             //console.log('[Content] [Debug] Prompt built:', prompt);
             onProgress && onProgress('[Content] Step 3: Preparing AI call...');
             //console.log('[Content] Step 3: Preparing AI call...');
@@ -614,7 +617,9 @@ class Content {
             const contextSize = document.getElementById('context-selector')?.value || 8192;
             //console.log('[Content] [Debug] Context size:', contextSize);
 
-            const systemPrompt = Content.buildSlideForgeSystemPrompt(extractedText, numberOfSlides, window.colorMode || 'light');
+            const systemPrompt = (mode === 'direct-copy')
+                ? Content.buildDirectCopySystemPrompt(extractedText, numberOfSlides, window.colorMode || 'light')
+                : Content.buildSlideForgeSystemPrompt(extractedText, numberOfSlides, window.colorMode || 'light');
             //console.log('[Content] [Debug] System prompt:', systemPrompt);
             onProgress && onProgress('[Content] Step 3: Sending prompt to AI (Ollama)...');
             //console.log('[Content] Step 3: Sending prompt to AI (Ollama)...');
@@ -626,9 +631,16 @@ class Content {
                 // Ensure any user-specified extra request is prepended to the system prompt (but avoid double-injection)
                 let effectiveSystem = String(systemPrompt || '');
                 try {
-                    const extraEl = document.getElementById('presentation-extra-prompt');
-                    if (extraEl && typeof extraEl.value === 'string' && extraEl.value.trim().length) {
-                        const extraReq = String(extraEl.value || '').replace(/\r\n?/g, '\n').trim();
+                    const extraFromDom = (() => {
+                        const extraEl = document.getElementById('presentation-extra-prompt');
+                        return (extraEl && typeof extraEl.value === 'string' && extraEl.value.trim().length)
+                            ? String(extraEl.value || '').replace(/\r\n?/g, '\n').trim()
+                            : '';
+                    })();
+                    const extraReq = (options && typeof options.extraPrompt === 'string' && options.extraPrompt.trim().length)
+                        ? String(options.extraPrompt).trim()
+                        : extraFromDom;
+                    if (extraReq && extraReq.length) {
                         if (!/^\s*REQUEST:/i.test(effectiveSystem)) {
                             effectiveSystem = `REQUEST:\n${extraReq}\n\n` + effectiveSystem;
                         }
@@ -744,6 +756,61 @@ MANDATORY REQUIREMENTS:
 - Do not use single sentences or short phrases.`;
     }
 
+    static buildDirectCopySystemPrompt(text, numberOfSlides, colorMode) {
+        // Language enforcement and extra request are reused to keep UX consistent
+        let languageEnforcement = '';
+        try {
+            let userLanguage = 'English';
+            if (window.Lang && typeof window.Lang.getCurrentLanguage === 'function') {
+                const langCode = window.Lang.getCurrentLanguage();
+                userLanguage = this.getLanguageDisplayName(langCode);
+            } else {
+                const browserLang = navigator.language || navigator.userLanguage || 'en';
+                userLanguage = this.getLanguageDisplayName(browserLang);
+            }
+            languageEnforcement = `Always respond in ${userLanguage}. Match the user's language and communication style. If the user writes in ${userLanguage}, respond in ${userLanguage}.\n`;
+        } catch (error) {
+            console.error('Content: Error adding language enforcement (direct-copy):', error);
+        }
+
+        let extraPrefix = '';
+        try {
+            const extraEl = document.getElementById('presentation-extra-prompt');
+            if (extraEl && typeof extraEl.value === 'string' && extraEl.value.trim().length) {
+                const extraReq = String(extraEl.value || '').replace(/\r\n?/g, '\n').trim();
+                extraPrefix = `REQUEST:\n${extraReq}\n\n`;
+            }
+        } catch (e) { /* ignore */ }
+
+        const langPrefix = (typeof languageEnforcement === 'string' && languageEnforcement.trim()) ? String(languageEnforcement).trim() + '\n\n' : '';
+
+        const bullets = Content.getBulletsPerSlideFromUI();
+        // Direct copy: instruct AI to keep the user's labeled content verbatim and fit into the requested slide and bullet counts.
+        return langPrefix + extraPrefix + `You are an exacting presentation assembler. Do NOT summarize or rewrite. Copy the provided labeled content verbatim into the slide structure. Preserve wording, casing, punctuation, and order.
+
+OUTPUT FORMAT PRIORITY:
+1. JSON (preferred)
+2. Markdown (fallback)
+
+JSON FORMAT EXAMPLE:
+{
+  "slides": [
+    { "slideNumber": 1, "title": "Cover Title", "subtitle": "Cover Subtitle", "imageQuery": "cover visual" , "type": "cover" },
+    { "slideNumber": 2, "title": "Slide 1 Title", "content": ["Exact text box 1", "Exact text box 2", ...], "imageQuery": "short visual", "type": "content" }
+  ]
+}
+
+MANDATORY REQUIREMENTS (DIRECT COPY MODE):
+- The document text is already organized with labels like "cover: Title, subtitle" and "Slide 1: Title, text content", "Slide 2: ...". Use those labels to populate slides in order.
+- Create EXACTLY ${numberOfSlides} slides total (slide 1 is the cover). If there are more labeled slides than requested, keep the first ${numberOfSlides - 1} after the cover. If fewer, add empty slides with empty strings.
+- For each content slide, create EXACTLY ${bullets} content items (text boxes). Split the provided slide text into up to ${bullets} sequential chunks without rephrasing; if fewer chunks exist, pad remaining items with empty strings.
+- DO NOT add new wording, interpretations, or summaries. No paraphrasing. No expansion.
+- If a label is missing for the cover, derive the cover title from the first labeled title; leave subtitle blank if not provided.
+- imageQuery must be a short (<=4 words) visual search query based solely on that slide's title/content; if none is provided, use the slide title. Do NOT invent new meaning.
+- If JSON is impossible, fall back to markdown with the same fields.
+- Maintain the original language of the source text.`;
+    }
+
     static cleanAIResponse(responseText) {
         try {
             // Log the raw AI reply before cleaning
@@ -772,6 +839,21 @@ MANDATORY REQUIREMENTS:
         }
     }
 
+    static getBulletsPerSlideFromUI() {
+        // Default to 3 and clamp between 1 and 4 to match the selector options
+        let bulletsPerSlide = 3;
+        try {
+            const bulletsSelector = document.getElementById('presentation-bullets-selector');
+            const parsedBullets = bulletsSelector ? parseInt(bulletsSelector.value, 10) : NaN;
+            if (!isNaN(parsedBullets)) {
+                bulletsPerSlide = Math.min(4, Math.max(1, parsedBullets));
+            }
+        } catch (e) {
+            bulletsPerSlide = 3;
+        }
+        return bulletsPerSlide;
+    }
+
     static buildSlideForgeStructuringPrompt(text, numberOfSlides) {
         // Get user-selected context size from context-selector (default to 6000 if not set)
         let maxLength = 6000;
@@ -785,18 +867,7 @@ MANDATORY REQUIREMENTS:
         // Truncate text if too long (keep within context limits)
         const truncatedText = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 
-        // Determine desired number of bullet points per content slide from the presentation UI
-        // Default to 3 and clamp between 1 and 4 to match the selector options
-        let bulletsPerSlide = 3;
-        try {
-            const bulletsSelector = document.getElementById('presentation-bullets-selector');
-            const parsedBullets = bulletsSelector ? parseInt(bulletsSelector.value, 10) : NaN;
-            if (!isNaN(parsedBullets)) {
-                bulletsPerSlide = Math.min(4, Math.max(1, parsedBullets));
-            }
-        } catch (e) {
-            bulletsPerSlide = 3;
-        }
+        const bulletsPerSlide = Content.getBulletsPerSlideFromUI();
 
         return `ANALYZE the following document and CREATE a ${numberOfSlides}-slide PowerPoint presentation.
 MANDATORY REQUIREMENTS:
@@ -808,6 +879,35 @@ MANDATORY REQUIREMENTS:
 - FOCUS on visual concepts suitable for stock photo search
 
 Document content:
+${truncatedText}
+
+EXECUTE NOW:`;
+    }
+
+    static buildDirectCopyStructuringPrompt(text, numberOfSlides) {
+        let maxLength = 6000;
+        const contextSelector = document.getElementById('context-selector');
+        if (contextSelector && contextSelector.value) {
+            const parsed = parseInt(contextSelector.value, 10);
+            if (!isNaN(parsed) && parsed > 0) {
+                maxLength = parsed;
+            }
+        }
+        const truncatedText = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+        const bulletsPerSlide = Content.getBulletsPerSlideFromUI();
+
+        return `YOU ARE IN DIRECT COPY MODE.
+DO NOT SUMMARIZE OR REWRITE. COPY THE USER'S LABELED CONTENT VERBATIM INTO THE REQUESTED SLIDES.
+
+Instructions:
+- The document is labeled with sections such as "cover: Title, subtitle" and "Slide 1: Title, text content", "Slide 2: ...".
+- Produce EXACTLY ${numberOfSlides} slides total (slide 1 is the cover). If the document has more labeled slides than needed, take only the first ${numberOfSlides - 1} content sections after the cover. If fewer, add blank slides with empty strings.
+- For each content slide, output EXACTLY ${bulletsPerSlide} content items. Split the provided text sequentially into up to ${bulletsPerSlide} chunks without changing any wording; if there is less text, pad remaining items with empty strings.
+- Keep the original language, casing, punctuation, and order. Do NOT add commentary, fillers, or summaries.
+- imageQuery per slide must be a short (<=4 words) visual cue based ONLY on that slide's title/content; if none is given, reuse the slide title.
+- Output using the same JSON structure as standard SlideForge (cover as slide 1 with title/subtitle/imageQuery, content slides with title/content array/imageQuery).
+
+Document content (copy verbatim):
 ${truncatedText}
 
 EXECUTE NOW:`;
