@@ -1981,6 +1981,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         // SlideForge Generator
         loadingPresentationTools: "Loading presentation tools...",
         summarizeToSlideForge: "Classic SlideForge",
+        directCopyMode: 'Direct copy',
         storytellingToPresentation: "Data driven SlideForge",
         createSlideForgeFromDocument: "Create SlideForge From Document",
         dragDropDocuments: "Drag & Drop documents here",

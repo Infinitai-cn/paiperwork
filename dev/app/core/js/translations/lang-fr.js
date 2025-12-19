@@ -55,7 +55,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         paperworkTab: "Paperasserie",
         researchTab: "Recherche",
         artworkTab: "Conception",
-        PresentationTab: "SlideForge",
+        presentationTab: "SlideForge",
         modelsTab: "Modèles",
         databaseTab: "Base de Données",
 
@@ -1954,6 +1954,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         // Presentation Generator
         loadingPresentationTools: "Chargement des outils de présentation...",
         summarizeToSlideForge: "Présentation Classique",
+        directCopyMode: "Copie directe",
         storytellingToPresentation: "Présentation pilotée par les données",
         createSlideForgeFromDocument: "Créer une présentation à partir d'un document",
         dragDropDocuments: "Glissez-déposez des documents ici",

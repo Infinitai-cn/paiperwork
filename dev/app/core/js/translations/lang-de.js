@@ -1953,6 +1953,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         presentationTab: "Präsentation",
         loadingPresentationTools: "Lade Präsentationswerkzeuge...",
         summarizeToSlideForge: "Klassische Präsentation",
+        directCopyMode: "Direkte Kopie",
         storytellingToPresentation: "Datengetriebene Präsentation",
         createSlideForgeFromDocument: "Präsentation aus Dokument erstellen",
         dragDropDocuments: "Dokumente hierher ziehen und ablegen",
