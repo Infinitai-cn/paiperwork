@@ -16,6 +16,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
     currentVersion: "Versão atual",
     delete: "Excluir",
         loadingHelpContent: 'Carregando conteúdo de ajuda...',
+        directCopyMode: 'Cópia direta',
         returnButton: 'Voltar',
         loadingContent: 'Carregando conteúdo, por favor aguarde...',
         contentComingSoon: 'Conteúdo para esta seção em breve.',
@@ -58,7 +59,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         paperworkTab: "Papelada",
         researchTab: "Pesquisa",
         artworkTab: "Design",
-        PresentationTab: "SlideForge",
         modelsTab: "Modelos",
         databaseTab: "Banco de Dados",
 

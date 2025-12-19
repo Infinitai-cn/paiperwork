@@ -27,7 +27,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 welcomePageTitle: "Paiperwork - 欢迎",
                 masterkeyInputLabel: "主密钥",
                 masterkeyInput: "输入主密钥...",
-                startButton: "开始",
+                        startButton: "开始",
+                        directCopyMode: '直接复制',
                 helpButton: "帮助",
                 backButton: "← 返回",
                 checkUpdatesButton: "检查更新",
@@ -54,7 +55,6 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 paperworkTab: "文书工作",
                 researchTab: "研究",
                 artworkTab: "设计",
-                PresentationTab: "SlideForge",
                 modelsTab: "模型",
                 databaseTab: "数据库",
 
