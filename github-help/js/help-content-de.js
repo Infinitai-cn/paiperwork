@@ -2048,6 +2048,35 @@ window.helpContent = {
                 imageCaption: "Überblick über den Reiter Präsentation",
             },
             {
+                id: "presentation-direct-copy",
+                title: "Modus Direkte Kopie",
+                content: `
+            <p>Nutzen Sie Direkte Kopie, wenn Ihr Dokument bereits folienfertigen Text enthält, den Sie exakt beibehalten möchten. Die KI strukturiert und teilt nur; sie paraphrasiert nicht.</p>
+
+            <h4>So bereiten Sie Ihr Dokument vor</h4>
+            <ul>
+                <li><strong>Folien eindeutig beschriften:</strong> fügen Sie "cover:" für die erste Folie hinzu, danach "Slide 1:", "Slide 2:", usw. in der richtigen Reihenfolge.</li>
+                <li><strong>Cover-Text angeben:</strong> nach "cover:" einen Titel und optional einen Untertitel angeben, getrennt durch ein Komma.</li>
+                <li><strong>Ein Abschnitt pro Folie:</strong> platzieren Sie den Text jeder Folie direkt hinter ihrem Label; halten Sie Reihenfolge und Sprache konsistent.</li>
+                <li><strong>Aufzählungen anpassen:</strong> stellen Sie den Aufzählungen-pro-Folie-Selektor so ein, wie der Text gesplittet werden soll. Die KI splittet der Reihe nach ohne Umschreiben und füllt fehlende Einträge mit leeren Strings.</li>
+                <li><strong>Kontext einhalten:</strong> halten Sie den Gesamttext überschaubar (der Kontext-Selector bestimmt die maximale Länge), damit alle beschrifteten Folien erfasst werden.</li>
+            </ul>
+
+            <h4>So führen Sie Direkte Kopie aus</h4>
+            <ol>
+                <li>Wählen Sie "Direkte Kopie" im Modus-Selektor.</li>
+                <li>Legen Sie Folienanzahl und Aufzählungen pro Folie fest (Folie 1 ist immer die Cover-Folie).</li>
+                <li>Ziehen Sie Ihr beschriftetes Dokument hinein oder fügen Sie den Text ein und ergänzen Sie optional einen zusätzlichen Prompt für kleine Vorgaben (z. B. Groß-/Kleinschreibung oder Abstände).</li>
+                <li>Klicken Sie auf Generieren; die Ausgabe spiegelt Ihren Wortlaut. Fehlende Folien oder Aufzählungen bleiben leere Strings statt umformuliert zu werden.</li>
+            </ol>
+
+            <p>Tipp: Wenn unerwartete Umschreibungen auftreten, prüfen Sie, ob der Modus "Direkte Kopie" aktiv ist und ob die Labels exakt geschrieben sind ("Slide 1:", "Slide 2:", usw.).</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "Modus Direkte Kopie",
+                imageCaption: "Folien beschriften und Direkte Kopie ausführen",
+            },
+            {
                 id: "presentation-generating",
                 title: "Erstellung von Präsentationen",
                 content: `

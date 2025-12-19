@@ -2047,6 +2047,35 @@ window.helpContent = {
                 imageCaption: "Aperçu de l'onglet Présentation",
             },
             {
+                id: "presentation-direct-copy",
+                title: "Mode Copie directe",
+                content: `
+            <p>Utilisez Copie directe lorsque votre document contient déjà du texte prêt pour les diapositives que vous souhaitez conserver exactement tel quel. L'IA ne fait que structurer et découper le contenu ; elle ne paraphrase pas.</p>
+
+            <h4>Comment préparer votre document</h4>
+            <ul>
+                <li><strong>Étiquetez les diapositives explicitement :</strong> ajoutez "cover:" pour la première diapositive, puis "Slide 1:", "Slide 2:", etc. dans l'ordre.</li>
+                <li><strong>Texte de couverture :</strong> après "cover:" ajoutez un titre et éventuellement un sous-titre séparé par une virgule.</li>
+                <li><strong>Une section par diapositive :</strong> placez le texte de chaque diapositive juste après son étiquette ; gardez l'ordre et la langue cohérents.</li>
+                <li><strong>Ajustez le nombre de puces :</strong> réglez le sélecteur de puces par diapositive selon le découpage souhaité. L'IA découpe de façon séquentielle sans reformulation et remplit avec des chaînes vides si nécessaire.</li>
+                <li><strong>Restez dans le contexte :</strong> gardez un volume de texte raisonnable (le sélecteur de contexte fixe la longueur maximale) pour que toutes les diapositives étiquetées soient prises en compte.</li>
+            </ul>
+
+            <h4>Comment exécuter Copie directe</h4>
+            <ol>
+                <li>Sélectionnez "Copie directe" dans le sélecteur de mode.</li>
+                <li>Définissez le nombre de diapositives et de puces par diapositive (la diapositive 1 est toujours la couverture).</li>
+                <li>Déposez votre document étiqueté ou collez le texte, et ajoutez éventuellement un prompt supplémentaire pour de petites consignes (par exemple : casse ou espacement).</li>
+                <li>Cliquez sur Générer ; la sortie reflète votre formulation. Les diapositives ou puces manquantes restent des chaînes vides plutôt que réécrites.</li>
+            </ol>
+
+            <p>Astuce : si vous constatez des reformulations inattendues, vérifiez que le mode est "Copie directe" et que les étiquettes sont écrites exactement ("Slide 1:", "Slide 2:", etc.).</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "Mode Copie directe",
+                imageCaption: "Étiquetez les diapositives et lancez Copie directe",
+            },
+            {
                 id: "presentation-generating",
                 title: "Génération de présentations",
                 content: `

@@ -2081,6 +2081,35 @@ window.helpContent = {
                 imageCaption: "Overview of the SlideForge tab",
             },
             {
+                id: "presentation-direct-copy",
+                title: "Direct copy mode",
+                content: `
+            <p>Use Direct copy when your document already contains slide-ready text you want to keep exactly as written. The AI only structures and splits content; it does not paraphrase.</p>
+
+            <h4>How to prepare your document</h4>
+            <ul>
+                <li><strong>Label slides explicitly:</strong> add "cover:" for the first slide, then "Slide 1:", "Slide 2:", and so on in order.</li>
+                <li><strong>Provide cover text:</strong> after "cover:" include a title and optionally a subtitle separated by a comma.</li>
+                <li><strong>One section per slide:</strong> place each slide's text right after its label; keep the order and language consistent.</li>
+                <li><strong>Match bullet count:</strong> set the bullets-per-slide selector to how you want the text split. The AI will chunk sequentially without rewriting and pad empty items if needed.</li>
+                <li><strong>Stay within context:</strong> keep total text reasonable (context selector controls the max length) so all labeled slides are captured.</li>
+            </ul>
+
+            <h4>How to run Direct copy</h4>
+            <ol>
+                <li>Select "Direct copy" in the mode selector.</li>
+                <li>Set slide count and bullets per slide (slide 1 is always the cover).</li>
+                <li>Drop your labeled document or paste text, and optionally add an extra prompt for minor instructions (for example: casing or spacing preferences).</li>
+                <li>Click Generate; the output mirrors your wording. Missing slides or bullets are left as empty strings instead of being rewritten.</li>
+            </ol>
+
+            <p>Tip: If you see unexpected rewrites, confirm the mode is "Direct copy" and that labels are spelled exactly ("Slide 1:", "Slide 2:", etc.).</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "Direct copy mode",
+                imageCaption: "Label slides and run Direct copy",
+            },
+            {
                 id: "presentation-generating",
                 title: "Generating SlideForges",
                 content: `

@@ -2053,6 +2053,35 @@ window.helpContent = {
                 imageCaption: "演示选项卡概述",
             },
             {
+                id: "presentation-direct-copy",
+                title: "直接复制模式",
+                content: `
+            <p>当你的文档已经包含想要保持原样的幻灯片文本时，请使用“直接复制”。AI 只负责结构化和拆分，不会改写。</p>
+
+            <h4>如何准备文档</h4>
+            <ul>
+                <li><strong>显式标记幻灯片：</strong> 在首张幻灯片添加 "cover:"，随后按顺序写 "Slide 1:"、"Slide 2:" 等。</li>
+                <li><strong>封面文本：</strong> 在 "cover:" 之后写标题，如需可用逗号补充副标题。</li>
+                <li><strong>一张一段：</strong> 将每张幻灯片的文本紧跟在其标签后；保持顺序和语言一致。</li>
+                <li><strong>匹配要点数：</strong> 设置每页要点数选择器以决定拆分方式。AI 会按顺序切分，不改写，缺少内容时用空字符串填充。</li>
+                <li><strong>保持上下文：</strong> 控制总文本量（上下文选择器决定最大长度），确保所有已标记的幻灯片都被捕获。</li>
+            </ul>
+
+            <h4>如何运行直接复制</h4>
+            <ol>
+                <li>在模式选择器中选择“直接复制”。</li>
+                <li>设置幻灯片数量和每张的要点数（第 1 张始终是封面）。</li>
+                <li>拖入已标记的文档或粘贴文本，可选添加额外提示用于细节指令（如大小写或间距偏好）。</li>
+                <li>点击“生成”；输出会原样呈现。缺失的幻灯片或要点会保留为空字符串，而不会被改写。</li>
+            </ol>
+
+            <p>提示：若出现意外改写，请确认模式为“直接复制”，并检查标签是否严格写成 "Slide 1:"、"Slide 2:" 等。</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "直接复制模式",
+                imageCaption: "标记幻灯片并运行直接复制",
+            },
+            {
                 id: "presentation-generating",
                 title: "生成演示文稿",
                 content: `

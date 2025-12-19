@@ -2062,6 +2062,35 @@ window.helpContent = {
                 imageCaption: "Descripción general de la pestaña Presentación",
             },
             {
+                id: "presentation-direct-copy",
+                title: "Modo Copia directa",
+                content: `
+            <p>Usa Copia directa cuando tu documento ya tiene texto listo para diapositivas que quieres conservar exactamente como está. La IA solo estructura y divide el contenido; no parafrasea.</p>
+
+            <h4>Cómo preparar tu documento</h4>
+            <ul>
+                <li><strong>Etiqueta las diapositivas explícitamente:</strong> añade "cover:" para la primera diapositiva, luego "Slide 1:", "Slide 2:", y así sucesivamente en orden.</li>
+                <li><strong>Texto de portada:</strong> después de "cover:" incluye un título y opcionalmente un subtítulo separado por coma.</li>
+                <li><strong>Una sección por diapositiva:</strong> coloca el texto de cada diapositiva justo después de su etiqueta; mantiene el orden y el idioma consistentes.</li>
+                <li><strong>Ajusta las viñetas:</strong> configura el selector de viñetas por diapositiva según cómo quieras dividir el texto. La IA trocea de forma secuencial sin reescribir y rellena con cadenas vacías si falta contenido.</li>
+                <li><strong>Respeta el contexto:</strong> mantén el texto total razonable (el selector de contexto controla la longitud máxima) para capturar todas las diapositivas etiquetadas.</li>
+            </ul>
+
+            <h4>Cómo ejecutar Copia directa</h4>
+            <ol>
+                <li>Elige "Copia directa" en el selector de modo.</li>
+                <li>Define el número de diapositivas y las viñetas por diapositiva (la diapositiva 1 siempre es la portada).</li>
+                <li>Arrastra tu documento etiquetado o pega el texto, y opcionalmente añade un prompt extra para instrucciones menores (por ejemplo: mayúsculas o espaciado).</li>
+                <li>Haz clic en Generar; la salida refleja tu redacción. Las diapositivas o viñetas faltantes se dejan como cadenas vacías en lugar de reescribirse.</li>
+            </ol>
+
+            <p>Consejo: si ves reescrituras inesperadas, confirma que el modo es "Copia directa" y que las etiquetas están escritas exactamente ("Slide 1:", "Slide 2:", etc.).</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "Modo Copia directa",
+                imageCaption: "Etiqueta las diapositivas y ejecuta Copia directa",
+            },
+            {
                 id: "presentation-generating",
                 title: "Generando presentaciones",
                 content: `
