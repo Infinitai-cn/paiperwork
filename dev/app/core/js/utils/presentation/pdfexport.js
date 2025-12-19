@@ -68,19 +68,19 @@ class pdfExport {
                     canvasPixelRatio = options.pixelRatio || 1;
                 }
 
-                // For the cover slide prefer Konva's merged output so all layers are captured (respect pixelRatio)
+                // Prefer a full-stage merge (captures all Konva layers, including image layers added separately)
                 let imgData = null;
-                if (idx === 0 && typeof stage.toDataURL === 'function') {
+                if (typeof stage.toDataURL === 'function') {
                     try {
                         const pr = options.pixelRatio || canvasPixelRatio || 1;
                         imgData = stage.toDataURL({ mimeType: 'image/png', quality: 1, pixelRatio: pr });
                     } catch (err) {
-                        console.warn('[pdfExport] stage.toDataURL failed for cover, falling back to canvas.toDataURL', err);
+                        console.warn('[pdfExport] stage.toDataURL failed, falling back to canvas.toDataURL', err);
                         imgData = null;
                     }
                 }
 
-                // Fallback: use the primary canvas data (existing behavior for content slides)
+                // Fallback: use the primary canvas data (kept for environments where stage merge is unavailable)
                 if (!imgData) {
                     // Use canvas.toDataURL which reflects backing store resolution. We'll draw it into an offscreen canvas sized to logical page size below.
                     imgData = canvas.toDataURL('image/png');

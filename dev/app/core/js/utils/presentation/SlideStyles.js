@@ -2476,6 +2476,10 @@ class SlideStyles {
                         yCursor += blockHeight + blockGap;
                     });
                 }
+                // Add the base layer immediately so slides are never blank even if image loading fails/delays
+                stage.add(layer);
+                stage.draw();
+
                 // Sidebar image (if any), ensure it does not overlap with title/line
                 const base64 = slideImagesResult?.slideImages?.[i - 1];
                 if (base64) {
@@ -2504,19 +2508,15 @@ class SlideStyles {
                             }));
                             // Caption line
                             layer.add(new window.Konva.Text({ x: imgX, y: imgY + drawH + 18, text: (window.Lang ? (Lang.get('figurePrefix') + i) : 'FIG.' + i), fontSize: 18, fontFamily: 'Courier New, monospace', fill: '#000', pw_id: undefined }));
-                            stage.add(layer);
                             stage.draw();
                             res();
                         };
-                        imgObj.onerror = () => { stage.add(layer); stage.draw(); res(); };
+                        imgObj.onerror = () => { res(); };
                     }));
                     imgObj.src = base64;
-                } else {
-                    stage.add(layer);
-                    stage.draw();
                 }
 
-                // Large page number rotated (added after draw for layering)
+                // Large page number rotated (added after base layer so it always renders)
                 const pageNumLayer = new window.Konva.Layer();
                 pageNumLayer.add(new window.Konva.Text({
                     x: w - 120,
@@ -2532,6 +2532,7 @@ class SlideStyles {
                     pw_id: undefined
                 }));
                 stage.add(pageNumLayer);
+                stage.draw();
             }
 
             Promise.all(promises).then(() => resolve());
@@ -3977,7 +3978,8 @@ class SlideStyles {
                                 clones.push({ x: mosaicX, y: mosaicY, w: cardW, h: cardH, r: 40 });
                                 clones.push({ x: mosaicX + cardW + 40, y: mosaicY, w: cardW, h: cardH, r: 40 });
                             }
-                            clones.forEach(cfg => {
+                            const basePwId = SlideStyles._getImagePwId(slideData, parsedSlides) || `product-slide-${i}-image`;
+                            clones.forEach((cfg, slotIdx) => {
                                 // Fit image inside cfg box using a clipped Group (cover scaling) to preserve aspect ratio and avoid squishing
                                 const pad = 8;
                                 const frameX = cfg.x + pad;
@@ -4024,7 +4026,8 @@ class SlideStyles {
                                     shadowColor: '#0f172a',
                                     shadowBlur: 25,
                                     shadowOpacity: 0.25,
-                                    pw_id: (typeof slideData !== 'undefined' ? SlideStyles._getImagePwId(slideData, parsedSlides) : SlideStyles._getImagePwId(parsedSlides.cover, parsedSlides))
+                                    // Give each mosaic slot a unique pw_id so clicking/replacing affects only that slot
+                                    pw_id: `${basePwId}::slot${slotIdx}`
                                 });
 
                                 imgGroup.add(imageNode);
