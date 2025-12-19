@@ -2048,6 +2048,35 @@ window.helpContent = {
                 imageCaption: "Visão geral da aba Apresentação",
             },
             {
+                id: "presentation-direct-copy",
+                title: "Modo Cópia direta",
+                content: `
+            <p>Use Cópia direta quando seu documento já tiver texto pronto para slides que você quer manter exatamente como está. A IA apenas estrutura e divide o conteúdo; não parafraseia.</p>
+
+            <h4>Como preparar seu documento</h4>
+            <ul>
+                <li><strong>Rotule as slides explicitamente:</strong> adicione "cover:" para a primeira, depois "Slide 1:", "Slide 2:", e assim por diante na ordem.</li>
+                <li><strong>Texto da capa:</strong> após "cover:" inclua um título e opcionalmente um subtítulo separado por vírgula.</li>
+                <li><strong>Uma seção por slide:</strong> coloque o texto de cada slide logo depois do rótulo; mantenha a ordem e o idioma consistentes.</li>
+                <li><strong>Ajuste os marcadores:</strong> defina o seletor de marcadores por slide conforme deseja dividir o texto. A IA vai fatiar de forma sequencial sem reescrever e preenche itens vazios quando faltar conteúdo.</li>
+                <li><strong>Respeite o contexto:</strong> mantenha o texto total razoável (o seletor de contexto controla o tamanho máximo) para capturar todos os slides rotulados.</li>
+            </ul>
+
+            <h4>Como executar Cópia direta</h4>
+            <ol>
+                <li>Escolha "Cópia direta" no seletor de modo.</li>
+                <li>Defina a contagem de slides e marcadores por slide (o slide 1 é sempre a capa).</li>
+                <li>Solte seu documento rotulado ou cole o texto e, opcionalmente, adicione um prompt extra para instruções menores (por exemplo: preferência de maiúsculas ou espaçamento).</li>
+                <li>Clique em Gerar; a saída espelha sua redação. Slides ou marcadores ausentes ficam como strings vazias em vez de serem reescritos.</li>
+            </ol>
+
+            <p>Dica: se notar reescritas inesperadas, confirme que o modo é "Cópia direta" e que os rótulos estão escritos exatamente ("Slide 1:", "Slide 2:", etc.).</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "Modo Cópia direta",
+                imageCaption: "Rotule os slides e execute Cópia direta",
+            },
+            {
                 id: "presentation-generating",
                 title: "Gerando apresentações",
                 content: `
