@@ -17,6 +17,8 @@ window.THINKING_MODELS = [
     'gpt-oss',
     'qwen3:30b-a3b-thinking-2507',
     'deepseek-v3.1',
+    'glm-4.7-flash:q4_K_M',
+    'glm-4.7-flash:q8',
 ];
 
 // Function to extract base model name (remove quantization suffix)
