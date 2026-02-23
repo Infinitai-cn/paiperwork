@@ -23,6 +23,12 @@ class TabLoader {
                     'js/tabs/paperworktab.js',
                 ]
             },
+            'pdfworks': {
+                scripts: [
+                    'js/tabs/pdfWorks.js',
+                    'js/tabs/pdfWorkstab.js',
+                ]
+            },
             'research': {
                 scripts: [
                     'js/tabs/research.js',
@@ -164,6 +170,13 @@ class TabLoader {
             }
         }
 
+        // For PDF Works, create tab instance if needed
+        if (tabName === 'pdfworks' && window.PdfWorksTab) {
+            if (!window.pdfworksTab) {
+                window.pdfworksTab = new window.PdfWorksTab();
+            }
+        }
+
         // For Chat, ensure the chat tab is initialized
 
         switch (tabName) {
@@ -179,6 +192,12 @@ class TabLoader {
                 if (window.artworksTab && !window.artworksTab.initialized) {
                     //console.log('TabLoader: Initializing Artwork tab');
                     window.artworksTab.initialize();
+                }
+                break;
+
+            case 'pdfworks':
+                if (window.pdfworksTab && !window.pdfworksTab.isInitialized) {
+                    window.pdfworksTab.initialize();
                 }
                 break;
             
