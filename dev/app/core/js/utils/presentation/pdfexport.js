@@ -5,7 +5,224 @@ if (!window.jsPDF && window.jspdf && window.jspdf.jsPDF) {
 
 class pdfExport {
 
-    static exportSlideForgePDF(stages, options = {}) {
+    static getTextNodes(stage) {
+        if (!stage || typeof stage.find !== 'function') {
+            return [];
+        }
+        try {
+            const nodes = stage.find('Text') || [];
+            return nodes.filter(node => {
+                if (!node || typeof node.isVisible !== 'function') return false;
+                if (!node.isVisible()) return false;
+                if (typeof node.opacity === 'function' && node.opacity() <= 0) return false;
+                const text = typeof node.text === 'function' ? node.text() : '';
+                return !!(text && text.trim());
+            });
+        } catch (_error) {
+            return [];
+        }
+    }
+
+    static parseColorToRgb(colorValue) {
+        if (!colorValue || typeof colorValue !== 'string') {
+            return [17, 17, 17];
+        }
+
+        const color = colorValue.trim().toLowerCase();
+        if (/^#([0-9a-f]{3})$/.test(color)) {
+            const hex = color.slice(1);
+            return [
+                parseInt(hex[0] + hex[0], 16),
+                parseInt(hex[1] + hex[1], 16),
+                parseInt(hex[2] + hex[2], 16)
+            ];
+        }
+
+        if (/^#([0-9a-f]{6})$/.test(color)) {
+            const hex = color.slice(1);
+            return [
+                parseInt(hex.slice(0, 2), 16),
+                parseInt(hex.slice(2, 4), 16),
+                parseInt(hex.slice(4, 6), 16)
+            ];
+        }
+
+        const rgbMatch = color.match(/^rgba?\(([^)]+)\)$/);
+        if (rgbMatch) {
+            const parts = rgbMatch[1].split(',').map(part => Number(part.trim()));
+            if (parts.length >= 3 && parts.every(Number.isFinite)) {
+                return [
+                    Math.max(0, Math.min(255, Math.round(parts[0]))),
+                    Math.max(0, Math.min(255, Math.round(parts[1]))),
+                    Math.max(0, Math.min(255, Math.round(parts[2])))
+                ];
+            }
+        }
+
+        return [17, 17, 17];
+    }
+
+    static getJsPdfFontStyle(konvaFontStyle) {
+        const value = (konvaFontStyle || '').toLowerCase();
+        const isBold = value.includes('bold');
+        const isItalic = value.includes('italic');
+        if (isBold && isItalic) return 'bolditalic';
+        if (isBold) return 'bold';
+        if (isItalic) return 'italic';
+        return 'normal';
+    }
+
+    static drawSearchableTextLayer(pdf, stage) {
+        const textNodes = this.getTextNodes(stage);
+        textNodes.forEach(node => {
+            try {
+                const absolutePosition = typeof node.getAbsolutePosition === 'function'
+                    ? node.getAbsolutePosition()
+                    : { x: node.x(), y: node.y() };
+                const absoluteScale = typeof node.getAbsoluteScale === 'function'
+                    ? node.getAbsoluteScale()
+                    : { x: 1, y: 1 };
+                const absoluteRotation = typeof node.getAbsoluteRotation === 'function'
+                    ? node.getAbsoluteRotation()
+                    : 0;
+
+                const fontSize = Math.max(6, (node.fontSize() || 12) * (absoluteScale.y || 1));
+                const lineHeight = Math.max(1, Number(node.lineHeight() || 1));
+                const textAlign = (typeof node.align === 'function' ? node.align() : 'left') || 'left';
+                const nodeWidth = typeof node.width === 'function' ? node.width() * (absoluteScale.x || 1) : 0;
+                const fontStyle = this.getJsPdfFontStyle(typeof node.fontStyle === 'function' ? node.fontStyle() : 'normal');
+                const [red, green, blue] = this.parseColorToRgb(typeof node.fill === 'function' ? node.fill() : '#111111');
+
+                pdf.setFont('helvetica', fontStyle);
+                pdf.setFontSize(fontSize);
+                pdf.setTextColor(red, green, blue);
+
+                const lines = (Array.isArray(node.textArr) && node.textArr.length > 0)
+                    ? node.textArr.map(item => item?.text || '').filter(Boolean)
+                    : String(node.text() || '').split('\n');
+
+                let drawX = absolutePosition.x;
+                if (textAlign === 'center' && nodeWidth > 0) {
+                    drawX = absolutePosition.x + nodeWidth / 2;
+                } else if (textAlign === 'right' && nodeWidth > 0) {
+                    drawX = absolutePosition.x + nodeWidth;
+                }
+
+                const drawY = absolutePosition.y;
+                pdf.text(lines, drawX, drawY, {
+                    baseline: 'top',
+                    align: textAlign === 'center' ? 'center' : (textAlign === 'right' ? 'right' : 'left'),
+                    angle: absoluteRotation,
+                    lineHeightFactor: lineHeight
+                });
+            } catch (error) {
+                console.warn('[pdfExport] Could not draw searchable text node:', error);
+            }
+        });
+    }
+
+    static async stageToImageData(stage, pageWidth, pageHeight, logicalW, options) {
+        const container = stage.container && stage.container();
+        if (!container) {
+            return null;
+        }
+        const canvas = container.querySelector && container.querySelector('canvas');
+        if (!canvas) {
+            return null;
+        }
+
+        let canvasPixelRatio = 1;
+        try {
+            if (canvas.width && logicalW) {
+                canvasPixelRatio = canvas.width / logicalW;
+            }
+        } catch (_e) {
+            canvasPixelRatio = options.pixelRatio || 1;
+        }
+
+        let imgData = null;
+        const shouldExcludeTextFromRaster = options.includeSearchableText !== false;
+        const hiddenTextNodes = [];
+
+        if (shouldExcludeTextFromRaster && typeof stage.find === 'function') {
+            try {
+                const textNodes = stage.find('Text') || [];
+                textNodes.forEach(node => {
+                    if (!node || typeof node.visible !== 'function') {
+                        return;
+                    }
+                    hiddenTextNodes.push({ node, wasVisible: node.visible() });
+                    node.visible(false);
+                });
+                if (hiddenTextNodes.length > 0 && typeof stage.draw === 'function') {
+                    stage.draw();
+                }
+            } catch (err) {
+                console.warn('[pdfExport] Failed to temporarily hide text nodes before raster export', err);
+            }
+        }
+
+        try {
+            if (typeof stage.toDataURL === 'function') {
+                try {
+                    const pr = options.pixelRatio || canvasPixelRatio || 1;
+                    imgData = stage.toDataURL({ mimeType: 'image/png', quality: 1, pixelRatio: pr });
+                } catch (err) {
+                    console.warn('[pdfExport] stage.toDataURL failed, falling back to canvas.toDataURL', err);
+                    imgData = null;
+                }
+            }
+
+            if (!imgData) {
+                imgData = canvas.toDataURL('image/png');
+            }
+        } finally {
+            if (hiddenTextNodes.length > 0) {
+                hiddenTextNodes.forEach(({ node, wasVisible }) => {
+                    try {
+                        node.visible(wasVisible);
+                    } catch (_restoreErr) {
+                        // Ignore restoration errors for individual nodes
+                    }
+                });
+                if (typeof stage.draw === 'function') {
+                    stage.draw();
+                }
+            }
+        }
+
+        const image = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('Failed to load slide image')); 
+            img.src = imgData;
+        });
+
+        const off = document.createElement('canvas');
+        off.width = pageWidth;
+        off.height = pageHeight;
+        const ctx = off.getContext('2d');
+        ctx.fillStyle = options.backgroundColor || '#ffffff';
+        ctx.fillRect(0, 0, off.width, off.height);
+
+        try {
+            ctx.drawImage(image, 0, 0, pageWidth, pageHeight);
+        } catch (err) {
+            console.warn('[pdfExport] drawImage failed, attempting fallback draw', err);
+            const iw = image.width || canvas.width || pageWidth;
+            const ih = image.height || canvas.height || pageHeight;
+            const scale = Math.min(pageWidth / iw, pageHeight / ih);
+            const drawW = Math.round(iw * scale);
+            const drawH = Math.round(ih * scale);
+            const dx = Math.round((pageWidth - drawW) / 2);
+            const dy = Math.round((pageHeight - drawH) / 2);
+            ctx.drawImage(image, dx, dy, drawW, drawH);
+        }
+
+        return off.toDataURL('image/png');
+    }
+
+    static async exportSlideForgePDF(stages, options = {}) {
         //console.log('[pdfExport] Called exportSlideForgePDF', { stages, options, jsPDF: !!window.jsPDF });
         if (!window.jsPDF) {
             console.error('[pdfExport] jsPDF is not loaded:', window.jsPDF);
@@ -38,107 +255,36 @@ class pdfExport {
         // Use 'px' units so we can map canvas logical pixels 1:1 to PDF pixels
         const pdf = new window.jsPDF({ orientation, unit: 'px', format: [pageWidth, pageHeight] });
 
-        const tasks = [];
-
-        stages.forEach((stage, idx) => {
-            tasks.push(new Promise(res => {
+        try {
+            for (let idx = 0; idx < stages.length; idx += 1) {
+                const stage = stages[idx];
                 if (!stage) {
                     console.warn(`[pdfExport] Stage at index ${idx} is missing or null`, stage);
-                    return res();
-                }
-                const container = stage.container && stage.container();
-                if (!container) {
-                    console.warn(`[pdfExport] Stage at index ${idx} has no container`, stage);
-                    return res();
-                }
-                const canvas = container.querySelector && container.querySelector('canvas');
-                if (!canvas) {
-                    console.warn(`[pdfExport] No canvas found in stage at index ${idx}`, container);
-                    return res();
+                    continue;
                 }
 
-                // Compute canvas backing pixel ratio relative to logical stage size
-                let canvasPixelRatio = 1;
-                try {
-                    // canvas.width is backing store pixels, logicalW is logical pixels
-                    if (canvas.width && logicalW) {
-                        canvasPixelRatio = canvas.width / logicalW;
-                    }
-                } catch (e) {
-                    canvasPixelRatio = options.pixelRatio || 1;
+                const pageImg = await this.stageToImageData(stage, pageWidth, pageHeight, logicalW, options);
+                if (!pageImg) {
+                    console.warn(`[pdfExport] Could not create image for stage ${idx}`);
+                    continue;
                 }
 
-                // Prefer a full-stage merge (captures all Konva layers, including image layers added separately)
-                let imgData = null;
-                if (typeof stage.toDataURL === 'function') {
-                    try {
-                        const pr = options.pixelRatio || canvasPixelRatio || 1;
-                        imgData = stage.toDataURL({ mimeType: 'image/png', quality: 1, pixelRatio: pr });
-                    } catch (err) {
-                        console.warn('[pdfExport] stage.toDataURL failed, falling back to canvas.toDataURL', err);
-                        imgData = null;
-                    }
+                if (idx > 0) {
+                    pdf.addPage([pageWidth, pageHeight], orientation);
                 }
 
-                // Fallback: use the primary canvas data (kept for environments where stage merge is unavailable)
-                if (!imgData) {
-                    // Use canvas.toDataURL which reflects backing store resolution. We'll draw it into an offscreen canvas sized to logical page size below.
-                    imgData = canvas.toDataURL('image/png');
+                pdf.addImage(pageImg, 'PNG', 0, 0, pageWidth, pageHeight);
+
+                if (options.includeSearchableText !== false) {
+                    this.drawSearchableTextLayer(pdf, stage);
                 }
+            }
 
-                const img = new Image();
-                img.onload = () => {
-                    // Create an offscreen canvas sized to the logical PDF page (px)
-                    const off = document.createElement('canvas');
-                    off.width = pageWidth;
-                    off.height = pageHeight;
-                    const ctx = off.getContext('2d');
-
-                    // Optional: fill background white to avoid transparency artifacts
-                    ctx.fillStyle = options.backgroundColor || '#ffffff';
-                    ctx.fillRect(0, 0, off.width, off.height);
-
-                    // Draw the source image into the offscreen canvas scaled to the logical page size
-                    // This avoids cover-style cropping and ensures 1:1 logical mapping between preview and PDF.
-                    try {
-                        ctx.drawImage(img, 0, 0, pageWidth, pageHeight);
-                    } catch (err) {
-                        console.warn('[pdfExport] drawImage failed, attempting fallback draw', err);
-                        // fallback: center and scale preserving aspect ratio
-                        const iw = img.width || canvas.width || pageWidth;
-                        const ih = img.height || canvas.height || pageHeight;
-                        const scale = Math.min(pageWidth / iw, pageHeight / ih);
-                        const drawW = Math.round(iw * scale);
-                        const drawH = Math.round(ih * scale);
-                        const dx = Math.round((pageWidth - drawW) / 2);
-                        const dy = Math.round((pageHeight - drawH) / 2);
-                        ctx.drawImage(img, dx, dy, drawW, drawH);
-                    }
-
-                    const pageImg = off.toDataURL('image/png');
-
-                    // Add page to PDF. For the first image the document is already the right size.
-                    if (idx > 0) {
-                        pdf.addPage([pageWidth, pageHeight], orientation);
-                    }
-
-                    // Place the image to fill the whole page (0,0 -> full page)
-                    pdf.addImage(pageImg, 'PNG', 0, 0, pageWidth, pageHeight);
-
-                    res();
-                };
-                img.onerror = () => {
-                    console.warn(`[pdfExport] Failed to load image for stage ${idx}`);
-                    res();
-                };
-                img.src = imgData;
-            }));
-        });
-
-        Promise.all(tasks).then(() => {
-            //console.log('[pdfExport] Saving PDF as', pdfName);
             pdf.save(pdfName);
-        });
+        } catch (error) {
+            console.error('[pdfExport] Export failed:', error);
+            alert(window.Lang ? Lang.get('pdfExportFailed', 'PDF export failed.') : 'PDF export failed.');
+        }
     }
 }
 
