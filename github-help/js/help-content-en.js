@@ -2197,6 +2197,108 @@ window.helpContent = {
         ],
     },
 
+    // Translate Tab section
+    translate: {
+        title: "Translate",
+        intro: "The Translate tab converts document text with AI and provides a floating preview window for review, live updates, and export.",
+        articles: [
+            {
+                id: "translate-overview",
+                title: "Overview",
+                content: `
+            <p>The Translate tab is a document-focused workflow for translating files and reviewing results before export.</p>
+
+            <h4>Supported formats</h4>
+            <ul>
+                <li><strong>PDF</strong> - editable overlay preview with page rendering</li>
+                <li><strong>TXT</strong> - plain text translation with preserved line/paragraph structure</li>
+                <li><strong>MD</strong> - markdown-aware translation with structure preservation</li>
+            </ul>
+
+            <h4>Main controls</h4>
+            <ul>
+                <li><strong>Drag & drop area</strong> - drop a file or click to browse</li>
+                <li><strong>Scope selector</strong> - choose Selection, Page, or Document before running translation</li>
+                <li><strong>Instruction field</strong> - write a directive such as <em>"Translate to French this document"</em></li>
+                <li><strong>Translate button</strong> - starts translation for the current document</li>
+                <li><strong>Export translated document</strong> - exports the translated output from the current preview state</li>
+            </ul>
+
+            <h4>Scope selector</h4>
+            <ul>
+                <li><strong>Selection</strong> - target one or more selected pages in the preview.</li>
+                <li><strong>Page</strong> - target only the currently selected page.</li>
+                <li><strong>Document</strong> - target the full document (all pages/blocks).</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>Tip:</strong> For best quality, use a translation-focused model such as TranslateGemma from the model library.</p>
+            </div>
+        `,
+                image: "Translate-1.png",
+                imageAlt: "Translate Tab Overview",
+                imageCaption:
+                    "The translate tab interface showing drag and drop section",
+            },
+            {
+                id: "translate-preview",
+                title: "Floating Preview Window",
+                content: `
+            <p>After loading a document, Translate opens a floating preview window where you can inspect and refine results.</p>
+
+            <h4>Window controls</h4>
+            <ul>
+                <li><strong>Maximize/restore</strong> - switch between compact and expanded workspace</li>
+                <li><strong>Close/reopen</strong> - close the preview and use <em>Open Preview Window</em> to bring it back</li>
+            </ul>
+
+            <h4>PDF behavior</h4>
+            <ul>
+                <li>Text blocks are mapped over PDF pages and can be edited directly.</li>
+                <li>Streaming translation updates apply progressively to matching text blocks.</li>
+                <li>You can review and adjust translated text before exporting.</li>
+            </ul>
+
+            <h4>TXT / MD behavior</h4>
+            <ul>
+                <li>Preview uses a text-document style layout for easier reading.</li>
+                <li>Streaming replacements update content progressively (not only at the end).</li>
+                <li>Line breaks and document structure are preserved as much as possible.</li>
+            </ul>
+        `,
+                image: "Translate-2.png",
+                imageAlt: "Translate floating window Overview",
+                imageCaption:
+                    "The translate window interface showing controls and a loaded pdf",
+            },
+            {
+                id: "translate-export-troubleshooting",
+                title: "Export and Troubleshooting",
+                content: `
+            <p>Use the export control after review to save your translated result.</p>
+
+            <h4>Export output</h4>
+            <ul>
+                <li><strong>PDF input</strong> - translated PDF export</li>
+                <li><strong>TXT input</strong> - exported as <code>-translated.txt</code></li>
+                <li><strong>MD input</strong> - exported as <code>-translated.md</code></li>
+            </ul>
+
+            <h4>Common issues</h4>
+            <ul>
+                <li><strong>No extractable PDF text</strong> - scanned/image-only PDFs may not provide editable text blocks.</li>
+                <li><strong>Quality mismatch</strong> - refine the instruction or switch to a better translation model.</li>
+                <li><strong>Context workflow</strong> - after translation changes, closing the preview can trigger a continue-conversation flow in Chat.</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>Note:</strong> Translation in this tab is document-oriented. Add explicit tone/style requirements in the instruction field when needed.</p>
+            </div>
+        `,
+            },
+        ],
+    },
+
     // Models Tab section
     models: {
         title: "Models",

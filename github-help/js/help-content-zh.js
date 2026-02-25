@@ -2168,6 +2168,105 @@ window.helpContent = {
             },
         ],
     },
+    // 翻译选项卡部分
+    translate: {
+        title: "翻译",
+        intro: "翻译选项卡使用 AI 转换文档文本，并提供浮动预览窗口用于审阅、实时更新与导出。",
+        articles: [
+            {
+                id: "translate-overview",
+                title: "概览",
+                content: `
+            <p>翻译选项卡是一个面向文档的流程，用于翻译文件并在导出前检查结果。</p>
+
+            <h4>支持格式</h4>
+            <ul>
+                <li><strong>PDF</strong> - 带可编辑叠加层的分页预览</li>
+                <li><strong>TXT</strong> - 纯文本翻译，并保留行与段落结构</li>
+                <li><strong>MD</strong> - 面向 Markdown 的翻译，并尽量保留结构</li>
+            </ul>
+
+            <h4>主要控件</h4>
+            <ul>
+                <li><strong>拖放区域</strong> - 拖入文件或点击浏览</li>
+                <li><strong>范围选择器</strong> - 翻译前选择 Selection、Page 或 Document</li>
+                <li><strong>指令输入框</strong> - 例如 <em>“将此文档翻译成法语”</em></li>
+                <li><strong>翻译按钮</strong> - 启动当前文档的翻译</li>
+                <li><strong>导出已翻译文档</strong> - 按当前预览状态导出翻译结果</li>
+            </ul>
+
+            <h4>范围选择器</h4>
+            <ul>
+                <li><strong>Selection</strong> - 作用于预览中选中的一个或多个页面。</li>
+                <li><strong>Page</strong> - 仅作用于当前选中的页面。</li>
+                <li><strong>Document</strong> - 作用于整个文档（所有页面/文本块）。</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>提示：</strong>为获得更好质量，建议在模型库中使用以翻译为主的模型（如 TranslateGemma）。</p>
+            </div>
+        `,
+                image: "Translate-1.png",
+                imageAlt: "翻译选项卡概览",
+                imageCaption: "翻译选项卡界面（含拖放区域）",
+            },
+            {
+                id: "translate-preview",
+                title: "浮动预览窗口",
+                content: `
+            <p>加载文档后，翻译功能会打开一个浮动预览窗口，便于你检查并微调结果。</p>
+
+            <h4>窗口控件</h4>
+            <ul>
+                <li><strong>最大化/还原</strong> - 在紧凑与扩展工作区之间切换</li>
+                <li><strong>关闭/重新打开</strong> - 关闭后可通过 <em>打开预览窗口</em> 重新显示</li>
+            </ul>
+
+            <h4>PDF 行为</h4>
+            <ul>
+                <li>文本块会映射到 PDF 页面上，并可直接编辑。</li>
+                <li>流式翻译更新会逐步应用到对应文本块。</li>
+                <li>你可以在导出前审阅并调整翻译文本。</li>
+            </ul>
+
+            <h4>TXT / MD 行为</h4>
+            <ul>
+                <li>预览采用文档式文本布局，便于阅读。</li>
+                <li>流式替换会逐步更新内容（而非只在最后一次性替换）。</li>
+                <li>会尽可能保留换行和文档结构。</li>
+            </ul>
+        `,
+                image: "Translate-2.png",
+                imageAlt: "翻译窗口概览",
+                imageCaption: "翻译窗口界面（显示控件与已加载 PDF）",
+            },
+            {
+                id: "translate-export-troubleshooting",
+                title: "导出与故障排查",
+                content: `
+            <p>完成审阅后，使用导出控件保存翻译结果。</p>
+
+            <h4>导出输出</h4>
+            <ul>
+                <li><strong>PDF 输入</strong> - 导出为已翻译 PDF</li>
+                <li><strong>TXT 输入</strong> - 导出为 <code>-translated.txt</code></li>
+                <li><strong>MD 输入</strong> - 导出为 <code>-translated.md</code></li>
+            </ul>
+
+            <h4>常见问题</h4>
+            <ul>
+                <li><strong>PDF 无可提取文本</strong> - 扫描件/纯图片 PDF 可能无法提供可编辑文本块。</li>
+                <li><strong>质量不理想</strong> - 可细化指令，或切换到更好的翻译模型。</li>
+                <li><strong>上下文流程</strong> - 翻译变更后，关闭预览可能会触发 Chat 中的继续会话流程。</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>说明：</strong>此选项卡中的翻译是面向文档的。如需特定语气/风格，请在指令输入框中明确说明。</p>
+            </div>
+        `,
+            },
+        ],
+    },
     models: {
         title: "模型",
         intro:

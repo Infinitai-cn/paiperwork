@@ -2162,6 +2162,105 @@ window.helpContent = {
             },
         ],
     },
+    // Section de l'onglet Traduire
+    translate: {
+        title: "Traduire",
+        intro: "L'onglet Traduire convertit le texte des documents avec l'IA et fournit une fenêtre d'aperçu flottante pour la révision, les mises à jour en direct et l'export.",
+        articles: [
+            {
+                id: "translate-overview",
+                title: "Vue d'ensemble",
+                content: `
+            <p>L'onglet Traduire est un flux orienté document pour traduire des fichiers et vérifier le résultat avant export.</p>
+
+            <h4>Formats pris en charge</h4>
+            <ul>
+                <li><strong>PDF</strong> - aperçu avec superposition éditable et rendu par page</li>
+                <li><strong>TXT</strong> - traduction de texte brut avec conservation des lignes et paragraphes</li>
+                <li><strong>MD</strong> - traduction compatible Markdown avec conservation de la structure</li>
+            </ul>
+
+            <h4>Contrôles principaux</h4>
+            <ul>
+                <li><strong>Zone glisser-déposer</strong> - déposez un fichier ou cliquez pour parcourir</li>
+                <li><strong>Sélecteur de portée</strong> - choisissez Selection, Page ou Document avant de lancer la traduction</li>
+                <li><strong>Champ d'instruction</strong> - par exemple <em>"Traduire ce document en français"</em></li>
+                <li><strong>Bouton Traduire</strong> - démarre la traduction du document courant</li>
+                <li><strong>Exporter le document traduit</strong> - exporte le résultat depuis l'état actuel de l'aperçu</li>
+            </ul>
+
+            <h4>Sélecteur de portée</h4>
+            <ul>
+                <li><strong>Selection</strong> - cible une ou plusieurs pages sélectionnées dans l'aperçu.</li>
+                <li><strong>Page</strong> - cible uniquement la page actuellement sélectionnée.</li>
+                <li><strong>Document</strong> - cible tout le document (toutes les pages/blocs).</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>Conseil :</strong> Pour une meilleure qualité, utilisez un modèle orienté traduction comme TranslateGemma depuis la bibliothèque de modèles.</p>
+            </div>
+        `,
+                image: "Translate-1.png",
+                imageAlt: "Aperçu de l'onglet Traduire",
+                imageCaption: "L'interface de l'onglet Traduire avec la zone de glisser-déposer",
+            },
+            {
+                id: "translate-preview",
+                title: "Fenêtre d'aperçu flottante",
+                content: `
+            <p>Après le chargement d'un document, Traduire ouvre une fenêtre flottante où vous pouvez inspecter et affiner les résultats.</p>
+
+            <h4>Contrôles de la fenêtre</h4>
+            <ul>
+                <li><strong>Maximiser/restaurer</strong> - alterne entre un espace compact et étendu</li>
+                <li><strong>Fermer/rouvrir</strong> - fermez l'aperçu puis utilisez <em>Ouvrir la fenêtre d'aperçu</em> pour le réafficher</li>
+            </ul>
+
+            <h4>Comportement PDF</h4>
+            <ul>
+                <li>Les blocs de texte sont mappés sur les pages PDF et peuvent être modifiés directement.</li>
+                <li>Les mises à jour de traduction en streaming s'appliquent progressivement aux blocs correspondants.</li>
+                <li>Vous pouvez relire et ajuster le texte traduit avant l'export.</li>
+            </ul>
+
+            <h4>Comportement TXT / MD</h4>
+            <ul>
+                <li>L'aperçu utilise une mise en page de type document pour une lecture plus claire.</li>
+                <li>Les remplacements en streaming mettent à jour le contenu progressivement (pas uniquement à la fin).</li>
+                <li>Les sauts de ligne et la structure du document sont préservés autant que possible.</li>
+            </ul>
+        `,
+                image: "Translate-2.png",
+                imageAlt: "Aperçu de la fenêtre Traduire",
+                imageCaption: "La fenêtre Traduire affichant les contrôles et un PDF chargé",
+            },
+            {
+                id: "translate-export-troubleshooting",
+                title: "Export et dépannage",
+                content: `
+            <p>Utilisez l'option d'export après vérification pour enregistrer le résultat traduit.</p>
+
+            <h4>Sortie d'export</h4>
+            <ul>
+                <li><strong>Entrée PDF</strong> - export en PDF traduit</li>
+                <li><strong>Entrée TXT</strong> - exporté en <code>-translated.txt</code></li>
+                <li><strong>Entrée MD</strong> - exporté en <code>-translated.md</code></li>
+            </ul>
+
+            <h4>Cas fréquents</h4>
+            <ul>
+                <li><strong>Pas de texte PDF extractible</strong> - les PDF scannés/image peuvent ne pas fournir de blocs éditables.</li>
+                <li><strong>Qualité insuffisante</strong> - affinez l'instruction ou choisissez un meilleur modèle de traduction.</li>
+                <li><strong>Flux de contexte</strong> - après des changements de traduction, fermer l'aperçu peut déclencher le flux de continuation dans le Chat.</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>Note :</strong> La traduction dans cet onglet est orientée document. Ajoutez des contraintes de ton/style dans le champ d'instruction si nécessaire.</p>
+            </div>
+        `,
+            },
+        ],
+    },
     models: {
         title: "Modèles",
         intro:

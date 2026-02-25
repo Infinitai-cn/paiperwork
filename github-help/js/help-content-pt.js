@@ -2164,6 +2164,105 @@ window.helpContent = {
             },
         ],
     },
+    // Seção da aba Traduzir
+    translate: {
+        title: "Traduzir",
+        intro: "A aba Traduzir converte texto de documentos com IA e oferece uma janela flutuante de visualização para revisão, atualizações em tempo real e exportação.",
+        articles: [
+            {
+                id: "translate-overview",
+                title: "Visão geral",
+                content: `
+            <p>A aba Traduzir é um fluxo focado em documentos para traduzir arquivos e revisar os resultados antes de exportar.</p>
+
+            <h4>Formatos suportados</h4>
+            <ul>
+                <li><strong>PDF</strong> - visualização com sobreposição editável e renderização por página</li>
+                <li><strong>TXT</strong> - tradução de texto simples com preservação de linhas e parágrafos</li>
+                <li><strong>MD</strong> - tradução consciente de Markdown com preservação de estrutura</li>
+            </ul>
+
+            <h4>Controles principais</h4>
+            <ul>
+                <li><strong>Área de arrastar e soltar</strong> - solte um arquivo ou clique para procurar</li>
+                <li><strong>Seletor de escopo</strong> - escolha Selection, Page ou Document antes de traduzir</li>
+                <li><strong>Campo de instrução</strong> - por exemplo <em>"Traduzir este documento para francês"</em></li>
+                <li><strong>Botão Traduzir</strong> - inicia a tradução do documento atual</li>
+                <li><strong>Exportar documento traduzido</strong> - exporta o resultado com base no estado atual da visualização</li>
+            </ul>
+
+            <h4>Seletor de escopo</h4>
+            <ul>
+                <li><strong>Selection</strong> - aplica em uma ou mais páginas selecionadas na visualização.</li>
+                <li><strong>Page</strong> - aplica apenas na página atualmente selecionada.</li>
+                <li><strong>Document</strong> - aplica no documento inteiro (todas as páginas/blocos).</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>Dica:</strong> Para melhor qualidade, use um modelo focado em tradução, como TranslateGemma, na biblioteca de modelos.</p>
+            </div>
+        `,
+                image: "Translate-1.png",
+                imageAlt: "Visão geral da aba Traduzir",
+                imageCaption: "A interface da aba Traduzir com a área de arrastar e soltar",
+            },
+            {
+                id: "translate-preview",
+                title: "Janela flutuante de visualização",
+                content: `
+            <p>Após carregar um documento, a aba Traduzir abre uma janela flutuante para você inspecionar e refinar os resultados.</p>
+
+            <h4>Controles da janela</h4>
+            <ul>
+                <li><strong>Maximizar/restaurar</strong> - alterna entre espaço compacto e expandido</li>
+                <li><strong>Fechar/reabrir</strong> - feche a visualização e use <em>Abrir janela de visualização</em> para reabrir</li>
+            </ul>
+
+            <h4>Comportamento em PDF</h4>
+            <ul>
+                <li>Blocos de texto são mapeados sobre as páginas do PDF e podem ser editados diretamente.</li>
+                <li>Atualizações de tradução por streaming são aplicadas progressivamente aos blocos correspondentes.</li>
+                <li>Você pode revisar e ajustar o texto traduzido antes de exportar.</li>
+            </ul>
+
+            <h4>Comportamento em TXT / MD</h4>
+            <ul>
+                <li>A visualização usa layout em estilo documento para facilitar a leitura.</li>
+                <li>Substituições em streaming atualizam o conteúdo progressivamente (não apenas no final).</li>
+                <li>Quebras de linha e estrutura do documento são preservadas sempre que possível.</li>
+            </ul>
+        `,
+                image: "Translate-2.png",
+                imageAlt: "Visão geral da janela Traduzir",
+                imageCaption: "A janela Traduzir mostrando controles e um PDF carregado",
+            },
+            {
+                id: "translate-export-troubleshooting",
+                title: "Exportação e solução de problemas",
+                content: `
+            <p>Use o controle de exportação após revisar para salvar seu resultado traduzido.</p>
+
+            <h4>Saída da exportação</h4>
+            <ul>
+                <li><strong>Entrada PDF</strong> - exportação em PDF traduzido</li>
+                <li><strong>Entrada TXT</strong> - exportado como <code>-translated.txt</code></li>
+                <li><strong>Entrada MD</strong> - exportado como <code>-translated.md</code></li>
+            </ul>
+
+            <h4>Problemas comuns</h4>
+            <ul>
+                <li><strong>Sem texto extraível no PDF</strong> - PDFs digitalizados/somente imagem podem não fornecer blocos editáveis.</li>
+                <li><strong>Qualidade insatisfatória</strong> - refine a instrução ou troque para um modelo melhor de tradução.</li>
+                <li><strong>Fluxo de contexto</strong> - após mudanças de tradução, fechar a visualização pode acionar o fluxo de continuar conversa no Chat.</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>Nota:</strong> A tradução nesta aba é orientada a documentos. Adicione requisitos explícitos de tom/estilo no campo de instrução quando necessário.</p>
+            </div>
+        `,
+            },
+        ],
+    },
     models: {
         title: "Modelos",
         intro:
