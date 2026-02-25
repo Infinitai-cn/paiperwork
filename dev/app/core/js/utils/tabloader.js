@@ -23,10 +23,10 @@ class TabLoader {
                     'js/tabs/paperworktab.js',
                 ]
             },
-            'pdfworks': {
+            'translate': {
                 scripts: [
-                    'js/tabs/pdfWorks.js',
-                    'js/tabs/pdfWorkstab.js',
+                    'js/tabs/translate.js',
+                    'js/tabs/translateTab.js',
                 ]
             },
             'research': {
@@ -170,10 +170,10 @@ class TabLoader {
             }
         }
 
-        // For PDF Works, create tab instance if needed
-        if (tabName === 'pdfworks' && window.PdfWorksTab) {
-            if (!window.pdfworksTab) {
-                window.pdfworksTab = new window.PdfWorksTab();
+        // For Translate, create tab instance if needed
+        if (tabName === 'translate' && window.TranslateTab) {
+            if (!window.translateTab) {
+                window.translateTab = new window.TranslateTab();
             }
         }
 
@@ -195,9 +195,9 @@ class TabLoader {
                 }
                 break;
 
-            case 'pdfworks':
-                if (window.pdfworksTab && !window.pdfworksTab.isInitialized) {
-                    window.pdfworksTab.initialize();
+            case 'translate':
+                if (window.translateTab && !window.translateTab.isInitialized) {
+                    window.translateTab.initialize();
                 }
                 break;
             

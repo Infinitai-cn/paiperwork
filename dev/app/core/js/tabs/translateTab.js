@@ -1,8 +1,8 @@
-class PdfWorksTab {
+class TranslateTab {
 	constructor() {
 		this.isInitialized = false;
 		this.selectedFile = null;
-		this.pdfWorksManager = null;
+		this.translateManager = null;
 		this.previewOverlay = null;
 		this.previewDocument = null;
 		this.isPreviewMaximized = false;
@@ -18,12 +18,17 @@ class PdfWorksTab {
 		this.isTransformRunning = false;
 		this.transformAbortController = null;
 		this.minimumReadableContrast = 4.5;
+		this.defaultPreviewRenderScale = 1.1;
+		this.previewRenderScale = this.defaultPreviewRenderScale;
+		this.portraitPreviewScaleMultiplier = 2;
+		this.currentFileKind = 'pdf';
+		this.translationContextChanged = false;
 	}
 
 	async initialize() {
-		if (!this.pdfWorksManager && window.PdfWorks) {
-			this.pdfWorksManager = new window.PdfWorks();
-			await this.pdfWorksManager.initialize();
+		if (!this.translateManager && window.Translate) {
+			this.translateManager = new window.Translate();
+			await this.translateManager.initialize();
 		}
 
 		if (!this.isInitialized) {
@@ -36,9 +41,9 @@ class PdfWorksTab {
 	}
 
 	async createTabUI() {
-		const tabElement = document.getElementById('pdfworks-tab');
+		const tabElement = document.getElementById('translate-tab');
 		if (!tabElement) {
-			console.error('PdfWorksTab: Unable to find pdfworks tab element');
+			console.error('TranslateTab: Unable to find translate tab element');
 			return;
 		}
 
@@ -46,6 +51,7 @@ class PdfWorksTab {
 			<div class="pdfworks-container">
 				<div class="pdfworks-header">
 					<h3>${Lang.get('pdfWorksTitle')}</h3>
+					<p class="pdfworks-header-hint">${Lang.get('pdfWorksModelSuggestion')}</p>
 				</div>
 
 				<div class="pdfworks-content">
@@ -55,7 +61,7 @@ class PdfWorksTab {
 							<p>${Lang.get('pdfWorksDragDrop')}</p>
 							<p>${Lang.get('pdfWorksSupportedFormat')}</p>
 						</div>
-						<input type="file" id="pdfworks-file-input" accept=".pdf,application/pdf" style="display: none;">
+						<input type="file" id="pdfworks-file-input" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" style="display: none;">
 						<button id="pdfworks-browse-button" class="browse-button">${Lang.get('browseFiles')}</button>
 					</div>
 
@@ -132,11 +138,12 @@ class PdfWorksTab {
 	async processFile(file) {
 		this.cancelActiveTransform({ showFeedback: false });
 
-		const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-		if (!isPdf) {
-			alert(Lang.get('pdfWorksOnlyPdfSupported'));
+		const fileKind = this.resolveFileKind(file);
+		if (fileKind === 'unsupported') {
+			alert(Lang.get('unsupportedFileType') || Lang.get('pdfWorksOnlyPdfSupported'));
 			return;
 		}
+		this.currentFileKind = fileKind;
 
 		this.transformedBlocksById.clear();
 		this.editableDocumentModel = null;
@@ -145,31 +152,39 @@ class PdfWorksTab {
 		this.selectedFile = file;
 
 		try {
-			if (!this.pdfWorksManager && window.PdfWorks) {
-				this.pdfWorksManager = new window.PdfWorks();
-				await this.pdfWorksManager.initialize();
+			if (!this.translateManager && window.Translate) {
+				this.translateManager = new window.Translate();
+				await this.translateManager.initialize();
 			}
 
-			if (!this.pdfWorksManager) {
-				throw new Error('PDF Works service not available');
+			if (!this.translateManager) {
+				throw new Error('Translate service not available');
 			}
 
-			const probeResult = await this.pdfWorksManager.checkExtractableTextAvailability({ file });
-			this.hasExtractableTextInSelectedFile = !!probeResult?.hasExtractableText;
+			if (fileKind === 'pdf') {
+				const probeResult = await this.translateManager.checkExtractableTextAvailability({ file });
+				this.hasExtractableTextInSelectedFile = !!probeResult?.hasExtractableText;
 
-			if (!this.hasExtractableTextInSelectedFile) {
-				this.showFileInfo(file, { showReopenButton: false });
-				this.showStatus(Lang.get('pdfWorksNoExtractableStatus'), 'error');
-				this.showNoExtractableTextModal(file.name);
+				if (!this.hasExtractableTextInSelectedFile) {
+					this.showFileInfo(file, { showReopenButton: false });
+					this.showStatus(Lang.get('pdfWorksNoExtractableStatus'), 'error');
+					this.showNoExtractableTextModal(file.name);
+					this.updateTransformButtonState();
+					return;
+				}
+
+				this.showFileInfo(file, { showReopenButton: true });
 				this.updateTransformButtonState();
+				await this.openPdfPreviewWindow(file);
 				return;
 			}
 
+			this.hasExtractableTextInSelectedFile = true;
 			this.showFileInfo(file, { showReopenButton: true });
 			this.updateTransformButtonState();
-			await this.openPdfPreviewWindow(file);
+			await this.openTextPreviewWindow(file, fileKind);
 		} catch (error) {
-			console.error('PdfWorksTab preview error:', error);
+			console.error('TranslateTab preview error:', error);
 			this.showStatus(Lang.get('pdfWorksPreviewFailed', { error: error.message }), 'error');
 		}
 	}
@@ -233,11 +248,203 @@ class PdfWorksTab {
 		}
 
 		try {
-			await this.openPdfPreviewWindow(this.selectedFile);
+			if (this.currentFileKind === 'pdf') {
+				await this.openPdfPreviewWindow(this.selectedFile);
+			} else {
+				await this.openTextPreviewWindow(this.selectedFile, this.currentFileKind || this.resolveFileKind(this.selectedFile));
+			}
 		} catch (error) {
-			console.error('PdfWorksTab reopen preview error:', error);
+			console.error('TranslateTab reopen preview error:', error);
 			this.showStatus(Lang.get('pdfWorksPreviewFailed', { error: error.message }), 'error');
 		}
+	}
+
+	resolveFileKind(file) {
+		const name = String(file?.name || '').toLowerCase();
+		if (file?.type === 'application/pdf' || name.endsWith('.pdf')) {
+			return 'pdf';
+		}
+		if (file?.type === 'text/plain' || name.endsWith('.txt')) {
+			return 'txt';
+		}
+		if (file?.type === 'text/markdown' || name.endsWith('.md')) {
+			return 'md';
+		}
+		return 'unsupported';
+	}
+
+	async openTextPreviewWindow(file, fileKind) {
+		this.hideInfoOverlay();
+		this.closePdfPreviewWindow();
+		this.previewTotalPages = 1;
+		this.activePageNumber = 1;
+		this.selectedPageNumbers.clear();
+
+		this.previewOverlay = document.createElement('div');
+		this.previewOverlay.className = 'pdfworks-preview-overlay';
+
+		const previewWindow = document.createElement('div');
+		previewWindow.className = 'pdfworks-preview-window';
+
+		const header = document.createElement('div');
+		header.className = 'pdfworks-preview-header';
+		const title = document.createElement('h3');
+		title.textContent = Lang.get('pdfWorksPreviewTitle', { fileName: file.name });
+
+		const headerActions = document.createElement('div');
+		headerActions.className = 'pdfworks-preview-header-actions';
+		const maximizeButton = document.createElement('button');
+		maximizeButton.className = 'pdfworks-preview-maximize';
+		maximizeButton.innerHTML = '❐';
+		maximizeButton.setAttribute('aria-label', Lang.get('pdfWorksRestorePreview'));
+		maximizeButton.addEventListener('click', () => this.togglePreviewMaximize(previewWindow, maximizeButton));
+		const closeButton = document.createElement('button');
+		closeButton.className = 'pdfworks-preview-close';
+		closeButton.innerHTML = '&times;';
+		closeButton.setAttribute('aria-label', Lang.get('pdfWorksClosePreview'));
+		closeButton.addEventListener('click', () => this.closePdfPreviewWindow());
+		header.appendChild(title);
+		headerActions.appendChild(maximizeButton);
+		headerActions.appendChild(closeButton);
+		header.appendChild(headerActions);
+
+		const body = document.createElement('div');
+		body.className = 'pdfworks-preview-body';
+
+		const controls = document.createElement('div');
+		controls.className = 'pdfworks-preview-controls';
+		controls.innerHTML = `
+			<div class="pdfworks-preview-controls-title">${Lang.get('pdfWorksControlsTitle')}</div>
+			<div class="setting-group">
+				<label for="pdfworks-preview-scope-selector">${Lang.get('pdfWorksScopeLabel')}</label>
+				<select id="pdfworks-preview-scope-selector" disabled>
+					<option value="document">${Lang.get('pdfWorksScopeDocument')}</option>
+				</select>
+			</div>
+			<div class="pdfworks-scope-help" id="pdfworks-scope-help">${Lang.get('pdfWorksScopeHintDocument')}</div>
+			<div class="setting-group pdfworks-prompt-group">
+				<label for="pdfworks-preview-instruction-input">${Lang.get('pdfWorksInstructionLabel')}</label>
+				<textarea id="pdfworks-preview-instruction-input" rows="6" placeholder="${Lang.get('pdfWorksInstructionPlaceholder')}"></textarea>
+			</div>
+			<button id="pdfworks-preview-transform-button" class="generate-button" disabled>${Lang.get('pdfWorksTransformButton')}</button>
+			<button id="pdfworks-preview-export-button" class="generate-button pdfworks-export-button" disabled>${Lang.get('pdfWorksExportButton')}</button>
+			<div class="pdfworks-status" id="pdfworks-preview-status" style="display:none;"></div>
+		`;
+
+		const pagesContainer = document.createElement('div');
+		pagesContainer.className = 'pdfworks-preview-pages';
+		const editor = document.createElement('textarea');
+		editor.id = 'translate-text-preview';
+		editor.style.width = '100%';
+		editor.style.height = '100%';
+		editor.style.minHeight = '420px';
+		editor.style.boxSizing = 'border-box';
+		editor.style.padding = '12px';
+		editor.style.border = '1px solid var(--border-color)';
+		editor.style.borderRadius = '8px';
+		editor.style.background = 'var(--input-background)';
+		editor.style.color = 'var(--text-color)';
+		editor.style.fontFamily = 'inherit';
+		editor.style.fontSize = '14px';
+		editor.style.lineHeight = '1.45';
+		pagesContainer.appendChild(editor);
+
+		body.appendChild(controls);
+		body.appendChild(pagesContainer);
+
+		previewWindow.appendChild(header);
+		previewWindow.appendChild(body);
+		previewWindow.classList.add('maximized');
+		previewWindow.style.width = '98vw';
+		previewWindow.style.height = '96vh';
+		this.previewWindowRestoreState = {
+			width: 'min(92vw, 1200px)',
+			height: 'min(90vh, 900px)'
+		};
+		this.isPreviewMaximized = true;
+		this.previewOverlay.appendChild(previewWindow);
+		document.body.appendChild(this.previewOverlay);
+
+		this.previewOverlay.addEventListener('click', event => {
+			if (event.target === this.previewOverlay) {
+				this.closePdfPreviewWindow();
+			}
+		});
+
+		const textContent = await this.extractTextFromFileForTranslation(file, fileKind);
+		this.editableDocumentModel = this.buildTextEditableDocumentModel(file, fileKind, textContent);
+		this.rebuildEditableBlockIndex();
+		editor.value = textContent;
+		editor.addEventListener('input', () => {
+			const block = this.editableBlocksById.get('p1-t0');
+			if (!block) {
+				return;
+			}
+			const normalizedText = String(editor.value || '');
+			block.transformedText = normalizedText;
+			this.transformedBlocksById.set('p1-t0', {
+				blockId: 'p1-t0',
+				pageNumber: 1,
+				transformedText: normalizedText
+			});
+		});
+
+		const previewInstructionInput = document.getElementById('pdfworks-preview-instruction-input');
+		const previewTransformButton = document.getElementById('pdfworks-preview-transform-button');
+		const previewExportButton = document.getElementById('pdfworks-preview-export-button');
+		if (previewInstructionInput) {
+			previewInstructionInput.addEventListener('input', () => this.updateTransformButtonState());
+		}
+		if (previewTransformButton) {
+			previewTransformButton.addEventListener('click', this.handleTransform.bind(this));
+		}
+		if (previewExportButton) {
+			previewExportButton.addEventListener('click', this.handleExportRebuiltPdf.bind(this));
+		}
+
+		this.updateScopeHelpText();
+		this.updateTransformButtonState();
+		this.updateExportButtonState();
+	}
+
+	buildTextEditableDocumentModel(file, fileKind, textContent) {
+		const preserveFormatting = fileKind === 'txt' || fileKind === 'md';
+		return {
+			documentId: `translate_text_${Date.now()}`,
+			fileName: file?.name || 'document',
+			pageCount: 1,
+			sourceType: fileKind,
+			pages: [{
+				pageNumber: 1,
+				width: 0,
+				height: 0,
+				textBlocks: [{
+					blockId: 'p1-t0',
+					pageNumber: 1,
+					originalText: textContent,
+					transformedText: '',
+					preserveFormatting,
+					left: 0,
+					top: 0,
+					width: 0,
+					height: 0,
+					fontSize: 14,
+					lineHeight: 20,
+					fontFamily: 'Arial',
+					fontWeight: '400',
+					fontStyle: 'normal',
+					color: '#111111'
+				}]
+			}]
+		};
+	}
+
+	async extractTextFromFileForTranslation(file, fileKind) {
+		if (fileKind === 'txt' || fileKind === 'md') {
+			return String(await file.text());
+		}
+
+		throw new Error('Unsupported file for text extraction');
 	}
 
 	async openPdfPreviewWindow(file) {
@@ -366,6 +573,7 @@ class PdfWorksTab {
 		this.previewDocument = await loadingTask.promise;
 		this.previewTotalPages = this.previewDocument.numPages;
 		this.activePageNumber = this.previewTotalPages > 0 ? 1 : null;
+		this.previewRenderScale = await this.resolvePreviewRenderScale();
 
 		await this.ensureEditableDocumentModel(file);
 
@@ -373,7 +581,7 @@ class PdfWorksTab {
 
 		for (let pageNumber = 1; pageNumber <= this.previewDocument.numPages; pageNumber++) {
 			const page = await this.previewDocument.getPage(pageNumber);
-			const viewport = page.getViewport({ scale: 1.1 });
+			const viewport = page.getViewport({ scale: this.previewRenderScale });
 
 			const pageContainer = document.createElement('div');
 			pageContainer.className = 'pdfworks-preview-page';
@@ -413,6 +621,26 @@ class PdfWorksTab {
 		this.updateExportButtonState();
 	}
 
+	async resolvePreviewRenderScale() {
+		const baseScale = this.defaultPreviewRenderScale;
+		if (!this.previewDocument || this.previewDocument.numPages < 1) {
+			return baseScale;
+		}
+
+		try {
+			const firstPage = await this.previewDocument.getPage(1);
+			const viewport = firstPage.getViewport({ scale: 1 });
+			const isPortrait = viewport.height > viewport.width;
+			if (isPortrait && this.isPreviewMaximized) {
+				return baseScale * this.portraitPreviewScaleMultiplier;
+			}
+		} catch (error) {
+			console.warn('TranslateTab: failed to determine preview scale from page orientation', error);
+		}
+
+		return baseScale;
+	}
+
 	async renderPageWithoutTextLayer(page, viewport, canvas) {
 		const context = canvas.getContext('2d');
 		if (!context) {
@@ -448,19 +676,19 @@ class PdfWorksTab {
 	}
 
 	async ensureEditableDocumentModel(file) {
-		if (!this.pdfWorksManager && window.PdfWorks) {
-			this.pdfWorksManager = new window.PdfWorks();
-			await this.pdfWorksManager.initialize();
+		if (!this.translateManager && window.Translate) {
+			this.translateManager = new window.Translate();
+			await this.translateManager.initialize();
 		}
 
-		if (!this.pdfWorksManager) {
+		if (!this.translateManager) {
 			throw new Error('PDF Works service not available');
 		}
 
-		this.editableDocumentModel = await this.pdfWorksManager.buildEditableDocument({
+		this.editableDocumentModel = await this.translateManager.buildEditableDocument({
 			file,
 			previewDocument: this.previewDocument,
-			renderScale: 1.1
+			renderScale: this.previewRenderScale
 		});
 
 		this.rebuildEditableBlockIndex();
@@ -515,6 +743,7 @@ class PdfWorksTab {
 		}
 
 		overlayNode.innerHTML = '';
+		const previewCanvasContext = this.getPreviewCanvasContext(pageNumber);
 
 		pageBlocks.forEach(block => {
 			const textBlockElement = document.createElement('div');
@@ -522,20 +751,29 @@ class PdfWorksTab {
 			textBlockElement.dataset.blockId = block.blockId;
 			textBlockElement.dataset.pageNumber = String(pageNumber);
 			const contrastStyle = this.resolveReadableTextStyle(block, pageNumber);
+			const blockText = block.transformedText || block.originalText || '';
+			const fontSize = Math.max(10, Number(block.fontSize || 10));
+			const adaptivePreviewWidth = this.resolveAdaptivePreviewBlockWidth({
+				canvasContext: previewCanvasContext,
+				block,
+				text: blockText,
+				pageNumber
+			});
 			textBlockElement.contentEditable = 'true';
 			textBlockElement.style.left = `${Math.max(0, block.left || 0)}px`;
 			textBlockElement.style.top = `${Math.max(0, block.top || 0)}px`;
-			textBlockElement.style.width = `${Math.max(24, block.width || 24)}px`;
-			textBlockElement.style.minHeight = `${Math.max(18, block.height || 18)}px`;
-			textBlockElement.style.fontSize = `${Math.max(10, block.fontSize || 10)}px`;
-			textBlockElement.style.lineHeight = `${Math.max(12, block.lineHeight || 12)}px`;
+			textBlockElement.style.width = `${adaptivePreviewWidth}px`;
+			const blockHeight = Math.max(18, Number(block.height || 18));
+			textBlockElement.style.height = `${blockHeight}px`;
+			textBlockElement.style.minHeight = `${blockHeight}px`;
+			this.applyPreviewBlockBaseTypography(textBlockElement, block, fontSize);
 			textBlockElement.style.fontFamily = block.fontFamily || 'Arial';
 			textBlockElement.style.fontWeight = block.fontWeight || '400';
 			textBlockElement.style.fontStyle = block.fontStyle || 'normal';
 			textBlockElement.style.color = contrastStyle.textColor;
 			textBlockElement.style.caretColor = contrastStyle.textColor;
 			textBlockElement.style.textShadow = contrastStyle.textShadow;
-			textBlockElement.textContent = block.transformedText || block.originalText || '';
+			textBlockElement.textContent = blockText;
 
 			textBlockElement.addEventListener('mousedown', event => event.stopPropagation());
 			textBlockElement.addEventListener('click', event => {
@@ -545,6 +783,19 @@ class PdfWorksTab {
 			textBlockElement.addEventListener('input', () => {
 				const normalizedText = textBlockElement.innerText.replace(/\s+/g, ' ').trim();
 				block.transformedText = normalizedText;
+				const liveAdaptiveWidth = this.resolveAdaptivePreviewBlockWidth({
+					canvasContext: previewCanvasContext,
+					block,
+					text: normalizedText,
+					pageNumber
+				});
+				textBlockElement.style.width = `${liveAdaptiveWidth}px`;
+				this.refinePreviewBlockWidthWithDomLayout(textBlockElement, block, pageNumber);
+				if (this.shouldApplyPreviewReplacementFit(block)) {
+					this.fitPreviewBlockTypographyToBounds(textBlockElement, block);
+				} else {
+					this.applyPreviewBlockBaseTypography(textBlockElement, block);
+				}
 				this.transformedBlocksById.set(block.blockId, {
 					blockId: block.blockId,
 					pageNumber,
@@ -553,7 +804,291 @@ class PdfWorksTab {
 			});
 
 			overlayNode.appendChild(textBlockElement);
+			this.refinePreviewBlockWidthWithDomLayout(textBlockElement, block, pageNumber);
+			if (this.shouldApplyPreviewReplacementFit(block)) {
+				this.fitPreviewBlockTypographyToBounds(textBlockElement, block);
+			}
 		});
+	}
+
+	applyPreviewBlockBaseTypography(textBlockElement, block, explicitFontSize = null) {
+		if (!textBlockElement || !block) {
+			return;
+		}
+
+		const fontSize = Math.max(10, Number(explicitFontSize ?? block.fontSize ?? 10));
+		const normalizedLineHeight = this.resolvePreviewLineHeight(block, fontSize, {
+			preserveExtractedLineHeight: true
+		});
+		textBlockElement.style.fontSize = `${fontSize}px`;
+		textBlockElement.style.lineHeight = `${normalizedLineHeight}px`;
+	}
+
+	shouldApplyPreviewReplacementFit(block) {
+		if (!block) {
+			return false;
+		}
+
+		const transformed = this.normalizeTextForComparison(block.transformedText);
+		const original = this.normalizeTextForComparison(block.originalText);
+		return transformed.length > 0 && transformed !== original;
+	}
+
+	normalizeTextForComparison(value) {
+		if (typeof value !== 'string') {
+			return '';
+		}
+		return value.replace(/\s+/g, ' ').trim();
+	}
+
+	fitPreviewBlockTypographyToBounds(textBlockElement, block) {
+		if (!textBlockElement || !block) {
+			return;
+		}
+
+		const targetHeight = Math.max(18, Number(block.height || 18));
+		const baseFontSize = Math.max(10, Number(block.fontSize || 10));
+		const minFontSize = Math.max(9, Number((baseFontSize * 0.72).toFixed(2)));
+
+		const applyTypography = fontSize => {
+			const lineHeight = this.resolvePreviewLineHeight(block, fontSize, {
+				preserveExtractedLineHeight: false
+			});
+			textBlockElement.style.fontSize = `${fontSize}px`;
+			textBlockElement.style.lineHeight = `${lineHeight}px`;
+		};
+
+		applyTypography(baseFontSize);
+		if (textBlockElement.scrollHeight <= targetHeight + 1) {
+			return;
+		}
+
+		let low = minFontSize;
+		let high = baseFontSize;
+		let bestFit = minFontSize;
+
+		for (let iteration = 0; iteration < 10; iteration += 1) {
+			const candidate = Number(((low + high) / 2).toFixed(2));
+			applyTypography(candidate);
+			if (textBlockElement.scrollHeight <= targetHeight + 1) {
+				bestFit = candidate;
+				low = candidate;
+			} else {
+				high = candidate;
+			}
+		}
+
+		applyTypography(bestFit);
+	}
+
+	resolvePreviewLineHeight(block, fontSize, options = {}) {
+		const preserveExtractedLineHeight = options.preserveExtractedLineHeight !== false;
+		const extractedLineHeight = Number(block?.lineHeight || 0);
+		const safeFontBasedLineHeight = preserveExtractedLineHeight
+			? fontSize * 1.26
+			: fontSize * 1.16;
+		const fallbackFontPadding = 2;
+		if (preserveExtractedLineHeight) {
+			return Math.max(12, extractedLineHeight, safeFontBasedLineHeight + fallbackFontPadding);
+		}
+
+		return Math.max(11, safeFontBasedLineHeight + 1);
+	}
+
+	getPreviewCanvasContext(pageNumber) {
+		if (!this.previewOverlay || !pageNumber) {
+			return null;
+		}
+
+		const pageFrame = this.previewOverlay.querySelector(`.pdfworks-preview-canvas-frame[data-page-number="${pageNumber}"]`);
+		const canvas = pageFrame ? pageFrame.querySelector('.pdfworks-preview-canvas') : null;
+		return canvas ? canvas.getContext('2d') : null;
+	}
+
+	resolveAdaptivePreviewBlockWidth({ canvasContext, block, text, pageNumber }) {
+		const baseWidth = Math.max(24, Number(block?.width || 24));
+		const normalizedText = typeof text === 'string' ? text.trim() : '';
+		if (!canvasContext || !normalizedText) {
+			return baseWidth;
+		}
+
+		const fontSize = Math.max(10, Number(block?.fontSize || 10));
+		const fontWeight = (block?.fontWeight || '400').toString();
+		const fontStyle = (block?.fontStyle || 'normal').toString();
+		const fontFamily = (block?.fontFamily || 'Arial').toString();
+		canvasContext.save();
+		canvasContext.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}, Arial, Helvetica, sans-serif`;
+
+		const adaptiveWrap = this.resolveAdaptiveWrapForBlock(canvasContext, {
+			text: normalizedText,
+			left: Math.max(0, Number(block?.left || 0)),
+			width: baseWidth,
+			fontSize,
+			isPortraitPreferred: this.isPortraitPage(pageNumber),
+			rightBoundary: this.resolveBlockRightBoundary({
+				pageNumber,
+				block,
+				canvasWidth: canvasContext?.canvas?.width || 0
+			})
+		});
+
+		canvasContext.restore();
+		return Math.max(baseWidth, adaptiveWrap.width || baseWidth);
+	}
+
+	refinePreviewBlockWidthWithDomLayout(textBlockElement, block, pageNumber) {
+		if (!textBlockElement || !block) {
+			return;
+		}
+
+		const currentText = String(textBlockElement.textContent || '').trim();
+		if (!currentText) {
+			return;
+		}
+
+		const left = Math.max(0, Number(block.left || 0));
+		const rightBoundary = this.resolveBlockRightBoundary({
+			pageNumber,
+			block,
+			canvasWidth: textBlockElement.parentElement ? textBlockElement.parentElement.clientWidth : 0
+		});
+		const maxWidth = Math.max(24, rightBoundary - (left + 2));
+		const minWidth = Math.max(24, Number(block.width || 24));
+		const startWidth = Math.max(minWidth, Math.min(maxWidth, Number.parseFloat(textBlockElement.style.width) || minWidth));
+		textBlockElement.style.width = `${startWidth}px`;
+
+		const startLineCount = this.getRenderedLineCount(textBlockElement);
+		if (startLineCount <= 1 || startWidth >= maxWidth) {
+			return;
+		}
+
+		textBlockElement.style.width = `${maxWidth}px`;
+		const bestPossibleLineCount = this.getRenderedLineCount(textBlockElement);
+		if (bestPossibleLineCount >= startLineCount) {
+			textBlockElement.style.width = `${startWidth}px`;
+			return;
+		}
+
+		let low = Math.ceil(startWidth);
+		let high = Math.floor(maxWidth);
+		let bestWidth = high;
+
+		while (low <= high) {
+			const mid = Math.floor((low + high) / 2);
+			textBlockElement.style.width = `${mid}px`;
+			const candidateLineCount = this.getRenderedLineCount(textBlockElement);
+
+			if (candidateLineCount <= bestPossibleLineCount) {
+				bestWidth = mid;
+				high = mid - 1;
+			} else {
+				low = mid + 1;
+			}
+		}
+
+		textBlockElement.style.width = `${bestWidth}px`;
+	}
+
+	getRenderedLineCount(textBlockElement) {
+		if (!textBlockElement) {
+			return 1;
+		}
+
+		try {
+			const range = document.createRange();
+			range.selectNodeContents(textBlockElement);
+			const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0.1 && rect.height > 0.1);
+			range.detach?.();
+			if (rects.length > 0) {
+				const uniqueTops = [];
+				rects.forEach(rect => {
+					const hasCloseTop = uniqueTops.some(top => Math.abs(top - rect.top) < 0.75);
+					if (!hasCloseTop) {
+						uniqueTops.push(rect.top);
+					}
+				});
+				if (uniqueTops.length > 0) {
+					return uniqueTops.length;
+				}
+			}
+		} catch (_error) {
+			// Fallback below
+		}
+
+		const computed = window.getComputedStyle(textBlockElement);
+		const lineHeightRaw = Number.parseFloat(computed.lineHeight);
+		const fontSize = Math.max(10, Number.parseFloat(computed.fontSize) || 10);
+		const lineHeight = Number.isFinite(lineHeightRaw)
+			? Math.max(1, lineHeightRaw)
+			: Math.max(1, fontSize * 1.2);
+		const scrollHeight = Math.max(1, textBlockElement.scrollHeight || textBlockElement.clientHeight || lineHeight);
+		return Math.max(1, Math.round(scrollHeight / lineHeight));
+	}
+
+	isPortraitPage(pageNumber) {
+		if (!this.editableDocumentModel || !Array.isArray(this.editableDocumentModel.pages)) {
+			return false;
+		}
+
+		const pageData = this.editableDocumentModel.pages.find(page => page.pageNumber === pageNumber);
+		if (!pageData) {
+			return false;
+		}
+
+		return Number(pageData.height || 0) > Number(pageData.width || 0);
+	}
+
+	resolveBlockRightBoundary({ pageNumber, block, canvasWidth = 0 }) {
+		const safeLeft = Math.max(0, Number(block?.left || 0));
+		const blockWidth = Math.max(24, Number(block?.width || 24));
+		const absoluteMinimumBoundary = safeLeft + Math.max(24, blockWidth);
+
+		let pageWidth = Number(canvasWidth || 0);
+		let pageBlocks = [];
+		if (this.editableDocumentModel && Array.isArray(this.editableDocumentModel.pages)) {
+			const pageData = this.editableDocumentModel.pages.find(page => page.pageNumber === pageNumber);
+			if (pageData) {
+				pageWidth = Math.max(pageWidth, Number(pageData.width || 0));
+				pageBlocks = Array.isArray(pageData.textBlocks) ? pageData.textBlocks : [];
+			}
+		}
+
+		let boundary = pageWidth > 0 ? pageWidth - 2 : absoluteMinimumBoundary;
+
+		if (pageBlocks.length > 0 && block) {
+			const top = Math.max(0, Number(block.top || 0));
+			const height = Math.max(16, Number(block.height || 16));
+			const bottom = top + height;
+
+			let nearestRightLeft = Number.POSITIVE_INFINITY;
+			for (const candidate of pageBlocks) {
+				if (!candidate || candidate.blockId === block.blockId) {
+					continue;
+				}
+
+				const candidateLeft = Math.max(0, Number(candidate.left || 0));
+				if (candidateLeft <= safeLeft + Math.max(10, blockWidth * 0.2)) {
+					continue;
+				}
+
+				const candidateTop = Math.max(0, Number(candidate.top || 0));
+				const candidateHeight = Math.max(16, Number(candidate.height || 16));
+				const candidateBottom = candidateTop + candidateHeight;
+				const verticalOverlap = Math.min(bottom, candidateBottom) - Math.max(top, candidateTop);
+				const minimumRequiredOverlap = Math.max(2, Math.min(height, candidateHeight) * 0.2);
+				const hasVerticalOverlap = verticalOverlap >= minimumRequiredOverlap;
+
+				if (hasVerticalOverlap && candidateLeft < nearestRightLeft) {
+					nearestRightLeft = candidateLeft;
+				}
+			}
+
+			if (Number.isFinite(nearestRightLeft)) {
+				boundary = Math.min(boundary, nearestRightLeft - 6);
+			}
+		}
+
+		return Math.max(absoluteMinimumBoundary, boundary);
 	}
 
 	applyTransformReplacements(replacements) {
@@ -585,9 +1120,61 @@ class PdfWorksTab {
 			appliedCount += 1;
 		});
 
-		this.renderAllEditableOverlays();
+		if (this.currentFileKind === 'pdf') {
+			this.renderAllEditableOverlays();
+		} else {
+			this.syncTextPreviewWithEditableModel();
+		}
 		this.updateExportButtonState();
 		return appliedCount;
+	}
+
+	applyTransformReplacementIncremental(replacement) {
+		if (!replacement || typeof replacement !== 'object') {
+			return false;
+		}
+
+		const { blockId, pageNumber, transformedText } = replacement;
+		if (typeof blockId !== 'string' || !Number.isInteger(pageNumber) || typeof transformedText !== 'string') {
+			return false;
+		}
+
+		const editableBlock = this.editableBlocksById.get(blockId);
+		if (editableBlock) {
+			editableBlock.transformedText = transformedText;
+		}
+
+		this.transformedBlocksById.set(blockId, {
+			blockId,
+			pageNumber,
+			transformedText
+		});
+
+		if (this.currentFileKind === 'pdf') {
+			this.renderEditableOverlayForPage(pageNumber);
+		} else {
+			this.syncTextPreviewWithEditableModel();
+		}
+		this.updateExportButtonState();
+		return true;
+	}
+
+	syncTextPreviewWithEditableModel() {
+		if (this.currentFileKind === 'pdf') {
+			return;
+		}
+
+		const textArea = document.getElementById('translate-text-preview');
+		if (!textArea) {
+			return;
+		}
+
+		const block = this.editableBlocksById.get('p1-t0');
+		if (!block) {
+			return;
+		}
+
+		textArea.value = String(block.transformedText || block.originalText || '');
 	}
 
 	updateExportButtonState() {
@@ -607,12 +1194,6 @@ class PdfWorksTab {
 			return;
 		}
 
-		const JsPdfClass = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
-		if (!JsPdfClass) {
-			this.showStatus(Lang.get('pdfWorksExportFailed', { error: 'jsPDF not available' }), 'error');
-			return;
-		}
-
 		if (!this.editableDocumentModel || !Array.isArray(this.editableDocumentModel.pages) || this.editableDocumentModel.pages.length === 0) {
 			this.showStatus(Lang.get('pdfWorksExportFailed', { error: 'editable model is not ready' }), 'error');
 			return;
@@ -623,64 +1204,16 @@ class PdfWorksTab {
 		this.showStatus(Lang.get('pdfWorksExportingStatus'), 'info');
 
 		try {
-			const pageFrames = Array.from(this.previewOverlay?.querySelectorAll('.pdfworks-preview-canvas-frame') || []);
-			const pageFrameByNumber = new Map();
-			pageFrames.forEach(frame => {
-				const pageNumber = Number(frame.dataset.pageNumber || 0);
-				if (pageNumber > 0) {
-					pageFrameByNumber.set(pageNumber, frame);
-				}
-			});
-
-			let pdfInstance = null;
-			const pages = this.editableDocumentModel.pages.slice().sort((left, right) => left.pageNumber - right.pageNumber);
-
-			for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
-				const page = pages[pageIndex];
-				const pageFrame = pageFrameByNumber.get(page.pageNumber);
-				const sourceCanvas = pageFrame ? pageFrame.querySelector('.pdfworks-preview-canvas') : null;
-
-				if (!sourceCanvas) {
-					continue;
-				}
-
-				const mergedCanvas = document.createElement('canvas');
-				mergedCanvas.width = sourceCanvas.width;
-				mergedCanvas.height = sourceCanvas.height;
-				const mergedContext = mergedCanvas.getContext('2d');
-
-				mergedContext.drawImage(sourceCanvas, 0, 0);
-				this.drawEditableBlocksToCanvas(mergedContext, page);
-
-				const pageWidth = mergedCanvas.width;
-				const pageHeight = mergedCanvas.height;
-				const orientation = pageWidth >= pageHeight ? 'l' : 'p';
-				const pageImageData = mergedCanvas.toDataURL('image/jpeg', 0.94);
-
-				if (!pdfInstance) {
-					pdfInstance = new JsPdfClass({
-						orientation,
-						unit: 'px',
-						format: [pageWidth, pageHeight]
-					});
-				} else {
-					pdfInstance.addPage([pageWidth, pageHeight], orientation);
-				}
-
-				pdfInstance.addImage(pageImageData, 'JPEG', 0, 0, pageWidth, pageHeight);
+			if (this.currentFileKind === 'pdf') {
+				await this.exportRebuiltPdfDocument();
+			} else {
+				await this.exportTranslatedTextDocument();
 			}
-
-			if (!pdfInstance) {
-				throw new Error('No pages available for export');
-			}
-
-			const sourceName = (this.selectedFile?.name || 'pdfworks-document').replace(/\.pdf$/i, '');
-			pdfInstance.save(`${sourceName}-rebuilt.pdf`);
 
 			this.showStatus(Lang.get('pdfWorksExportDone'), 'success');
 			exportButton.textContent = Lang.get('pdfWorksExportDoneButton');
 		} catch (error) {
-			console.error('PdfWorksTab export error:', error);
+			console.error('TranslateTab export error:', error);
 			this.showStatus(Lang.get('pdfWorksExportFailed', { error: error.message }), 'error');
 			exportButton.textContent = Lang.get('pdfWorksRetryButton');
 		} finally {
@@ -691,55 +1224,251 @@ class PdfWorksTab {
 		}
 	}
 
-	drawEditableBlocksToCanvas(context, page) {
-		const blocks = Array.isArray(page?.textBlocks) ? page.textBlocks : [];
-		blocks.forEach(block => {
-			const text = (block.transformedText || block.originalText || '').trim();
+	async exportRebuiltPdfDocument() {
+		const JsPdfClass = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
+		if (!JsPdfClass) {
+			throw new Error('jsPDF not available');
+		}
+
+		const pageFrames = Array.from(this.previewOverlay?.querySelectorAll('.pdfworks-preview-canvas-frame') || []);
+		const pageFrameByNumber = new Map();
+		pageFrames.forEach(frame => {
+			const pageNumber = Number(frame.dataset.pageNumber || 0);
+			if (pageNumber > 0) {
+				pageFrameByNumber.set(pageNumber, frame);
+			}
+		});
+
+		let pdfInstance = null;
+		const pages = this.editableDocumentModel.pages.slice().sort((left, right) => left.pageNumber - right.pageNumber);
+
+		for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
+			const page = pages[pageIndex];
+			const pageFrame = pageFrameByNumber.get(page.pageNumber);
+			const sourceCanvas = pageFrame ? pageFrame.querySelector('.pdfworks-preview-canvas') : null;
+
+			if (!sourceCanvas) {
+				continue;
+			}
+
+			const pageWidth = sourceCanvas.width;
+			const pageHeight = sourceCanvas.height;
+			const orientation = pageWidth >= pageHeight ? 'l' : 'p';
+			const pageImageData = sourceCanvas.toDataURL('image/jpeg', 0.94);
+
+			if (!pdfInstance) {
+				pdfInstance = new JsPdfClass({
+					orientation,
+					unit: 'px',
+					format: [pageWidth, pageHeight]
+				});
+			} else {
+				pdfInstance.addPage([pageWidth, pageHeight], orientation);
+			}
+
+			pdfInstance.addImage(pageImageData, 'JPEG', 0, 0, pageWidth, pageHeight);
+			this.drawPreviewOverlayTextToPdf(pdfInstance, pageFrame);
+		}
+
+		if (!pdfInstance) {
+			throw new Error('No pages available for export');
+		}
+
+		const sourceName = (this.selectedFile?.name || 'translate-document').replace(/\.pdf$/i, '');
+		pdfInstance.save(`${sourceName}-translated.pdf`);
+	}
+
+	async exportTranslatedTextDocument() {
+		const translatedText = this.getTranslatedDocumentText();
+		const sourceName = this.selectedFile?.name || 'translate-document';
+		const baseName = sourceName.replace(/\.[^/.]+$/, '');
+		const kind = this.currentFileKind || this.resolveFileKind(this.selectedFile);
+
+		if (kind === 'txt') {
+			this.downloadTextBlob(translatedText, `${baseName}-translated.txt`, 'text/plain;charset=utf-8');
+			return;
+		}
+
+		if (kind === 'md') {
+			this.downloadTextBlob(translatedText, `${baseName}-translated.md`, 'text/markdown;charset=utf-8');
+			return;
+		}
+
+		throw new Error('Unsupported export format');
+	}
+
+	getTranslatedDocumentText() {
+		const block = this.editableBlocksById.get('p1-t0');
+		if (!block) {
+			return '';
+		}
+		return String(block.transformedText || block.originalText || '');
+	}
+
+	downloadTextBlob(content, fileName, mimeType) {
+		const blob = new Blob([content], { type: mimeType });
+		this.downloadBlob(blob, fileName);
+	}
+
+	downloadBlob(blob, fileName) {
+		const objectUrl = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = objectUrl;
+		link.download = fileName;
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+		setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+	}
+
+	drawPreviewOverlayTextToPdf(pdfInstance, pageFrame) {
+		if (!pdfInstance || !pageFrame) {
+			return;
+		}
+
+		const overlay = pageFrame.querySelector('.pdfworks-preview-overlay-layer');
+		if (!overlay) {
+			return;
+		}
+
+		const blocks = Array.from(overlay.querySelectorAll('.pdfworks-editable-text-block'));
+		if (blocks.length === 0) {
+			return;
+		}
+
+		const pageCanvas = pageFrame.querySelector('.pdfworks-preview-canvas');
+		const pageWidth = Math.max(1, Number(pageCanvas?.width || pageFrame.clientWidth || 1));
+		const pageHeight = Math.max(1, Number(pageCanvas?.height || pageFrame.clientHeight || 1));
+
+		const measureCanvas = document.createElement('canvas');
+		const measureContext = measureCanvas.getContext('2d');
+		if (!measureContext) {
+			return;
+		}
+
+		blocks.forEach(blockElement => {
+			const text = String(blockElement.innerText || blockElement.textContent || '').replace(/\r\n?/g, '\n').trim();
 			if (!text) {
 				return;
 			}
 
-			const contrastStyle = this.resolveReadableTextStyle(block, page?.pageNumber);
-
-			const left = Math.max(0, Number(block.left || 0));
-			const top = Math.max(0, Number(block.top || 0));
-			const width = Math.max(24, Number(block.width || 24));
-			const height = Math.max(16, Number(block.height || 16));
-			const fontSize = Math.max(9, Number(block.fontSize || 11));
-			const lineHeight = Math.max(fontSize * 1.15, Number(block.lineHeight || fontSize * 1.15));
-			const fontWeight = (block.fontWeight || '400').toString();
-			const fontStyle = (block.fontStyle || 'normal').toString();
-			const fontFamily = (block.fontFamily || 'Arial').toString();
-			const fontColor = contrastStyle.textColor;
-
-			context.save();
-			context.fillStyle = fontColor;
-			context.strokeStyle = contrastStyle.outlineColor;
-			context.lineWidth = Math.max(0.9, fontSize * 0.09);
-			context.lineJoin = 'round';
-			context.miterLimit = 2;
-			context.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}, Arial, Helvetica, sans-serif`;
-			context.textBaseline = 'top';
-			const measuredMetrics = context.measureText('Mg');
-			const measuredGlyphHeight = Math.max(
-				fontSize,
-				Number(measuredMetrics.actualBoundingBoxAscent || 0) + Number(measuredMetrics.actualBoundingBoxDescent || 0)
-			);
-			const effectiveLineHeight = Math.max(lineHeight, measuredGlyphHeight + 2, fontSize * 1.22);
-
-			const textLines = this.wrapTextToWidth(context, text, Math.max(16, width - 2));
-			let y = top + 1;
-			const pageBottomLimit = context.canvas ? context.canvas.height - 1 : Number.POSITIVE_INFINITY;
-			for (const textLine of textLines) {
-				if (y >= pageBottomLimit) {
-					break;
-				}
-				context.strokeText(textLine, left + 2, y);
-				context.fillText(textLine, left + 2, y);
-				y += effectiveLineHeight;
+			const computed = window.getComputedStyle(blockElement);
+			const left = Math.max(0, this.getSafeStylePx(blockElement.style.left, 0));
+			const top = Math.max(0, this.getSafeStylePx(blockElement.style.top, 0));
+			const width = Math.max(24, this.getSafeStylePx(blockElement.style.width || computed.width, 24));
+			const height = Math.max(16, this.getSafeStylePx(blockElement.style.height || computed.height, 16));
+			if (left >= pageWidth || top >= pageHeight) {
+				return;
 			}
-			context.restore();
+
+			const safeWidth = Math.max(1, Math.min(width, pageWidth - left));
+			const safeHeight = Math.max(1, Math.min(height, pageHeight - top));
+			const fontSize = Math.max(7, Number.parseFloat(computed.fontSize || '11') || 11);
+			const lineHeightRaw = Number.parseFloat(computed.lineHeight || '0');
+			const lineHeight = Number.isFinite(lineHeightRaw) ? Math.max(fontSize * 1.05, lineHeightRaw) : fontSize * 1.2;
+			const fontWeightRaw = (computed.fontWeight || '400').toString();
+			const fontStyleRaw = (computed.fontStyle || 'normal').toString();
+			const pdfFontSpec = this.getPdfFontSpecFromComputed(computed);
+
+			const colorRgb = this.parseCssColorToRgb(computed.color) || { red: 17, green: 17, blue: 17 };
+			pdfInstance.setFont(pdfFontSpec.fontName, pdfFontSpec.fontStyle);
+			pdfInstance.setFontSize(fontSize);
+			pdfInstance.setTextColor(colorRgb.red, colorRgb.green, colorRgb.blue);
+
+			measureContext.font = `${fontStyleRaw} ${fontWeightRaw} ${fontSize}px ${computed.fontFamily || 'Arial'}, Arial, Helvetica, sans-serif`;
+			const lines = this.wrapTextToWidth(measureContext, text, Math.max(16, safeWidth - 4));
+			const maxVisibleLines = Math.max(1, Math.floor((safeHeight - 2) / lineHeight));
+			const visibleLines = lines.slice(0, maxVisibleLines);
+
+			let y = top + 1;
+			const yLimit = top + safeHeight;
+			visibleLines.forEach(line => {
+				if (y >= yLimit) {
+					return;
+				}
+				if (this.lineNeedsRasterGlyphFallback(line)) {
+					this.drawPdfLineViaCanvasGlyphs(pdfInstance, {
+						line,
+						x: left + 2,
+						y,
+						fontSize,
+						lineHeight,
+						fontStyleRaw,
+						fontWeightRaw,
+						fontFamily: computed.fontFamily || 'Arial',
+						colorRgb,
+						measureContext
+					});
+				} else {
+					pdfInstance.text(line, left + 2, y, { baseline: 'top' });
+				}
+				y += lineHeight;
+			});
 		});
+	}
+
+	lineNeedsRasterGlyphFallback(line) {
+		if (typeof line !== 'string' || !line) {
+			return false;
+		}
+
+		for (let index = 0; index < line.length; index += 1) {
+			const codePoint = line.codePointAt(index);
+			if (!Number.isFinite(codePoint)) {
+				continue;
+			}
+
+			if (codePoint > 0xffff) {
+				index += 1;
+			}
+
+			if (codePoint > 255) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	drawPdfLineViaCanvasGlyphs(pdfInstance, {
+		line,
+		x,
+		y,
+		fontSize,
+		lineHeight,
+		fontStyleRaw,
+		fontWeightRaw,
+		fontFamily,
+		colorRgb,
+		measureContext
+	}) {
+		if (!pdfInstance || typeof line !== 'string' || !line) {
+			return;
+		}
+
+		const scale = 2;
+		measureContext.font = `${fontStyleRaw} ${fontWeightRaw} ${fontSize}px ${fontFamily}`;
+		const measuredWidth = Math.max(2, Math.ceil(measureContext.measureText(line).width));
+		const pixelWidth = Math.max(4, Math.ceil((measuredWidth + 4) * scale));
+		const pixelHeight = Math.max(4, Math.ceil((lineHeight + 2) * scale));
+
+		const canvas = document.createElement('canvas');
+		canvas.width = pixelWidth;
+		canvas.height = pixelHeight;
+		const context = canvas.getContext('2d');
+		if (!context) {
+			return;
+		}
+
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		context.scale(scale, scale);
+		context.font = `${fontStyleRaw} ${fontWeightRaw} ${fontSize}px ${fontFamily}`;
+		context.textBaseline = 'top';
+		context.fillStyle = `rgb(${colorRgb.red}, ${colorRgb.green}, ${colorRgb.blue})`;
+		context.fillText(line, 2, 0);
+
+		const imageData = canvas.toDataURL('image/png');
+		pdfInstance.addImage(imageData, 'PNG', x, y, pixelWidth / scale, pixelHeight / scale);
 	}
 
 	resolveReadableTextStyle(block, pageNumber) {
@@ -773,6 +1502,40 @@ class PdfWorksTab {
 			outlineColor: this.rgbToCssColor(outlineRgb),
 			textShadow: this.buildTextShadowCss(outlineRgb)
 		};
+	}
+
+	getSafeStylePx(value, fallback = 0) {
+		const parsed = Number.parseFloat(String(value || ''));
+		if (!Number.isFinite(parsed)) {
+			return fallback;
+		}
+		return parsed;
+	}
+
+	getPdfFontSpecFromComputed(computed) {
+		const fontFamily = (computed?.fontFamily || 'Arial').toLowerCase();
+		const fontWeightRaw = (computed?.fontWeight || '400').toString();
+		const fontStyleRaw = (computed?.fontStyle || 'normal').toString();
+
+		const isBold = fontWeightRaw === 'bold' || Number(fontWeightRaw) >= 600;
+		const isItalic = fontStyleRaw.includes('italic') || fontStyleRaw.includes('oblique');
+		let fontStyle = 'normal';
+		if (isBold && isItalic) {
+			fontStyle = 'bolditalic';
+		} else if (isBold) {
+			fontStyle = 'bold';
+		} else if (isItalic) {
+			fontStyle = 'italic';
+		}
+
+		let fontName = 'helvetica';
+		if (fontFamily.includes('times')) {
+			fontName = 'times';
+		} else if (fontFamily.includes('courier') || fontFamily.includes('mono')) {
+			fontName = 'courier';
+		}
+
+		return { fontName, fontStyle };
 	}
 
 	pickOutlineColorForText(textRgb) {
@@ -927,13 +1690,94 @@ class PdfWorksTab {
 		return (lighter + 0.05) / (darker + 0.05);
 	}
 
+	resolveAdaptiveWrapForBlock(context, { text, left, width, fontSize, isPortraitPreferred = false, rightBoundary = null }) {
+		const baseWidth = Math.max(16, Number(width) || 16);
+		const canvasWidth = context?.canvas?.width || 0;
+		const safeLeft = Math.max(0, Number(left) || 0);
+		const fallbackRightBoundary = canvasWidth > 0 ? canvasWidth - 2 : safeLeft + baseWidth;
+		const effectiveRightBoundary = Number.isFinite(Number(rightBoundary))
+			? Number(rightBoundary)
+			: fallbackRightBoundary;
+		const availableToRight = Math.max(16, effectiveRightBoundary - (safeLeft + 2));
+		const portraitBoost = isPortraitPreferred ? 1.15 : 1;
+		const minimumAdaptiveCap = baseWidth + Math.max(18, Math.min(120, (Number(fontSize) || 12) * 2.2 * portraitBoost));
+		const maxAdaptiveWidth = Math.max(baseWidth, Math.min(availableToRight, Math.max(minimumAdaptiveCap, availableToRight)));
+
+		let bestWidth = baseWidth;
+		let bestLines = this.wrapTextToWidth(context, text, bestWidth);
+		let bestHasOrphanTail = this.hasOrphanTailLine(bestLines);
+		if (!bestHasOrphanTail && bestLines.length <= 1) {
+			return { width: bestWidth, lines: bestLines };
+		}
+
+		const step = Math.max(2, Math.min(12, Math.round((Number(fontSize) || 12) * 0.45)));
+		let currentWidth = bestWidth;
+		let staleSteps = 0;
+
+		while (currentWidth < maxAdaptiveWidth) {
+			currentWidth = Math.min(maxAdaptiveWidth, currentWidth + step);
+			const candidateLines = this.wrapTextToWidth(context, text, currentWidth);
+			const improvedLineCount = candidateLines.length < bestLines.length;
+			const candidateHasOrphanTail = this.hasOrphanTailLine(candidateLines);
+			const orphanResolved = !candidateHasOrphanTail;
+			const orphanImproved = bestHasOrphanTail && orphanResolved;
+			const sameLineCountButBetterTail = candidateLines.length === bestLines.length && orphanImproved;
+
+			if (improvedLineCount || sameLineCountButBetterTail) {
+				bestWidth = currentWidth;
+				bestLines = candidateLines;
+				bestHasOrphanTail = candidateHasOrphanTail;
+				staleSteps = 0;
+			} else {
+				staleSteps += 1;
+			}
+
+			if (orphanResolved && candidateLines.length <= bestLines.length) {
+				break;
+			}
+
+			if (staleSteps >= 4 && currentWidth > bestWidth + (step * 3)) {
+				break;
+			}
+		}
+
+		return { width: bestWidth, lines: bestLines };
+	}
+
+	hasOrphanTailLine(lines) {
+		if (!Array.isArray(lines) || lines.length < 2) {
+			return false;
+		}
+
+		let lastIndex = lines.length - 1;
+		while (lastIndex >= 0 && !String(lines[lastIndex] || '').trim()) {
+			lastIndex -= 1;
+		}
+		if (lastIndex <= 0) {
+			return false;
+		}
+
+		const lastLine = String(lines[lastIndex] || '').trim();
+		if (!lastLine) {
+			return false;
+		}
+
+		const orphanWords = lastLine.split(/\s+/).filter(Boolean);
+		if (orphanWords.length === 0) {
+			return false;
+		}
+
+		const orphanWordChars = orphanWords.join('').length;
+		return orphanWords.length <= 2 && orphanWordChars <= 18;
+	}
+
 	wrapTextToWidth(context, text, maxWidth) {
 		if (!text) {
 			return [];
 		}
 
 		const safeMaxWidth = Math.max(16, Number(maxWidth) || 16);
-		const wrapTolerance = Math.max(1.5, Math.min(8, safeMaxWidth * 0.02));
+		const wrapTolerance = Math.max(2, Math.min(14, safeMaxWidth * 0.045));
 		const paragraphCandidates = String(text)
 			.replace(/\r\n?/g, '\n')
 			.split('\n');
@@ -989,7 +1833,14 @@ class PdfWorksTab {
 		}
 
 		const lastLine = String(lines[lastIndex] || '').trim();
-		if (!lastLine || lastLine.includes(' ')) {
+		if (!lastLine) {
+			return;
+		}
+
+		const orphanWords = lastLine.split(/\s+/).filter(Boolean);
+		const orphanWordChars = orphanWords.join('').length;
+		const isOrphanCandidate = orphanWords.length <= 2 && orphanWordChars <= 18;
+		if (!isOrphanCandidate) {
 			return;
 		}
 
@@ -1007,7 +1858,8 @@ class PdfWorksTab {
 		}
 
 		const mergedLine = `${previousLine} ${lastLine}`;
-		if (context.measureText(mergedLine).width <= maxWidth + tolerance) {
+		const orphanMergeAllowance = Math.max(6, Math.min(18, maxWidth * 0.05));
+		if (context.measureText(mergedLine).width <= maxWidth + tolerance + orphanMergeAllowance) {
 			lines[previousIndex] = mergedLine;
 			lines.splice(lastIndex, 1);
 		}
@@ -1028,12 +1880,13 @@ class PdfWorksTab {
 
 	closePdfPreviewWindow() {
 		this.cancelActiveTransform({ showFeedback: false });
+		this.ensureContinueButtonForChatAfterTranslateClose();
 
 		if (this.previewDocument && typeof this.previewDocument.destroy === 'function') {
 			try {
 				this.previewDocument.destroy();
 			} catch (error) {
-				console.warn('PdfWorksTab: error closing preview document', error);
+				console.warn('TranslateTab: error closing preview document', error);
 			}
 		}
 
@@ -1051,6 +1904,75 @@ class PdfWorksTab {
 		this.previewTotalPages = 0;
 		this.activePageNumber = null;
 		this.selectedPageNumbers.clear();
+	}
+
+	ensureContinueButtonForChatAfterTranslateClose() {
+		if (!this.translationContextChanged) {
+			return;
+		}
+
+		const aiReplies = document.querySelector('.ai-replies');
+		if (!aiReplies) {
+			this.translationContextChanged = false;
+			return;
+		}
+
+		const existingContinueButton = aiReplies.querySelector('.continuation-container');
+		if (existingContinueButton) {
+			this.translationContextChanged = false;
+			return;
+		}
+
+		const assistantMessages = aiReplies.querySelectorAll('.assistant-message');
+		const userMessages = aiReplies.querySelectorAll('.user-message');
+		const hasOnlyWelcome = (assistantMessages.length === 1 && assistantMessages[0].classList.contains('welcome-message'));
+		const hasChatGoingOn = !hasOnlyWelcome && (assistantMessages.length > 0 || userMessages.length > 0);
+
+		if (!hasChatGoingOn) {
+			this.translationContextChanged = false;
+			return;
+		}
+
+		const systemPromptElement = document.getElementById('system-prompt');
+		const currentSystemPrompt = systemPromptElement ? systemPromptElement.value : '';
+
+		if (window.chat && typeof window.chat.handleSystemPromptChange === 'function') {
+			window.chat.handleSystemPromptChange(currentSystemPrompt, true);
+			this.translationContextChanged = false;
+			return;
+		}
+
+		if (window.OllamaAPI && typeof window.OllamaAPI.resetContext === 'function') {
+			window.OllamaAPI.resetContext();
+		}
+
+		if (window.OllamaAPI && typeof window.OllamaAPI.createContinueButton === 'function') {
+			const conversations = [];
+
+			const lastUserBubble = userMessages.length > 0
+				? userMessages[userMessages.length - 1].querySelector('.message-bubble')
+				: null;
+			if (lastUserBubble && lastUserBubble.innerHTML) {
+				conversations.push({ role: 'user', message: lastUserBubble.innerHTML });
+			}
+
+			const lastAssistantMessage = assistantMessages.length > 0
+				? assistantMessages[assistantMessages.length - 1]
+				: null;
+			const lastAssistantContainer = lastAssistantMessage
+				? lastAssistantMessage.querySelector('.ai-response-container')
+				: null;
+			if (lastAssistantContainer && lastAssistantContainer.innerHTML) {
+				conversations.push({ role: 'assistant', message: lastAssistantContainer.innerHTML });
+			}
+
+			if (conversations.length > 0) {
+				const continueButton = window.OllamaAPI.createContinueButton(conversations, aiReplies);
+				aiReplies.appendChild(continueButton);
+			}
+		}
+
+		this.translationContextChanged = false;
 	}
 
 	showNoExtractableTextModal(fileName) {
@@ -1289,7 +2211,7 @@ class PdfWorksTab {
 		const instruction = instructionInput.value.trim();
 		const scopeTarget = this.getScopeTarget(scope);
 
-		console.group('[PdfWorksTab] Transform request');
+		console.group('[TranslateTab] Transform request');
 		console.log('scope:', scope);
 		console.log('scopeTarget:', scopeTarget);
 		console.log('activePageNumber:', this.activePageNumber);
@@ -1313,33 +2235,64 @@ class PdfWorksTab {
 		this.showStatus(Lang.get('pdfWorksRunningTransformScope', { scope: scopeTarget.type }), 'info');
 
 		try {
-			if (!this.pdfWorksManager && window.PdfWorks) {
-				this.pdfWorksManager = new window.PdfWorks();
-				await this.pdfWorksManager.initialize();
+			if (!this.translateManager && window.Translate) {
+				this.translateManager = new window.Translate();
+				await this.translateManager.initialize();
 			}
 
-			if (!this.pdfWorksManager) {
+			if (!this.translateManager) {
 				throw new Error('PDF Works service not available');
 			}
 
-			const transformResult = await this.pdfWorksManager.runTransform({
+			const streamedBlockIds = new Set();
+			let streamedCount = 0;
+			const progressPrefix = Lang.get('pdfWorksRunningTransformScope', { scope: scopeTarget.type });
+			this.translationContextChanged = true;
+
+			const transformResult = await this.translateManager.runTransform({
 				file: this.selectedFile,
 				instruction,
 				scope,
 				scopeTarget,
 				previewDocument: this.previewDocument,
 				editableDocument: this.editableDocumentModel,
-				abortSignal: this.transformAbortController ? this.transformAbortController.signal : null
+				abortSignal: this.transformAbortController ? this.transformAbortController.signal : null,
+				onReplacement: replacement => {
+					if (!replacement || typeof replacement.blockId !== 'string') {
+						return;
+					}
+
+					if (this.applyTransformReplacementIncremental(replacement)) {
+						if (!streamedBlockIds.has(replacement.blockId)) {
+							streamedBlockIds.add(replacement.blockId);
+							streamedCount += 1;
+						}
+						this.showStatus(`${progressPrefix} (${streamedCount})`, 'info');
+					}
+				}
 			});
 
-			const appliedCount = this.applyTransformReplacements(transformResult?.replacements || []);
+			const remainingReplacements = (transformResult?.replacements || []).filter(replacement => {
+				if (!replacement || typeof replacement.blockId !== 'string' || typeof replacement.transformedText !== 'string') {
+					return false;
+				}
+				const currentBlock = this.editableBlocksById.get(replacement.blockId);
+				const currentText = String(currentBlock?.transformedText || currentBlock?.originalText || '');
+				return currentText !== replacement.transformedText;
+			});
+			const appliedTailCount = this.applyTransformReplacements(remainingReplacements);
+			const appliedCount = Math.max(
+				streamedCount,
+				Number(transformResult?.replacementCount || 0),
+				streamedCount + appliedTailCount
+			);
 
 			this.showStatus(Lang.get('pdfWorksTransformDoneCount', { count: appliedCount }), 'success');
 		} catch (error) {
 			if (error && error.name === 'AbortError') {
 				this.showStatus(Lang.get('generationCancelled'), 'info');
 			} else {
-				console.error('PdfWorksTab transform error:', error);
+				console.error('TranslateTab transform error:', error);
 				this.showStatus(Lang.get('pdfWorksTransformFailed', { error: error.message }), 'error');
 			}
 		} finally {
@@ -1423,6 +2376,14 @@ class PdfWorksTab {
 				margin: 0;
 				font-size: 18px;
 				font-weight: 600;
+				color: var(--text-color);
+			}
+
+			.pdfworks-header-hint {
+				margin: 8px 0 0 0;
+				font-size: 12px;
+				line-height: 1.35;
+				opacity: 0.85;
 				color: var(--text-color);
 			}
 
@@ -1742,7 +2703,7 @@ class PdfWorksTab {
 				min-height: 520px;
 				max-width: 98vw;
 				max-height: 96vh;
-				background: var(--background-color);
+				background-color: var(--background-color, var(--bg-color, #ffffff)) !important;
 				border: 1px solid var(--border-color);
 				border-radius: 12px;
 				box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
@@ -1763,7 +2724,7 @@ class PdfWorksTab {
 				justify-content: space-between;
 				padding: 0 16px;
 				border-bottom: 1px solid var(--border-color);
-				background: var(--panel-background);
+				background-color: var(--panel-background, var(--bg-color-secondary, var(--bg-color, #ffffff))) !important;
 			}
 
 			.pdfworks-preview-header h3 {
@@ -1828,6 +2789,7 @@ class PdfWorksTab {
 				display: flex;
 				flex-direction: row;
 				gap: 0;
+				background-color: var(--background-color, var(--bg-color, #ffffff)) !important;
 			}
 
 			.pdfworks-preview-controls {
@@ -1838,7 +2800,7 @@ class PdfWorksTab {
 				padding: 16px;
 				box-sizing: border-box;
 				border-right: 1px solid var(--border-color);
-				background: var(--panel-background);
+				background-color: var(--panel-background, var(--bg-color-secondary, var(--bg-color, #ffffff))) !important;
 				display: flex;
 				flex-direction: column;
 				gap: 14px;
@@ -1919,6 +2881,7 @@ class PdfWorksTab {
 				display: flex;
 				flex-direction: column;
 				gap: 16px;
+				background-color: var(--background-color, var(--bg-color, #ffffff)) !important;
 			}
 
 			.pdfworks-preview-loading {
@@ -1937,6 +2900,7 @@ class PdfWorksTab {
 				cursor: pointer;
 				border: 1px solid transparent;
 				transition: border-color 0.18s ease, background 0.18s ease;
+				background-color: var(--panel-background, var(--bg-color-secondary, var(--bg-color, #ffffff))) !important;
 			}
 
 			.pdfworks-preview-page.scope-document-active {
@@ -1987,14 +2951,18 @@ class PdfWorksTab {
 			.pdfworks-editable-text-block {
 				position: absolute;
 				padding: 1px 2px;
+				box-sizing: border-box;
 				border: 1px dashed transparent;
 				color: var(--text-color);
 				background: transparent;
 				border-radius: 2px;
 				white-space: pre-wrap;
-				word-break: break-word;
+				word-break: normal;
+				overflow-wrap: break-word;
 				overflow: hidden;
 				caret-color: var(--text-color);
+				font-kerning: normal;
+				text-rendering: optimizeLegibility;
 				z-index: 2;
 			}
 
@@ -2044,5 +3012,5 @@ class PdfWorksTab {
 	}
 }
 
-window.PdfWorksTab = PdfWorksTab;
-window.PdfWorksTabLoaded = true;
+window.TranslateTab = TranslateTab;
+window.TranslateTabLoaded = true;
