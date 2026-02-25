@@ -796,6 +796,7 @@ class TranslateTab {
 				} else {
 					this.applyPreviewBlockBaseTypography(textBlockElement, block);
 				}
+				this.applyPreviewBlockVerticalAlignment(textBlockElement, block);
 				this.transformedBlocksById.set(block.blockId, {
 					blockId: block.blockId,
 					pageNumber,
@@ -808,6 +809,7 @@ class TranslateTab {
 			if (this.shouldApplyPreviewReplacementFit(block)) {
 				this.fitPreviewBlockTypographyToBounds(textBlockElement, block);
 			}
+			this.applyPreviewBlockVerticalAlignment(textBlockElement, block);
 		});
 	}
 
@@ -822,6 +824,36 @@ class TranslateTab {
 		});
 		textBlockElement.style.fontSize = `${fontSize}px`;
 		textBlockElement.style.lineHeight = `${normalizedLineHeight}px`;
+	}
+
+	applyPreviewBlockVerticalAlignment(textBlockElement, block) {
+		if (!textBlockElement || !block) {
+			return;
+		}
+
+		const blockHeight = Math.max(18, Number(block.height || 18));
+		const renderedLineCount = this.getRenderedLineCount(textBlockElement);
+		const fontSize = Math.max(10, Number.parseFloat(textBlockElement.style.fontSize || block.fontSize || '10'));
+		const rawLineHeight = Number.parseFloat(textBlockElement.style.lineHeight || '0');
+		const lineHeight = Number.isFinite(rawLineHeight)
+			? rawLineHeight
+			: Math.max(11, fontSize * 1.16);
+
+		if (renderedLineCount <= 1) {
+			const safeSingleLineHeight = Math.min(lineHeight, Math.max(11, blockHeight - 2));
+			const verticalInset = Math.max(0, Math.floor((blockHeight - safeSingleLineHeight) / 2));
+			textBlockElement.style.display = 'flex';
+			textBlockElement.style.alignItems = 'center';
+			textBlockElement.style.paddingTop = `${verticalInset}px`;
+			textBlockElement.style.paddingBottom = `${verticalInset}px`;
+			textBlockElement.style.lineHeight = `${safeSingleLineHeight}px`;
+			return;
+		}
+
+		textBlockElement.style.display = 'block';
+		textBlockElement.style.alignItems = '';
+		textBlockElement.style.paddingTop = '1px';
+		textBlockElement.style.paddingBottom = '1px';
 	}
 
 	shouldApplyPreviewReplacementFit(block) {
