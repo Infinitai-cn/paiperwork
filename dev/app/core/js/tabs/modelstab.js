@@ -16,6 +16,48 @@ class ModelDownloader {
         selectedTag: ''
     };
 
+    static _modelFetchNotificationCooldownUntil = 0;
+
+    static showModelFetchConnectionNotification(message) {
+        const now = Date.now();
+        if (now < this._modelFetchNotificationCooldownUntil) {
+            return;
+        }
+        this._modelFetchNotificationCooldownUntil = now + 5000;
+
+        const existing = document.querySelector('.model-fetch-connection-notification');
+        if (existing) {
+            existing.remove();
+        }
+
+        const notification = document.createElement('div');
+        notification.className = 'model-fetch-connection-notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10050;
+            max-width: 420px;
+            background: var(--panel-background, #2b2b2b);
+            color: var(--text-color, #fff);
+            border: 1px solid var(--border-color, #555);
+            border-left: 4px solid var(--error-color, #dc2626);
+            border-radius: 10px;
+            padding: 12px 14px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+            font-size: 13px;
+            line-height: 1.4;
+        `;
+        notification.textContent = message || Lang.get('modelFetchConnectionIssue');
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 7000);
+    }
+
     // Saves the current browsing state to encrypted storage
     static async saveBrowsingState() {
         await this.storeEncryptedValue('modelBrowsingState', JSON.stringify(this.browsingState));
@@ -525,6 +567,8 @@ class ModelDownloader {
     }
 
     static setupEventListeners() {
+        const modelSearchInput = document.getElementById('model-search-input');
+        const modelSearchClearBtn = document.getElementById('model-search-clear-btn');
         const modelSelect = document.getElementById('model-select');
         const sizeSelect = document.getElementById('size-select');
         const description = document.getElementById('model-description');
@@ -544,6 +588,23 @@ class ModelDownloader {
                 deleteBtn.classList.add('hidden');
             }
         });
+
+        modelSearchInput?.addEventListener('input', () => {
+            this.updateOnlineModelsList(this.browsingState.models || []);
+            if (modelSearchClearBtn) {
+                modelSearchClearBtn.style.visibility = modelSearchInput.value.trim() ? 'visible' : 'hidden';
+            }
+        });
+
+        if (modelSearchClearBtn && modelSearchInput) {
+            modelSearchClearBtn.style.visibility = modelSearchInput.value.trim() ? 'visible' : 'hidden';
+            modelSearchClearBtn.addEventListener('click', () => {
+                modelSearchInput.value = '';
+                this.updateOnlineModelsList(this.browsingState.models || []);
+                modelSearchClearBtn.style.visibility = 'hidden';
+                modelSearchInput.focus();
+            });
+        }
 
         modelSelect?.addEventListener('change', async (e) => {
             const option = e.target.selectedOptions[0];
@@ -676,6 +737,10 @@ class ModelDownloader {
             const response = await fetch(url);
             //console.log('Response status:', response.status);
 
+            if (!response.ok) {
+                throw new Error(`Model library request failed: ${response.status}`);
+            }
+
             const html = await response.text();
             //console.log('Received HTML length:', html.length);
             //console.log('First 500 chars of HTML:', html.substring(0, 500));
@@ -683,7 +748,7 @@ class ModelDownloader {
             return this.parseWithDOM(html);
         } catch (error) {
             console.error('Error fetching models:', error);
-            return [];
+            throw error;
         }
     }
 
@@ -808,6 +873,10 @@ class ModelDownloader {
                 <div class="download-section">
                     <div class="flex flex-col gap-2">
                         <label class="label">${Lang.get('modelSelectLabel')}</label>
+                        <div class="model-search-row">
+                            <input id="model-search-input" class="form-select" type="text" placeholder="${Lang.get('modelSearchPlaceholder')}">
+                            <button id="model-search-clear-btn" class="model-search-clear-btn" type="button" title="${Lang.get('modelClearSearch')}" aria-label="${Lang.get('modelClearSearch')}">&times;</button>
+                        </div>
                         <select id="model-select" class="form-select">
                             <option value="">${Lang.get('modelChooseOption')}</option>
                         </select>
@@ -922,6 +991,7 @@ class ModelDownloader {
                 } catch (error) {
                     console.error('Error fetching models:', error);
                     statusEl.textContent = Lang.get('modelFetchError');
+                    this.showModelFetchConnectionNotification(Lang.get('modelFetchConnectionIssue'));
                     btnText.textContent = Lang.get('modelFetchRetry');
                     fetchBtn.disabled = false;
                     modelSelect.disabled = false;
@@ -1541,19 +1611,36 @@ class ModelDownloader {
         const modelSelect = document.getElementById('model-select');
         if (!modelSelect) return;
 
+        const modelSearchInput = document.getElementById('model-search-input');
+        const searchQuery = String(modelSearchInput?.value || '').trim().toLowerCase();
+        const selectedModelBeforeRender = modelSelect.value;
+
+        const filteredModels = searchQuery
+            ? models.filter(model => {
+                const modelName = String(model?.name || '').toLowerCase();
+                const modelDescription = String(model?.description || '').toLowerCase();
+                return modelName.includes(searchQuery) || modelDescription.includes(searchQuery);
+            })
+            : models;
+
         // Create options HTML
         const optionsHtml = `
             <option value="">${Lang.get('modelChooseOption')}</option>
-            ${models.map(model => `
+            ${filteredModels.length > 0
+                ? filteredModels.map(model => `
                 <option value="${model.name}" data-description="${model.description || ''}">
                     ${model.name} (${model.stats?.pullsFormatted || '0'} pulls)
                 </option>
-            `).join('')}
+            `).join('')
+                : `<option value="" disabled>${Lang.get('modelNoMatches')}</option>`}
         `;
 
         // Update the select element
         modelSelect.innerHTML = optionsHtml;
-        //console.log(`Updated online models list with ${models.length} models`);
+        if (filteredModels.some(model => model.name === selectedModelBeforeRender)) {
+            modelSelect.value = selectedModelBeforeRender;
+        }
+        //console.log(`Updated online models list with ${filteredModels.length}/${models.length} models`);
 
         // Save models in browsing state
         this.browsingState.models = models;
@@ -1576,6 +1663,7 @@ class ModelDownloader {
             this.updateOnlineModelsList(models);
         } catch (error) {
             console.error('Error fetching online models:', error);
+            this.showModelFetchConnectionNotification(Lang.get('modelFetchConnectionIssue'));
             // Update selector to show error
             const modelSelect = document.getElementById('model-select');
             if (modelSelect) {
@@ -2588,7 +2676,8 @@ class ModelDownloader {
         background: transparent !important;
     }
     
-    .model-selector select, 
+    .model-selector select,
+    .model-selector input,
     .model-selector button,
     .model-selector .label,
     .model-selector #model-description {
@@ -2606,6 +2695,23 @@ class ModelDownloader {
         margin-bottom: 8px !important;
         font-weight: 500 !important;
     }
+
+    .model-search-row {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .model-search-row #model-search-input {
+        margin-bottom: 0 !important;
+        flex: 1 1 auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
     
     /* Adjust dropdown appearance to match chat */
     .model-selector select {
@@ -2617,6 +2723,41 @@ class ModelDownloader {
         color: var(--text-color) !important;
         font-size: 14px !important;
         margin-bottom: 12px !important;
+    }
+
+    .model-selector input {
+        height: 38px !important;
+        padding: 0 10px !important;
+        border: 2px solid var(--border-color) !important;
+        border-radius: 4px !important;
+        background-color: var(--bg-color) !important;
+        color: var(--text-color) !important;
+        font-size: 14px !important;
+        margin-bottom: 12px !important;
+        text-align: left !important;
+    }
+
+    .model-search-row .model-search-clear-btn {
+        width: 24px !important;
+        min-width: 24px !important;
+        max-width: 24px !important;
+        height: 24px !important;
+        flex: 0 0 24px !important;
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        padding: 0 !important;
+        border-radius: 50% !important;
+        border: 1px solid var(--border-color) !important;
+        background: var(--panel-background, #404040) !important;
+        color: var(--text-color, #fff) !important;
+        font-size: 14px !important;
+        line-height: 1 !important;
+        cursor: pointer !important;
+        visibility: hidden;
+    }
+
+    .model-search-row .model-search-clear-btn:hover {
+        background: var(--hover-background, #505050) !important;
     }
     
     .model-selector button {

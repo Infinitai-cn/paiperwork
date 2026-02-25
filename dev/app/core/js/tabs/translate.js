@@ -1,4 +1,4 @@
-class PdfWorks {
+class Translate {
 	constructor() {
 		this.isInitialized = false;
 		this.maxBlocksPerRequest = 240;
@@ -61,7 +61,7 @@ class PdfWorks {
 				try {
 					await pdfDocument.destroy();
 				} catch (error) {
-					console.warn('[PdfWorks] Failed to destroy temporary pdfDocument after extractable-text check', error);
+					console.warn('[Translate] Failed to destroy temporary pdfDocument after extractable-text check', error);
 				}
 			}
 		}
@@ -117,19 +117,19 @@ class PdfWorks {
 			try {
 				await pdfDocument.destroy();
 			} catch (error) {
-				console.warn('[PdfWorks] Failed to destroy temporary pdfDocument after editable model build', error);
+				console.warn('[Translate] Failed to destroy temporary pdfDocument after editable model build', error);
 			}
 		}
 
 		return {
-			documentId: `pdfworks_${Date.now()}`,
+			documentId: `translate_${Date.now()}`,
 			fileName: file?.name || 'pdf-document',
 			pageCount: pages.length,
 			pages
 		};
 	}
 
-	async runTransform({ file, instruction, scope, scopeTarget, previewDocument = null, editableDocument = null, abortSignal = null }) {
+	async runTransform({ file, instruction, scope, scopeTarget, previewDocument = null, editableDocument = null, abortSignal = null, onReplacement = null }) {
 		if (!file) {
 			throw new Error('No PDF file selected');
 		}
@@ -140,7 +140,7 @@ class PdfWorks {
 			throw new Error('No scope target selected');
 		}
 
-		console.group('[PdfWorks] runTransform');
+		console.group('[Translate] runTransform');
 		console.log('file:', file.name);
 		console.log('scope:', scope);
 		console.log('scopeTarget:', scopeTarget);
@@ -157,7 +157,7 @@ class PdfWorks {
 				.filter(pageInfo => pageInfo.normalizedTextItemCount > 0)
 				.map(pageInfo => pageInfo.pageNumber);
 
-			console.warn('[PdfWorks] No extractable text found', {
+			console.warn('[Translate] No extractable text found', {
 				selectedPages: extraction.pageNumbers,
 				scopeTarget,
 				pageTextCounts: extraction.diagnostics?.pageTextCounts || []
@@ -170,16 +170,34 @@ class PdfWorks {
 			throw new Error('No extractable text found in selected scope (PDF appears image-only or non-selectable).');
 		}
 
-		const rawModelOutput = await this.requestTransformFromOllama({
+		const modelResult = await this.requestTransformFromOllama({
 			fileName: file.name,
 			instruction,
 			scope,
 			scopeTarget,
 			blocks: extraction.blocks,
+			blockMap: extraction.blockMap,
+			onReplacement,
 			abortSignal
 		});
 
-		const parsedResult = this.parseTransformResponse(rawModelOutput, extraction.blockMap);
+		const streamedReplacements = Array.isArray(modelResult?.streamedReplacements)
+			? modelResult.streamedReplacements
+			: [];
+
+		let parsedResult = { replacements: [] };
+		try {
+			parsedResult = this.parseTransformResponse(modelResult?.rawOutput || '', extraction.blockMap);
+		} catch (error) {
+			if (streamedReplacements.length === 0) {
+				throw error;
+			}
+		}
+
+		const replacements = this.mergeReplacements(streamedReplacements, parsedResult.replacements, extraction.blockMap);
+		if (replacements.length === 0) {
+			throw new Error('No valid replacements returned');
+		}
 
 		return {
 			ok: true,
@@ -189,15 +207,47 @@ class PdfWorks {
 			scopeTarget,
 			processedAt: Date.now(),
 			sourceBlockCount: extraction.blocks.length,
-			replacementCount: parsedResult.replacements.length,
-			replacements: parsedResult.replacements
+			replacementCount: replacements.length,
+			replacements
 		};
+	}
+
+	mergeReplacements(streamedReplacements, parsedReplacements, blockMap) {
+		const mergedByBlockId = new Map();
+
+		const append = candidate => {
+			if (!candidate || typeof candidate !== 'object') {
+				return;
+			}
+
+			const blockId = typeof candidate.blockId === 'string' ? candidate.blockId : '';
+			const transformedText = typeof candidate.transformedText === 'string' ? candidate.transformedText : '';
+			if (!blockId || !transformedText || !blockMap.has(blockId)) {
+				return;
+			}
+
+			const sourceBlock = blockMap.get(blockId);
+			mergedByBlockId.set(blockId, {
+				blockId,
+				pageNumber: sourceBlock.pageNumber,
+				originalText: sourceBlock.text,
+				transformedText
+			});
+		};
+
+		(streamedReplacements || []).forEach(append);
+		(parsedReplacements || []).forEach(append);
+
+		return Array.from(mergedByBlockId.values());
 	}
 
 	extractScopedBlocksFromEditableDocument(editableDocument, scopeTarget, abortSignal = null) {
 		if (!editableDocument || !Array.isArray(editableDocument.pages)) {
 			throw new Error('Editable document model is not available');
 		}
+
+		const sourceType = String(editableDocument.sourceType || '').toLowerCase();
+		const preserveDocumentFormatting = sourceType === 'txt' || sourceType === 'md';
 
 		const pageNumbers = this.normalizePageNumbers(scopeTarget.pageNumbers, editableDocument.pages.length);
 		const blocks = [];
@@ -213,8 +263,12 @@ class PdfWorks {
 
 			for (const textBlock of pageData.textBlocks) {
 				this.throwIfAborted(abortSignal);
-				const sourceText = this.normalizeText(textBlock.transformedText || textBlock.originalText || textBlock.text);
-				if (!sourceText) {
+				const rawSourceText = textBlock.transformedText || textBlock.originalText || textBlock.text;
+				const preserveBlockFormatting = preserveDocumentFormatting || !!textBlock.preserveFormatting;
+				const sourceText = preserveBlockFormatting
+					? this.normalizeTextPreservingFormatting(rawSourceText)
+					: this.normalizeText(rawSourceText);
+				if (!sourceText || !sourceText.trim()) {
 					continue;
 				}
 
@@ -239,7 +293,13 @@ class PdfWorks {
 			pageTextCounts: editableDocument.pages.map(page => ({
 				pageNumber: page.pageNumber,
 				rawTextItemCount: page.textBlocks?.length || 0,
-				normalizedTextItemCount: (page.textBlocks || []).filter(block => this.normalizeText(block.originalText || block.text)).length,
+				normalizedTextItemCount: (page.textBlocks || []).filter(block => {
+					const blockPreserveFormatting = preserveDocumentFormatting || !!block.preserveFormatting;
+					const normalizedText = blockPreserveFormatting
+						? this.normalizeTextPreservingFormatting(block.originalText || block.text)
+						: this.normalizeText(block.originalText || block.text);
+					return !!normalizedText && !!normalizedText.trim();
+				}).length,
 				extractionMode: page.extractionMode || 'editable-model'
 			}))
 		};
@@ -265,14 +325,14 @@ class PdfWorks {
 			ownsPdfDocument = true;
 		}
 
-		console.log('[PdfWorks] document capabilities', {
+		console.log('[Translate] document capabilities', {
 			numPages: pdfDocument.numPages,
 			isPureXfa: !!pdfDocument.isPureXfa,
 			allXfaHtml: !!pdfDocument.allXfaHtml
 		});
 
 		const pageNumbers = this.normalizePageNumbers(scopeTarget.pageNumbers, pdfDocument.numPages);
-		console.group('[PdfWorks] extractScopedTextBlocks');
+		console.group('[Translate] extractScopedTextBlocks');
 		console.log('pdfTotalPages:', pdfDocument.numPages);
 		console.log('scopeTargetPages(raw):', scopeTarget.pageNumbers);
 		console.log('scopeTargetPages(validated):', pageNumbers);
@@ -289,7 +349,7 @@ class PdfWorks {
 			const textItems = extractionAttempt.items;
 			let normalizedCount = 0;
 
-			console.group(`[PdfWorks] page ${pageNumber}`);
+			console.group(`[Translate] page ${pageNumber}`);
 			console.log('textExtractionMode:', extractionAttempt.mode);
 			console.log('rawTextItemCount:', textItems.length);
 
@@ -344,7 +404,7 @@ class PdfWorks {
 			console.groupEnd();
 		}
 
-		console.group('[PdfWorks] extraction summary');
+		console.group('[Translate] extraction summary');
 		console.log('totalExtractedBlocks:', blocks.length);
 		console.log('totalExtractedChars:', totalChars);
 		console.groupEnd();
@@ -355,7 +415,7 @@ class PdfWorks {
 
 		if (blocks.length === 0) {
 			diagnostics.pageTextCounts = await this.scanAllPageTextCounts(pdfDocument, abortSignal);
-			console.group('[PdfWorks] full-document text diagnostics');
+			console.group('[Translate] full-document text diagnostics');
 			console.table(diagnostics.pageTextCounts);
 			console.groupEnd();
 		}
@@ -364,7 +424,7 @@ class PdfWorks {
 			try {
 				await pdfDocument.destroy();
 			} catch (error) {
-				console.warn('[PdfWorks] Failed to destroy temporary pdfDocument', error);
+				console.warn('[Translate] Failed to destroy temporary pdfDocument', error);
 			}
 		}
 
@@ -378,7 +438,7 @@ class PdfWorks {
 				return { mode: 'default', items: textContent.items };
 			}
 		} catch (error) {
-			console.warn('[PdfWorks] page.getTextContent() default failed', error);
+			console.warn('[Translate] page.getTextContent() default failed', error);
 		}
 
 		try {
@@ -390,7 +450,7 @@ class PdfWorks {
 				return { mode: 'includeMarkedContent', items: textContentWithMarked.items };
 			}
 		} catch (error) {
-			console.warn('[PdfWorks] page.getTextContent() includeMarkedContent failed', error);
+			console.warn('[Translate] page.getTextContent() includeMarkedContent failed', error);
 		}
 
 		if (typeof page.streamTextContent === 'function') {
@@ -413,7 +473,7 @@ class PdfWorks {
 					return { mode: 'streamTextContent', items: textItems };
 				}
 			} catch (error) {
-				console.warn('[PdfWorks] page.streamTextContent() failed', error);
+				console.warn('[Translate] page.streamTextContent() failed', error);
 			}
 		}
 
@@ -451,7 +511,7 @@ class PdfWorks {
 				return { mode: 'annotations', items: annotationItems };
 			}
 		} catch (error) {
-			console.warn('[PdfWorks] page.getAnnotations() fallback failed', error);
+			console.warn('[Translate] page.getAnnotations() fallback failed', error);
 		}
 
 		return { mode: 'none', items: [] };
@@ -582,15 +642,30 @@ class PdfWorks {
 		return textValue.replace(/\s+/g, ' ').trim();
 	}
 
+	normalizeTextPreservingFormatting(textValue) {
+		if (typeof textValue !== 'string') {
+			return '';
+		}
+		return textValue.replace(/\r\n?/g, '\n');
+	}
+
 	getTransformSystemPrompt() {
 		return [
-			'You are a PDF text transformation engine.',
+			'You are a document translation engine.',
 			'You must ONLY transform provided text blocks and never invent new block IDs.',
+			'The requested instruction is always translation-focused. Translate text to the requested target language.',
+			'For long single-block inputs, you may emit multiple updates for the same blockId as translation progresses.',
+			'Preserve original line breaks and paragraph boundaries whenever possible.',
+			'For markdown-like content, preserve markdown structure exactly (headings, bullets, numbered lists, code fences, inline code, links).',
+			'Keep structural markers unchanged when present, such as [Image: ...], [Image N], and [TextBox].',
 			'Return JSON only. No markdown, no prose, no explanations.',
-			'Required output shape:',
+			'Prefer streaming-friendly NDJSON with one JSON object per line:',
+			'{"blockId":"<id>","transformedText":"<text>"}',
+			'You may optionally end with {"done":true}.',
+			'If NDJSON cannot be produced, fallback to this JSON object shape:',
 			'{"replacements":[{"blockId":"<id>","transformedText":"<text>"}]}',
 			'Rules:',
-			'- Keep exact meaning unless instruction explicitly asks to summarize or simplify.',
+			'- Keep exact meaning.',
 			'- Keep technical terms and units accurate.',
 			'- Preserve bullet/list intent where present.',
 			'- Include only block IDs from input. Omit unchanged blocks.',
@@ -598,7 +673,7 @@ class PdfWorks {
 		].join('\n');
 	}
 
-	async requestTransformFromOllama({ fileName, instruction, scope, scopeTarget, blocks, abortSignal = null }) {
+	async requestTransformFromOllama({ fileName, instruction, scope, scopeTarget, blocks, blockMap, abortSignal = null, onReplacement = null }) {
 		if (!window.OllamaAPI || typeof window.OllamaAPI.sendToOllama !== 'function') {
 			throw new Error('Ollama API not available');
 		}
@@ -629,13 +704,121 @@ class PdfWorks {
 			throw new Error('No response from Ollama');
 		}
 
-		return this.collectResponseText(response);
+		const streamState = this.createStreamingReplacementState({ blockMap, onReplacement });
+		const rawOutput = await this.collectResponseText(response, {
+			onTextChunk: chunk => streamState.consumeText(chunk)
+		});
+		streamState.flushPending();
+
+		return {
+			rawOutput,
+			streamedReplacements: streamState.getReplacements()
+		};
 	}
 
-	async collectResponseText(response) {
+	createStreamingReplacementState({ blockMap, onReplacement }) {
+		const latestReplacementsByBlockId = new Map();
+		let lineBuffer = '';
+
+		const normalizeAndStore = replacementEntry => {
+			if (!replacementEntry || typeof replacementEntry !== 'object') {
+				return;
+			}
+
+			const blockId = typeof replacementEntry.blockId === 'string' ? replacementEntry.blockId : '';
+			const transformedText = typeof replacementEntry.transformedText === 'string' ? replacementEntry.transformedText : '';
+			if (!blockId || !transformedText || !blockMap?.has(blockId)) {
+				return;
+			}
+
+			const sourceBlock = blockMap.get(blockId);
+			const existingReplacement = latestReplacementsByBlockId.get(blockId);
+			if (existingReplacement && existingReplacement.transformedText === transformedText) {
+				return;
+			}
+
+			const replacement = {
+				blockId,
+				pageNumber: sourceBlock.pageNumber,
+				originalText: sourceBlock.text,
+				transformedText
+			};
+
+			latestReplacementsByBlockId.set(blockId, replacement);
+			if (typeof onReplacement === 'function') {
+				try {
+					onReplacement(replacement);
+				} catch (error) {
+					console.warn('[Translate] onReplacement callback failed', error);
+				}
+			}
+		};
+
+		const consumeParsedPayload = payload => {
+			if (!payload || typeof payload !== 'object') {
+				return;
+			}
+
+			if (Array.isArray(payload)) {
+				payload.forEach(normalizeAndStore);
+				return;
+			}
+
+			if (Array.isArray(payload.replacements)) {
+				payload.replacements.forEach(normalizeAndStore);
+				return;
+			}
+
+			normalizeAndStore(payload);
+		};
+
+		const parseLineIfJson = line => {
+			const trimmedLine = String(line || '').trim();
+			if (!trimmedLine) {
+				return;
+			}
+
+			try {
+				const payload = JSON.parse(trimmedLine);
+				consumeParsedPayload(payload);
+			} catch (_error) {
+				// Keep fallback to full response parsing
+			}
+		};
+
+		return {
+			consumeText(textChunk) {
+				if (typeof textChunk !== 'string' || !textChunk) {
+					return;
+				}
+
+				lineBuffer += textChunk;
+				let newlineIndex = lineBuffer.indexOf('\n');
+				while (newlineIndex >= 0) {
+					const line = lineBuffer.slice(0, newlineIndex);
+					lineBuffer = lineBuffer.slice(newlineIndex + 1);
+					parseLineIfJson(line);
+					newlineIndex = lineBuffer.indexOf('\n');
+				}
+			},
+			flushPending() {
+				if (lineBuffer.trim()) {
+					parseLineIfJson(lineBuffer);
+				}
+				lineBuffer = '';
+			},
+			getReplacements() {
+				return Array.from(latestReplacementsByBlockId.values());
+			}
+		};
+	}
+
+	async collectResponseText(response, options = {}) {
 		if (!response.body) {
 			throw new Error('Invalid Ollama response stream');
 		}
+
+		const onTextChunk = typeof options.onTextChunk === 'function' ? options.onTextChunk : null;
 
 		const reader = response.body.getReader();
 		const decoder = new TextDecoder();
@@ -660,6 +843,9 @@ class PdfWorks {
 					const parsedLine = JSON.parse(trimmedLine);
 					if (typeof parsedLine.response === 'string') {
 						outputText += parsedLine.response;
+						if (onTextChunk) {
+							onTextChunk(parsedLine.response);
+						}
 					}
 				} catch (_error) {
 					// Ignore malformed stream lines
@@ -808,5 +994,5 @@ class PdfWorks {
 	}
 }
 
-window.PdfWorks = PdfWorks;
-window.PdfWorksLoaded = true;
+window.Translate = Translate;
+window.TranslateLoaded = true;

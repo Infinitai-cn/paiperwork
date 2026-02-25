@@ -75,6 +75,15 @@
         /* presentation Canvas background */
         --canvas-bg: #24272D;
 
+        /* Alias tokens used by tab modules */
+        --background-color: var(--bg-color);
+        --panel-background: var(--bg-color-secondary);
+        --hover-background: var(--hover-bg);
+        --input-background: var(--input-bg);
+        --error-color: var(--danger-color);
+        --error-hover: var(--danger-color-hover);
+        --modal-overlay-bg: rgba(30, 30, 30, 0.7);
+
     /* SlideForge modal & controls (dark theme defaults) */
     --presentation-loading-border: rgba(255,255,255,0.06);
     --presentation-loading-accent: var(--accent-color, #4f46e5);
@@ -186,6 +195,15 @@
         
         /* presentation Canvas background */
         --canvas-bg: #ffffff;
+
+        /* Alias tokens used by tab modules */
+        --background-color: var(--bg-color);
+        --panel-background: var(--bg-color-secondary);
+        --hover-background: var(--hover-bg);
+        --input-background: var(--input-bg);
+        --error-color: var(--danger-color);
+        --error-hover: var(--danger-color-hover);
+        --modal-overlay-bg: rgba(0, 0, 0, 0.38);
 
     /* SlideForge modal & controls (light theme defaults) */
     --presentation-loading-border: rgba(0,0,0,0.06);
