@@ -2163,6 +2163,105 @@ window.helpContent = {
             },
         ],
     },
+    // Translate-Tab Abschnitt
+    translate: {
+        title: "Übersetzen",
+        intro: "Der Übersetzen-Tab konvertiert Dokumenttext mit KI und bietet ein schwebendes Vorschaufenster zur Prüfung, Live-Aktualisierung und zum Export.",
+        articles: [
+            {
+                id: "translate-overview",
+                title: "Überblick",
+                content: `
+            <p>Der Übersetzen-Tab ist ein dokumentorientierter Ablauf zum Übersetzen von Dateien und zur Prüfung der Ergebnisse vor dem Export.</p>
+
+            <h4>Unterstützte Formate</h4>
+            <ul>
+                <li><strong>PDF</strong> - editierbare Overlay-Vorschau mit Seitenrendering</li>
+                <li><strong>TXT</strong> - Klartext-Übersetzung mit Erhalt von Zeilen- und Absatzstruktur</li>
+                <li><strong>MD</strong> - markdown-bewusste Übersetzung mit Strukturerhalt</li>
+            </ul>
+
+            <h4>Hauptsteuerungen</h4>
+            <ul>
+                <li><strong>Drag-&-drop-Bereich</strong> - Datei ablegen oder zum Auswählen klicken</li>
+                <li><strong>Scope-Selektor</strong> - wählen Sie Selection, Page oder Document vor dem Start</li>
+                <li><strong>Anweisungsfeld</strong> - z. B. <em>"Dieses Dokument ins Französische übersetzen"</em></li>
+                <li><strong>Übersetzen-Schaltfläche</strong> - startet die Übersetzung für das aktuelle Dokument</li>
+                <li><strong>Übersetztes Dokument exportieren</strong> - exportiert das Ergebnis aus dem aktuellen Vorschauzustand</li>
+            </ul>
+
+            <h4>Scope-Selektor</h4>
+            <ul>
+                <li><strong>Selection</strong> - zielt auf eine oder mehrere ausgewählte Seiten in der Vorschau.</li>
+                <li><strong>Page</strong> - zielt nur auf die aktuell ausgewählte Seite.</li>
+                <li><strong>Document</strong> - zielt auf das gesamte Dokument (alle Seiten/Blöcke).</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>Tipp:</strong> Für beste Qualität nutzen Sie ein übersetzungsorientiertes Modell wie TranslateGemma aus der Modellbibliothek.</p>
+            </div>
+        `,
+                image: "Translate-1.png",
+                imageAlt: "Übersetzen-Tab Übersicht",
+                imageCaption: "Die Übersetzen-Tab-Oberfläche mit Drag-&-drop-Bereich",
+            },
+            {
+                id: "translate-preview",
+                title: "Schwebendes Vorschaufenster",
+                content: `
+            <p>Nach dem Laden eines Dokuments öffnet Übersetzen ein schwebendes Vorschaufenster, in dem Sie Ergebnisse prüfen und verfeinern können.</p>
+
+            <h4>Fenstersteuerungen</h4>
+            <ul>
+                <li><strong>Maximieren/Wiederherstellen</strong> - zwischen kompakter und erweiterter Ansicht wechseln</li>
+                <li><strong>Schließen/Erneut öffnen</strong> - schließen und mit <em>Vorschaufenster öffnen</em> erneut anzeigen</li>
+            </ul>
+
+            <h4>PDF-Verhalten</h4>
+            <ul>
+                <li>Textblöcke sind über PDF-Seiten gelegt und direkt editierbar.</li>
+                <li>Streaming-Übersetzungsupdates werden schrittweise auf passende Blöcke angewendet.</li>
+                <li>Sie können den übersetzten Text vor dem Export überprüfen und anpassen.</li>
+            </ul>
+
+            <h4>TXT-/MD-Verhalten</h4>
+            <ul>
+                <li>Die Vorschau verwendet ein dokumentähnliches Textlayout für bessere Lesbarkeit.</li>
+                <li>Streaming-Ersetzungen aktualisieren den Inhalt schrittweise (nicht nur am Ende).</li>
+                <li>Zeilenumbrüche und Dokumentstruktur werden so weit wie möglich erhalten.</li>
+            </ul>
+        `,
+                image: "Translate-2.png",
+                imageAlt: "Übersetzen-Fenster Übersicht",
+                imageCaption: "Das Übersetzen-Fenster mit Steuerungen und geladener PDF",
+            },
+            {
+                id: "translate-export-troubleshooting",
+                title: "Export und Fehlerbehebung",
+                content: `
+            <p>Verwenden Sie nach der Prüfung die Exportfunktion, um das übersetzte Ergebnis zu speichern.</p>
+
+            <h4>Exportausgabe</h4>
+            <ul>
+                <li><strong>PDF-Eingabe</strong> - Export als übersetztes PDF</li>
+                <li><strong>TXT-Eingabe</strong> - Export als <code>-translated.txt</code></li>
+                <li><strong>MD-Eingabe</strong> - Export als <code>-translated.md</code></li>
+            </ul>
+
+            <h4>Häufige Probleme</h4>
+            <ul>
+                <li><strong>Kein extrahierbarer PDF-Text</strong> - gescannte/bildbasierte PDFs liefern ggf. keine editierbaren Textblöcke.</li>
+                <li><strong>Qualität passt nicht</strong> - Anweisung verfeinern oder ein besseres Übersetzungsmodell wählen.</li>
+                <li><strong>Kontext-Workflow</strong> - nach Übersetzungsänderungen kann das Schließen der Vorschau einen Continue-Conversation-Flow im Chat auslösen.</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>Hinweis:</strong> Übersetzung in diesem Tab ist dokumentorientiert. Ergänzen Sie bei Bedarf explizite Ton-/Stilvorgaben im Anweisungsfeld.</p>
+            </div>
+        `,
+            },
+        ],
+    },
     models: {
         title: "Modelle",
         intro:

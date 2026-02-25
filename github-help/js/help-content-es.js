@@ -2181,6 +2181,105 @@ window.helpContent = {
             },
         ],
     },
+    // Sección de la pestaña Traducir
+    translate: {
+        title: "Traducir",
+        intro: "La pestaña Traducir convierte texto de documentos con IA y ofrece una ventana flotante de vista previa para revisión, actualizaciones en vivo y exportación.",
+        articles: [
+            {
+                id: "translate-overview",
+                title: "Resumen",
+                content: `
+            <p>La pestaña Traducir es un flujo centrado en documentos para traducir archivos y revisar resultados antes de exportar.</p>
+
+            <h4>Formatos compatibles</h4>
+            <ul>
+                <li><strong>PDF</strong> - vista previa con superposición editable y renderizado por página</li>
+                <li><strong>TXT</strong> - traducción de texto plano preservando líneas y párrafos</li>
+                <li><strong>MD</strong> - traducción consciente de Markdown preservando estructura</li>
+            </ul>
+
+            <h4>Controles principales</h4>
+            <ul>
+                <li><strong>Área de arrastrar y soltar</strong> - suelta un archivo o haz clic para buscar</li>
+                <li><strong>Selector de alcance</strong> - elige Selection, Page o Document antes de traducir</li>
+                <li><strong>Campo de instrucción</strong> - por ejemplo <em>"Traducir este documento al francés"</em></li>
+                <li><strong>Botón Traducir</strong> - inicia la traducción del documento actual</li>
+                <li><strong>Exportar documento traducido</strong> - exporta la salida traducida desde el estado actual de la vista previa</li>
+            </ul>
+
+            <h4>Selector de alcance</h4>
+            <ul>
+                <li><strong>Selection</strong> - aplica a una o varias páginas seleccionadas en la vista previa.</li>
+                <li><strong>Page</strong> - aplica solo a la página actualmente seleccionada.</li>
+                <li><strong>Document</strong> - aplica a todo el documento (todas las páginas/bloques).</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>Consejo:</strong> Para mejor calidad, usa un modelo enfocado en traducción como TranslateGemma desde la biblioteca de modelos.</p>
+            </div>
+        `,
+                image: "Translate-1.png",
+                imageAlt: "Resumen de la pestaña Traducir",
+                imageCaption: "Interfaz de Traducir con el área de arrastrar y soltar",
+            },
+            {
+                id: "translate-preview",
+                title: "Ventana flotante de vista previa",
+                content: `
+            <p>Después de cargar un documento, Traducir abre una ventana flotante donde puedes inspeccionar y ajustar los resultados.</p>
+
+            <h4>Controles de ventana</h4>
+            <ul>
+                <li><strong>Maximizar/restaurar</strong> - alterna entre espacio compacto y expandido</li>
+                <li><strong>Cerrar/reabrir</strong> - cierra la vista previa y usa <em>Abrir ventana de vista previa</em> para recuperarla</li>
+            </ul>
+
+            <h4>Comportamiento en PDF</h4>
+            <ul>
+                <li>Los bloques de texto se mapean sobre las páginas del PDF y se pueden editar directamente.</li>
+                <li>Las actualizaciones en streaming se aplican progresivamente a los bloques coincidentes.</li>
+                <li>Puedes revisar y ajustar el texto traducido antes de exportar.</li>
+            </ul>
+
+            <h4>Comportamiento en TXT / MD</h4>
+            <ul>
+                <li>La vista previa usa un diseño tipo documento para facilitar la lectura.</li>
+                <li>Los reemplazos en streaming actualizan el contenido progresivamente (no solo al final).</li>
+                <li>Se preservan los saltos de línea y la estructura del documento en la medida de lo posible.</li>
+            </ul>
+        `,
+                image: "Translate-2.png",
+                imageAlt: "Resumen de la ventana Traducir",
+                imageCaption: "La ventana Traducir mostrando controles y un PDF cargado",
+            },
+            {
+                id: "translate-export-troubleshooting",
+                title: "Exportación y resolución de problemas",
+                content: `
+            <p>Usa el control de exportación después de revisar para guardar el resultado traducido.</p>
+
+            <h4>Salida de exportación</h4>
+            <ul>
+                <li><strong>Entrada PDF</strong> - exportación de PDF traducido</li>
+                <li><strong>Entrada TXT</strong> - exportado como <code>-translated.txt</code></li>
+                <li><strong>Entrada MD</strong> - exportado como <code>-translated.md</code></li>
+            </ul>
+
+            <h4>Problemas comunes</h4>
+            <ul>
+                <li><strong>PDF sin texto extraíble</strong> - PDFs escaneados o solo imagen pueden no ofrecer bloques editables.</li>
+                <li><strong>Calidad insuficiente</strong> - refina la instrucción o cambia a un mejor modelo de traducción.</li>
+                <li><strong>Flujo de contexto</strong> - tras cambios de traducción, cerrar la vista previa puede activar continuar conversación en Chat.</li>
+            </ul>
+
+            <div class="note">
+                <p><strong>Nota:</strong> La traducción en esta pestaña está orientada a documentos. Agrega requisitos de tono/estilo en el campo de instrucción cuando sea necesario.</p>
+            </div>
+        `,
+            },
+        ],
+    },
     models: {
         title: "Modelos",
         intro:

@@ -82,6 +82,13 @@ Want to contribute or build from source? Check out our [**Developer Guide**](dev
 - **Cross-Document Search** - Find information across your entire document collection
 - **Semantic Understanding** - Search by meaning, not just keywords
 
+### Translate
+- **Document Translation** - Translate `.pdf`, `.txt`, and `.md` files with local AI models
+- **Floating Preview Window** - Review and edit translated content before exporting
+- **Flexible Scope Control** - Apply translation to selected pages, current page, or full document
+- **Streaming Updates** - See translation updates progressively while generation is running
+- **Export Translated Files** - Export final results as translated document outputs
+
 ### Data Visualization
 - **Natural Language Charts** - Create visualizations by describing your data
 - **Multiple Chart Types** - Pie, bar, line, scatter, area, radar, heat maps, and bubble charts
