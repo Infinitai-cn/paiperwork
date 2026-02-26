@@ -399,7 +399,7 @@ func fetchRawHtmlForLinks(w http.ResponseWriter, r *http.Request) {
 
 // Add after the proxyBingSearch function
 
-// GET returns the raw contents of dev/app/core/js/utils/thinkingmodels.js
+// GET returns the raw contents of dev/app/core/js/utils/settings/thinkingmodels.js
 // POST accepts JSON { "content": "...js file contents..." } and safely writes the file
 func thinkingModelsGetHandler(w http.ResponseWriter, r *http.Request) {
 	// Restrict to GET only
@@ -417,7 +417,7 @@ func thinkingModelsGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	path := filepath.Join("app", "core", "js", "utils", "thinkingmodels.js")
+	path := filepath.Join("app", "core", "js", "utils", "settings", "thinkingmodels.js")
 	// Determine executable directory to build absolute path
 	execDir := filepath.Dir(os.Args[0])
 	fullPath := filepath.Join(execDir, path)
@@ -463,7 +463,7 @@ func thinkingModelsPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build paths
-	relPath := filepath.Join("app", "core", "js", "utils", "thinkingmodels.js")
+	relPath := filepath.Join("app", "core", "js", "utils", "settings", "thinkingmodels.js")
 	execDir := filepath.Dir(os.Args[0])
 	fullPath := filepath.Join(execDir, relPath)
 
@@ -524,7 +524,7 @@ func visualModelsGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	rel := filepath.Join("app", "core", "js", "utils", "visualmodels.js")
+	rel := filepath.Join("app", "core", "js", "utils", "settings", "visualmodels.js")
 	execDir := filepath.Dir(os.Args[0])
 	fullPath := filepath.Join(execDir, rel)
 
@@ -565,7 +565,7 @@ func visualModelsPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rel := filepath.Join("app", "core", "js", "utils", "visualmodels.js")
+	rel := filepath.Join("app", "core", "js", "utils", "settings", "visualmodels.js")
 	execDir := filepath.Dir(os.Args[0])
 	fullPath := filepath.Join(execDir, rel)
 
@@ -624,7 +624,7 @@ func modelParametersGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	rel := filepath.Join("app", "core", "js", "utils", "modelparameters.js")
+	rel := filepath.Join("app", "core", "js", "utils", "settings", "modelparameters.js")
 	execDir := filepath.Dir(os.Args[0])
 	fullPath := filepath.Join(execDir, rel)
 
@@ -664,7 +664,7 @@ func modelParametersPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rel := filepath.Join("app", "core", "js", "utils", "modelparameters.js")
+	rel := filepath.Join("app", "core", "js", "utils", "settings", "modelparameters.js")
 	execDir := filepath.Dir(os.Args[0])
 	fullPath := filepath.Join(execDir, rel)
 
