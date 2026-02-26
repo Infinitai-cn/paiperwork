@@ -824,177 +824,142 @@ class RAG {
       throw new Error("No model provided for embedding generation");
     }
 
-    // Try /api/embed first (new endpoint)
     try {
-      //console.log("Making initial embedding request with model:", model);
-      const embedResponse = await fetch("http://localhost:11434/api/embed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          input: text, 
-          options: {
-            timeout: 30000, 
-          },
-        }),
-      });
-
-      // Check if the request was successful
-      if (!embedResponse.ok) {
-        const errorData = await embedResponse.text();
-        console.error("Embedding API responded with error:", errorData);
-
-        // Check if this is specifically a "model doesn't support embeddings" error
-        if (errorData.includes("does not support embedding") ||
-          errorData.includes("this model does not support")) {
-
-          // Show warning UI
-          this.showEmbeddingWarning(model);
-
-          // Then throw the error to prevent continuing with synthetic embeddings
-          throw new Error(`Model ${model} does not support embeddings`);
+      const extractEmbedding = (responseData) => {
+        if (
+          responseData.embeddings &&
+          Array.isArray(responseData.embeddings) &&
+          responseData.embeddings.length > 0
+        ) {
+          return responseData.embeddings[0];
         }
 
-        // For other errors, throw with the original message
-        throw new Error(
-          `Embedding API error (${embedResponse.status}): ${errorData}`
+        if (
+          responseData.embedding &&
+          Array.isArray(responseData.embedding) &&
+          responseData.embedding.length > 0
+        ) {
+          return responseData.embedding;
+        }
+
+        if (
+          responseData.data &&
+          responseData.data.embeddings &&
+          Array.isArray(responseData.data.embeddings) &&
+          responseData.data.embeddings.length > 0
+        ) {
+          return responseData.data.embeddings[0];
+        }
+
+        if (
+          responseData.data &&
+          responseData.data.embedding &&
+          Array.isArray(responseData.data.embedding) &&
+          responseData.data.embedding.length > 0
+        ) {
+          return responseData.data.embedding;
+        }
+
+        return null;
+      };
+
+      const endpointConfigs = [
+        {
+          url: "http://localhost:11434/api/embed",
+          createBody: (inputText, options) => ({ model, input: inputText, options }),
+        },
+        {
+          url: "http://localhost:11434/api/embeddings",
+          createBody: (inputText, options) => ({ model, prompt: inputText, options }),
+        },
+      ];
+
+      const endpointFallbackStatuses = new Set([404, 405, 501]);
+
+      const requestEmbedding = async (inputText, options) => {
+        let lastError = null;
+
+        for (let i = 0; i < endpointConfigs.length; i++) {
+          const endpoint = endpointConfigs[i];
+          const response = await fetch(endpoint.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(endpoint.createBody(inputText, options)),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.text();
+            console.error(
+              `Embedding API responded with error from ${endpoint.url}:`,
+              errorData
+            );
+
+            if (
+              errorData.includes("does not support embedding") ||
+              errorData.includes("this model does not support")
+            ) {
+              this.showEmbeddingWarning(model);
+              throw new Error(`Model ${model} does not support embeddings`);
+            }
+
+            if (i === 0 && endpointFallbackStatuses.has(response.status)) {
+              lastError = new Error(
+                `Embedding API error (${response.status}) from ${endpoint.url}: ${errorData}`
+              );
+              continue;
+            }
+
+            throw new Error(
+              `Embedding API error (${response.status}) from ${endpoint.url}: ${errorData}`
+            );
+          }
+
+          const responseData = await response.json();
+          const extractedEmbedding = extractEmbedding(responseData);
+
+          if (extractedEmbedding) {
+            return extractedEmbedding;
+          }
+
+          lastError = new Error(
+            `Embedding API returned no embeddings from ${endpoint.url}`
+          );
+        }
+
+        throw lastError || new Error("Embedding API returned no embeddings");
+      };
+
+      try {
+        return await requestEmbedding(text, {
+          timeout: 30000,
+        });
+      } catch (initialError) {
+        const initialErrorText = String(initialError);
+        if (
+          initialErrorText.includes("does not support embedding") ||
+          initialErrorText.includes("this model does not support")
+        ) {
+          throw initialError;
+        }
+
+        console.warn(
+          `Model ${model} returned empty embeddings or initial request failed, trying with modified settings`,
+          initialError
         );
       }
 
-      const embedData = await embedResponse.json();
-
-      // Add this to debug the response structure
-      //console.log("FULL Embed API Response:", JSON.stringify(embedData));
-
-      // Check for embeddings in various possible locations
-      if (
-        embedData.embeddings &&
-        Array.isArray(embedData.embeddings) &&
-        embedData.embeddings.length > 0
-      ) {
-        //console.log(
-          //"SUCCESS: Using embeddings array, length:",
-          //embedData.embeddings.length
-        //);
-        return embedData.embeddings[0];
-      } else if (
-        embedData.embedding &&
-        Array.isArray(embedData.embedding) &&
-        embedData.embedding.length > 0
-      ) {
-        //console.log(
-          //"SUCCESS: Using embedding (singular) with length",
-          //embedData.embedding.length
-        //);
-        return embedData.embedding;
-      } else if (
-        embedData.data &&
-        embedData.data.embeddings &&
-        Array.isArray(embedData.data.embeddings) &&
-        embedData.data.embeddings.length > 0
-      ) {
-        //console.log(
-          //"SUCCESS: Using data.embeddings, length:",
-          //embedData.data.embeddings.length
-        //);
-        return embedData.data.embeddings[0];
-      } else if (
-        embedData.data &&
-        embedData.data.embedding &&
-        Array.isArray(embedData.data.embedding) &&
-        embedData.data.embedding.length > 0
-      ) {
-        //console.log(
-          //"SUCCESS: Using data.embedding, length:",
-          //embedData.data.embedding.length
-        //);
-        return embedData.data.embedding;
-      }
-
-      // Bug fix: The API returned an empty embedding array - try with model-specific settings
-      console.warn(
-        `Model ${model} returned empty embeddings, trying with modified settings`
-      );
-
-      // Try with more text content for context
       const enhancedText = text.length < 100 ? text + " " + text : text;
-      //console.log("Making enhanced embedding request with options");
-      const enhancedResponse = await fetch("http://localhost:11434/api/embed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          input: enhancedText, 
-          options: {
-            temperature: 0, // More deterministic results
-            num_ctx: 2048, // Larger context window
-            timeout: 30000, // Added timeout option
-          },
-        }),
-      });
 
-      if (enhancedResponse.ok) {
-        const enhancedData = await enhancedResponse.json();
-        //console.log(
-          //"Enhanced embed API response structure:",
-         // Object.keys(enhancedData)
-        //);
-
-        // Check for embeddings in various possible locations (same checks as above)
-        if (
-          enhancedData.embeddings &&
-          Array.isArray(enhancedData.embeddings) &&
-          enhancedData.embeddings.length > 0
-        ) {
-          //console.log(
-           // "SUCCESS: Generated embeddings with enhanced settings, length:",
-           // enhancedData.embeddings[0].length
-          //);
-          return enhancedData.embeddings[0];
-        } else if (
-          enhancedData.embedding &&
-          Array.isArray(enhancedData.embedding) &&
-          enhancedData.embedding.length > 0
-        ) {
-          //console.log(
-            //"SUCCESS: Generated embedding with enhanced settings, length:",
-           // enhancedData.embedding.length
-          //);
-          return enhancedData.embedding;
-        } else if (
-          enhancedData.data &&
-          enhancedData.data.embeddings &&
-          Array.isArray(enhancedData.data.embeddings) &&
-          enhancedData.data.embeddings.length > 0
-        ) {
-          //console.log(
-            //"SUCCESS: Using data.embeddings from enhanced request, length:",
-           // enhancedData.data.embeddings[0].length
-          //);
-          return enhancedData.data.embeddings[0];
-        } else if (
-          enhancedData.data &&
-          enhancedData.data.embedding &&
-          Array.isArray(enhancedData.data.embedding) &&
-          enhancedData.data.embedding.length > 0
-        ) {
-          //console.log(
-            //"SUCCESS: Using data.embedding from enhanced request, length:",
-           // enhancedData.data.embedding.length
-          //);
-          return enhancedData.data.embedding;
-        } else {
-          console.warn(
-            "Enhanced request returned empty embeddings too:",
-            enhancedData
-          );
-        }
-      } else {
-        const enhancedError = await enhancedResponse.text();
+      try {
+        return await requestEmbedding(enhancedText, {
+          temperature: 0,
+          num_ctx: 2048,
+          timeout: 30000,
+        });
+      } catch (enhancedError) {
         console.error("Enhanced embedding request failed:", enhancedError);
       }
 
-      // If we still have no embeddings, generate a deterministic embedding
       console.error("All embedding attempts failed for model:", model);
       this.showEmbeddingWarning(model);
       throw new Error(`Failed to generate embeddings with model: ${model}`);
