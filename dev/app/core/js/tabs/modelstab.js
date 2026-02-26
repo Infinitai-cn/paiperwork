@@ -1194,6 +1194,43 @@ class ModelDownloader {
             } catch (e) {
                 console.warn('Failed to append Visual Models button:', e);
             }
+
+            // Add Model Parameters button right after the Visual Models button
+            try {
+                if (!document.getElementById('edit-model-parameters-btn')) {
+                    const modelParamsBtn = document.createElement('button');
+                    modelParamsBtn.id = 'edit-model-parameters-btn';
+                    modelParamsBtn.className = 'edit-model-parameters-btn themed-button download-btn';
+                    modelParamsBtn.innerHTML = `<span class="btn-text">${Lang.get('editModelParametersButton') || 'Edit model parameters'}</span>`;
+                    modelParamsBtn.style.width = '100%';
+                    modelParamsBtn.style.marginTop = '8px';
+                    modelParamsBtn.style.padding = '10px 12px';
+                    modelParamsBtn.style.borderRadius = '6px';
+                    modelParamsBtn.style.fontSize = '14px';
+                    modelParamsBtn.style.cursor = 'pointer';
+
+                    modelParamsBtn.addEventListener('mouseenter', () => modelParamsBtn.style.opacity = '0.95');
+                    modelParamsBtn.addEventListener('mouseleave', () => modelParamsBtn.style.opacity = '1');
+
+                    modelParamsBtn.addEventListener('click', () => {
+                        const event = new CustomEvent('openEditModelParameters');
+                        window.dispatchEvent(event);
+                    });
+
+                    const visualBtn = document.getElementById('edit-visual-models-btn');
+                    if (visualBtn && visualBtn.parentNode) {
+                        visualBtn.parentNode.insertBefore(modelParamsBtn, visualBtn.nextSibling);
+                    } else if (localModelsContainer && localModelsContainer.parentNode) {
+                        localModelsContainer.insertAdjacentElement('afterend', modelParamsBtn);
+                    } else if (controlsContainer) {
+                        controlsContainer.appendChild(modelParamsBtn);
+                    } else {
+                        container.appendChild(modelParamsBtn);
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to append Model Parameters button:', e);
+            }
         } catch (e) {
             console.warn('Failed to append Edit Thinking button:', e);
         }
@@ -1582,6 +1619,181 @@ class ModelDownloader {
                 }
             });
             this._editVisualListenerAdded = true;
+        }
+
+        // Model parameters modal handler
+        if (!this._editModelParametersListenerAdded) {
+            window.addEventListener('openEditModelParameters', async () => {
+                try {
+                    let modal = document.getElementById('edit-model-parameters-modal');
+                    if (!modal) {
+                        modal = document.createElement('div');
+                        modal.id = 'edit-model-parameters-modal';
+                        modal.style.position = 'fixed';
+                        modal.style.top = '0';
+                        modal.style.left = '0';
+                        modal.style.width = '100%';
+                        modal.style.height = '100%';
+                        modal.style.display = 'flex';
+                        modal.style.alignItems = 'center';
+                        modal.style.justifyContent = 'center';
+                        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                        modal.style.zIndex = '9999';
+
+                        const dialog = document.createElement('div');
+                        dialog.id = 'edit-model-parameters-dialog';
+                        dialog.style.width = '90%';
+                        dialog.style.maxWidth = '900px';
+                        dialog.style.height = '80%';
+                        dialog.style.backgroundColor = 'var(--bg-color, #1e1e1e)';
+                        dialog.style.color = 'var(--text-color, #fff)';
+                        dialog.style.border = '1px solid var(--border-color, #333)';
+                        dialog.style.borderRadius = '8px';
+                        dialog.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+                        dialog.style.display = 'flex';
+                        dialog.style.flexDirection = 'column';
+                        dialog.style.padding = '12px';
+                        dialog.style.boxSizing = 'border-box';
+
+                        const header = document.createElement('div');
+                        header.style.display = 'flex';
+                        header.style.justifyContent = 'space-between';
+                        header.style.alignItems = 'center';
+
+                        const title = document.createElement('div');
+                        title.id = 'edit-model-parameters-title';
+                        title.textContent = Lang.get('editModelParametersTitle') || 'Edit model parameters';
+                        title.style.fontSize = '16px';
+                        title.style.fontWeight = '600';
+
+                        const closeX = document.createElement('button');
+                        closeX.id = 'edit-model-parameters-close';
+                        closeX.innerHTML = '✖';
+                        closeX.title = Lang.get('close') || 'Close';
+                        closeX.style.background = 'transparent';
+                        closeX.style.border = 'none';
+                        closeX.style.color = 'var(--text-color, #fff)';
+                        closeX.style.cursor = 'pointer';
+                        closeX.style.fontSize = '16px';
+
+                        header.appendChild(title);
+                        header.appendChild(closeX);
+
+                        const textarea = document.createElement('textarea');
+                        textarea.id = 'edit-model-parameters-textarea';
+                        textarea.style.flex = '1 1 auto';
+                        textarea.style.width = '100%';
+                        textarea.style.minHeight = '60%';
+                        textarea.style.resize = 'vertical';
+                        textarea.style.marginTop = '8px';
+                        textarea.style.padding = '10px';
+                        textarea.style.fontSize = '13px';
+                        textarea.style.background = 'var(--textarea-bg, rgba(255,255,255,0.02))';
+                        textarea.style.color = 'var(--text-color, #fff)';
+                        textarea.style.border = '1px solid var(--border-color, #333)';
+                        textarea.style.borderRadius = '6px';
+                        textarea.style.boxSizing = 'border-box';
+
+                        const footer = document.createElement('div');
+                        footer.style.display = 'flex';
+                        footer.style.justifyContent = 'flex-end';
+                        footer.style.marginTop = '12px';
+
+                        const saveBtn = document.createElement('button');
+                        saveBtn.id = 'edit-model-parameters-save';
+                        saveBtn.className = 'edit-model-parameters-save-btn';
+                        saveBtn.innerHTML = `<span class="btn-text">${Lang.get('save') || 'Save'}</span>`;
+                        saveBtn.style.padding = '10px 16px';
+                        saveBtn.style.borderRadius = '6px';
+                        saveBtn.style.border = '1px solid var(--border-color, #333)';
+                        try {
+                            saveBtn.style.background = 'var(--button-bg, #ececec)';
+                            saveBtn.style.color = 'var(--button-text, #404040)';
+                            saveBtn.addEventListener('mouseenter', () => {
+                                if (!saveBtn.disabled) saveBtn.style.background = 'var(--hover-bg, #dcdcdc)';
+                            });
+                            saveBtn.addEventListener('mouseleave', () => {
+                                if (!saveBtn.disabled) saveBtn.style.background = 'var(--button-bg, #ececec)';
+                            });
+                        } catch (e) {
+                            saveBtn.style.backgroundColor = '#ececec';
+                            saveBtn.style.color = '#404040';
+                        }
+                        saveBtn.style.cursor = 'pointer';
+
+                        footer.appendChild(saveBtn);
+
+                        dialog.appendChild(header);
+                        dialog.appendChild(textarea);
+                        dialog.appendChild(footer);
+                        modal.appendChild(dialog);
+                        document.body.appendChild(modal);
+
+                        const closeModal = () => { modal.style.display = 'none'; };
+                        closeX.addEventListener('click', closeModal);
+
+                        try {
+                            const resp = await fetch('/api/modelparameters');
+                            if (resp.ok) {
+                                const text = await resp.text();
+                                textarea.value = text || '';
+                            } else {
+                                textarea.value = '';
+                            }
+                        } catch (e) {
+                            console.warn('Could not fetch modelparameters.js from server:', e);
+                            textarea.value = '';
+                        }
+
+                        saveBtn.addEventListener('click', async () => {
+                            const original = saveBtn.innerHTML;
+                            try {
+                                const val = textarea.value || '';
+                                const resp = await fetch('/api/modelparameters', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ content: val })
+                                });
+                                if (!resp.ok) {
+                                    const text = await resp.text().catch(() => '');
+                                    throw new Error('Server error: ' + resp.status + ' ' + text);
+                                }
+                                saveBtn.innerHTML = (Lang.get('save') || 'Save') + ' ✓';
+                                setTimeout(() => saveBtn.innerHTML = original, 1400);
+                                setTimeout(() => { modal.style.display = 'none'; }, 250);
+                            } catch (e) {
+                                console.error('Error saving modelparameters.js to server:', e);
+                                alert(Lang.get('errorOccurred', { error: e.message }));
+                                saveBtn.innerHTML = original;
+                            }
+                        });
+
+                        modal.addEventListener('click', (ev) => { if (ev.target === modal) closeModal(); });
+                    } else {
+                        modal.style.display = 'flex';
+                        const textarea = document.getElementById('edit-model-parameters-textarea');
+                        try {
+                            const resp = await fetch('/api/modelparameters');
+                            if (resp.ok) {
+                                const text = await resp.text();
+                                if (textarea) textarea.value = text || '';
+                            } else {
+                                if (textarea) textarea.value = '';
+                            }
+                            if (textarea) textarea.focus();
+                        } catch (e) {
+                            console.warn('Could not fetch modelparameters.js from server:', e);
+                            if (textarea) {
+                                textarea.value = '';
+                                textarea.focus();
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to open Edit Model Parameters modal:', e);
+                }
+            });
+            this._editModelParametersListenerAdded = true;
         }
 
         const modelsToUse = models.length > 0 ? models :

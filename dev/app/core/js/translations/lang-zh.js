@@ -51,8 +51,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 // Tab buttons
                 chatTab: "对话",
                 documentsTab: "文档",
-                pdfworksTab: "Translate",
-                translateTab: "Translate",
+                pdfworksTab: "翻译",
+                translateTab: "翻译",
                 datavizTab: "数据可视化",
                 paperworkTab: "文书工作",
                 researchTab: "研究",
@@ -368,6 +368,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 editThinkingModelsTitle: "编辑 Thinking 模型列表",
                 editVisualModelsButton: "编辑 Visual 模型列表",
                 editVisualModelsTitle: "编辑 Visual 模型列表",
+                editModelParametersButton: "编辑模型参数",
+                editModelParametersTitle: "编辑模型参数",
 
                 // ===== DATABASETAB.JS ===== 
 

@@ -13,12 +13,13 @@ window.THINKING_MODELS = [
     'qwen3:14b',
     'qwen3:32b',
     'qwen3:70b',
+    'qwen3.5:35b',
     'magistral:24b',
     'gpt-oss',
     'qwen3:30b-a3b-thinking-2507',
     'deepseek-v3.1',
     'glm-4.7-flash:q4_K_M',
-    'glm-4.7-flash:q8',
+    'glm-4.7-flash:q8_0',
 ];
 
 // Function to extract base model name (remove quantization suffix)
