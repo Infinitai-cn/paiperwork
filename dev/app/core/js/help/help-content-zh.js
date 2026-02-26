@@ -2082,6 +2082,27 @@ window.helpContent = {
                 imageCaption: "标记幻灯片并运行直接复制",
             },
             {
+                id: "presentation-promptable",
+                title: "可提示配置演示文稿",
+                content: `
+            <p><strong>可提示配置演示文稿</strong> 会打开一个专用的全屏工作区，用于按提示创建演示文稿。</p>
+            <ul>
+                <li><strong>幻灯片数量</strong> — 选择精确的页数（1 到 20）。</li>
+                <li><strong>添加文本</strong> — 打开浮动文本窗口，可粘贴较长的源文本内容。</li>
+                <li><strong>文本持久化</strong> — 关闭并重新打开文本窗口后，会再次显示你之前保存的文本。</li>
+                <li><strong>发送流程</strong> — 点击发送时，系统会自动使用“幻灯片数量 + 已保存文本”构建用户提示词。</li>
+                <li><strong>额外请求（可选）</strong> — 使用“额外请求”按钮添加样式/布局指令（例如“使用红色配色”或“图片使用圆角边框”）；填写后会在提示词中先于主要源文本加入。</li>
+                <li><strong>已保存演示</strong> — 生成的 HTML 演示可加密保存到数据库，并在右侧边栏列出。</li>
+                <li><strong>侧边栏打开</strong> — 点击已保存演示即可在横向预览区域中加载显示。</li>
+                <li><strong>删除安全</strong> — 删除已保存演示前会先进行确认。</li>
+            </ul>
+            <p>提示：将源文本按逻辑分段，并设置合理的幻灯片数量，可获得更清晰的结构效果。</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "可提示配置演示文稿流程",
+                imageCaption: "可提示配置演示文稿的工作区与控件",
+            },
+            {
                 id: "presentation-generating",
                 title: "生成演示文稿",
                 content: `

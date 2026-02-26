@@ -1,0 +1,325 @@
+:root {
+    color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-color: #181818;
+        --text-color: white;
+        --button-bg: #404040;
+        --border-color: #404040;
+        --label-color: #d0d0d0;
+        --button-text: #f7f7f7;
+        --danger-color: #dc3545;
+        --back-button-text: white;
+        --chat-bubble-bg: #2b2b2b;
+        --input-bg: #404040;
+        --inline-code-bg: #181818;
+        --inline-code-text: rgb(149, 185, 244);
+        --modal-background: #2d2d2d;
+        --heading-color: #cedbf1;
+        --accent-color: #4f46e5;
+        --accent-color-hover: #4338ca;
+        --accent-text: white;
+
+        /* Knowledge collection card variables */
+        --card-bg: #2b2b2b;
+        --card-text: #e0e0e0;
+        --card-title: #f5f5f5;
+        --card-meta: #b0b0b0;
+        --card-border: #404040;
+
+        /* HTML Preview specific variables */
+        --preview-header-bg: #2a2a2a;
+        --preview-border: #555;
+        --preview-shadow: rgba(0, 0, 0, 0.5);
+        --preview-button-hover: #4f46e5;
+        --preview-toolbar-bg: #333;
+        --preview-toolbar-text: #ddd;
+        --code-bg-color: #2d2d2d;
+        --code-text-color: #e0e0e0;
+        --code-border-color: #444;
+
+        --chart-bg: #2d2d2d;
+        --chart-text: #e0e0e0;
+        --chart-title: #f0f0f0;
+        --chart-grid: #555;
+        --chart-axis: #888;
+        --chart-tooltip-bg: rgba(40, 40, 40, 0.9);
+        --chart-tooltip-text: #ffffff;
+        --chart-point-stroke: #181818;
+        --chart-legend-bg: rgba(40, 40, 40, 0.5);
+        --chart-plot-bg: #222;
+        --chart-plot-border: #444;
+
+        /* Database tab specific variables */
+        --db-success-color: #10b981;
+        --db-warning-color: #f59e0b;
+        --db-error-color: #ef4444;
+        --db-warning-bg: rgba(245, 158, 11, 0.08);
+        --db-success-bg: rgba(16, 185, 129, 0.08);
+        --db-stats-card-shadow: rgba(0, 0, 0, 0.1);
+        --db-notification-shadow: rgba(0, 0, 0, 0.25);
+        --db-spinner-bg: rgba(30, 30, 30, 0.2);
+        --bg-color-secondary: #242424;
+
+        --button-secondary-bg: #2d2d2d;
+        --button-secondary-text: #e0e0e0;
+        --danger-color-hover: #bb2d3b;
+        --preview-text-color: #e0e0e0;
+        --document-bg: #262626;
+        --document-text: #e0e0e0;
+        --disabled-color: #444;
+        --hover-bg: #23272e;
+        
+        /* presentation Canvas background */
+        --canvas-bg: #24272D;
+
+        /* Alias tokens used by tab modules */
+        --background-color: var(--bg-color);
+        --panel-background: var(--bg-color-secondary);
+        --hover-background: var(--hover-bg);
+        --input-background: var(--input-bg);
+        --error-color: var(--danger-color);
+        --error-hover: var(--danger-color-hover);
+        --modal-overlay-bg: rgba(30, 30, 30, 0.7);
+
+    /* SlideForge modal & controls (dark theme defaults) */
+    --presentation-loading-border: rgba(255,255,255,0.06);
+    --presentation-loading-accent: var(--accent-color, #4f46e5);
+    --presentation-loading-text: var(--text-color, #ffffff);
+    --presentation-modal-bg: #222426;
+    --presentation-modal-text: var(--text-color, #ffffff);
+    --presentation-modal-box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+    --presentation-modal-close-color: #ffffff;
+    --presentation-modal-close-bg: #e53935;
+    --presentation-modal-close-box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    --presentation-modal-close-hover-bg: #b71c1c;
+    --presentation-modal-close-hover-shadow: 0 4px 16px rgba(229,57,53,0.25);
+    /* Close button specific colors for modal (dark) */
+    --presentation-modal-close-icon-color: #ffffff;
+    --presentation-modal-close-bg: #e53935; /* already present but keep for clarity */
+    --presentation-modal-close-border: transparent;
+    --presentation-modal-close-hover-bg: #b71c1c;
+    --presentation-modal-close-hover-color: #ffffff;
+
+    /* Export button defaults */
+    --presentation-export-bg: var(--accent-color, #4f46e5);
+    --presentation-export-color: var(--accent-text, #ffffff);
+    --presentation-export-border: transparent;
+    --presentation-export-box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    --presentation-export-hover-bg: var(--accent-color-hover, #4338ca);
+    --presentation-export-hover-color: #ffffff;
+    --presentation-export-hover-box-shadow: 0 4px 16px rgba(67,56,202,0.12);
+    --presentation-export-focus-outline: rgba(255,255,255,0.9);
+
+    /* Browse button defaults */
+    --presentation-browse-color: #ffffff;
+    --presentation-browse-hover-color: #ffffff;
+    --presentation-browse-hover-border: transparent;
+    /* Remove-file button color (visible when showing remove '×' on dark backgrounds) */
+    --presentation-remove-file-color: #fafafa;
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg-color: white;
+        --text-color: black;
+        --button-bg: #ececec;
+        --button-text: #404040;
+        --border-color: lightgray;
+        --label-color: #404040;
+        --danger-color: #dc3545;
+        --back-button-text: #404040;
+        --chat-bubble-bg: #ecf2ff;
+        --input-bg: #f0f0f0;
+        --inline-code-bg: #888888;
+        --inline-code-text: rgb(255, 255, 255);
+        --modal-background: darkgray;
+        --heading-color: #2d3748;
+        --accent-color: #4f46e5;
+        --accent-color-hover: #3730a3;
+        --accent-text: white;
+
+        /* Knowledge collection card variables */
+        --card-bg: white;
+        --card-text: #1e293b;
+        --card-title: #2d3748;
+        --card-meta: #64748b;
+        --card-border: #e2e8f0;
+
+        /* HTML Preview specific variables */
+        --preview-header-bg: #f0f0f0;
+        --preview-border: #ccc;
+        --preview-shadow: rgba(0, 0, 0, 0.2);
+        --preview-button-hover: #ddd;
+        --preview-toolbar-bg: #e5e5e5;
+        --preview-toolbar-text: #333;
+        --code-bg-color: #f5f7fa;
+        --code-text-color: #334155;
+        --code-border-color: #e2e8f0;
+
+        /* Chart theme variables */
+        --chart-bg: #ffffff;
+        --chart-text: #333333;
+        --chart-title: #2d3748;
+        --chart-grid: #e0e0e0;
+        --chart-axis: #adb5bd;
+        --chart-tooltip-bg: rgba(0, 0, 0, 0.8);
+        --chart-tooltip-text: #ffffff;
+        --chart-point-stroke: #ffffff;
+        --chart-legend-bg: rgba(0, 0, 0, 0.03);
+        --chart-plot-bg: #f8f9fa;
+        --chart-plot-border: #e9ecef;
+
+        /* Database tab specific variables */
+        --db-success-color: #10b981;
+        --db-warning-color: #f59e0b;
+        --db-error-color: #ef4444;
+        --db-warning-bg: rgba(245, 158, 11, 0.08);
+        --db-success-bg: rgba(16, 185, 129, 0.08);
+        --db-stats-card-shadow: rgba(0, 0, 0, 0.05);
+        --db-notification-shadow: rgba(0, 0, 0, 0.15);
+        --db-spinner-bg: rgba(0, 0, 0, 0.1);
+        --bg-color-secondary: #f9fafb;
+
+        --button-secondary-bg: #f5f5f5;
+        --button-secondary-text: #333;
+        --danger-color-hover: #c82333;
+        --preview-text-color: #333;
+        --document-bg: #ffffff;
+        --document-text: #333333;
+        --disabled-color: #e0e0e0;
+        --hover-bg: #f5f5f5;
+        
+        /* presentation Canvas background */
+        --canvas-bg: #ffffff;
+
+        /* Alias tokens used by tab modules */
+        --background-color: var(--bg-color);
+        --panel-background: var(--bg-color-secondary);
+        --hover-background: var(--hover-bg);
+        --input-background: var(--input-bg);
+        --error-color: var(--danger-color);
+        --error-hover: var(--danger-color-hover);
+        --modal-overlay-bg: rgba(0, 0, 0, 0.38);
+
+    /* SlideForge modal & controls (light theme defaults) */
+    --presentation-loading-border: rgba(0,0,0,0.06);
+    --presentation-loading-accent: var(--accent-color, #4f46e5);
+    --presentation-loading-text: var(--text-color, #1a1a1a);
+    --presentation-modal-bg: #ffffff;
+    --presentation-modal-text: var(--text-color, #1a1a1a);
+    --presentation-modal-box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    --presentation-modal-close-color: #ffffff;
+    --presentation-modal-close-bg: #e53935;
+    --presentation-modal-close-box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --presentation-modal-close-hover-bg: #c92b2b;
+    --presentation-modal-close-hover-shadow: 0 4px 16px rgba(229,57,53,0.12);
+    /* Close button specific colors for modal (light) */
+    --presentation-modal-close-icon-color: #ffffff;
+    --presentation-modal-close-bg: #e53935; /* red background with white icon works on dark hover */
+    --presentation-modal-close-border: transparent;
+    --presentation-modal-close-hover-bg: #c92b2b;
+    --presentation-modal-close-hover-color: #ffffff;
+
+    /* Export button defaults */
+    --presentation-export-bg: var(--accent-color, #4f46e5);
+    --presentation-export-color: var(--accent-text, #ffffff);
+    --presentation-export-border: transparent;
+    --presentation-export-box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    --presentation-export-hover-bg: var(--accent-color-hover, #3730a3);
+    --presentation-export-hover-color: #ffffff;
+    --presentation-export-hover-box-shadow: 0 4px 16px rgba(55,48,163,0.08);
+    --presentation-export-focus-outline: rgba(0,0,0,0.12);
+
+    /* Browse button defaults */
+    --presentation-browse-color: #ffffff;
+    --presentation-browse-hover-color: #ffffff;
+    --presentation-browse-hover-border: transparent;
+    /* Remove-file button color (visible when showing remove '×' on light backgrounds) */
+    --presentation-remove-file-color: #111111;
+    }
+}
+
+/* presentation Style Selector Styles */
+.presentation-style-selector-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.presentation-style-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: var(--button-bg, #f3f4f6);
+    border: 2px solid var(--border-color, #d1d5db);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 44px;
+}
+
+.presentation-style-option:hover {
+    background: var(--hover-bg, #f5f5f5);
+    border-color: var(--accent-color, #4f46e5);
+}
+
+.presentation-style-option.selected {
+    background: var(--accent-color, #4f46e5);
+    border-color: var(--accent-color, #4f46e5);
+    color: var(--accent-text, white);
+}
+
+.presentation-style-name {
+    font-weight: 500;
+    font-size: 14px;
+    color: inherit;
+}
+
+.presentation-style-indicator {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: transparent;
+    border: 2px solid var(--border-color, #d1d5db);
+    transition: all 0.2s ease;
+}
+
+.presentation-style-option.selected .presentation-style-indicator {
+    background: var(--accent-text, white);
+    border-color: var(--accent-text, white);
+    position: relative;
+}
+
+.presentation-style-option.selected .presentation-style-indicator::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    background: var(--accent-color, #4f46e5);
+    border-radius: 50%;
+}
+
+@media (prefers-color-scheme: dark) {
+    .presentation-style-option {
+        background: var(--button-bg, #404040);
+        border-color: var(--border-color, #404040);
+        color: var(--text-color, white);
+    }
+    
+    .presentation-style-option:hover {
+        background: var(--hover-bg, #23272e);
+    }
+    
+    .presentation-style-indicator {
+        border-color: var(--border-color, #404040);
+    }
+}

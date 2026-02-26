@@ -2077,6 +2077,27 @@ window.helpContent = {
                 imageCaption: "Folien beschriften und Direkte Kopie ausführen",
             },
             {
+                id: "presentation-promptable",
+                title: "Promptbare Präsentation",
+                content: `
+            <p><strong>Promptbare Präsentation</strong> öffnet einen eigenen Vollbild-Arbeitsbereich für promptbasierte Deck-Erstellung.</p>
+            <ul>
+                <li><strong>Anzahl der Folien</strong> — wählen Sie die exakte Folienanzahl (1 bis 20).</li>
+                <li><strong>Text hinzufügen</strong> — öffnet ein schwebendes Textfenster, in das Sie längere Quelltexte einfügen können.</li>
+                <li><strong>Text bleibt erhalten</strong> — wenn Sie das Textfenster schließen und erneut öffnen, erscheint der zuvor gespeicherte Text wieder.</li>
+                <li><strong>Send-Ablauf</strong> — Send erstellt den Benutzer-Prompt automatisch aus Folienanzahl und gespeichertem Quelltext.</li>
+                <li><strong>Zusätzliche Anfrage (optional)</strong> — nutzen Sie die Schaltfläche „Zusätzliche Anfrage“ für Stil-/Layout-Vorgaben (z. B. „rote Farben verwenden“ oder „runde Bildrahmen“); falls gesetzt, wird sie im Prompt vor dem Hauptquelltext eingefügt.</li>
+                <li><strong>Gespeicherte Präsentationen</strong> — erzeugte HTML-Decks können verschlüsselt in der DB gespeichert und rechts in der Seitenleiste gelistet werden.</li>
+                <li><strong>Aus Seitenleiste öffnen</strong> — klicken Sie auf eine gespeicherte Präsentation, um sie im Landscape-Vorschaubereich zu laden.</li>
+                <li><strong>Löschschutz</strong> — vor dem Löschen wird eine Bestätigung abgefragt.</li>
+            </ul>
+            <p>Tipp: Strukturieren Sie den Quelltext in sinnvolle Abschnitte und wählen Sie eine realistische Folienanzahl für klarere Ergebnisse.</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "Ablauf der promptbaren Präsentation",
+                imageCaption: "Arbeitsbereich und Steuerelemente der promptbaren Präsentation",
+            },
+            {
                 id: "presentation-generating",
                 title: "Erstellung von Präsentationen",
                 content: `
