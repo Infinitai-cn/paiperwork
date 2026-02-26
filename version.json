@@ -1,6 +1,6 @@
 {
-    "version": "1.0.4",
-    "releaseDate": "2025-12-19",
+    "version": "1.0.5",
+    "releaseDate": "2025-02-26",
     "notes": "<p><strong>Notice:</strong>Presentation PDF export bug fixes.</p> <p><strong>New Direct copy mode for presentation creation.</p>",
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
     "requiredUpdate": false
