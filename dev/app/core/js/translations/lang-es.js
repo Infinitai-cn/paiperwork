@@ -49,8 +49,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         // Tab buttons
         chatTab: "Chat",
         documentsTab: "Documentos",
-        pdfworksTab: "Translate",
-        translateTab: "Translate",
+        pdfworksTab: "Traducir",
+        translateTab: "Traducir",
         datavizTab: "DataViz",
         paperworkTab: "Papeleo",
         researchTab: "Investigación",
@@ -366,6 +366,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
     editThinkingModelsTitle: "Editar la lista de modelos Thinking",
     editVisualModelsButton: "Editar la lista de modelos Visual",
     editVisualModelsTitle: "Editar la lista de modelos Visual",
+    editModelParametersButton: "Editar parámetros del modelo",
+    editModelParametersTitle: "Editar parámetros del modelo",
 
         // ===== DATABASETAB.JS ===== 
         // Main UI Elements

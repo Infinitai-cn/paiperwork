@@ -372,6 +372,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
     editThinkingModelsTitle: "Edit Thinking models list",
     editVisualModelsButton: "Edit Visual models list",
     editVisualModelsTitle: "Edit Visual models list",
+    editModelParametersButton: "Edit model parameters",
+    editModelParametersTitle: "Edit model parameters",
 
 
         // ===== DATABASETAB.JS ===== 

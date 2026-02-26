@@ -2074,17 +2074,10 @@ class TranslateTab {
 			this.selectedPageNumbers.clear();
 			this.selectedPageNumbers.add(pageNumber);
 		} else {
-			const additiveSelection = !!(event && (event.metaKey || event.ctrlKey || event.shiftKey));
-
-			if (!additiveSelection) {
-				this.selectedPageNumbers.clear();
-				this.selectedPageNumbers.add(pageNumber);
+			if (this.selectedPageNumbers.has(pageNumber)) {
+				this.selectedPageNumbers.delete(pageNumber);
 			} else {
-				if (this.selectedPageNumbers.has(pageNumber)) {
-					this.selectedPageNumbers.delete(pageNumber);
-				} else {
-					this.selectedPageNumbers.add(pageNumber);
-				}
+				this.selectedPageNumbers.add(pageNumber);
 			}
 		}
 

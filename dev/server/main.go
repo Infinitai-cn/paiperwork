@@ -193,11 +193,11 @@ func proxyBingSearch(w http.ResponseWriter, r *http.Request) {
 	cleanQ := strings.TrimSpace(query)
 	// Remove surrounding matching quotes
 	if (strings.HasPrefix(cleanQ, "\"") && strings.HasSuffix(cleanQ, "\"")) || (strings.HasPrefix(cleanQ, "'") && strings.HasSuffix(cleanQ, "'")) {
-		cleanQ = cleanQ[1:len(cleanQ)-1]
+		cleanQ = cleanQ[1 : len(cleanQ)-1]
 	}
 	// Remove surrounding parentheses/brackets
 	if (strings.HasPrefix(cleanQ, "(") && strings.HasSuffix(cleanQ, ")")) || (strings.HasPrefix(cleanQ, "[") && strings.HasSuffix(cleanQ, "]")) {
-		cleanQ = cleanQ[1:len(cleanQ)-1]
+		cleanQ = cleanQ[1 : len(cleanQ)-1]
 	}
 	// Collapse multiple whitespace into single spaces
 	cleanQ = regexp.MustCompile(`\s+`).ReplaceAllString(cleanQ, " ")
@@ -608,7 +608,102 @@ func visualModelsPostHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, `{"ok":true}`)
 }
 
+// GET/POST handlers for modelparameters.js
+func modelParametersGetHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" && r.Method != "OPTIONS" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	rel := filepath.Join("app", "core", "js", "utils", "modelparameters.js")
+	execDir := filepath.Dir(os.Args[0])
+	fullPath := filepath.Join(execDir, rel)
+
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		log.Printf("Error reading modelparameters.js: %v", err)
+		http.Error(w, "Failed to read file", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+func modelParametersPostHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	type reqBody struct {
+		Content string `json:"content"`
+	}
+	var body reqBody
+	dec := json.NewDecoder(io.LimitReader(r.Body, 5*1024*1024))
+	if err := dec.Decode(&body); err != nil {
+		log.Printf("Invalid request body for modelparameters POST: %v", err)
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if !strings.Contains(body.Content, "MODEL_PARAMETERS") {
+		http.Error(w, "Content validation failed", http.StatusBadRequest)
+		return
+	}
+
+	rel := filepath.Join("app", "core", "js", "utils", "modelparameters.js")
+	execDir := filepath.Dir(os.Args[0])
+	fullPath := filepath.Join(execDir, rel)
+
+	backupPath := fullPath + ".bak"
+	if _, err := os.Stat(fullPath); err == nil {
+		input, err := os.ReadFile(fullPath)
+		if err == nil {
+			_ = os.WriteFile(backupPath, input, 0644)
+		}
+	}
+
+	dir := filepath.Dir(fullPath)
+	tmpFile, err := os.CreateTemp(dir, "modelparameters-*.js")
+	if err != nil {
+		log.Printf("Failed to create temp file for modelparameters write: %v", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	tmpPath := tmpFile.Name()
+	if _, err := tmpFile.WriteString(body.Content); err != nil {
+		log.Printf("Failed to write temp modelparameters file: %v", err)
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	tmpFile.Close()
+
+	if err := os.Rename(tmpPath, fullPath); err != nil {
+		log.Printf("Failed to replace modelparameters.js: %v", err)
+		os.Remove(tmpPath)
+		http.Error(w, "Failed to save file", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, `{"ok":true}`)
+}
 
 func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 	// Get URL parameter
@@ -1253,6 +1348,18 @@ func main() {
 		}
 		if r.Method == "POST" {
 			visualModelsPostHandler(w, r)
+			return
+		}
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	})
+	// Model parameters management
+	mux.HandleFunc("/api/modelparameters", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" || r.Method == "OPTIONS" {
+			modelParametersGetHandler(w, r)
+			return
+		}
+		if r.Method == "POST" {
+			modelParametersPostHandler(w, r)
 			return
 		}
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

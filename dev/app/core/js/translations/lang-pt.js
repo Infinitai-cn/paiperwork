@@ -55,8 +55,8 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         // Tab buttons
         chatTab: "Chat",
         documentsTab: "Documentos",
-        pdfworksTab: "Translate",
-        translateTab: "Translate",
+        pdfworksTab: "Traduzir",
+        translateTab: "Traduzir",
         datavizTab: "Visualização de Dados",
         paperworkTab: "Papelada",
         researchTab: "Pesquisa",
@@ -525,6 +525,8 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
     editThinkingModelsTitle: "Editar lista de modelos Thinking",
     editVisualModelsButton: "Editar lista de modelos Visuais",
     editVisualModelsTitle: "Editar lista de modelos Visuais",
+    editModelParametersButton: "Editar parâmetros do modelo",
+    editModelParametersTitle: "Editar parâmetros do modelo",
 
         // ===== DATABASETAB.JS ===== 
 
