@@ -361,6 +361,7 @@ class presentationtab {
                             <select id="presentation-mode-selector">
                                 <option value="summarize">${Lang.get('summarizeToSlideForge')}</option>
                                 <option value="direct-copy">${Lang.get('directCopyMode') || 'Direct copy'}</option>
+                                <option value="promptable-presentation">${Lang.get('promptablePresentationMode') || 'Promptable presentation'}</option>
                             </select>
                         </div>
                         <div class="setting-group">
@@ -410,6 +411,20 @@ class presentationtab {
         const bulletsSelector = document.getElementById('presentation-bullets-selector');
         const bulletsLabel = document.getElementById('presentation-bullets-label');
         modeSelector.addEventListener('change', function() {
+            if (modeSelector.value === 'promptable-presentation') {
+                if (window.PromptedPresentationWorkflow && typeof window.PromptedPresentationWorkflow.open === 'function') {
+                    window.PromptedPresentationWorkflow.open({
+                        onClose: () => {
+                            modeSelector.value = 'summarize';
+                            modeSelector.dispatchEvent(new Event('change'));
+                        }
+                    });
+                } else {
+                    console.error('PromptedPresentationWorkflow is not available');
+                    modeSelector.value = 'summarize';
+                }
+            }
+
             // No special-mode handling required; ensure selectors are visible and enabled for all modes
             if (slidesSelector) { slidesSelector.style.display = ''; slidesSelector.disabled = false; }
             const slidesLabel = document.getElementById('presentation-pages-label');

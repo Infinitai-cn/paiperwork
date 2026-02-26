@@ -2091,6 +2091,27 @@ window.helpContent = {
                 imageCaption: "Etiqueta las diapositivas y ejecuta Copia directa",
             },
             {
+                id: "presentation-promptable",
+                title: "Presentación configurable por prompt",
+                content: `
+            <p><strong>Presentación configurable por prompt</strong> abre un espacio de trabajo dedicado en pantalla completa para crear presentaciones con indicaciones.</p>
+            <ul>
+                <li><strong>Número de diapositivas</strong> — elige la cantidad exacta (1 a 20).</li>
+                <li><strong>Agregar texto</strong> — abre una ventana flotante para pegar texto fuente largo.</li>
+                <li><strong>Persistencia del texto</strong> — si cierras y vuelves a abrir la ventana, el texto guardado aparece de nuevo.</li>
+                <li><strong>Flujo de Enviar</strong> — Enviar construye automáticamente el prompt del usuario con el número de diapositivas y el texto guardado.</li>
+                <li><strong>Solicitud extra (opcional)</strong> — usa el botón Solicitud extra para indicar estilo/diseño (por ejemplo: "usar colores rojos" o "marcos redondos para imágenes"); cuando se proporciona, se añade antes del texto fuente principal en el prompt.</li>
+                <li><strong>Presentaciones guardadas</strong> — los decks HTML se pueden guardar cifrados en la base de datos y se listan en la barra lateral derecha.</li>
+                <li><strong>Abrir desde la barra lateral</strong> — haz clic en una presentación guardada para cargarla en el área horizontal de vista previa.</li>
+                <li><strong>Seguridad al eliminar</strong> — al borrar una presentación guardada, se solicita confirmación.</li>
+            </ul>
+            <p>Consejo: organiza el texto fuente por secciones y usa un número de diapositivas realista para obtener una estructura más clara.</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "Flujo de presentación configurable por prompt",
+                imageCaption: "Espacio de trabajo y controles de presentación configurable por prompt",
+            },
+            {
                 id: "presentation-generating",
                 title: "Generando presentaciones",
                 content: `

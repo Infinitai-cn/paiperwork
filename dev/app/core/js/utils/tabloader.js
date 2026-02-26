@@ -59,6 +59,7 @@ class TabLoader {
                     'js/utils/presentation/previewwindow.js',
                     'js/utils/presentation/pdfexport.js',
                     'js/utils/presentation/StyleDIY.js',
+                    'js/utils/presentation/promptedpresentation.js',
                     'js/tabs/presentationTab.js'
                 ]
             },

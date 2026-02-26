@@ -2110,6 +2110,27 @@ window.helpContent = {
                 imageCaption: "Label slides and run Direct copy",
             },
             {
+                id: "presentation-promptable",
+                title: "Promptable presentation",
+                content: `
+            <p><strong>Promptable presentation</strong> opens a dedicated full-screen workspace for prompt-based deck creation.</p>
+            <ul>
+                <li><strong>Number of slides</strong> — choose the exact slide count (1 to 20).</li>
+                <li><strong>Add text</strong> — opens a floating text window where you can paste long source content.</li>
+                <li><strong>Text persistence</strong> — when you close and reopen the Add text window, your previously saved text appears again.</li>
+                <li><strong>Send workflow</strong> — Send builds the user prompt automatically using the selected slide count and saved source text.</li>
+                <li><strong>Extra request (optional)</strong> — use the Extra request button for style/layout instructions (for example: "use red colors" or "round image frames"); when provided, it is added before the main source text in the prompt.</li>
+                <li><strong>Saved presentations</strong> — generated HTML decks can be saved encrypted to your DB and listed in the right sidebar.</li>
+                <li><strong>Open from sidebar</strong> — click a saved presentation to load it in the landscape preview area.</li>
+                <li><strong>Delete safety</strong> — deleting a saved presentation asks for confirmation first.</li>
+            </ul>
+            <p>Tip: keep the source text in logical sections and set a realistic slide count to get clearer slide structure.</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "Promptable presentation workflow",
+                imageCaption: "Promptable presentation workspace and controls",
+            },
+            {
                 id: "presentation-generating",
                 title: "Generating SlideForges",
                 content: `

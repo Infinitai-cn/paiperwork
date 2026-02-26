@@ -2076,6 +2076,27 @@ window.helpContent = {
                 imageCaption: "Étiquetez les diapositives et lancez Copie directe",
             },
             {
+                id: "presentation-promptable",
+                title: "Présentation configurable par prompt",
+                content: `
+            <p><strong>Présentation configurable par prompt</strong> ouvre un espace de travail plein écran dédié à la création de decks par consignes.</p>
+            <ul>
+                <li><strong>Nombre de diapositives</strong> — choisissez le nombre exact (1 à 20).</li>
+                <li><strong>Ajouter du texte</strong> — ouvre une fenêtre flottante pour coller un texte source volumineux.</li>
+                <li><strong>Persistance du texte</strong> — si vous fermez puis rouvrez la fenêtre, le texte précédemment enregistré réapparaît.</li>
+                <li><strong>Flux Envoyer</strong> — Envoyer construit automatiquement le prompt utilisateur avec le nombre de diapositives et le texte enregistré.</li>
+                <li><strong>Demande supplémentaire (optionnelle)</strong> — utilisez le bouton Demande supplémentaire pour préciser le style/la mise en page (par exemple : « utiliser des couleurs rouges » ou « cadres d'image arrondis ») ; si fournie, elle est ajoutée avant le texte source principal dans le prompt.</li>
+                <li><strong>Présentations enregistrées</strong> — les decks HTML peuvent être enregistrés chiffrés en base et listés dans la barre latérale droite.</li>
+                <li><strong>Ouverture depuis la barre latérale</strong> — cliquez sur une présentation enregistrée pour la charger dans la zone de prévisualisation paysage.</li>
+                <li><strong>Sécurité de suppression</strong> — une confirmation est demandée avant suppression.</li>
+            </ul>
+            <p>Conseil : structurez le texte source en sections logiques et choisissez un nombre de diapositives réaliste pour un meilleur résultat.</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "Flux de présentation configurable par prompt",
+                imageCaption: "Espace de travail et contrôles de présentation configurable par prompt",
+            },
+            {
                 id: "presentation-generating",
                 title: "Génération de présentations",
                 content: `

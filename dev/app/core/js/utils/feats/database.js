@@ -700,11 +700,28 @@ class PaiperworkDB {
                 }
             }
 
-            // Update database version to 9
+            // Version 10: Add promptable presentations table per-user
+            if (currentVersion < 10) {
+                try {
+                    db.exec(`
+                        CREATE TABLE IF NOT EXISTS promptable_presentations_${hashedMasterKey} (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            title TEXT,
+                            html_content TEXT,
+                            created_at TEXT,
+                            updated_at TEXT
+                        )
+                    `);
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error creating promptable presentations table', error);
+                }
+            }
+
+            // Update database version to 10
             if (currentVersion === 0) {
-                db.run('INSERT INTO db_version (version) VALUES (9)');
+                db.run('INSERT INTO db_version (version) VALUES (10)');
             } else {
-                db.run('UPDATE db_version SET version = 9');
+                db.run('UPDATE db_version SET version = 10');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
@@ -859,6 +876,194 @@ class PaiperworkDB {
         } catch (error) {
             console.error('deleteCustomStyle error:', error);
             throw error;
+        }
+    }
+
+    // Save a promptable presentation HTML (encrypted) for a given masterkey
+    static async savePromptablePresentation(hashedMasterKey, payload) {
+        try {
+            if (!hashedMasterKey) throw new Error('Missing master key');
+
+            const html = payload && typeof payload.html === 'string' ? payload.html : '';
+            if (!html.trim()) {
+                throw new Error('Missing presentation HTML');
+            }
+
+            const title = (payload && payload.title ? String(payload.title) : '').trim() || 'Untitled presentation';
+            const now = new Date().toISOString();
+            const tableName = `promptable_presentations_${hashedMasterKey}`;
+
+            console.info('savePromptablePresentation: start', {
+                tableName,
+                title,
+                htmlLength: html.length,
+                masterKeyPrefix: String(hashedMasterKey).slice(0, 8)
+            });
+
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            const db = existingDb ? new this.SQL.Database(existingDb) : new this.SQL.Database();
+            console.info('savePromptablePresentation: opened database', {
+                tableName,
+                hasExistingDb: !!existingDb
+            });
+
+            db.run(`
+                CREATE TABLE IF NOT EXISTS ${tableName} (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT,
+                    html_content TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            const encryptedHtml = await this.encrypt(hashedMasterKey, html);
+            db.run(
+                `INSERT INTO ${tableName} (title, html_content, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+                [title, JSON.stringify(encryptedHtml), now, now]
+            );
+
+            const idResult = db.exec(`SELECT last_insert_rowid() AS id`);
+            const insertedId = idResult && idResult[0] && idResult[0].values && idResult[0].values[0]
+                ? idResult[0].values[0][0]
+                : null;
+
+            await this.saveToStorage(db.export(), hashedMasterKey);
+            console.info('savePromptablePresentation: success', {
+                tableName,
+                insertedId
+            });
+            return insertedId;
+        } catch (error) {
+            console.error('savePromptablePresentation error:', {
+                error,
+                message: error && error.message ? error.message : String(error),
+                stack: error && error.stack ? error.stack : null,
+                hasPayload: !!payload,
+                payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : [],
+                htmlLength: payload && typeof payload.html === 'string' ? payload.html.length : 0,
+                hasMasterKey: !!hashedMasterKey,
+                masterKeyPrefix: hashedMasterKey ? String(hashedMasterKey).slice(0, 8) : null
+            });
+            throw error;
+        }
+    }
+
+    // Load promptable presentation list metadata for a given masterkey
+    static async getPromptablePresentations(hashedMasterKey) {
+        try {
+            if (!hashedMasterKey) return [];
+
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            if (!existingDb) return [];
+
+            const db = new this.SQL.Database(existingDb);
+            const tableName = `promptable_presentations_${hashedMasterKey}`;
+            const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+            if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
+                return [];
+            }
+
+            const rows = db.exec(`SELECT id, title, created_at, updated_at FROM ${tableName} ORDER BY updated_at DESC, id DESC`);
+            if (!rows || !rows[0] || !rows[0].values) {
+                return [];
+            }
+
+            return rows[0].values.map(row => ({
+                id: row[0],
+                title: row[1] || '',
+                created_at: row[2] || '',
+                updated_at: row[3] || ''
+            }));
+        } catch (error) {
+            console.error('getPromptablePresentations error:', error);
+            return [];
+        }
+    }
+
+    // Load and decrypt a promptable presentation HTML by id
+    static async loadPromptablePresentationHtml(hashedMasterKey, id) {
+        try {
+            if (!hashedMasterKey || !id) return '';
+
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            if (!existingDb) return '';
+
+            const db = new this.SQL.Database(existingDb);
+            const tableName = `promptable_presentations_${hashedMasterKey}`;
+            const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+            if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
+                return '';
+            }
+
+            const rowResult = db.exec(`SELECT html_content FROM ${tableName} WHERE id = ? LIMIT 1`, [id]);
+            if (!rowResult || !rowResult[0] || !rowResult[0].values || !rowResult[0].values.length) {
+                return '';
+            }
+
+            const encryptedStr = rowResult[0].values[0][0];
+            if (!encryptedStr) return '';
+
+            let parsedEncrypted;
+            try {
+                parsedEncrypted = JSON.parse(encryptedStr);
+            } catch (error) {
+                return '';
+            }
+
+            const decrypted = await this.decrypt(hashedMasterKey, parsedEncrypted);
+            return decrypted || '';
+        } catch (error) {
+            console.error('loadPromptablePresentationHtml error:', error);
+            return '';
+        }
+    }
+
+    // Delete a saved promptable presentation by id
+    static async deletePromptablePresentation(hashedMasterKey, id) {
+        try {
+            if (!hashedMasterKey || !id) return false;
+
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            if (!existingDb) return false;
+
+            const db = new this.SQL.Database(existingDb);
+            const tableName = `promptable_presentations_${hashedMasterKey}`;
+            const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+            if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
+                return false;
+            }
+
+            db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
+            await this.saveToStorage(db.export(), hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('deletePromptablePresentation error:', error);
+            return false;
         }
     }
 

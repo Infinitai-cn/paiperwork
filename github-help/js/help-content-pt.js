@@ -2077,6 +2077,27 @@ window.helpContent = {
                 imageCaption: "Rotule os slides e execute Cópia direta",
             },
             {
+                id: "presentation-promptable",
+                title: "Apresentação configurável por prompt",
+                content: `
+            <p><strong>Apresentação configurável por prompt</strong> abre um espaço de trabalho dedicado em ecrã completo para criar decks por instruções.</p>
+            <ul>
+                <li><strong>Número de slides</strong> — escolha a quantidade exata (1 a 20).</li>
+                <li><strong>Adicionar texto</strong> — abre uma janela flutuante para colar texto-fonte extenso.</li>
+                <li><strong>Persistência do texto</strong> — ao fechar e reabrir a janela, o texto previamente guardado aparece novamente.</li>
+                <li><strong>Fluxo Enviar</strong> — Enviar monta automaticamente o prompt do utilizador com o número de slides e o texto guardado.</li>
+                <li><strong>Pedido extra (opcional)</strong> — use o botão Pedido extra para indicar estilo/layout (por exemplo: "usar cores vermelhas" ou "molduras arredondadas nas imagens"); quando preenchido, ele é adicionado antes do texto-fonte principal no prompt.</li>
+                <li><strong>Apresentações guardadas</strong> — os decks HTML podem ser guardados de forma encriptada na base de dados e listados na barra lateral direita.</li>
+                <li><strong>Abrir pela barra lateral</strong> — clique numa apresentação guardada para carregá-la na área de pré-visualização em formato paisagem.</li>
+                <li><strong>Segurança ao eliminar</strong> — a eliminação pede confirmação antes de remover.</li>
+            </ul>
+            <p>Dica: organize o texto-fonte por secções e escolha um número de slides realista para obter uma estrutura mais clara.</p>
+        `,
+                image: "tab_overview.png",
+                imageAlt: "Fluxo de apresentação configurável por prompt",
+                imageCaption: "Área de trabalho e controlos da apresentação configurável por prompt",
+            },
+            {
                 id: "presentation-generating",
                 title: "Gerando apresentações",
                 content: `
