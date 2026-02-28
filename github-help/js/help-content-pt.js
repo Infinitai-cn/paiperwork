@@ -2088,6 +2088,7 @@ window.helpContent = {
                 <li><strong>Fluxo Enviar</strong> — Enviar monta automaticamente o prompt do utilizador com o número de slides e o texto guardado.</li>
                 <li><strong>Pedido extra (opcional)</strong> — use o botão Pedido extra para indicar estilo/layout (por exemplo: "usar cores vermelhas" ou "molduras arredondadas nas imagens"); quando preenchido, ele é adicionado antes do texto-fonte principal no prompt.</li>
                 <li><strong>Seleção de modo</strong> — use o <strong>Modo interativo</strong> para apresentações navegadas com botões <strong>Anterior/Seguinte</strong>, ou o <strong>Modo com rolagem</strong> para apresentações percorridas de cima para baixo.</li>
+                <li><strong>Modelo recomendado</strong> — para esta funcionalidade, <strong>GLM 4.7 Flash</strong> é um muito bom modelo para apresentações.</li>
                 <li><strong>Apresentações guardadas</strong> — os decks HTML podem ser guardados de forma encriptada na base de dados e listados na barra lateral direita.</li>
                 <li><strong>Abrir pela barra lateral</strong> — clique numa apresentação guardada para carregá-la na área de pré-visualização em formato paisagem.</li>
                 <li><strong>Segurança ao eliminar</strong> — a eliminação pede confirmação antes de remover.</li>

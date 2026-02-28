@@ -2093,6 +2093,7 @@ window.helpContent = {
                 <li><strong>发送流程</strong> — 点击发送时，系统会自动使用“幻灯片数量 + 已保存文本”构建用户提示词。</li>
                 <li><strong>额外请求（可选）</strong> — 使用“额外请求”按钮添加样式/布局指令（例如“使用红色配色”或“图片使用圆角边框”）；填写后会在提示词中先于主要源文本加入。</li>
                 <li><strong>模式选择</strong> — 使用 <strong>交互模式</strong> 通过 <strong>上一页/下一页</strong> 按钮导航演示，或使用 <strong>滚动模式</strong> 从上到下滚动浏览演示。</li>
+                <li><strong>推荐模型</strong> — 在此功能中，<strong>GLM 4.7 Flash</strong> 是一个非常好的演示文稿生成模型。</li>
                 <li><strong>已保存演示</strong> — 生成的 HTML 演示可加密保存到数据库，并在右侧边栏列出。</li>
                 <li><strong>侧边栏打开</strong> — 点击已保存演示即可在横向预览区域中加载显示。</li>
                 <li><strong>删除安全</strong> — 删除已保存演示前会先进行确认。</li>

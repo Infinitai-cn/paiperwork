@@ -2088,6 +2088,7 @@ window.helpContent = {
                 <li><strong>Send-Ablauf</strong> — Send erstellt den Benutzer-Prompt automatisch aus Folienanzahl und gespeichertem Quelltext.</li>
                 <li><strong>Zusätzliche Anfrage (optional)</strong> — nutzen Sie die Schaltfläche „Zusätzliche Anfrage“ für Stil-/Layout-Vorgaben (z. B. „rote Farben verwenden“ oder „runde Bildrahmen“); falls gesetzt, wird sie im Prompt vor dem Hauptquelltext eingefügt.</li>
                 <li><strong>Modusauswahl</strong> — verwenden Sie den <strong>Interaktiven Modus</strong> für Präsentationen mit <strong>Zurück/Weiter</strong>-Schaltflächen oder den <strong>Scrollbaren Modus</strong> für Präsentationen, die von oben nach unten gescrollt werden.</li>
+                <li><strong>Empfohlenes Modell</strong> — für diese Funktion ist <strong>GLM 4.7 Flash</strong> ein sehr gutes Präsentationsmodell.</li>
                 <li><strong>Gespeicherte Präsentationen</strong> — erzeugte HTML-Decks können verschlüsselt in der DB gespeichert und rechts in der Seitenleiste gelistet werden.</li>
                 <li><strong>Aus Seitenleiste öffnen</strong> — klicken Sie auf eine gespeicherte Präsentation, um sie im Landscape-Vorschaubereich zu laden.</li>
                 <li><strong>Löschschutz</strong> — vor dem Löschen wird eine Bestätigung abgefragt.</li>
