@@ -2121,6 +2121,7 @@ window.helpContent = {
                 <li><strong>Send workflow</strong> — Send builds the user prompt automatically using the selected slide count and saved source text.</li>
                 <li><strong>Extra request (optional)</strong> — use the Extra request button for style/layout instructions (for example: "use red colors" or "round image frames"); when provided, it is added before the main source text in the prompt.</li>
                 <li><strong>Mode selection</strong> — use <strong>Interactive mode</strong> for presentations navigated with <strong>Prev/Next</strong> buttons, or <strong>Scrollable mode</strong> for presentations you scroll from top to bottom.</li>
+                <li><strong>Recommended model</strong> — for this feature, <strong>GLM 4.7 Flash</strong> is a very good presentation model.</li>
                 <li><strong>Saved presentations</strong> — generated HTML decks can be saved encrypted to your DB and listed in the right sidebar.</li>
                 <li><strong>Open from sidebar</strong> — click a saved presentation to load it in the landscape preview area.</li>
                 <li><strong>Delete safety</strong> — deleting a saved presentation asks for confirmation first.</li>
