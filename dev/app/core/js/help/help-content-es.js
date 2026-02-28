@@ -2101,6 +2101,7 @@ window.helpContent = {
                 <li><strong>Persistencia del texto</strong> — si cierras y vuelves a abrir la ventana, el texto guardado aparece de nuevo.</li>
                 <li><strong>Flujo de Enviar</strong> — Enviar construye automáticamente el prompt del usuario con el número de diapositivas y el texto guardado.</li>
                 <li><strong>Solicitud extra (opcional)</strong> — usa el botón Solicitud extra para indicar estilo/diseño (por ejemplo: "usar colores rojos" o "marcos redondos para imágenes"); cuando se proporciona, se añade antes del texto fuente principal en el prompt.</li>
+                <li><strong>Selección de modo</strong> — usa <strong>Modo interactivo</strong> para presentaciones que se navegan con botones <strong>Anterior/Siguiente</strong>, o <strong>Modo desplazable</strong> para presentaciones que se recorren de arriba abajo.</li>
                 <li><strong>Presentaciones guardadas</strong> — los decks HTML se pueden guardar cifrados en la base de datos y se listan en la barra lateral derecha.</li>
                 <li><strong>Abrir desde la barra lateral</strong> — haz clic en una presentación guardada para cargarla en el área horizontal de vista previa.</li>
                 <li><strong>Seguridad al eliminar</strong> — al borrar una presentación guardada, se solicita confirmación.</li>
