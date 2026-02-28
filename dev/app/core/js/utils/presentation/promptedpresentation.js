@@ -109,6 +109,127 @@ class PromptedPresentationWorkflow {
 		return (base || 'presentation').slice(0, 120);
 	}
 
+	static async promptPresentationName(defaultTitle = '') {
+		return new Promise((resolve) => {
+			const untitledLabel = window.Lang
+				? (Lang.get('untitledPresentation') || 'Untitled presentation')
+				: 'Untitled presentation';
+			const initialName = (defaultTitle || '').trim() || untitledLabel;
+
+			const overlay = document.createElement('div');
+			overlay.style.position = 'fixed';
+			overlay.style.inset = '0';
+			overlay.style.zIndex = '10040';
+			overlay.style.background = 'var(--modal-overlay-bg, rgba(30, 30, 30, 0.7))';
+			overlay.style.backdropFilter = 'blur(5px)';
+			overlay.style.webkitBackdropFilter = 'blur(5px)';
+			overlay.style.display = 'flex';
+			overlay.style.alignItems = 'center';
+			overlay.style.justifyContent = 'center';
+
+			const modal = document.createElement('div');
+			modal.style.width = 'min(460px, 92vw)';
+			modal.style.background = 'var(--presentation-modal-bg, var(--panel-background, #222426))';
+			modal.style.border = '1px solid var(--border-color, #404040)';
+			modal.style.borderRadius = '12px';
+			modal.style.boxShadow = 'var(--presentation-modal-box-shadow, 0 8px 32px rgba(0,0,0,0.18))';
+			modal.style.padding = '14px';
+			modal.style.boxSizing = 'border-box';
+
+			const title = document.createElement('div');
+			title.textContent = window.Lang
+				? (Lang.get('presentationNameDialogTitle') || 'Name your presentation')
+				: 'Save presentation';
+			title.style.fontSize = '16px';
+			title.style.fontWeight = '600';
+			title.style.color = 'var(--text-color, #ffffff)';
+			title.style.marginBottom = '10px';
+
+			const input = document.createElement('input');
+			input.type = 'text';
+			input.value = initialName;
+			input.placeholder = window.Lang
+				? (Lang.get('presentationNamePlaceholder') || 'Enter presentation name')
+				: 'Enter presentation name';
+			input.style.width = '100%';
+			input.style.height = '38px';
+			input.style.padding = '0 10px';
+			input.style.borderRadius = '8px';
+			input.style.border = '1px solid var(--border-color, #404040)';
+			input.style.background = 'var(--background-color, #18181b)';
+			input.style.color = 'var(--text-color, #ffffff)';
+			input.style.outline = 'none';
+			input.style.boxSizing = 'border-box';
+
+			const actions = document.createElement('div');
+			actions.style.marginTop = '12px';
+			actions.style.display = 'flex';
+			actions.style.justifyContent = 'flex-end';
+			actions.style.gap = '8px';
+
+			const cancelBtn = document.createElement('button');
+			cancelBtn.type = 'button';
+			cancelBtn.textContent = window.Lang ? (Lang.get('cancel') || 'Cancel') : 'Cancel';
+			cancelBtn.style.height = '34px';
+			cancelBtn.style.padding = '0 12px';
+			cancelBtn.style.border = '1px solid var(--border-color, #404040)';
+			cancelBtn.style.borderRadius = '8px';
+			cancelBtn.style.cursor = 'pointer';
+			cancelBtn.style.background = 'var(--background-color, #18181b)';
+			cancelBtn.style.color = 'var(--text-color, #ffffff)';
+
+			const saveBtn = document.createElement('button');
+			saveBtn.type = 'button';
+			saveBtn.textContent = window.Lang ? (Lang.get('save') || 'Save') : 'Save';
+			saveBtn.style.height = '34px';
+			saveBtn.style.padding = '0 12px';
+			saveBtn.style.border = '1px solid var(--presentation-export-border, transparent)';
+			saveBtn.style.borderRadius = '8px';
+			saveBtn.style.cursor = 'pointer';
+			saveBtn.style.background = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
+			saveBtn.style.color = 'var(--presentation-export-color, #ffffff)';
+
+			const closeAndResolve = (value) => {
+				if (overlay && overlay.parentNode) {
+					overlay.parentNode.removeChild(overlay);
+				}
+				resolve(value);
+			};
+
+			overlay.addEventListener('click', (event) => {
+				if (event.target === overlay) {
+					closeAndResolve(null);
+				}
+			});
+
+			cancelBtn.addEventListener('click', () => closeAndResolve(null));
+			saveBtn.addEventListener('click', () => closeAndResolve((input.value || '').trim()));
+
+			input.addEventListener('keydown', (event) => {
+				if (event.key === 'Enter') {
+					event.preventDefault();
+					closeAndResolve((input.value || '').trim());
+				} else if (event.key === 'Escape') {
+					event.preventDefault();
+					closeAndResolve(null);
+				}
+			});
+
+			actions.appendChild(cancelBtn);
+			actions.appendChild(saveBtn);
+			modal.appendChild(title);
+			modal.appendChild(input);
+			modal.appendChild(actions);
+			overlay.appendChild(modal);
+			document.body.appendChild(overlay);
+
+			setTimeout(() => {
+				input.focus();
+				input.select();
+			}, 0);
+		});
+	}
+
 	static async saveHtmlToDisk(title, htmlContent) {
 		const filename = `${this.sanitizeHtmlFilename(title)}.html`;
 		const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
@@ -300,7 +421,7 @@ class PromptedPresentationWorkflow {
 
 			const thumb = document.createElement('div');
 			thumb.style.width = '100%';
-			thumb.style.aspectRatio = '16 / 9';
+			thumb.style.height = '78px';
 			thumb.style.borderRadius = '8px';
 			thumb.style.border = '1px solid var(--border-color, #404040)';
 			thumb.style.background = 'var(--panel-background, #222426)';
@@ -319,24 +440,17 @@ class PromptedPresentationWorkflow {
 			thumbText.style.wordBreak = 'break-word';
 			thumb.appendChild(thumbText);
 
-			const title = document.createElement('div');
-			title.textContent = item.title || 'Presentation';
-			title.style.marginTop = '5px';
-			title.style.fontSize = '12px';
-			title.style.lineHeight = '1.2';
-			title.style.fontWeight = '600';
-			title.style.whiteSpace = 'nowrap';
-			title.style.overflow = 'hidden';
-			title.style.textOverflow = 'ellipsis';
-
 			const time = document.createElement('div');
-			time.textContent = this.formatDateLabel(item.updated_at || item.created_at);
-			time.style.fontSize = '10px';
+			const isScrollableMode = String(item.mode || 'html').toLowerCase() === 'pdf';
+			const modeLabel = isScrollableMode
+				? (window.Lang ? (Lang.get('scrollableModeButton') || 'Scrollable mode') : 'Scrollable mode')
+				: (window.Lang ? (Lang.get('interactiveModeButton') || 'Interactive mode') : 'Interactive mode');
+			time.textContent = `${this.formatDateLabel(item.updated_at || item.created_at)} · ${modeLabel}`;
+			time.style.fontSize = '9px';
 			time.style.opacity = '0.75';
-			time.style.marginTop = '2px';
+			time.style.marginTop = '4px';
 
 			openBtn.appendChild(thumb);
-			openBtn.appendChild(title);
 			openBtn.appendChild(time);
 
 			const actions = document.createElement('div');
@@ -415,6 +529,7 @@ class PromptedPresentationWorkflow {
 				}
 
 				saveToDiskBtn.disabled = true;
+				const previousSaveLabel = saveToDiskBtn.textContent;
 				try {
 					const html = await resolvedDbApi.loadPromptablePresentationHtml(hashedMasterKey, item.id);
 					if (!html) {
@@ -427,8 +542,10 @@ class PromptedPresentationWorkflow {
 
 					const saveResult = await this.saveHtmlToDisk(item.title || 'presentation', html);
 					if (saveResult === 'saved') {
+						const successKey = 'saveToDiskSuccessHtml';
+						const successFallback = 'HTML presentation saved to disk.';
 						this.showToastMessage(
-							window.Lang ? (Lang.get('saveToDiskSuccess') || 'Presentation saved to disk.') : 'Presentation saved to disk.',
+							window.Lang ? (Lang.get(successKey) || Lang.get('saveToDiskSuccess') || successFallback) : successFallback,
 							'success'
 						);
 					} else if (saveResult === 'cancelled') {
@@ -443,6 +560,7 @@ class PromptedPresentationWorkflow {
 						);
 					}
 				} finally {
+					saveToDiskBtn.textContent = previousSaveLabel;
 					saveToDiskBtn.disabled = false;
 				}
 			});
@@ -543,6 +661,56 @@ class PromptedPresentationWorkflow {
             'Always use prev/next arrows for slide navigation.',
             'Do not output markdown fences, explanations, or notes.'
 		].join(' ');
+	}
+
+	static buildPdfPresentationSystemPrompt() {
+		return [
+			'You are an expert artistic HTML presentation creator.',
+			'Your job is to produce a visually rich presentation as a single, self-contained HTML document.',
+            'The first slide is always the main title and subtitle slide.',
+            'Create differentiated and visually appealing differentiated backgrounds for each slide using SVG that effectively communicate the provided content.',
+			'Use online image URLs (https://...) to enrich slides, NEVER use them as backgrounds. this images must always match the slide content and be relevant to the topic.',
+			'ALWAYS use all text content provided by the user in the exact same order as provided; do not reorder any part of the text.',
+			'Respect the exact number of slides requested by the user.',
+			'Output MUST be only one HTML document and nothing else.',
+			'Do not output markdown fences, explanations, or notes.',
+			'Use semantic HTML and JS with inline CSS so it renders directly when injected into a container.',
+			'Each slide should be clearly separated (for example with section elements and fixed-height slide blocks).',
+            'Create one presentation in html (vertically scrollable, every slide will occupy 100% of the viewport and all will be shown at the same time) with vertically stacked different slides (first one is the cover) and pictures.',
+            'You can link online pictures, from the  text below, make each slide different and make the backgrounds beautiful using SVG ornaments.',
+            '1. Use the CSS property break-after: page on each slide.', 
+            '2. Remove any overflow: hidden, scroll-snap, or height: 100vh restrictions inside the print media query so the content flows naturally onto pages.', 
+		].join(' ');
+	}
+
+	static applyModeButtonStyles() {
+		if (!this.htmlModeBtn || !this.pdfModeBtn) {
+			return;
+		}
+
+		const activeBackground = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
+		const activeColor = 'var(--presentation-export-color, #ffffff)';
+		const inactiveBackground = 'var(--background-color, #18181b)';
+		const inactiveColor = 'var(--text-color, #ffffff)';
+
+		const isHtmlMode = this.selectedPresentationMode !== 'pdf';
+
+		this.htmlModeBtn.style.background = isHtmlMode ? activeBackground : inactiveBackground;
+		this.htmlModeBtn.style.color = isHtmlMode ? activeColor : inactiveColor;
+		this.htmlModeBtn.style.border = isHtmlMode
+			? '1px solid var(--presentation-export-border, transparent)'
+			: '1px solid var(--border-color, #404040)';
+
+		this.pdfModeBtn.style.background = isHtmlMode ? inactiveBackground : activeBackground;
+		this.pdfModeBtn.style.color = isHtmlMode ? inactiveColor : activeColor;
+		this.pdfModeBtn.style.border = isHtmlMode
+			? '1px solid var(--border-color, #404040)'
+			: '1px solid var(--presentation-export-border, transparent)';
+	}
+
+	static setPresentationMode(mode) {
+		this.selectedPresentationMode = mode === 'pdf' ? 'pdf' : 'html';
+		this.applyModeButtonStyles();
 	}
 
 	static cleanHtmlResponse(rawText) {
@@ -713,7 +881,7 @@ class PromptedPresentationWorkflow {
 		this.textEditorOverlay = editorOverlay;
 	}
 
-	static async generatePresentationHtml(userText, abortSignal = null) {
+	static async generatePresentationHtml(userText, abortSignal = null, mode = 'html') {
 		const model = this.getSelectedModel();
 		if (!model) {
 			throw new Error(window.Lang ? (Lang.get('selectModelPrompt') || 'Please select a model first.') : 'Please select a model first.');
@@ -723,7 +891,9 @@ class PromptedPresentationWorkflow {
 
 		const requestBody = {
 			model,
-			system: this.buildArtisticPresentationSystemPrompt(),
+			system: mode === 'pdf'
+				? this.buildPdfPresentationSystemPrompt()
+				: this.buildArtisticPresentationSystemPrompt(),
 			prompt: promptPayload,
 			stream: false,
 			options: {
@@ -855,14 +1025,13 @@ class PromptedPresentationWorkflow {
 		const bottomBar = document.createElement('div');
 		bottomBar.className = 'promptable-presentation-bottom';
 		bottomBar.style.flex = '0 0 auto';
-		bottomBar.style.display = 'flex';
-		bottomBar.style.justifyContent = 'center';
+		bottomBar.style.display = 'grid';
+		bottomBar.style.gridTemplateColumns = '1fr auto 1fr';
+		bottomBar.style.columnGap = '10px';
 		bottomBar.style.alignItems = 'center';
-		bottomBar.style.gap = '10px';
 		bottomBar.style.padding = '12px 16px 16px 16px';
 		bottomBar.style.background = 'var(--presentation-modal-bg, var(--panel-background, #222426))';
 		bottomBar.style.borderTop = '1px solid var(--border-color, #404040)';
-		bottomBar.style.flexWrap = 'wrap';
 
 		const slidesLabel = document.createElement('label');
 		slidesLabel.textContent = window.Lang
@@ -887,6 +1056,56 @@ class PromptedPresentationWorkflow {
 			slideCountSelector.appendChild(option);
 		}
 		slideCountSelector.value = '8';
+
+		this.selectedPresentationMode = 'html';
+
+		const modeToggleWrap = document.createElement('div');
+		modeToggleWrap.style.display = 'flex';
+		modeToggleWrap.style.alignItems = 'center';
+		modeToggleWrap.style.gap = '8px';
+
+		const htmlModeBtn = document.createElement('button');
+		htmlModeBtn.type = 'button';
+		htmlModeBtn.textContent = window.Lang
+			? (Lang.get('interactiveModeButton') || 'Interactive mode')
+			: 'Interactive mode';
+		htmlModeBtn.style.height = '40px';
+		htmlModeBtn.style.padding = '0 14px';
+		htmlModeBtn.style.borderRadius = '8px';
+		htmlModeBtn.style.cursor = 'pointer';
+		htmlModeBtn.style.transition = 'background 0.2s, color 0.2s, border-color 0.2s';
+
+		const pdfModeBtn = document.createElement('button');
+		pdfModeBtn.type = 'button';
+		pdfModeBtn.textContent = window.Lang
+			? (Lang.get('scrollableModeButton') || 'Scrollable mode')
+			: 'Scrollable mode';
+		pdfModeBtn.style.height = '40px';
+		pdfModeBtn.style.padding = '0 14px';
+		pdfModeBtn.style.borderRadius = '8px';
+		pdfModeBtn.style.cursor = 'pointer';
+		pdfModeBtn.style.transition = 'background 0.2s, color 0.2s, border-color 0.2s';
+
+		htmlModeBtn.addEventListener('click', () => {
+			if (this.currentAbortController) {
+				return;
+			}
+			this.setPresentationMode('html');
+		});
+
+		pdfModeBtn.addEventListener('click', () => {
+			if (this.currentAbortController) {
+				return;
+			}
+			this.setPresentationMode('pdf');
+		});
+
+		this.htmlModeBtn = htmlModeBtn;
+		this.pdfModeBtn = pdfModeBtn;
+		this.applyModeButtonStyles();
+
+		modeToggleWrap.appendChild(htmlModeBtn);
+		modeToggleWrap.appendChild(pdfModeBtn);
 
 		const addTextBtn = document.createElement('button');
 		addTextBtn.type = 'button';
@@ -958,13 +1177,16 @@ class PromptedPresentationWorkflow {
 			sendBtn.style.background = '#ef4444';
 			sendBtn.style.color = '#ffffff';
 			slideCountSelector.disabled = true;
+			htmlModeBtn.disabled = true;
+			pdfModeBtn.disabled = true;
 			addTextBtn.disabled = true;
 			extraRequestBtn.disabled = true;
 			renderArea.innerHTML = `<div style="padding:12px;opacity:0.8;">${window.Lang ? (Lang.get('generatingSlideForge') || 'Generating SlideForge...') : 'Generating SlideForge...'}</div>`;
 
 			try {
 				this.promptedContextChanged = true;
-				const htmlContent = await this.generatePresentationHtml(userPrompt, abortController.signal);
+				const selectedMode = this.selectedPresentationMode === 'pdf' ? 'pdf' : 'html';
+				const htmlContent = await this.generatePresentationHtml(userPrompt, abortController.signal, selectedMode);
 				this.setPresentationHtml(htmlContent);
 				await this.refreshSavedPresentations();
 			} catch (error) {
@@ -981,6 +1203,8 @@ class PromptedPresentationWorkflow {
 				sendBtn.style.color = previousSendColor;
 				sendBtn.disabled = false;
 				slideCountSelector.disabled = false;
+				htmlModeBtn.disabled = false;
+				pdfModeBtn.disabled = false;
 				addTextBtn.disabled = false;
 				extraRequestBtn.disabled = false;
 			}
@@ -1026,20 +1250,30 @@ class PromptedPresentationWorkflow {
 				return;
 			}
 
+			const defaultTitle = this.extractPresentationTitle(htmlToSave);
+			const chosenTitle = await this.promptPresentationName(defaultTitle);
+			if (chosenTitle === null) {
+				return;
+			}
+
+			const title = (chosenTitle || defaultTitle || 'Untitled presentation').trim();
+
 			saveBtn.disabled = true;
 			const previousLabel = saveBtn.textContent;
 			saveBtn.textContent = window.Lang ? (Lang.get('savingButton') || 'Saving...') : 'Saving...';
+			const selectedMode = this.selectedPresentationMode === 'pdf' ? 'pdf' : 'html';
 
 			try {
-				const title = this.extractPresentationTitle(htmlToSave);
 				console.info('[PromptablePresentation] Saving presentation to DB', {
 					title,
+					mode: selectedMode,
 					htmlLength: htmlToSave.length,
 					hasMasterKey: !!hashedMasterKey,
 					masterKeyPrefix: String(hashedMasterKey).slice(0, 8)
 				});
 				await dbApi.savePromptablePresentation(hashedMasterKey, {
 					title,
+					mode: selectedMode,
 					html: htmlToSave,
 				});
 				console.info('[PromptablePresentation] Save completed, refreshing saved presentations list');
@@ -1076,18 +1310,45 @@ class PromptedPresentationWorkflow {
 			this.toggleFullscreen();
 		});
 
-		const rightControlsSpacer = document.createElement('div');
-		rightControlsSpacer.style.width = '200px';
-		rightControlsSpacer.style.flex = '0 0 200px';
+		const modeControlsGroup = document.createElement('div');
+		modeControlsGroup.style.display = 'flex';
+		modeControlsGroup.style.alignItems = 'center';
+		modeControlsGroup.style.gap = '8px';
+		modeControlsGroup.style.gridColumn = '1';
+		modeControlsGroup.style.justifySelf = 'start';
+		modeControlsGroup.style.paddingRight = '16px';
+		modeControlsGroup.style.marginRight = '8px';
+		modeControlsGroup.style.borderRight = '1px solid var(--border-color, #404040)';
 
-		bottomBar.appendChild(slidesLabel);
-		bottomBar.appendChild(slideCountSelector);
-		bottomBar.appendChild(addTextBtn);
-		bottomBar.appendChild(extraRequestBtn);
-		bottomBar.appendChild(sendBtn);
-		bottomBar.appendChild(rightControlsSpacer);
-		bottomBar.appendChild(fullscreenBtn);
-		bottomBar.appendChild(saveBtn);
+		const centerControlsGroup = document.createElement('div');
+		centerControlsGroup.style.gridColumn = '2';
+		centerControlsGroup.style.justifySelf = 'center';
+		centerControlsGroup.style.display = 'flex';
+		centerControlsGroup.style.alignItems = 'center';
+		centerControlsGroup.style.justifyContent = 'center';
+		centerControlsGroup.style.gap = '10px';
+		centerControlsGroup.style.flexWrap = 'wrap';
+
+		const rightControlsGroup = document.createElement('div');
+		rightControlsGroup.style.gridColumn = '3';
+		rightControlsGroup.style.justifySelf = 'end';
+		rightControlsGroup.style.display = 'flex';
+		rightControlsGroup.style.alignItems = 'center';
+		rightControlsGroup.style.justifyContent = 'flex-end';
+		rightControlsGroup.style.gap = '10px';
+
+		modeControlsGroup.appendChild(modeToggleWrap);
+		centerControlsGroup.appendChild(slidesLabel);
+		centerControlsGroup.appendChild(slideCountSelector);
+		centerControlsGroup.appendChild(addTextBtn);
+		centerControlsGroup.appendChild(extraRequestBtn);
+		centerControlsGroup.appendChild(sendBtn);
+		rightControlsGroup.appendChild(fullscreenBtn);
+		rightControlsGroup.appendChild(saveBtn);
+
+		bottomBar.appendChild(modeControlsGroup);
+		bottomBar.appendChild(centerControlsGroup);
+		bottomBar.appendChild(rightControlsGroup);
 
 		const closeBtn = document.createElement('button');
 		closeBtn.type = 'button';
@@ -1143,6 +1404,8 @@ class PromptedPresentationWorkflow {
 				document.body.removeChild(overlay);
 			}
 			this.overlay = null;
+			this.htmlModeBtn = null;
+			this.pdfModeBtn = null;
 			this.ensureContinueButtonForChatAfterPromptedClose();
 			if (typeof onClose === 'function') {
 				onClose();

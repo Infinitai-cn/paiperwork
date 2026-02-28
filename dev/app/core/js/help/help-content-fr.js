@@ -2086,6 +2086,7 @@ window.helpContent = {
                 <li><strong>Persistance du texte</strong> — si vous fermez puis rouvrez la fenêtre, le texte précédemment enregistré réapparaît.</li>
                 <li><strong>Flux Envoyer</strong> — Envoyer construit automatiquement le prompt utilisateur avec le nombre de diapositives et le texte enregistré.</li>
                 <li><strong>Demande supplémentaire (optionnelle)</strong> — utilisez le bouton Demande supplémentaire pour préciser le style/la mise en page (par exemple : « utiliser des couleurs rouges » ou « cadres d'image arrondis ») ; si fournie, elle est ajoutée avant le texte source principal dans le prompt.</li>
+                <li><strong>Sélection du mode</strong> — utilisez le <strong>Mode interactif</strong> pour des présentations naviguées avec des boutons <strong>Précédent/Suivant</strong>, ou le <strong>Mode défilant</strong> pour des présentations parcourues de haut en bas.</li>
                 <li><strong>Présentations enregistrées</strong> — les decks HTML peuvent être enregistrés chiffrés en base et listés dans la barre latérale droite.</li>
                 <li><strong>Ouverture depuis la barre latérale</strong> — cliquez sur une présentation enregistrée pour la charger dans la zone de prévisualisation paysage.</li>
                 <li><strong>Sécurité de suppression</strong> — une confirmation est demandée avant suppression.</li>

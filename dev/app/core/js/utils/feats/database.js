@@ -708,6 +708,7 @@ class PaiperworkDB {
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             title TEXT,
                             html_content TEXT,
+                            mode TEXT DEFAULT 'html',
                             created_at TEXT,
                             updated_at TEXT
                         )
@@ -717,11 +718,28 @@ class PaiperworkDB {
                 }
             }
 
-            // Update database version to 10
+            // Version 11: Add mode column to promptable presentations
+            if (currentVersion < 11) {
+                try {
+                    const tableName = `promptable_presentations_${hashedMasterKey}`;
+                    const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+                    if (tableCheck.length > 0 && tableCheck[0].values.length > 0) {
+                        const columns = db.exec(`PRAGMA table_info(${tableName})`);
+                        const hasModeColumn = columns[0]?.values?.some(col => col[1] === 'mode');
+                        if (!hasModeColumn) {
+                            db.run(`ALTER TABLE ${tableName} ADD COLUMN mode TEXT DEFAULT 'html'`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error adding promptable presentation mode column', error);
+                }
+            }
+
+            // Update database version to 11
             if (currentVersion === 0) {
-                db.run('INSERT INTO db_version (version) VALUES (10)');
+                db.run('INSERT INTO db_version (version) VALUES (11)');
             } else {
-                db.run('UPDATE db_version SET version = 10');
+                db.run('UPDATE db_version SET version = 11');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
@@ -890,6 +908,7 @@ class PaiperworkDB {
             }
 
             const title = (payload && payload.title ? String(payload.title) : '').trim() || 'Untitled presentation';
+            const mode = payload && payload.mode === 'pdf' ? 'pdf' : 'html';
             const now = new Date().toISOString();
             const tableName = `promptable_presentations_${hashedMasterKey}`;
 
@@ -918,15 +937,22 @@ class PaiperworkDB {
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title TEXT,
                     html_content TEXT,
+                    mode TEXT DEFAULT 'html',
                     created_at TEXT,
                     updated_at TEXT
                 )
             `);
 
+            const columns = db.exec(`PRAGMA table_info(${tableName})`);
+            const hasModeColumn = columns[0]?.values?.some(col => col[1] === 'mode');
+            if (!hasModeColumn) {
+                db.run(`ALTER TABLE ${tableName} ADD COLUMN mode TEXT DEFAULT 'html'`);
+            }
+
             const encryptedHtml = await this.encrypt(hashedMasterKey, html);
             db.run(
-                `INSERT INTO ${tableName} (title, html_content, created_at, updated_at) VALUES (?, ?, ?, ?)`,
-                [title, JSON.stringify(encryptedHtml), now, now]
+                `INSERT INTO ${tableName} (title, html_content, mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+                [title, JSON.stringify(encryptedHtml), mode, now, now]
             );
 
             const idResult = db.exec(`SELECT last_insert_rowid() AS id`);
@@ -976,7 +1002,11 @@ class PaiperworkDB {
                 return [];
             }
 
-            const rows = db.exec(`SELECT id, title, created_at, updated_at FROM ${tableName} ORDER BY updated_at DESC, id DESC`);
+            const columns = db.exec(`PRAGMA table_info(${tableName})`);
+            const hasModeColumn = columns[0]?.values?.some(col => col[1] === 'mode');
+            const rows = hasModeColumn
+                ? db.exec(`SELECT id, title, mode, created_at, updated_at FROM ${tableName} ORDER BY updated_at DESC, id DESC`)
+                : db.exec(`SELECT id, title, created_at, updated_at FROM ${tableName} ORDER BY updated_at DESC, id DESC`);
             if (!rows || !rows[0] || !rows[0].values) {
                 return [];
             }
@@ -984,8 +1014,9 @@ class PaiperworkDB {
             return rows[0].values.map(row => ({
                 id: row[0],
                 title: row[1] || '',
-                created_at: row[2] || '',
-                updated_at: row[3] || ''
+                mode: hasModeColumn ? (row[2] || 'html') : 'html',
+                created_at: hasModeColumn ? (row[3] || '') : (row[2] || ''),
+                updated_at: hasModeColumn ? (row[4] || '') : (row[3] || '')
             }));
         } catch (error) {
             console.error('getPromptablePresentations error:', error);
