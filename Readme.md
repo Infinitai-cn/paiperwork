@@ -4,6 +4,8 @@
 
 Paiperwork is a local-first AI Javascript Desktop application (not intended for phone use) that transforms how you work with documents, data, and knowledge. Built with a Go backend server and modern JavaScript frontend, it provides a comprehensive suite of AI-powered tools while keeping all your data secure and private on your local machine.
 
+![Paiperwork app screenshot](github-help/images/Paiperwork-chat.png)
+
 ## Credits & Acknowledgments
 
 We're grateful to the amazing open-source community and the brilliant developers behind these essential libraries that make Paiperwork possible:
