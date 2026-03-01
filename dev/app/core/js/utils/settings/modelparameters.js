@@ -62,6 +62,14 @@ const MODEL_PARAMETERS = {
         presence_penalty:0.0, 
         repetition_penalty:1.0
     },
+    'gem-4.7-flash:q8_0': {
+        temperature: 1,
+        top_p: 0.95,
+    },
+    'gem-4.7-flash:q4_K_M': {
+        temperature: 1,
+        top_p: 0.95,
+    },
 };
 
 // Export for use in OllamaAPI
