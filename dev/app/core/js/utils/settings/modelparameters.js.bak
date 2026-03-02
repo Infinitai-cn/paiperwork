@@ -66,7 +66,7 @@ const MODEL_PARAMETERS = {
         temperature: 1,
         top_p: 0.95,
     },
-    'gem-4.7-flash:q8_0': {
+    'gem-4.7-flash:q4_K_M': {
         temperature: 1,
         top_p: 0.95,
     },

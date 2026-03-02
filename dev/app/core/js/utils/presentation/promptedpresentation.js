@@ -713,6 +713,202 @@ class PromptedPresentationWorkflow {
 		this.applyModeButtonStyles();
 	}
 
+	static applyWebSearchToggleStyles() {
+		if (!this.promptableWebSearchBtn) {
+			return;
+		}
+
+		const activeBackground = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
+		const activeColor = 'var(--presentation-export-color, #ffffff)';
+		const inactiveBackground = 'var(--background-color, #18181b)';
+		const inactiveColor = 'var(--text-color, #ffffff)';
+
+		this.promptableWebSearchBtn.style.background = this.isPromptableWebSearchEnabled ? activeBackground : inactiveBackground;
+		this.promptableWebSearchBtn.style.color = this.isPromptableWebSearchEnabled ? activeColor : inactiveColor;
+		this.promptableWebSearchBtn.style.border = this.isPromptableWebSearchEnabled
+			? '1px solid var(--presentation-export-border, transparent)'
+			: '1px solid var(--border-color, #404040)';
+	}
+
+	static updatePromptableWebSearchUiState() {
+		this.applyWebSearchToggleStyles();
+
+		if (this.addTextBtn) {
+			this.addTextBtn.textContent = this.isPromptableWebSearchEnabled
+				? (window.Lang ? (Lang.get('webSearchPromptButton') || 'Web search prompt') : 'Web search prompt')
+				: (window.Lang ? (Lang.get('addTextButton') || 'Add text') : 'Add text');
+		}
+
+		if (this.webSearchStateLabel) {
+			this.webSearchStateLabel.textContent = this.isPromptableWebSearchEnabled
+				? (window.Lang ? (Lang.get('webSearchStateOn') || 'Web ON') : 'Web ON')
+				: (window.Lang ? (Lang.get('webSearchStateOff') || 'Web OFF') : 'Web OFF');
+			this.webSearchStateLabel.style.color = this.isPromptableWebSearchEnabled
+				? 'var(--presentation-export-bg, var(--accent-color, #4f46e5))'
+				: 'var(--text-color, #ffffff)';
+			this.webSearchStateLabel.style.opacity = this.isPromptableWebSearchEnabled ? '1' : '0.75';
+		}
+	}
+
+	static async ensureWebSearchModuleLoaded() {
+		if (typeof window.WebSearch !== 'undefined') {
+			if (window.WebSearch && typeof window.WebSearch.initializeWebSearchReferences === 'function') {
+				window.WebSearch.initializeWebSearchReferences();
+			}
+			return true;
+		}
+
+		if (!window.tabLoader || typeof window.tabLoader.loadFeatureScripts !== 'function') {
+			throw new Error('Web search loader unavailable.');
+		}
+
+		await window.tabLoader.loadFeatureScripts('websearch');
+		await new Promise((resolve) => setTimeout(resolve, 100));
+
+		if (window.WebSearch && typeof window.WebSearch.initializeWebSearchReferences === 'function') {
+			window.WebSearch.initializeWebSearchReferences();
+		}
+
+		if (typeof window.WebSearch === 'undefined' || typeof window.WebSearch.smartSearch !== 'function') {
+			throw new Error('Web search module failed to initialize.');
+		}
+
+		return true;
+	}
+
+	static async buildOptimizedWebSearchQuery(sourceText, abortSignal = null) {
+		const originalText = String(sourceText || '').trim();
+		if (!originalText) {
+			return '';
+		}
+
+		const fallbackQuery = originalText.split(/\s+/).slice(0, 12).join(' ').trim();
+		const model = this.getSelectedModel();
+		if (!model) {
+			return fallbackQuery || originalText;
+		}
+
+		const queryPrompt = [
+			'Based on the user content below, create a VERY SHORT web search query (10-15 words) that best captures the likely intent.',
+			'Return ONLY the search query words with no explanations, no quotes, and no extra text.',
+			'',
+			'User content:',
+			originalText
+		].join('\n');
+
+		const requestBody = {
+			model,
+			system: window.Lang
+				? (Lang.get('searchQueryOptimizerPrompt') || 'You generate concise web search queries.')
+				: 'You generate concise web search queries.',
+			prompt: queryPrompt,
+			stream: false,
+			options: {
+				num_ctx: this.getSelectedContextSize(),
+			},
+		};
+
+		try {
+			const response = await fetch('http://localhost:11434/api/generate', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(requestBody),
+				signal: abortSignal,
+			});
+
+			if (!response.ok) {
+				return fallbackQuery || originalText;
+			}
+
+			const data = await response.json();
+			const optimized = String(data && data.response ? data.response : '')
+				.trim()
+				.replace(/^```[a-zA-Z]*\s*/, '')
+				.replace(/\s*```$/, '')
+				.replace(/^['"]+|['"]+$/g, '')
+				.replace(/^search\s+for\s+|^find\s+|^query\s+|^search\s+/i, '')
+				.replace(/\s+/g, ' ')
+				.replace(/\.$/, '')
+				.trim();
+
+			return optimized || fallbackQuery || originalText;
+		} catch (error) {
+			if (error && error.name === 'AbortError') {
+				throw error;
+			}
+			return fallbackQuery || originalText;
+		}
+	}
+
+	static async buildWebSearchSourceText(sourceText, abortSignal = null) {
+		await this.ensureWebSearchModuleLoaded();
+
+		const querySeed = String(sourceText || '').trim();
+		if (!querySeed) {
+			return '';
+		}
+
+		const searchAbortController = new AbortController();
+		if (abortSignal) {
+			if (abortSignal.aborted) {
+				throw new DOMException('Aborted', 'AbortError');
+			}
+			abortSignal.addEventListener('abort', () => {
+				try {
+					searchAbortController.abort();
+				} catch (_error) {
+				}
+			}, { once: true });
+		}
+
+		const optimizedQuery = await this.buildOptimizedWebSearchQuery(querySeed, abortSignal);
+		const finalQuery = String(optimizedQuery || querySeed).trim() || querySeed;
+
+		const searchResults = await window.WebSearch.smartSearch(finalQuery, searchAbortController, false);
+		const items = Array.isArray(searchResults && searchResults.items) ? searchResults.items : [];
+
+		if (!items.length) {
+			return '';
+		}
+
+		const normalizedItems = items
+			.filter((item) => item && (item.title || item.snippet || item.link))
+			.slice(0, 6)
+			.map((item, index) => {
+				const title = String(item.title || `Result ${index + 1}`).trim();
+				const url = String(item.link || '').trim();
+				const snippet = String(item.snippet || '').replace(/\s+/g, ' ').trim();
+				const extracted = String(item.extractedContent || item.pageContent || item.summary || '')
+					.replace(/\s+/g, ' ')
+					.trim();
+
+				const lines = [
+					`${index + 1}. ${title}`,
+					url ? `Source: ${url}` : '',
+					snippet ? `Snippet: ${snippet.slice(0, 500)}` : '',
+					extracted ? `Details: ${extracted.slice(0, 1200)}` : '',
+				].filter(Boolean);
+
+				return lines.join('\n');
+			})
+			.filter(Boolean);
+
+		if (!normalizedItems.length) {
+			return '';
+		}
+
+		return [
+			'Topic provided by user:',
+			querySeed,
+			'',
+			'Optimized web search query:',
+			finalQuery,
+			'',
+			'Web research results to use as presentation content:',
+			normalizedItems.join('\n\n')
+		].join('\n');
+	}
+
 	static cleanHtmlResponse(rawText) {
 		if (!rawText) {
 			return '';
@@ -729,10 +925,10 @@ class PromptedPresentationWorkflow {
 	}
 
 	static buildUserPrompt(slideCount, sourceText) {
-		return this.buildUserPromptWithExtra(slideCount, sourceText, '');
+		return this.buildUserPromptWithExtra(slideCount, sourceText, '', false);
 	}
 
-	static buildUserPromptWithExtra(slideCount, sourceText, extraRequestText) {
+	static buildUserPromptWithExtra(slideCount, sourceText, extraRequestText, removeWebSearchMentions = false) {
 		const parts = [
 			`Create a presentation with exactly ${slideCount} slides.`
 		];
@@ -741,6 +937,19 @@ class PromptedPresentationWorkflow {
 			parts.push(
 				'Apply the following extra presentation requests first (style/layout/image treatment):',
 				String(extraRequestText).trim()
+			);
+		}
+
+		parts.push(
+			'If the provided content includes picture/image links, use those links in relevant slides whenever possible, fall back to your own images sources if required.'
+		);
+
+		if (removeWebSearchMentions) {
+			parts.push(
+				'Do not mention or imply that any content comes from web search, search results, or web research.',
+				'Avoid labels/disclaimers like "Sources provided via Web Research", "Based on web results", "Search results", or any similar phrasing.',
+				'Be verbose and content-rich when writing slide text from this material.',
+				'Expand key points with concrete details, context, and useful explanations so the presentation feels substantial rather than succinct.'
 			);
 		}
 
@@ -754,9 +963,8 @@ class PromptedPresentationWorkflow {
 
 	static updateTextActionButtons() {
 		if (this.addTextBtn) {
-			const hasSourceText = (this.savedSourceText || '').trim().length > 0;
-			this.addTextBtn.textContent = hasSourceText
-				? (window.Lang ? (Lang.get('editTextButton') || 'Edit presentation text') : 'Edit presentation text')
+			this.addTextBtn.textContent = this.isPromptableWebSearchEnabled
+				? (window.Lang ? (Lang.get('webSearchPromptButton') || 'Web search prompt') : 'Web search prompt')
 				: (window.Lang ? (Lang.get('addTextButton') || 'Add text') : 'Add text');
 		}
 
@@ -1058,6 +1266,7 @@ class PromptedPresentationWorkflow {
 		slideCountSelector.value = '8';
 
 		this.selectedPresentationMode = 'html';
+		this.isPromptableWebSearchEnabled = false;
 
 		const modeToggleWrap = document.createElement('div');
 		modeToggleWrap.style.display = 'flex';
@@ -1147,6 +1356,62 @@ class PromptedPresentationWorkflow {
 		sendBtn.style.color = 'var(--presentation-export-color, #ffffff)';
 		sendBtn.style.transition = 'background 0.2s, color 0.2s';
 
+		const webSearchToggleBtn = document.createElement('button');
+		webSearchToggleBtn.type = 'button';
+		webSearchToggleBtn.textContent = window.Lang ? (Lang.get('useWebSearchButton') || 'Use web search') : 'Use web search';
+		webSearchToggleBtn.style.height = '40px';
+		webSearchToggleBtn.style.minWidth = '130px';
+		webSearchToggleBtn.style.padding = '0 16px';
+		webSearchToggleBtn.style.borderRadius = '8px';
+		webSearchToggleBtn.style.cursor = 'pointer';
+		webSearchToggleBtn.style.marginLeft = '50px';
+		webSearchToggleBtn.style.transition = 'background 0.2s, color 0.2s, border-color 0.2s';
+
+		const webSearchStateLabel = document.createElement('span');
+		webSearchStateLabel.style.fontSize = '12px';
+		webSearchStateLabel.style.marginLeft = '6px';
+		webSearchStateLabel.style.color = 'var(--text-color, #ffffff)';
+		webSearchStateLabel.style.userSelect = 'none';
+		this.webSearchStateLabel = webSearchStateLabel;
+
+		this.promptableWebSearchBtn = webSearchToggleBtn;
+		this.updatePromptableWebSearchUiState();
+
+		webSearchToggleBtn.addEventListener('click', async () => {
+			if (this.currentAbortController) {
+				return;
+			}
+
+			const isActivating = !this.isPromptableWebSearchEnabled;
+			if (isActivating) {
+				const previousLabel = webSearchToggleBtn.textContent;
+				webSearchToggleBtn.disabled = true;
+				webSearchToggleBtn.textContent = 'Loading...';
+				try {
+					await this.ensureWebSearchModuleLoaded();
+					this.isPromptableWebSearchEnabled = true;
+				} catch (error) {
+					console.error('[PromptablePresentation] Failed to load web search module', error);
+					const webLoadError = String(error && error.message ? error.message : error);
+					const translatedWebError = window.Lang ? (Lang.get('webSearchError') || '') : '';
+					this.showToastMessage(
+						translatedWebError
+							? translatedWebError.replace('{error}', webLoadError)
+							: `Failed to load web search: ${webLoadError}`,
+						'error'
+					);
+					this.isPromptableWebSearchEnabled = false;
+				} finally {
+					webSearchToggleBtn.disabled = false;
+					webSearchToggleBtn.textContent = previousLabel;
+				}
+			} else {
+				this.isPromptableWebSearchEnabled = false;
+			}
+
+			this.updatePromptableWebSearchUiState();
+		});
+
 		sendBtn.addEventListener('click', async () => {
 			if (this.currentAbortController) {
 				this.currentAbortController.abort();
@@ -1181,12 +1446,31 @@ class PromptedPresentationWorkflow {
 			pdfModeBtn.disabled = true;
 			addTextBtn.disabled = true;
 			extraRequestBtn.disabled = true;
+			webSearchToggleBtn.disabled = true;
 			renderArea.innerHTML = `<div style="padding:12px;opacity:0.8;">${window.Lang ? (Lang.get('generatingSlideForge') || 'Generating SlideForge...') : 'Generating SlideForge...'}</div>`;
 
 			try {
 				this.promptedContextChanged = true;
+				let effectiveUserPrompt = userPrompt;
+
+				if (this.isPromptableWebSearchEnabled) {
+					renderArea.innerHTML = `<div style="padding:12px;opacity:0.8;">${window.Lang ? (Lang.get('webSearchPerformed') || 'Web search performed') : 'Web search performed'}...</div>`;
+					const webSearchSourceText = await this.buildWebSearchSourceText(sourceText, abortController.signal);
+					if (webSearchSourceText) {
+						effectiveUserPrompt = extraRequestText
+							? this.buildUserPromptWithExtra(selectedSlides, webSearchSourceText, extraRequestText, true)
+							: this.buildUserPromptWithExtra(selectedSlides, webSearchSourceText, '', true);
+					} else {
+						this.showToastMessage(
+							window.Lang ? (Lang.get('webSearchNoResultsFound') || 'No results found') : 'No results found',
+							'info'
+						);
+					}
+					renderArea.innerHTML = `<div style="padding:12px;opacity:0.8;">${window.Lang ? (Lang.get('generatingSlideForge') || 'Generating SlideForge...') : 'Generating SlideForge...'}</div>`;
+				}
+
 				const selectedMode = this.selectedPresentationMode === 'pdf' ? 'pdf' : 'html';
-				const htmlContent = await this.generatePresentationHtml(userPrompt, abortController.signal, selectedMode);
+				const htmlContent = await this.generatePresentationHtml(effectiveUserPrompt, abortController.signal, selectedMode);
 				this.setPresentationHtml(htmlContent);
 				await this.refreshSavedPresentations();
 			} catch (error) {
@@ -1207,6 +1491,8 @@ class PromptedPresentationWorkflow {
 				pdfModeBtn.disabled = false;
 				addTextBtn.disabled = false;
 				extraRequestBtn.disabled = false;
+				webSearchToggleBtn.disabled = false;
+				this.updatePromptableWebSearchUiState();
 			}
 		});
 
@@ -1343,6 +1629,8 @@ class PromptedPresentationWorkflow {
 		centerControlsGroup.appendChild(addTextBtn);
 		centerControlsGroup.appendChild(extraRequestBtn);
 		centerControlsGroup.appendChild(sendBtn);
+		centerControlsGroup.appendChild(webSearchToggleBtn);
+		centerControlsGroup.appendChild(webSearchStateLabel);
 		rightControlsGroup.appendChild(fullscreenBtn);
 		rightControlsGroup.appendChild(saveBtn);
 
@@ -1406,6 +1694,8 @@ class PromptedPresentationWorkflow {
 			this.overlay = null;
 			this.htmlModeBtn = null;
 			this.pdfModeBtn = null;
+			this.promptableWebSearchBtn = null;
+			this.webSearchStateLabel = null;
 			this.ensureContinueButtonForChatAfterPromptedClose();
 			if (typeof onClose === 'function') {
 				onClose();
