@@ -506,7 +506,7 @@ class PromptedPresentationWorkflow {
 					return;
 				}
 
-				this.setPresentationHtml(html);
+				this.setPresentationHtml(this.normalizePromptableNavigationHtml(html));
 			};
 
 			openBtn.addEventListener('click', async (event) => {
@@ -922,6 +922,102 @@ class PromptedPresentationWorkflow {
 		}
 
 		return cleaned.trim();
+	}
+
+	static normalizePromptableNavigationHtml(htmlContent) {
+		const raw = String(htmlContent || '').trim();
+		if (!raw) {
+			return raw;
+		}
+
+		let documentRef = null;
+		try {
+			const parser = new DOMParser();
+			documentRef = parser.parseFromString(raw, 'text/html');
+		} catch (_error) {
+			return raw;
+		}
+
+		if (!documentRef || !documentRef.body) {
+			return raw;
+		}
+
+		const hasPrevButton = !!documentRef.querySelector('[id*="prev" i], [class*="prev" i], [aria-label*="prev" i], [data-action*="prev" i], button[onclick*="prev" i], button[title*="prev" i]');
+		const hasNextButton = !!documentRef.querySelector('[id*="next" i], [class*="next" i], [aria-label*="next" i], [data-action*="next" i], button[onclick*="next" i], button[title*="next" i]');
+		if (!hasPrevButton || !hasNextButton) {
+			return raw;
+		}
+
+		const scriptId = 'pw-remote-nav-normalizer';
+		const existingScript = documentRef.getElementById(scriptId);
+		if (existingScript) {
+			existingScript.remove();
+		}
+
+		const script = documentRef.createElement('script');
+		script.id = scriptId;
+		script.textContent = [
+			'(function(){',
+			'  if (window.__pwRemoteNavBound) return;',
+			'  window.__pwRemoteNavBound = true;',
+			'  var findVisible = function(list){',
+			'    for (var i = 0; i < list.length; i++) {',
+			'      var el = list[i];',
+			'      if (!el || el.disabled) continue;',
+			'      var style = window.getComputedStyle(el);',
+			'      if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;',
+			'      return el;',
+			'    }',
+			'    return null;',
+			'  };',
+			'  var getPrevButton = function(){',
+			'    return findVisible(Array.prototype.slice.call(document.querySelectorAll([',
+			"      '[data-action*=\\\"prev\\\" i]',",
+			"      '[aria-label*=\\\"prev\\\" i]',",
+			"      'button[title*=\\\"prev\\\" i]',",
+			"      '[id*=\\\"prev\\\" i]',",
+			"      '[class*=\\\"prev\\\" i]'",
+			'    ].join(","))));',
+			'  };',
+			'  var getNextButton = function(){',
+			'    return findVisible(Array.prototype.slice.call(document.querySelectorAll([',
+			"      '[data-action*=\\\"next\\\" i]',",
+			"      '[aria-label*=\\\"next\\\" i]',",
+			"      'button[title*=\\\"next\\\" i]',",
+			"      '[id*=\\\"next\\\" i]',",
+			"      '[class*=\\\"next\\\" i]'",
+			'    ].join(","))));',
+			'  };',
+			'  var triggerClick = function(btn){',
+			'    if (!btn) return false;',
+			'    try { btn.click(); return true; } catch(e) { return false; }',
+			'  };',
+			'  var handler = function(ev){',
+			'    if (!ev) return;',
+			'    var target = ev.target || null;',
+			'    var tag = target && target.tagName ? String(target.tagName).toLowerCase() : "";',
+			'    if (target && (target.isContentEditable || tag === "input" || tag === "textarea" || tag === "select")) return;',
+			'    var key = String(ev.key || "").toLowerCase();',
+			'    var code = String(ev.code || "").toLowerCase();',
+			'    var isPrev = key === "arrowleft" || key === "pageup" || code === "arrowleft" || code === "pageup";',
+			'    var isNext = key === "arrowright" || key === "pagedown" || key === " " || key === "spacebar" || key === "enter" || code === "arrowright" || code === "pagedown" || code === "space" || code === "enter";',
+			'    if (!isPrev && !isNext) return;',
+			'    var btn = isPrev ? getPrevButton() : getNextButton();',
+			'    if (!btn) return;',
+			'    ev.preventDefault();',
+			'    ev.stopPropagation();',
+			'    triggerClick(btn);',
+			'  };',
+			'  document.addEventListener("keydown", handler, true);',
+			'})();'
+		].join('\n');
+
+		if (documentRef.body) {
+			documentRef.body.appendChild(script);
+		}
+
+		const doctype = '<!DOCTYPE html>';
+		return `${doctype}\n${documentRef.documentElement.outerHTML}`;
 	}
 
 	static buildUserPrompt(slideCount, sourceText) {
@@ -1932,7 +2028,7 @@ class PromptedPresentationWorkflow {
 			throw new Error('Model returned an empty HTML response.');
 		}
 
-		return htmlResponse;
+		return this.normalizePromptableNavigationHtml(htmlResponse);
 	}
 
 	static open({ onClose } = {}) {
@@ -2563,7 +2659,8 @@ class PromptedPresentationWorkflow {
 			return;
 		}
 
-		this.currentPresentationHtml = htmlContent || '';
+		const normalizedHtml = this.normalizePromptableNavigationHtml(htmlContent || '');
+		this.currentPresentationHtml = normalizedHtml;
 		this.teardownPromptableFrameImageClickHandler();
 		this.promptableImageOriginalSrcById = {};
 
@@ -2577,7 +2674,7 @@ class PromptedPresentationWorkflow {
 		frame.style.borderRadius = '10px';
 		frame.style.background = 'transparent';
 		frame.setAttribute('allowfullscreen', 'true');
-		frame.srcdoc = htmlContent || '';
+		frame.srcdoc = normalizedHtml;
 
 		this.renderArea.appendChild(frame);
 		this.attachPromptableFrameImageClickHandler(frame);
