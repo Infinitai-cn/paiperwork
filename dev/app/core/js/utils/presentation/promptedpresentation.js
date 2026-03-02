@@ -961,6 +961,810 @@ class PromptedPresentationWorkflow {
 		return parts.join('\n\n');
 	}
 
+	static resetPromptableImageSelectionVisuals() {
+		if (!this.promptableSelectedImage) {
+			return;
+		}
+
+		try {
+			this.promptableSelectedImage.style.outline = this.promptableSelectedImage.dataset.pwPromptableOutline || '';
+			this.promptableSelectedImage.style.outlineOffset = this.promptableSelectedImage.dataset.pwPromptableOutlineOffset || '';
+			delete this.promptableSelectedImage.dataset.pwPromptableOutline;
+			delete this.promptableSelectedImage.dataset.pwPromptableOutlineOffset;
+		} catch (_error) {
+		}
+
+		this.promptableSelectedImage = null;
+	}
+
+	static updatePromptableImageEditorStatus(message, type = 'info') {
+		if (!this.promptableImageEditorStatus) {
+			return;
+		}
+
+		this.promptableImageEditorStatus.textContent = message || '';
+		this.promptableImageEditorStatus.style.color = type === 'error'
+			? '#ef4444'
+			: 'var(--text-color, #ffffff)';
+		this.promptableImageEditorStatus.style.opacity = type === 'muted' ? '0.75' : '1';
+	}
+
+	static ensurePromptableImageEditorPanel() {
+		if (this.promptableImageEditorPanel && this.overlay && this.overlay.contains(this.promptableImageEditorPanel)) {
+			return;
+		}
+
+		if (!this.overlay) {
+			return;
+		}
+
+		const panel = document.createElement('div');
+		panel.style.position = 'absolute';
+		panel.style.left = '50%';
+		panel.style.top = '50%';
+		panel.style.transform = 'translate(-50%, -50%)';
+		panel.style.width = '340px';
+		panel.style.maxHeight = '55vh';
+		panel.style.display = 'flex';
+		panel.style.flexDirection = 'column';
+		panel.style.gap = '8px';
+		panel.style.padding = '10px';
+		panel.style.borderRadius = '10px';
+		panel.style.border = '1px solid var(--border-color, #404040)';
+		panel.style.background = 'var(--presentation-modal-bg, var(--panel-background, #222426))';
+		panel.style.boxShadow = 'var(--presentation-modal-box-shadow, 0 8px 32px rgba(0,0,0,0.18))';
+		panel.style.zIndex = '10030';
+
+		const title = document.createElement('div');
+		title.textContent = window.Lang
+			? (Lang.get('replaceImageLabel') || 'Replace image')
+			: 'Replace image';
+		title.style.fontWeight = '600';
+		title.style.fontSize = '13px';
+
+		const inputRow = document.createElement('div');
+		inputRow.style.display = 'flex';
+		inputRow.style.alignItems = 'center';
+		inputRow.style.gap = '8px';
+
+		const searchInput = document.createElement('input');
+		searchInput.type = 'text';
+		searchInput.placeholder = window.Lang
+			? (Lang.get('searchImagesPlaceholder') || 'Search images')
+			: 'Search images';
+		searchInput.style.flex = '1 1 auto';
+		searchInput.style.height = '34px';
+		searchInput.style.padding = '0 10px';
+		searchInput.style.borderRadius = '8px';
+		searchInput.style.border = '1px solid var(--border-color, #404040)';
+		searchInput.style.background = 'var(--background-color, #18181b)';
+		searchInput.style.color = 'var(--text-color, #ffffff)';
+		searchInput.style.outline = 'none';
+
+		const searchBtn = document.createElement('button');
+		searchBtn.type = 'button';
+		searchBtn.textContent = window.Lang ? (Lang.get('searchButton') || 'Search') : 'Search';
+		searchBtn.style.height = '34px';
+		searchBtn.style.padding = '0 12px';
+		searchBtn.style.borderRadius = '8px';
+		searchBtn.style.border = '1px solid var(--presentation-export-border, transparent)';
+		searchBtn.style.cursor = 'pointer';
+		searchBtn.style.background = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
+		searchBtn.style.color = 'var(--presentation-export-color, #ffffff)';
+
+		inputRow.appendChild(searchInput);
+		inputRow.appendChild(searchBtn);
+
+		const status = document.createElement('div');
+		status.style.fontSize = '12px';
+		status.style.lineHeight = '1.35';
+		status.style.minHeight = '16px';
+		status.style.color = 'var(--text-color, #ffffff)';
+		status.style.opacity = '0.78';
+
+		const resultGrid = document.createElement('div');
+		resultGrid.style.display = 'grid';
+		resultGrid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
+		resultGrid.style.gap = '8px';
+		resultGrid.style.maxHeight = '260px';
+		resultGrid.style.overflow = 'auto';
+
+		const actionRow = document.createElement('div');
+		actionRow.style.display = 'flex';
+		actionRow.style.justifyContent = 'space-between';
+		actionRow.style.gap = '8px';
+
+		const restoreBtn = document.createElement('button');
+		restoreBtn.type = 'button';
+		restoreBtn.textContent = window.Lang
+			? (Lang.get('restoreOriginalButton') || 'Restore original')
+			: 'Restore original';
+		restoreBtn.style.height = '32px';
+		restoreBtn.style.padding = '0 10px';
+		restoreBtn.style.borderRadius = '8px';
+		restoreBtn.style.border = '1px solid var(--border-color, #404040)';
+		restoreBtn.style.cursor = 'pointer';
+		restoreBtn.style.background = 'var(--background-color, #18181b)';
+		restoreBtn.style.color = 'var(--text-color, #ffffff)';
+
+		const closeBtn = document.createElement('button');
+		closeBtn.type = 'button';
+		closeBtn.textContent = window.Lang ? (Lang.get('closeButton') || 'Close') : 'Close';
+		closeBtn.style.height = '32px';
+		closeBtn.style.padding = '0 10px';
+		closeBtn.style.borderRadius = '8px';
+		closeBtn.style.border = '1px solid var(--border-color, #404040)';
+		closeBtn.style.cursor = 'pointer';
+		closeBtn.style.background = 'var(--background-color, #18181b)';
+		closeBtn.style.color = 'var(--text-color, #ffffff)';
+
+		actionRow.appendChild(restoreBtn);
+		actionRow.appendChild(closeBtn);
+
+		panel.appendChild(title);
+		panel.appendChild(inputRow);
+		panel.appendChild(status);
+		panel.appendChild(resultGrid);
+		panel.appendChild(actionRow);
+
+		this.overlay.appendChild(panel);
+
+		this.promptableImageEditorPanel = panel;
+		this.promptableImageEditorInput = searchInput;
+		this.promptableImageEditorSearchBtn = searchBtn;
+		this.promptableImageEditorStatus = status;
+		this.promptableImageEditorResults = resultGrid;
+		this.promptableImageEditorRestoreBtn = restoreBtn;
+
+		const runSearch = async () => {
+			await this.searchPromptableImagesFromEditor();
+		};
+
+		searchBtn.addEventListener('click', () => {
+			runSearch();
+		});
+
+		searchInput.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				runSearch();
+			}
+		});
+
+		restoreBtn.addEventListener('click', () => {
+			this.restorePromptableSelectedImage();
+		});
+
+		closeBtn.addEventListener('click', () => {
+			if (panel && panel.parentNode) {
+				panel.parentNode.removeChild(panel);
+			}
+			this.promptableImageEditorPanel = null;
+			this.promptableImageEditorInput = null;
+			this.promptableImageEditorSearchBtn = null;
+			this.promptableImageEditorStatus = null;
+			this.promptableImageEditorResults = null;
+			this.promptableImageEditorRestoreBtn = null;
+			this.resetPromptableImageSelectionVisuals();
+		});
+
+		this.updatePromptableImageEditorStatus(
+			window.Lang
+				? (Lang.get('clickImageToEdit') || 'Click an image in the presentation to replace it.')
+				: 'Click an image in the presentation to replace it.',
+			'muted'
+		);
+
+		this.positionPromptableImageEditorPanelCentered();
+	}
+
+	static positionPromptableImageEditorPanelCentered(frame = null) {
+		const panel = this.promptableImageEditorPanel;
+		const activeFrame = frame || this.promptableEditingFrame || this.promptableFrame || (this.renderArea ? this.renderArea.querySelector('.promptable-presentation-frame') : null);
+		if (!panel || !this.overlay) {
+			return;
+		}
+
+		const overlayRect = this.overlay.getBoundingClientRect();
+		if (!overlayRect || !Number.isFinite(overlayRect.top)) {
+			return;
+		}
+
+		let left = overlayRect.width / 2;
+		let top = overlayRect.height / 2;
+
+		if (activeFrame) {
+			const frameRect = activeFrame.getBoundingClientRect();
+			if (frameRect && Number.isFinite(frameRect.left) && Number.isFinite(frameRect.top)) {
+				left = (frameRect.left - overlayRect.left) + (frameRect.width / 2);
+				top = (frameRect.top - overlayRect.top) + (frameRect.height / 2);
+			}
+		}
+
+		panel.style.left = `${Math.round(left)}px`;
+		panel.style.top = `${Math.round(top)}px`;
+		panel.style.transform = 'translate(-50%, -50%)';
+		panel.style.right = 'auto';
+		panel.style.bottom = 'auto';
+	}
+
+	static extractPromptableSearchImageUrls(payload) {
+		const urls = [];
+
+		const visit = (value, depth = 0) => {
+			if (!value || depth > 6) {
+				return;
+			}
+
+			if (typeof value === 'string') {
+				if (/^https?:\/\//i.test(value)) {
+					urls.push(value);
+				}
+				return;
+			}
+
+			if (Array.isArray(value)) {
+				value.forEach((item) => visit(item, depth + 1));
+				return;
+			}
+
+			if (typeof value === 'object') {
+				const candidates = ['imageUrl', 'url', 'src', 'previewURL', 'largeImageURL', 'thumb', 'thumbnail', 'webformatURL'];
+				candidates.forEach((key) => {
+					if (typeof value[key] === 'string' && /^https?:\/\//i.test(value[key])) {
+						urls.push(value[key]);
+					}
+				});
+				Object.values(value).forEach((nested) => visit(nested, depth + 1));
+			}
+		};
+
+		visit(payload, 0);
+		return Array.from(new Set(urls)).filter(Boolean);
+	}
+
+	static async searchPromptableImageUrls(query, count = 18) {
+		const q = String(query || '').trim();
+		if (!q) {
+			return [];
+		}
+
+		let urls = [];
+
+		try {
+			const multiResp = await fetch(`/api/proxy/image-search-multi?q=${encodeURIComponent(q)}`);
+			if (multiResp && multiResp.ok) {
+				const multiData = await multiResp.json();
+				let multiList = [];
+				if (Array.isArray(multiData && multiData.images)) {
+					multiList = multiData.images;
+				} else if (Array.isArray(multiData && multiData.results)) {
+					multiList = multiData.results;
+				} else if (Array.isArray(multiData && multiData.hits)) {
+					multiList = multiData.hits;
+				}
+
+				multiList.forEach((entry) => {
+					if (typeof entry === 'string' && /^https?:\/\//i.test(entry)) {
+						urls.push(entry);
+						return;
+					}
+					if (!entry || typeof entry !== 'object') {
+						return;
+					}
+					const candidate = entry.imageUrl || entry.url || entry.src || entry.webformatURL || '';
+					if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate)) {
+						urls.push(candidate);
+					}
+				});
+			}
+		} catch (error) {
+			console.warn('[PromptablePresentation] Multi image search failed', error);
+		}
+
+		if (urls.length < count) {
+			try {
+				const singleResp = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(q)}`);
+				if (singleResp && singleResp.ok) {
+					const singleData = await singleResp.json();
+					urls = urls.concat(this.extractPromptableSearchImageUrls(singleData));
+				}
+			} catch (error) {
+				console.warn('[PromptablePresentation] Single image search fallback failed', error);
+			}
+		}
+
+		return Array.from(new Set(urls)).filter((url) => /^https?:\/\//i.test(url)).slice(0, count);
+	}
+
+	static serializePromptableFrameDocument(frame) {
+		if (!frame || !frame.contentDocument || !frame.contentDocument.documentElement) {
+			return this.currentPresentationHtml || '';
+		}
+
+		const doc = frame.contentDocument;
+		let doctype = '';
+		if (doc.doctype && doc.doctype.name) {
+			doctype = `<!DOCTYPE ${doc.doctype.name}`;
+			if (doc.doctype.publicId) {
+				doctype += ` PUBLIC \"${doc.doctype.publicId}\"`;
+			}
+			if (doc.doctype.systemId) {
+				doctype += `${doc.doctype.publicId ? '' : ' SYSTEM'} \"${doc.doctype.systemId}\"`;
+			}
+			doctype += '>';
+		}
+
+		const body = doc.documentElement.outerHTML;
+		return doctype ? `${doctype}\n${body}` : body;
+	}
+
+	static syncPromptableCurrentHtmlFromFrame(frame = null) {
+		const targetFrame = frame || this.promptableEditingFrame || (this.renderArea ? this.renderArea.querySelector('.promptable-presentation-frame') : null);
+		if (!targetFrame) {
+			return;
+		}
+		this.currentPresentationHtml = this.serializePromptableFrameDocument(targetFrame);
+	}
+
+	static getPromptableImageStableId(imageElement) {
+		if (!imageElement) {
+			return '';
+		}
+
+		let imageId = imageElement.getAttribute('data-pw-promptable-image-id') || '';
+		if (!imageId) {
+			imageId = `pwimg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+			imageElement.setAttribute('data-pw-promptable-image-id', imageId);
+		}
+
+		return imageId;
+	}
+
+	static selectPromptableImage(imageElement, frame) {
+		if (!imageElement || !frame) {
+			return;
+		}
+
+		this.resetPromptableImageSelectionVisuals();
+		this.ensurePromptableImageEditorPanel();
+
+		const imageId = this.getPromptableImageStableId(imageElement);
+		if (!this.promptableImageOriginalSrcById) {
+			this.promptableImageOriginalSrcById = {};
+		}
+
+		if (!this.promptableImageOriginalSrcById[imageId]) {
+			this.promptableImageOriginalSrcById[imageId] = imageElement.getAttribute('src') || imageElement.currentSrc || '';
+		}
+
+		imageElement.dataset.pwPromptableOutline = imageElement.style.outline || '';
+		imageElement.dataset.pwPromptableOutlineOffset = imageElement.style.outlineOffset || '';
+		imageElement.style.outline = '3px solid var(--accent-color, #4f46e5)';
+		imageElement.style.outlineOffset = '2px';
+
+		this.promptableSelectedImage = imageElement;
+		this.promptableEditingFrame = frame;
+		this.positionPromptableImageEditorPanelCentered(frame);
+		this.updatePromptableImageEditorStatus(
+			window.Lang
+				? (Lang.get('imageSelectedStatus') || 'Image selected. Search and click a thumbnail to replace it.')
+				: 'Image selected. Search and click a thumbnail to replace it.',
+			'info'
+		);
+
+		if (this.promptableImageEditorInput) {
+			this.promptableImageEditorInput.focus();
+		}
+	}
+
+	static renderPromptableImageSearchResults(urls) {
+		if (!this.promptableImageEditorResults) {
+			return;
+		}
+
+		this.promptableImageEditorResults.innerHTML = '';
+		(urls || []).forEach((url) => {
+			if (!/^https?:\/\//i.test(String(url || '').trim())) {
+				return;
+			}
+			const thumbBtn = document.createElement('button');
+			thumbBtn.type = 'button';
+			thumbBtn.style.padding = '0';
+			thumbBtn.style.borderRadius = '8px';
+			thumbBtn.style.border = '1px solid var(--border-color, #404040)';
+			thumbBtn.style.overflow = 'hidden';
+			thumbBtn.style.cursor = 'pointer';
+			thumbBtn.style.background = 'var(--background-color, #18181b)';
+			thumbBtn.style.height = '74px';
+
+			const img = document.createElement('img');
+			img.src = url;
+			img.alt = 'search-result';
+			img.style.width = '100%';
+			img.style.height = '100%';
+			img.style.objectFit = 'cover';
+
+			thumbBtn.appendChild(img);
+			thumbBtn.addEventListener('click', () => {
+				this.replacePromptableSelectedImage(url);
+			});
+
+			this.promptableImageEditorResults.appendChild(thumbBtn);
+		});
+
+		this.positionPromptableImageEditorPanelCentered();
+	}
+
+	static async searchPromptableImagesFromEditor() {
+		if (!this.promptableImageEditorInput) {
+			return;
+		}
+
+		const query = String(this.promptableImageEditorInput.value || '').trim();
+		if (!query) {
+			this.updatePromptableImageEditorStatus(
+				window.Lang ? (Lang.get('searchQueryRequired') || 'Enter an image search query.') : 'Enter an image search query.',
+				'muted'
+			);
+			return;
+		}
+
+		this.updatePromptableImageEditorStatus(
+			window.Lang ? (Lang.get('searchingImagesLabel') || 'Searching images...') : 'Searching images...',
+			'info'
+		);
+
+		if (this.promptableImageEditorSearchBtn) {
+			this.promptableImageEditorSearchBtn.disabled = true;
+		}
+
+		try {
+			const urls = await this.searchPromptableImageUrls(query, 18);
+			this.renderPromptableImageSearchResults(urls);
+			if (!urls.length) {
+				this.updatePromptableImageEditorStatus(
+					window.Lang ? (Lang.get('webSearchNoResultsFound') || 'No results found') : 'No results found',
+					'muted'
+				);
+				return;
+			}
+
+			this.updatePromptableImageEditorStatus(
+				window.Lang
+					? (Lang.get('clickThumbnailToReplace') || 'Click a thumbnail to replace the selected image.')
+					: 'Click a thumbnail to replace the selected image.',
+				'info'
+			);
+		} catch (error) {
+			console.error('[PromptablePresentation] Image search failed', error);
+			this.updatePromptableImageEditorStatus(
+				String(error && error.message ? error.message : error),
+				'error'
+			);
+		} finally {
+			if (this.promptableImageEditorSearchBtn) {
+				this.promptableImageEditorSearchBtn.disabled = false;
+			}
+		}
+	}
+
+	static replacePromptableSelectedImage(url) {
+		if (!this.promptableSelectedImage || !url) {
+			this.updatePromptableImageEditorStatus(
+				window.Lang
+					? (Lang.get('clickImageToEdit') || 'Click an image in the presentation to replace it.')
+					: 'Click an image in the presentation to replace it.',
+				'muted'
+			);
+			return;
+		}
+
+		const normalizedUrl = String(url || '').trim();
+		if (!/^https?:\/\//i.test(normalizedUrl)) {
+			this.updatePromptableImageEditorStatus(
+				window.Lang
+					? (Lang.get('promptableDirectLinkOnly') || 'Only direct image links (http/https) are allowed.')
+					: 'Only direct image links (http/https) are allowed.',
+				'error'
+			);
+			return;
+		}
+
+		const imageId = this.getPromptableImageStableId(this.promptableSelectedImage);
+		if (!this.promptableImageOriginalSrcById) {
+			this.promptableImageOriginalSrcById = {};
+		}
+		if (!this.promptableImageOriginalSrcById[imageId]) {
+			this.promptableImageOriginalSrcById[imageId] = this.promptableSelectedImage.getAttribute('src') || this.promptableSelectedImage.currentSrc || '';
+		}
+
+		this.promptableSelectedImage.setAttribute('src', normalizedUrl);
+		this.promptableSelectedImage.removeAttribute('srcset');
+		this.promptableSelectedImage.src = normalizedUrl;
+		this.syncPromptableCurrentHtmlFromFrame(this.promptableEditingFrame);
+
+		this.updatePromptableImageEditorStatus(
+			window.Lang ? (Lang.get('imageReplacedStatus') || 'Image replaced. You can restore the original at any time.') : 'Image replaced. You can restore the original at any time.',
+			'info'
+		);
+	}
+
+	static restorePromptableSelectedImage() {
+		if (!this.promptableSelectedImage) {
+			this.updatePromptableImageEditorStatus(
+				window.Lang
+					? (Lang.get('clickImageToEdit') || 'Click an image in the presentation to replace it.')
+					: 'Click an image in the presentation to replace it.',
+				'muted'
+			);
+			return;
+		}
+
+		const imageId = this.getPromptableImageStableId(this.promptableSelectedImage);
+		const originalSrc = this.promptableImageOriginalSrcById ? this.promptableImageOriginalSrcById[imageId] : '';
+		if (!originalSrc) {
+			this.updatePromptableImageEditorStatus(
+				window.Lang ? (Lang.get('noOriginalImageStored') || 'No original image stored for this element.') : 'No original image stored for this element.',
+				'error'
+			);
+			return;
+		}
+
+		this.promptableSelectedImage.setAttribute('src', originalSrc);
+		this.promptableSelectedImage.removeAttribute('srcset');
+		this.promptableSelectedImage.src = originalSrc;
+		this.syncPromptableCurrentHtmlFromFrame(this.promptableEditingFrame);
+
+		this.updatePromptableImageEditorStatus(
+			window.Lang ? (Lang.get('imageRestoredStatus') || 'Original image restored.') : 'Original image restored.',
+			'info'
+		);
+	}
+
+	static clearPromptableImageEditorArtifacts() {
+		this.resetPromptableImageSelectionVisuals();
+
+		if (this.promptableImageEditorPanel && this.promptableImageEditorPanel.parentNode) {
+			this.promptableImageEditorPanel.parentNode.removeChild(this.promptableImageEditorPanel);
+		}
+
+		this.promptableImageEditorPanel = null;
+		this.promptableImageEditorInput = null;
+		this.promptableImageEditorSearchBtn = null;
+		this.promptableImageEditorStatus = null;
+		this.promptableImageEditorResults = null;
+		this.promptableImageEditorRestoreBtn = null;
+	}
+
+	static isPromptableEditableTextCandidate(element) {
+		if (!element || element.nodeType !== 1) {
+			return false;
+		}
+
+		const tagName = String(element.tagName || '').toLowerCase();
+		const allowedTags = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'blockquote', 'figcaption', 'span', 'div', 'td', 'th']);
+		if (!allowedTags.has(tagName)) {
+			return false;
+		}
+
+		if (element.closest('script,style,noscript,svg,canvas,iframe,button,a,input,textarea,select,option,[contenteditable="false"]')) {
+			return false;
+		}
+
+		if (element.querySelector('img,video,canvas,svg,iframe,input,textarea,select,button')) {
+			return false;
+		}
+
+		const textContent = String(element.textContent || '').trim();
+		if (!textContent) {
+			return false;
+		}
+
+		if (tagName === 'div') {
+			const allowedInlineChildren = new Set(['span', 'strong', 'em', 'b', 'i', 'u', 'small', 'mark', 'sup', 'sub', 'br']);
+			const hasComplexChildren = Array.from(element.children || []).some((child) => !allowedInlineChildren.has(String(child.tagName || '').toLowerCase()));
+			if (hasComplexChildren) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	static enablePromptableInlineTextEditing(frameDocument, frame) {
+		if (!frameDocument || !frame) {
+			return;
+		}
+
+		if (this.promptableFrameTextDocument && this.promptableFrameTextInputHandler) {
+			this.promptableFrameTextDocument.removeEventListener('input', this.promptableFrameTextInputHandler, true);
+		}
+		if (this.promptableFrameTextDocument && this.promptableFrameTextFocusOutHandler) {
+			this.promptableFrameTextDocument.removeEventListener('focusout', this.promptableFrameTextFocusOutHandler, true);
+		}
+		if (this.promptableFrameTextDocument && this.promptableFrameTextKeydownHandler) {
+			this.promptableFrameTextDocument.removeEventListener('keydown', this.promptableFrameTextKeydownHandler, true);
+		}
+
+		const styleId = 'pw-promptable-text-edit-style';
+		if (!frameDocument.getElementById(styleId)) {
+			const textEditStyle = frameDocument.createElement('style');
+			textEditStyle.id = styleId;
+			textEditStyle.textContent = [
+				'[data-pw-editable-text="1"] { cursor: text !important; }',
+				'[data-pw-editable-text="1"]:focus { outline: 2px dashed var(--accent-color, #4f46e5) !important; outline-offset: 2px !important; }'
+			].join('\n');
+			if (frameDocument.head) {
+				frameDocument.head.appendChild(textEditStyle);
+			}
+		}
+
+		const candidates = frameDocument.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,blockquote,figcaption,span,div,td,th');
+		candidates.forEach((element) => {
+			if (!this.isPromptableEditableTextCandidate(element)) {
+				return;
+			}
+			element.setAttribute('data-pw-editable-text', '1');
+			element.setAttribute('contenteditable', 'true');
+			element.setAttribute('spellcheck', 'false');
+		});
+
+		const scheduleSync = () => {
+			if (this.promptableTextSyncRaf) {
+				cancelAnimationFrame(this.promptableTextSyncRaf);
+			}
+			this.promptableTextSyncRaf = requestAnimationFrame(() => {
+				this.promptableTextSyncRaf = null;
+				this.syncPromptableCurrentHtmlFromFrame(frame);
+			});
+		};
+
+		const textInputHandler = (event) => {
+			const target = event && event.target;
+			if (!target || typeof target.closest !== 'function') {
+				return;
+			}
+			if (!target.closest('[data-pw-editable-text="1"]')) {
+				return;
+			}
+			scheduleSync();
+		};
+
+		const textFocusOutHandler = (event) => {
+			const target = event && event.target;
+			if (!target || typeof target.closest !== 'function') {
+				return;
+			}
+			if (!target.closest('[data-pw-editable-text="1"]')) {
+				return;
+			}
+			scheduleSync();
+		};
+
+		const textKeydownHandler = (event) => {
+			const target = event && event.target;
+			if (!target || typeof target.closest !== 'function') {
+				return;
+			}
+			if (!target.closest('[data-pw-editable-text="1"]')) {
+				return;
+			}
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				if (typeof target.blur === 'function') {
+					target.blur();
+				}
+			}
+		};
+
+		frameDocument.addEventListener('input', textInputHandler, true);
+		frameDocument.addEventListener('focusout', textFocusOutHandler, true);
+		frameDocument.addEventListener('keydown', textKeydownHandler, true);
+
+		this.promptableFrameTextDocument = frameDocument;
+		this.promptableFrameTextInputHandler = textInputHandler;
+		this.promptableFrameTextFocusOutHandler = textFocusOutHandler;
+		this.promptableFrameTextKeydownHandler = textKeydownHandler;
+	}
+
+	static attachPromptableFrameImageClickHandler(frame) {
+		if (!frame) {
+			return;
+		}
+
+		if (this.promptableFrame && this.promptableFrame !== frame && this.promptableFrameLoadHandler) {
+			this.promptableFrame.removeEventListener('load', this.promptableFrameLoadHandler);
+		}
+
+		this.promptableFrame = frame;
+
+		const bindDocumentHandler = () => {
+			if (!frame.contentDocument) {
+				return;
+			}
+
+			if (this.promptableFrameDocument && this.promptableFrameImageClickHandler) {
+				this.promptableFrameDocument.removeEventListener('click', this.promptableFrameImageClickHandler, true);
+			}
+
+			const frameDocument = frame.contentDocument;
+			const styleId = 'pw-promptable-image-edit-style';
+			if (!frameDocument.getElementById(styleId)) {
+				const style = frameDocument.createElement('style');
+				style.id = styleId;
+				style.textContent = 'img { cursor: pointer !important; }';
+				frameDocument.head && frameDocument.head.appendChild(style);
+			}
+
+			const imageClickHandler = (event) => {
+				if (!event || !event.target || typeof event.target.closest !== 'function') {
+					return;
+				}
+				const imageElement = event.target.closest('img');
+				if (!imageElement) {
+					return;
+				}
+
+				event.preventDefault();
+				event.stopPropagation();
+				this.selectPromptableImage(imageElement, frame);
+			};
+
+			frameDocument.addEventListener('click', imageClickHandler, true);
+			this.enablePromptableInlineTextEditing(frameDocument, frame);
+			this.promptableFrameDocument = frameDocument;
+			this.promptableFrameImageClickHandler = imageClickHandler;
+		};
+
+		const onLoad = () => {
+			this.clearPromptableImageEditorArtifacts();
+			bindDocumentHandler();
+		};
+
+		frame.addEventListener('load', onLoad);
+		this.promptableFrameLoadHandler = onLoad;
+
+		if (frame.contentDocument && frame.contentDocument.readyState !== 'loading') {
+			bindDocumentHandler();
+		}
+	}
+
+	static teardownPromptableFrameImageClickHandler() {
+		if (this.promptableFrame && this.promptableFrameLoadHandler) {
+			this.promptableFrame.removeEventListener('load', this.promptableFrameLoadHandler);
+		}
+
+		if (this.promptableFrameDocument && this.promptableFrameImageClickHandler) {
+			this.promptableFrameDocument.removeEventListener('click', this.promptableFrameImageClickHandler, true);
+		}
+
+		if (this.promptableFrameTextDocument && this.promptableFrameTextInputHandler) {
+			this.promptableFrameTextDocument.removeEventListener('input', this.promptableFrameTextInputHandler, true);
+		}
+		if (this.promptableFrameTextDocument && this.promptableFrameTextFocusOutHandler) {
+			this.promptableFrameTextDocument.removeEventListener('focusout', this.promptableFrameTextFocusOutHandler, true);
+		}
+		if (this.promptableFrameTextDocument && this.promptableFrameTextKeydownHandler) {
+			this.promptableFrameTextDocument.removeEventListener('keydown', this.promptableFrameTextKeydownHandler, true);
+		}
+		if (this.promptableTextSyncRaf) {
+			cancelAnimationFrame(this.promptableTextSyncRaf);
+			this.promptableTextSyncRaf = null;
+		}
+
+		this.promptableFrame = null;
+		this.promptableFrameLoadHandler = null;
+		this.promptableFrameDocument = null;
+		this.promptableFrameImageClickHandler = null;
+		this.promptableFrameTextDocument = null;
+		this.promptableFrameTextInputHandler = null;
+		this.promptableFrameTextFocusOutHandler = null;
+		this.promptableFrameTextKeydownHandler = null;
+		this.promptableEditingFrame = null;
+		this.clearPromptableImageEditorArtifacts();
+	}
+
 	static updateTextActionButtons() {
 		if (this.addTextBtn) {
 			this.addTextBtn.textContent = this.isPromptableWebSearchEnabled
@@ -1267,6 +2071,24 @@ class PromptedPresentationWorkflow {
 
 		this.selectedPresentationMode = 'html';
 		this.isPromptableWebSearchEnabled = false;
+		this.promptableImageOriginalSrcById = {};
+		this.promptableSelectedImage = null;
+		this.promptableEditingFrame = null;
+		this.promptableFrame = null;
+		this.promptableFrameLoadHandler = null;
+		this.promptableFrameDocument = null;
+		this.promptableFrameImageClickHandler = null;
+		this.promptableFrameTextDocument = null;
+		this.promptableFrameTextInputHandler = null;
+		this.promptableFrameTextFocusOutHandler = null;
+		this.promptableFrameTextKeydownHandler = null;
+		this.promptableTextSyncRaf = null;
+		this.promptableImageEditorPanel = null;
+		this.promptableImageEditorInput = null;
+		this.promptableImageEditorSearchBtn = null;
+		this.promptableImageEditorStatus = null;
+		this.promptableImageEditorResults = null;
+		this.promptableImageEditorRestoreBtn = null;
 
 		const modeToggleWrap = document.createElement('div');
 		modeToggleWrap.style.display = 'flex';
@@ -1684,6 +2506,7 @@ class PromptedPresentationWorkflow {
 				this.currentAbortController.abort();
 				this.currentAbortController = null;
 			}
+			this.teardownPromptableFrameImageClickHandler();
 			if (this.fullscreenChangeHandler) {
 				document.removeEventListener('fullscreenchange', this.fullscreenChangeHandler);
 				this.fullscreenChangeHandler = null;
@@ -1741,6 +2564,8 @@ class PromptedPresentationWorkflow {
 		}
 
 		this.currentPresentationHtml = htmlContent || '';
+		this.teardownPromptableFrameImageClickHandler();
+		this.promptableImageOriginalSrcById = {};
 
 		this.renderArea.innerHTML = '';
 
@@ -1755,6 +2580,7 @@ class PromptedPresentationWorkflow {
 		frame.srcdoc = htmlContent || '';
 
 		this.renderArea.appendChild(frame);
+		this.attachPromptableFrameImageClickHandler(frame);
 	}
 }
 
