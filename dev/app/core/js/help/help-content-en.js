@@ -2123,6 +2123,8 @@ window.helpContent = {
                 <li><strong>Mode selection</strong> — use <strong>Interactive mode</strong> for presentations navigated with <strong>Prev/Next</strong> buttons, or <strong>Scrollable mode</strong> for presentations you scroll from top to bottom.</li>
                 <li><strong>Web search toggle</strong> — after <strong>Send</strong>, use the <strong>Web</strong> toggle to build presentation content from web search results using your Add text content as the search prompt; when active, the Add text button changes to <strong>Web search prompt</strong>.</li>
                 <li><strong>Web prompt tip</strong> — in this mode, write only the topic to research for the presentation. Avoid phrases like “create a presentation about...” because they can bias the web search; provide just the topic.</li>
+                <li><strong>Image replace tip</strong> — if an image fails to load, or you simply want a different one, click the image in the preview and start an image search to replace it.</li>
+                <li><strong>Text edit tip</strong> — text boxes are directly editable in the preview, so you can make final wording tweaks before saving the HTML presentation.</li>
                 <li><strong>Recommended model</strong> — for this feature, <strong>GLM 4.7 Flash</strong> is a very good presentation model.</li>
                 <li><strong>Saved presentations</strong> — generated HTML decks can be saved encrypted to your DB and listed in the right sidebar.</li>
                 <li><strong>Open from sidebar</strong> — click a saved presentation to load it in the landscape preview area.</li>

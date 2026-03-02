@@ -2095,6 +2095,8 @@ window.helpContent = {
                 <li><strong>模式选择</strong> — 使用 <strong>交互模式</strong> 通过 <strong>上一页/下一页</strong> 按钮导航演示，或使用 <strong>滚动模式</strong> 从上到下滚动浏览演示。</li>
                 <li><strong>网页搜索开关</strong> — 在 <strong>发送</strong> 按钮后，可使用 <strong>Web</strong> 开关基于 Add text 内容作为搜索提示词，从网页搜索结果构建演示内容；开启后，Add text 按钮会变为 <strong>网页搜索提示词</strong>。</li>
                 <li><strong>网页提示词建议</strong> — 在此模式下，只输入演示文稿要使用的主题。不要输入“创建一个关于……的演示文稿”之类的句子，因为这会影响网页搜索；仅填写主题即可。</li>
+                <li><strong>图片替换提示</strong> — 如果图片加载失败，或你只是想更换图片，直接在预览中点击该图片并发起图片搜索即可替换。</li>
+                <li><strong>文本编辑提示</strong> — 预览中的文本框可直接编辑，因此你可以在保存 HTML 演示文稿前进行最后润色。</li>
                 <li><strong>推荐模型</strong> — 在此功能中，<strong>GLM 4.7 Flash</strong> 是一个非常好的演示文稿生成模型。</li>
                 <li><strong>已保存演示</strong> — 生成的 HTML 演示可加密保存到数据库，并在右侧边栏列出。</li>
                 <li><strong>侧边栏打开</strong> — 点击已保存演示即可在横向预览区域中加载显示。</li>
