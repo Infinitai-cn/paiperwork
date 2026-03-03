@@ -1648,6 +1648,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 researchSearchingInfo: "搜索信息...",
                 researchProcessingSources: "处理来源...",
                 researchFinalizingData: "完成研究数据...",
+                researchLongWaitStatusSingular: "完成研究数据... 处理时间比预期更长，仍在处理剩余任务...（剩余 {count} 项任务）",
+                researchLongWaitStatusPlural: "完成研究数据... 处理时间比预期更长，仍在处理剩余任务...（剩余 {count} 项任务）",
                 researchGeneratingReport: "生成研究报告...",
                 researchComplete: "研究完成！",
                 researchError: "研究错误",

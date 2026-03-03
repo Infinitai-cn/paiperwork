@@ -22,6 +22,9 @@ class ResearchAutomation {
 
         this.abortController = null;
         this._skipAllSummarizations = false;
+        this._researchRunCounter = 0;
+        this._activeResearchRunId = null;
+        this._lastDisplayedResearchRunId = null;
     }
 
 
@@ -454,6 +457,8 @@ class ResearchAutomation {
         this.isCancelled = false;
         this.isResearching = true;
         this._skipAllSummarizations = false;
+        const currentRunId = ++this._researchRunCounter;
+        this._activeResearchRunId = currentRunId;
 
         // Reset state
         this.visitedUrls = new Set();
@@ -489,22 +494,29 @@ class ResearchAutomation {
 
             // PHASE 4: Process all sources (fully sequential)
             this.updateLoadingProgress(loadingWindow, Lang.get('researchProcessingSources'), 40);
-            const sources = await this.processAllSourcesSequentially(searchResults, query);
+            const sources = await this.processAllSourcesSequentially(searchResults, query, loadingWindow);
 
             // PHASE 5: No more operations can be started
             this.isTrackingOperations = false;
 
             // PHASE 6: Wait for ALL operations to complete
             this.updateLoadingProgress(loadingWindow, Lang.get('researchFinalizingData'), 80);
-            await this.waitForAllOperationsToComplete();
+            const allOperationsCompleted = await this.waitForAllOperationsToComplete(30000, loadingWindow);
+            if (!allOperationsCompleted || this.isCancelled || this._activeResearchRunId !== currentRunId) {
+                throw new DOMException('Research process aborted', 'AbortError');
+            }
 
             // PHASE 7: Now we can safely generate and display results
             this.updateLoadingProgress(loadingWindow, Lang.get('researchGeneratingReport'), 90);
             const report = await this.generateReport(query, sources);
 
+            if (this.isCancelled || this._activeResearchRunId !== currentRunId) {
+                throw new DOMException('Research process aborted', 'AbortError');
+            }
+
             this.updateLoadingProgress(loadingWindow, Lang.get('researchComplete'), 100);
             loadingWindow.close();
-            this.displayResearchResults(report, sources);
+            this.displayResearchResults(report, sources, currentRunId);
         }
         catch (error) {
             console.error("Research error:", error);
@@ -525,25 +537,38 @@ class ResearchAutomation {
             </div>`;
         } finally {
             // Reset state
-            this.isResearching = false;
-            this.abortController = null;
+            if (this._activeResearchRunId === currentRunId) {
+                this.isResearching = false;
+                this.abortController = null;
+            }
         }
     }
     // Processes all search results sequentially, extracting and summarizing sources one by one
-    async processAllSourcesSequentially(searchResults, query) {
+    async processAllSourcesSequentially(searchResults, query, loadingWindow = null) {
         const allSources = [];
         //console.log(`Research: Beginning sequential processing of all search results`);
 
         try {
-            // First, calculate EXACTLY how many sources we'll process
+            // First, calculate EXACTLY how many UNIQUE sources we'll process
             let totalSourcesToProcess = 0;
+            const uniqueSourceUrls = new Set();
 
             // Count primary sources
             for (const searchGroup of searchResults) {
                 if (searchGroup.enhancedContent?.length > 0) {
-                    totalSourcesToProcess += searchGroup.enhancedContent.length;
+                    for (const content of searchGroup.enhancedContent) {
+                        const url = content && content.url ? String(content.url).trim() : '';
+                        if (!url || uniqueSourceUrls.has(url)) continue;
+                        uniqueSourceUrls.add(url);
+                        totalSourcesToProcess += 1;
+                    }
                 } else if (searchGroup.results) {
-                    totalSourcesToProcess += Math.min(searchGroup.results.length, 3); // Top 3 results max
+                    for (const result of searchGroup.results.slice(0, 3)) {
+                        const url = result && result.link ? String(result.link).trim() : '';
+                        if (!url || uniqueSourceUrls.has(url)) continue;
+                        uniqueSourceUrls.add(url);
+                        totalSourcesToProcess += 1;
+                    }
                 }
             }
 
@@ -551,6 +576,16 @@ class ResearchAutomation {
 
             // Now process each source ONE BY ONE
             let processedCount = 0;
+            const processingBaseProgress = 40;
+            const processingMaxProgress = 79;
+
+            if (loadingWindow && totalSourcesToProcess > 0) {
+                this.updateLoadingProgress(
+                    loadingWindow,
+                    `${Lang.get('researchProcessingSources')} (${totalSourcesToProcess} remaining)`,
+                    processingBaseProgress
+                );
+            }
 
             for (const searchGroup of searchResults) {
                 // Process enhanced content first (if available)
@@ -558,9 +593,7 @@ class ResearchAutomation {
                     for (const content of searchGroup.enhancedContent) {
                         // Skip if already visited
                         if (this.visitedUrls.has(content.url)) continue;
-
-                        processedCount++;
-                        //console.log(`Research: Processing source ${processedCount}/${totalSourcesToProcess}`);
+                        //console.log(`Research: Processing source ${processedCount + 1}/${totalSourcesToProcess}`);
 
                         // NEW: Clean title before processing
                         const cleanedTitle = this.cleanSearchResultTitle(content.title, content.url);
@@ -587,6 +620,18 @@ class ResearchAutomation {
                             );
                         }
 
+                        processedCount += 1;
+                        if (loadingWindow && totalSourcesToProcess > 0) {
+                            const remainingCount = Math.max(totalSourcesToProcess - processedCount, 0);
+                            const ratio = processedCount / totalSourcesToProcess;
+                            const progressValue = Math.round(processingBaseProgress + ((processingMaxProgress - processingBaseProgress) * ratio));
+                            this.updateLoadingProgress(
+                                loadingWindow,
+                                `${Lang.get('researchProcessingSources')} (${remainingCount} remaining)`,
+                                progressValue
+                            );
+                        }
+
                         if (this.isCancelled) break;
                     }
                 } else if (searchGroup.results) {
@@ -594,9 +639,7 @@ class ResearchAutomation {
                     for (const result of searchGroup.results.slice(0, 3)) {
                         // Skip if already visited
                         if (this.visitedUrls.has(result.link)) continue;
-
-                        processedCount++;
-                        //console.log(`Research: Processing source ${processedCount}/${totalSourcesToProcess}`);
+                        //console.log(`Research: Processing source ${processedCount + 1}/${totalSourcesToProcess}`);
 
                         // NEW: Clean title before processing
                         const cleanedTitle = this.cleanSearchResultTitle(result.title, result.link);
@@ -610,6 +653,18 @@ class ResearchAutomation {
                             0,
                             null
                         );
+
+                        processedCount += 1;
+                        if (loadingWindow && totalSourcesToProcess > 0) {
+                            const remainingCount = Math.max(totalSourcesToProcess - processedCount, 0);
+                            const ratio = processedCount / totalSourcesToProcess;
+                            const progressValue = Math.round(processingBaseProgress + ((processingMaxProgress - processingBaseProgress) * ratio));
+                            this.updateLoadingProgress(
+                                loadingWindow,
+                                `${Lang.get('researchProcessingSources')} (${remainingCount} remaining)`,
+                                progressValue
+                            );
+                        }
 
                         if (this.isCancelled) break;
                     }
@@ -1176,6 +1231,7 @@ class ResearchAutomation {
                     model: document.getElementById('model-selector').value,
                     prompt: `Query: ${query}\n\nContent: ${content.substring(0, 8000)}`,
                     system: systemPrompt,
+                    think: false,
                     options: {
                         num_ctx: parseInt(this.contextSize),
                         ...modelParams
@@ -1219,35 +1275,43 @@ class ResearchAutomation {
         }
     }
     // Waits for all tracked research operations to complete or until a timeout
-    async waitForAllOperationsToComplete(maxWaitTimeMs = 30000) {
+    async waitForAllOperationsToComplete(maxWaitTimeMs = 30000, loadingWindow = null) {
         if (this.pendingOperations.size === 0) {
             //console.log(`Research: No pending operations (${this.completedOperations}/${this.totalOperations}), continuing immediately`);
-            return;
+            return true;
         }
 
         //console.log(`Research: Waiting for ${this.pendingOperations.size} operations to complete (${this.completedOperations}/${this.totalOperations} total)`);
 
-        return new Promise((resolve) => {
-            const timeoutId = setTimeout(() => {
-                //console.log(`Research: Maximum wait time reached (${this.pendingOperations.size} operations still pending):`);
-                //this.pendingOperations.forEach(id => //console.log(`- Pending: ${id}`));
-                resolve();
-            }, maxWaitTimeMs);
+		const startedAt = Date.now();
+		let timeoutWarningShown = false;
 
-            const checkComplete = () => {
-                if (this.pendingOperations.size === 0) {
-                    clearTimeout(timeoutId);
-                    clearInterval(intervalId);
-                    //console.log(`Research: All operations complete (${this.completedOperations}/${this.totalOperations}), continuing`);
-                    resolve();
-                } else {
-                    const pending = Array.from(this.pendingOperations).slice(0, 5);
-                    //console.log(`Research: Still waiting for ${this.pendingOperations.size} operations, including: ${pending.join(', ')}${this.pendingOperations.size > 5 ? '...' : ''}`);
-                }
-            };
+		while (this.pendingOperations.size > 0) {
+			if (this.isCancelled) {
+				return false;
+			}
 
-            const intervalId = setInterval(checkComplete, 1000);
-        });
+			if (!timeoutWarningShown && maxWaitTimeMs > 0 && (Date.now() - startedAt) > maxWaitTimeMs) {
+				timeoutWarningShown = true;
+				console.warn(`Research: Pending operations exceeded ${maxWaitTimeMs}ms (${this.pendingOperations.size} still pending). Continuing to wait to avoid premature finalization.`);
+			}
+
+            if (timeoutWarningShown && loadingWindow) {
+                const remainingCount = this.pendingOperations.size;
+                const longWaitStatusKey = remainingCount === 1
+                    ? 'researchLongWaitStatusSingular'
+                    : 'researchLongWaitStatusPlural';
+                this.updateLoadingProgress(
+                    loadingWindow,
+                    Lang.get(longWaitStatusKey, { count: remainingCount }),
+                    80
+                );
+            }
+
+			await new Promise((resolve) => setTimeout(resolve, 500));
+		}
+
+		return true;
     }
     // Waits for all summarization operations to complete or until a timeout
     async waitForSummarizationsToComplete(maxWaitTimeMs = 30000) {
@@ -2179,6 +2243,7 @@ class ResearchAutomation {
 
                     Please generate 3-5 research queries in the SAME language as this query.`,
                     system: systemPrompt,
+                    think: false,
                     options: {
                         num_ctx: parseInt(this.contextSize),
                         temperature: 0.3, // Lower temperature for more consistent language output
@@ -2499,6 +2564,7 @@ class ResearchAutomation {
                     model: selectedModel,
                     prompt: `Research Question: ${query}\n\nAvailable Sources:\n${context}\n\nPlease generate a partial research report covering these specific sources.`,
                     system: systemPrompt,
+                    think: false,
                     options: {
                         num_ctx: parseInt(this.contextSize),
                         ...modelParams
@@ -2592,6 +2658,7 @@ class ResearchAutomation {
                     model: selectedModel,
                     prompt: `Research Question: ${query}\n\nReport Sections to Combine:\n${context}\n\nPlease create a cohesive final research report.`,
                     system: systemPrompt,
+                    think: false,
                     options: {
                         num_ctx: parseInt(this.contextSize),
                         ...modelParams
@@ -2623,7 +2690,15 @@ class ResearchAutomation {
         }
     }
     // Displays the research results and sources in a floating window, with editing and export options
-    displayResearchResults(report, sources) {
+    displayResearchResults(report, sources, runId = null) {
+        if (runId !== null && runId !== this._activeResearchRunId) {
+            return;
+        }
+
+        if (runId !== null && this._lastDisplayedResearchRunId === runId) {
+            return;
+        }
+
         // Simple flag to prevent duplicate windows
         if (this._isDisplayingResults || document.querySelector('.research-results-overlay')) {
             //console.log('Research: Results window already exists or is being displayed, skipping duplicate call');
@@ -2664,6 +2739,9 @@ class ResearchAutomation {
 
             // Set a flag to indicate we're displaying results - prevents race conditions
             this._isDisplayingResults = true;
+            if (runId !== null) {
+                this._lastDisplayedResearchRunId = runId;
+            }
 
             // Create display window for results
             const contentContainer = this.createResultsWindow(report, sources);

@@ -1671,6 +1671,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         researchSearchingInfo: "Searching for information...",
         researchProcessingSources: "Processing sources...",
         researchFinalizingData: "Finalizing research data...",
+        researchLongWaitStatusSingular: "Finalizing research data... This is taking longer than expected, still processing remaining tasks... ({count} task remaining)",
+        researchLongWaitStatusPlural: "Finalizing research data... This is taking longer than expected, still processing remaining tasks... ({count} tasks remaining)",
         researchGeneratingReport: "Generating research report...",
         researchComplete: "Research complete!",
         researchError: "Research Error",
