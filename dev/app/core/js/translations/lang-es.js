@@ -1604,6 +1604,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         researchSearchingInfo: "Buscando información...",
         researchProcessingSources: "Procesando fuentes...",
         researchFinalizingData: "Finalizando datos de investigación...",
+        researchLongWaitStatusSingular: "Finalizando datos de investigación... Esto está tardando más de lo esperado, aún se están procesando tareas pendientes... ({count} tarea restante)",
+        researchLongWaitStatusPlural: "Finalizando datos de investigación... Esto está tardando más de lo esperado, aún se están procesando tareas pendientes... ({count} tareas restantes)",
         researchGeneratingReport: "Generando informe de investigación...",
         researchComplete: "¡Investigación completada!",
         researchError: "Error de investigación",

@@ -1651,6 +1651,8 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         researchSearchingInfo: "Recherche d'informations...",
         researchProcessingSources: "Traitement des sources...",
         researchFinalizingData: "Finalisation des données de recherche...",
+        researchLongWaitStatusSingular: "Finalisation des données de recherche... Cela prend plus de temps que prévu, le traitement des tâches restantes continue... ({count} tâche restante)",
+        researchLongWaitStatusPlural: "Finalisation des données de recherche... Cela prend plus de temps que prévu, le traitement des tâches restantes continue... ({count} tâches restantes)",
         researchGeneratingReport: "Génération du rapport de recherche...",
         researchComplete: "Recherche terminée !",
         researchError: "Erreur de Recherche",

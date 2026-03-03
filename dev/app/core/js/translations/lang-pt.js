@@ -1994,6 +1994,8 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
     researchSearchingInfo: "Procurando informações...",
     researchProcessingSources: "Processando fontes...",
     researchFinalizingData: "Finalizando dados da pesquisa...",
+    researchLongWaitStatusSingular: "Finalizando dados da pesquisa... Isso está demorando mais do que o esperado, ainda processando tarefas restantes... ({count} tarefa restante)",
+    researchLongWaitStatusPlural: "Finalizando dados da pesquisa... Isso está demorando mais do que o esperado, ainda processando tarefas restantes... ({count} tarefas restantes)",
     researchGeneratingReport: "Gerando relatório de pesquisa...",
     researchComplete: "Pesquisa concluída!",
     researchError: "Erro na pesquisa",

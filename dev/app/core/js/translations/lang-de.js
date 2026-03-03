@@ -1649,6 +1649,8 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         researchSearchingInfo: "Suche nach Informationen...",
         researchProcessingSources: "Quellen werden verarbeitet...",
         researchFinalizingData: "Recherchedaten werden finalisiert...",
+        researchLongWaitStatusSingular: "Recherchedaten werden finalisiert... Dies dauert länger als erwartet, verbleibende Aufgaben werden weiter verarbeitet... ({count} Aufgabe verbleibend)",
+        researchLongWaitStatusPlural: "Recherchedaten werden finalisiert... Dies dauert länger als erwartet, verbleibende Aufgaben werden weiter verarbeitet... ({count} Aufgaben verbleibend)",
         researchGeneratingReport: "Recherchebericht wird erstellt...",
         researchComplete: "Recherche abgeschlossen!",
         researchError: "Recherchefehler",
