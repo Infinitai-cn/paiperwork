@@ -864,19 +864,79 @@ class PromptedPresentationWorkflow {
 		const optimizedQuery = await this.buildOptimizedWebSearchQuery(querySeed, abortSignal);
 		const finalQuery = String(optimizedQuery || querySeed).trim() || querySeed;
 
-		const searchResults = await window.WebSearch.smartSearch(finalQuery, searchAbortController, false);
-		const items = Array.isArray(searchResults && searchResults.items) ? searchResults.items : [];
+		const retrievalConfig = {
+			primaryExtractionCount: 10,
+			maxFinalSources: 12,
+			minUsableSources: 6,
+			minUniqueDomains: 4,
+			fallbackQueryCount: 3,
+			fallbackExtractionCount: 5,
+		};
 
-		if (!items.length) {
-			return '';
+		const primarySearchResults = await window.WebSearch.smartSearch(finalQuery, searchAbortController, false);
+		if (abortSignal && abortSignal.aborted) {
+			throw new DOMException('Aborted', 'AbortError');
 		}
 
-		const normalizedItems = items
-			.filter((item) => item && (item.title || item.snippet || item.link))
-			.slice(0, 6)
+		const primaryEnhancedResults = await this.enhancePromptableSearchResults(
+			primarySearchResults,
+			retrievalConfig.primaryExtractionCount
+		);
+
+		let collectedSources = this.collectPromptableWebSearchSources(
+			primaryEnhancedResults,
+			retrievalConfig.maxFinalSources
+		);
+
+		const needsFallbackExpansion = this.shouldExpandPromptableWebSearchCoverage(
+			collectedSources,
+			retrievalConfig
+		);
+
+		if (needsFallbackExpansion) {
+			const fallbackCandidates = collectedSources.slice(0, retrievalConfig.fallbackQueryCount);
+			for (const candidate of fallbackCandidates) {
+				if (!candidate || !candidate.title) {
+					continue;
+				}
+
+				if (abortSignal && abortSignal.aborted) {
+					throw new DOMException('Aborted', 'AbortError');
+				}
+
+				const expansionQuery = this.buildPromptableExpansionQuery(finalQuery, candidate.title);
+				if (!expansionQuery) {
+					continue;
+				}
+
+				const fallbackSearchResults = await window.WebSearch.smartSearch(expansionQuery, searchAbortController, false);
+				const fallbackEnhancedResults = await this.enhancePromptableSearchResults(
+					fallbackSearchResults,
+					retrievalConfig.fallbackExtractionCount
+				);
+
+				const fallbackSources = this.collectPromptableWebSearchSources(
+					fallbackEnhancedResults,
+					retrievalConfig.maxFinalSources
+				);
+
+				collectedSources = this.mergePromptableWebSearchSources(
+					collectedSources,
+					fallbackSources,
+					retrievalConfig.maxFinalSources
+				);
+
+				if (!this.shouldExpandPromptableWebSearchCoverage(collectedSources, retrievalConfig)) {
+					break;
+				}
+			}
+		}
+
+		const normalizedItems = collectedSources
+			.slice(0, retrievalConfig.maxFinalSources)
 			.map((item, index) => {
 				const title = String(item.title || `Result ${index + 1}`).trim();
-				const url = String(item.link || '').trim();
+				const url = String(item.url || item.link || '').trim();
 				const snippet = String(item.snippet || '').replace(/\s+/g, ' ').trim();
 				const extracted = String(item.extractedContent || item.pageContent || item.summary || '')
 					.replace(/\s+/g, ' ')
@@ -885,8 +945,8 @@ class PromptedPresentationWorkflow {
 				const lines = [
 					`${index + 1}. ${title}`,
 					url ? `Source: ${url}` : '',
-					snippet ? `Snippet: ${snippet.slice(0, 500)}` : '',
-					extracted ? `Details: ${extracted.slice(0, 1200)}` : '',
+					snippet ? `Snippet: ${snippet.slice(0, 700)}` : '',
+					extracted ? `Details: ${extracted.slice(0, 1800)}` : '',
 				].filter(Boolean);
 
 				return lines.join('\n');
@@ -907,6 +967,148 @@ class PromptedPresentationWorkflow {
 			'Web research results to use as presentation content:',
 			normalizedItems.join('\n\n')
 		].join('\n');
+	}
+
+	static async enhancePromptableSearchResults(searchResults, extractionCount = 10) {
+		if (!window.WebSearch || typeof window.WebSearch.enhanceWithPageContent !== 'function') {
+			return searchResults;
+		}
+
+		try {
+			return await window.WebSearch.enhanceWithPageContent(searchResults, extractionCount, false);
+		} catch (_error) {
+			return searchResults;
+		}
+	}
+
+	static extractPromptableSourceDomain(url) {
+		const raw = String(url || '').trim();
+		if (!raw) {
+			return '';
+		}
+
+		try {
+			return (new URL(raw)).hostname.replace(/^www\./i, '').toLowerCase();
+		} catch (_error) {
+			return '';
+		}
+	}
+
+	static collectPromptableWebSearchSources(searchResults, maxSources = 12) {
+		const items = Array.isArray(searchResults && searchResults.items) ? searchResults.items : [];
+		const enhancedContent = Array.isArray(searchResults && searchResults.enhancedContent) ? searchResults.enhancedContent : [];
+
+		const enhancedByUrl = new Map();
+		enhancedContent.forEach((entry) => {
+			if (!entry || !entry.url) {
+				return;
+			}
+			const url = String(entry.url || '').trim();
+			if (!url || enhancedByUrl.has(url)) {
+				return;
+			}
+			enhancedByUrl.set(url, entry);
+		});
+
+		const sources = [];
+		const seenUrls = new Set();
+
+		for (const item of items) {
+			if (!item || (!item.title && !item.link && !item.snippet)) {
+				continue;
+			}
+
+			const url = String(item.link || '').trim();
+			if (!url || seenUrls.has(url)) {
+				continue;
+			}
+
+			seenUrls.add(url);
+			const enhanced = enhancedByUrl.get(url);
+			const extractedContent = String(
+				(enhanced && (enhanced.extractedContent || enhanced.summary || enhanced.pageContent))
+				|| item.extractedContent
+				|| item.pageContent
+				|| item.summary
+				|| ''
+			).replace(/\s+/g, ' ').trim();
+			const snippet = String(item.snippet || '').replace(/\s+/g, ' ').trim();
+
+			sources.push({
+				title: String(item.title || '').trim() || 'Untitled source',
+				url,
+				snippet,
+				extractedContent,
+				domain: this.extractPromptableSourceDomain(url),
+			});
+
+			if (sources.length >= maxSources) {
+				break;
+			}
+		}
+
+		return sources;
+	}
+
+	static shouldExpandPromptableWebSearchCoverage(sources, config) {
+		const list = Array.isArray(sources) ? sources : [];
+		if (!list.length) {
+			return true;
+		}
+
+		const usableSourceCount = list.filter((source) => {
+			const snippetLen = String(source && source.snippet ? source.snippet : '').trim().length;
+			const detailsLen = String(source && source.extractedContent ? source.extractedContent : '').trim().length;
+			return detailsLen >= 220 || snippetLen >= 140;
+		}).length;
+
+		const uniqueDomains = new Set(
+			list
+				.map((source) => String(source && source.domain ? source.domain : '').trim())
+				.filter(Boolean)
+		).size;
+
+		if (usableSourceCount < Number(config && config.minUsableSources ? config.minUsableSources : 6)) {
+			return true;
+		}
+
+		if (uniqueDomains < Number(config && config.minUniqueDomains ? config.minUniqueDomains : 4)) {
+			return true;
+		}
+
+		return false;
+	}
+
+	static buildPromptableExpansionQuery(baseQuery, title) {
+		const base = String(baseQuery || '').trim();
+		const topicTitle = String(title || '').replace(/\s+/g, ' ').trim();
+		if (!base || !topicTitle) {
+			return base || topicTitle;
+		}
+
+		const compactTitle = topicTitle.split(/\s+/).slice(0, 10).join(' ');
+		return `${base} ${compactTitle}`.trim();
+	}
+
+	static mergePromptableWebSearchSources(primarySources, secondarySources, maxSources = 12) {
+		const merged = [];
+		const seen = new Set();
+		const pushUnique = (source) => {
+			if (!source) {
+				return;
+			}
+			const key = String(source.url || '').trim();
+			if (!key || seen.has(key)) {
+				return;
+			}
+			seen.add(key);
+			merged.push(source);
+		};
+
+		(primarySources || []).forEach(pushUnique);
+		(secondarySources || []).forEach(pushUnique);
+
+		return merged.slice(0, maxSources);
 	}
 
 	static cleanHtmlResponse(rawText) {

@@ -35,7 +35,7 @@ function setupTabSwitching() {
     //console.log('App: Setting up tab buttons:', tabButtons.length);
     //console.log('App: Setting up tab panes:', tabPanes.length);
 
-    let previousTab = null;
+    let previousTab = document.querySelector('.tab-button.active')?.dataset?.tab || null;
 
     tabButtons.forEach(button => {
         button.addEventListener('click', async () => {
@@ -65,6 +65,17 @@ function setupTabSwitching() {
                 if (prevTabInstance && typeof prevTabInstance.handleTabChange === 'function') {
                     //console.log(`App: Notifying ${previousTab}Tab it's being deactivated`);
                     prevTabInstance.handleTabChange(false);
+                }
+
+                // Release heavy vector DB instances when leaving Documents tab.
+                if (previousTab === 'documents' && button.dataset.tab !== 'documents' && window.PaiperworkDB) {
+                    const isStillProcessingDocs = !!(window.RAG_Utils &&
+                        typeof window.RAG_Utils.isDocumentProcessing === 'function' &&
+                        window.RAG_Utils.isDocumentProcessing());
+
+                    if (!isStillProcessingDocs && typeof window.PaiperworkDB.closeRagDatabases === 'function') {
+                        await window.PaiperworkDB.closeRagDatabases(sessionStorage.getItem('hashedMasterKey'));
+                    }
                 }
             }
             // Handle specific tab activations
@@ -124,6 +135,8 @@ function setupTabSwitching() {
                     window.RAG_Utils.documentUIElements.uploadZone.style.display = 'none';
                 }
             }
+
+            previousTab = button.dataset.tab;
         });
     });
 }

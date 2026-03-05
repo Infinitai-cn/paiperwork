@@ -2,6 +2,7 @@ let currentSummaryRequestId = null;
 let isSummaryGenerating = false;
 let summaryAbortController = null;
 let selectedDocumentId = null;
+const summaryModelCapabilityCache = new Map();
 let documentProcessingState = {
     isProcessing: false,
     currentProgress: 0,
@@ -23,6 +24,48 @@ let documentUIElements = {
     initialized: false
 };
 
+async function modelSupportsSummaryGeneration(model) {
+    if (!model) {
+        return null;
+    }
+
+    if (summaryModelCapabilityCache.has(model)) {
+        return summaryModelCapabilityCache.get(model);
+    }
+
+    try {
+        const response = await fetch('http://localhost:11434/api/show', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, name: model })
+        });
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const data = await response.json();
+        const capabilities = Array.isArray(data?.capabilities)
+            ? data.capabilities.map(entry => String(entry).toLowerCase())
+            : [];
+
+        // Empty capability list means unknown support, so avoid blocking in that case.
+        if (capabilities.length === 0) {
+            return null;
+        }
+
+        const supportsGeneration =
+            capabilities.includes('completion') ||
+            capabilities.includes('generate') ||
+            capabilities.includes('chat');
+
+        summaryModelCapabilityCache.set(model, supportsGeneration);
+        return supportsGeneration;
+    } catch (_error) {
+        return null;
+    }
+}
+
 // Ensures the documents table exists in the database for the given master key
 async function ensureDocumentsTableExists(hashedMasterKey) {
     //console.log('RAG_Utils: Ensuring documents table exists for masterkey:', hashedMasterKey);
@@ -33,7 +76,7 @@ async function ensureDocumentsTableExists(hashedMasterKey) {
             return false;
         }
 
-        // Get database using PaiperworkDB directly
+        // Get metadata DB only
         const db = await PaiperworkDB.getDatabase(hashedMasterKey);
         if (!db) {
             console.error('RAG_Utils: Database not available');
@@ -67,21 +110,7 @@ async function ensureDocumentsTableExists(hashedMasterKey) {
             )
         `);
 
-        // Create chunks table with consistent naming
-        db.exec(`
-            CREATE TABLE IF NOT EXISTS document_chunks_${hashedMasterKey} (
-                chunk_id TEXT PRIMARY KEY,
-                document_id TEXT NOT NULL,
-                chunk_text TEXT NOT NULL,
-                chunk_embedding TEXT,
-                chunk_metadata TEXT,
-                page_number INTEGER,
-                section_title TEXT,
-                FOREIGN KEY (document_id) REFERENCES documents_${hashedMasterKey}(document_id)
-            )
-        `);
-
-        // Save changes back to IndexedDB
+        // Save metadata DB changes
         await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
 
         //console.log('RAG_Utils: Document tables created or verified successfully');
@@ -572,7 +601,11 @@ async function checkPdfForText(file) {
     try {
         // Use pdf.js to check for text content
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pdfLoadOptions = { data: arrayBuffer };
+        if (window.pdfjsLib?.VerbosityLevel && typeof window.pdfjsLib.VerbosityLevel.ERRORS !== 'undefined') {
+            pdfLoadOptions.verbosity = window.pdfjsLib.VerbosityLevel.ERRORS;
+        }
+        const pdf = await pdfjsLib.getDocument(pdfLoadOptions).promise;
 
         // Check first 3 pages or all pages if less than 3
         const maxPagesToCheck = Math.min(3, pdf.numPages);
@@ -1417,7 +1450,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model) {
     // STEP 1: First get ONLY document IDs and names (lightweight metadata)
     const db = await PaiperworkDB.getDatabase(hashedMasterKey);
     const docListResult = db.exec(`
-        SELECT document_id, document_name 
+        SELECT document_id, document_name, total_chunks 
         FROM documents_${hashedMasterKey}
         WHERE embedding_status = 'completed'
     `);
@@ -1521,7 +1554,7 @@ async function searchSingleDocument(docId, docName, query, hashedMasterKey, mode
         const constraints = { documentId: docId };
 
         // Get chunks for ONLY this document with direct SQL for better memory management
-        const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+        const db = await PaiperworkDB.getDatabase(hashedMasterKey, 'rag');
         const result = db.exec(`
             SELECT chunk_id, chunk_text, chunk_embedding, chunk_metadata
             FROM document_chunks_${hashedMasterKey}
@@ -1840,7 +1873,7 @@ async function showDocumentSummary(documentId, documentTitle, hashedMasterKey) {
     // First, let's check if the document size is appropriate for the selected context
     try {
         // Retrieve all chunks for this document
-        const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+        const db = await PaiperworkDB.getDatabase(hashedMasterKey, 'rag');
         const chunksResult = db.exec(`
             SELECT chunk_id, chunk_text, chunk_metadata
             FROM document_chunks_${hashedMasterKey}
@@ -2083,11 +2116,31 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
         // Get the model from the selector
         const selectedModel = document.getElementById('model-selector').value;
 
+        if (!selectedModel) {
+            document.getElementById('document-summary-body').innerHTML = `<p>${Lang.get('ollamaSelectModelPrompt')}</p>`;
+            document.getElementById('document-summary-progress').style.display = 'none';
+            document.getElementById('document-summary-copy').style.display = 'none';
+            isSummaryGenerating = false;
+            return;
+        }
+
+        const supportsSummaryGeneration = await modelSupportsSummaryGeneration(selectedModel);
+        if (supportsSummaryGeneration === false) {
+            const incompatibleMessage = `Model "${selectedModel}" does not support text generation. Please choose a chat/completion model to generate summaries.`;
+            document.getElementById('document-summary-body').innerHTML =
+                `<p>${Lang.get('ragSummaryError', { error: incompatibleMessage })}</p>`;
+            document.getElementById('document-summary-progress').style.display = 'none';
+            document.getElementById('document-summary-copy').style.display = 'none';
+            showNotification(incompatibleMessage, 5000);
+            isSummaryGenerating = false;
+            return;
+        }
+
         // Use preloaded chunks if provided, otherwise fetch them
         let chunks = preLoadedChunks;
         if (!chunks) {
             // Retrieve all chunks for this document
-            const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+            const db = await PaiperworkDB.getDatabase(hashedMasterKey, 'rag');
             const chunksResult = db.exec(`
                 SELECT chunk_id, chunk_text, chunk_metadata
                 FROM document_chunks_${hashedMasterKey}
@@ -2377,7 +2430,7 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
         // Update the main context indicator
         const contextLabel = document.getElementById('context-remaining-label');
         if (contextLabel) {
-            contextLabel.textContent = Lang.get('ragContextRemaining', { percent: remainingPercentage });
+            contextLabel.textContent = Lang.get('ollamaContextRemaining', { percent: remainingPercentage });
 
             // Use same color logic as in OllamaAPI
             contextLabel.style.color = ''; // Reset color first
@@ -2397,8 +2450,22 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
             document.getElementById('document-summary-body').innerHTML =
                 `<p>${Lang.get('ragSummaryCancelled')}</p>`;
         } else {
+            const lowerMessage = String(error?.message || '').toLowerCase();
+            const unsupportedGenerateModel =
+                lowerMessage.includes('does not support generate') ||
+                lowerMessage.includes('does not support chat');
+
+            if (unsupportedGenerateModel) {
+                const selectedModel = document.getElementById('model-selector')?.value || '';
+                const compatibilityMessage = selectedModel
+                    ? `Model "${selectedModel}" does not support text generation. Please choose a chat/completion model and try again.`
+                    : 'The selected model does not support text generation. Please choose a chat/completion model and try again.';
+                document.getElementById('document-summary-body').innerHTML =
+                    `<p>${Lang.get('ragSummaryError', { error: compatibilityMessage })}</p>`;
+            } else {
             document.getElementById('document-summary-body').innerHTML =
                 `<p>${Lang.get('ragSummaryError', { error: error.message })}</p>`;
+            }
         }
 
         // Hide all action buttons since there's nothing to act on
@@ -3811,16 +3878,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model, searchParams
         globalSearch: searchParams.globalSearch || false
     };
 
-    try {
-        // Test the model's embedding capability once before proceeding
-        if (typeof RAG.generateEmbedding === 'function') {
-            await RAG.generateEmbedding("test embedding capability", model);
-        }
-    } catch (error) {
-        console.error('Model does not support embeddings:', error);
-        window.lastEmbeddingError = error.message || "Model does not support embeddings";
-        return [];
-    }
+    window.lastEmbeddingError = null;
 
     // OPTIMIZATION: Only expand query if really needed
     let expandedQueries = [query];
@@ -3855,10 +3913,12 @@ async function diverseDocumentSearch(query, hashedMasterKey, model, searchParams
     for (let i = 0; i < docListResult[0].values.length; i += BATCH_SIZE) {
         const batch = docListResult[0].values.slice(i, i + BATCH_SIZE);
 
-        for (const [docId, encName] of batch) {
+        for (const row of batch) {
+            const [docId, encName, totalChunksRaw] = row;
             try {
                 const docName = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encName));
-                docList.push({ id: docId, name: docName });
+                const totalChunks = Number.isFinite(Number(totalChunksRaw)) ? Number(totalChunksRaw) : 0;
+                docList.push({ id: docId, name: docName, totalChunks });
             } catch (err) {
                 console.error('Error decrypting document name:', err);
             }
@@ -3871,16 +3931,6 @@ async function diverseDocumentSearch(query, hashedMasterKey, model, searchParams
     }
 
     //console.log(`Found ${docList.length} documents to search in`);
-
-    // OPTIMIZATION: Generate query embedding once for consistent scoring
-    let queryEmbedding;
-    try {
-        if (typeof RAG.generateEmbedding === 'function') {
-            queryEmbedding = await RAG.generateEmbedding(query, model);
-        }
-    } catch (error) {
-        console.warn('Could not generate query embedding:', error);
-    }
 
     // OPTIMIZATION: Process each document INDIVIDUALLY with limits
     const allResults = [];
@@ -3931,8 +3981,15 @@ async function diverseDocumentSearch(query, hashedMasterKey, model, searchParams
             }
 
             // OPTIMIZATION: Create a timeout promise for this document search
+            const computedSearchTimeout = Math.min(
+                90000,
+                Math.max(
+                    params.searchTimeout,
+                    params.searchTimeout + Math.max(0, Number(doc.totalChunks || 0)) * 30
+                )
+            );
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Search timeout')), params.searchTimeout)
+                setTimeout(() => reject(new Error('Search timeout')), computedSearchTimeout)
             );
 
             // Set up constraints for this specific document
@@ -5868,7 +5925,8 @@ window.RAG_Utils = {
     updateDocumentQuestioningUI,
     showNotification,
     handleDocumentGlobalSearch,
-    addDocumentSearchStyles
+    addDocumentSearchStyles,
+    isDocumentProcessing: () => !!documentProcessingState.isProcessing
 };
 
 window.documentsTabLoaded = true;
