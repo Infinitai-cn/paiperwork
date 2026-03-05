@@ -14,8 +14,14 @@ class DatabaseTab {
         // Create tab structure
         this.createTabStructure();
         
-        // Load statistics
+        // Check tracked DB handles first to avoid unnecessary reopen churn.
+        const openState = PaiperworkDB.getOpenDatabaseState(this.hashedMasterKey);
+        // Load statistics (will reuse open handles when available)
         await this.refreshDatabaseStats();
+
+        if (!openState.main || !openState.rag) {
+            console.info('DatabaseTab: One or more DB roles were not open; opened on-demand for stats.');
+        }
         
         this.initialized = true;
         //console.log('Database Tab initialized');
@@ -302,6 +308,11 @@ class DatabaseTab {
     // Handles actions when the database tab becomes active (e.g., refresh stats)
     handleTabChange(active) {
         if (active && this.initialized) {
+            // Check if DBs are already open before acting on them.
+            const openState = PaiperworkDB.getOpenDatabaseState(this.hashedMasterKey);
+            if (!openState.main || !openState.rag) {
+                console.info('DatabaseTab: Refreshing stats with on-demand DB open.', openState);
+            }
             // Refresh when tab becomes active
             this.refreshDatabaseStats();
         }

@@ -1,10 +1,52 @@
 class RAG {
+  static embeddingCapabilityCache = new Map();
+
+  static async getMainDb(hashedMasterKey) {
+    return PaiperworkDB.getDatabase(hashedMasterKey);
+  }
+
+  static async getRagDb(hashedMasterKey) {
+    return PaiperworkDB.getDatabase(hashedMasterKey, 'rag', true);
+  }
+
+  static async ensureRagTables(ragDb, hashedMasterKey) {
+    if (!ragDb) {
+      return;
+    }
+
+    ragDb.exec(`
+      CREATE TABLE IF NOT EXISTS document_chunks_${hashedMasterKey} (
+        chunk_id TEXT PRIMARY KEY,
+        document_id TEXT NOT NULL,
+        chunk_text TEXT NOT NULL,
+        chunk_embedding TEXT,
+        chunk_metadata TEXT,
+        page_number INTEGER,
+        section_title TEXT
+      )
+    `);
+  }
+
 
   // Document Management Methods
 
   // Processes an array of files (PDF or text), extracting content, chunking, embedding, and storing in the database.
   static async processDocuments(files, hashedMasterKey, progressCallback, model) {
     //console.log("RAG: Processing documents with model:", model);
+
+    const supportsEmbeddings = await this.modelSupportsEmbeddings(model);
+    if (supportsEmbeddings === false) {
+      this.showEmbeddingWarning(model, "ingest");
+      if (progressCallback) {
+        progressCallback(
+          null,
+          `Selected model \"${model}\" does not support embeddings and cannot be used for document ingestion.`
+        );
+      }
+      throw new Error(
+        `Model ${model} does not support embeddings required for document ingestion`
+      );
+    }
 
     // Track total progress across all files
     let overallProgress = 0;
@@ -107,6 +149,10 @@ class RAG {
                     import * as pdfjs from './js/libraries/PDFjs/pdf.mjs';
                     window.pdfjsLib = pdfjs;
                     try {
+                      // Reduce PDF.js worker noise while preserving error logs.
+                      if (pdfjs.setVerbosityLevel && pdfjs.VerbosityLevel && typeof pdfjs.VerbosityLevel.ERRORS !== 'undefined') {
+                        pdfjs.setVerbosityLevel(pdfjs.VerbosityLevel.ERRORS);
+                      }
                         // Set worker source properly based on PDF.js version
                         if (pdfjs.GlobalWorkerOptions) {
                             pdfjs.GlobalWorkerOptions.workerSrc = './js/libraries/PDFjs/pdf.worker.mjs';
@@ -139,7 +185,11 @@ class RAG {
 
       // Load the PDF
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pdfLoadOptions = { data: arrayBuffer };
+      if (pdfjsLib?.VerbosityLevel && typeof pdfjsLib.VerbosityLevel.ERRORS !== 'undefined') {
+        pdfLoadOptions.verbosity = pdfjsLib.VerbosityLevel.ERRORS;
+      }
+      const pdf = await pdfjsLib.getDocument(pdfLoadOptions).promise;
 
       // Get total pages - DEFINE THIS VARIABLE HERE
       const totalPages = pdf.numPages;
@@ -163,8 +213,10 @@ class RAG {
       if (progressCallback)
         progressCallback(0.15, `Creating document record...`);
 
-      // Save document info to database
-      const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+      // Save document metadata in main DB and chunk embeddings in rag DB
+      const db = await this.getMainDb(hashedMasterKey);
+      const ragDb = await this.getRagDb(hashedMasterKey);
+      await this.ensureRagTables(ragDb, hashedMasterKey);
 
       // Encrypt document info
       const encryptedName = JSON.stringify(
@@ -332,7 +384,7 @@ class RAG {
           );
 
           // Store chunk with consistent column names
-          db.exec(`
+          ragDb.exec(`
                         INSERT INTO document_chunks_${hashedMasterKey}
                         (chunk_id, document_id, chunk_text, chunk_embedding, chunk_metadata)
                         VALUES (
@@ -364,6 +416,7 @@ class RAG {
             `);
 
       await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
+      await PaiperworkDB.saveToStorage(ragDb.export(), hashedMasterKey, 'rag');
 
       // Report 100% progress when complete
       if (progressCallback)
@@ -414,8 +467,10 @@ class RAG {
     // Report progress (15%)
     if (progressCallback) progressCallback(0.15, `Creating document record...`);
 
-    // Save document info to database
-    const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+    // Save document metadata in main DB and chunk embeddings in rag DB
+    const db = await this.getMainDb(hashedMasterKey);
+    const ragDb = await this.getRagDb(hashedMasterKey);
+    await this.ensureRagTables(ragDb, hashedMasterKey);
 
     // Encrypt document info
     const encryptedName = JSON.stringify(
@@ -549,7 +604,7 @@ class RAG {
       );
 
       // Store chunk with consistent column names
-      db.exec(`
+      ragDb.exec(`
             INSERT INTO document_chunks_${hashedMasterKey}
             (chunk_id, document_id, chunk_text, chunk_embedding, chunk_metadata)
             VALUES (
@@ -578,6 +633,7 @@ class RAG {
     `);
 
     await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
+    await PaiperworkDB.saveToStorage(ragDb.export(), hashedMasterKey, 'rag');
 
     // Report 100% progress when complete
     if (progressCallback)
@@ -592,7 +648,7 @@ class RAG {
   // Loads all documents from the database for the given master key, decrypting metadata.
   static async loadDocuments(hashedMasterKey) {
     try {
-      const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+      const db = await this.getMainDb(hashedMasterKey);
       if (!db) {
         console.error("RAG: Database not available");
         return [];
@@ -648,7 +704,8 @@ class RAG {
   // Deletes a document and its associated chunks from the database by document ID.
   static async deleteDocument(documentId, hashedMasterKey) {
     try {
-      const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+      const db = await this.getMainDb(hashedMasterKey);
+      const ragDb = await this.getRagDb(hashedMasterKey);
 
       // Check table structure
       const tableInfo = db.exec(`PRAGMA table_info(documents_${hashedMasterKey})`);
@@ -664,13 +721,13 @@ class RAG {
 
       // Check if chunks table exists
       const chunkTableExists =
-        db.exec(`
+        ragDb.exec(`
             SELECT name FROM sqlite_master WHERE type='table' AND name='${chunkTableName}'
         `)[0]?.values.length > 0;
 
       // Delete from chunks table if it exists
       if (chunkTableExists) {
-        db.exec(
+        ragDb.exec(
           `DELETE FROM ${chunkTableName} WHERE ${chunkIdCol} = '${documentId}'`
         );
       }
@@ -682,6 +739,9 @@ class RAG {
 
       // Save changes
       await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
+      if (chunkTableExists) {
+        await PaiperworkDB.saveToStorage(ragDb.export(), hashedMasterKey, 'rag');
+      }
       return true;
     } catch (error) {
       console.error("RAG: Error deleting document:", error);
@@ -700,58 +760,42 @@ class RAG {
       selectedModel
     );
 
-    // Fetch all chunks and calculate similarity
-    const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-    const chunksResult = db.exec(`
-        SELECT chunk_id, document_id, chunk_text, chunk_embedding, chunk_metadata
-        FROM document_chunks_${hashedMasterKey}
-    `);
+    const db = await this.getRagDb(hashedMasterKey);
+    await this.ensureRagTables(db, hashedMasterKey);
+    const topCandidates = await this.findTopChunkCandidatesByEmbedding(
+      db,
+      hashedMasterKey,
+      promptEmbedding,
+      {
+        limit,
+        candidateMultiplier: 6,
+        similarityThreshold: 0.7,
+        batchSize: 250,
+      }
+    );
 
-    if (!chunksResult[0]?.values) {
+    if (!topCandidates.length) {
       return [];
     }
 
-    // Calculate similarity for each chunk
-    const similarities = [];
-    for (const [
-      chunkId,
-      docId,
-      encText,
-      encEmbedding,
-      encMetadata,
-    ] of chunksResult[0].values) {
-      const embedding = JSON.parse(
-        await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encEmbedding))
-      );
-      const similarity = this.calculateCosineSimilarity(
-        promptEmbedding,
-        embedding
-      );
+    const hydratedChunks = await this.hydrateChunkCandidates(
+      db,
+      hashedMasterKey,
+      topCandidates,
+      { includeDocumentName: false }
+    );
 
-      if (similarity > 0.7) {
-        // Only include relevant chunks
-        const text = await PaiperworkDB.decrypt(
-          hashedMasterKey,
-          JSON.parse(encText)
-        );
-        const metadata = JSON.parse(
-          await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encMetadata))
-        );
-
-        similarities.push({
-          chunkId,
-          docId,
-          text,
-          metadata,
-          similarity,
-          pageNum: metadata.page,
-        });
-      }
-    }
-
-    // Sort by similarity (highest first) and take top results
-    similarities.sort((a, b) => b.similarity - a.similarity);
-    return similarities.slice(0, limit);
+    return hydratedChunks
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit)
+      .map((chunk) => ({
+        chunkId: chunk.chunkId,
+        docId: chunk.docId,
+        text: chunk.text,
+        metadata: chunk.metadata,
+        similarity: chunk.similarity,
+        pageNum: chunk.metadata?.page,
+      }));
   }
 
   // Calculates the cosine similarity between two embedding vectors.
@@ -767,6 +811,373 @@ class RAG {
     }
 
     return dotProduct / (Math.sqrt(mag1) * Math.sqrt(mag2));
+  }
+
+  static tokenizeQueryTerms(query) {
+    if (!query || typeof query !== "string") {
+      return [];
+    }
+
+    return Array.from(
+      new Set(
+        query
+          .toLowerCase()
+          .split(/[^\p{L}\p{N}]+/u)
+          .map((term) => term.trim())
+          .filter((term) => term.length >= 3)
+      )
+    );
+  }
+
+  static calculateLexicalSimilarity(text, query, terms) {
+    if (!text || typeof text !== "string") {
+      return 0;
+    }
+
+    const normalizedText = text.toLowerCase();
+    if (!normalizedText.trim()) {
+      return 0;
+    }
+
+    if (!Array.isArray(terms) || terms.length === 0) {
+      return 0;
+    }
+
+    let matchedTerms = 0;
+    let totalMatches = 0;
+
+    for (const term of terms) {
+      const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`\\b${escapedTerm}\\b`, "g");
+      const matches = normalizedText.match(regex);
+      const count = matches ? matches.length : 0;
+
+      if (count > 0) {
+        matchedTerms += 1;
+        totalMatches += count;
+      }
+    }
+
+    if (matchedTerms === 0) {
+      return 0;
+    }
+
+    const coverage = matchedTerms / terms.length;
+    const density = Math.min(totalMatches / Math.max(terms.length * 2, 6), 1);
+
+    const phrase = (query || "").trim().toLowerCase();
+    const phraseBoost = phrase.length > 5 && normalizedText.includes(phrase) ? 0.2 : 0;
+
+    return Math.min(1, coverage * 0.65 + density * 0.35 + phraseBoost);
+  }
+
+  static async modelSupportsEmbeddings(model) {
+    if (!model) {
+      return null;
+    }
+
+    if (this.embeddingCapabilityCache.has(model)) {
+      return this.embeddingCapabilityCache.get(model);
+    }
+
+    try {
+      const response = await fetch("http://localhost:11434/api/show", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, name: model }),
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      const capabilities = Array.isArray(data?.capabilities)
+        ? data.capabilities.map((entry) => String(entry).toLowerCase())
+        : [];
+
+      const supportsEmbeddings = capabilities.includes("embedding") || capabilities.includes("embeddings");
+      this.embeddingCapabilityCache.set(model, supportsEmbeddings);
+      return supportsEmbeddings;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  static addChunkCandidate(topCandidates, candidate, maxCandidates) {
+    if (!candidate || typeof candidate.similarity !== "number") {
+      return;
+    }
+
+    if (topCandidates.length < maxCandidates) {
+      topCandidates.push(candidate);
+      return;
+    }
+
+    let weakestIndex = 0;
+    for (let i = 1; i < topCandidates.length; i++) {
+      if (topCandidates[i].similarity < topCandidates[weakestIndex].similarity) {
+        weakestIndex = i;
+      }
+    }
+
+    if (candidate.similarity > topCandidates[weakestIndex].similarity) {
+      topCandidates[weakestIndex] = candidate;
+    }
+  }
+
+  static async findTopChunkCandidatesByEmbedding(
+    db,
+    hashedMasterKey,
+    queryEmbedding,
+    {
+      limit = 5,
+      candidateMultiplier = 8,
+      similarityThreshold = 0.3,
+      batchSize = 250,
+      documentId = null,
+      maxRowsToScan = Number.POSITIVE_INFINITY,
+    } = {}
+  ) {
+    const maxCandidates = Math.max(limit * candidateMultiplier, limit);
+    const topCandidates = [];
+
+    let offset = 0;
+    let scannedRows = 0;
+    while (true) {
+      const whereClause = documentId ? "WHERE document_id = ?" : "";
+      const batchQuery = `
+        SELECT chunk_id, document_id, chunk_embedding
+        FROM document_chunks_${hashedMasterKey}
+        ${whereClause}
+        LIMIT ${batchSize} OFFSET ${offset}
+      `;
+      const batchParams = documentId ? [documentId] : [];
+      const batchResult = db.exec(batchQuery, batchParams);
+      const rows = batchResult?.[0]?.values || [];
+
+      if (!rows.length) {
+        break;
+      }
+
+      const remainingRowsBudget = Number.isFinite(maxRowsToScan)
+        ? Math.max(maxRowsToScan - scannedRows, 0)
+        : rows.length;
+      if (remainingRowsBudget <= 0) {
+        break;
+      }
+
+      const effectiveRows = Number.isFinite(maxRowsToScan)
+        ? rows.slice(0, remainingRowsBudget)
+        : rows;
+
+      for (const [chunkId, docId, encEmbedding] of effectiveRows) {
+        try {
+          const embedding = JSON.parse(
+            await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encEmbedding))
+          );
+          if (!Array.isArray(embedding) || !embedding.length) {
+            continue;
+          }
+
+          const similarity = this.calculateCosineSimilarity(queryEmbedding, embedding);
+          if (similarity < similarityThreshold) {
+            continue;
+          }
+
+          this.addChunkCandidate(
+            topCandidates,
+            { chunkId, docId, similarity },
+            maxCandidates
+          );
+        } catch (error) {
+          console.error("RAG: Error processing chunk embedding candidate:", error);
+        }
+      }
+
+      scannedRows += effectiveRows.length;
+      if (Number.isFinite(maxRowsToScan) && scannedRows >= maxRowsToScan) {
+        break;
+      }
+
+      offset += batchSize;
+      if (rows.length < batchSize) {
+        break;
+      }
+    }
+
+    return topCandidates.sort((a, b) => b.similarity - a.similarity).slice(0, maxCandidates);
+  }
+
+  static async findTopChunkCandidatesByLexical(
+    db,
+    hashedMasterKey,
+    query,
+    {
+      limit = 5,
+      candidateMultiplier = 8,
+      similarityThreshold = 0.2,
+      batchSize = 120,
+      documentId = null,
+      maxRowsToScan = Number.POSITIVE_INFINITY,
+    } = {}
+  ) {
+    const terms = this.tokenizeQueryTerms(query);
+    if (!terms.length) {
+      return [];
+    }
+
+    const maxCandidates = Math.max(limit * candidateMultiplier, limit);
+    const topCandidates = [];
+
+    let offset = 0;
+    let scannedRows = 0;
+
+    while (true) {
+      const whereClause = documentId ? "WHERE document_id = ?" : "";
+      const batchQuery = `
+        SELECT chunk_id, document_id, chunk_text
+        FROM document_chunks_${hashedMasterKey}
+        ${whereClause}
+        LIMIT ${batchSize} OFFSET ${offset}
+      `;
+      const batchParams = documentId ? [documentId] : [];
+      const batchResult = db.exec(batchQuery, batchParams);
+      const rows = batchResult?.[0]?.values || [];
+
+      if (!rows.length) {
+        break;
+      }
+
+      const remainingRowsBudget = Number.isFinite(maxRowsToScan)
+        ? Math.max(maxRowsToScan - scannedRows, 0)
+        : rows.length;
+      if (remainingRowsBudget <= 0) {
+        break;
+      }
+
+      const effectiveRows = Number.isFinite(maxRowsToScan)
+        ? rows.slice(0, remainingRowsBudget)
+        : rows;
+
+      for (const [chunkId, docId, encText] of effectiveRows) {
+        try {
+          const text = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encText));
+          const similarity = this.calculateLexicalSimilarity(text, query, terms);
+          if (similarity < similarityThreshold) {
+            continue;
+          }
+
+          this.addChunkCandidate(
+            topCandidates,
+            { chunkId, docId, similarity },
+            maxCandidates
+          );
+        } catch (error) {
+          console.error("RAG: Error processing lexical candidate:", error);
+        }
+      }
+
+      scannedRows += effectiveRows.length;
+      if (Number.isFinite(maxRowsToScan) && scannedRows >= maxRowsToScan) {
+        break;
+      }
+
+      offset += batchSize;
+      if (rows.length < batchSize) {
+        break;
+      }
+    }
+
+    return topCandidates.sort((a, b) => b.similarity - a.similarity).slice(0, maxCandidates);
+  }
+
+  static async hydrateChunkCandidates(
+    db,
+    hashedMasterKey,
+    candidates,
+    { includeDocumentName = false, documentsDb = null } = {}
+  ) {
+    if (!Array.isArray(candidates) || !candidates.length) {
+      return [];
+    }
+
+    const placeholders = candidates.map(() => "?").join(",");
+    const chunkIds = candidates.map((candidate) => candidate.chunkId);
+    const chunksQuery = `
+      SELECT chunk_id, document_id, chunk_text, chunk_metadata
+      FROM document_chunks_${hashedMasterKey}
+      WHERE chunk_id IN (${placeholders})
+    `;
+
+    const chunksResult = db.exec(chunksQuery, chunkIds);
+    const rows = chunksResult?.[0]?.values || [];
+    if (!rows.length) {
+      return [];
+    }
+
+    const candidateByChunkId = new Map(
+      candidates.map((candidate) => [candidate.chunkId, candidate])
+    );
+
+    const docNameMap = {};
+    if (includeDocumentName) {
+      const docsDb = documentsDb || db;
+      const docIds = Array.from(new Set(candidates.map((candidate) => candidate.docId).filter(Boolean)));
+      if (docIds.length > 0) {
+        const docPlaceholders = docIds.map(() => "?").join(",");
+        const docsQuery = `
+          SELECT document_id, document_name
+          FROM documents_${hashedMasterKey}
+          WHERE document_id IN (${docPlaceholders})
+        `;
+        const docsResult = docsDb.exec(docsQuery, docIds);
+        const docRows = docsResult?.[0]?.values || [];
+        for (const [docId, encName] of docRows) {
+          try {
+            docNameMap[docId] = await PaiperworkDB.decrypt(
+              hashedMasterKey,
+              JSON.parse(encName)
+            );
+          } catch (_error) {
+            docNameMap[docId] = "Unknown Document";
+          }
+        }
+      }
+    }
+
+    const hydrated = [];
+    for (const [chunkId, docId, encText, encMetadata] of rows) {
+      const candidate = candidateByChunkId.get(chunkId);
+      if (!candidate) {
+        continue;
+      }
+
+      try {
+        const text = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encText));
+        let metadata = {};
+        try {
+          metadata = JSON.parse(
+            await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encMetadata))
+          );
+        } catch (_error) {
+          metadata = {};
+        }
+
+        hydrated.push({
+          chunkId,
+          docId,
+          text,
+          metadata,
+          similarity: candidate.similarity,
+          documentName: includeDocumentName ? (docNameMap[docId] || "Unknown Document") : undefined,
+        });
+      } catch (error) {
+        console.error("RAG: Error hydrating chunk candidate:", error);
+      }
+    }
+
+    return hydrated;
   }
 
   // Maps a database row to a standardized document object, decrypting fields as needed.
@@ -988,12 +1399,32 @@ class RAG {
     }
   }
   // Displays a warning notification if the selected model does not support embeddings.
-  static showEmbeddingWarning(modelName) {
+  static showEmbeddingWarning(modelName, mode = "general") {
     //console.log(`Showing embedding warning for model: ${modelName}`);
 
     // First remove any existing warnings
     const existingWarnings = document.querySelectorAll('.embedding-warning-notification');
     existingWarnings.forEach(el => el.remove());
+
+    const isIngestMode = mode === "ingest";
+    const titleText = isIngestMode
+      ? Lang.get(
+        'ragIngestModelNotCompatibleTitle',
+        'Model Not Compatible with Document Ingestion'
+      )
+      : Lang.get('ragModelNotCompatibleTitle', 'Model Not Compatible with Document Search');
+    const messageText = isIngestMode
+      ? Lang.get(
+        'ragIngestModelNotCompatibleMessage',
+        'The model <strong>{model}</strong> cannot be used to ingest documents because it does not support embeddings.'
+      ).replace('{model}', modelName)
+      : Lang.get('ragModelNotCompatibleMessage', 'The model <strong>{model}</strong> doesn\'t support embeddings, which are required for document search and RAG functionality.').replace('{model}', modelName);
+    const suggestionText = isIngestMode
+      ? Lang.get(
+        'ragIngestModelSelectCompatible',
+        'Please select a model specifically designed for embeddings/document ingest (for example embedding models) and try again.'
+      )
+      : Lang.get('ragModelSelectCompatible', 'Please select a model that supports embeddings (such as nomic-embed-text, llama3, mistral or mixtral models).');
 
     // Create the warning notification
     const notification = document.createElement('div');
@@ -1022,13 +1453,13 @@ class RAG {
     notification.innerHTML = `
       <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 18px; display: flex; align-items: center;">
         <span style="margin-right: 8px; font-size: 20px;">⚠️</span> 
-        ${Lang.get('ragModelNotCompatibleTitle', 'Model Not Compatible with Document Search')}
+        ${titleText}
       </h3>
       <p style="margin-bottom: 12px; font-size: 15px;">
-        ${Lang.get('ragModelNotCompatibleMessage', 'The model <strong>{model}</strong> doesn\'t support embeddings, which are required for document search and RAG functionality.').replace('{model}', modelName)}
+        ${messageText}
       </p>
       <p style="margin-bottom: 16px; font-size: 15px;">
-        ${Lang.get('ragModelSelectCompatible', 'Please select a model that supports embeddings (such as nomic-embed-text, llama3, mistral or mixtral models).')}
+        ${suggestionText}
       </p>
       <div style="display: flex; justify-content: space-between; align-items: center;">
         <a href="https://ollama.com/search?q=&sort=downloads&filter=embedding" 
@@ -1083,115 +1514,89 @@ class RAG {
     }
 
     try {
-      // Generate embedding for the query
-      const queryEmbedding = await this.generateEmbedding(query, model);
+      const db = await this.getRagDb(hashedMasterKey);
+      await this.ensureRagTables(db, hashedMasterKey);
+      const docsDb = await this.getMainDb(hashedMasterKey);
 
-      // Verify we have a valid embedding
-      if (!queryEmbedding || !queryEmbedding.length) {
-        throw new Error("Could not generate embedding for search query");
-      }
+      let topCandidates = [];
+      let usedLexicalFallback = false;
 
-      // Get database
-      const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-
-      // First, get all document chunks and their embeddings
-      const chunksResult = db.exec(`
-            SELECT 
-                dc.chunk_id, 
-                dc.document_id, 
-                dc.chunk_text, 
-                dc.chunk_embedding,
-                dc.chunk_metadata,
-                d.document_name
-            FROM 
-                document_chunks_${hashedMasterKey} dc
-            JOIN 
-                documents_${hashedMasterKey} d ON dc.document_id = d.document_id
-        `);
-
-      if (
-        !chunksResult ||
-        chunksResult.length === 0 ||
-        !chunksResult[0].values
-      ) {
-        return [];
-      }
-
-      // Process results and calculate similarity
-      const chunks = [];
-      for (const [
-        chunkId,
-        documentId,
-        encryptedText,
-        encryptedEmbedding,
-        encryptedMetadata,
-        encryptedName,
-      ] of chunksResult[0].values) {
+      const supportsEmbeddings = await this.modelSupportsEmbeddings(model);
+      if (supportsEmbeddings === false) {
+        usedLexicalFallback = true;
+        topCandidates = await this.findTopChunkCandidatesByLexical(
+          db,
+          hashedMasterKey,
+          query,
+          {
+            limit: 5,
+            candidateMultiplier: 10,
+            similarityThreshold: 0.2,
+            batchSize: 120,
+            maxRowsToScan: 1800,
+          }
+        );
+      } else {
         try {
-          // Safely decrypt text and document name first
-          let chunkText, documentName;
+          const queryEmbedding = await this.generateEmbedding(query, model);
 
-          try {
-            chunkText = await PaiperworkDB.decrypt(
-              hashedMasterKey,
-              JSON.parse(encryptedText)
-            );
-            documentName = await PaiperworkDB.decrypt(
-              hashedMasterKey,
-              JSON.parse(encryptedName)
-            );
-          } catch (parseErr) {
-            console.error("Error parsing JSON or decrypting text:", parseErr);
-            continue; // Skip this chunk and move to the next one
+          if (!queryEmbedding || !queryEmbedding.length) {
+            throw new Error("Could not generate embedding for search query");
           }
 
-          // Handle embedding separately to avoid aborting the whole search on one error
-          let similarity = 0;
-          try {
-            // Safely parse and decrypt the embedding
-            let embeddingText = await PaiperworkDB.decrypt(
-              hashedMasterKey,
-              JSON.parse(encryptedEmbedding)
-            );
-
-            // Verify the embedding text is valid before parsing
-            if (embeddingText && typeof embeddingText === "string") {
-              const chunkEmbedding = JSON.parse(embeddingText);
-              if (
-                chunkEmbedding &&
-                Array.isArray(chunkEmbedding) &&
-                chunkEmbedding.length > 0
-              ) {
-                // Fix: Use calculateCosineSimilarity instead of cosineSimilarity
-                similarity = this.calculateCosineSimilarity(
-                  queryEmbedding,
-                  chunkEmbedding
-                );
-              }
+          topCandidates = await this.findTopChunkCandidatesByEmbedding(
+            db,
+            hashedMasterKey,
+            queryEmbedding,
+            {
+              limit: 5,
+              candidateMultiplier: 10,
+              similarityThreshold: 0,
+              batchSize: 250,
+              maxRowsToScan: 2000,
             }
-          } catch (embedErr) {
-            console.error("Error processing embedding:", embedErr);
-            // Continue with similarity = 0 rather than skipping the chunk
-          }
-
-          // Keep the chunk either way for text search fallback
-          chunks.push({
-            chunkId,
-            documentId,
-            documentName,
-            text: chunkText,
-            similarity,
-          });
-        } catch (err) {
-          console.error("Error processing chunk:", err);
-          // Continue to the next chunk
+          );
+        } catch (error) {
+          console.warn("RAG: Embedding retrieval unavailable, using lexical fallback", error);
+          usedLexicalFallback = true;
+          topCandidates = await this.findTopChunkCandidatesByLexical(
+            db,
+            hashedMasterKey,
+            query,
+            {
+              limit: 5,
+              candidateMultiplier: 10,
+              similarityThreshold: 0.2,
+              batchSize: 120,
+              maxRowsToScan: 1800,
+            }
+          );
         }
       }
 
-      // If vector search failed to find good matches, try a simple text-based search
-      const hasGoodMatches = chunks.some((chunk) => chunk.similarity > 0.5);
+      if (!topCandidates.length) {
+        return [];
+      }
 
-      if (!hasGoodMatches && chunks.length > 0) {
+      const chunks = await this.hydrateChunkCandidates(
+        db,
+        hashedMasterKey,
+        topCandidates,
+        { includeDocumentName: true, documentsDb: docsDb }
+      );
+
+      const normalizedChunks = chunks.map((chunk) => ({
+        chunkId: chunk.chunkId,
+        documentId: chunk.docId,
+        documentName: chunk.documentName || "Unknown Document",
+        text: chunk.text,
+        similarity: typeof chunk.similarity === "number" ? chunk.similarity : 0,
+      }));
+
+      // If vector search failed to find good matches, try a simple text-based search
+      const hasGoodMatches = normalizedChunks.some((chunk) => chunk.similarity > 0.5);
+
+      if (!hasGoodMatches && normalizedChunks.length > 0 && !usedLexicalFallback) {
         //console.log("No good embedding matches, falling back to text search");
         const terms = query
           .toLowerCase()
@@ -1199,7 +1604,7 @@ class RAG {
           .filter((term) => term.length > 2);
 
         // Score chunks based on term frequency
-        chunks.forEach((chunk) => {
+        normalizedChunks.forEach((chunk) => {
           const text = chunk.text.toLowerCase();
           let textScore = 0;
 
@@ -1214,8 +1619,8 @@ class RAG {
       }
 
       // Sort by similarity (highest first) and take top results
-      chunks.sort((a, b) => b.similarity - a.similarity);
-      return chunks.slice(0, 5); // Return top 5 results
+      normalizedChunks.sort((a, b) => b.similarity - a.similarity);
+      return normalizedChunks.slice(0, 5); // Return top 5 results
     } catch (error) {
       console.error("Error searching documents:", error);
       throw new Error(`Search failed: ${error.message}`);
@@ -1233,7 +1638,7 @@ class RAG {
       }
 
       // Get database via PaiperworkDB
-      const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+      const db = await this.getMainDb(hashedMasterKey);
       if (!db) {
         console.error("RAG: Could not access database for masterkey:", hashedMasterKey);
         return false;
@@ -1254,7 +1659,7 @@ class RAG {
   // Update the db getter to use PaiperworkDB
   static async getDb() {
   const hashedMasterKey = sessionStorage.getItem("hashedMasterKey");
-  return await PaiperworkDB.getDatabase(hashedMasterKey);
+  return await this.getMainDb(hashedMasterKey);
   }
   // Searches document chunks with additional constraints (e.g., by document ID), using embeddings.
   static async searchDocumentsWithConstraint(query, hashedMasterKey, model, constraints) {
@@ -1266,9 +1671,10 @@ class RAG {
     }
 
     try {
-      // Get database
-      const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-      if (!db) {
+      const db = await this.getRagDb(hashedMasterKey);
+      await this.ensureRagTables(db, hashedMasterKey);
+      const docsDb = await this.getMainDb(hashedMasterKey);
+      if (!db || !docsDb) {
         throw new Error("Database not available");
       }
 
@@ -1276,291 +1682,155 @@ class RAG {
       let whereClause = "";
       let whereParams = [];
 
-      if (constraints) {
-        if (constraints.documentId) {
-          whereClause = "WHERE document_id = ?";
-          whereParams = [constraints.documentId];
-        }
+      if (constraints && constraints.documentId) {
+        whereClause = "WHERE document_id = ?";
+        whereParams = [constraints.documentId];
       }
 
-      // Modified: Get metadata first to determine intelligent chunk selection strategy
-      const docInfoQuery = `
-      SELECT COUNT(*) as chunk_count 
-      FROM document_chunks_${hashedMasterKey} 
-      ${whereClause}
-    `;
+      // Determine practical chunk cap for lightweight fallback hydration
+      const countQuery = `
+        SELECT COUNT(*)
+        FROM document_chunks_${hashedMasterKey}
+        ${whereClause}
+      `;
+      const countResult = db.exec(countQuery, whereParams);
+      const chunkCount = countResult?.[0]?.values?.[0]?.[0] || 0;
 
-      const countResult = db.exec(docInfoQuery, whereParams);
-      const chunkCount = countResult && countResult[0]?.values?.[0]?.[0] || 0;
-
-      // Determine appropriate limit based on document size
-      let chunkLimit = 30; // Reduced from 100 to 30 as default
+      let chunkLimit = 30;
       if (chunkCount > 200) {
-        chunkLimit = 20; // For very large documents, reduce further
+        chunkLimit = 20;
       } else if (chunkCount < 50) {
-        // For small documents, we can process all chunks
         chunkLimit = chunkCount;
       }
 
-      //console.log(`RAG: Document has ${chunkCount} chunks, using limit of ${chunkLimit}`);
-
-      // First get metadata and page numbers to enable smarter chunk selection
-      const metadataQuery = `
-      SELECT chunk_id, document_id, chunk_metadata
-      FROM document_chunks_${hashedMasterKey}
-      ${whereClause}
-    `;
-
-      const metadataResult = db.exec(metadataQuery, whereParams);
-
-      // Process chunk metadata for smarter selection
-      const chunkMeta = [];
-      if (metadataResult && metadataResult[0]?.values) {
-        for (const [chunkId, docId, encMetadata] of metadataResult[0].values) {
-          try {
-            const metadataStr = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encMetadata));
-            const metadata = JSON.parse(metadataStr);
-            chunkMeta.push({
-              id: chunkId,
-              documentId: docId,
-              pageNumber: metadata.page || metadata.pageNumber || 0,
-              chunkIndex: metadata.chunkIndex || 0
-            });
-          } catch (err) {
-            console.error("Error processing chunk metadata:", err);
-          }
-        }
-      }
-
-      // Sort chunks by page/position for more coherent selection
-      chunkMeta.sort((a, b) => {
-        if (a.pageNumber === b.pageNumber) {
-          return a.chunkIndex - b.chunkIndex;
-        }
-        return a.pageNumber - b.pageNumber;
-      });
-
-      // Select a distributed set of chunks - take from beginning, middle and end
-      // to get better document coverage
-      const selectedChunkIds = [];
-
-      if (chunkMeta.length > 0) {
-        // Take ~40% from beginning, ~30% from middle, ~30% from end
-        const beginCount = Math.ceil(chunkLimit * 0.4);
-        const middleCount = Math.floor(chunkLimit * 0.3);
-        const endCount = chunkLimit - beginCount - middleCount;
-
-        // Get chunks from beginning
-        for (let i = 0; i < beginCount && i < chunkMeta.length; i++) {
-          selectedChunkIds.push(chunkMeta[i].id);
-        }
-
-        // Get chunks from middle if there are enough
-        if (middleCount > 0 && chunkMeta.length > beginCount + endCount) {
-          const middleStart = Math.floor((chunkMeta.length - middleCount) / 2);
-          for (let i = 0; i < middleCount; i++) {
-            selectedChunkIds.push(chunkMeta[middleStart + i].id);
-          }
-        }
-
-        // Get chunks from end
-        if (endCount > 0 && chunkMeta.length > beginCount) {
-          const endStart = Math.max(beginCount, chunkMeta.length - endCount);
-          for (let i = 0; i < endCount && endStart + i < chunkMeta.length; i++) {
-            selectedChunkIds.push(chunkMeta[endStart + i].id);
-          }
-        }
-      }
-
-      let chunksResult;
-
-      // Now get full data only for selected chunks
-      if (selectedChunkIds.length > 0) {
-        // Build placeholders for IN clause
-        const placeholders = selectedChunkIds.map(() => '?').join(',');
-
-        const chunksQuery = `
-        SELECT chunk_id, document_id, chunk_text, chunk_embedding, chunk_metadata
-        FROM document_chunks_${hashedMasterKey}
-        WHERE chunk_id IN (${placeholders})
-      `;
-
-        chunksResult = db.exec(chunksQuery, selectedChunkIds);
-      } else {
-        // If we couldn't get chunk metadata, fall back to the original query with limit
-        // but avoid ORDER BY RANDOM() which is memory intensive
-        const chunksQuery = `
-        SELECT chunk_id, document_id, chunk_text, chunk_embedding, chunk_metadata
+      const fallbackQuery = `
+        SELECT chunk_id, document_id
         FROM document_chunks_${hashedMasterKey}
         ${whereClause}
         LIMIT ${chunkLimit}
       `;
+      const fallbackResult = db.exec(fallbackQuery, whereParams);
+      const fallbackRows = fallbackResult?.[0]?.values || [];
+      const fallbackCandidates = fallbackRows.map(([chunkId, docId]) => ({
+        chunkId,
+        docId,
+        similarity: 0,
+      }));
 
-        chunksResult = db.exec(chunksQuery, whereParams);
-      }
-
-      if (!chunksResult || chunksResult.length === 0 || !chunksResult[0].values) {
-        //console.log("RAG: No chunks found for document with constraints");
-        return [];
-      }
-
-      // Log how many chunks we found
-      //console.log(`RAG: Found ${chunksResult[0].values.length} chunks for document`);
-
-      // Get document names for the results
-      const documentMap = {};
-      const docsResult = db.exec(`
-        SELECT document_id, document_name 
-        FROM documents_${hashedMasterKey}
-    `);
-
-      if (docsResult && docsResult.length > 0 && docsResult[0].values) {
-        for (const [docId, encName] of docsResult[0].values) {
-          try {
-            documentMap[docId] = await PaiperworkDB.decrypt(
-              hashedMasterKey,
-              JSON.parse(encName)
-            );
-          } catch (err) {
-            console.error("Error decrypting document name:", err);
-            documentMap[docId] = "Unknown Document";
-          }
-        }
-      }
-
-      // Decrypt chunks in smaller batches (5 at a time) to reduce memory pressure
-      const chunks = [];
-      const chunksValues = chunksResult[0].values;
-      const BATCH_SIZE = 5;
-
-      for (let i = 0; i < chunksValues.length; i += BATCH_SIZE) {
-        const batch = chunksValues.slice(i, i + BATCH_SIZE);
-
-        for (const [chunkId, docId, encText, encEmbedding, encMetadata] of batch) {
-          try {
-            const text = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encText));
-            chunks.push({
-              id: chunkId,
-              documentId: docId,
-              documentName: documentMap[docId] || "Unknown Document",
-              text: text,
-              embedding: encEmbedding, // Keep encrypted for later use
-            });
-          } catch (err) {
-            console.error("Error decrypting chunk:", err);
-          }
-        }
-
-        // Short delay to allow garbage collection between batches
-        if (i + BATCH_SIZE < chunksValues.length) {
-          await new Promise(resolve => setTimeout(resolve, 10));
-        }
-      }
-
-      // If we have no query, just return the chunks without similarity calculation
       if (!query || !query.trim()) {
-        //console.log("RAG: Returning chunks without similarity calculation");
-        return chunks;
+        const fallbackChunks = await this.hydrateChunkCandidates(
+          db,
+          hashedMasterKey,
+          fallbackCandidates,
+          { includeDocumentName: true, documentsDb: docsDb }
+        );
+
+        return fallbackChunks.map((chunk) => ({
+          id: chunk.chunkId,
+          documentId: chunk.docId,
+          documentName: chunk.documentName || "Unknown Document",
+          text: chunk.text,
+          similarity: typeof chunk.similarity === "number" ? chunk.similarity : 0,
+        }));
       }
 
-      // For query searching, generate embedding and calculate similarities
-      const queryEmbedding = await this.generateEmbedding(query, model);
-      if (!queryEmbedding) {
-        throw new Error("Failed to generate embedding for query");
-      }
+      let topCandidates = [];
+      const maxRowsToScan = constraints?.documentId
+        ? Math.min(Math.max(chunkLimit * 30, 400), 1600)
+        : 1400;
 
-      // Calculate similarities in batches to reduce memory pressure
-      const results = [];
-      const SIMILARITY_BATCH_SIZE = 5;
-
-      for (let i = 0; i < chunks.length; i += SIMILARITY_BATCH_SIZE) {
-        const batch = chunks.slice(i, i + SIMILARITY_BATCH_SIZE);
-
-        for (const chunk of batch) {
-          try {
-            // Decrypt embedding only when needed
-            const chunkEmbedding = await this.getChunkEmbedding(
-              hashedMasterKey,
-              chunk.id
-            );
-
-            if (chunkEmbedding) {
-              const similarity = this.calculateCosineSimilarity(
-                queryEmbedding,
-                chunkEmbedding
-              );
-
-              // Include results with reasonable similarity
-              if (similarity > 0.3) {
-                results.push({
-                  ...chunk,
-                  similarity: similarity,
-                });
-              }
-            }
-          } catch (err) {
-            console.error("Error processing chunk for similarity:", err);
+      const supportsEmbeddings = await this.modelSupportsEmbeddings(model);
+      if (supportsEmbeddings === false) {
+        topCandidates = await this.findTopChunkCandidatesByLexical(
+          db,
+          hashedMasterKey,
+          query,
+          {
+            limit: 5,
+            candidateMultiplier: 8,
+            similarityThreshold: 0.2,
+            batchSize: 100,
+            documentId: constraints?.documentId || null,
+            maxRowsToScan,
           }
-        }
+        );
+      } else {
+        try {
+          const queryEmbedding = await this.generateEmbedding(query, model);
+          if (!queryEmbedding) {
+            throw new Error("Failed to generate embedding for query");
+          }
 
-        // Short delay between batches
-        if (i + SIMILARITY_BATCH_SIZE < chunks.length) {
-          await new Promise(resolve => setTimeout(resolve, 10));
+          topCandidates = await this.findTopChunkCandidatesByEmbedding(
+            db,
+            hashedMasterKey,
+            queryEmbedding,
+            {
+              limit: 5,
+              candidateMultiplier: 8,
+              similarityThreshold: 0.3,
+              batchSize: 200,
+              documentId: constraints?.documentId || null,
+              maxRowsToScan,
+            }
+          );
+        } catch (error) {
+          console.warn("RAG: Falling back to lexical retrieval for constrained search", error);
+          topCandidates = await this.findTopChunkCandidatesByLexical(
+            db,
+            hashedMasterKey,
+            query,
+            {
+              limit: 5,
+              candidateMultiplier: 8,
+              similarityThreshold: 0.2,
+              batchSize: 100,
+              documentId: constraints?.documentId || null,
+              maxRowsToScan,
+            }
+          );
         }
       }
 
-      // If no semantic matches found, return top chunks anyway
-      if (results.length === 0) {
-        //console.log("RAG: No semantic matches, returning sample chunks instead");
-        return chunks.slice(0, 3); // Return first 3 chunks as fallback
+      if (!topCandidates.length) {
+        const fallbackChunks = await this.hydrateChunkCandidates(
+          db,
+          hashedMasterKey,
+          fallbackCandidates.slice(0, 3),
+          { includeDocumentName: true, documentsDb: docsDb }
+        );
+
+        return fallbackChunks.map((chunk) => ({
+          id: chunk.chunkId,
+          documentId: chunk.docId,
+          documentName: chunk.documentName || "Unknown Document",
+          text: chunk.text,
+          similarity: typeof chunk.similarity === "number" ? chunk.similarity : 0,
+        }));
       }
 
-      // Sort by similarity (highest first)
-      results.sort((a, b) => b.similarity - a.similarity);
+      const hydratedResults = await this.hydrateChunkCandidates(
+        db,
+        hashedMasterKey,
+        topCandidates,
+        { includeDocumentName: true, documentsDb: docsDb }
+      );
 
-      // Ensure all chunks have valid similarity values
-      results.forEach(chunk => {
-        if (chunk.similarity === undefined || isNaN(chunk.similarity)) {
-          chunk.similarity = 0;
-        }
-      });
+      const normalizedResults = hydratedResults
+        .map((chunk) => ({
+          id: chunk.chunkId,
+          documentId: chunk.docId,
+          documentName: chunk.documentName || "Unknown Document",
+          text: chunk.text,
+          similarity: typeof chunk.similarity === "number" ? chunk.similarity : 0,
+        }))
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 5);
 
-      return results.slice(0, 5); // Return top 5 results
+      return normalizedResults;
     } catch (error) {
       console.error("RAG: Error in searchDocumentsWithConstraint:", error);
       return [];
-    }
-  }
-  // Helper function to get a chunk's embedding
-  static async getChunkEmbedding(hashedMasterKey, chunkId) {
-    try {
-      const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-      const result = db.exec(
-        `
-            SELECT chunk_embedding 
-            FROM document_chunks_${hashedMasterKey} 
-            WHERE chunk_id = ?
-        `,
-        [chunkId]
-      );
-
-      if (
-        result &&
-        result.length > 0 &&
-        result[0].values &&
-        result[0].values.length > 0
-      ) {
-        const encEmbedding = result[0].values[0][0];
-        if (!encEmbedding) return null;
-
-        return JSON.parse(
-          await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encEmbedding))
-        );
-      }
-      return null;
-    } catch (err) {
-      console.error("Error getting chunk embedding:", err);
-      return null;
     }
   }
   static getProcessingStatus() {
@@ -1583,4 +1853,3 @@ class RAG {
 window.RAG = RAG;
 window.generateEmbeddingForText = RAG.generateEmbedding.bind(RAG);
 window.calculateCosineSimilarity = RAG.calculateCosineSimilarity.bind(RAG);
-window.getChunkEmbedding = RAG.getChunkEmbedding.bind(RAG);

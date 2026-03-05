@@ -484,6 +484,17 @@ class StreamProcessor {
     // In the processChunk method, fix the native thinking detection:
 
     processChunk(chunk) {
+        if (chunk === null || chunk === undefined) {
+            return;
+        }
+
+        if (typeof chunk !== 'string') {
+            try {
+                chunk = String(chunk);
+            } catch (_error) {
+                return;
+            }
+        }
 
         this.fullResponseText += chunk;
 

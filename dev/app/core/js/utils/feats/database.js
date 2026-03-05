@@ -5,6 +5,53 @@ class PaiperworkDB {
     static SQL = null;
     static opfsSupported = false;
     static useIndexedDBOnly = false;
+    static openDbInstances = [];
+
+    static normalizeDbRole(role = 'main') {
+        return role === 'rag' ? 'rag' : 'main';
+    }
+
+    static getTrackedOpenDatabase(hashedMasterKey, role = 'main') {
+        const normalizedRole = this.normalizeDbRole(role);
+
+        for (let i = this.openDbInstances.length - 1; i >= 0; i--) {
+            const entry = this.openDbInstances[i];
+            if (!entry || entry.role !== normalizedRole || entry.hashedMasterKey !== hashedMasterKey) {
+                continue;
+            }
+
+            try {
+                // Validate handle is still usable before returning it.
+                entry.db?.exec?.('SELECT 1');
+                return entry.db;
+            } catch (_error) {
+                this.openDbInstances.splice(i, 1);
+            }
+        }
+
+        return null;
+    }
+
+    static getOpenDatabaseState(hashedMasterKey) {
+        return {
+            main: !!this.getTrackedOpenDatabase(hashedMasterKey, 'main'),
+            rag: !!this.getTrackedOpenDatabase(hashedMasterKey, 'rag')
+        };
+    }
+
+    static getDbFileName(hashedMasterKey, role = 'main') {
+        const normalizedRole = this.normalizeDbRole(role);
+        return normalizedRole === 'rag'
+            ? `${hashedMasterKey}.rag.db`
+            : `${hashedMasterKey}.db`;
+    }
+
+    static getDbStorageKey(hashedMasterKey, role = 'main') {
+        const normalizedRole = this.normalizeDbRole(role);
+        return normalizedRole === 'rag'
+            ? `${hashedMasterKey}::rag`
+            : hashedMasterKey;
+    }
 
     // Detects if the browser is Safari.
     static isSafari() {
@@ -44,7 +91,14 @@ class PaiperworkDB {
         }
     }
     // Retrieves the SQL.js database instance for a given master key hash.
-    static async getDatabase(hashedMasterKey) {
+    static async getDatabase(hashedMasterKey, role = 'main', createIfMissing = false) {
+        const normalizedRole = this.normalizeDbRole(role);
+
+        const trackedDb = this.getTrackedOpenDatabase(hashedMasterKey, normalizedRole);
+        if (trackedDb) {
+            return trackedDb;
+        }
+
         // Initialize SQL.js
         if (!this.SQL) {
             this.SQL = await initSqlJs({
@@ -53,24 +107,33 @@ class PaiperworkDB {
         }
 
         // Use our getExistingDatabase method which already handles OPFS/IndexedDB properly
-        const dbData = await this.getExistingDatabase(hashedMasterKey);
+        const dbData = await this.getExistingDatabase(hashedMasterKey, normalizedRole);
 
         // If we found data, create a new SQL.Database instance from it
         if (dbData) {
-            return new this.SQL.Database(dbData);
+            const db = new this.SQL.Database(dbData);
+            this.openDbInstances.push({ db, role: normalizedRole, hashedMasterKey });
+            return db;
         } else {
-            return null;
+            if (!createIfMissing) {
+                return null;
+            }
+
+            const db = new this.SQL.Database();
+            this.openDbInstances.push({ db, role: normalizedRole, hashedMasterKey });
+            return db;
         }
     }
     // Retrieves the database file from OPFS for a given master key hash.
-    static async getOPFSDatabase(hashedMasterKey) {
+    static async getOPFSDatabase(hashedMasterKey, role = 'main') {
         try {
             const root = await navigator.storage.getDirectory();
             const dbDir = await root.getDirectoryHandle('PaiperworkDB', { create: true });
+            const fileName = this.getDbFileName(hashedMasterKey, role);
 
             try {
                 // Try to get the database file
-                const fileHandle = await dbDir.getFileHandle(`${hashedMasterKey}.db`, { create: false });
+                const fileHandle = await dbDir.getFileHandle(fileName, { create: false });
                 const file = await fileHandle.getFile();
                 const buffer = await file.arrayBuffer();
 
@@ -87,14 +150,16 @@ class PaiperworkDB {
         }
     }
     // Retrieves the existing database from OPFS or IndexedDB for a given master key hash.
-    static async getExistingDatabase(hashedMasterKey) {
+    static async getExistingDatabase(hashedMasterKey, role = 'main') {
+        const normalizedRole = this.normalizeDbRole(role);
+        const storageKey = this.getDbStorageKey(hashedMasterKey, normalizedRole);
         //console.log(`🔍 Getting existing database for masterkey: ${hashedMasterKey}`);
         //console.log(`📍 Storage strategy: ${this.opfsSupported && !this.useIndexedDBOnly ? 'OPFS' : 'IndexedDB'}`);
 
         // Try OPFS first if it's our primary storage
         if (this.opfsSupported && !this.useIndexedDBOnly) {
             //console.log('🔍 Checking OPFS for database...');
-            const opfsData = await this.getOPFSDatabase(hashedMasterKey);
+            const opfsData = await this.getOPFSDatabase(hashedMasterKey, normalizedRole);
             if (opfsData) {
                 //console.log('✅ Database found in OPFS');
                 return opfsData;
@@ -131,7 +196,7 @@ class PaiperworkDB {
                 try {
                     const transaction = db.transaction(['databases'], 'readonly');
                     const store = transaction.objectStore('databases');
-                    const getRequest = store.get(hashedMasterKey);
+                    const getRequest = store.get(storageKey);
 
                     getRequest.onsuccess = () => {
                         if (getRequest.result) {
@@ -141,7 +206,7 @@ class PaiperworkDB {
                             // migrate it to OPFS
                             if (this.opfsSupported && !this.useIndexedDBOnly) {
                                 //console.log('🔄 Migrating from IndexedDB to OPFS...');
-                                this.saveToOPFS(getRequest.result, hashedMasterKey).then(() => {
+                                this.saveToOPFS(getRequest.result, hashedMasterKey, normalizedRole).then(() => {
                                     //console.log('✅ Migration to OPFS completed');
                                 }).catch(error => {
                                     console.error('❌ Migration to OPFS failed:', error);
@@ -173,14 +238,16 @@ class PaiperworkDB {
         });
     }
     // Saves the exported database to OPFS or IndexedDB, depending on support.
-    static async saveToStorage(dbExport, hashedMasterKey) {
+    static async saveToStorage(dbExport, hashedMasterKey, role = 'main') {
+        const normalizedRole = this.normalizeDbRole(role);
+        const storageKey = this.getDbStorageKey(hashedMasterKey, normalizedRole);
         //console.log(`💾 Saving database for masterkey: ${hashedMasterKey}`);
         //console.log(`📍 Storage strategy: ${this.opfsSupported ? 'OPFS' : 'IndexedDB'}`);
 
         // Use OPFS if supported and enabled
         if (this.opfsSupported && !this.useIndexedDBOnly) {
             //console.log('💾 Saving to OPFS...');
-            const success = await this.saveToOPFS(dbExport, hashedMasterKey);
+            const success = await this.saveToOPFS(dbExport, hashedMasterKey, normalizedRole);
             if (success) {
                 //console.log('✅ Database saved successfully to OPFS');
                 return true;
@@ -210,7 +277,7 @@ class PaiperworkDB {
                 const transaction = db.transaction(['databases'], 'readwrite');
                 const store = transaction.objectStore('databases');
 
-                const putRequest = store.put(dbExport, hashedMasterKey);
+                const putRequest = store.put(dbExport, storageKey);
 
                 putRequest.onsuccess = () => {
                     //console.log('✅ Database saved successfully to IndexedDB');
@@ -232,11 +299,12 @@ class PaiperworkDB {
         });
     }
     // Saves the exported database to OPFS for a given master key hash.
-    static async saveToOPFS(dbExport, hashedMasterKey) {
+    static async saveToOPFS(dbExport, hashedMasterKey, role = 'main') {
         try {
             const root = await navigator.storage.getDirectory();
             const dbDir = await root.getDirectoryHandle('PaiperworkDB', { create: true });
-            const fileHandle = await dbDir.getFileHandle(`${hashedMasterKey}.db`, { create: true });
+            const fileName = this.getDbFileName(hashedMasterKey, role);
+            const fileHandle = await dbDir.getFileHandle(fileName, { create: true });
 
             // Create a writable stream and write the database export
             const writable = await fileHandle.createWritable();
@@ -249,6 +317,37 @@ class PaiperworkDB {
             console.error('Error saving to OPFS:', error);
             return false;
         }
+    }
+
+    static async getRagDatabase(hashedMasterKey) {
+        return this.getDatabase(hashedMasterKey, 'rag', true);
+    }
+
+    static async closeRoleDatabases(role = 'rag', hashedMasterKey = null) {
+        const normalizedRole = this.normalizeDbRole(role);
+        const remaining = [];
+
+        for (const entry of this.openDbInstances) {
+            const shouldClose = entry && entry.role === normalizedRole &&
+                (hashedMasterKey ? entry.hashedMasterKey === hashedMasterKey : true);
+
+            if (!shouldClose) {
+                remaining.push(entry);
+                continue;
+            }
+
+            try {
+                entry.db?.close?.();
+            } catch (error) {
+                console.warn('Error closing tracked SQL.js database instance:', error);
+            }
+        }
+
+        this.openDbInstances = remaining;
+    }
+
+    static async closeRagDatabases(hashedMasterKey = null) {
+        return this.closeRoleDatabases('rag', hashedMasterKey);
     }
 
     // Migrates a plaintext localStorage key to encrypted storage using secureLocalStorageSet.
@@ -1123,12 +1222,22 @@ class PaiperworkDB {
                 const dbDir = await root.getDirectoryHandle('PaiperworkDB', { create: false });
 
                 try {
-                    // Delete specific database file
-                    await dbDir.removeEntry(`${hashedMasterKey}.db`);
+                    // Delete both main and rag database files for this profile
+                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'main'));
+                } catch (error) {
+                    console.warn('Error deleting main database from OPFS:', error);
+                    opfsDeleted = false;
+                }
+
+                try {
+                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'rag'));
                     //console.log('Successfully deleted database from OPFS');
                 } catch (error) {
-                    console.warn('Error deleting database from OPFS:', error);
-                    opfsDeleted = false;
+                    // Rag DB may not exist yet in older installs; treat NotFound as non-fatal.
+                    if (error?.name !== 'NotFoundError') {
+                        console.warn('Error deleting rag database from OPFS:', error);
+                        opfsDeleted = false;
+                    }
                 }
             } catch (error) {
                 // If directory doesn't exist, that's fine
@@ -1144,11 +1253,17 @@ class PaiperworkDB {
                 const db = event.target.result;
                 const transaction = db.transaction(['databases'], 'readwrite');
                 const store = transaction.objectStore('databases');
-                const deleteRequest = store.delete(hashedMasterKey);
+                const mainKey = this.getDbStorageKey(hashedMasterKey, 'main');
+                const ragKey = this.getDbStorageKey(hashedMasterKey, 'rag');
+                const deleteRequest = store.delete(mainKey);
 
                 deleteRequest.onsuccess = () => {
-                    //console.log('Database deleted successfully from IndexedDB');
-                    resolve(true);
+                    const deleteRagRequest = store.delete(ragKey);
+                    deleteRagRequest.onsuccess = () => resolve(true);
+                    deleteRagRequest.onerror = () => {
+                        console.error('Error deleting rag database from IndexedDB:', deleteRagRequest.error);
+                        resolve(false);
+                    };
                 };
 
                 deleteRequest.onerror = () => {
@@ -1169,6 +1284,9 @@ class PaiperworkDB {
     // Deletes all databases and clears localStorage.
     static async deleteAllDatabases() {
         //console.log('🗑️ Starting deletion of all data');
+
+        await this.closeRoleDatabases('rag');
+        await this.closeRoleDatabases('main');
 
         // CRITICAL FIX: Ensure we know our current storage strategy
         // If we haven't determined it yet, do it now
@@ -3687,14 +3805,16 @@ class PaiperworkDB {
     // Retrieves statistics about the user's database (size, document count, etc.).
     static async getDatabaseStatistics(hashedMasterKey) {
         try {
-            const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-            if (!db) {
+            const db = await PaiperworkDB.getDatabase(hashedMasterKey, 'main');
+            const ragDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'rag');
+            if (!db || !ragDb) {
                 throw new Error(Lang.get("databaseNotAvailable") || "Database not available");
             }
 
-            // Get total database size
+            // Get total database size (main + rag)
             const exportedDb = db.export();
-            const totalSizeInBytes = exportedDb.length;
+            const exportedRagDb = ragDb.export();
+            const totalSizeInBytes = exportedDb.length + exportedRagDb.length;
 
             // Get document count (guard if table doesn't exist yet)
             let documentCount = 0;
@@ -3715,10 +3835,10 @@ class PaiperworkDB {
             // Get chunk count (guard if table doesn't exist yet)
             let chunkCount = 0;
             try {
-                const chunkTableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='document_chunks_${hashedMasterKey}'`);
+                const chunkTableCheck = ragDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='document_chunks_${hashedMasterKey}'`);
                 const chunkTableExists = chunkTableCheck && chunkTableCheck.length > 0 && chunkTableCheck[0]?.values.length > 0;
                 if (chunkTableExists) {
-                    const chunkResult = db.exec(`SELECT COUNT(*) FROM document_chunks_${hashedMasterKey}`);
+                    const chunkResult = ragDb.exec(`SELECT COUNT(*) FROM document_chunks_${hashedMasterKey}`);
                     chunkCount = chunkResult[0]?.values[0][0] || 0;
                 } else {
                     chunkCount = 0;
@@ -3731,16 +3851,24 @@ class PaiperworkDB {
             // Check for orphaned chunks (chunks with no parent document) - guard if either table is missing
             let orphanedCount = 0;
             try {
-                const bothExist = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='document_chunks_${hashedMasterKey}'`);
-                const bothExist2 = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='documents_${hashedMasterKey}'`);
-                const haveBoth = bothExist && bothExist.length > 0 && bothExist[0]?.values.length > 0 && bothExist2 && bothExist2.length > 0 && bothExist2[0]?.values.length > 0;
+                const chunkTable = ragDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='document_chunks_${hashedMasterKey}'`);
+                const docsTable = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='documents_${hashedMasterKey}'`);
+                const haveBoth = chunkTable && chunkTable.length > 0 && chunkTable[0]?.values.length > 0 && docsTable && docsTable.length > 0 && docsTable[0]?.values.length > 0;
                 if (haveBoth) {
-                    const orphanedResult = db.exec(`
-        SELECT COUNT(*) FROM document_chunks_${hashedMasterKey} dc
-        LEFT JOIN documents_${hashedMasterKey} d ON dc.document_id = d.document_id
-        WHERE d.document_id IS NULL
-      `);
-                    orphanedCount = orphanedResult[0]?.values[0][0] || 0;
+                    const docIdsResult = db.exec(`SELECT document_id FROM documents_${hashedMasterKey}`);
+                    const docIds = (docIdsResult?.[0]?.values || []).map(row => row[0]).filter(Boolean);
+
+                    if (!docIds.length) {
+                        const orphanedResult = ragDb.exec(`SELECT COUNT(*) FROM document_chunks_${hashedMasterKey}`);
+                        orphanedCount = orphanedResult?.[0]?.values?.[0]?.[0] || 0;
+                    } else {
+                        const placeholders = docIds.map(() => '?').join(',');
+                        const orphanedResult = ragDb.exec(
+                            `SELECT COUNT(*) FROM document_chunks_${hashedMasterKey} WHERE document_id NOT IN (${placeholders})`,
+                            docIds
+                        );
+                        orphanedCount = orphanedResult?.[0]?.values?.[0]?.[0] || 0;
+                    }
                 } else {
                     orphanedCount = 0;
                 }
@@ -3781,37 +3909,50 @@ class PaiperworkDB {
 
     static async cleanupOrphanedChunks(hashedMasterKey) {
         try {
-            const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-            if (!db) {
+            const db = await PaiperworkDB.getDatabase(hashedMasterKey, 'main');
+            const ragDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'rag');
+            if (!db || !ragDb) {
                 throw new Error(Lang.get("databaseNotAvailable") || "Database not available");
             }
 
             // Get size before cleanup
-            const beforeExport = db.export();
+            const beforeExport = ragDb.export();
             const beforeSize = beforeExport.length;
 
             // Count orphaned chunks before cleanup
-            const beforeResult = db.exec(`
-             SELECT COUNT(*) FROM document_chunks_${hashedMasterKey} dc
-             LEFT JOIN documents_${hashedMasterKey} d ON dc.document_id = d.document_id
-             WHERE d.document_id IS NULL
-           `);
-            const beforeCount = beforeResult[0]?.values[0][0] || 0;
+            const docIdsResult = db.exec(`SELECT document_id FROM documents_${hashedMasterKey}`);
+            const docIds = (docIdsResult?.[0]?.values || []).map(row => row[0]).filter(Boolean);
+
+            let beforeCount = 0;
+            if (!docIds.length) {
+                const beforeResult = ragDb.exec(`SELECT COUNT(*) FROM document_chunks_${hashedMasterKey}`);
+                beforeCount = beforeResult?.[0]?.values?.[0]?.[0] || 0;
+            } else {
+                const placeholders = docIds.map(() => '?').join(',');
+                const beforeResult = ragDb.exec(
+                    `SELECT COUNT(*) FROM document_chunks_${hashedMasterKey} WHERE document_id NOT IN (${placeholders})`,
+                    docIds
+                );
+                beforeCount = beforeResult?.[0]?.values?.[0]?.[0] || 0;
+            }
 
             // Delete orphaned chunks
             if (beforeCount > 0) {
-                db.exec(`
-             DELETE FROM document_chunks_${hashedMasterKey}
-             WHERE document_id NOT IN (
-               SELECT document_id FROM documents_${hashedMasterKey}
-             )
-           `);
+                if (!docIds.length) {
+                    ragDb.exec(`DELETE FROM document_chunks_${hashedMasterKey}`);
+                } else {
+                    const placeholders = docIds.map(() => '?').join(',');
+                    ragDb.exec(
+                        `DELETE FROM document_chunks_${hashedMasterKey} WHERE document_id NOT IN (${placeholders})`,
+                        docIds
+                    );
+                }
 
                 // Save changes to database
-                await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
+                await PaiperworkDB.saveToStorage(ragDb.export(), hashedMasterKey, 'rag');
 
                 // Get new size after cleanup
-                const afterExport = db.export();
+                const afterExport = ragDb.export();
                 const afterSize = afterExport.length;
 
                 return {
