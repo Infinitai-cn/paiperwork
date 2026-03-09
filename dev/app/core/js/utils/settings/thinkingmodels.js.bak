@@ -13,9 +13,10 @@ window.THINKING_MODELS = [
     'qwen3:14b',
     'qwen3:32b',
     'qwen3:70b',
+    'qwen3.5:9b-q8_0',
+    'qwen3.5:27b-q8_0',
     'qwen3.5:35b-a3b',
     'qwen3.5:35b',
-    'qwen3.5:9b-q8_0',
     'magistral:24b',
     'gpt-oss',
     'qwen3:30b-a3b-thinking-2507',
@@ -35,32 +36,45 @@ window.getBaseModelName = function(fullModelName) {
     return baseModel.toLowerCase();
 };
 
+// Normalize model names used in thinking matching.
+// Keeps family/variant identity while removing representation-only suffixes.
+window.normalizeThinkingModelName = function(modelName) {
+    if (!modelName) return '';
+
+    let normalized = window.getBaseModelName(modelName).trim().toLowerCase();
+
+    // Treat :latest as equivalent to the base tag for matching.
+    normalized = normalized.replace(/:latest$/i, '');
+
+    return normalized;
+};
+
 // Improved function to check if a model supports thinking
 window.isThinkingModel = function(modelName) {
     if (!modelName) return false;
     
-    // Extract base model name without quantization
-    const baseModelName = window.getBaseModelName(modelName);
+    // Normalize selected model so quantized aliases resolve to the same token.
+    const normalizedSelectedModel = window.normalizeThinkingModelName(modelName);
     
     //console.log('ThinkingModels: Checking model:', modelName, 'Base name:', baseModelName);
     
     // Check if the base model name matches any thinking model
     const isSupported = window.THINKING_MODELS.some(thinkingModel => {
-        const normalizedThinkingModel = thinkingModel.toLowerCase();
+        const normalizedThinkingModel = window.normalizeThinkingModelName(thinkingModel);
 
         // Exact match is always allowed
-        if (baseModelName === normalizedThinkingModel) return true;
+        if (normalizedSelectedModel === normalizedThinkingModel) return true;
 
         // If the thinking model entry includes an explicit variant (e.g. 'qwen3:3b'), require exact match
         if (normalizedThinkingModel.includes(':')) {
-            return baseModelName === normalizedThinkingModel;
+            return normalizedSelectedModel === normalizedThinkingModel;
         }
 
         // Otherwise the entry is a base model (e.g. 'qwen3').
         // Only accept baseModel:VARIANT where VARIANT is a pure size token like '3b' or '1.5b'
         // This prevents matching extended qualifiers like '4b-instruct-2507'.
-        if (baseModelName.startsWith(normalizedThinkingModel + ':')) {
-            const afterColon = baseModelName.slice(normalizedThinkingModel.length + 1);
+        if (normalizedSelectedModel.startsWith(normalizedThinkingModel + ':')) {
+            const afterColon = normalizedSelectedModel.slice(normalizedThinkingModel.length + 1);
             // Accept variants such as '3b', '1.5b', '24b' etc. (integers or decimals followed by 'b')
             const pureSizeRegex = /^\d+(?:\.\d+)?b$/i;
             return pureSizeRegex.test(afterColon);

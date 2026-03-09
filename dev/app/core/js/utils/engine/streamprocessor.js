@@ -274,6 +274,20 @@ class CodeStyler {
             font-style: italic;
             padding: 0 3px;
             color: var(--accent-color, #0066cc);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .latex-expression.latex-display {
+            display: block;
+            margin: 8px 0;
+            text-align: center;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .latex-expression {
+                color: #d1d5db;
+            }
         }
         
         .thinking-content::-webkit-scrollbar {
@@ -2115,6 +2129,11 @@ class StreamProcessor {
         const container = this.responseContainer;
         if (!container) return;
 
+        const isInsideLatex = (node) => {
+            const parent = node && node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+            return !!(parent && parent.closest && parent.closest('.latex-expression'));
+        };
+
         // Add this debug to track document+websearch mode specifically
         const isDocumentWebSearch = document.querySelector('.document-questioning-indicator') !== null &&
             document.getElementById('web-search').classList.contains('active');
@@ -2123,6 +2142,8 @@ class StreamProcessor {
 
         // FIRST PASS: Handle markdown links [text](url) - IMPROVED
         const processMarkdownLinks = (node) => {
+            if (isInsideLatex(node)) return false;
+
             if (node.nodeType === Node.TEXT_NODE) {
                 if (node.textContent.includes('[') && node.textContent.includes('](')) {
                     const content = node.textContent;
@@ -2175,7 +2196,8 @@ class StreamProcessor {
                 // Skip elements that shouldn't contain markdown
                 if (node.tagName === 'CODE' || node.tagName === 'PRE' ||
                     node.tagName === 'A' || node.tagName === 'SCRIPT' ||
-                    node.tagName === 'STYLE') {
+                    node.tagName === 'STYLE' ||
+                    (node.classList && node.classList.contains('latex-expression'))) {
                     return false;
                 }
 
@@ -2196,6 +2218,8 @@ class StreamProcessor {
 
         // SECOND PASS: Handle numbered references [1], [2], etc. AND [REF]1[/REF] format - IMPROVED
         const processNumberedLinks = (node) => {
+            if (isInsideLatex(node)) return false;
+
             if (node.nodeType === Node.TEXT_NODE) {
                 const content = node.textContent;
 
@@ -2278,7 +2302,8 @@ class StreamProcessor {
                 // Skip elements that shouldn't contain markdown
                 if (node.tagName === 'CODE' || node.tagName === 'PRE' ||
                     node.tagName === 'A' || node.tagName === 'SCRIPT' ||
-                    node.tagName === 'STYLE') {
+                    node.tagName === 'STYLE' ||
+                    (node.classList && node.classList.contains('latex-expression'))) {
                     return false;
                 }
 
@@ -2298,6 +2323,8 @@ class StreamProcessor {
         };
         // THIRD PASS: Handle plain URLs like https://example.com - IMPROVED
         const processPlainUrls = (node) => {
+            if (isInsideLatex(node)) return false;
+
             if (node.nodeType === Node.TEXT_NODE) {
                 // IMPROVED: More restrictive URL regex that requires valid domain structure
                 const urlRegex = /(?<!(href="|src="|>|\]\())(\(?)(https?:\/\/[a-zA-Z0-9][a-zA-Z0-9.-]+[a-zA-Z0-9][^\s<>"'\)]*?)(\)?)/g;
@@ -2379,7 +2406,8 @@ class StreamProcessor {
                 // Skip elements that shouldn't contain plain URLs
                 if (node.tagName === 'CODE' || node.tagName === 'PRE' ||
                     node.tagName === 'A' || node.tagName === 'SCRIPT' ||
-                    node.tagName === 'STYLE') {
+                    node.tagName === 'STYLE' ||
+                    (node.classList && node.classList.contains('latex-expression'))) {
                     return false;
                 }
 
@@ -2400,6 +2428,8 @@ class StreamProcessor {
 
         // FOURTH PASS: Handle reference links like [fandom.com] - IMPROVED
         const processReferenceLinks = (node) => {
+            if (isInsideLatex(node)) return false;
+
             if (node.nodeType === Node.TEXT_NODE) {
                 // Pattern to detect reference links like [fandom.com] or [Hulu]
                 const content = node.textContent;
@@ -2468,7 +2498,8 @@ class StreamProcessor {
                 // Skip elements that shouldn't contain markdown
                 if (node.tagName === 'CODE' || node.tagName === 'PRE' ||
                     node.tagName === 'A' || node.tagName === 'SCRIPT' ||
-                    node.tagName === 'STYLE') {
+                    node.tagName === 'STYLE' ||
+                    (node.classList && node.classList.contains('latex-expression'))) {
                     return false;
                 }
 
@@ -2942,67 +2973,66 @@ class StreamProcessor {
     cleanLatexExpressions() {
         if (!this.responseContainer) return;
 
-        // Get all paragraphs that aren't inside code blocks
-        const paragraphs = this.responseContainer.querySelectorAll('p:not(.code-block p)');
+        // Preserve literal LaTeX text and only wrap math segments so later post-processors can skip them.
+        const mathPattern = /\\\[(.*?)\\\]|\\\((.*?)\\\)|\$\$([\s\S]*?)\$\$|(?<!\$)\$([^\n$]+?)\$(?!\$)/g;
+        const textNodes = [];
+        const walker = document.createTreeWalker(this.responseContainer, NodeFilter.SHOW_TEXT, {
+            acceptNode: (node) => {
+                if (!node || !node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+                const parent = node.parentElement;
+                if (!parent) return NodeFilter.FILTER_REJECT;
+                if (parent.closest('code, pre, script, style, a, .latex-expression')) return NodeFilter.FILTER_REJECT;
 
-        paragraphs.forEach(paragraph => {
-            // Skip if this paragraph is inside a code block
-            if (paragraph.closest('.code-block')) return;
+                mathPattern.lastIndex = 0;
+                return mathPattern.test(node.nodeValue)
+                    ? NodeFilter.FILTER_ACCEPT
+                    : NodeFilter.FILTER_REJECT;
+            }
+        });
 
-            let html = paragraph.innerHTML;
+        let current;
+        while ((current = walker.nextNode())) {
+            textNodes.push(current);
+        }
 
-            // 1. Format LaTeX expressions like \[ ... \]
-            html = html.replace(/\\(\[|\()(.*?)\\(\]|\))/gs, (match, open, content, close) => {
-                // Remove backslashes from common LaTeX commands in the content
-                const cleanedContent = content.replace(/\\([a-zA-Z]+)/g, '$1');
-                return `<span class="latex-expression">${open === '[' ? '[' : '('}${cleanedContent}${close === ']' ? ']' : ')'}</span>`;
-            });
+        textNodes.forEach((node) => {
+            const text = node.nodeValue;
+            if (!text) return;
 
-            // 2. Replace common LaTeX symbols with Unicode characters
-            const mathSymbolMap = {
-                '\\alpha': 'α',
-                '\\beta': 'β',
-                '\\gamma': 'γ',
-                '\\delta': 'δ',
-                '\\epsilon': 'ε',
-                '\\theta': 'θ',
-                '\\lambda': 'λ',
-                '\\mu': 'μ',
-                '\\pi': 'π',
-                '\\sigma': 'σ',
-                '\\tau': 'τ',
-                '\\omega': 'ω',
-                '\\Omega': 'Ω',
-                '\\infty': '∞',
-                '\\hbar': 'ℏ',
-                '\\nabla': '∇',
-                '\\partial': '∂',
-                '\\sum': '∑',
-                '\\int': '∫',
-                '\\times': '×',
-                '\\cdot': '⋅',
-                '\\div': '÷',
-                '\\approx': '≈',
-                '\\neq': '≠',
-                '\\leq': '≤',
-                '\\geq': '≥',
-                '\\subset': '⊂',
-                '\\supset': '⊃',
-                '\\cup': '∪',
-                '\\cap': '∩'
-            };
+            mathPattern.lastIndex = 0;
+            let match;
+            let lastIndex = 0;
+            const fragment = document.createDocumentFragment();
+            let changed = false;
 
-            // Replace common LaTeX symbols with Unicode equivalents
-            Object.keys(mathSymbolMap).forEach(symbol => {
-                const regex = new RegExp(symbol.replace(/\\/g, '\\\\'), 'g');
-                html = html.replace(regex, mathSymbolMap[symbol]);
-            });
+            while ((match = mathPattern.exec(text)) !== null) {
+                const fullMatch = match[0];
+                const start = match.index;
+                const end = start + fullMatch.length;
 
-            // 3. Clean up remaining backslashes 
-            // But be careful not to replace escaped backslashes in HTML entities
-            html = html.replace(/\\(?![a-z]+;)/gi, '');
+                if (start > lastIndex) {
+                    fragment.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+                }
 
-            paragraph.innerHTML = html;
+                const span = document.createElement('span');
+                span.className = 'latex-expression';
+                if (fullMatch.startsWith('\\[') || fullMatch.startsWith('$$')) {
+                    span.classList.add('latex-display');
+                }
+                span.textContent = fullMatch;
+                fragment.appendChild(span);
+
+                lastIndex = end;
+                changed = true;
+            }
+
+            if (!changed) return;
+
+            if (lastIndex < text.length) {
+                fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+            }
+
+            node.parentNode.replaceChild(fragment, node);
         });
 
         // Update raw HTML
