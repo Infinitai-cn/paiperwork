@@ -14,4 +14,8 @@ window.VISUAL_MODELS = [
     'mistral-small3.2',
     'llama4',
     'qwen2.5vl',
+    'qwen3.5:9b-q8_0',
+    'qwen3.5:27b-q8_0',
+    'qwen3.5:35b-a3b',
+    'qwen3.5:35b',
 ];

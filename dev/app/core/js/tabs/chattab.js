@@ -200,10 +200,15 @@ class ChatTab {
             }
 
             const data = await response.json();
-            return data.version || null;
+            const version = data.version || null;
+            if (version) {
+                this._lastKnownOllamaVersion = version;
+            }
+            return version;
         } catch (error) {
             console.warn('🔍 ChatTab: Error fetching Ollama version:', error.message);
-            return null;
+            // Use the last known good version to avoid flickering/removal on transient failures.
+            return this._lastKnownOllamaVersion || null;
         }
     }
 
@@ -2716,9 +2721,29 @@ class ChatTab {
     updateThinkingToggleUI(modelName) {
         //console.log('🧠 ChatTab: updateThinkingToggleUI called with model:', modelName);
 
+        // Track the latest request so delayed async responses do not overwrite newer UI state.
+        this._thinkingUiRequestId = (this._thinkingUiRequestId || 0) + 1;
+        const requestId = this._thinkingUiRequestId;
+
         // First check Ollama version before proceeding
         this.getOllamaVersion().then(ollamaVersion => {
+            if (requestId !== this._thinkingUiRequestId) {
+                return;
+            }
+
+            // If selection changed while awaiting version, ignore this stale update.
+            const liveModelSelector = document.getElementById('model-selector');
+            const liveModel = liveModelSelector ? liveModelSelector.value : '';
+            if (liveModel && modelName && liveModel !== modelName) {
+                return;
+            }
+
             //console.log('🔍 ChatTab: Ollama version for thinking toggle:', ollamaVersion);
+
+            // When version fetch is temporarily unavailable, keep current UI unchanged.
+            if (!ollamaVersion) {
+                return;
+            }
 
             if (!this.isVersionSupported(ollamaVersion, '0.9.0')) {
                 //console.log('🚫 ChatTab: Ollama version too old for thinking feature. Requires 0.9.0+, found:', ollamaVersion);
@@ -2757,9 +2782,10 @@ class ChatTab {
             // Normalize to the token before any ':' so variants like 'gpt-oss:20b' are recognized as gpt-oss
             const baseOnly = (baseModelForCheck || '').split(':')[0];
             const isGptOss = baseOnly === 'gpt-oss';
+            const shouldShowThinkingUI = !!supportsThinking || isGptOss;
             //console.log('🧠 ChatTab: updateThinkingToggleUI model=', modelName, 'baseModelForCheck=', baseModelForCheck, 'baseOnly=', baseOnly, 'supportsThinking=', supportsThinking, 'isGptOss=', isGptOss);
 
-            if (supportsThinking && !existingThinkingButton) {
+            if (shouldShowThinkingUI && !existingThinkingButton) {
                 //console.log('🧠 ChatTab: Creating thinking toggle button');
 
                 // Create thinking toggle button
@@ -3013,10 +3039,12 @@ class ChatTab {
 
                 //console.log('🧠 ChatTab: Thinking toggle button added to DOM after model selector');
 
-            } else if (!supportsThinking && existingThinkingButton) {
+            } else if (!shouldShowThinkingUI && existingThinkingButton) {
                 //console.log('🧠 ChatTab: Removing thinking toggle button (model not supported)');
                 existingThinkingButton.remove();
-            } else if (supportsThinking && existingThinkingButton) {
+                const reasoningSelector = document.getElementById('gptoss-reasoning-selector');
+                if (reasoningSelector) reasoningSelector.style.display = 'none';
+            } else if (shouldShowThinkingUI && existingThinkingButton) {
                 //console.log('🧠 ChatTab: Thinking toggle button already exists for supported model - updating state if needed');
 
                 // If the selected model is gpt-oss, enforce active + disabled state

@@ -70,6 +70,12 @@ const MODEL_PARAMETERS = {
         temperature: 1,
         top_p: 0.95,
     },
+    'qwen3.5:27b-q8_0': {
+    'presence_penalty': 1.5,
+    'temperature': 1,
+    'top_k': 20,
+    'top_p': 0.95
+   },
 };
 
 // Export for use in OllamaAPI
