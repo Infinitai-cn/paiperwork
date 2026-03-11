@@ -459,6 +459,36 @@ class ChatTab {
         return String(rounded);
     }
 
+    updateContextCardsVisibility(modelName = null) {
+        const contextSelector = document.getElementById('context-selector');
+        const contextSizePanel = contextSelector ? contextSelector.closest('.panel') : null;
+        const contextRemainingPanel = document.getElementById('context-remaining-panel');
+
+        let provider = 'local';
+        try {
+            const modelSelector = document.getElementById('model-selector');
+            const selectedOption = modelSelector && modelSelector.selectedIndex >= 0
+                ? modelSelector.options[modelSelector.selectedIndex]
+                : null;
+            const targetModel = modelName || modelSelector?.value || '';
+
+            provider = (selectedOption && selectedOption.dataset && selectedOption.dataset.provider)
+                ? selectedOption.dataset.provider
+                : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+                    ? (window.OllamaAPI.getModelSource(targetModel) || window.OllamaAPI.getSelectedModelSource?.() || 'local')
+                    : 'local');
+        } catch (_error) {
+            provider = 'local';
+        }
+
+        const showContextCards = provider !== 'cloud';
+        [contextSizePanel, contextRemainingPanel].forEach(panel => {
+            if (!panel) return;
+            panel.style.display = showContextCards ? '' : 'none';
+            panel.setAttribute('aria-hidden', showContextCards ? 'false' : 'true');
+        });
+    }
+
 
     // Sets up all UI elements, event handlers, and model/context selectors for the chat tab.
     setupUIElements() {
@@ -690,6 +720,8 @@ class ChatTab {
                     contextSelector.value = savedSize;
                 }
 
+                this.updateContextCardsVisibility(modelSelector.value || '');
+
                 // After visual models are loaded and initial UI is set, fetch the model metadata
                 try {
                     const initialModel = modelSelector.value;
@@ -726,6 +758,8 @@ class ChatTab {
                     hasLiveMasterKey: !!liveMasterKey,
                     trustedEvent: !!(event && event.isTrusted)
                 });
+
+                this.updateContextCardsVisibility(selectedModel);
 
                 // Persist immediately in plaintext to survive hard-refresh before async DB writes complete.
                 try {
@@ -3949,6 +3983,7 @@ class ChatTab {
                                     modelSelector.value = settings.model;
                                 }
                                //console.log('ChatTab: Successfully set model to:', settings.model);
+                                this.updateContextCardsVisibility(modelSelector.value || settings.model);
 
                                 // IMPORTANT: Check if this is a visual model after loading
                                 await OllamaAPI.loadVisualModels(); // Ensure visual models are loaded
@@ -3986,6 +4021,7 @@ class ChatTab {
                             // Load available models
                            //console.log('ChatTab: Loading available Ollama models without preselection');
                             await OllamaAPI.loadOllamaModels();
+                            this.updateContextCardsVisibility(modelSelector.value || '');
                             
                         }
                     } catch (error) {
