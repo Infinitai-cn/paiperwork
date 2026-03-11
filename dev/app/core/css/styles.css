@@ -329,10 +329,10 @@ body {
 }
 
 #clear-currentsession,
-#delete-all-conversations {
+#delete-all-conversations,
+#manage-cloud-api-key {
     height: 42px; /* Increased from 38px for better prominence */
     width: calc(100% - 32px); /* Adjusted for consistent padding */
-    margin: 12px 16px 20px 16px; /* Better spacing */
     border-radius: 4px;
     border: none;
     cursor: pointer;
@@ -344,6 +344,20 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+#clear-currentsession {
+    margin: 12px 16px 6px 16px;
+}
+
+#manage-cloud-api-key,
+#delete-all-conversations {
+    margin: 0 16px 20px 16px;
+}
+
+#manage-cloud-api-key {
+    background-color: var(--button-bg);
+    color: var(--text-color);
 }
 
 .tab-pane#chat-tab #model-selector,
@@ -363,6 +377,7 @@ body {
     font-size: 14px !important;
     box-sizing: border-box !important;
     line-height: 1.2 !important;
+    color-scheme: normal !important;
     appearance: none !important;
     -webkit-appearance: none !important;
     -moz-appearance: none !important;
@@ -372,6 +387,24 @@ body {
     flex-shrink: 0 !important;
     flex-grow: 0 !important;
 }
+
+#model-selector optgroup {
+    color: var(--model-group-color, var(--text-color)) !important;
+    background-color: var(--model-group-bg, var(--bg-color)) !important;
+    font-weight: 700;
+}
+
+#model-selector option {
+    color: var(--text-color) !important;
+    background-color: var(--bg-color) !important;
+}
+
+#model-selector option.model-group-header {
+    color: var(--model-group-color, var(--text-color)) !important;
+    background-color: var(--model-group-bg, var(--bg-color)) !important;
+    font-weight: 700;
+}
+
 #system-prompt {
     height: 150px !important;
     /* Reduce height from 273px to 100px */

@@ -8,14 +8,14 @@ class DataViz {
     async initialize() {
         if (this.initialized) return;
 
-        //console.log('DataViz: Initializing visualization engine');
+       //console.log('DataViz: Initializing visualization engine');
         // Any one-time setup goes here
 
         this.initialized = true;
     }
     // Creates a visualization based on the given type and user prompt, handling AI response and rendering
     async createVisualization(vizType, userPrompt) {
-        //console.log(`DataViz: Creating ${vizType} visualization from prompt: "${userPrompt}"`);
+       //console.log(`DataViz: Creating ${vizType} visualization from prompt: "${userPrompt}"`);
 
         // Get the appropriate system prompt based on vizType
         const systemPrompt = this.getSystemPrompt(vizType);
@@ -41,7 +41,7 @@ class DataViz {
                 if (cancelButton) {
                     cancelButton.addEventListener('click', () => {
                         if (window.globalAbortController) {
-                            //console.log('DataViz: Chart generation cancelled by user');
+                           //console.log('DataViz: Chart generation cancelled by user');
                             window.globalAbortController.abort();
 
                             // Close the loading window
@@ -76,27 +76,61 @@ class DataViz {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let jsonData = '';
+            let pendingLine = '';
+
+            const appendChunk = value => {
+                if (typeof value === 'string' && value) {
+                    jsonData += value;
+                }
+            };
+
+            const processStreamLine = rawLine => {
+                const trimmed = String(rawLine || '').trim();
+                if (!trimmed) {
+                    return;
+                }
+
+                let payload = trimmed;
+                if (payload.startsWith('data:')) {
+                    payload = payload.slice(5).trim();
+                }
+
+                if (!payload || payload === '[DONE]') {
+                    return;
+                }
+
+                try {
+                    const data = JSON.parse(payload);
+                    if (typeof data.response === 'string') {
+                        appendChunk(data.response);
+                        return;
+                    }
+
+                    const cloudMessageContent = data?.message?.content;
+                    if (typeof cloudMessageContent === 'string') {
+                        appendChunk(cloudMessageContent);
+                    }
+                } catch (error) {
+                    console.error('Error parsing response chunk:', error);
+                }
+            };
 
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
-
-                for (const line of lines) {
-                    if (line.trim()) {
-                        try {
-                            const data = JSON.parse(line);
-                            jsonData += data.response;
-                        } catch (error) {
-                            console.error('Error parsing response chunk:', error);
-                        }
-                    }
-                }
+                pendingLine += decoder.decode(value, { stream: true });
+                const lines = pendingLine.split(/\r?\n/);
+                pendingLine = lines.pop() || '';
+                lines.forEach(processStreamLine);
             }
 
-            //console.log('Raw response from AI:', jsonData);
+            pendingLine += decoder.decode();
+            if (pendingLine.trim()) {
+                processStreamLine(pendingLine);
+            }
+
+           //console.log('Raw response from AI:', jsonData);
             // Strip thinking containers from raw AI response
             jsonData = jsonData.replace(/<think>[\s\S]*?<\/think>/gi, '')
                 .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
@@ -107,7 +141,7 @@ class DataViz {
             // Handle special case for line charts with multiple datasets
             if (vizType === 'line' && jsonData.includes('"title":') && jsonData.includes('}\n\n{')) {
                 // Multiple JSON objects detected
-                //console.log('Multiple datasets detected in line chart response');
+               //console.log('Multiple datasets detected in line chart response');
 
                 // Remove code block markers
                 let cleanedJson = jsonData.replace(/```json|```/g, '').trim();
@@ -116,7 +150,7 @@ class DataViz {
                 const jsonObjects = cleanedJson.split(/}\s*\n+\s*{/);
 
                 if (jsonObjects.length > 1) {
-                    //console.log('Successfully split multiple JSON objects:', jsonObjects.length);
+                   //console.log('Successfully split multiple JSON objects:', jsonObjects.length);
 
                     // Process the first object (add closing brace if needed)
                     let firstObject = jsonObjects[0];
@@ -144,14 +178,14 @@ class DataViz {
                                         chartData.series = [];
                                     }
                                     chartData.series = chartData.series.concat(additionalData.series);
-                                    //console.log(`Added ${additionalData.series.length} series from object ${i + 1}`);
+                                   //console.log(`Added ${additionalData.series.length} series from object ${i + 1}`);
                                 }
                             } catch (err) {
                                 console.error(`Error parsing additional JSON object ${i + 1}:`, err);
                             }
                         }
 
-                        //console.log('Merged chart data:', chartData);
+                       //console.log('Merged chart data:', chartData);
                         this.renderChart(vizType, chartData);
                         return;
                     } catch (err) {
@@ -175,7 +209,7 @@ class DataViz {
                     }
 
                     const extractedJson = jsonMatch[0].trim();
-                    //console.log('Extracted JSON:', extractedJson);
+                   //console.log('Extracted JSON:', extractedJson);
 
                     // Try to parse the extracted JSON
                     chartData = JSON.parse(extractedJson);
@@ -191,7 +225,7 @@ class DataViz {
                             cleanedJson.indexOf('{'),
                             cleanedJson.lastIndexOf('}') + 1
                         );
-                        //console.log('Cleaned JSON:', cleanedJson);
+                       //console.log('Cleaned JSON:', cleanedJson);
                         chartData = JSON.parse(cleanedJson);
                     } catch (finalError) {
                         throw new Error('Failed to parse JSON response: ' + finalError.message);
@@ -199,7 +233,7 @@ class DataViz {
                 }
             }
 
-            //console.log('Parsed chart data:', chartData);
+           //console.log('Parsed chart data:', chartData);
 
             // Render the chart with the successfully parsed data
             this.renderChart(vizType, chartData);
@@ -207,7 +241,7 @@ class DataViz {
         } catch (error) {
             // Check if this is an abort error
             if (error.name === 'AbortError') {
-                //console.log('DataViz: Chart generation cancelled by user');
+               //console.log('DataViz: Chart generation cancelled by user');
                 this.showFloatingWindow(`
     <div class="dataviz-error" style="text-align: center; padding: 20px; color: #000000;">
         <h3>${Lang.get('datavizChartGenerationCancelled')}</h3>
@@ -477,7 +511,7 @@ class DataViz {
     }
     // Returns the system prompt for generating a radar chart
     getRadarChartPrompt() {
-        //console.log("getRadarChartPrompt called");
+       //console.log("getRadarChartPrompt called");
         return `You are a data visualization expert specializing in radar charts.
                 Extract data from the user request and return ONLY valid JSON in this format:
                 {
@@ -646,7 +680,7 @@ class DataViz {
 
         // Calculate total for percentages
         const total = chartData.data.reduce((sum, item) => sum + item.value, 0);
-        //console.log('DataViz: Rendering pie chart with total:', total);
+       //console.log('DataViz: Rendering pie chart with total:', total);
 
         // Build the conic gradient string
         let conicGradientStops = '';
@@ -680,7 +714,7 @@ class DataViz {
         // Trim the trailing comma and space
         conicGradientStops = conicGradientStops.slice(0, -2);
 
-        //console.log('DataViz: Generated conic gradient stops:', conicGradientStops);
+       //console.log('DataViz: Generated conic gradient stops:', conicGradientStops);
 
         // Generate HTML for the chart with improved styling
         const chartHtml = `
@@ -766,17 +800,17 @@ class DataViz {
         // Show the chart in a floating window
         this.showFloatingWindow(chartHtml);
 
-        //console.log('DataViz: Pie chart rendering complete');
+       //console.log('DataViz: Pie chart rendering complete');
     }
     // Renders a bar chart (single or multi-series) using the provided chart data
     renderBarChart(chartData) {
-        //console.log('DataViz: Bar chart data received:', JSON.stringify(chartData, null, 2));
+       //console.log('DataViz: Bar chart data received:', JSON.stringify(chartData, null, 2));
 
         // Determine if we have single-series or multi-series data
         let isSingleSeries = chartData.data && Array.isArray(chartData.data);
         let isMultiSeries = chartData.series && Array.isArray(chartData.series);
 
-        //console.log(`DataViz: Data format - Single Series: ${isSingleSeries}, Multi Series: ${isMultiSeries}`);
+       //console.log(`DataViz: Data format - Single Series: ${isSingleSeries}, Multi Series: ${isMultiSeries}`);
 
         if (!isSingleSeries && !isMultiSeries) {
             console.error('DataViz: Invalid chart data structure');
@@ -794,7 +828,7 @@ class DataViz {
 
         if (isSingleSeries) {
             // Process single series format (original format)
-            //console.log('DataViz: Processing single series data');
+           //console.log('DataViz: Processing single series data');
 
             // Find the maximum value for scaling
             const maxValue = Math.max(...chartData.data.map(item => Number(item.value) || 0));
@@ -819,11 +853,11 @@ class DataViz {
             });
         } else {
             // Process multi-series format
-            //console.log('DataViz: Processing multi-series data with', chartData.series.length, 'series');
+           //console.log('DataViz: Processing multi-series data with', chartData.series.length, 'series');
 
             // For a single series in the multi-series format, display it as a normal bar chart
             if (chartData.series.length === 1 && chartData.series[0].data) {
-                //console.log('DataViz: Single series in multi-series format - simplifying');
+               //console.log('DataViz: Single series in multi-series format - simplifying');
 
                 const series = chartData.series[0];
                 const maxValue = Math.max(...series.data.map(item => Number(item.value) || 0));
@@ -846,7 +880,7 @@ class DataViz {
                     </div>`;
                 });
             } else {
-                //console.log('DataViz: Multiple series detected - using advanced rendering');
+               //console.log('DataViz: Multiple series detected - using advanced rendering');
 
                 // Get all unique labels across all series
                 const seenLabels = new Set();
@@ -867,7 +901,7 @@ class DataViz {
 
                 // Use uniqueOrderedLabels instead of uniqueLabels in the rest of the method
                 const uniqueLabels = uniqueOrderedLabels;
-                //console.log('DataViz: Unique labels across all series:', uniqueLabels);
+               //console.log('DataViz: Unique labels across all series:', uniqueLabels);
 
                 // Calculate maximum value for scaling
                 let maxValue = 0;
@@ -877,7 +911,7 @@ class DataViz {
                         maxValue = Math.max(maxValue, seriesMax);
                     }
                 });
-                //console.log('DataViz: Max value across all series:', maxValue);
+               //console.log('DataViz: Max value across all series:', maxValue);
 
                 // Calculate bar width and spacing
                 const totalSeries = chartData.series.length;
@@ -886,7 +920,7 @@ class DataViz {
                 // Increased group spacing
                 const groupWidth = (barWidth * totalSeries) + 60;
 
-                //console.log(`DataViz: Bar dimensions - width: ${barWidth}px, group width: ${groupWidth}px`);
+               //console.log(`DataViz: Bar dimensions - width: ${barWidth}px, group width: ${groupWidth}px`);
 
                 // First, define series colors consistently
                 const seriesColors = chartData.series.map((series, idx) => {
@@ -932,14 +966,14 @@ class DataViz {
                         // Use the consistently defined colors
                         const color = seriesColors[seriesIndex];
 
-                        //console.log(`DataViz: For label "${label}", series ${seriesIndex} has item:`, item);
+                       //console.log(`DataViz: For label "${label}", series ${seriesIndex} has item:`, item);
 
                         if (item) {
                             const value = Number(item.value) || 0;
                             // Use a more reasonable max scaling - cap at 65% to avoid cutoff at top
                             const height = Math.min(65, Math.max(1, (value / maxValue) * 65));
 
-                            //console.log(`DataViz: Bar height for "${label}" in series ${seriesIndex}: ${height}%`);
+                           //console.log(`DataViz: Bar height for "${label}" in series ${seriesIndex}: ${height}%`);
 
                             // Add !important to ensure CSS rules aren't overridden
                             bars += `
@@ -1138,17 +1172,17 @@ class DataViz {
         // Show the chart in a floating window
         this.showFloatingWindow(chartHtml);
 
-        //console.log('DataViz: Bar chart rendering complete');
+       //console.log('DataViz: Bar chart rendering complete');
     }
     renderLineChart(chartData) {
-        //console.log('DataViz: Line chart data received:', JSON.stringify(chartData, null, 2));
+       //console.log('DataViz: Line chart data received:', JSON.stringify(chartData, null, 2));
 
         // Check if we received data in simple format (data array) instead of line chart format (series array)
         const hasSimpleFormat = chartData.data && Array.isArray(chartData.data) && !chartData.series;
 
         // If we got simple data format, convert it to line chart format
         if (hasSimpleFormat) {
-            //console.log('DataViz: Converting simple data array to line chart format');
+           //console.log('DataViz: Converting simple data array to line chart format');
             chartData = {
                 title: chartData.title || 'Line Chart',
                 xAxisLabel: 'Categories',
@@ -1210,7 +1244,7 @@ class DataViz {
         const adjustedMinY = Math.max(0, minY - yPadding);
         const adjustedMaxY = maxY + yPadding;
 
-        //console.log(`DataViz: Line chart value ranges - X: ${allXValues.length} values, Y: ${adjustedMinY} to ${adjustedMaxY}`);
+       //console.log(`DataViz: Line chart value ranges - X: ${allXValues.length} values, Y: ${adjustedMinY} to ${adjustedMaxY}`);
 
         // Define chart dimensions with improved padding
         const chartWidth = 600;
@@ -1644,18 +1678,18 @@ class DataViz {
             floatingWindow.style.maxWidth = '95vw';
         }
 
-        //console.log('DataViz: Line chart rendering complete');
+       //console.log('DataViz: Line chart rendering complete');
     }
     // Renders a scatter plot using the provided chart data
     renderScatterPlot(chartData) {
-        //console.log('DataViz: Scatter plot data received:', JSON.stringify(chartData, null, 2));
+       //console.log('DataViz: Scatter plot data received:', JSON.stringify(chartData, null, 2));
 
         // Check if we received data in simple format (data array) instead of series format
         const hasSimpleFormat = chartData.data && Array.isArray(chartData.data) && !chartData.series;
 
         // If we got simple data format, convert it to series format
         if (hasSimpleFormat) {
-            //console.log('DataViz: Converting simple data array to scatter plot format');
+           //console.log('DataViz: Converting simple data array to scatter plot format');
             chartData = {
                 title: chartData.title || Lang.get('datavizScatterPlot'),
                 xAxisLabel: chartData.xAxisLabel || Lang.get('datavizXValues'),
@@ -1690,7 +1724,7 @@ class DataViz {
             chartData.series[1].data?.some(point => point.x === 0);
 
         if (hasTwoCategoricalDatasets) {
-            //console.log('DataViz: Detected two categorical datasets - converting to meaningful scatter plot');
+           //console.log('DataViz: Detected two categorical datasets - converting to meaningful scatter plot');
 
             // Extract series names
             const xSeriesName = chartData.series[0].name || 'Series 1';
@@ -1747,7 +1781,7 @@ class DataViz {
                 ]
             };
 
-            //console.log('DataViz: Transformed data for better visualization:', chartData);
+           //console.log('DataViz: Transformed data for better visualization:', chartData);
         }
 
         // Find the min/max values across all series for proper scaling
@@ -1805,7 +1839,7 @@ class DataViz {
         const adjustedMinY = Math.max(0, minY - yPadding); // Ensure non-negative
         const adjustedMaxY = maxY + yPadding;
 
-        //console.log(`DataViz: Scatter plot value ranges - X: ${adjustedMinX} to ${adjustedMaxX}, Y: ${adjustedMinY} to ${adjustedMaxY}`);
+       //console.log(`DataViz: Scatter plot value ranges - X: ${adjustedMinX} to ${adjustedMaxX}, Y: ${adjustedMinY} to ${adjustedMaxY}`);
 
         // Define chart dimensions
         const chartWidth = 650;
@@ -2199,17 +2233,17 @@ class DataViz {
             floatingWindow.style.maxWidth = '95vw';
         }
 
-        //console.log('DataViz: Scatter plot rendering complete');
+       //console.log('DataViz: Scatter plot rendering complete');
     }
     renderAreaChart(chartData) {
-        //console.log('DataViz: Area chart data received:', JSON.stringify(chartData, null, 2));
+       //console.log('DataViz: Area chart data received:', JSON.stringify(chartData, null, 2));
 
         // Check if we received data in simple format (data array) instead of series format
         const hasSimpleFormat = chartData.data && Array.isArray(chartData.data) && !chartData.series;
 
         // If we got simple data format, convert it to series format
         if (hasSimpleFormat) {
-            //console.log('DataViz: Converting simple data array to area chart format');
+           //console.log('DataViz: Converting simple data array to area chart format');
             chartData = {
                 title: chartData.title || Lang.get('datavizAreaChart'),
                 xAxisLabel: 'Categories',
@@ -2241,7 +2275,7 @@ class DataViz {
         const isStacked = chartData.stacked === true;
         const isPercentage = chartData.percentage === true;
 
-        //console.log(`DataViz: Chart type - Stacked: ${isStacked}, Percentage: ${isPercentage}`);
+       //console.log(`DataViz: Chart type - Stacked: ${isStacked}, Percentage: ${isPercentage}`);
 
         // Find the min/max values across all series for scaling
         let allXValues = [];
@@ -2315,7 +2349,7 @@ class DataViz {
             adjustedMaxY = maxY + yPadding;
         }
 
-        //console.log(`DataViz: Area chart value ranges - X: ${allXValues.length} values, Y: ${adjustedMinY} to ${adjustedMaxY}`);
+       //console.log(`DataViz: Area chart value ranges - X: ${allXValues.length} values, Y: ${adjustedMinY} to ${adjustedMaxY}`);
 
         // Define chart dimensions
         const chartWidth = 650;
@@ -2801,10 +2835,10 @@ class DataViz {
             floatingWindow.style.maxWidth = '95vw';
         }
 
-        //console.log('DataViz: Area chart rendering complete');
+       //console.log('DataViz: Area chart rendering complete');
     }
     renderRadarChart(chartData) {
-        //console.log('DataViz: Radar chart data received:', JSON.stringify(chartData, null, 2));
+       //console.log('DataViz: Radar chart data received:', JSON.stringify(chartData, null, 2));
 
         // Validate the data structure
         if (!chartData.categories || !Array.isArray(chartData.categories) || chartData.categories.length < 3 ||
@@ -3139,10 +3173,10 @@ class DataViz {
         // Show the chart in a floating window
         this.showFloatingWindow(chartHtml);
 
-        //console.log('DataViz: Radar chart rendering complete');
+       //console.log('DataViz: Radar chart rendering complete');
     }
     renderHeatMap(chartData) {
-        //console.log('DataViz: Heat map data received:', JSON.stringify(chartData, null, 2));
+       //console.log('DataViz: Heat map data received:', JSON.stringify(chartData, null, 2));
 
         // Validate the data structure
         if (!chartData.xLabels || !chartData.yLabels || !chartData.data ||
@@ -3192,7 +3226,7 @@ class DataViz {
             colorScale.max = colorScale.max === null ? maxVal : colorScale.max;
         }
 
-        //console.log(`DataViz: Heat map color scale - min: ${colorScale.min}, max: ${colorScale.max}`);
+       //console.log(`DataViz: Heat map color scale - min: ${colorScale.min}, max: ${colorScale.max}`);
 
         // Calculate dimensions
         const cellSize = Math.min(
@@ -3448,7 +3482,7 @@ class DataViz {
         // Show the chart in a floating window
         this.showFloatingWindow(chartHtml);
 
-        //console.log('DataViz: Heat map rendering complete');
+       //console.log('DataViz: Heat map rendering complete');
 
         // Helper function to interpolate between two colors
         function interpolateColor(color1, color2, factor) {
@@ -3510,7 +3544,7 @@ class DataViz {
         }
     }
     renderBubbleChart(chartData) {
-        //console.log('DataViz: Bubble chart data received:', JSON.stringify(chartData, null, 2));
+       //console.log('DataViz: Bubble chart data received:', JSON.stringify(chartData, null, 2));
 
         // Validate the data structure
         if (!chartData.series || !Array.isArray(chartData.series) || chartData.series.length === 0) {
@@ -3557,7 +3591,7 @@ class DataViz {
         const adjustedMinY = Math.max(0, minY - yPadding); // Ensure non-negative
         const adjustedMaxY = maxY + yPadding;
 
-        //console.log(`DataViz: Bubble chart ranges - X: ${adjustedMinX} to ${adjustedMaxX}, Y: ${adjustedMinY} to ${adjustedMaxY}, Size: ${minSize} to ${maxSize}`);
+       //console.log(`DataViz: Bubble chart ranges - X: ${adjustedMinX} to ${adjustedMaxX}, Y: ${adjustedMinY} to ${adjustedMaxY}, Size: ${minSize} to ${maxSize}`);
 
         // Define chart dimensions
         const chartWidth = 700;
@@ -3992,7 +4026,7 @@ class DataViz {
             floatingWindow.style.maxWidth = '95vw';
         }
 
-        //console.log('DataViz: Bubble chart rendering complete');
+       //console.log('DataViz: Bubble chart rendering complete');
     }
     // Generates SVG coordinates for a pie slice between two angles (used for gradients)
     generateCoordinates(startAngle, endAngle) {
@@ -4179,7 +4213,7 @@ class DataViz {
             closeButton.onclick = () => {
                 // If we're in the loading state, also abort the generation
                 if (window.globalAbortController) {
-                    //console.log('DataViz: Chart generation cancelled via close button');
+                   //console.log('DataViz: Chart generation cancelled via close button');
                     window.globalAbortController.abort();
                     window.globalAbortController = null;
                 }
@@ -4328,7 +4362,7 @@ class DataViz {
     }
     // Exports the currently displayed chart as a PNG image, handling theme and style adjustments
     exportChartAsPng() {
-        //console.log('DataViz: Starting chart export to PNG');
+       //console.log('DataViz: Starting chart export to PNG');
 
         // Get the chart container
         const chartContent = document.getElementById('chart-content');
@@ -4380,7 +4414,7 @@ class DataViz {
                 '#1a1a1a' :  // Dark background
                 '#ffffff';   // Light background
 
-            //console.log(`DataViz: Exporting with ${isDarkMode ? 'dark' : 'light'} mode background`);
+           //console.log(`DataViz: Exporting with ${isDarkMode ? 'dark' : 'light'} mode background`);
 
             // Save original styles to restore after export
             const originalStyles = [];
@@ -4767,7 +4801,7 @@ class DataViz {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        //console.log('DataViz: Chart exported successfully');
+       //console.log('DataViz: Chart exported successfully');
     }
     // Shows a fallback error message if export fails and suggests manual screenshot
     showExportError() {
@@ -4783,7 +4817,7 @@ class DataViz {
 // Create a global instance for use throughout the app
 document.addEventListener('DOMContentLoaded', () => {
     window.dataViz = new DataViz();
-    //console.log('DataViz: Instance created and assigned to window.dataViz');
+   //console.log('DataViz: Instance created and assigned to window.dataViz');
 });
 
 // Register the class on the window object immediately

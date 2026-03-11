@@ -823,6 +823,48 @@ class Translate {
 		const reader = response.body.getReader();
 		const decoder = new TextDecoder();
 		let outputText = '';
+		let pendingLine = '';
+
+		const appendModelChunk = value => {
+			if (typeof value !== 'string' || !value) {
+				return;
+			}
+			outputText += value;
+			if (onTextChunk) {
+				onTextChunk(value);
+			}
+		};
+
+		const parseStreamLine = rawLine => {
+			const trimmedLine = String(rawLine || '').trim();
+			if (!trimmedLine) {
+				return;
+			}
+
+			let payloadText = trimmedLine;
+			if (payloadText.startsWith('data:')) {
+				payloadText = payloadText.slice(5).trim();
+			}
+
+			if (!payloadText || payloadText === '[DONE]') {
+				return;
+			}
+
+			try {
+				const parsedLine = JSON.parse(payloadText);
+				if (typeof parsedLine.response === 'string') {
+					appendModelChunk(parsedLine.response);
+					return;
+				}
+
+				const cloudMessageContent = parsedLine?.message?.content;
+				if (typeof cloudMessageContent === 'string') {
+					appendModelChunk(cloudMessageContent);
+				}
+			} catch (_error) {
+				// Ignore malformed stream lines
+			}
+		};
 
 		while (true) {
 			const { value, done } = await reader.read();
@@ -830,27 +872,15 @@ class Translate {
 				break;
 			}
 
-			const chunkText = decoder.decode(value, { stream: true });
-			const lines = chunkText.split('\n');
+			pendingLine += decoder.decode(value, { stream: true });
+			const lines = pendingLine.split(/\r?\n/);
+			pendingLine = lines.pop() || '';
+			lines.forEach(parseStreamLine);
+		}
 
-			for (const line of lines) {
-				const trimmedLine = line.trim();
-				if (!trimmedLine) {
-					continue;
-				}
-
-				try {
-					const parsedLine = JSON.parse(trimmedLine);
-					if (typeof parsedLine.response === 'string') {
-						outputText += parsedLine.response;
-						if (onTextChunk) {
-							onTextChunk(parsedLine.response);
-						}
-					}
-				} catch (_error) {
-					// Ignore malformed stream lines
-				}
-			}
+		pendingLine += decoder.decode();
+		if (pendingLine.trim()) {
+			parseStreamLine(pendingLine);
 		}
 
 		if (!outputText.trim()) {

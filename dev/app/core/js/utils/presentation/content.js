@@ -199,6 +199,13 @@ class Content {
             } else {
             logCallback && logCallback('[Content] [Parse] No JSON detected in AI reply.');
         }
+        if ((!structuredData || !Array.isArray(structuredData.slides) || structuredData.slides.length === 0) && fullText) {
+            const recovered = Content.recoverSlidesFromJsonLike(fullText);
+            if (recovered && Array.isArray(recovered.slides) && recovered.slides.length > 0) {
+                structuredData = recovered;
+                logCallback && logCallback(`[Content] [Parse] Recovered ${recovered.slides.length} slide(s) from partial JSON.`);
+            }
+        }
     if (structuredData && structuredData.slides && Array.isArray(structuredData.slides)) {
             logCallback && logCallback('[Content] [Parse] JSON reply parsing succeeded.');
             // Separate slides
@@ -275,8 +282,18 @@ class Content {
     // Returns an object: { title: '', subtitle: '', slides: [ { title:'', content:[], imageQuery:'', type:'content', notes:'' }, ... ] }
     parseMarkdownSlideForgeResponse(markdownText, colorMode = 'light') {
         const md = String(markdownText || '').replace(/\r/g, '');
-        // remove fenced code blocks
-        const cleaned = md.replace(/```[\s\S]*?```/g, '\n');
+        // Keep fenced body content instead of stripping it, otherwise JSON-in-fence gets lost.
+        let cleaned = md
+            .replace(/^\s*```(?:json)?\s*/i, '')
+            .replace(/\s*```\s*$/i, '')
+            .replace(/```(?:json)?/gi, '');
+
+        // If markdown fallback receives JSON-like content (possibly truncated), recover what we can first.
+        const recovered = Content.recoverSlidesFromJsonLike(cleaned);
+        if (recovered && Array.isArray(recovered.slides) && recovered.slides.length > 0) {
+            return recovered;
+        }
+
         const lines = cleaned.split(/\n/).map(l => l.replace(/\t/g, '    ').trimRight());
 
         let title = '';
@@ -386,6 +403,139 @@ class Content {
         }
 
         return { title: title || '', subtitle: subtitle || '', slides };
+    }
+
+    static recoverSlidesFromJsonLike(responseText) {
+        const raw = String(responseText || '').trim();
+        if (!raw) {
+            return null;
+        }
+
+        let working = raw
+            .replace(/^\s*```(?:json)?\s*/i, '')
+            .replace(/\s*```\s*$/i, '')
+            .trim();
+
+        // Try strict/legacy parser paths first.
+        try {
+            const parsed = Content.cleanAIResponse(working);
+            if (parsed && Array.isArray(parsed.slides) && parsed.slides.length > 0) {
+                return parsed;
+            }
+        } catch (_e) {
+            // Continue with tolerant extraction.
+        }
+
+        // Unescape common escaped-JSON output variants before tolerant scanning.
+        working = working
+            .replace(/\\n/g, '\n')
+            .replace(/\\t/g, '\t')
+            .replace(/\\"/g, '"');
+
+        const slidesKeyIndex = working.search(/"slides"\s*:/i);
+        const scanStart = slidesKeyIndex >= 0 ? slidesKeyIndex : 0;
+        const arrayStart = working.indexOf('[', scanStart);
+        if (arrayStart < 0) {
+            return null;
+        }
+
+        const slides = [];
+        let inString = false;
+        let escaping = false;
+        let depth = 0;
+        let objectStart = -1;
+
+        const parseCandidate = (candidate) => {
+            if (!candidate || typeof candidate !== 'string') {
+                return null;
+            }
+
+            const sanitizedCandidate = candidate.replace(/,\s*(?=[}\]])/g, '').trim();
+            if (!sanitizedCandidate.startsWith('{') || !sanitizedCandidate.endsWith('}')) {
+                return null;
+            }
+
+            try {
+                const obj = JSON.parse(sanitizedCandidate);
+                if (!obj || typeof obj !== 'object') return null;
+                if (!obj.title && !Array.isArray(obj.content) && !obj.subtitle) return null;
+                return {
+                    slideNumber: Number.isFinite(Number(obj.slideNumber)) ? Number(obj.slideNumber) : (slides.length + 1),
+                    title: String(obj.title || ''),
+                    subtitle: String(obj.subtitle || ''),
+                    content: Array.isArray(obj.content)
+                        ? obj.content.map(item => String(item || '').trim()).filter(Boolean)
+                        : [],
+                    imageQuery: String(obj.imageQuery || ''),
+                    type: String(obj.type || (slides.length === 0 ? 'cover' : 'content')),
+                    notes: String(obj.notes || '')
+                };
+            } catch (_err) {
+                return null;
+            }
+        };
+
+        for (let i = arrayStart + 1; i < working.length; i += 1) {
+            const char = working[i];
+
+            if (inString) {
+                if (escaping) {
+                    escaping = false;
+                    continue;
+                }
+                if (char === '\\') {
+                    escaping = true;
+                    continue;
+                }
+                if (char === '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (char === '"') {
+                inString = true;
+                continue;
+            }
+
+            if (char === '{') {
+                if (depth === 0) {
+                    objectStart = i;
+                }
+                depth += 1;
+                continue;
+            }
+
+            if (char === '}') {
+                if (depth > 0) {
+                    depth -= 1;
+                    if (depth === 0 && objectStart >= 0) {
+                        const candidate = working.slice(objectStart, i + 1);
+                        const parsedSlide = parseCandidate(candidate);
+                        if (parsedSlide) {
+                            slides.push(parsedSlide);
+                        }
+                        objectStart = -1;
+                    }
+                }
+                continue;
+            }
+
+            if (char === ']' && depth === 0) {
+                break;
+            }
+        }
+
+        if (slides.length === 0) {
+            return null;
+        }
+
+        const coverSlide = slides[0] || {};
+        return {
+            title: String(coverSlide.title || ''),
+            subtitle: String(coverSlide.subtitle || ''),
+            slides
+        };
     }
 
     async extractTextFromDocument(file, onProgress) {
@@ -587,20 +737,20 @@ class Content {
     async generateSlideForgeRawAIReply(file, numberOfSlides, onProgress, options = {}) {
         try {
             onProgress && onProgress('[Content] Step 1: Extracting text from document...');
-            //console.log('[Content] Step 1: Extracting text from document...');
+           //console.log('[Content] Step 1: Extracting text from document...');
             const extractedText = await this.extractTextFromDocument(file, msg => {
                 onProgress && onProgress('[Content] ' + msg);
-                //console.log('[Content] ' + msg);
+               //console.log('[Content] ' + msg);
             });
             onProgress && onProgress('[Content] Step 2: Building AI prompt...');
-            //console.log('[Content] Step 2: Building AI prompt...');
+           //console.log('[Content] Step 2: Building AI prompt...');
             const mode = (options && options.mode) ? options.mode : 'summarize';
             const prompt = (mode === 'direct-copy')
                 ? Content.buildDirectCopyStructuringPrompt(extractedText, numberOfSlides)
                 : Content.buildSlideForgeStructuringPrompt(extractedText, numberOfSlides);
-            //console.log('[Content] [Debug] Prompt built:', prompt);
+           //console.log('[Content] [Debug] Prompt built:', prompt);
             onProgress && onProgress('[Content] Step 3: Preparing AI call...');
-            //console.log('[Content] Step 3: Preparing AI call...');
+           //console.log('[Content] Step 3: Preparing AI call...');
             // Setup abort controller for AI generation. Reuse global controller if already created (e.g., by the UI modal)
             try {
                 if (!window.SlideForgeAbortController) window.SlideForgeAbortController = new AbortController();
@@ -608,24 +758,24 @@ class Content {
             const abortSignal = window.SlideForgeAbortController.signal;
             const modelSelector = document.getElementById('model-selector');
             const selectedModel = modelSelector?.value;
-            //console.log('[Content] [Debug] Selected model:', selectedModel);
+           //console.log('[Content] [Debug] Selected model:', selectedModel);
             if (!selectedModel || selectedModel === '') {
                 onProgress && onProgress('[Content] Error: No model selected.');
                 console.error('[Content] [Error] No model selected');
                 throw new Error(Lang.get('noModelSelected'));
             }
             const contextSize = document.getElementById('context-selector')?.value || 8192;
-            //console.log('[Content] [Debug] Context size:', contextSize);
+           //console.log('[Content] [Debug] Context size:', contextSize);
 
             const systemPrompt = (mode === 'direct-copy')
                 ? Content.buildDirectCopySystemPrompt(extractedText, numberOfSlides, window.colorMode || 'light')
                 : Content.buildSlideForgeSystemPrompt(extractedText, numberOfSlides, window.colorMode || 'light');
-            //console.log('[Content] [Debug] System prompt:', systemPrompt);
+           //console.log('[Content] [Debug] System prompt:', systemPrompt);
             onProgress && onProgress('[Content] Step 3: Sending prompt to AI (Ollama)...');
-            //console.log('[Content] Step 3: Sending prompt to AI (Ollama)...');
+           //console.log('[Content] Step 3: Sending prompt to AI (Ollama)...');
             // Use StyleDIY's non-streaming helper to call Ollama (avoids 'thinking' streaming mode issues)
             try {
-                //console.log('[Content] [Debug] Calling StyleDIY.sendToOllama (non-stream)');
+               //console.log('[Content] [Debug] Calling StyleDIY.sendToOllama (non-stream)');
                 // Generate requestId to correlate server responses in logs
                 const requestId = 'content-' + Date.now().toString(36) + '-' + Math.floor(Math.random() * 0x10000).toString(36);
                 // Ensure any user-specified extra request is prepended to the system prompt (but avoid double-injection)
@@ -661,7 +811,7 @@ class Content {
                 } catch (e) { }
                 const fullText = await StyleDIY.sendToOllama(prompt, effectiveSystem, selectedModel, abortSignal, requestId);
                 onProgress && onProgress('[Content] Step 4: AI content received.');
-                //console.log('[Content] [Debug] AI reply length:', fullText ? fullText.length : 0);
+               //console.log('[Content] [Debug] AI reply length:', fullText ? fullText.length : 0);
                 return fullText;
             } catch (apiError) {
                 onProgress && onProgress('[Content] Error: Ollama (StyleDIY) API call failed: ' + apiError.message);
@@ -700,7 +850,7 @@ class Content {
                 // Create language enforcement instruction
                 languageEnforcement = `Always respond in ${userLanguage}. Match the user's language and communication style. If the user writes in ${userLanguage}, respond in ${userLanguage}.\n`;
 
-                //console.log('Content DEBUG: Language enforcement added for:', userLanguage);
+               //console.log('Content DEBUG: Language enforcement added for:', userLanguage);
             } catch (error) {
                 console.error('Content: Error adding language enforcement:', error);
                 // Continue without language enforcement if there's an error
@@ -814,13 +964,13 @@ MANDATORY REQUIREMENTS (DIRECT COPY MODE):
     static cleanAIResponse(responseText) {
         try {
             // Log the raw AI reply before cleaning
-            //console.log('[Content] [Parse] Raw AI reply before cleaning:', responseText);
+           //console.log('[Content] [Parse] Raw AI reply before cleaning:', responseText);
             // Remove trailing commas from arrays and objects
             let sanitizedText = responseText.replace(/,\s*(?=[}\]])/g, '');
             // Remove backslash escape characters (for example, from logs)
             sanitizedText = sanitizedText.replace(/\\(["'])/g, '$1');
             // Log the cleaned AI reply before parsing
-            //console.log('[Content] [Parse] Cleaned AI reply for JSON.parse:', sanitizedText);
+           //console.log('[Content] [Parse] Cleaned AI reply for JSON.parse:', sanitizedText);
             return JSON.parse(sanitizedText);
         } catch (error) {
             // Create a more descriptive error for debugging but don't log here

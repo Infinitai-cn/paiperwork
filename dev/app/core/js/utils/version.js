@@ -1,5 +1,5 @@
 const AppVersion = {
-    current: "1.0.6",
+    current: "1.0.7",
     releaseDate: "2025-02-26",
 
     // Parse version string into components for comparison
@@ -47,7 +47,7 @@ const AppVersion = {
             }
 
             const data = await response.json();
-            //console.log("Update check result:", data);
+           //console.log("Update check result:", data);
 
             if (this.isNewerVersion(this.current, data.version)) {
                 this.showUpdateDialog(data);

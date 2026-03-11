@@ -2,7 +2,11 @@ window.helpContent = {
 
     gettingstarted: {
         title: "开始使用",
-        intro: "欢迎使用 Paiperwork，这是一个专注于数据隐私和易用性的 Ollama 安全网页界面。这个面向专业人士的助手提供生产力功能，同时保持您的数据本地化和受保护。",
+        intro: [
+            "欢迎使用 Paiperwork，这是一个专注于数据隐私和易用性的 Ollama 安全网页界面。这个面向专业人士的助手提供生产力功能，同时保持您的数据本地化和受保护。",
+            "您可以在自己的电脑上下载并本地运行模型；如果设备无法承载本地模型，也可以使用云模型。使用云模型需要先在 ollama.com 登录并创建一个 API 密钥。首次使用云模型时，Paiperwork 会请求该密钥，并将其加密存储在您的本地数据库中。",
+            "要创建 API 密钥，请先在 https://ollama.com 注册或登录，然后进入 Account Settings > Keys（https://ollama.com/settings/keys），新增一个 API 密钥，生成并复制。在 Paiperwork 中，进入 Chat 选项卡 > Manage Cloud API key 按钮并粘贴该密钥。"
+        ],
         articles: [
             {
                 id: "gs-welcome",
@@ -848,6 +852,10 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>重要：</strong>在文档模式下，AI专门专注于所选文档的内容，使用其知识来帮助解释，但不添加外部信息。</p>
+                </div>
+
+                <div class="note">
+                    <p><strong>云模型说明：</strong>使用免费层云模型时，由于RAG提示词较大，在"提问"模式下的回答可能会受限或被截断。若希望稳定获得完整的长回答，建议使用付费云服务层级。</p>
                 </div>
             `,
                 image: "document_mode.png",

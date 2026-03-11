@@ -2,7 +2,11 @@ window.helpContent = {
 
     gettingstarted: {
         title: "Começando",
-        intro: "Bem-vindo ao Paiperwork, uma interface web segura para Ollama que prioriza a privacidade dos dados e facilidade de uso. Este assistente focado em profissionais oferece recursos de produtividade mantendo seus dados locais e protegidos.",
+        intro: [
+            "Bem-vindo ao Paiperwork, uma interface web segura para Ollama que prioriza a privacidade dos dados e facilidade de uso. Este assistente focado em profissionais oferece recursos de produtividade mantendo seus dados locais e protegidos.",
+            "Voce pode baixar e executar modelos localmente no seu computador, ou usar modelos em nuvem se o seu hardware nao conseguir lidar com modelos locais. Modelos em nuvem exigem login no ollama.com e a criacao de uma chave de API. No primeiro uso de um modelo em nuvem, o Paiperwork solicitara essa chave e a armazenara criptografada no seu banco de dados local.",
+            "Para criar uma chave de API, cadastre-se ou faca login em https://ollama.com. Depois, abra Account Settings > Keys (https://ollama.com/settings/keys), adicione uma nova chave de API, gere e copie. No Paiperwork, va para a aba Chat > Manage Cloud API key e cole a chave la."
+        ],
         articles: [
             {
                 id: "gs-welcome",
@@ -843,6 +847,10 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Importante:</strong> No Modo Documento, a IA foca exclusivamente no conteúdo do documento selecionado, usando seu conhecimento para ajudar a interpretar, mas não adicionando informações externas.</p>
+                </div>
+
+                <div class="note">
+                    <p><strong>Nota para modelos em nuvem:</strong> Ao usar modelos em nuvem em planos gratuitos, as respostas no modo "Fazer Perguntas" podem ser limitadas ou truncadas devido ao tamanho elevado dos prompts RAG. Para obter respostas longas completas de forma consistente, é recomendado usar um plano de nuvem pago.</p>
                 </div>
             `,
                 image: "document_mode.png",

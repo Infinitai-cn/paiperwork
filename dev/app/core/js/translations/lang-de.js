@@ -152,6 +152,12 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         Ollamaerror500: "Fehler 500 in Ollama-Antwort.",
         ollamaSelectModelPrompt: "Bitte wählen Sie ein Modell aus, bevor Sie eine Nachricht senden.",
         ollamaConnectionError: "Verbindung zu Ollama fehlgeschlagen. Überprüfen Sie, ob Ollama läuft und versuchen Sie es erneut.",
+        ollamaCloudApiKeyTitle: "Ollama-Cloud-API-Schlüssel erforderlich",
+        ollamaCloudApiKeyInfo: "Um Cloud-Modelle zu verwenden, fügen Sie Ihren Ollama-API-Schlüssel hinzu. Dieser Schlüssel wird verschlüsselt in Ihrer Benutzerdatenbank gespeichert.",
+        ollamaApiKeyPlaceholder: "Fügen Sie Ihren Ollama-API-Schlüssel ein",
+        ollamaApiKeyRequired: "Ein Ollama-API-Schlüssel ist für die Nutzung von Cloud-Modellen erforderlich.",
+        ollamaApiKeyInvalid: "Ihr Ollama-API-Schlüssel scheint ungültig oder abgelaufen zu sein. Bitte aktualisieren Sie ihn.",
+        manageCloudApiKey: "Cloud-API-Schlüssel verwalten",
         ollamaConversationStart: "Dieses Gespräch setzt sich aus {count} früheren Nachrichten fort. Die neuesten Austausche werden unten angezeigt.",
 
         // Copy Functionality
@@ -1421,6 +1427,8 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         artworkGenerateDesign: "Design generieren",
         artworkGeneratedDesign: "Generiertes Design:",
         artworkSelectVisualModelOption: "Ein visuelles Modell auswählen",
+        artworkLocalVisualModelsHeader: "LOKALE VISUELLE MODELLE",
+        artworkCloudVisualModelsHeader: "CLOUD-VISUELLE MODELLE",
         artworkVisualDesignStudio: "Visuelles Design Studio",
         artworkCreateDesignsDescription: "Erstellen Sie Designs, Websites oder Kunstwerke mit visuellen KI-Modellen.",
 

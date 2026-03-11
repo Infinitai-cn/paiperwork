@@ -1,6 +1,6 @@
 class SlideForgeSidebar {
     constructor({ onStyleSelect }) {
-        //console.log('[Sidebar] constructor called');
+       //console.log('[Sidebar] constructor called');
         this.selectedStyle = 'classic';
         this.onStyleSelect = onStyleSelect;
         this.sidebar = null;
@@ -8,10 +8,10 @@ class SlideForgeSidebar {
 
     injectStyles() {
         if (document.getElementById('presentation-sidebar-styles')) {
-            //console.log('[Sidebar] Styles already injected');
+           //console.log('[Sidebar] Styles already injected');
             return;
         }
-        //console.log('[Sidebar] Injecting styles');
+       //console.log('[Sidebar] Injecting styles');
         const style = document.createElement('style');
         style.id = 'presentation-sidebar-styles';
         style.textContent = `
@@ -346,7 +346,7 @@ class SlideForgeSidebar {
     }
 
     render(parent) {
-        //console.log('[Sidebar] render called, parent:', parent);
+       //console.log('[Sidebar] render called, parent:', parent);
         this.injectStyles();
         this.sidebar = document.createElement('div');
         this.sidebar.className = 'presentation-sidebar';
@@ -374,7 +374,7 @@ class SlideForgeSidebar {
             this.tabButtons[tab.key] = btn;
         });
         this.sidebar.appendChild(tabBar);
-        //console.log('[Sidebar] Tab bar rendered');
+       //console.log('[Sidebar] Tab bar rendered');
 
         // Tab content containers
         this.tabContents = {};
@@ -385,7 +385,7 @@ class SlideForgeSidebar {
             this.tabContents[tab.key] = tabContent;
             this.sidebar.appendChild(tabContent);
         });
-        //console.log('[Sidebar] Tab content containers created');
+       //console.log('[Sidebar] Tab content containers created');
 
         // Integrate presentation-level global text controls into Text tab
         if (this.tabContents['text']) {
@@ -460,16 +460,16 @@ class SlideForgeSidebar {
             // click behaviour: start modify or cancel when running
             aiBtn.onclick = async () => {
                 try {
-                    //console.log('[Sidebar] AI Modify button clicked. applyToAll=', !!this.aiApplyToAll);
+                   //console.log('[Sidebar] AI Modify button clicked. applyToAll=', !!this.aiApplyToAll);
 
                     // If running, treat click as Cancel
                     if (aiBtn.dataset.running === '1') {
                         try {
                             if (window.SlideForgeAbortController) {
-                                //console.log('[Sidebar] Cancel requested: aborting SlideForgeAbortController');
+                               //console.log('[Sidebar] Cancel requested: aborting SlideForgeAbortController');
                                 window.SlideForgeAbortController.abort();
                             } else {
-                                //console.log('[Sidebar] Cancel requested but no SlideForgeAbortController present');
+                               //console.log('[Sidebar] Cancel requested but no SlideForgeAbortController present');
                             }
                         } catch (e) { console.warn('[Sidebar] error aborting', e); }
                         // disable briefly to avoid double-clicks
@@ -478,9 +478,9 @@ class SlideForgeSidebar {
                     }
 
                     const q = (this.aiTextInput && this.aiTextInput.value) || '';
-                    //console.log('[Sidebar] AI query:', q);
+                   //console.log('[Sidebar] AI query:', q);
                     if (!q || q.trim().length === 0) {
-                        //console.log('[Sidebar] Empty AI query; aborting');
+                       //console.log('[Sidebar] Empty AI query; aborting');
                         return;
                     }
 
@@ -495,69 +495,69 @@ class SlideForgeSidebar {
                     // progress UI element (created below) may be used to show progress
                     try {
                         if (this.aiApplyToAll) {
-                            //console.log('[Sidebar] Apply-to-all is enabled; attempting batch path');
+                           //console.log('[Sidebar] Apply-to-all is enabled; attempting batch path');
                             // Apply to all text nodes sequentially
                             const helper = this._findAnyHelper();
-                            //console.log('[Sidebar] Found helper for batch?', !!helper);
+                           //console.log('[Sidebar] Found helper for batch?', !!helper);
                             if (helper && typeof helper.processAllTextNodesWithAI === 'function') {
                                 try {
-                                    //console.log('[Sidebar] helper identity:', helper && (helper.constructor ? helper.constructor.name : typeof helper));
+                                   //console.log('[Sidebar] helper identity:', helper && (helper.constructor ? helper.constructor.name : typeof helper));
                                     try { //console.log('[Sidebar] helper.processAllTextNodesWithAI source (truncated):', (typeof helper.processAllTextNodesWithAI === 'function') ? helper.processAllTextNodesWithAI.toString().slice(0,300) : String(helper.processAllTextNodesWithAI)); 
                                     } catch(e) { console.warn('[Sidebar] failed to stringify helper method', e); }
                                 } catch (e) {}
-                                //console.log('[Sidebar] Calling helper.processAllTextNodesWithAI');
+                               //console.log('[Sidebar] Calling helper.processAllTextNodesWithAI');
                                 const t0 = Date.now();
                                 await helper.processAllTextNodesWithAI(q.trim(), {
                                     perNodeDelayMs: 150,
                                     progressCb: (idx, total) => {
                                         try {
                                             if (aiProgress) aiProgress.textContent = `${idx}/${total}`;
-                                            //console.log(`[Sidebar][Batch] progress ${idx}/${total}`);
+                                           //console.log(`[Sidebar][Batch] progress ${idx}/${total}`);
                                         } catch(e) {}
                                     }
                                 });
                                 const t1 = Date.now();
-                                //console.log('[Sidebar] helper.processAllTextNodesWithAI completed, elapsed ms=', (t1 - t0));
+                               //console.log('[Sidebar] helper.processAllTextNodesWithAI completed, elapsed ms=', (t1 - t0));
                             } else {
                                 console.warn('[Sidebar] Batch helper unavailable or missing processAllTextNodesWithAI');
                                 // fallback to single-node modify if batch unavailable
                                     if (typeof this.onAiModify === 'function') {
-                                        //console.log('[Sidebar] Falling back to onAiModify handler (single-selection)');
+                                       //console.log('[Sidebar] Falling back to onAiModify handler (single-selection)');
                                         await this.onAiModify(q.trim(), Array.isArray(this._lastSelection) ? this._lastSelection.slice() : []);
                                     } else {
                                         const helper2 = this._findAnyHelper();
-                                        //console.log('[Sidebar] Found helper for single path?', !!helper2);
+                                       //console.log('[Sidebar] Found helper for single path?', !!helper2);
                                         const selectedNodes = Array.isArray(this._lastSelection) ? this._lastSelection.slice() : [];
                                         if (helper2 && typeof helper2.modifySelectedTextWithAI === 'function') {
-                                            //console.log('[Sidebar] Calling helper2.modifySelectedTextWithAI with selected nodes');
+                                           //console.log('[Sidebar] Calling helper2.modifySelectedTextWithAI with selected nodes');
                                             await helper2.modifySelectedTextWithAI(q.trim(), { selectedNodes });
                                         } else if (helper2 && typeof helper2.onAiModify === 'function') {
-                                            //console.log('[Sidebar] Calling helper2.onAiModify');
+                                           //console.log('[Sidebar] Calling helper2.onAiModify');
                                             await helper2.onAiModify(q.trim(), {});
                                         } else {
-                                            //console.log('[Sidebar] AI modify unavailable (no helper found) - cannot apply batch');
+                                           //console.log('[Sidebar] AI modify unavailable (no helper found) - cannot apply batch');
                                         }
                                     }
                             }
                         } else {
-                            //console.log('[Sidebar] Apply-to-all is disabled; using single-selection path');
+                           //console.log('[Sidebar] Apply-to-all is disabled; using single-selection path');
                             // Single-selection modify path
                             if (typeof this.onAiModify === 'function') {
-                                //console.log('[Sidebar] Using this.onAiModify handler');
+                               //console.log('[Sidebar] Using this.onAiModify handler');
                                 await this.onAiModify(q.trim(), Array.isArray(this._lastSelection) ? this._lastSelection.slice() : []);
                             } else {
                                 const helper = this._findAnyHelper();
-                                //console.log('[Sidebar] Found helper for single path?', !!helper);
+                               //console.log('[Sidebar] Found helper for single path?', !!helper);
                                 if (helper && typeof helper.modifySelectedTextWithAI === 'function') {
-                                    //console.log('[Sidebar] Calling helper.modifySelectedTextWithAI with selected nodes');
+                                   //console.log('[Sidebar] Calling helper.modifySelectedTextWithAI with selected nodes');
                                     // Prefer helper attached to the stage of the first selected node if possible
                                     const selectedNodes = Array.isArray(this._lastSelection) ? this._lastSelection.slice() : [];
                                     await helper.modifySelectedTextWithAI(q.trim(), { selectedNodes });
                                 } else if (helper && typeof helper.onAiModify === 'function') {
-                                    //console.log('[Sidebar] Calling helper.onAiModify');
+                                   //console.log('[Sidebar] Calling helper.onAiModify');
                                     await helper.onAiModify(q.trim(), {});
                                 } else {
-                                    //console.log('[Sidebar] AI modify unavailable (no helper found)');
+                                   //console.log('[Sidebar] AI modify unavailable (no helper found)');
                                 }
                             }
                         }
@@ -566,7 +566,7 @@ class SlideForgeSidebar {
                         try {
                             if (e && (e.name === 'AbortError' || (e.message && e.message.toLowerCase().includes('abort')))) {
                                 // canceled by user
-                                //console.log('[Sidebar] AI Modify aborted by user');
+                               //console.log('[Sidebar] AI Modify aborted by user');
                             } else {
                                 console.warn('[Sidebar] onAiModify handler error', e);
                             }
@@ -580,7 +580,7 @@ class SlideForgeSidebar {
                         aiBtn.style.color = '';
                         aiBtn.style.border = '';
                         try { if (aiProgress) aiProgress.textContent = ''; } catch(e) {}
-                        //console.log('[Sidebar] AI Modify flow finished; UI reset');
+                       //console.log('[Sidebar] AI Modify flow finished; UI reset');
                     }
 
                 } catch (e) { console.warn('[Sidebar] AI Modify error', e); }
@@ -742,7 +742,7 @@ class SlideForgeSidebar {
                 card.onclick = async () => {
                     try {
                         if (window.StyleDIY && window.StyleDIY.lastGeneratedStyle) {
-                            //console.log('[Sidebar] DIY style available (in-memory), opening style manager');
+                           //console.log('[Sidebar] DIY style available (in-memory), opening style manager');
                             window.StyleDIY.openDIYStyleManager();
                             return;
                         }
@@ -752,14 +752,14 @@ class SlideForgeSidebar {
                             try {
                                 const dbStyles = await PaiperworkDB.getCustomStyles(hashedMasterKey) || [];
                                 if (Array.isArray(dbStyles) && dbStyles.length > 0) {
-                                    //console.log('[Sidebar] DIY styles found in DB, opening style manager');
+                                   //console.log('[Sidebar] DIY styles found in DB, opening style manager');
                                     window.StyleDIY.openDIYStyleManager();
                                     return;
                                 }
                             } catch (e) { console.warn('[Sidebar] Error fetching DIY styles on click', e); }
                         }
 
-                        //console.log('[Sidebar] No DIY style available, opening creation modal');
+                       //console.log('[Sidebar] No DIY style available, opening creation modal');
                         this.openDIYModal();
                     } catch (e) {
                         console.warn('[Sidebar] DIY click handler error', e);
@@ -772,9 +772,9 @@ class SlideForgeSidebar {
             
             card.textContent = (window.Lang ? Lang.get(styleObj.labelKey) : styleObj.label);
             this.tabContents['styles'].appendChild(card);
-            //console.log('[Sidebar] Style card created:', styleObj.key);
+           //console.log('[Sidebar] Style card created:', styleObj.key);
         });
-        //console.log('[Sidebar] All style cards rendered');
+       //console.log('[Sidebar] All style cards rendered');
 
         // Build Picture tab UI: simple image search controls
         if (this.tabContents['picture']) {
@@ -1176,7 +1176,7 @@ class SlideForgeSidebar {
                         if (typeof this.onImageSearch === 'function') {
                             this.onImageSearch(q);
                         } else {
-                            //console.log('[Sidebar] Search images clicked, query:', q);
+                           //console.log('[Sidebar] Search images clicked, query:', q);
                         }
                     } catch (e) {
                         console.warn('[Sidebar] onImageSearch handler error', e);
@@ -1253,11 +1253,11 @@ class SlideForgeSidebar {
 
                                 wrapper.onclick = async () => {
                                     try {
-                                        //console.log('[Sidebar] thumbnail clicked', idx);
+                                       //console.log('[Sidebar] thumbnail clicked', idx);
 
                                         // Robustly detect whether the 'change cover picture' toggle is active (local var or DOM id)
                                         const isCoverToggleChecked = (changeCoverCheckbox && changeCoverCheckbox.checked) || (typeof document !== 'undefined' && document.getElementById && (document.getElementById('pw_change_cover_toggle') && document.getElementById('pw_change_cover_toggle').checked));
-                                        //console.log('[Sidebar] thumbnail click - coverToggle?', isCoverToggleChecked, 'localElem=', !!changeCoverCheckbox);
+                                       //console.log('[Sidebar] thumbnail click - coverToggle?', isCoverToggleChecked, 'localElem=', !!changeCoverCheckbox);
                                         // If the 'change cover picture' toggle is active, route to cover replacement
                                         if (isCoverToggleChecked) {
                                             try {
@@ -1518,7 +1518,7 @@ class SlideForgeSidebar {
 
                                         try {
                                             const replaced = helper.replaceSelectedImage(b64, { preserveSize: true });
-                                            //console.log('[Sidebar] replaceSelectedImage returned', replaced);
+                                           //console.log('[Sidebar] replaceSelectedImage returned', replaced);
                                             this.picSearchStatus.textContent = replaced ? (window.Lang ? Lang.get('sidebarPicReplaceSelectedImage') : 'Replaced selected image') : (window.Lang ? Lang.get('sidebarPicNoPicturesToReplace') : 'No pictures to replace selected');
                                         } catch (e) { console.warn('[Sidebar] helper.replaceSelectedImage threw', e); this.picSearchStatus.textContent = (window.Lang ? Lang.get('sidebarReplaceFailed') : 'Replace failed'); }
  
@@ -1603,15 +1603,15 @@ class SlideForgeSidebar {
         // Note: Shape tab removed per simplification request
 
         parent.appendChild(this.sidebar);
-        //console.log('[Sidebar] Sidebar appended to parent:', parent.className || parent);
+       //console.log('[Sidebar] Sidebar appended to parent:', parent.className || parent);
     }
 
     selectTab(tabKey, opts = {}) {
-        //console.log('[Sidebar] selectTab called:', tabKey);
+       //console.log('[Sidebar] selectTab called:', tabKey);
 
         // Default behavior: preserve current stage selection unless explicitly requested to clear.
         const preserve = (opts && typeof opts.preserveSelection !== 'undefined') ? !!opts.preserveSelection : true;
-        //console.log('[Sidebar] selectTab preserveSelection=', preserve);
+       //console.log('[Sidebar] selectTab preserveSelection=', preserve);
 
         // Clear any active selections on all presentation stages only when preserve is explicitly false
         try {
@@ -1670,7 +1670,7 @@ class SlideForgeSidebar {
 
             // Debug logging to inspect what the presentation exposes for bullet text nodes
             try {
-                //console.log('[Sidebar] _refreshGlobalTextControls: total texts=', texts.length, 'bullet candidates=', bullets.length);
+               //console.log('[Sidebar] _refreshGlobalTextControls: total texts=', texts.length, 'bullet candidates=', bullets.length);
                 const inspect = bullets.map(t => ({
                     text: (t.text && t.text()) || '',
                     fontFamily: (t.fontFamily && t.fontFamily()) || null,
@@ -1680,10 +1680,10 @@ class SlideForgeSidebar {
                     letterSpacing: (t.letterSpacing && t.letterSpacing()) || null,
                     slideRole: (t.getAttr && t.getAttr('slideRole')) || null
                 }));
-                //console.log('[Sidebar] bullet text inspection:', inspect);
+               //console.log('[Sidebar] bullet text inspection:', inspect);
                 if (refs.fontSelect && refs.fontSelect.options) {
                     const opts = Array.from(refs.fontSelect.options).map(o => o.value);
-                    //console.log('[Sidebar] fontSelect options count=', opts.length, 'options=', opts);
+                   //console.log('[Sidebar] fontSelect options count=', opts.length, 'options=', opts);
                 }
             } catch (logErr) {
                 console.warn('[Sidebar] _refreshGlobalTextControls logging error', logErr);
@@ -1777,9 +1777,9 @@ class SlideForgeSidebar {
     }
 
     async renderSelectedStyle(stages, parsedSlides, slideImagesResult) {
-        //console.log('[Sidebar] renderSelectedStyle called:', this.selectedStyle);
-        //console.log('[Sidebar] Available stages:', stages ? stages.length : 'null');
-        //console.log('[Sidebar] Parsed slides:', parsedSlides ? Object.keys(parsedSlides) : 'null');
+       //console.log('[Sidebar] renderSelectedStyle called:', this.selectedStyle);
+       //console.log('[Sidebar] Available stages:', stages ? stages.length : 'null');
+       //console.log('[Sidebar] Parsed slides:', parsedSlides ? Object.keys(parsedSlides) : 'null');
         
         if (window.SlideStyles && typeof window.SlideStyles.clearStages === 'function') {
             window.SlideStyles.clearStages(stages);
@@ -1787,10 +1787,10 @@ class SlideForgeSidebar {
         
         // Special handling for DIY style
         if (this.selectedStyle === 'diy') {
-            //console.log('[Sidebar] Rendering DIY style via StyleDIY.renderDIY');
+           //console.log('[Sidebar] Rendering DIY style via StyleDIY.renderDIY');
             if (window.StyleDIY && typeof window.StyleDIY.renderDIY === 'function') {
                 await window.StyleDIY.renderDIY(stages, parsedSlides, slideImagesResult);
-                //console.log('[Sidebar] DIY style rendering completed');
+               //console.log('[Sidebar] DIY style rendering completed');
                 return;
             } else {
                 console.error('[Sidebar] StyleDIY.renderDIY not available, falling back to classic');
@@ -1798,13 +1798,13 @@ class SlideForgeSidebar {
         }
         
         const renderFnName = this.styleRenderMap?.[this.selectedStyle];
-        //console.log('[Sidebar] Looking for render function:', renderFnName);
+       //console.log('[Sidebar] Looking for render function:', renderFnName);
         
         if (window.SlideStyles && typeof window.SlideStyles[renderFnName] === 'function') {
             await window.SlideStyles[renderFnName](stages, parsedSlides, slideImagesResult);
-            //console.log('[Sidebar] Style rendering completed:', renderFnName);
+           //console.log('[Sidebar] Style rendering completed:', renderFnName);
         } else {
-            //console.log('[Sidebar] Render function not found, using classic fallback');
+           //console.log('[Sidebar] Render function not found, using classic fallback');
             if (window.SlideStyles && typeof window.SlideStyles.renderClassic === 'function') {
                 await window.SlideStyles.renderClassic(stages, parsedSlides, slideImagesResult);
             }
@@ -1812,7 +1812,7 @@ class SlideForgeSidebar {
     }
 
     selectStyle(styleKey) {
-        //console.log('[Sidebar] selectStyle called:', styleKey);
+       //console.log('[Sidebar] selectStyle called:', styleKey);
         this.selectedStyle = styleKey;
         Array.from(this.sidebar.querySelectorAll('.sidebar-style-card')).forEach(card => {
             card.classList.toggle('selected', card.classList.contains(styleKey));
@@ -1830,7 +1830,7 @@ class SlideForgeSidebar {
     }
 
     openDIYModal() {
-        //console.log('[Sidebar] Opening DIY modal');
+       //console.log('[Sidebar] Opening DIY modal');
         if (window.StyleDIY && typeof window.StyleDIY.openDIYModal === 'function') {
             window.StyleDIY.openDIYModal();
         } else {

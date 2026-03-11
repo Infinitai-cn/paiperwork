@@ -223,7 +223,7 @@ class pdfExport {
     }
 
     static async exportSlideForgePDF(stages, options = {}) {
-        //console.log('[pdfExport] Called exportSlideForgePDF', { stages, options, jsPDF: !!window.jsPDF });
+       //console.log('[pdfExport] Called exportSlideForgePDF', { stages, options, jsPDF: !!window.jsPDF });
         if (!window.jsPDF) {
             console.error('[pdfExport] jsPDF is not loaded:', window.jsPDF);
             alert(window.Lang ? Lang.get('pdfExportJsPDFNotLoaded') : 'PDF export failed: jsPDF is not loaded.');

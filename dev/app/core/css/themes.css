@@ -71,6 +71,8 @@
         --document-text: #e0e0e0;
         --disabled-color: #444;
         --hover-bg: #23272e;
+        --model-group-color: #ffffff;
+        --model-group-bg: #3b414a;
         
         /* presentation Canvas background */
         --canvas-bg: #24272D;
@@ -192,6 +194,8 @@
         --document-text: #333333;
         --disabled-color: #e0e0e0;
         --hover-bg: #f5f5f5;
+        --model-group-color: #475569;
+        --model-group-bg: #f1f5f9;
         
         /* presentation Canvas background */
         --canvas-bg: #ffffff;

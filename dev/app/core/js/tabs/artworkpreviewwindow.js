@@ -1,9 +1,9 @@
 class ArtworkPreviewWindow {
     constructor(generatedCode, title = 'Generated Design', backgroundImage = null) {
-        //console.log('ArtworkPreviewWindow: Constructor called with:');
-        //console.log('- Title:', title);
-        //console.log('- Code preview:', generatedCode ? generatedCode.substring(0, 200) + '...' : 'No code');
-        //console.log('- Background image:', backgroundImage ? 'Present' : 'None');
+       //console.log('ArtworkPreviewWindow: Constructor called with:');
+       //console.log('- Title:', title);
+       //console.log('- Code preview:', generatedCode ? generatedCode.substring(0, 200) + '...' : 'No code');
+       //console.log('- Background image:', backgroundImage ? 'Present' : 'None');
 
         this.generatedCode = generatedCode;
         this.title = title;
@@ -23,7 +23,7 @@ class ArtworkPreviewWindow {
 
         // FIXED: Improve markdown detection - only true rationale content should be treated as markdown
         this.isMarkdown = title.includes('Rationale') && !this.containsHTMLCode(generatedCode);
-        //console.log('ArtworkPreviewWindow: Is markdown content:', this.isMarkdown);
+       //console.log('ArtworkPreviewWindow: Is markdown content:', this.isMarkdown);
 
         // Set up event listener for preview window close
         document.addEventListener('artworkPreviewClosed', async (event) => {
@@ -46,14 +46,14 @@ class ArtworkPreviewWindow {
 
         // FIXED: Always use setCode for HTML content, even if it comes with markdown blocks
         if (this.isMarkdown) {
-            //console.log('ArtworkPreviewWindow: Processing as true markdown content (rationale)');
+           //console.log('ArtworkPreviewWindow: Processing as true markdown content (rationale)');
             // For design rationales, set content and switch to preview
             if (this.codeEditor) {
                 this.codeEditor.textContent = this.generatedCode;
                 this.switchView('preview'); // Show formatted preview by default
             }
         } else {
-            //console.log('ArtworkPreviewWindow: Processing as code content');
+           //console.log('ArtworkPreviewWindow: Processing as code content');
             // For HTML/code content, use code processing
             this.setCode(this.generatedCode);
             this.switchView('preview');
@@ -185,24 +185,24 @@ class ArtworkPreviewWindow {
     setupEventListeners() {
         // Close button (X)
         const closeBtn = this.container.querySelector('.preview-window-close-btn');
-        //console.log('Close button found:', closeBtn); // Debug log
+       //console.log('Close button found:', closeBtn); // Debug log
         if (closeBtn) {
             closeBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                //console.log('Close button clicked'); // Debug log
+               //console.log('Close button clicked'); // Debug log
                 this.close();
             });
         }
 
         // Footer close button
         const footerCloseBtn = this.container.querySelector('.close-preview-btn');
-        //console.log('Footer close button found:', footerCloseBtn); // Debug log
+       //console.log('Footer close button found:', footerCloseBtn); // Debug log
         if (footerCloseBtn) {
             footerCloseBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                //console.log('Footer close button clicked'); // Debug log
+               //console.log('Footer close button clicked'); // Debug log
                 this.close();
             });
         }
@@ -271,14 +271,14 @@ class ArtworkPreviewWindow {
     setCode(code) {
         if (!code) return;
 
-        //console.log('ArtworkPreviewWindow: setCode called with:', code.substring(0, 200) + '...');
+       //console.log('ArtworkPreviewWindow: setCode called with:', code.substring(0, 200) + '...');
 
         // Extract HTML content if it's embedded in markdown code blocks
         let htmlCode = code;
 
         // Check if code is a string before using string methods
         if (typeof code === 'string') {
-            //console.log('ArtworkPreviewWindow: Processing string content');
+           //console.log('ArtworkPreviewWindow: Processing string content');
 
             // ENHANCED: Remove explanatory text that comes before code blocks
             // Look for patterns like "Here's the HTML..." or "Okay, here's the HTML..."
@@ -294,51 +294,51 @@ class ArtworkPreviewWindow {
 
             // Try to extract HTML from markdown code blocks (most specific first)
             if (code.includes('```html')) {
-                //console.log('ArtworkPreviewWindow: Found ```html block');
+               //console.log('ArtworkPreviewWindow: Found ```html block');
                 const htmlMatch = code.match(/```html\s*([\s\S]*?)\s*```/);
                 if (htmlMatch && htmlMatch[1]) {
                     htmlCode = htmlMatch[1].trim();
                     codeBlockFound = true;
-                    //console.log('ArtworkPreviewWindow: Extracted HTML from ```html block');
+                   //console.log('ArtworkPreviewWindow: Extracted HTML from ```html block');
                 }
             }
             else if (code.includes('```markup')) {
-                //console.log('ArtworkPreviewWindow: Found ```markup block');
+               //console.log('ArtworkPreviewWindow: Found ```markup block');
                 const markupMatch = code.match(/```markup\s*([\s\S]*?)\s*```/);
                 if (markupMatch && markupMatch[1]) {
                     htmlCode = markupMatch[1].trim();
                     codeBlockFound = true;
-                    //console.log('ArtworkPreviewWindow: Extracted HTML from ```markup block');
+                   //console.log('ArtworkPreviewWindow: Extracted HTML from ```markup block');
                 }
             }
             // Try to extract CSS from markdown code blocks
             else if (code.includes('```css')) {
-                //console.log('ArtworkPreviewWindow: Found ```css block');
+               //console.log('ArtworkPreviewWindow: Found ```css block');
                 const cssMatch = code.match(/```css\s*([\s\S]*?)\s*```/);
                 if (cssMatch && cssMatch[1]) {
                     htmlCode = cssMatch[1].trim();
                     codeBlockFound = true;
-                    //console.log('ArtworkPreviewWindow: Extracted CSS from ```css block');
+                   //console.log('ArtworkPreviewWindow: Extracted CSS from ```css block');
                 }
             }
             // Try to extract JavaScript from markdown code blocks
             else if (code.includes('```javascript') || code.includes('```js')) {
-                //console.log('ArtworkPreviewWindow: Found JavaScript block');
+               //console.log('ArtworkPreviewWindow: Found JavaScript block');
                 const jsMatch = code.match(/```(?:javascript|js)\s*([\s\S]*?)\s*```/);
                 if (jsMatch && jsMatch[1]) {
                     htmlCode = jsMatch[1].trim();
                     codeBlockFound = true;
-                    //console.log('ArtworkPreviewWindow: Extracted JavaScript from code block');
+                   //console.log('ArtworkPreviewWindow: Extracted JavaScript from code block');
                 }
             }
             // NEW: Handle generic code blocks that might contain HTML
             else if (code.includes('```')) {
-                //console.log('ArtworkPreviewWindow: Found generic ``` block');
+               //console.log('ArtworkPreviewWindow: Found generic ``` block');
                 // Look for any code block that contains HTML-like content
                 const genericCodeMatch = code.match(/```[a-zA-Z]*\s*([\s\S]*?)\s*```/);
                 if (genericCodeMatch && genericCodeMatch[1]) {
                     const potentialHtml = genericCodeMatch[1].trim();
-                    //console.log('ArtworkPreviewWindow: Potential HTML content:', potentialHtml.substring(0, 100) + '...');
+                   //console.log('ArtworkPreviewWindow: Potential HTML content:', potentialHtml.substring(0, 100) + '...');
 
                     // Check if it looks like HTML
                     if (potentialHtml.includes('<!DOCTYPE') ||
@@ -346,14 +346,14 @@ class ArtworkPreviewWindow {
                         (potentialHtml.includes('<') && potentialHtml.includes('>') && potentialHtml.includes('</'))) {
                         htmlCode = potentialHtml;
                         codeBlockFound = true;
-                        //console.log('ArtworkPreviewWindow: Extracted HTML from generic code block');
+                       //console.log('ArtworkPreviewWindow: Extracted HTML from generic code block');
                     }
                 }
             }
 
             // If no code block was found, but the content looks like it has HTML mixed with text
             if (!codeBlockFound) {
-                //console.log('ArtworkPreviewWindow: No code block found, checking for inline HTML');
+               //console.log('ArtworkPreviewWindow: No code block found, checking for inline HTML');
 
                 // NEW: Try to extract HTML that might be mixed with explanatory text
                 // Look for patterns that start with <!DOCTYPE or <html
@@ -361,7 +361,7 @@ class ArtworkPreviewWindow {
                 if (htmlDocMatch && htmlDocMatch[1]) {
                     htmlCode = htmlDocMatch[1].trim();
                     codeBlockFound = true;
-                    //console.log('ArtworkPreviewWindow: Extracted complete HTML document from mixed content');
+                   //console.log('ArtworkPreviewWindow: Extracted complete HTML document from mixed content');
                 }
                 // Fallback: look for any substantial HTML-like content
                 else if (code.includes('<html') && code.includes('</html>')) {
@@ -370,7 +370,7 @@ class ArtworkPreviewWindow {
                     if (htmlStartIndex !== -1 && htmlEndIndex > htmlStartIndex) {
                         htmlCode = code.substring(htmlStartIndex, htmlEndIndex).trim();
                         codeBlockFound = true;
-                        //console.log('ArtworkPreviewWindow: Extracted HTML by finding <html> tags');
+                       //console.log('ArtworkPreviewWindow: Extracted HTML by finding <html> tags');
                     }
                 }
             }
@@ -393,20 +393,20 @@ class ArtworkPreviewWindow {
                     const beforeCleanup = htmlCode;
                     htmlCode = htmlCode.replace(pattern, '').trim();
                     if (htmlCode !== beforeCleanup) {
-                        //console.log('ArtworkPreviewWindow: Removed explanatory text with pattern:', pattern);
+                       //console.log('ArtworkPreviewWindow: Removed explanatory text with pattern:', pattern);
                         break;
                     }
                 }
             }
 
-            //console.log('ArtworkPreviewWindow: Final processed code length:', htmlCode.length);
-            //console.log('ArtworkPreviewWindow: Code starts with:', htmlCode.substring(0, 50));
+           //console.log('ArtworkPreviewWindow: Final processed code length:', htmlCode.length);
+           //console.log('ArtworkPreviewWindow: Code starts with:', htmlCode.substring(0, 50));
         }
 
         // Add background image comments directly to the code in the editor
         if (this.backgroundImage) {
             htmlCode = this.addBackgroundImageComments(htmlCode);
-            //console.log('ArtworkPreviewWindow: Added background image comments');
+           //console.log('ArtworkPreviewWindow: Added background image comments');
         }
 
         // Set code to editor
@@ -416,12 +416,12 @@ class ArtworkPreviewWindow {
         if (window.CodeStyler) {
             const highlighted = this.highlightCode(htmlCode);
             this.codeEditor.innerHTML = highlighted;
-            //console.log('ArtworkPreviewWindow: Applied syntax highlighting');
+           //console.log('ArtworkPreviewWindow: Applied syntax highlighting');
         }
 
         // Update preview
         this.updatePreview();
-        //console.log('ArtworkPreviewWindow: Preview updated');
+       //console.log('ArtworkPreviewWindow: Preview updated');
     }
 
     // Adds instructional comments to code where a background image placeholder is used
@@ -457,22 +457,22 @@ class ArtworkPreviewWindow {
     updatePreview() {
         if (!this.previewFrame) return;
 
-        //console.log('ArtworkPreviewWindow: updatePreview called');
+       //console.log('ArtworkPreviewWindow: updatePreview called');
 
         // Get current code from editor
         let code = this.codeEditor.textContent || this.codeEditor.innerText;
-        //console.log('ArtworkPreviewWindow: Raw code from editor:', code.substring(0, 200) + '...');
+       //console.log('ArtworkPreviewWindow: Raw code from editor:', code.substring(0, 200) + '...');
 
         // NEW: If the code still contains markdown formatting, extract the HTML
         if (code.includes('```html') || code.includes('```') || code.includes('Okay, here\'s')) {
-            //console.log('ArtworkPreviewWindow: Code still contains markdown, extracting...');
+           //console.log('ArtworkPreviewWindow: Code still contains markdown, extracting...');
 
             // Try to extract HTML from markdown code blocks
             if (code.includes('```html')) {
                 const htmlMatch = code.match(/```html\s*([\s\S]*?)\s*```/);
                 if (htmlMatch && htmlMatch[1]) {
                     code = htmlMatch[1].trim();
-                    //console.log('ArtworkPreviewWindow: Extracted HTML from markdown block');
+                   //console.log('ArtworkPreviewWindow: Extracted HTML from markdown block');
                 }
             }
             // Handle generic code blocks
@@ -482,7 +482,7 @@ class ArtworkPreviewWindow {
                     const potentialHtml = genericMatch[1].trim();
                     if (potentialHtml.includes('<!DOCTYPE') || potentialHtml.includes('<html')) {
                         code = potentialHtml;
-                        //console.log('ArtworkPreviewWindow: Extracted HTML from generic code block');
+                       //console.log('ArtworkPreviewWindow: Extracted HTML from generic code block');
                     }
                 }
             }
@@ -492,7 +492,7 @@ class ArtworkPreviewWindow {
 
             // Update the editor with the cleaned code
             this.codeEditor.textContent = code;
-            //console.log('ArtworkPreviewWindow: Updated editor with cleaned code');
+           //console.log('ArtworkPreviewWindow: Updated editor with cleaned code');
         }
 
         // Process code for preview
@@ -500,13 +500,13 @@ class ArtworkPreviewWindow {
 
         // NEW: Handle background image replacement - Convert blob URLs to base64 for iframe
         if (this.backgroundImage) {
-            //console.log('ArtworkPreviewWindow: Processing background image for iframe');
+           //console.log('ArtworkPreviewWindow: Processing background image for iframe');
 
             // Check if we have a blob URL that needs to be converted
             const blobUrlMatch = code.match(/url\(['"]?(blob:[^'")\s]+)['"]?\)/);
             if (blobUrlMatch) {
                 const blobUrl = blobUrlMatch[1];
-                //console.log('ArtworkPreviewWindow: Found blob URL, converting to base64 for iframe:', blobUrl);
+               //console.log('ArtworkPreviewWindow: Found blob URL, converting to base64 for iframe:', blobUrl);
 
                 // Convert blob URL to base64 for iframe compatibility
                 fetch(blobUrl)
@@ -515,7 +515,7 @@ class ArtworkPreviewWindow {
                         const reader = new FileReader();
                         reader.onload = () => {
                             const base64Data = reader.result;
-                            //console.log('ArtworkPreviewWindow: Converted blob to base64 for iframe');
+                           //console.log('ArtworkPreviewWindow: Converted blob to base64 for iframe');
 
                             // Replace blob URL with base64 data URL
                             const updatedCode = code.replace(
@@ -545,7 +545,7 @@ class ArtworkPreviewWindow {
                     /url\s*\(\s*window\.backgroundImage\s*\)/gi,
                     `url("${this.backgroundImage}")`
                 );
-                //console.log('ArtworkPreviewWindow: Background image URLs replaced with direct reference');
+               //console.log('ArtworkPreviewWindow: Background image URLs replaced with direct reference');
             }
         }
 
@@ -553,14 +553,36 @@ class ArtworkPreviewWindow {
         this.writeToIframe(processedCode);
     }
 
+    normalizeViewportMeta(htmlContent) {
+        let html = String(htmlContent || '');
+        if (!html) return html;
+
+        const viewportMetaRegex = /<meta[^>]*name\s*=\s*["']viewport["'][^>]*>/gi;
+        const matches = html.match(viewportMetaRegex) || [];
+        if (matches.length === 0) return html;
+
+        const canonicalViewport = '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
+        let replacedFirst = false;
+
+        html = html.replace(viewportMetaRegex, () => {
+            if (replacedFirst) {
+                return '';
+            }
+            replacedFirst = true;
+            return canonicalViewport;
+        });
+
+        return html;
+    }
+
     // Writes processed code or HTML to the preview iframe, handling markdown if needed
     writeToIframe(processedCode) {
         // FIXED: Only convert to HTML if this is truly markdown content (rationale), not HTML code
         if (this.isMarkdown && this.title.includes('Rationale') && !this.containsHTMLCode(processedCode)) {
-            //console.log('ArtworkPreviewWindow: Converting true markdown to HTML');
+           //console.log('ArtworkPreviewWindow: Converting true markdown to HTML');
             processedCode = this.convertMarkdownToHTML(processedCode);
         } else {
-            //console.log('ArtworkPreviewWindow: Using HTML code as-is');
+           //console.log('ArtworkPreviewWindow: Using HTML code as-is');
         }
 
         // Validate that we have valid content
@@ -569,7 +591,10 @@ class ArtworkPreviewWindow {
             return;
         }
 
-        //console.log('ArtworkPreviewWindow: Final processed code preview:', processedCode.substring(0, 100) + '...');
+        // Keep generated HTML resilient when model output contains malformed viewport tags.
+        processedCode = this.normalizeViewportMeta(processedCode);
+
+       //console.log('ArtworkPreviewWindow: Final processed code preview:', processedCode.substring(0, 100) + '...');
 
         // Get iframe document
         const frameDoc = this.previewFrame.contentDocument || this.previewFrame.contentWindow.document;
@@ -577,13 +602,13 @@ class ArtworkPreviewWindow {
         try {
             // For HTML code content, write it directly
             if (!this.isMarkdown && this.containsHTMLCode(processedCode)) {
-                //console.log('ArtworkPreviewWindow: Writing HTML code directly to iframe');
+               //console.log('ArtworkPreviewWindow: Writing HTML code directly to iframe');
                 frameDoc.open();
                 frameDoc.write(processedCode);
                 frameDoc.close();
             } else {
                 // For markdown or other content, wrap it with our template
-                //console.log('ArtworkPreviewWindow: Writing wrapped content to iframe');
+               //console.log('ArtworkPreviewWindow: Writing wrapped content to iframe');
                 frameDoc.open();
                 frameDoc.write(`
             <!DOCTYPE html>
@@ -689,7 +714,7 @@ class ArtworkPreviewWindow {
                 frameDoc.close();
             }
 
-            //console.log('ArtworkPreviewWindow: Preview updated successfully');
+           //console.log('ArtworkPreviewWindow: Preview updated successfully');
         } catch (error) {
             console.error('ArtworkPreviewWindow: Error updating preview:', error);
             console.error('ArtworkPreviewWindow: Problematic code:', processedCode.substring(0, 500));
@@ -745,11 +770,11 @@ class ArtworkPreviewWindow {
 
     // Attempts to detect the programming language of the provided code for highlighting
     detectLanguage(code) {
-        //console.log('detectLanguage called with:',
+       //console.log('detectLanguage called with:',
             //code ? code.substring(0, 30) + '...' : 'undefined');
 
         if (!code) {
-            //console.log('Code is empty, defaulting to markup');
+           //console.log('Code is empty, defaulting to markup');
             return 'markup';
         }
 
@@ -757,7 +782,7 @@ class ArtworkPreviewWindow {
         if (code.includes('<html') ||
             code.includes('<!DOCTYPE') ||
             (code.includes('<') && code.includes('>') && code.includes('</') && !code.includes('{'))) {
-            //console.log('Detected HTML/markup content');
+           //console.log('Detected HTML/markup content');
             return 'markup';
         }
 
@@ -765,7 +790,7 @@ class ArtworkPreviewWindow {
         if (code.includes('{') && code.includes('}') &&
             (code.includes('px') || code.includes('rgb') || code.includes('#') ||
                 code.includes('margin') || code.includes('padding') || code.includes('@media'))) {
-            //console.log('Detected CSS content');
+           //console.log('Detected CSS content');
             return 'css';
         }
 
@@ -774,12 +799,12 @@ class ArtworkPreviewWindow {
             code.includes('var ') || code.includes('let ') ||
             code.includes('return ') || code.includes('=> {') ||
             code.includes('//console.log')) {
-            //console.log('Detected JavaScript content');
+           //console.log('Detected JavaScript content');
             return 'javascript';
         }
 
         // Default to markup for unknown types
-        //console.log('Could not determine language, defaulting to markup');
+       //console.log('Could not determine language, defaulting to markup');
         return 'markup';
     }
     // Switches between code and preview views, recreating the iframe for preview mode
@@ -896,7 +921,7 @@ class ArtworkPreviewWindow {
 
     // Shows the preview window and overlay, and updates the preview
     show() {
-        //console.log('Show method called, isVisible:', this.isVisible); // Debug log
+       //console.log('Show method called, isVisible:', this.isVisible); // Debug log
         if (this.isVisible) return;
 
         this.container.style.display = 'flex';
@@ -911,19 +936,19 @@ class ArtworkPreviewWindow {
         // Update preview
         this.updatePreview();
 
-        //console.log('Window shown, isVisible now:', this.isVisible); // Debug log
+       //console.log('Window shown, isVisible now:', this.isVisible); // Debug log
     }
 
     // Closes the preview window, removes overlay, and dispatches close event
     close() {
-        //console.log('Close method called'); // Debug log
+       //console.log('Close method called'); // Debug log
         if (!this.isVisible) {
-            //console.log('Window already closed');
+           //console.log('Window already closed');
             return;
         }
 
         if (this.container) {
-            //console.log('Removing container from DOM'); // Debug log
+           //console.log('Removing container from DOM'); // Debug log
             // Instead of just hiding, completely remove from DOM
             this.container.remove();
         }
@@ -932,7 +957,7 @@ class ArtworkPreviewWindow {
 
         // Remove overlay
         if (this.overlay) {
-            //console.log('Removing overlay'); // Debug log
+           //console.log('Removing overlay'); // Debug log
             this.overlay.remove();
         }
 
@@ -942,7 +967,7 @@ class ArtworkPreviewWindow {
         });
         document.dispatchEvent(closeEvent);
 
-        //console.log('Window closed successfully'); // Debug log
+       //console.log('Window closed successfully'); // Debug log
     }
 
     // Removes the preview window and cleans up resources

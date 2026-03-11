@@ -8,7 +8,7 @@ class DocumentGenerator {
     // Initializes the DocumentGenerator instance
     async initialize() {
         // Initialization if needed
-        //console.log('DocumentGenerator: Initializing');
+       //console.log('DocumentGenerator: Initializing');
     }
 
     // Returns HTML fields for a business letter form
@@ -676,7 +676,7 @@ class DocumentGenerator {
 
     // Generates a document based on the selected template type
     async generateDocument(templateType) {
-        //console.log(`Paperwork: Generating document for template: ${templateType}`);
+       //console.log(`Paperwork: Generating document for template: ${templateType}`);
 
         // For business letters, validate form fields before proceeding
         if (templateType === 'business-letter') {
@@ -1573,7 +1573,7 @@ class DocumentGenerator {
 
     // Email the generated document content
     emailDocument(content, templateType) {
-        //console.log(`Paperwork: Emailing ${templateType} document`);
+       //console.log(`Paperwork: Emailing ${templateType} document`);
 
         // Get recipient data from localStorage
         this.getSavedRecipientData(templateType).then(recipientInfo => {
@@ -1613,7 +1613,7 @@ class DocumentGenerator {
                     document.body.removeChild(mailtoTest);
                 }, 100);
 
-                //console.log('Email client opened via mailto link');
+               //console.log('Email client opened via mailto link');
             } catch (error) {
                 console.error('Error opening email client:', error);
 
@@ -1623,7 +1623,7 @@ class DocumentGenerator {
                 // Copy content to clipboard as a fallback
                 try {
                     navigator.clipboard.writeText(content).then(() => {
-                        //console.log('Content copied to clipboard as fallback');
+                       //console.log('Content copied to clipboard as fallback');
                     });
                 } catch (clipboardError) {
                     console.error('Failed to copy to clipboard:', clipboardError);
@@ -1874,7 +1874,7 @@ class DocumentGenerator {
 
     //Opens a floating window with the document editor
     showDocumentPreview(templateType) {
-        //console.log('Starting showDocumentPreview for:', templateType);
+       //console.log('Starting showDocumentPreview for:', templateType);
         window.currentTemplateType = templateType;
         let title;
         switch (templateType) {
@@ -1923,7 +1923,7 @@ class DocumentGenerator {
                         if (templateType === 'business-letter') {
                             // Get location directly from saved data
                             location = letterData.location || '';
-                            //console.log('Loaded location from storage:', location);
+                           //console.log('Loaded location from storage:', location);
 
                             // Format date from saved data
                             const date = letterData.date || '';
@@ -1932,7 +1932,7 @@ class DocumentGenerator {
                             } else {
                                 formattedDate = date;
                             }
-                            //console.log('Loaded formatted date from storage:', formattedDate);
+                           //console.log('Loaded formatted date from storage:', formattedDate);
                         } else if (templateType === 'contract') {
                             // For contracts, we only need the date for header info
                             const date = letterData.date || '';
@@ -1941,7 +1941,7 @@ class DocumentGenerator {
                             } else {
                                 formattedDate = date;
                             }
-                            //console.log('Loaded contract date from storage:', formattedDate);
+                           //console.log('Loaded contract date from storage:', formattedDate);
                         } else if (templateType === 'proposal') {
                             // For proposals, we might want to extract the date for the header
                             formattedDate = this.formatDateForRegion(new Date()) || '';
@@ -1986,14 +1986,14 @@ class DocumentGenerator {
             }
 
             // Extract content from documentContent based on template type
-            //console.log('Extracting content from documentContent');
+           //console.log('Extracting content from documentContent');
             if (this.documentContent) {
                 if (templateType === 'business-letter') {
                     if (this.documentContent.includes('<div style="white-space: pre-line;">')) {
                         const bodyMatch = this.documentContent.match(/<div style="white-space: pre-line;">([\s\S]*?)<\/div>/);
                         if (bodyMatch && bodyMatch[1]) {
                             documentBody = bodyMatch[1];
-                            //console.log('Successfully extracted letter body');
+                           //console.log('Successfully extracted letter body');
                         }
                     }
                 } else if (templateType === 'contract') {
@@ -2006,7 +2006,7 @@ class DocumentGenerator {
                             const title = titleMatch && titleMatch[1] ? titleMatch[1] : '';
 
                             documentBody = `${title}\n\n${Lang.get('documentGeneratorEffectiveDateLabel')} ${formattedDate}\n\n${bodyMatch[1]}`;
-                            //console.log('Successfully extracted contract body');
+                           //console.log('Successfully extracted contract body');
                         }
                     }
                 } else if (templateType === 'proposal') {
@@ -2015,7 +2015,7 @@ class DocumentGenerator {
                         const bodyMatch = this.documentContent.match(/<div style="white-space: pre-line; text-align: justify;">([\s\S]*?)<\/div>/);
                         if (bodyMatch && bodyMatch[1]) {
                             documentBody = bodyMatch[1];
-                            //console.log('Successfully extracted proposal body');
+                           //console.log('Successfully extracted proposal body');
                         }
                     }
                 } else if (templateType === 'memo') {
@@ -2024,7 +2024,7 @@ class DocumentGenerator {
                         const bodyMatch = this.documentContent.match(/<div style="padding: 0 10px; white-space: pre-line; text-align: justify; line-height: 1.5;">([\s\S]*?)<\/div>/);
                         if (bodyMatch && bodyMatch[1]) {
                             documentBody = bodyMatch[1];
-                            //console.log('Successfully extracted memo body');
+                           //console.log('Successfully extracted memo body');
                         }
                     }
 
@@ -2056,7 +2056,7 @@ class DocumentGenerator {
                 }
             }
             // Create final content for display
-            //console.log('Creating bodyContent for display');
+           //console.log('Creating bodyContent for display');
             // Use a single displayBodyContent variable so earlier values (e.g. meeting-minutes header)
             // set above are not accidentally shadowed.
             let displayBodyContent = bodyContent || '';
@@ -2231,7 +2231,7 @@ class DocumentGenerator {
                         type: 'secondary',
                         id: 'copy-btn',
                         action: function () {
-                            //console.log('Copy button clicked');
+                           //console.log('Copy button clicked');
 
                             // Get the current mode
                             const editorContainer = document.getElementById('editor-container');
@@ -2248,7 +2248,7 @@ class DocumentGenerator {
 
                             // Use the new helper method to format text - this copies as HTML
                             const textToCopy = window.paperworkInstance.documentGenerator.formatTextForExport(rawText, true);
-                            //console.log('Formatted content to copy:', textToCopy);
+                           //console.log('Formatted content to copy:', textToCopy);
 
                             // Create a temporary element for HTML copying
                             const tempElement = document.createElement('div');
@@ -2268,7 +2268,7 @@ class DocumentGenerator {
                             try {
                                 const successful = document.execCommand('copy');
                                 if (successful) {
-                                    //console.log('Formatted text copied to clipboard');
+                                   //console.log('Formatted text copied to clipboard');
 
                                     // Show success feedback directly on this button
                                     const self = this; // Get reference to the button
@@ -2287,7 +2287,7 @@ class DocumentGenerator {
                                     // Fallback to plain text copy if HTML copy fails
                                     navigator.clipboard.writeText(window.paperworkInstance.documentGenerator.formatTextForExport(rawText, false))
                                         .then(() => {
-                                            //console.log('Plain text copied to clipboard (fallback)');
+                                           //console.log('Plain text copied to clipboard (fallback)');
 
                                             // Show success feedback
                                             const self = this;
@@ -2306,7 +2306,7 @@ class DocumentGenerator {
                                 // Fallback to plain text
                                 navigator.clipboard.writeText(window.paperworkInstance.documentGenerator.formatTextForExport(rawText, false))
                                     .then(() => {
-                                        //console.log('Plain text copied to clipboard as fallback');
+                                       //console.log('Plain text copied to clipboard as fallback');
                                         alert('Formatted copy failed. Plain text copied instead.');
                                     })
                                     .catch(clipErr => {
@@ -2336,12 +2336,12 @@ class DocumentGenerator {
                             }
 
                             // Log the raw content for debugging
-                            //console.log('Raw content for email:', rawContent);
+                           //console.log('Raw content for email:', rawContent);
 
                             // Get the template type
                             window.currentTemplateType = window.currentTemplateType || 'business-letter';
                             const templateType = window.currentTemplateType;
-                            //console.log('Template type for email:', templateType);
+                           //console.log('Template type for email:', templateType);
 
                             // Get the plain text formatted content for emailing
                             const emailContent = window.paperworkInstance.documentGenerator.formatTextForExport(
@@ -2383,31 +2383,31 @@ class DocumentGenerator {
                     emailButton.style.display = 'inline-block';
                     emailButton.style.visibility = 'visible';
                     emailButton.style.opacity = '1';
-                    //console.log('Email button should be visible initially');
+                   //console.log('Email button should be visible initially');
                 }
 
                 if (copyButton) {
                     copyButton.style.display = 'inline-block';
                     copyButton.style.visibility = 'visible';
                     copyButton.style.opacity = '1';
-                    //console.log('Copy button should be visible initially');
+                   //console.log('Copy button should be visible initially');
                 }
 
-                //console.log('Initial UI states set');
+               //console.log('Initial UI states set');
             }, 100);
         };
 
         // Execute the async function to get data and show window
         getSavedLetterData();
 
-        //console.log('showDocumentPreview initiated');
+       //console.log('showDocumentPreview initiated');
     }
 
     // Convert Markdown to HTML with updated regex for headings
     convertMarkdownToHTML(text) {
         if (!text) return '';
 
-        //console.log('Converting markdown to HTML, input:', text);
+       //console.log('Converting markdown to HTML, input:', text);
 
         // Trim the text to remove excess whitespace at beginning and end
         text = text.trim();
@@ -2418,7 +2418,7 @@ class DocumentGenerator {
         html = html.replace(/^[ \t]*(#{1,6})[ \t]*(.+?)[ \t]*$/gm, function (match, hashes, text) {
             const level = hashes.length;
             const trimmedText = text.trim();
-            //console.log(`Heading match found: level=${level}, text="${trimmedText}"`);
+           //console.log(`Heading match found: level=${level}, text="${trimmedText}"`);
             return `<h${level}>${trimmedText}</h${level}>`;
         });
 
@@ -2434,7 +2434,7 @@ class DocumentGenerator {
         html = html.replace(/(<li>.*?<\/li>(\s*<li>.*?<\/li>)*)/g, '<ul>$1</ul>');
         html = html.replace(/\n/g, '<br>');
 
-        //console.log('Converted output:', html);
+       //console.log('Converted output:', html);
 
         return html;
     }
@@ -2510,7 +2510,7 @@ class DocumentGenerator {
             formattedHTML += '</div>';
 
             // Log the formatted HTML for debugging
-            //console.log('Formatted HTML for export:', formattedHTML);
+           //console.log('Formatted HTML for export:', formattedHTML);
 
             return formattedHTML;
         }
@@ -2535,7 +2535,7 @@ class DocumentGenerator {
                 // Handle numbered lists (preserve numbers)
                 .replace(/^(\d+)\. (.*?)$/gm, '$1. $2');
 
-            //console.log('Formatted plain text for export:', plainText);
+           //console.log('Formatted plain text for export:', plainText);
             return plainText;
         }
         // Keep markdown intact
@@ -2561,7 +2561,7 @@ class DocumentGenerator {
 
     // Update emailDocument method to treat all document types consistently
     emailDocument(content, templateType, isHTML = false) {
-        //console.log(`Paperwork: Emailing ${templateType} document`);
+       //console.log(`Paperwork: Emailing ${templateType} document`);
 
         // Get recipient data from localStorage
         this.getSavedRecipientData(templateType).then(recipientInfo => {
@@ -2588,7 +2588,7 @@ class DocumentGenerator {
                 const mailtoLink = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(plainTextContent)}`;
 
                 this.openEmailClient(mailtoLink);
-                //console.log('Email client opened successfully');
+               //console.log('Email client opened successfully');
 
             } catch (error) {
                 console.error('Error opening email client:', error);
@@ -2634,7 +2634,7 @@ class DocumentGenerator {
         try {
             // Detect user's locale from browser
             const userLocale = navigator.language || 'en-US';
-            //console.log(`Using locale: ${userLocale} for date formatting`);
+           //console.log(`Using locale: ${userLocale} for date formatting`);
 
             // Handle different date formats
             let dateObj;

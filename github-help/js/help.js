@@ -231,9 +231,31 @@ function loadSectionContent(sectionId) {
 
   // Add section intro if available
   if (sectionData.intro) {
-    const introElement = document.createElement("p");
-    introElement.textContent = sectionData.intro;
-    sectionElement.appendChild(introElement);
+    const formatIntroTextWithLinks = (rawText) => {
+      const escaped = String(rawText || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+      return escaped.replace(/(https?:\/\/[\w.-]+(?:\/[\w\-./?%&=+#:]*)?)/g, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+      });
+    };
+
+    const introParagraphs = Array.isArray(sectionData.intro)
+      ? sectionData.intro
+      : [sectionData.intro];
+
+    introParagraphs
+      .map((text) => (typeof text === "string" ? text.trim() : ""))
+      .filter((text) => text.length > 0)
+      .forEach((text) => {
+        const introElement = document.createElement("p");
+        introElement.innerHTML = formatIntroTextWithLinks(text);
+        sectionElement.appendChild(introElement);
+      });
   }
 
   // Add articles

@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
             startButton.textContent = Lang.get('initializing');
             
             // Ensure database exists first
-            //console.log('Ensuring database exists before any operations');
+           //console.log('Ensuring database exists before any operations');
             await PaiperworkDB.ensureDatabaseExists();
             
             // Now it's safe to hash the masterkey
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.setItem('encryptedMasterKey', JSON.stringify(encryptedMasterKey));
     
             // Initialize database with tables for this masterkey
-            //console.log('Initializing database before navigation');
+           //console.log('Initializing database before navigation');
             const dbInitialized = await PaiperworkDB.initializeDatabase(hashedMasterKey);
             
             if (!dbInitialized) {

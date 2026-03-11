@@ -167,7 +167,7 @@ class CodeStyler {
             return;
         }
 
-        //console.log('Adding syntax highlighting styles');
+       //console.log('Adding syntax highlighting styles');
         const style = document.createElement('style');
         style.id = 'codestyler-syntax-styles';
         style.textContent = `
@@ -296,7 +296,7 @@ class CodeStyler {
     `;
 
         document.head.appendChild(style);
-        //console.log('Syntax styles added to document head');
+       //console.log('Syntax styles added to document head');
     }
 
     // Highlights operators in the code string for the given language.
@@ -476,7 +476,7 @@ class StreamProcessor {
         this.finalResponseStarted = false;
 
     //  NEW: Log the initial state to help debugging
-    //console.log('🧠 StreamProcessor: Initialized with thinking enabled:', this._cachedThinkingEnabled);
+   //console.log('🧠 StreamProcessor: Initialized with thinking enabled:', this._cachedThinkingEnabled);
     }
     _setupThinkingStateListener() {
         // Listen for storage events (when localStorage changes in other tabs)
@@ -485,14 +485,14 @@ class StreamProcessor {
                 this._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
                     ? window.ThinkingState.getEffectiveThinkingEnabled()
                     : ((localStorage.getItem('thinkingEnabledGptOss') === 'true') || (localStorage.getItem('thinkingEnabled') === 'true'));
-                //console.log('🧠 StreamProcessor: Thinking state changed via storage event:', this._cachedThinkingEnabled);
+               //console.log('🧠 StreamProcessor: Thinking state changed via storage event:', this._cachedThinkingEnabled);
             }
         });
 
         // Listen for custom events when thinking is toggled in same tab
         window.addEventListener('thinkingStateChanged', (e) => {
             this._cachedThinkingEnabled = e.detail.enabled;
-            //console.log('🧠 StreamProcessor: Thinking state changed via custom event:', this._cachedThinkingEnabled);
+           //console.log('🧠 StreamProcessor: Thinking state changed via custom event:', this._cachedThinkingEnabled);
         });
     }
     // In the processChunk method, fix the native thinking detection:
@@ -527,14 +527,14 @@ class StreamProcessor {
                 modelForThisResponse = window.chatInstance.currentModel;
             }
             if (modelForThisResponse) {
-                console.log('🧠 StreamProcessor: detected modelForThisResponse=', modelForThisResponse);
+               //console.log('🧠 StreamProcessor: detected modelForThisResponse=', modelForThisResponse);
                 const base = (window.getBaseModelName && window.getBaseModelName(modelForThisResponse)) || (modelForThisResponse || '').toLowerCase();
                 const baseOnly = (base || '').split(':')[0];
-                console.log('🧠 StreamProcessor: normalized baseOnly=', baseOnly);
+               //console.log('🧠 StreamProcessor: normalized baseOnly=', baseOnly);
                 if (baseOnly === 'gpt-oss') {
                     // If the gpt-oss-specific localStorage key is explicitly true, enable thinking
                     const gptOssFlag = localStorage.getItem('thinkingEnabledGptOss');
-                    console.log('🧠 StreamProcessor: thinkingEnabledGptOss from storage=', gptOssFlag);
+                   //console.log('🧠 StreamProcessor: thinkingEnabledGptOss from storage=', gptOssFlag);
                     if (gptOssFlag === 'true') {
                         thinkingEnabled = true;
                     }
@@ -548,7 +548,7 @@ class StreamProcessor {
 
         // Only log this occasionally to avoid spam
         if (Date.now() - this._lastThinkingCheck > 5000) { // Every 5 seconds
-            //console.log('🧠 StreamProcessor: Thinking enabled (cached):', thinkingEnabled);
+           //console.log('🧠 StreamProcessor: Thinking enabled (cached):', thinkingEnabled);
             this._lastThinkingCheck = Date.now();
         }
 
@@ -559,7 +559,7 @@ class StreamProcessor {
         if (this.state.isInCodeBlock) {
             // SPECIAL CASE: Handle split closing backticks
             if (chunk === '``') {
-                //console.log('🔧 StreamProcessor: Found potential split closing backticks, creating temporary buffer');
+               //console.log('🔧 StreamProcessor: Found potential split closing backticks, creating temporary buffer');
                 this.tempBackticksBuffer = '``';
                 return; // Wait for next chunk to determine if this closes the code block
             }
@@ -567,7 +567,7 @@ class StreamProcessor {
             // Check if we have a temporary buffer and this chunk might complete the closing
             if (this.tempBackticksBuffer === '``') {
                 if (chunk.startsWith('`')) {
-                    //console.log('🔧 StreamProcessor: Completing split closing backticks, ending code block');
+                   //console.log('🔧 StreamProcessor: Completing split closing backticks, ending code block');
                     // Complete the closing backticks
                     this.endCodeBlock();
                     this.tempBackticksBuffer = '';
@@ -579,7 +579,7 @@ class StreamProcessor {
                     }
                     return;
                 } else {
-                    //console.log('🔧 StreamProcessor: False alarm on split backticks, processing as code content');
+                   //console.log('🔧 StreamProcessor: False alarm on split backticks, processing as code content');
                     // False alarm - process the buffered `` as code content
                     this.processCodeContent(this.tempBackticksBuffer);
                     this.tempBackticksBuffer = '';
@@ -681,11 +681,11 @@ class StreamProcessor {
         // NOW handle native thinking after code block processing
         // Look for the specific pattern that indicates native thinking from Ollama
         if (thinkingEnabled && (chunk.includes('<think>') || this.fullResponseText.includes('<think>'))) {
-            //console.log('🧠 StreamProcessor: Native thinking content detected in chunk');
+           //console.log('🧠 StreamProcessor: Native thinking content detected in chunk');
 
             // Check if we need to start native thinking mode
             if (!this.thinkingMode.active || !this.thinkingMode.isNative) {
-                //console.log('🧠 StreamProcessor: Starting native thinking mode - reason:',
+               //console.log('🧠 StreamProcessor: Starting native thinking mode - reason:',
                     //!this.thinkingMode.active ? 'Not active' : 'Not native');
                 this.startNativeThinkingMode();
             }
@@ -710,7 +710,7 @@ class StreamProcessor {
 
             // Check if thinking is complete (has closing tag)
             if (this.fullResponseText.includes('</think>')) {
-                //console.log('🧠 StreamProcessor: Native thinking complete, ending thinking mode');
+               //console.log('🧠 StreamProcessor: Native thinking complete, ending thinking mode');
                 this.endThinkingMode();
                 this.finalResponseStarted = true;
 
@@ -724,7 +724,7 @@ class StreamProcessor {
 
                 //  MODIFIED: Always ensure finishResponse is called and message actions are added
                 setTimeout(() => {
-                    //console.log('🧠 StreamProcessor: Adding message actions after native thinking completion');
+                   //console.log('🧠 StreamProcessor: Adding message actions after native thinking completion');
                     this.finishResponse();
 
                     const assistantMessage = this.responseContainer.closest('.assistant-message');
@@ -769,7 +769,7 @@ class StreamProcessor {
             }
 
             if (thinkingStarted && !this.thinkingMode.active) {
-                //console.log('StreamProcessor: XML thinking mode detected, starting thinking mode');
+               //console.log('StreamProcessor: XML thinking mode detected, starting thinking mode');
                 this.startThinkingMode();
             }
 
@@ -785,7 +785,7 @@ class StreamProcessor {
                 }
 
                 if (thinkingEnded) {
-                    //console.log('StreamProcessor: XML thinking mode ended');
+                   //console.log('StreamProcessor: XML thinking mode ended');
                     this.endThinkingMode();
                 } else {
                     // Continue processing thinking content
@@ -1147,7 +1147,7 @@ class StreamProcessor {
             : (localStorage.getItem('thinkingEnabled') === 'true');
 
         if (!currentThinkingEnabled) {
-            console.log('🧠 StreamProcessor: currentThinkingEnabled is false, skipping thinking data. cached=', this._cachedThinkingEnabled, 'currentEffective=', currentThinkingEnabled);
+           //console.log('🧠 StreamProcessor: currentThinkingEnabled is false, skipping thinking data. cached=', this._cachedThinkingEnabled, 'currentEffective=', currentThinkingEnabled);
             return;
         }
 
@@ -1160,7 +1160,7 @@ class StreamProcessor {
 
         // If we don't have a valid native thinking container, start one
         if (!hasValidContainer) {
-            console.log('🧠 StreamProcessor: Starting native thinking mode - reason: No valid container');
+           //console.log('🧠 StreamProcessor: Starting native thinking mode - reason: No valid container');
             this.startNativeThinkingMode();
         }
 
@@ -1174,7 +1174,7 @@ class StreamProcessor {
 
     // Starts the (non-native) thinking mode, creating the UI and timer.
     startThinkingMode() {
-        //console.log('StreamProcessor: Starting thinking mode');
+       //console.log('StreamProcessor: Starting thinking mode');
         this.thinkingMode.active = true;
         this.thinkingMode.content = '';
         this.thinkingMode.startTime = new Date();
@@ -1188,7 +1188,7 @@ class StreamProcessor {
         // Combine message ID, timestamp and random string for true uniqueness
         const thinkingId = `thinking_${messageId}_${timestamp}_${randomPart}`;
 
-        //console.log(`Generated unique thinking ID: ${thinkingId}`);
+       //console.log(`Generated unique thinking ID: ${thinkingId}`);
         this.thinkingMode.id = thinkingId;
 
         // Register in global registry with this unique ID
@@ -1265,7 +1265,7 @@ class StreamProcessor {
         // Define global toggle handler with improved content restoration
         if (typeof window.toggleThinkingVisibility !== 'function') {
             window.toggleThinkingVisibility = function (btn) {
-                //console.log('Global toggle thinking visibility called');
+               //console.log('Global toggle thinking visibility called');
                 const container = btn.closest('.thinking-mode-container');
                 if (!container) return;
 
@@ -1273,7 +1273,7 @@ class StreamProcessor {
                 if (!content) return;
 
                 const isExpanded = content.style.maxHeight !== '0px' && content.style.maxHeight !== '';
-                //console.log('Toggling thinking, current state:', isExpanded ? 'expanded' : 'collapsed');
+               //console.log('Toggling thinking, current state:', isExpanded ? 'expanded' : 'collapsed');
 
                 if (isExpanded) {
                     // Collapse
@@ -1286,19 +1286,19 @@ class StreamProcessor {
 
                 } else {
                     // Expand - ALWAYS try to restore content from backup
-                    //console.log('Expanding thinking content, attempting to restore from backup');
+                   //console.log('Expanding thinking content, attempting to restore from backup');
 
                     // Try to restore from backup EVERY time we expand, not just when empty
                     if (content.id) {
                         const backupDiv = document.getElementById(`${content.id}-backup`);
                         if (backupDiv) {
-                            //console.log('Found backup div, restoring content');
+                           //console.log('Found backup div, restoring content');
                             content.innerHTML = backupDiv.innerHTML;
                         } else if (window.thinkingBackups && window.thinkingBackups[content.id]) {
-                            //console.log('Found global backup, restoring content');
+                           //console.log('Found global backup, restoring content');
                             content.innerHTML = window.thinkingBackups[content.id];
                         } else {
-                            //console.log('No backup found for ID:', content.id);
+                           //console.log('No backup found for ID:', content.id);
                         }
                     }
 
@@ -1312,7 +1312,7 @@ class StreamProcessor {
                     setTimeout(() => {
                         const newHeight = Math.max(300, content.scrollHeight) + 'px';
                         content.style.maxHeight = newHeight;
-                        //console.log('Set content max-height to:', newHeight);
+                       //console.log('Set content max-height to:', newHeight);
 
                         // Wait for the transition to complete (300ms + a small buffer)
                         setTimeout(() => {
@@ -1432,14 +1432,14 @@ class StreamProcessor {
     }
 
     cancelThinkingMode() {
-        //console.log('StreamProcessor: Cancelling thinking mode due to abort');
+       //console.log('StreamProcessor: Cancelling thinking mode due to abort');
         // Remove from global registry
         if (this.thinkingMode.id) {
             window.activeThinkingModes.delete(this.thinkingMode.id);
         }
         // Safety check - prevent multiple cancellations
         if (this.thinkingMode._cancelInProgress) {
-            //console.log('StreamProcessor: Cancellation already in progress, skipping');
+           //console.log('StreamProcessor: Cancellation already in progress, skipping');
             return;
         }
 
@@ -1458,7 +1458,7 @@ class StreamProcessor {
         // 2. DISABLE incrementSeconds function before clearing timer
         const originalIncrement = this.thinkingMode.incrementSeconds;
         this.thinkingMode.incrementSeconds = function () {
-            //console.log('StreamProcessor: Prevented increment after cancellation');
+           //console.log('StreamProcessor: Prevented increment after cancellation');
             return;
         };
 
@@ -1485,7 +1485,7 @@ class StreamProcessor {
                     } catch (e) { }
                 }, 100);
 
-                //console.log('StreamProcessor: Timer successfully cleared with ID:', timerIdToCancel);
+               //console.log('StreamProcessor: Timer successfully cleared with ID:', timerIdToCancel);
             } catch (e) {
                 console.error('StreamProcessor: Error clearing timer:', e);
             }
@@ -1521,7 +1521,7 @@ class StreamProcessor {
         // 7. Add a global cancellation flag as extra protection
         window._thinkingCancelled = true;
 
-        //console.log('StreamProcessor: Thinking mode cancellation complete');
+       //console.log('StreamProcessor: Thinking mode cancellation complete');
 
         // 8. Remove cancellation in progress flag after a delay
         setTimeout(() => {
@@ -1537,7 +1537,7 @@ class StreamProcessor {
 
         // Handle thinking mode cleanup
         if (this.thinkingMode.timer) {
-            //console.log('StreamProcessor: Timer interval cleared in finishResponse');
+           //console.log('StreamProcessor: Timer interval cleared in finishResponse');
             clearInterval(this.thinkingMode.timer);
             this.thinkingMode.timer = null;
         }
@@ -1553,7 +1553,7 @@ class StreamProcessor {
         this.cleanLatexExpressions();
         this.postProcessMarkdownLinks();
         this.postProcessTextTables();
-        //console.log('StreamProcessor: finishResponse - ensuring message actions are added');
+       //console.log('StreamProcessor: finishResponse - ensuring message actions are added');
 
         // Store the StreamProcessor instance for reference
         this.responseContainer.streamProcessor = this;
@@ -1564,10 +1564,10 @@ class StreamProcessor {
             // Use a timeout to ensure DOM is stable before adding actions
             setTimeout(() => {
                 if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
-                    //console.log('StreamProcessor: Adding message actions via window.chat');
+                   //console.log('StreamProcessor: Adding message actions via window.chat');
                     window.chat.addMessageActionsToMessage(assistantMessage);
                 } else {
-                    //console.log('StreamProcessor: Using fallback message actions');
+                   //console.log('StreamProcessor: Using fallback message actions');
                     this.addSimpleMessageActions();
                 }
             }, 50);
@@ -1609,7 +1609,7 @@ class StreamProcessor {
     }
 
     endThinkingMode() {
-        //console.log('StreamProcessor: Ending thinking mode');
+       //console.log('StreamProcessor: Ending thinking mode');
 
         // Remove from global registry
         if (this.thinkingMode.id) {
@@ -1620,7 +1620,7 @@ class StreamProcessor {
         if (this.thinkingMode.timer) {
             clearInterval(this.thinkingMode.timer);
             this.thinkingMode.timer = null;
-            //console.log('StreamProcessor: Timer interval cleared in endThinkingMode');
+           //console.log('StreamProcessor: Timer interval cleared in endThinkingMode');
         }
 
         // Now mark inactive since timer has been stopped
@@ -1663,7 +1663,7 @@ class StreamProcessor {
                 this.thinkingMode.container.dataset.backupDivId = backupDivId;
                 this.thinkingMode.container.dataset.messageId = messageId;
 
-                //console.log(`Creating backup with unique ID: ${backupDivId}, messageId: ${messageId}`);
+               //console.log(`Creating backup with unique ID: ${backupDivId}, messageId: ${messageId}`);
 
                 // BACKUP METHOD 1: Create a permanent, hidden backup div with message and version info
                 const backupDiv = document.createElement('div');
@@ -1727,7 +1727,7 @@ class StreamProcessor {
                 contentElement.dataset.backupId = uniqueId;
                 contentElement.dataset.contentLength = contentElement.innerHTML.length;
 
-                //console.log(`Backed up thinking container #${this.thinkingMode.container.dataset.containerOrder} with ID ${uniqueId} for message ${messageId}`);
+               //console.log(`Backed up thinking container #${this.thinkingMode.container.dataset.containerOrder} with ID ${uniqueId} for message ${messageId}`);
             } else {
                 console.warn('No thinking content to back up or content element not found');
             }
@@ -1867,7 +1867,7 @@ class StreamProcessor {
     }
 
     startNativeThinkingMode() {
-        //console.log('🧠 StreamProcessor: Starting native thinking mode');
+       //console.log('🧠 StreamProcessor: Starting native thinking mode');
 
         // Use the same logic as startThinkingMode but mark it as native
         this.thinkingMode.active = true;
@@ -1882,7 +1882,7 @@ class StreamProcessor {
         const randomPart = Math.random().toString(36).substring(2, 10);
         const thinkingId = `native_thinking_${messageId}_${timestamp}_${randomPart}`;
 
-        //console.log(`Generated unique native thinking ID: ${thinkingId}`);
+       //console.log(`Generated unique native thinking ID: ${thinkingId}`);
         this.thinkingMode.id = thinkingId;
 
         // Register in global registry
@@ -2077,7 +2077,7 @@ class StreamProcessor {
                 if (originalCodeElement.hasAttribute('data-saved-code')) {
                     const savedCode = originalCodeElement.getAttribute('data-saved-code');
                     clonedCodeElement.setAttribute('data-saved-code', savedCode);
-                    //console.log('Preserved data-saved-code attribute for code block');
+                   //console.log('Preserved data-saved-code attribute for code block');
                 }
 
                 // Also check data-clean-code as backup
@@ -2116,14 +2116,14 @@ class StreamProcessor {
         // Don't replace <br> tags with spaces to preserve line breaks
         // html = html.replace(/([,.;:!?])(<br\s*\/?>\s*)(?!<br\s*\/?>)/g, '$1 ');
 
-        //console.log("getCleanResponseHTML generated HTML with preserved formatting (sample):",
+       //console.log("getCleanResponseHTML generated HTML with preserved formatting (sample):",
             //html.substring(0, 100) + "...");
 
         return html;
     }
     // Post-processes markdown links, references, and URLs in the response container.
     postProcessMarkdownLinks() {
-        //console.log('Post-processing links in finished response');
+       //console.log('Post-processing links in finished response');
 
         // Get the current HTML content
         const container = this.responseContainer;
@@ -2138,7 +2138,7 @@ class StreamProcessor {
         const isDocumentWebSearch = document.querySelector('.document-questioning-indicator') !== null &&
             document.getElementById('web-search').classList.contains('active');
 
-        //console.log('Processing links in mode:', isDocumentWebSearch ? 'Document+WebSearch' : 'Standard');
+       //console.log('Processing links in mode:', isDocumentWebSearch ? 'Document+WebSearch' : 'Standard');
 
         // FIRST PASS: Handle markdown links [text](url) - IMPROVED
         const processMarkdownLinks = (node) => {
@@ -2168,7 +2168,7 @@ class StreamProcessor {
                                 cleanUrl = cleanUrl.replace(/[.,;:"')\]]+$/, '');
                             }
 
-                            //console.log(`Processing markdown link: [${text}](${url}) -> cleaned: ${cleanUrl}`);
+                           //console.log(`Processing markdown link: [${text}](${url}) -> cleaned: ${cleanUrl}`);
 
                             // Skip reference links
                             if (text.startsWith('REF')) {
@@ -2255,7 +2255,7 @@ class StreamProcessor {
                         const url = match[2];
                         if (refNumber && url) {
                             referenceUrls[refNumber] = url;
-                            //console.log(`Found reference definition: [${refNumber}] -> ${url}`);
+                           //console.log(`Found reference definition: [${refNumber}] -> ${url}`);
                         }
                     }
                 }
@@ -2266,7 +2266,7 @@ class StreamProcessor {
                     const lineMatch = line.match(/^(\d+)[.:]?\s+(https?:\/\/[^\s,]+)/);
                     if (lineMatch && lineMatch[1] && lineMatch[2]) {
                         referenceUrls[lineMatch[1]] = lineMatch[2];
-                        //console.log(`Found line reference: [${lineMatch[1]}] -> ${lineMatch[2]}`);
+                       //console.log(`Found line reference: [${lineMatch[1]}] -> ${lineMatch[2]}`);
                     }
                 }
 
@@ -2331,7 +2331,7 @@ class StreamProcessor {
                 const content = node.textContent;
 
                 if (urlRegex.test(content)) {
-                    //console.log('Processing plain URLs in text node:', content.substring(0, 50));
+                   //console.log('Processing plain URLs in text node:', content.substring(0, 50));
 
                     // Reset regex
                     urlRegex.lastIndex = 0;
@@ -2339,13 +2339,13 @@ class StreamProcessor {
                     let processed = content.replace(urlRegex, (match, leadingParen, url, trailingParen, offset) => {
                         // CRITICAL FIX: Validate that we actually have a proper URL
                         if (!url || url.length < 10 || !url.includes('.')) {
-                            //console.log('Skipping invalid URL:', url);
+                           //console.log('Skipping invalid URL:', url);
                             return match; // Return original if not a valid URL
                         }
 
                         // Additional validation: must start with http/https and have valid domain
                         if (!url.match(/^https?:\/\/[a-zA-Z0-9][a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)) {
-                            //console.log('Skipping malformed URL:', url);
+                           //console.log('Skipping malformed URL:', url);
                             return match;
                         }
 
@@ -2391,7 +2391,7 @@ class StreamProcessor {
                             finalMatch = formatUrl(cleanUrl);
                         }
 
-                        //console.log(`Found plain URL: ${url} -> cleaned: ${cleanUrl}`);
+                       //console.log(`Found plain URL: ${url} -> cleaned: ${cleanUrl}`);
                         return finalMatch;
                     });
 
@@ -2519,16 +2519,16 @@ class StreamProcessor {
         };
 
         // Process in four distinct passes to avoid interference
-        //console.log('Starting markdown link processing...');
+       //console.log('Starting markdown link processing...');
         processMarkdownLinks(container);
 
-        //console.log('Starting numbered link processing...');
+       //console.log('Starting numbered link processing...');
         processNumberedLinks(container);
 
-        //console.log('Starting plain URL processing...');
+       //console.log('Starting plain URL processing...');
         processPlainUrls(container);
 
-        //console.log('Starting reference link processing...');
+       //console.log('Starting reference link processing...');
         processReferenceLinks(container);
 
         // Helper function to format URLs nicely - IMPROVED
@@ -2746,7 +2746,7 @@ class StreamProcessor {
     }
     // Processes a code block element, restoring saved code and applying syntax highlighting.
     static processSavedCodeBlock(codeBlock) {
-        //console.log('Processing saved code block');
+       //console.log('Processing saved code block');
 
         // Skip if not a valid code block
         if (!codeBlock) return;
@@ -2763,12 +2763,12 @@ class StreamProcessor {
         let rawContent;
         if (codeElement.hasAttribute('data-saved-code')) {
             // Use the pre-saved code that has proper newlines
-            //console.log('Found data-saved-code attribute with stored code!');
+           //console.log('Found data-saved-code attribute with stored code!');
             rawContent = codeElement.getAttribute('data-saved-code');
-            //console.log('data-saved-code newlines:', (rawContent.match(/\n/g) || []).length);
+           //console.log('data-saved-code newlines:', (rawContent.match(/\n/g) || []).length);
         } else {
             // Fall back to text content
-            //console.log('No data-saved-code attribute found, using text content');
+           //console.log('No data-saved-code attribute found, using text content');
             rawContent = codeElement.textContent || codeElement.innerText;
         }
 
@@ -2842,7 +2842,7 @@ class StreamProcessor {
             codeElement.textContent = formattedCode;
         }
 
-        //console.log(`Code block processed for language: ${normalizedLang}`);
+       //console.log(`Code block processed for language: ${normalizedLang}`);
     }
     // Formats code with indentation and newlines for non-HTML languages.
     static formatCodeWithIndentation(code, language) {
@@ -2859,7 +2859,7 @@ class StreamProcessor {
         // If code already has proper newlines (very few escaped \n but many actual newlines)
         // then don't modify it - it's already in good shape
         if (code.split('\n').length > 5 && (code.match(/\\n/g) || []).length < 3) {
-            //console.log('Code already has proper formatting, returning as is');
+           //console.log('Code already has proper formatting, returning as is');
             return code;
         }
 
@@ -2872,9 +2872,9 @@ class StreamProcessor {
         // Clean up double newlines that might have been created
         formattedCode = formattedCode.replace(/\n\n+/g, '\n\n');
 
-        //console.log('FORMATTED CODE AFTER NEWLINE CONVERSION:');
-        //console.log(formattedCode);
-        //console.log('Formatted newline count:', (formattedCode.match(/\n/g) || []).length);
+       //console.log('FORMATTED CODE AFTER NEWLINE CONVERSION:');
+       //console.log(formattedCode);
+       //console.log('Formatted newline count:', (formattedCode.match(/\n/g) || []).length);
 
         // Return the clean version
         return formattedCode;
@@ -2882,7 +2882,7 @@ class StreamProcessor {
 
     // Formats HTML code with indentation and newlines.
     static formatHtmlWithIndentation(html) {
-        //console.log('formatHtmlWithIndentation called with HTML length:', html.length);
+       //console.log('formatHtmlWithIndentation called with HTML length:', html.length);
 
         // First check if the input is valid
         if (!html || typeof html !== 'string') {
@@ -3068,7 +3068,7 @@ class StreamProcessor {
         // Store the StreamProcessor instance on the responseContainer for reference
         this.responseContainer.streamProcessor = this;
 
-        //console.log('StreamProcessor: Calling Chat.addMessageActionsToMessage');
+       //console.log('StreamProcessor: Calling Chat.addMessageActionsToMessage');
 
         try {
             // Try different ways to access the Chat instance
@@ -3091,7 +3091,7 @@ class StreamProcessor {
     }
     // Keep the simple fallback implementation
     addSimpleMessageActions() {
-        //console.log('Using fallback simple message actions');
+       //console.log('Using fallback simple message actions');
 
     const container = document.createElement('div');
     container.className = 'message-actions copy-response-container';
@@ -3188,7 +3188,7 @@ class StreamProcessor {
         }
 
         navigator.clipboard.writeText(fullText).then(() => {
-            //console.log('Full text copied to clipboard, length:', fullText.length);
+           //console.log('Full text copied to clipboard, length:', fullText.length);
             const copyLinks = this.responseContainer.querySelectorAll('.copy-response-container a, .message-actions a');
 
             // Find the copy link - look through all links to find the one with "Copy" text
@@ -3211,17 +3211,17 @@ class StreamProcessor {
 
 // Global utility functions
 window.copyCodeBlock = function (button) {
-    //console.log('Copy button clicked');
+   //console.log('Copy button clicked');
     const codeBlock = button.closest('.code-block');
     if (codeBlock) {
         const codeElement = codeBlock.querySelector('code');
         if (codeElement) {
             const codeText = codeElement.dataset.cleanCode || codeElement.textContent;
-            //console.log('Copying code text:', codeText.substring(0, 30) + '...');
+           //console.log('Copying code text:', codeText.substring(0, 30) + '...');
 
             navigator.clipboard.writeText(codeText)
                 .then(() => {
-                    //console.log('Text copied successfully');
+                   //console.log('Text copied successfully');
                     const originalText = button.textContent;
                     button.textContent = Lang.get('codeCopied');
                     setTimeout(() => {
@@ -3278,8 +3278,8 @@ window.copyCodeBlockWithLineNumbers = function (button) {
         });
 };
 window.toggleCodeLineNumbers = function (button) {
-    //console.log('🌍 GLOBAL toggleCodeLineNumbers called with button:', button);
-    //console.log('🌍 Button element:', button.tagName, button.className);
+   //console.log('🌍 GLOBAL toggleCodeLineNumbers called with button:', button);
+   //console.log('🌍 Button element:', button.tagName, button.className);
 
     const codeBlock = button.closest('.code-block');
     if (!codeBlock) {
@@ -3287,17 +3287,17 @@ window.toggleCodeLineNumbers = function (button) {
         return;
     }
 
-    //console.log('🌍 Found code block:', codeBlock);
+   //console.log('🌍 Found code block:', codeBlock);
 
     const pre = codeBlock.querySelector('pre');
     const codeElement = codeBlock.querySelector('code');
     let lineNumbersContainer = codeBlock.querySelector('.line-numbers');
 
-    //console.log('🌍 Elements found - pre:', !!pre, 'code:', !!codeElement, 'lineNumbers:', !!lineNumbersContainer);
+   //console.log('🌍 Elements found - pre:', !!pre, 'code:', !!codeElement, 'lineNumbers:', !!lineNumbersContainer);
 
     //  CRITICAL FIX: Create line numbers container if it doesn't exist
     if (!lineNumbersContainer && pre && codeElement) {
-        //console.log('🌍 Creating missing line numbers container...');
+       //console.log('🌍 Creating missing line numbers container...');
         lineNumbersContainer = document.createElement('div');
         lineNumbersContainer.className = 'line-numbers';
         lineNumbersContainer.style.cssText = `
@@ -3320,7 +3320,7 @@ window.toggleCodeLineNumbers = function (button) {
         // Ensure pre has relative positioning
         pre.style.position = 'relative';
         pre.appendChild(lineNumbersContainer);
-        //console.log('✅ Line numbers container created and added');
+       //console.log('✅ Line numbers container created and added');
     }
 
     if (!lineNumbersContainer || !pre || !codeElement) {
@@ -3332,20 +3332,20 @@ window.toggleCodeLineNumbers = function (button) {
     const isVisible = lineNumbersContainer.style.display === 'block' ||
         lineNumbersContainer.style.visibility === 'visible';
 
-    //console.log('🌍 Current visibility state:', isVisible);
-    //console.log('🌍 Display style:', lineNumbersContainer.style.display);
-    //console.log('🌍 Visibility style:', lineNumbersContainer.style.visibility);
+   //console.log('🌍 Current visibility state:', isVisible);
+   //console.log('🌍 Display style:', lineNumbersContainer.style.display);
+   //console.log('🌍 Visibility style:', lineNumbersContainer.style.visibility);
 
     if (isVisible) {
         // Hide line numbers
-        //console.log('🌍 Hiding line numbers');
+       //console.log('🌍 Hiding line numbers');
         lineNumbersContainer.style.display = 'none';
         lineNumbersContainer.style.visibility = 'hidden';
         pre.style.paddingLeft = '1em';
         codeElement.style.paddingLeft = '';
     } else {
         // Show line numbers
-        //console.log('🌍 Showing line numbers');
+       //console.log('🌍 Showing line numbers');
 
         // Get the code content - prioritize data-saved-code for loaded conversations
         let cleanCode = codeElement.dataset.savedCode ||
@@ -3353,11 +3353,11 @@ window.toggleCodeLineNumbers = function (button) {
             codeElement.textContent ||
             codeElement.innerText || '';
 
-        //console.log('🌍 Code sources checked:');
-        //console.log('  - data-saved-code:', !!codeElement.dataset.savedCode);
-        //console.log('  - data-clean-code:', !!codeElement.dataset.cleanCode);
-        //console.log('  - textContent length:', codeElement.textContent?.length || 0);
-        //console.log('🌍 Selected code length:', cleanCode.length);
+       //console.log('🌍 Code sources checked:');
+       //console.log('  - data-saved-code:', !!codeElement.dataset.savedCode);
+       //console.log('  - data-clean-code:', !!codeElement.dataset.cleanCode);
+       //console.log('  - textContent length:', codeElement.textContent?.length || 0);
+       //console.log('🌍 Selected code length:', cleanCode.length);
 
         if (!cleanCode.trim()) {
             console.warn('🌍 No code content found for line numbers');
@@ -3367,7 +3367,7 @@ window.toggleCodeLineNumbers = function (button) {
         const lines = cleanCode.split('\n');
         const lineCount = lines.length;
 
-        //console.log('🌍 Code length:', cleanCode.length, 'Line count:', lineCount);
+       //console.log('🌍 Code length:', cleanCode.length, 'Line count:', lineCount);
 
         // Generate line numbers HTML with proper CSS classes
         let lineNumbersHTML = '';
@@ -3401,12 +3401,12 @@ window.toggleCodeLineNumbers = function (button) {
         pre.style.paddingLeft = '3.5em';
         codeElement.style.paddingLeft = '0.5em';
 
-        //console.log('🌍 Line numbers should now be visible');
-        //console.log('🌍 Container HTML:', lineNumbersContainer.innerHTML.substring(0, 100) + '...');
+       //console.log('🌍 Line numbers should now be visible');
+       //console.log('🌍 Container HTML:', lineNumbersContainer.innerHTML.substring(0, 100) + '...');
     }
 };
 window.toggleThinkingVisibility = function (btn) {
-    //console.log('Global toggle thinking visibility called');
+   //console.log('Global toggle thinking visibility called');
     const container = btn.closest('.thinking-mode-container');
     if (!container) {
         console.error('Cannot find thinking container');
@@ -3420,7 +3420,7 @@ window.toggleThinkingVisibility = function (btn) {
     }
 
     const isExpanded = content.style.maxHeight !== '0px' && content.style.maxHeight !== '';
-    //console.log('Toggling thinking, current state:', isExpanded ? 'expanded' : 'collapsed');
+   //console.log('Toggling thinking, current state:', isExpanded ? 'expanded' : 'collapsed');
 
     if (isExpanded) {
         // Collapse - preserve content, just hide it
@@ -3438,15 +3438,15 @@ window.toggleThinkingVisibility = function (btn) {
         const isThinkingActive = thinkingId && window.activeThinkingModes &&
             window.activeThinkingModes.has(thinkingId);
 
-        //console.log('Expanding thinking content, active:', isThinkingActive ? 'yes' : 'no');
+       //console.log('Expanding thinking content, active:', isThinkingActive ? 'yes' : 'no');
 
         if (isThinkingActive) {
             // If thinking is still active, just expand without trying to restore
             // The content is still being streamed into the container
-            //console.log('Thinking still active, not restoring from backup');
+           //console.log('Thinking still active, not restoring from backup');
         } else {
             // Thinking is complete, check if content needs restoration
-            //console.log('Thinking complete, checking if content needs restoration');
+           //console.log('Thinking complete, checking if content needs restoration');
 
             // Check if content is empty or very short (needs restoration)
             if (!content.innerHTML.trim() || content.innerHTML.length < 10) {
@@ -3456,7 +3456,7 @@ window.toggleThinkingVisibility = function (btn) {
                 const containerOrder = container.dataset.containerOrder;
                 const messageId = container.closest('.assistant-message')?.dataset?.messageId;
 
-                //console.log(`Container IDs: thinkingId=${thinkingId}, contentId=${contentId}, backupDivId=${backupDivId}, order=${containerOrder}, messageId=${messageId}`);
+               //console.log(`Container IDs: thinkingId=${thinkingId}, contentId=${contentId}, backupDivId=${backupDivId}, order=${containerOrder}, messageId=${messageId}`);
 
                 let contentRestored = false;
 
@@ -3464,14 +3464,14 @@ window.toggleThinkingVisibility = function (btn) {
                 if (backupDivId) {
                     const exactBackupDiv = document.getElementById(backupDivId);
                     if (exactBackupDiv) {
-                        //console.log(`Found exact backup div by ID: ${backupDivId}`);
+                       //console.log(`Found exact backup div by ID: ${backupDivId}`);
                         content.innerHTML = exactBackupDiv.innerHTML;
                         contentRestored = true;
                     } else {
                         // Try with -backup suffix
                         const backupWithSuffix = document.getElementById(`${backupDivId}-backup`);
                         if (backupWithSuffix) {
-                            //console.log(`Found backup with -backup suffix: ${backupDivId}-backup`);
+                           //console.log(`Found backup with -backup suffix: ${backupDivId}-backup`);
                             content.innerHTML = backupWithSuffix.innerHTML;
                             contentRestored = true;
                         }
@@ -3482,7 +3482,7 @@ window.toggleThinkingVisibility = function (btn) {
                 if (!contentRestored && contentId) {
                     const contentBackup = document.getElementById(`${contentId}-backup`);
                     if (contentBackup) {
-                        //console.log(`Found backup by content ID: ${contentId}-backup`);
+                       //console.log(`Found backup by content ID: ${contentId}-backup`);
                         content.innerHTML = contentBackup.innerHTML;
                         contentRestored = true;
                     }
@@ -3492,13 +3492,13 @@ window.toggleThinkingVisibility = function (btn) {
                 if (!contentRestored && window.thinkingBackups) {
                     // Try exact container ID first
                     if (container.id && window.thinkingBackups[container.id]) {
-                        //console.log(`Found global backup by container ID: ${container.id}`);
+                       //console.log(`Found global backup by container ID: ${container.id}`);
                         content.innerHTML = window.thinkingBackups[container.id];
                         contentRestored = true;
                     }
                     // Then try thinking ID
                     else if (thinkingId && window.thinkingBackups[thinkingId]) {
-                        //console.log(`Found global backup by thinking ID: ${thinkingId}`);
+                       //console.log(`Found global backup by thinking ID: ${thinkingId}`);
                         content.innerHTML = window.thinkingBackups[thinkingId];
                         contentRestored = true;
                     }
@@ -3506,7 +3506,7 @@ window.toggleThinkingVisibility = function (btn) {
                     else if (thinkingId && container.dataset.backupVersion) {
                         const versionedKey = `${thinkingId}_v${container.dataset.backupVersion}`;
                         if (window.thinkingBackups[versionedKey]) {
-                            //console.log(`Found versioned global backup: ${versionedKey}`);
+                           //console.log(`Found versioned global backup: ${versionedKey}`);
                             content.innerHTML = window.thinkingBackups[versionedKey];
                             contentRestored = true;
                         }
@@ -3517,7 +3517,7 @@ window.toggleThinkingVisibility = function (btn) {
                 if (!contentRestored && containerOrder && window.thinkingBackupsByOrder) {
                     const orderBackup = window.thinkingBackupsByOrder[containerOrder];
                     if (orderBackup && orderBackup.content) {
-                        //console.log(`Found backup by container order: ${containerOrder}`);
+                       //console.log(`Found backup by container order: ${containerOrder}`);
                         content.innerHTML = orderBackup.content;
                         contentRestored = true;
                     }
@@ -3526,11 +3526,11 @@ window.toggleThinkingVisibility = function (btn) {
                 // METHOD 5: Try data attributes if still not restored
                 if (!contentRestored) {
                     if (container.dataset.thinkingContent) {
-                        //console.log('Restoring from container data attribute');
+                       //console.log('Restoring from container data attribute');
                         content.innerHTML = container.dataset.thinkingContent;
                         contentRestored = true;
                     } else if (content.dataset.originalContent) {
-                        //console.log('Restoring from content element data attribute');
+                       //console.log('Restoring from content element data attribute');
                         content.innerHTML = content.dataset.originalContent;
                         contentRestored = true;
                     }
@@ -3541,18 +3541,18 @@ window.toggleThinkingVisibility = function (btn) {
                     // Find backups that match this message ID
                     const messageBackups = document.querySelectorAll(`div[id*="${messageId}"][id$="-backup"]`);
                     if (messageBackups.length > 0) {
-                        //console.log(`Found ${messageBackups.length} backups for message ID: ${messageId}`);
+                       //console.log(`Found ${messageBackups.length} backups for message ID: ${messageId}`);
                         // Use the one that matches this container's order if possible
                         const matchingOrderBackup = Array.from(messageBackups).find(b =>
                             b.dataset.containerOrder === containerOrder
                         );
 
                         if (matchingOrderBackup) {
-                            //console.log('Found backup matching both message ID and container order');
+                           //console.log('Found backup matching both message ID and container order');
                             content.innerHTML = matchingOrderBackup.innerHTML;
                         } else {
                             // Otherwise use the most recent one for this message
-                            //console.log('Using most recent backup for this message');
+                           //console.log('Using most recent backup for this message');
                             content.innerHTML = messageBackups[messageBackups.length - 1].innerHTML;
                         }
                         contentRestored = true;
@@ -3563,7 +3563,7 @@ window.toggleThinkingVisibility = function (btn) {
                 if (!contentRestored) {
                     const allBackups = document.querySelectorAll('div[id$="-backup"]');
                     if (allBackups.length > 0) {
-                        //console.log('Found', allBackups.length, 'backup divs, using most recent');
+                       //console.log('Found', allBackups.length, 'backup divs, using most recent');
                         content.innerHTML = allBackups[allBackups.length - 1].innerHTML;
                         contentRestored = true;
                     }
@@ -3585,7 +3585,7 @@ window.toggleThinkingVisibility = function (btn) {
         setTimeout(() => {
             const newHeight = Math.max(300, content.scrollHeight) + 'px';
             content.style.maxHeight = newHeight;
-            //console.log('Set content max-height to:', newHeight);
+           //console.log('Set content max-height to:', newHeight);
         }, 10);
 
         content.style.overflow = 'auto';
@@ -3602,6 +3602,245 @@ window.toggleThinkingVisibility = function (btn) {
 
     return false; // Prevent default action
 };
+
+// Centralized smooth stream pacing for all models (local + cloud).
+(function applySmoothStreamingToStreamProcessor() {
+    if (typeof StreamProcessor === 'undefined') {
+        return;
+    }
+
+    if (StreamProcessor.prototype._smoothStreamingPatched) {
+        return;
+    }
+
+    StreamProcessor.prototype._smoothStreamingPatched = true;
+    StreamProcessor.prototype._rawProcessChunk = StreamProcessor.prototype.processChunk;
+    StreamProcessor.prototype._rawFinishResponse = StreamProcessor.prototype.finishResponse;
+
+    StreamProcessor.prototype._ensureSmoothStreamState = function () {
+        if (this._smoothStreamState) {
+            return;
+        }
+
+        this._smoothStreamState = {
+            pending: '',
+            queue: [],
+            enqueueTimer: null,
+            renderTimer: null,
+            enqueueDelayMs: 14,
+            renderCadenceMs: 14,
+            minBufferedChars: 24,
+            maxBufferedChars: 320,
+            lastRenderAt: 0,
+            hardLimitMs: 42
+        };
+    };
+
+    StreamProcessor.prototype._findNextSmoothMarker = function (buffer) {
+        const markers = ['```', '</think>', '<think>', '\n'];
+        let best = null;
+
+        for (const marker of markers) {
+            const idx = buffer.indexOf(marker);
+            if (idx === -1) continue;
+            if (!best || idx < best.index) {
+                best = { marker, index: idx };
+            }
+        }
+
+        return best;
+    };
+
+    StreamProcessor.prototype._extractSmoothUnit = function (text, force) {
+        if (!text) return null;
+
+        const wsMatch = text.match(/^(\s+)/);
+        if (wsMatch) return wsMatch[1];
+
+        const wordWithSpace = text.match(/^([^\s]+)(\s+)/);
+        if (wordWithSpace) return wordWithSpace[1] + wordWithSpace[2];
+
+        if (/[\u3040-\u30ff\u3400-\u9fff]/.test(text)) {
+            return text[0];
+        }
+
+        if (/[.!?,;:]$/.test(text)) {
+            return text;
+        }
+
+        return force ? text : null;
+    };
+
+    StreamProcessor.prototype._enqueueSmoothUnits = function (force = false) {
+        this._ensureSmoothStreamState();
+        const state = this._smoothStreamState;
+
+        let guard = 0;
+        while (state.pending && guard < 256) {
+            guard += 1;
+            const markerData = this._findNextSmoothMarker(state.pending);
+
+            if (markerData && markerData.index === 0) {
+                state.queue.push(markerData.marker);
+                state.pending = state.pending.slice(markerData.marker.length);
+                continue;
+            }
+
+            if (markerData && markerData.index > 0) {
+                const prefix = state.pending.slice(0, markerData.index);
+                const unit = this._extractSmoothUnit(prefix, force);
+                if (!unit) {
+                    if (force) {
+                        state.queue.push(prefix);
+                        state.pending = state.pending.slice(prefix.length);
+                    }
+                    break;
+                }
+
+                state.queue.push(unit);
+                state.pending = state.pending.slice(unit.length);
+                continue;
+            }
+
+            const unit = this._extractSmoothUnit(state.pending, force);
+            if (!unit) break;
+
+            state.queue.push(unit);
+            state.pending = state.pending.slice(unit.length);
+        }
+    };
+
+    StreamProcessor.prototype._startSmoothRenderPump = function () {
+        this._ensureSmoothStreamState();
+        const state = this._smoothStreamState;
+
+        if (state.renderTimer) {
+            return;
+        }
+
+        state.renderTimer = setInterval(() => {
+            if (!state.queue.length) {
+                clearInterval(state.renderTimer);
+                state.renderTimer = null;
+                return;
+            }
+
+            const unit = state.queue.shift();
+            state.lastRenderAt = Date.now();
+
+            this._smoothBypass = true;
+            try {
+                this._rawProcessChunk(unit);
+            } finally {
+                this._smoothBypass = false;
+            }
+        }, state.renderCadenceMs);
+    };
+
+    StreamProcessor.prototype._flushSmoothPending = function (force = false) {
+        this._ensureSmoothStreamState();
+        const state = this._smoothStreamState;
+
+        this._enqueueSmoothUnits(force);
+        if (force && state.pending) {
+            state.queue.push(state.pending);
+            state.pending = '';
+        }
+
+        this._startSmoothRenderPump();
+    };
+
+    StreamProcessor.prototype.processChunk = function (chunk) {
+        if (this._smoothBypass) {
+            this._rawProcessChunk(chunk);
+            return;
+        }
+
+        if (window.disableSmoothStreaming === true) {
+            this._smoothBypass = true;
+            try {
+                this._rawProcessChunk(chunk);
+            } finally {
+                this._smoothBypass = false;
+            }
+            return;
+        }
+
+        if (chunk === null || chunk === undefined) {
+            return;
+        }
+
+        this._ensureSmoothStreamState();
+        const state = this._smoothStreamState;
+
+        state.pending += String(chunk);
+
+        const shouldFlushBoundary =
+            state.pending.length >= state.maxBufferedChars ||
+            state.pending.includes('\n') ||
+            state.pending.includes('```') ||
+            state.pending.includes('<think>') ||
+            state.pending.includes('</think>');
+
+        const now = Date.now();
+        const sinceLastRender = state.lastRenderAt ? (now - state.lastRenderAt) : Number.MAX_SAFE_INTEGER;
+
+        if (shouldFlushBoundary) {
+            this._flushSmoothPending(true);
+            return;
+        }
+
+        if (state.pending.length >= state.minBufferedChars && sinceLastRender >= state.hardLimitMs) {
+            this._flushSmoothPending(false);
+            return;
+        }
+
+        if (!state.enqueueTimer) {
+            state.enqueueTimer = setTimeout(() => {
+                state.enqueueTimer = null;
+                this._flushSmoothPending(true);
+            }, state.enqueueDelayMs);
+        }
+    };
+
+    StreamProcessor.prototype.finishResponse = function () {
+        if (this._smoothBypass) {
+            this._rawFinishResponse();
+            return;
+        }
+
+        if (window.disableSmoothStreaming !== true) {
+            this._ensureSmoothStreamState();
+            const state = this._smoothStreamState;
+
+            if (state.enqueueTimer) {
+                clearTimeout(state.enqueueTimer);
+                state.enqueueTimer = null;
+            }
+            if (state.renderTimer) {
+                clearInterval(state.renderTimer);
+                state.renderTimer = null;
+            }
+
+            this._flushSmoothPending(true);
+            while (state.queue.length) {
+                this._smoothBypass = true;
+                try {
+                    this._rawProcessChunk(state.queue.shift());
+                } finally {
+                    this._smoothBypass = false;
+                }
+            }
+        }
+
+        this._smoothBypass = true;
+        try {
+            this._rawFinishResponse();
+        } finally {
+            this._smoothBypass = false;
+        }
+    };
+})();
 // Export classes globally
 window.CodeStyler = CodeStyler;
 window.StreamProcessor = StreamProcessor;

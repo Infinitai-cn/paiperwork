@@ -6,6 +6,7 @@ class PaiperworkDB {
     static opfsSupported = false;
     static useIndexedDBOnly = false;
     static openDbInstances = [];
+    static ollamaApiKeyCache = new Map();
 
     static normalizeDbRole(role = 'main') {
         return role === 'rag' ? 'rag' : 'main';
@@ -62,15 +63,15 @@ class PaiperworkDB {
     static async checkOPFSSupport() {
         // Don't even try OPFS on Safari
         if (this.isSafari()) {
-            //console.log('Running on Safari - using IndexedDB only');
+           //console.log('Running on Safari - using IndexedDB only');
             return false;
         }
 
-        //console.log('Checking for OPFS support...');
+       //console.log('Checking for OPFS support...');
         try {
             // Check if the FileSystem API and OPFS accessor are available
             if (!navigator.storage || !navigator.storage.getDirectory) {
-                //console.log('OPFS not supported: API not available');
+               //console.log('OPFS not supported: API not available');
                 return false;
             }
 
@@ -83,10 +84,10 @@ class PaiperworkDB {
             await writable.write('test');
             await writable.close();
 
-            //console.log('OPFS fully supported (read/write)');
+           //console.log('OPFS fully supported (read/write)');
             return true;
         } catch (error) {
-            //console.log('OPFS support check failed:', error);
+           //console.log('OPFS support check failed:', error);
             return false;
         }
     }
@@ -137,11 +138,11 @@ class PaiperworkDB {
                 const file = await fileHandle.getFile();
                 const buffer = await file.arrayBuffer();
 
-                //console.log(`Retrieved database from OPFS: ${hashedMasterKey} (${buffer.byteLength} bytes)`);
+               //console.log(`Retrieved database from OPFS: ${hashedMasterKey} (${buffer.byteLength} bytes)`);
                 return new Uint8Array(buffer);
             } catch (error) {
                 // File doesn't exist yet, which is normal for new users
-                //console.log(`No existing database in OPFS for ${hashedMasterKey}`);
+               //console.log(`No existing database in OPFS for ${hashedMasterKey}`);
                 return null;
             }
         } catch (error) {
@@ -153,25 +154,25 @@ class PaiperworkDB {
     static async getExistingDatabase(hashedMasterKey, role = 'main') {
         const normalizedRole = this.normalizeDbRole(role);
         const storageKey = this.getDbStorageKey(hashedMasterKey, normalizedRole);
-        //console.log(`🔍 Getting existing database for masterkey: ${hashedMasterKey}`);
-        //console.log(`📍 Storage strategy: ${this.opfsSupported && !this.useIndexedDBOnly ? 'OPFS' : 'IndexedDB'}`);
+       //console.log(`🔍 Getting existing database for masterkey: ${hashedMasterKey}`);
+       //console.log(`📍 Storage strategy: ${this.opfsSupported && !this.useIndexedDBOnly ? 'OPFS' : 'IndexedDB'}`);
 
         // Try OPFS first if it's our primary storage
         if (this.opfsSupported && !this.useIndexedDBOnly) {
-            //console.log('🔍 Checking OPFS for database...');
+           //console.log('🔍 Checking OPFS for database...');
             const opfsData = await this.getOPFSDatabase(hashedMasterKey, normalizedRole);
             if (opfsData) {
-                //console.log('✅ Database found in OPFS');
+               //console.log('✅ Database found in OPFS');
                 return opfsData;
             }
-            //console.log('❌ Database not found in OPFS');
+           //console.log('❌ Database not found in OPFS');
 
             // If we expected OPFS but didn't find data, check IndexedDB for migration
-            //console.log('🔄 Checking IndexedDB for potential migration data...');
+           //console.log('🔄 Checking IndexedDB for potential migration data...');
         }
 
         // Use IndexedDB (either as primary or fallback)
-        //console.log('🔍 Checking IndexedDB for database...');
+       //console.log('🔍 Checking IndexedDB for database...');
         return new Promise((resolve) => {
             const request = indexedDB.open('PaiperworkDB', 1);
 
@@ -179,7 +180,7 @@ class PaiperworkDB {
                 const db = event.target.result;
                 if (!db.objectStoreNames.contains('databases')) {
                     db.createObjectStore('databases');
-                    //console.log('🆕 Created missing databases object store');
+                   //console.log('🆕 Created missing databases object store');
                 }
             };
 
@@ -187,7 +188,7 @@ class PaiperworkDB {
                 const db = event.target.result;
 
                 if (!db.objectStoreNames.contains('databases')) {
-                    //console.log('❌ Object store "databases" not found');
+                   //console.log('❌ Object store "databases" not found');
                     db.close();
                     resolve(null);
                     return;
@@ -200,20 +201,20 @@ class PaiperworkDB {
 
                     getRequest.onsuccess = () => {
                         if (getRequest.result) {
-                            //console.log(`✅ Database found in IndexedDB for ${hashedMasterKey}`);
+                           //console.log(`✅ Database found in IndexedDB for ${hashedMasterKey}`);
 
                             // If we found data in IndexedDB but we're supposed to use OPFS,
                             // migrate it to OPFS
                             if (this.opfsSupported && !this.useIndexedDBOnly) {
-                                //console.log('🔄 Migrating from IndexedDB to OPFS...');
+                               //console.log('🔄 Migrating from IndexedDB to OPFS...');
                                 this.saveToOPFS(getRequest.result, hashedMasterKey, normalizedRole).then(() => {
-                                    //console.log('✅ Migration to OPFS completed');
+                                   //console.log('✅ Migration to OPFS completed');
                                 }).catch(error => {
                                     console.error('❌ Migration to OPFS failed:', error);
                                 });
                             }
                         } else {
-                            //console.log('❌ No database found in IndexedDB');
+                           //console.log('❌ No database found in IndexedDB');
                         }
                         db.close();
                         resolve(getRequest.result);
@@ -241,15 +242,15 @@ class PaiperworkDB {
     static async saveToStorage(dbExport, hashedMasterKey, role = 'main') {
         const normalizedRole = this.normalizeDbRole(role);
         const storageKey = this.getDbStorageKey(hashedMasterKey, normalizedRole);
-        //console.log(`💾 Saving database for masterkey: ${hashedMasterKey}`);
-        //console.log(`📍 Storage strategy: ${this.opfsSupported ? 'OPFS' : 'IndexedDB'}`);
+       //console.log(`💾 Saving database for masterkey: ${hashedMasterKey}`);
+       //console.log(`📍 Storage strategy: ${this.opfsSupported ? 'OPFS' : 'IndexedDB'}`);
 
         // Use OPFS if supported and enabled
         if (this.opfsSupported && !this.useIndexedDBOnly) {
-            //console.log('💾 Saving to OPFS...');
+           //console.log('💾 Saving to OPFS...');
             const success = await this.saveToOPFS(dbExport, hashedMasterKey, normalizedRole);
             if (success) {
-                //console.log('✅ Database saved successfully to OPFS');
+               //console.log('✅ Database saved successfully to OPFS');
                 return true;
             } else {
                 console.error('❌ OPFS save failed, falling back to IndexedDB');
@@ -260,12 +261,12 @@ class PaiperworkDB {
         }
 
         // Use IndexedDB (either as primary choice or fallback)
-        //console.log('💾 Saving to IndexedDB...');
+       //console.log('💾 Saving to IndexedDB...');
         return new Promise((resolve, reject) => {
             const request = indexedDB.open('PaiperworkDB', 1);
 
             request.onupgradeneeded = (event) => {
-                //console.log('🔧 Creating/upgrading IndexedDB store');
+               //console.log('🔧 Creating/upgrading IndexedDB store');
                 const db = event.target.result;
                 if (!db.objectStoreNames.contains('databases')) {
                     db.createObjectStore('databases');
@@ -280,7 +281,7 @@ class PaiperworkDB {
                 const putRequest = store.put(dbExport, storageKey);
 
                 putRequest.onsuccess = () => {
-                    //console.log('✅ Database saved successfully to IndexedDB');
+                   //console.log('✅ Database saved successfully to IndexedDB');
                     db.close();
                     resolve(true);
                 };
@@ -311,7 +312,7 @@ class PaiperworkDB {
             await writable.write(dbExport);
             await writable.close();
 
-            //console.log(`Database successfully saved to OPFS: ${hashedMasterKey}`);
+           //console.log(`Database successfully saved to OPFS: ${hashedMasterKey}`);
             return true;
         } catch (error) {
             console.error('Error saving to OPFS:', error);
@@ -380,9 +381,79 @@ class PaiperworkDB {
             return false;
         }
     }
+
+    static isEncryptedPayloadObject(value) {
+        return !!value &&
+            typeof value === 'object' &&
+            Array.isArray(value.encrypted) &&
+            Array.isArray(value.iv);
+    }
+
+    static parseEncryptedPayloadString(value) {
+        if (typeof value !== 'string') {
+            return this.isEncryptedPayloadObject(value) ? value : null;
+        }
+
+        const trimmed = value.trim();
+        if (!trimmed || trimmed[0] !== '{') {
+            return null;
+        }
+
+        try {
+            const parsed = JSON.parse(trimmed);
+            return this.isEncryptedPayloadObject(parsed) ? parsed : null;
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    static async normalizeStoredStringValue(rawValue, hashedMasterKey = '') {
+        let current = String(rawValue || '').trim();
+        if (!current) return '';
+
+        // Unwrap up to two nested encrypted payload layers.
+        for (let depth = 0; depth < 2; depth++) {
+            const payload = this.parseEncryptedPayloadString(current);
+            if (!payload) {
+                return current;
+            }
+
+            if (!hashedMasterKey) {
+                return '';
+            }
+
+            const decrypted = String(await this.decrypt(hashedMasterKey, payload) || '').trim();
+            if (!decrypted) {
+                return '';
+            }
+
+            current = decrypted;
+        }
+
+        return this.parseEncryptedPayloadString(current) ? '' : current;
+    }
+
+    // Reads a localStorage key that may be plaintext or secureLocalStorageSet-encrypted.
+    // For encrypted payloads, this uses secureLocalStorageGet(key) with key-derived crypto.
+    static async readNormalizedLocalStorageValue(key, hashedMasterKey = '') {
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return '';
+
+            const encryptedPayload = this.parseEncryptedPayloadString(raw);
+            if (encryptedPayload) {
+                const decrypted = await this.secureLocalStorageGet(key);
+                return String(decrypted || '').trim();
+            }
+
+            return await this.normalizeStoredStringValue(raw, hashedMasterKey);
+        } catch (_error) {
+            return '';
+        }
+    }
     // Ensures the database and storage strategy are set up and available.
     static async ensureDatabaseExists() {
-        //console.log('🔧 Ensuring PaiperworkDB database exists and determining storage strategy');
+       //console.log('🔧 Ensuring PaiperworkDB database exists and determining storage strategy');
 
         // Reset storage strategy flags
         this.opfsSupported = false;
@@ -390,7 +461,7 @@ class PaiperworkDB {
 
         // Check OPFS support for non-Safari browsers
         if (!this.isSafari()) {
-            //console.log('🔍 Non-Safari browser detected, checking OPFS support...');
+           //console.log('🔍 Non-Safari browser detected, checking OPFS support...');
             this.opfsSupported = await this.checkOPFSSupport();
 
             if (this.opfsSupported) {
@@ -398,43 +469,43 @@ class PaiperworkDB {
                     // Create OPFS directory for databases
                     const root = await navigator.storage.getDirectory();
                     await root.getDirectoryHandle('PaiperworkDB', { create: true });
-                    //console.log('✅ OPFS database directory created/verified - using OPFS as primary storage');
+                   //console.log('✅ OPFS database directory created/verified - using OPFS as primary storage');
                     this.useIndexedDBOnly = false;
                 } catch (error) {
                     console.error('❌ Error ensuring OPFS directory exists:', error);
                     this.opfsSupported = false;
                     this.useIndexedDBOnly = true;
-                    //console.log('⚠️ OPFS failed, falling back to IndexedDB');
+                   //console.log('⚠️ OPFS failed, falling back to IndexedDB');
                 }
             } else {
                 this.useIndexedDBOnly = true;
-                //console.log('⚠️ OPFS not supported, using IndexedDB');
+               //console.log('⚠️ OPFS not supported, using IndexedDB');
             }
         } else {
             this.opfsSupported = false;
             this.useIndexedDBOnly = true;
-            //console.log('🍎 Safari detected, using IndexedDB only');
+           //console.log('🍎 Safari detected, using IndexedDB only');
         }
 
         // Set up IndexedDB only if we're not using OPFS or if OPFS failed
         if (this.useIndexedDBOnly) {
-            //console.log('🗄️ Setting up IndexedDB as primary storage');
+           //console.log('🗄️ Setting up IndexedDB as primary storage');
             return new Promise((resolve, reject) => {
                 try {
                     const request = indexedDB.open('PaiperworkDB', 1);
 
                     request.onupgradeneeded = (event) => {
-                        //console.log('🔧 Creating or upgrading PaiperworkDB database');
+                       //console.log('🔧 Creating or upgrading PaiperworkDB database');
                         const db = event.target.result;
 
                         if (!db.objectStoreNames.contains('databases')) {
-                            //console.log('🆕 Creating databases object store');
+                           //console.log('🆕 Creating databases object store');
                             db.createObjectStore('databases');
                         }
                     };
 
                     request.onsuccess = (event) => {
-                        //console.log('✅ IndexedDB database opened successfully');
+                       //console.log('✅ IndexedDB database opened successfully');
                         const db = event.target.result;
 
                         if (!db.objectStoreNames.contains('databases')) {
@@ -445,16 +516,16 @@ class PaiperworkDB {
                             const upgradeRequest = indexedDB.open('PaiperworkDB', currentVersion + 1);
 
                             upgradeRequest.onupgradeneeded = (event) => {
-                                //console.log('🔧 Upgrading database version to create missing object store');
+                               //console.log('🔧 Upgrading database version to create missing object store');
                                 const upgradeDb = event.target.result;
                                 if (!upgradeDb.objectStoreNames.contains('databases')) {
                                     upgradeDb.createObjectStore('databases');
-                                    //console.log('✅ Created missing databases object store');
+                                   //console.log('✅ Created missing databases object store');
                                 }
                             };
 
                             upgradeRequest.onsuccess = () => {
-                                //console.log('✅ Database upgrade successful');
+                               //console.log('✅ Database upgrade successful');
                                 resolve(true);
                             };
 
@@ -463,7 +534,7 @@ class PaiperworkDB {
                                 reject(error);
                             };
                         } else {
-                            //console.log('✅ IndexedDB object store verified');
+                           //console.log('✅ IndexedDB object store verified');
                             db.close();
                             resolve(true);
                         }
@@ -479,7 +550,7 @@ class PaiperworkDB {
                 }
             });
         } else {
-            //console.log('✅ OPFS setup complete');
+           //console.log('✅ OPFS setup complete');
             return true;
         }
     }
@@ -487,25 +558,25 @@ class PaiperworkDB {
     static async initializeDatabase(hashedMasterKey) {
         // If already initialized, return immediately
         if (this.dbInitialized) {
-            //console.log('Database already initialized, skipping');
+           //console.log('Database already initialized, skipping');
             return true;
         }
 
         // If initialization is in progress, wait for it
         if (this.initializationPromise) {
-            //console.log('Database initialization already in progress, waiting...');
+           //console.log('Database initialization already in progress, waiting...');
             return this.initializationPromise;
         }
 
         // Set up the initialization promise
         this.initializationPromise = (async () => {
-            //console.log('Starting database initialization for masterkey:', hashedMasterKey);
+           //console.log('Starting database initialization for masterkey:', hashedMasterKey);
 
             try {
                 // First, make sure the database and object store exist
                 await this.ensureDatabaseExists();
 
-                //console.log('Initializing SQL.js');
+               //console.log('Initializing SQL.js');
                 const SQL = await initSqlJs({
                     locateFile: file => `/core/js/libraries/SQLjs/${file}`
                 });
@@ -514,15 +585,15 @@ class PaiperworkDB {
                 this.SQL = SQL;
 
                 // Check for existing database
-                //console.log('Checking for existing database');
+               //console.log('Checking for existing database');
                 const existingDb = await this.getExistingDatabase(hashedMasterKey);
                 let db;
 
                 if (existingDb) {
-                    //console.log('Loading existing database for masterkey:', hashedMasterKey);
+                   //console.log('Loading existing database for masterkey:', hashedMasterKey);
                     db = new SQL.Database(existingDb);
                 } else {
-                    //console.log('Creating new database for masterkey:', hashedMasterKey);
+                   //console.log('Creating new database for masterkey:', hashedMasterKey);
                     db = new SQL.Database();
 
                     // Create version tracking first
@@ -540,7 +611,9 @@ class PaiperworkDB {
                             model TEXT,
                             context_size TEXT,
                             insights_enabled TEXT,
-                            visual_model TEXT
+                            visual_model TEXT,
+                            model_provider TEXT,
+                            ollama_api_key TEXT
                         )
                     `);
 
@@ -553,7 +626,7 @@ class PaiperworkDB {
                             (masterkey_hash, system_prompt, model, context_size, insights_enabled)
                             VALUES (?, ?, ?, ?, ?)
                         `, [hashedMasterKey, '', '', '8192', JSON.stringify(defaultInsightsEnabled)]);
-                        //console.log('Initialized new user settings with insights disabled');
+                       //console.log('Initialized new user settings with insights disabled');
                     }
 
                     db.run(`
@@ -595,7 +668,7 @@ class PaiperworkDB {
                         )
                     `);
 
-                    //console.log('Database tables created successfully');
+                   //console.log('Database tables created successfully');
                 }
 
                 // Save the database using our enhanced saveToStorage method
@@ -605,7 +678,7 @@ class PaiperworkDB {
                 // Migrate database - Run this only ONCE during initialization
                 await this.migrateDatabase(db, hashedMasterKey);
 
-                //console.log('Database initialization complete');
+               //console.log('Database initialization complete');
                 this.dbInitialized = true;
                 return true;
             } catch (error) {
@@ -623,14 +696,14 @@ class PaiperworkDB {
 
     // Migrates the database schema to the latest version.
     static async migrateDatabase(db, hashedMasterKey) {
-        //console.log('Migrating database for masterkey:', hashedMasterKey);
+       //console.log('Migrating database for masterkey:', hashedMasterKey);
 
         try {
             // Get current version
             const versionResult = db.exec('SELECT version FROM db_version');
             const currentVersion = versionResult.length ? versionResult[0].values[0][0] : 0;
 
-            //console.log('Current database version:', currentVersion);
+           //console.log('Current database version:', currentVersion);
 
             // Version 1: Initial tables
             if (currentVersion < 1) {
@@ -642,7 +715,7 @@ class PaiperworkDB {
                         context_size TEXT
                     )
                 `);
-                //console.log('Migrated to version 1');
+               //console.log('Migrated to version 1');
             }
 
             // Version 2: Add insights_enabled
@@ -652,7 +725,7 @@ class PaiperworkDB {
 
                 if (!hasInsightsColumn) {
                     db.run(`ALTER TABLE user_settings ADD COLUMN insights_enabled TEXT DEFAULT 'false'`);
-                    //console.log('Added insights_enabled column in version 2');
+                   //console.log('Added insights_enabled column in version 2');
                 }
             }
 
@@ -663,14 +736,14 @@ class PaiperworkDB {
 
                 if (!hasVisualModelColumn) {
                     db.run(`ALTER TABLE user_settings ADD COLUMN visual_model TEXT`);
-                    //console.log('Added visual_model column in version 3');
+                   //console.log('Added visual_model column in version 3');
                 }
             }
 
             // Version 5: Add conversation_group column to all conversation tables
             if (currentVersion < 5) {
                 try {
-                    //console.log('DATABASE MIGRATION: Adding conversation_group column to tables');
+                   //console.log('DATABASE MIGRATION: Adding conversation_group column to tables');
 
                     // First check if the conversations table exists for this masterkey
                     const tableCheck = db.exec(`SELECT name FROM sqlite_master 
@@ -682,15 +755,15 @@ class PaiperworkDB {
                         const hasGroupColumn = columnCheck[0].values.some(col => col[1] === 'conversation_group');
 
                         if (!hasGroupColumn) {
-                            //console.log(`Adding conversation_group column to conversations_${hashedMasterKey}`);
+                           //console.log(`Adding conversation_group column to conversations_${hashedMasterKey}`);
 
                             // Add the column
                             db.exec(`ALTER TABLE conversations_${hashedMasterKey} 
                                    ADD COLUMN conversation_group INTEGER DEFAULT 1`);
 
-                            //console.log('conversation_group column added successfully');
+                           //console.log('conversation_group column added successfully');
                         } else {
-                            //console.log('conversation_group column already exists');
+                           //console.log('conversation_group column already exists');
                         }
                     }
                 } catch (error) {
@@ -701,7 +774,7 @@ class PaiperworkDB {
             // Version 6: Add research columns
             if (currentVersion < 6) {
                 try {
-                    //console.log('DATABASE MIGRATION: Adding research tables');
+                   //console.log('DATABASE MIGRATION: Adding research tables');
 
                     // Create knowledge collections table
                     db.exec(`
@@ -722,7 +795,7 @@ class PaiperworkDB {
                         )
                     `);
 
-                    //console.log('DATABASE MIGRATION: Research tables created successfully');
+                   //console.log('DATABASE MIGRATION: Research tables created successfully');
                 } catch (error) {
                     console.error('DATABASE MIGRATION: Error creating research tables', error);
                 }
@@ -731,7 +804,7 @@ class PaiperworkDB {
             // Version 7: Add model context sizes table
             if (currentVersion < 7) {
                 try {
-                    //console.log('DATABASE MIGRATION: Adding model context sizes table');
+                   //console.log('DATABASE MIGRATION: Adding model context sizes table');
 
                     // Create model context sizes table
                     db.exec(`
@@ -744,14 +817,14 @@ class PaiperworkDB {
             )
         `);
 
-                    //console.log('DATABASE MIGRATION: Model context sizes table created successfully');
+                   //console.log('DATABASE MIGRATION: Model context sizes table created successfully');
                 } catch (error) {
                     console.error('DATABASE MIGRATION: Error creating model context sizes table', error);
                 }
             }
             if (currentVersion < 8) {
                 try {
-                    //console.log('DATABASE MIGRATION: Adding use_calculated_context flag to model context sizes table');
+                   //console.log('DATABASE MIGRATION: Adding use_calculated_context flag to model context sizes table');
 
                     // Check if table exists first
                     const tableExists = db.exec(`
@@ -769,7 +842,7 @@ class PaiperworkDB {
                     ALTER TABLE model_context_sizes_${hashedMasterKey} 
                     ADD COLUMN use_calculated_context BOOLEAN DEFAULT TRUE
                 `);
-                            //console.log('DATABASE MIGRATION: Added use_calculated_context column');
+                           //console.log('DATABASE MIGRATION: Added use_calculated_context column');
                         }
                     }
 
@@ -793,7 +866,7 @@ class PaiperworkDB {
                             updated_at TEXT
                         )
                     `);
-                    //console.log('DATABASE MIGRATION: custom_styles table created');
+                   //console.log('DATABASE MIGRATION: custom_styles table created');
                 } catch (error) {
                     console.error('DATABASE MIGRATION: Error creating custom_styles table', error);
                 }
@@ -834,18 +907,40 @@ class PaiperworkDB {
                 }
             }
 
-            // Update database version to 11
+            // Version 12: Add model provider + Ollama API key columns
+            if (currentVersion < 12) {
+                try {
+                    const columnCheck = db.exec(`PRAGMA table_info(user_settings)`);
+                    const hasModelProviderColumn = columnCheck[0].values.some(col => col[1] === 'model_provider');
+                    const hasApiKeyColumn = columnCheck[0].values.some(col => col[1] === 'ollama_api_key');
+
+                    if (!hasModelProviderColumn) {
+                        db.run(`ALTER TABLE user_settings ADD COLUMN model_provider TEXT`);
+                    }
+
+                    if (!hasApiKeyColumn) {
+                        db.run(`ALTER TABLE user_settings ADD COLUMN ollama_api_key TEXT`);
+                    }
+
+                    // Default legacy rows to local provider when empty.
+                    db.run(`UPDATE user_settings SET model_provider = 'local' WHERE model_provider IS NULL OR model_provider = ''`);
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error adding model provider/api key columns', error);
+                }
+            }
+
+            // Update database version to 12
             if (currentVersion === 0) {
-                db.run('INSERT INTO db_version (version) VALUES (11)');
+                db.run('INSERT INTO db_version (version) VALUES (12)');
             } else {
-                db.run('UPDATE db_version SET version = 11');
+                db.run('UPDATE db_version SET version = 12');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
             // which will automatically use OPFS if supported
             await this.saveToStorage(db.export(), hashedMasterKey);
 
-            //console.log('Database migration completed');
+           //console.log('Database migration completed');
             return true;
         } catch (error) {
             console.error('Error during database migration:', error);
@@ -856,7 +951,7 @@ class PaiperworkDB {
     // Insert or update a custom style in the per-masterkey custom_styles table
     static async insertCustomStyle(hashedMasterKey, styleInfo) {
         try {
-            //console.log('PaiperworkDB.insertCustomStyle called with masterkey:', hashedMasterKey, 'styleInfo:', { name: styleInfo?.name, model: styleInfo?.model });
+           //console.log('PaiperworkDB.insertCustomStyle called with masterkey:', hashedMasterKey, 'styleInfo:', { name: styleInfo?.name, model: styleInfo?.model });
             // Ensure database initialized
             await this.initializeDatabase(hashedMasterKey);
 
@@ -895,7 +990,7 @@ class PaiperworkDB {
             if (existingId) {
                 db.run(`UPDATE custom_styles_${hashedMasterKey} SET code = ?, updated_at = ?, is_active = ? WHERE id = ?`, [styleInfo.code || '', now, styleInfo.is_active ? 1 : 0, existingId]);
                 await this.saveToStorage(db.export(), hashedMasterKey);
-                //console.log('PaiperworkDB.insertCustomStyle: updated existing style id=', existingId, 'name=', styleInfo.name);
+               //console.log('PaiperworkDB.insertCustomStyle: updated existing style id=', existingId, 'name=', styleInfo.name);
                 return existingId;
             }
 
@@ -911,7 +1006,7 @@ class PaiperworkDB {
             }
 
             await this.saveToStorage(db.export(), hashedMasterKey);
-            //console.log('PaiperworkDB.insertCustomStyle: inserted new style id=', newId, 'name=', styleInfo.name);
+           //console.log('PaiperworkDB.insertCustomStyle: inserted new style id=', newId, 'name=', styleInfo.name);
             return newId;
         } catch (error) {
             console.error('insertCustomStyle error:', error && error.stack ? error.stack : error);
@@ -988,7 +1083,7 @@ class PaiperworkDB {
             db.run(`DELETE FROM custom_styles_${hashedMasterKey} WHERE id = ?`, [id]);
 
             await this.saveToStorage(db.export(), hashedMasterKey);
-            //console.log('PaiperworkDB.deleteCustomStyle: deleted style id=', id);
+           //console.log('PaiperworkDB.deleteCustomStyle: deleted style id=', id);
             return true;
         } catch (error) {
             console.error('deleteCustomStyle error:', error);
@@ -1198,18 +1293,18 @@ class PaiperworkDB {
     }
 
     static async hashMasterKeyValue(masterkey) {
-        //console.log('Generating hash for masterkey:', masterkey);
+       //console.log('Generating hash for masterkey:', masterkey);
         const encoder = new TextEncoder();
         const data = encoder.encode(masterkey);
         const hashBuffer = await crypto.subtle.digest('SHA-256', data);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
         const hashedMasterKey = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-        //console.log('Hash generated:', hashedMasterKey);
+       //console.log('Hash generated:', hashedMasterKey);
         return hashedMasterKey;
     }
     // Deletes the database for a given master key hash from OPFS and IndexedDB.
     static async deleteDatabase(hashedMasterKey) {
-        //console.log('Starting deletion of database for hashedMasterKey:', hashedMasterKey);
+       //console.log('Starting deletion of database for hashedMasterKey:', hashedMasterKey);
 
         let opfsDeleted = true;
         let indexedDBDeleted = false;
@@ -1217,7 +1312,7 @@ class PaiperworkDB {
         // Delete from OPFS if supported
         if (this.opfsSupported) {
             try {
-                //console.log('Deleting from OPFS...');
+               //console.log('Deleting from OPFS...');
                 const root = await navigator.storage.getDirectory();
                 const dbDir = await root.getDirectoryHandle('PaiperworkDB', { create: false });
 
@@ -1231,7 +1326,7 @@ class PaiperworkDB {
 
                 try {
                     await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'rag'));
-                    //console.log('Successfully deleted database from OPFS');
+                   //console.log('Successfully deleted database from OPFS');
                 } catch (error) {
                     // Rag DB may not exist yet in older installs; treat NotFound as non-fatal.
                     if (error?.name !== 'NotFoundError') {
@@ -1241,7 +1336,7 @@ class PaiperworkDB {
                 }
             } catch (error) {
                 // If directory doesn't exist, that's fine
-                //console.log('No PaiperworkDB directory in OPFS or other error:', error);
+               //console.log('No PaiperworkDB directory in OPFS or other error:', error);
             }
         }
 
@@ -1278,12 +1373,12 @@ class PaiperworkDB {
             };
         });
 
-        //console.log(`Database deletion results - OPFS: ${opfsDeleted}, IndexedDB: ${indexedDBDeleted}`);
+       //console.log(`Database deletion results - OPFS: ${opfsDeleted}, IndexedDB: ${indexedDBDeleted}`);
         return opfsDeleted && indexedDBDeleted;
     }
     // Deletes all databases and clears localStorage.
     static async deleteAllDatabases() {
-        //console.log('🗑️ Starting deletion of all data');
+       //console.log('🗑️ Starting deletion of all data');
 
         await this.closeRoleDatabases('rag');
         await this.closeRoleDatabases('main');
@@ -1291,23 +1386,23 @@ class PaiperworkDB {
         // CRITICAL FIX: Ensure we know our current storage strategy
         // If we haven't determined it yet, do it now
         if (!this.opfsSupported && !this.useIndexedDBOnly) {
-            //console.log('🔧 Storage strategy not determined, checking now...');
+           //console.log('🔧 Storage strategy not determined, checking now...');
             await this.ensureDatabaseExists();
         }
 
-        //console.log(`📍 Current storage strategy: ${this.opfsSupported && !this.useIndexedDBOnly ? 'OPFS' : 'IndexedDB'}`);
-        //console.log(`📊 Storage flags: opfsSupported=${this.opfsSupported}, useIndexedDBOnly=${this.useIndexedDBOnly}`);
+       //console.log(`📍 Current storage strategy: ${this.opfsSupported && !this.useIndexedDBOnly ? 'OPFS' : 'IndexedDB'}`);
+       //console.log(`📊 Storage flags: opfsSupported=${this.opfsSupported}, useIndexedDBOnly=${this.useIndexedDBOnly}`);
 
         let storageDeleted = false;
 
         // Delete from our primary storage
         if (this.opfsSupported && !this.useIndexedDBOnly) {
-            //console.log('🗑️ Deleting from OPFS (primary storage)...');
+           //console.log('🗑️ Deleting from OPFS (primary storage)...');
             try {
                 const root = await navigator.storage.getDirectory();
                 try {
                     const dbDir = await root.getDirectoryHandle('PaiperworkDB', { create: false });
-                    //console.log('🗑️ Found PaiperworkDB directory in OPFS');
+                   //console.log('🗑️ Found PaiperworkDB directory in OPFS');
 
                     let deletedFiles = 0;
                     for await (const [name, handle] of dbDir.entries()) {
@@ -1315,17 +1410,17 @@ class PaiperworkDB {
                             try {
                                 await dbDir.removeEntry(name);
                                 deletedFiles++;
-                                //console.log(`🗑️ Successfully deleted OPFS file: ${name}`);
+                               //console.log(`🗑️ Successfully deleted OPFS file: ${name}`);
                             } catch (deleteError) {
                                 console.warn(`❌ Error deleting OPFS file ${name}:`, deleteError);
                             }
                         }
                     }
-                    //console.log(`🗑️ Deleted ${deletedFiles} .db files from OPFS`);
+                   //console.log(`🗑️ Deleted ${deletedFiles} .db files from OPFS`);
 
                     try {
                         await root.removeEntry('PaiperworkDB', { recursive: true });
-                        //console.log('🗑️ Successfully deleted PaiperworkDB directory from OPFS');
+                       //console.log('🗑️ Successfully deleted PaiperworkDB directory from OPFS');
                         storageDeleted = true;
                     } catch (dirError) {
                         console.warn('⚠️ Error deleting PaiperworkDB directory:', dirError);
@@ -1333,7 +1428,7 @@ class PaiperworkDB {
                     }
                 } catch (error) {
                     if (error.name === 'NotFoundError') {
-                        //console.log('ℹ️ No PaiperworkDB directory found in OPFS');
+                       //console.log('ℹ️ No PaiperworkDB directory found in OPFS');
                         storageDeleted = true; // Nothing to delete is success
                     } else {
                         console.warn('❌ Error accessing PaiperworkDB directory in OPFS:', error);
@@ -1344,12 +1439,12 @@ class PaiperworkDB {
             }
 
             // Also clean up any legacy IndexedDB data
-            //console.log('🧹 Cleaning up any legacy IndexedDB data...');
+           //console.log('🧹 Cleaning up any legacy IndexedDB data...');
             try {
                 await new Promise((resolve) => {
                     const deleteRequest = indexedDB.deleteDatabase('PaiperworkDB');
                     deleteRequest.onsuccess = () => {
-                        //console.log('🧹 Legacy IndexedDB data cleaned up');
+                       //console.log('🧹 Legacy IndexedDB data cleaned up');
                         resolve();
                     };
                     deleteRequest.onerror = deleteRequest.onblocked = () => resolve();
@@ -1358,12 +1453,12 @@ class PaiperworkDB {
                 console.warn('⚠️ Error cleaning up legacy IndexedDB:', error);
             }
         } else {
-            //console.log('🗑️ Deleting from IndexedDB (primary storage)...');
+           //console.log('🗑️ Deleting from IndexedDB (primary storage)...');
             storageDeleted = await new Promise((resolve) => {
                 const deleteRequest = indexedDB.deleteDatabase('PaiperworkDB');
 
                 deleteRequest.onsuccess = () => {
-                    //console.log('✅ PaiperworkDB successfully deleted from IndexedDB');
+                   //console.log('✅ PaiperworkDB successfully deleted from IndexedDB');
                     resolve(true);
                 };
 
@@ -1381,20 +1476,21 @@ class PaiperworkDB {
 
         // Clear localStorage regardless of outcome
         const localStorageKeys = Object.keys(localStorage);
-        //console.log(`🗑️ Clearing localStorage (${localStorageKeys.length} items)...`);
+       //console.log(`🗑️ Clearing localStorage (${localStorageKeys.length} items)...`);
         localStorage.clear();
-        //console.log('✅ localStorage cleared');
+       //console.log('✅ localStorage cleared');
 
         // Reset our initialization flags
         this.dbInitialized = false;
         this.initializationPromise = null;
         this.SQL = null;
+        this.ollamaApiKeyCache.clear();
         // IMPORTANT: Also reset storage strategy flags so they're re-determined on next startup
         this.opfsSupported = false;
         this.useIndexedDBOnly = false;
-        //console.log('🔄 Database initialization flags reset');
+       //console.log('🔄 Database initialization flags reset');
 
-        //console.log(`🗑️ Storage deletion result: ${storageDeleted}`);
+       //console.log(`🗑️ Storage deletion result: ${storageDeleted}`);
         return storageDeleted;
     }
     // Generates a cryptographic key from the master key for encryption.
@@ -1452,13 +1548,13 @@ class PaiperworkDB {
 
             // Enhanced validation with array handling
             if (Array.isArray(parsedData)) {
-                //console.log('Processing array format data');
+               //console.log('Processing array format data');
                 return parsedData.encrypted || parsedData;
             }
 
             // Standard object format handling
             if (!parsedData?.encrypted || !parsedData?.iv) {
-                //console.log('Data structure missing required fields');
+               //console.log('Data structure missing required fields');
                 return '';
             }
 
@@ -1470,11 +1566,11 @@ class PaiperworkDB {
             );
 
             const result = new TextDecoder().decode(decrypted);
-            //console.log('Decryption successful');
+           //console.log('Decryption successful');
             return result;
 
         } catch (error) {
-            //console.log('Decryption failed:', error.message);
+           //console.log('Decryption failed:', error.message);
             return '';
         }
     }
@@ -1517,8 +1613,10 @@ class PaiperworkDB {
             const hashedMasterKey = await this.hashMasterKeyValue(String(key));
             const decrypted = await this.decrypt(hashedMasterKey, parsed);
 
-            // If decryption failed (empty string), return the original raw value as fallback
-            if (decrypted === '') return existing;
+            // If decryption failed for an encrypted payload, avoid leaking ciphertext to callers.
+            if (decrypted === '') {
+                return this.isEncryptedPayloadObject(parsed) ? null : existing;
+            }
             return decrypted;
         } catch (error) {
             console.error('secureLocalStorageGet error:', error);
@@ -1532,18 +1630,18 @@ class PaiperworkDB {
 
     // Loads user settings from the database for a given master key hash.
     static async loadSettings(hashedMasterKey) {
-        //console.log('Loading settings for masterkey:', hashedMasterKey);
+       //console.log('Loading settings for masterkey:', hashedMasterKey);
 
         try {
             // First ensure database is initialized, only runs once
             if (!this.dbInitialized) {
-                //console.log('Database not yet initialized, initializing now...');
+               //console.log('Database not yet initialized, initializing now...');
                 await this.initializeDatabase(hashedMasterKey);
             }
 
             // We need a static SQL reference to avoid repeated initialization
             if (!this.SQL) {
-                //console.log('Initializing SQL.js once for all operations');
+               //console.log('Initializing SQL.js once for all operations');
                 this.SQL = await initSqlJs({
                     locateFile: file => `/core/js/libraries/SQLjs/${file}`
                 });
@@ -1552,13 +1650,15 @@ class PaiperworkDB {
             // Get the existing database - this already handles OPFS when supported
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
             if (!existingDb) {
-                //console.log('No existing database found, returning default settings');
+               //console.log('No existing database found, returning default settings');
                 return {
                     systemPrompt: '',
                     model: '',
                     contextSize: '8192',
                     insights_enabled: 'false',
-                    visualModel: ''
+                    visualModel: '',
+                    modelProvider: 'local',
+                    ollamaApiKey: ''
                 };
             }
 
@@ -1570,18 +1670,20 @@ class PaiperworkDB {
                 const tableCheck = sqlDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='user_settings'");
 
                 if (!tableCheck.length || !tableCheck[0].values.length) {
-                    //console.log('user_settings table not found, returning defaults');
+                   //console.log('user_settings table not found, returning defaults');
                     sqlDb.close();
                     return {
                         systemPrompt: '',
                         model: '',
                         contextSize: '8192',
-                        insights_enabled: 'false'
+                        insights_enabled: 'false',
+                        modelProvider: 'local',
+                        ollamaApiKey: ''
                     };
                 }
 
                 const result = sqlDb.exec(`
-                SELECT system_prompt, model, context_size, insights_enabled, visual_model
+                SELECT system_prompt, model, context_size, insights_enabled, visual_model, model_provider, ollama_api_key
                 FROM user_settings
                 WHERE masterkey_hash = ?;
             `, [hashedMasterKey]);
@@ -1594,6 +1696,18 @@ class PaiperworkDB {
                         ? result[0].values[0][visualModelIndex]
                         : null;
 
+                    const hasModelProvider = result[0].columns.includes('model_provider');
+                    const modelProviderIndex = result[0].columns.indexOf('model_provider');
+                    const modelProviderStr = hasModelProvider && modelProviderIndex >= 0 && result[0].values[0].length > modelProviderIndex
+                        ? result[0].values[0][modelProviderIndex]
+                        : null;
+
+                    const hasApiKey = result[0].columns.includes('ollama_api_key');
+                    const apiKeyIndex = result[0].columns.indexOf('ollama_api_key');
+                    const apiKeyStr = hasApiKey && apiKeyIndex >= 0 && result[0].values[0].length > apiKeyIndex
+                        ? result[0].values[0][apiKeyIndex]
+                        : null;
+
                     const [systemPromptStr, modelStr, contextSizeStr, insightsEnabledStr] = result[0].values[0];
 
                     let systemPrompt = '';
@@ -1601,6 +1715,8 @@ class PaiperworkDB {
                     let contextSize = '8192';
                     let insightsEnabled = 'false';
                     let visualModel = '';
+                    let modelProvider = 'local';
+                    let ollamaApiKey = '';
 
                     try {
                         // Decrypt system prompt if it exists
@@ -1613,6 +1729,7 @@ class PaiperworkDB {
                         if (modelStr) {
                             const encryptedModel = JSON.parse(modelStr);
                             model = await this.decrypt(hashedMasterKey, encryptedModel);
+                            model = await this.normalizeStoredStringValue(model, hashedMasterKey);
                         }
 
                         // Decrypt context size if it exists
@@ -1632,8 +1749,21 @@ class PaiperworkDB {
                             const encryptedVisualModel = JSON.parse(visualModelStr);
                             visualModel = await this.decrypt(hashedMasterKey, encryptedVisualModel);
                         }
+
+                        // Decrypt model provider if it exists
+                        if (modelProviderStr) {
+                            const encryptedProvider = JSON.parse(modelProviderStr);
+                            modelProvider = await this.decrypt(hashedMasterKey, encryptedProvider);
+                            modelProvider = await this.normalizeStoredStringValue(modelProvider, hashedMasterKey);
+                        }
+
+                        // Decrypt Ollama API key if it exists
+                        if (apiKeyStr) {
+                            const encryptedApiKey = JSON.parse(apiKeyStr);
+                            ollamaApiKey = await this.decrypt(hashedMasterKey, encryptedApiKey);
+                        }
                     } catch (decryptError) {
-                        //console.log('Using default values due to decryption error:', decryptError);
+                       //console.log('Using default values due to decryption error:', decryptError);
                     }
 
                     sqlDb.close(); // Close the database connection
@@ -1649,7 +1779,9 @@ class PaiperworkDB {
                         model,
                         contextSize,
                         insights_enabled: insightsEnabled,
-                        visualModel
+                        visualModel,
+                        modelProvider: modelProvider || 'local',
+                        ollamaApiKey
                     };
                 }
 
@@ -1664,7 +1796,9 @@ class PaiperworkDB {
                 model: '',
                 contextSize: '8192',
                 insights_enabled: 'false',
-                visualModel: ''
+                visualModel: '',
+                modelProvider: 'local',
+                ollamaApiKey: ''
             };
         } catch (error) {
             console.error('Error loading settings:', error);
@@ -1673,53 +1807,110 @@ class PaiperworkDB {
                 model: '',
                 contextSize: '8192',
                 insights_enabled: 'false',
-                visualModel: ''
+                visualModel: '',
+                modelProvider: 'local',
+                ollamaApiKey: ''
             };
         }
     }
 
     // Saves the selected model to the database and localStorage.
-    static async saveModel(hashedMasterKey, model) {
-            //console.log('Save model operation started:', { hashedMasterKey, model: model || 'empty' });
+    static async saveModel(hashedMasterKey, model, modelProvider = 'local') {
+           //console.log('Save model operation started:', { hashedMasterKey, model: model || 'empty' });
 
         try {
+            await this.initializeDatabase(hashedMasterKey);
+
+            const normalizedModel = await this.normalizeStoredStringValue(model, hashedMasterKey);
+            const normalizedProvider = String(await this.normalizeStoredStringValue(modelProvider, hashedMasterKey) || 'local').trim().toLowerCase() || 'local';
+
+            // Synchronous persistence first: protects against immediate page refresh interruption.
+            try {
+                localStorage.setItem('selectedModel', normalizedModel);
+                localStorage.setItem('selectedModelProvider', normalizedProvider);
+            } catch (_err) {
+                // ignore
+            }
+
             // Always store selected model in localStorage for fast access during startup
-            try { await this.secureLocalStorageSet('selectedModel', model); } catch (e) { localStorage.setItem('selectedModel', model); }
+            try { await this.secureLocalStorageSet('selectedModel', normalizedModel); } catch (e) { localStorage.setItem('selectedModel', normalizedModel); }
+            try { await this.secureLocalStorageSet('selectedModelProvider', normalizedProvider); } catch (e) { localStorage.setItem('selectedModelProvider', normalizedProvider); }
 
             // Get SQL.js if not already loaded
             if (!this.SQL) {
-                //console.log('Initializing SQL.js for saveModel');
+               //console.log('Initializing SQL.js for saveModel');
                 this.SQL = await initSqlJs({
                     locateFile: file => `/core/js/libraries/SQLjs/${file}`
                 });
             }
 
-            //console.log('Encrypting model with key:', hashedMasterKey);
-            const encryptedModel = await this.encrypt(hashedMasterKey, model);
+           //console.log('Encrypting model with key:', hashedMasterKey);
+            const encryptedModel = await this.encrypt(hashedMasterKey, normalizedModel);
+            const encryptedProvider = await this.encrypt(hashedMasterKey, normalizedProvider);
 
             // Get existing database - this already checks OPFS first if supported
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
-            if (!existingDb) {
-                console.error('No database found for masterkey:', hashedMasterKey);
-                return false;
+            const sqlDb = existingDb
+                ? new this.SQL.Database(existingDb)
+                : new this.SQL.Database();
+
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS user_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    system_prompt TEXT,
+                    model TEXT,
+                    context_size TEXT,
+                    insights_enabled TEXT,
+                    visual_model TEXT,
+                    model_provider TEXT,
+                    ollama_api_key TEXT
+                )
+            `);
+
+            // Ensure model_provider exists (defensive for mixed-version databases)
+            const columnCheck = sqlDb.exec(`PRAGMA table_info(user_settings)`);
+            const hasModelProviderColumn = columnCheck[0]?.values.some(col => col[1] === 'model_provider');
+            if (!hasModelProviderColumn) {
+                sqlDb.run(`ALTER TABLE user_settings ADD COLUMN model_provider TEXT`);
             }
 
-            // Update the database
-            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`INSERT OR IGNORE INTO user_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
+
             sqlDb.run(`
                 UPDATE user_settings
-                SET model = ?
+                SET model = ?, model_provider = ?
                 WHERE masterkey_hash = ?
-            `, [JSON.stringify(encryptedModel), hashedMasterKey]);
+            `, [JSON.stringify(encryptedModel), JSON.stringify(encryptedProvider), hashedMasterKey]);
 
             // Export the database
             const dbExport = sqlDb.export();
 
             // Save to both OPFS and IndexedDB using our enhanced method
-            //console.log('Saving updated database with model');
+           //console.log('Saving updated database with model');
             await this.saveToStorage(dbExport, hashedMasterKey);
 
-            //console.log('Model saved successfully for masterkey:', hashedMasterKey);
+            // Verify and self-heal once if needed (guards against startup write races).
+            try {
+                const loaded = await this.loadSettings(hashedMasterKey);
+                const loadedModel = String(loaded?.model || '').trim();
+                const loadedProvider = String(loaded?.modelProvider || 'local').trim().toLowerCase();
+                if (loadedModel !== normalizedModel || loadedProvider !== normalizedProvider) {
+                    const retryDb = await this.getExistingDatabase(hashedMasterKey);
+                    if (retryDb) {
+                        const retrySqlDb = new this.SQL.Database(retryDb);
+                        retrySqlDb.run(`
+                            UPDATE user_settings
+                            SET model = ?, model_provider = ?
+                            WHERE masterkey_hash = ?
+                        `, [JSON.stringify(encryptedModel), JSON.stringify(encryptedProvider), hashedMasterKey]);
+                        await this.saveToStorage(retrySqlDb.export(), hashedMasterKey);
+                    }
+                }
+            } catch (_verifyErr) {
+                // non-fatal
+            }
+
+           //console.log('Model saved successfully for masterkey:', hashedMasterKey);
             return true;
         } catch (error) {
             console.error('Error saving model:', error);
@@ -1727,9 +1918,120 @@ class PaiperworkDB {
         }
     }
 
+    static async saveOllamaApiKey(hashedMasterKey, apiKey) {
+        try {
+            // Ensure backing storage/schema exist even on fresh installs.
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const normalizedApiKey = this.normalizeOllamaApiKey(apiKey || '');
+            const encryptedApiKey = await this.encrypt(hashedMasterKey, normalizedApiKey);
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            const sqlDb = existingDb
+                ? new this.SQL.Database(existingDb)
+                : new this.SQL.Database();
+
+            // Ensure table exists for first-write scenarios.
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS user_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    system_prompt TEXT,
+                    model TEXT,
+                    context_size TEXT,
+                    insights_enabled TEXT,
+                    visual_model TEXT,
+                    model_provider TEXT,
+                    ollama_api_key TEXT
+                )
+            `);
+
+            // Ensure column exists for older databases.
+            const columnCheck = sqlDb.exec(`PRAGMA table_info(user_settings)`);
+            const hasApiKeyColumn = columnCheck[0]?.values.some(col => col[1] === 'ollama_api_key');
+            if (!hasApiKeyColumn) {
+                sqlDb.run(`ALTER TABLE user_settings ADD COLUMN ollama_api_key TEXT`);
+            }
+
+            // Ensure a settings row exists for this user before updating.
+            sqlDb.run(`INSERT OR IGNORE INTO user_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
+
+            sqlDb.run(`
+                UPDATE user_settings
+                SET ollama_api_key = ?
+                WHERE masterkey_hash = ?
+            `, [JSON.stringify(encryptedApiKey), hashedMasterKey]);
+
+            if (typeof sqlDb.getRowsModified === 'function' && sqlDb.getRowsModified() === 0) {
+                console.warn('Ollama API key save updated 0 rows', { hashedMasterKeyPresent: !!hashedMasterKey });
+            }
+
+            await this.saveToStorage(sqlDb.export(), hashedMasterKey);
+
+            // Keep a consistent in-session view even if storage readback is delayed.
+            this.ollamaApiKeyCache.set(hashedMasterKey, normalizedApiKey);
+
+            return true;
+        } catch (error) {
+            console.error('Error saving Ollama API key:', error);
+            return false;
+        }
+    }
+
+    static normalizeOllamaApiKey(rawKey) {
+        const key = String(rawKey || '').trim();
+        if (!key) return '';
+        return key
+            .replace(/^(?:Bearer\s+)+/i, '')
+            .replace(/^['"]+|['"]+$/g, '')
+            .trim();
+    }
+
+    static async getOllamaApiKey(hashedMasterKey) {
+        try {
+            if (this.ollamaApiKeyCache.has(hashedMasterKey)) {
+                const cached = this.normalizeOllamaApiKey(this.ollamaApiKeyCache.get(hashedMasterKey) || '');
+                // Return cached values only when non-empty. Empty cache entries can be transient
+                // during startup, so force a re-read from storage in that case.
+                if (cached) {
+                    return cached;
+                }
+            }
+
+            // Ensure DB init has run for this session before reading.
+            await this.initializeDatabase(hashedMasterKey);
+
+            let normalized = '';
+            for (let attempt = 0; attempt < 3; attempt++) {
+                const settings = await this.loadSettings(hashedMasterKey);
+                normalized = this.normalizeOllamaApiKey(settings?.ollamaApiKey || '');
+                if (normalized) {
+                    this.ollamaApiKeyCache.set(hashedMasterKey, normalized);
+                    return normalized;
+                }
+                if (attempt < 2) {
+                    await new Promise(resolve => setTimeout(resolve, 150));
+                }
+            }
+
+            // Do not persist empty key in cache to avoid sticky false negatives.
+            this.ollamaApiKeyCache.delete(hashedMasterKey);
+            return '';
+        } catch (error) {
+            console.error('Error loading Ollama API key:', error);
+            return '';
+        }
+    }
+
+    static async deleteOllamaApiKey(hashedMasterKey) {
+        return this.saveOllamaApiKey(hashedMasterKey, '');
+    }
+
     // Saves the selected visual model to the database and localStorage.
     static async saveVisualModel(hashedMasterKey, model) {
-        //console.log('Save visual model operation started:', { hashedMasterKey, model: model || 'empty' });
+       //console.log('Save visual model operation started:', { hashedMasterKey, model: model || 'empty' });
 
         try {
             // Save to localStorage for quick access (secure when possible)
@@ -1737,13 +2039,13 @@ class PaiperworkDB {
 
             // Get SQL.js if not already loaded
             if (!this.SQL) {
-                //console.log('Initializing SQL.js for saveVisualModel');
+               //console.log('Initializing SQL.js for saveVisualModel');
                 this.SQL = await initSqlJs({
                     locateFile: file => `/core/js/libraries/SQLjs/${file}`
                 });
             }
 
-            //console.log('Encrypting visual model with key:', hashedMasterKey);
+           //console.log('Encrypting visual model with key:', hashedMasterKey);
             const encryptedModel = await this.encrypt(hashedMasterKey, model);
 
             // Get existing database - this already checks OPFS first if supported
@@ -1762,7 +2064,7 @@ class PaiperworkDB {
 
             // Add the column if it doesn't exist
             if (!hasVisualModelColumn) {
-                //console.log('Adding visual_model column to user_settings table');
+               //console.log('Adding visual_model column to user_settings table');
                 sqlDb.run(`ALTER TABLE user_settings ADD COLUMN visual_model TEXT`);
             }
 
@@ -1777,10 +2079,10 @@ class PaiperworkDB {
             const dbExport = sqlDb.export();
 
             // Save to both OPFS and IndexedDB using our enhanced method
-            //console.log('Saving updated database with visual model');
+           //console.log('Saving updated database with visual model');
             await this.saveToStorage(dbExport, hashedMasterKey);
 
-            //console.log('Visual model saved successfully for masterkey:', hashedMasterKey);
+           //console.log('Visual model saved successfully for masterkey:', hashedMasterKey);
             return true;
         } catch (error) {
             console.error('Error saving visual model:', error);
@@ -1790,7 +2092,7 @@ class PaiperworkDB {
 
     // Saves the selected context size to the database and localStorage.
     static async saveContextSize(hashedMasterKey, contextSize) {
-        //console.log('Save context size operation started:', { hashedMasterKey, contextSize });
+       //console.log('Save context size operation started:', { hashedMasterKey, contextSize });
 
         try {
             // Save to localStorage for quick access (secure when possible)
@@ -1798,13 +2100,13 @@ class PaiperworkDB {
 
             // Get SQL.js if not already loaded
             if (!this.SQL) {
-                //console.log('Initializing SQL.js for saveContextSize');
+               //console.log('Initializing SQL.js for saveContextSize');
                 this.SQL = await initSqlJs({
                     locateFile: file => `/core/js/libraries/SQLjs/${file}`
                 });
             }
 
-            //console.log('Encrypting context size with key:', hashedMasterKey);
+           //console.log('Encrypting context size with key:', hashedMasterKey);
             const encryptedContextSize = await this.encrypt(hashedMasterKey, contextSize);
 
             // Get existing database - this already checks OPFS first if supported
@@ -1825,10 +2127,10 @@ class PaiperworkDB {
             // Export and save to both storage types
             const dbExport = sqlDb.export();
 
-            //console.log('Saving updated database with context size');
+           //console.log('Saving updated database with context size');
             await this.saveToStorage(dbExport, hashedMasterKey);
 
-            //console.log('Context size saved successfully for masterkey:', hashedMasterKey);
+           //console.log('Context size saved successfully for masterkey:', hashedMasterKey);
             return true;
         } catch (error) {
             console.error('Error saving context size:', error);
@@ -1838,18 +2140,18 @@ class PaiperworkDB {
 
     // Saves the system prompt to the database for a given master key hash.
     static async saveSystemPrompt(hashedMasterKey, promptText) {
-        //console.log('Save system prompt operation started:', { hashedMasterKey, promptLength: promptText?.length });
+       //console.log('Save system prompt operation started:', { hashedMasterKey, promptLength: promptText?.length });
 
         try {
             // Get SQL.js if not already loaded
             if (!this.SQL) {
-                //console.log('Initializing SQL.js for saveSystemPrompt');
+               //console.log('Initializing SQL.js for saveSystemPrompt');
                 this.SQL = await initSqlJs({
                     locateFile: file => `/core/js/libraries/SQLjs/${file}`
                 });
             }
 
-            //console.log('Encrypting system prompt with key:', hashedMasterKey);
+           //console.log('Encrypting system prompt with key:', hashedMasterKey);
             const encryptedPrompt = await this.encrypt(hashedMasterKey, promptText);
 
             // Get existing database - this already checks OPFS first if supported
@@ -1871,10 +2173,15 @@ class PaiperworkDB {
             const dbExport = sqlDb.export();
 
             // Save to both OPFS and IndexedDB using our enhanced method
-            //console.log('Saving updated database with system prompt');
+           //console.log('Saving updated database with system prompt');
             await this.saveToStorage(dbExport, hashedMasterKey);
 
-            //console.log('System prompt saved successfully for masterkey:', hashedMasterKey);
+            // Keep prompt cache coherent across send-time prompt builds.
+            if (window.OllamaAPI && typeof window.OllamaAPI.notifySystemPromptChanged === 'function') {
+                window.OllamaAPI.notifySystemPromptChanged(hashedMasterKey);
+            }
+
+           //console.log('System prompt saved successfully for masterkey:', hashedMasterKey);
             return true;
         } catch (error) {
             console.error('Error saving system prompt:', error);
@@ -1884,12 +2191,12 @@ class PaiperworkDB {
 
     // Saves the insights enabled setting to the database.
     static async saveInsightsEnabled(hashedMasterKey, enabled) {
-        //console.log('Saving insights preference:', enabled);
+       //console.log('Saving insights preference:', enabled);
 
         try {
             // Get SQL.js if not already loaded
             if (!this.SQL) {
-                //console.log('Initializing SQL.js for saveInsightsEnabled');
+               //console.log('Initializing SQL.js for saveInsightsEnabled');
                 this.SQL = await initSqlJs({
                     locateFile: file => `/core/js/libraries/SQLjs/${file}`
                 });
@@ -1905,12 +2212,12 @@ class PaiperworkDB {
             // Create database instance
             const db = new this.SQL.Database(existingDb);
 
-            //console.log('Encrypting insights value:', enabled.toString());
+           //console.log('Encrypting insights value:', enabled.toString());
             const encryptedValue = await this.encrypt(hashedMasterKey, enabled.toString());
-            //console.log('Encrypted insights structure:', encryptedValue);
+           //console.log('Encrypted insights structure:', encryptedValue);
 
             const jsonString = JSON.stringify(encryptedValue);
-            //console.log('Stringified encrypted value:', jsonString);
+           //console.log('Stringified encrypted value:', jsonString);
 
             db.run(`
                 UPDATE user_settings 
@@ -1922,10 +2229,10 @@ class PaiperworkDB {
             const dbExport = db.export();
 
             // Save to both OPFS and IndexedDB using our enhanced method
-            //console.log('Saving updated database with insights settings');
+           //console.log('Saving updated database with insights settings');
             await this.saveToStorage(dbExport, hashedMasterKey);
 
-            //console.log('Insights preference saved and encrypted successfully');
+           //console.log('Insights preference saved and encrypted successfully');
             return true;
         } catch (error) {
             console.error('Error saving insights enabled setting:', error);
@@ -1935,7 +2242,7 @@ class PaiperworkDB {
 
     // Stores a conversation pair (user and assistant messages) in the database.
     static async storeConversationOnly(hashedMasterKey, userMessage, aiMessage, forceNewGroup = false, targetGroup = null) {
-        //console.log("Storing conversation with OPFS/IndexedDB compatibility");
+       //console.log("Storing conversation with OPFS/IndexedDB compatibility");
 
         try {
             // Get database using our method that already handles OPFS/IndexedDB properly
@@ -1951,7 +2258,7 @@ class PaiperworkDB {
                 const hasGroupColumn = columnsResult[0]?.values.some(col => col[1] === 'conversation_group');
 
                 if (!hasGroupColumn) {
-                    //console.log(`Adding missing conversation_group column to conversations_${hashedMasterKey}`);
+                   //console.log(`Adding missing conversation_group column to conversations_${hashedMasterKey}`);
                     db.exec(`ALTER TABLE conversations_${hashedMasterKey} ADD COLUMN conversation_group INTEGER DEFAULT 1`);
                 }
             } catch (error) {
@@ -1974,12 +2281,12 @@ class PaiperworkDB {
                     conversationGroup = previousMaxGroup + 1;
                 }
                 window.currentConversationGroup = conversationGroup;
-                //console.log(`PaiperworkDB: Updated currentConversationGroup = ${conversationGroup} for new chat`);
-                //console.log(`Creating new conversation group: ${conversationGroup}`);
+               //console.log(`PaiperworkDB: Updated currentConversationGroup = ${conversationGroup} for new chat`);
+               //console.log(`Creating new conversation group: ${conversationGroup}`);
             } else if (targetGroup !== null) {
                 // Use the specific target group if provided
                 conversationGroup = targetGroup;
-                //console.log(`Using specified target conversation group: ${conversationGroup}`);
+               //console.log(`Using specified target conversation group: ${conversationGroup}`);
             } else {
                 // Get the most recent conversation group
                 const result = db.exec(`
@@ -1991,7 +2298,7 @@ class PaiperworkDB {
                 if (result.length && result[0].values.length && result[0].values[0][0] !== null) {
                     conversationGroup = result[0].values[0][0];
                 }
-                //console.log(`Using existing conversation group: ${conversationGroup}`);
+               //console.log(`Using existing conversation group: ${conversationGroup}`);
             }
 
             // Store the AI message exactly as is - no pre-processing
@@ -2049,7 +2356,7 @@ class PaiperworkDB {
 
             if (isUserMessageObject) {
                 // If userMessage is already an object with text and images
-                //console.log('Processing user message with images:', userMessage);
+               //console.log('Processing user message with images:', userMessage);
                 processedUserMessage = userMessage.text || '';
                 imageData = userMessage.images || [];
             } else {
@@ -2141,7 +2448,7 @@ class PaiperworkDB {
             }
 
             // Save to both OPFS and IndexedDB using our enhanced saveToStorage method
-            //console.log(`Saving conversation to storage with group ${conversationGroup}`);
+           //console.log(`Saving conversation to storage with group ${conversationGroup}`);
             await this.saveToStorage(db.export(), hashedMasterKey);
             return true;
         } catch (error) {
@@ -2152,7 +2459,7 @@ class PaiperworkDB {
 
     // Loads the entire conversation history for a given master key hash.
     static async loadConversationHistory(hashedMasterKey, processForDisplay = true) {
-        //console.log('Loading conversation history for masterkey:', hashedMasterKey);
+       //console.log('Loading conversation history for masterkey:', hashedMasterKey);
 
         const result = {
             conversations: null,
@@ -2163,7 +2470,7 @@ class PaiperworkDB {
             // Get the database using our unified method that handles OPFS/IndexedDB properly
             const db = await this.getDatabase(hashedMasterKey);
             if (!db) {
-                //console.log('No database found when loading conversation history');
+               //console.log('No database found when loading conversation history');
                 return result;
             }
 
@@ -2173,12 +2480,12 @@ class PaiperworkDB {
                 const hasGroupColumn = columnsResult[0]?.values.some(col => col[1] === 'conversation_group');
 
                 if (!hasGroupColumn) {
-                    //console.log(`Adding missing conversation_group column to conversations_${hashedMasterKey}`);
+                   //console.log(`Adding missing conversation_group column to conversations_${hashedMasterKey}`);
                     db.exec(`ALTER TABLE conversations_${hashedMasterKey} ADD COLUMN conversation_group INTEGER DEFAULT 1`);
 
                     // Save the updated schema to both OPFS and IndexedDB
                     await this.saveToStorage(db.export(), hashedMasterKey);
-                    //console.log('Updated schema saved to storage');
+                   //console.log('Updated schema saved to storage');
                 }
             } catch (error) {
                 console.warn('Error checking for conversation_group column:', error);
@@ -2193,7 +2500,7 @@ class PaiperworkDB {
             `);
 
             if (!queryResult[0]?.values) {
-                //console.log('No conversations found for masterkey:', hashedMasterKey);
+               //console.log('No conversations found for masterkey:', hashedMasterKey);
                 return result;
             }
 
@@ -2203,7 +2510,7 @@ class PaiperworkDB {
                 const group = row[3] || 1; // conversation_group is at index 3
                 groupCounts[group] = (groupCounts[group] || 0) + 1;
             });
-            //console.log('Found conversations with these groups:', groupCounts);
+           //console.log('Found conversations with these groups:', groupCounts);
 
             const conversations = [];
 
@@ -2355,7 +2662,7 @@ class PaiperworkDB {
 
             // Log a sample of the conversation data to verify groups
             if (conversations.length > 0) {
-                //console.log(`Successfully loaded ${conversations.length} messages`);
+               //console.log(`Successfully loaded ${conversations.length} messages`);
             }
 
             // Ensure stable sort by timestamp to preserve order
@@ -2405,7 +2712,7 @@ class PaiperworkDB {
 
     // Loads all conversations for a specific conversation group.
     static async loadConversationsByGroup(hashedMasterKey, groupId) {
-        //console.log(`Loading conversation group ${groupId} for masterkey: ${hashedMasterKey}`);
+       //console.log(`Loading conversation group ${groupId} for masterkey: ${hashedMasterKey}`);
 
         if (!hashedMasterKey || !groupId) {
             console.error('Missing required parameters for loadConversationsByGroup');
@@ -2416,7 +2723,7 @@ class PaiperworkDB {
             // Get the database using our unified method that handles OPFS/IndexedDB properly
             const db = await this.getDatabase(hashedMasterKey);
             if (!db) {
-                //console.log(`No database found for masterkey when loading group ${groupId}`);
+               //console.log(`No database found for masterkey when loading group ${groupId}`);
                 return { conversations: [] };
             }
 
@@ -2426,12 +2733,12 @@ class PaiperworkDB {
                 const hasGroupColumn = columnsResult[0]?.values.some(col => col[1] === 'conversation_group');
 
                 if (!hasGroupColumn) {
-                    //console.log(`Adding missing conversation_group column to conversations_${hashedMasterKey}`);
+                   //console.log(`Adding missing conversation_group column to conversations_${hashedMasterKey}`);
                     db.exec(`ALTER TABLE conversations_${hashedMasterKey} ADD COLUMN conversation_group INTEGER DEFAULT 1`);
 
                     // Save the updated schema to both OPFS and IndexedDB
                     await this.saveToStorage(db.export(), hashedMasterKey);
-                    //console.log('Updated schema saved to storage');
+                   //console.log('Updated schema saved to storage');
                 }
             } catch (error) {
                 console.warn('Error checking for conversation_group column:', error);
@@ -2447,7 +2754,7 @@ class PaiperworkDB {
             `, [groupId]);
 
             if (!queryResult[0]?.values) {
-                //console.log(`No conversations found for group ${groupId}`);
+               //console.log(`No conversations found for group ${groupId}`);
                 return { conversations: [] };
             }
 
@@ -2503,7 +2810,7 @@ class PaiperworkDB {
             }
 
             // Log a summary of retrieved data
-            //console.log(`Successfully loaded ${conversations.length} messages for group ${groupId}`);
+           //console.log(`Successfully loaded ${conversations.length} messages for group ${groupId}`);
 
             // Ensure stable sort by timestamp to preserve order
             conversations.sort((a, b) => {
@@ -2521,7 +2828,7 @@ class PaiperworkDB {
     // Updates the timestamp for a specific conversation group.
     static async touchConversationGroup(hashedMasterKey, groupId) {
         try {
-            //console.log(`START: Updating timestamp ONLY for group ${groupId}`);
+           //console.log(`START: Updating timestamp ONLY for group ${groupId}`);
             const db = await this.getDatabase(hashedMasterKey);
             if (!db) return false;
 
@@ -2532,7 +2839,7 @@ class PaiperworkDB {
             `, [groupId]);
 
             if (!checkResult[0] || !checkResult[0].values[0][0]) {
-                //console.log(`No conversations found in group ${groupId}`);
+               //console.log(`No conversations found in group ${groupId}`);
                 return false;
             }
 
@@ -2542,7 +2849,7 @@ class PaiperworkDB {
             const hasUpdatedAtColumn = columnsResult[0]?.values.some(col => col[1] === 'group_updated_at');
 
             if (!hasUpdatedAtColumn) {
-                //console.log('Adding group_updated_at column to conversations table');
+               //console.log('Adding group_updated_at column to conversations table');
                 db.exec(`ALTER TABLE conversations_${hashedMasterKey} ADD COLUMN group_updated_at TEXT`);
             }
 
@@ -2559,7 +2866,7 @@ class PaiperworkDB {
                 JSON.stringify(encryptedNow),
                 groupId
             ]);
-            //console.log(`DONE: Updated timestamp only for group ${groupId}`);
+           //console.log(`DONE: Updated timestamp only for group ${groupId}`);
 
             // Verify which groups were actually updated with a query
             const updatedGroups = db.exec(`
@@ -2568,7 +2875,7 @@ class PaiperworkDB {
             WHERE group_updated_at = ?
         `, [JSON.stringify(encryptedNow)]);
 
-            //console.log('Groups with this exact timestamp:',
+           //console.log('Groups with this exact timestamp:',
                 //updatedGroups[0]?.values?.map(v => v[0]) || []);
             // Save changes
             await this.saveToStorage(db.export(), hashedMasterKey);
@@ -2580,7 +2887,7 @@ class PaiperworkDB {
     }
     // Deletes a user/assistant message pair from the conversation history.
     static async deleteConversationPair(hashedMasterKey, userContent, assistantContent) {
-        //console.log('🗑️ Enhanced deletion of conversation pair with multi-strategy matching');
+       //console.log('🗑️ Enhanced deletion of conversation pair with multi-strategy matching');
 
         try {
             const db = await this.getDatabase(hashedMasterKey);
@@ -2597,11 +2904,11 @@ class PaiperworkDB {
         `);
 
             if (!conversationsResult[0]?.values) {
-                //console.log('❌ No conversations found in database');
+               //console.log('❌ No conversations found in database');
                 return false;
             }
 
-            //console.log(`🔍 Found ${conversationsResult[0].values.length} conversations to check`);
+           //console.log(`🔍 Found ${conversationsResult[0].values.length} conversations to check`);
 
             // Separate user and assistant messages with enhanced content extraction
             const userMessages = [];
@@ -2624,7 +2931,7 @@ class PaiperworkDB {
                             const parsedMessage = JSON.parse(decryptedMessage);
                             if (parsedMessage && typeof parsedMessage === 'object' && parsedMessage.text !== undefined) {
                                 jsonTextContent = parsedMessage.text.trim();
-                                //console.log(`📄 Found JSON user message: "${jsonTextContent.substring(0, 50)}..."`);
+                               //console.log(`📄 Found JSON user message: "${jsonTextContent.substring(0, 50)}..."`);
                             }
                         } catch (e) {
                             // Not JSON, use text as-is
@@ -2664,13 +2971,13 @@ class PaiperworkDB {
                 }
             }
 
-            //console.log(`📊 Parsed messages - Users: ${userMessages.length}, Assistants: ${assistantMessages.length}`);
+           //console.log(`📊 Parsed messages - Users: ${userMessages.length}, Assistants: ${assistantMessages.length}`);
 
             //  ENHANCED: Multi-strategy user message matching
             let bestUserMatch = null;
             if (userContent && userContent.trim()) {
                 const targetUserContent = userContent.trim();
-                //console.log(`🎯 Looking for user message: "${targetUserContent.substring(0, 50)}..."`);
+               //console.log(`🎯 Looking for user message: "${targetUserContent.substring(0, 50)}..."`);
 
                 // Strategy 1: Exact text match
                 bestUserMatch = userMessages.find(msg => msg.content === targetUserContent);
@@ -2681,7 +2988,7 @@ class PaiperworkDB {
                     bestUserMatch = userMessages.find(msg =>
                         msg.jsonTextContent && msg.jsonTextContent === targetUserContent
                     );
-                    //if (bestUserMatch) //console.log('✅ User match: JSON text content match');
+                   //if (bestUserMatch) //console.log('✅ User match: JSON text content match');
                 }
 
                 // Strategy 3: Content inclusion (either direction)
@@ -2691,7 +2998,7 @@ class PaiperworkDB {
                         msg.content.includes(targetUserContent) ||
                         (msg.jsonTextContent && (targetUserContent.includes(msg.jsonTextContent) || msg.jsonTextContent.includes(targetUserContent)))
                     );
-                    //if (bestUserMatch) //console.log('✅ User match: Content inclusion match');
+                   //if (bestUserMatch) //console.log('✅ User match: Content inclusion match');
                 }
 
                 // Strategy 4: Fuzzy word matching (50%+ word overlap)
@@ -2713,7 +3020,7 @@ class PaiperworkDB {
                             }
                         }
                     }
-                    //if (bestUserMatch) //console.log(`✅ User match: Fuzzy match (${(bestScore * 100).toFixed(1)}% similarity)`);
+                   //if (bestUserMatch) //console.log(`✅ User match: Fuzzy match (${(bestScore * 100).toFixed(1)}% similarity)`);
                 }
             }
 
@@ -2721,18 +3028,18 @@ class PaiperworkDB {
             let bestAssistantMatch = null;
             if (assistantContent && assistantContent.trim()) {
                 const targetAssistantContent = assistantContent.trim();
-                //console.log(`🎯 Looking for assistant message: "${targetAssistantContent.substring(0, 50)}..."`);
+               //console.log(`🎯 Looking for assistant message: "${targetAssistantContent.substring(0, 50)}..."`);
 
                 // Strategy 1: Exact text match
                 bestAssistantMatch = assistantMessages.find(msg => msg.content === targetAssistantContent);
-                //if (bestAssistantMatch) console.log('✅ Assistant match: Exact text match');
+               //if (bestAssistantMatch) console.log('✅ Assistant match: Exact text match');
 
                 // Strategy 2: Content inclusion (either direction)
                 if (!bestAssistantMatch) {
                     bestAssistantMatch = assistantMessages.find(msg =>
                         targetAssistantContent.includes(msg.content) || msg.content.includes(targetAssistantContent)
                     );
-                    //if (bestAssistantMatch) console.log('✅ Assistant match: Content inclusion match');
+                   //if (bestAssistantMatch) console.log('✅ Assistant match: Content inclusion match');
                 }
 
                 // Strategy 3: Fuzzy word matching
@@ -2753,7 +3060,7 @@ class PaiperworkDB {
                             }
                         }
                     }
-                    //if (bestAssistantMatch) console.log(`✅ Assistant match: Fuzzy match (${(bestScore * 100).toFixed(1)}% similarity)`);
+                   //if (bestAssistantMatch) console.log(`✅ Assistant match: Fuzzy match (${(bestScore * 100).toFixed(1)}% similarity)`);
                 }
             }
 
@@ -2761,7 +3068,7 @@ class PaiperworkDB {
             const rowsToDelete = new Set();
 
             if (bestUserMatch) {
-                //console.log(`✅ Found user message to delete (Group ${bestUserMatch.conversationGroup}): "${bestUserMatch.content.substring(0, 50)}..."`);
+               //console.log(`✅ Found user message to delete (Group ${bestUserMatch.conversationGroup}): "${bestUserMatch.content.substring(0, 50)}..."`);
                 rowsToDelete.add(bestUserMatch.rowid);
 
                 // Find corresponding assistant message in the same group
@@ -2787,14 +3094,14 @@ class PaiperworkDB {
                     }
 
                     if (closestAssistant) {
-                        //console.log(`✅ Found paired assistant message by timestamp in group ${bestUserMatch.conversationGroup}`);
+                       //console.log(`✅ Found paired assistant message by timestamp in group ${bestUserMatch.conversationGroup}`);
                         rowsToDelete.add(closestAssistant.rowid);
                     }
                 }
             }
 
             if (bestAssistantMatch) {
-                //console.log(`✅ Found assistant message to delete (Group ${bestAssistantMatch.conversationGroup}): "${bestAssistantMatch.content.substring(0, 50)}..."`);
+               //console.log(`✅ Found assistant message to delete (Group ${bestAssistantMatch.conversationGroup}): "${bestAssistantMatch.content.substring(0, 50)}..."`);
                 rowsToDelete.add(bestAssistantMatch.rowid);
 
                 // Find corresponding user message in the same group
@@ -2820,7 +3127,7 @@ class PaiperworkDB {
                     }
 
                     if (closestUser) {
-                        //console.log(`✅ Found paired user message by timestamp in group ${bestAssistantMatch.conversationGroup}`);
+                       //console.log(`✅ Found paired user message by timestamp in group ${bestAssistantMatch.conversationGroup}`);
                         rowsToDelete.add(closestUser.rowid);
                     }
                 }
@@ -2828,12 +3135,12 @@ class PaiperworkDB {
 
             //  EXECUTE DELETION
             let deletedCount = 0;
-            //console.log(`🗑️ Attempting to delete ${rowsToDelete.size} messages`);
+           //console.log(`🗑️ Attempting to delete ${rowsToDelete.size} messages`);
 
             for (const rowid of rowsToDelete) {
                 try {
                     const result = db.exec(`DELETE FROM conversations_${hashedMasterKey} WHERE rowid = ?`, [rowid]);
-                    //console.log(`✅ Deleted message with rowid ${rowid}`);
+                   //console.log(`✅ Deleted message with rowid ${rowid}`);
                     deletedCount++;
                 } catch (deleteError) {
                     console.error(`❌ Error deleting message with rowid ${rowid}:`, deleteError);
@@ -2842,9 +3149,9 @@ class PaiperworkDB {
 
             // Save changes if any deletions were successful
             if (deletedCount > 0) {
-                //console.log(`💾 Successfully deleted ${deletedCount} messages, saving to storage`);
+               //console.log(`💾 Successfully deleted ${deletedCount} messages, saving to storage`);
                 await this.saveToStorage(db.export(), hashedMasterKey);
-                //console.log('✅ Database saved successfully');
+               //console.log('✅ Database saved successfully');
                 return true;
             } else {
                 console.warn('⚠️ No messages were deleted from the database');
@@ -2859,7 +3166,7 @@ class PaiperworkDB {
 
     static async saveModelContextSize(hashedMasterKey, modelName, contextSize, isKvcacheQ8, useCalculatedContext = true) {
         try {
-            //console.log('🗃️ PaiperworkDB.saveModelContextSize called with:', {
+           //console.log('🗃️ PaiperworkDB.saveModelContextSize called with:', {
                 //modelName: modelName,
                 //contextSize: contextSize,
                 //isKvcacheQ8: isKvcacheQ8,
@@ -2889,7 +3196,7 @@ class PaiperworkDB {
         `);
 
             if (!tableExists[0]?.values.length) {
-                //console.log('🏗️ PaiperworkDB: Creating model_context_sizes table');
+               //console.log('🏗️ PaiperworkDB: Creating model_context_sizes table');
                 db.exec(`
                 CREATE TABLE IF NOT EXISTS model_context_sizes_${hashedMasterKey} (
                     model_name TEXT PRIMARY KEY,
@@ -2906,7 +3213,7 @@ class PaiperworkDB {
                 const hasUseFlagColumn = columnsResult[0]?.values.some(col => col[1] === 'use_calculated_context');
 
                 if (!hasUseFlagColumn) {
-                    //console.log('🔧 PaiperworkDB: Adding use_calculated_context column');
+                   //console.log('🔧 PaiperworkDB: Adding use_calculated_context column');
                     db.exec(`ALTER TABLE model_context_sizes_${hashedMasterKey} ADD COLUMN use_calculated_context BOOLEAN DEFAULT TRUE`);
                 }
             }
@@ -2920,7 +3227,7 @@ class PaiperworkDB {
             const encryptedUseCalculated = await this.encrypt(hashedMasterKey, useCalculatedContext.toString());
             const encryptedTimestamp = await this.encrypt(hashedMasterKey, now);
 
-            //console.log('🔐 PaiperworkDB: Data encrypted, checking for existing record...');
+           //console.log('🔐 PaiperworkDB: Data encrypted, checking for existing record...');
 
             //  CRITICAL FIX: Find and delete existing record for this model first
             const allRecords = db.exec(`
@@ -2931,19 +3238,19 @@ class PaiperworkDB {
             let foundExisting = false;
 
             if (allRecords[0]?.values.length) {
-                //console.log(`🔍 PaiperworkDB: Checking ${allRecords[0].values.length} existing records for match...`);
+               //console.log(`🔍 PaiperworkDB: Checking ${allRecords[0].values.length} existing records for match...`);
 
                 for (const row of allRecords[0].values) {
                     const [encryptedStoredModelName, storedCreatedAt] = row;
                     try {
                         const decryptedStoredModelName = await this.decrypt(hashedMasterKey, JSON.parse(encryptedStoredModelName));
                         if (decryptedStoredModelName === modelName) {
-                            //console.log('🎯 PaiperworkDB: Found existing record for model:', modelName);
+                           //console.log('🎯 PaiperworkDB: Found existing record for model:', modelName);
                             existingCreatedAt = storedCreatedAt;
                             foundExisting = true;
 
                             //  CRITICAL: Delete the old record first
-                            //console.log('🗑️ PaiperworkDB: Deleting old record for clean update');
+                           //console.log('🗑️ PaiperworkDB: Deleting old record for clean update');
                             db.exec(`
                             DELETE FROM model_context_sizes_${hashedMasterKey} 
                             WHERE model_name = ?
@@ -2958,7 +3265,7 @@ class PaiperworkDB {
 
             const finalCreatedAt = foundExisting ? existingCreatedAt : JSON.stringify(encryptedTimestamp);
 
-            //console.log(`${foundExisting ? '🔄 PaiperworkDB: Updating' : '➕ PaiperworkDB: Creating new'} record for model: ${modelName}`);
+           //console.log(`${foundExisting ? '🔄 PaiperworkDB: Updating' : '➕ PaiperworkDB: Creating new'} record for model: ${modelName}`);
 
             //  CRITICAL FIX: Use INSERT after DELETE (clean upsert)
             db.exec(`
@@ -2977,7 +3284,7 @@ class PaiperworkDB {
             // Save to storage
             await this.saveToStorage(db.export(), hashedMasterKey);
 
-            //console.log(`✅ PaiperworkDB: Model context size ${foundExisting ? 'updated' : 'saved'}: ${modelName} -> ${contextSize} (use calculated: ${useCalculatedContext})`);
+           //console.log(`✅ PaiperworkDB: Model context size ${foundExisting ? 'updated' : 'saved'}: ${modelName} -> ${contextSize} (use calculated: ${useCalculatedContext})`);
             return true;
         } catch (error) {
             console.error('❌ PaiperworkDB: Error saving model context size:', error);
@@ -2987,7 +3294,7 @@ class PaiperworkDB {
     // Loads the context size for a specific model from the database.
     static async loadModelContextSize(hashedMasterKey, modelName) {
         try {
-            //console.log('🔍 PaiperworkDB.loadModelContextSize called for model:', modelName);
+           //console.log('🔍 PaiperworkDB.loadModelContextSize called for model:', modelName);
 
             // Get SQL.js if not already loaded
             if (!this.SQL) {
@@ -2999,7 +3306,7 @@ class PaiperworkDB {
             // Get existing database
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
             if (!existingDb) {
-                //console.log('⚠️ PaiperworkDB: No database found for model context loading');
+               //console.log('⚠️ PaiperworkDB: No database found for model context loading');
                 return null;
             }
 
@@ -3012,7 +3319,7 @@ class PaiperworkDB {
     `);
 
             if (!tableExists[0]?.values.length) {
-                //console.log('⚠️ PaiperworkDB: Model context sizes table does not exist');
+               //console.log('⚠️ PaiperworkDB: Model context sizes table does not exist');
                 return null;
             }
 
@@ -3024,11 +3331,11 @@ class PaiperworkDB {
     `);
 
             if (!allRecords[0]?.values.length) {
-                //console.log('⚠️ PaiperworkDB: No model context records found in table');
+               //console.log('⚠️ PaiperworkDB: No model context records found in table');
                 return null;
             }
 
-            //console.log(`🔍 PaiperworkDB: Found ${allRecords[0].values.length} model context records, showing ALL records:`);
+           //console.log(`🔍 PaiperworkDB: Found ${allRecords[0].values.length} model context records, showing ALL records:`);
 
             //  DEBUG: Show all records before matching
             for (let i = 0; i < allRecords[0].values.length; i++) {
@@ -3071,7 +3378,7 @@ class PaiperworkDB {
                 }
             }
 
-            //console.log('❌ PaiperworkDB: No matching model context found for:', modelName);
+           //console.log('❌ PaiperworkDB: No matching model context found for:', modelName);
             return null;
         } catch (error) {
             console.error('❌ PaiperworkDB: Error loading model context size:', error);
@@ -3082,7 +3389,7 @@ class PaiperworkDB {
     // Sets the useCalculatedContext flag for a specific model context entry.
     static async setModelContextFlag(hashedMasterKey, modelName, useCalculatedContext) {
         try {
-            //console.log(`Setting context flag for ${modelName}: use calculated = ${useCalculatedContext}`);
+           //console.log(`Setting context flag for ${modelName}: use calculated = ${useCalculatedContext}`);
 
             // Get existing model context data
             const existingData = await this.loadModelContextSize(hashedMasterKey, modelName);
@@ -3146,7 +3453,7 @@ class PaiperworkDB {
             // Save to storage
             await this.saveToStorage(db.export(), hashedMasterKey);
 
-            //console.log(`Deleted model context size for: ${modelName}`);
+           //console.log(`Deleted model context size for: ${modelName}`);
             return true;
         } catch (error) {
             console.error('Error deleting model context size:', error);
@@ -3242,13 +3549,13 @@ class PaiperworkDB {
     // Research functions for saving to database
 
     static async loadKnowledgeCollections(hashedMasterKey) {
-        //console.log(`Loading knowledge collections for masterkey: ${hashedMasterKey}`);
+       //console.log(`Loading knowledge collections for masterkey: ${hashedMasterKey}`);
 
         try {
             // This now uses our unified database access method that handles browser compatibility
             const db = await this.getDatabase(hashedMasterKey);
             if (!db) {
-                //console.log('No database found or unable to access storage');
+               //console.log('No database found or unable to access storage');
                 return [];
             }
 
@@ -3257,7 +3564,7 @@ class PaiperworkDB {
             WHERE type='table' AND name='knowledge_collections_${hashedMasterKey}'`);
 
             if (!tableCheck.length || !tableCheck[0].values.length) {
-                //console.log('Knowledge collections table not found');
+               //console.log('Knowledge collections table not found');
                 return [];
             }
 
@@ -3278,13 +3585,13 @@ class PaiperworkDB {
 
 
                     collections.push(collection);
-                    //console.log(`Loaded knowledge collection: ${collection.name}`);
+                   //console.log(`Loaded knowledge collection: ${collection.name}`);
                 } catch (e) {
                     console.error('Error decrypting knowledge collection:', e);
                 }
             }
 
-            //console.log(`Successfully loaded ${collections.length} knowledge collections`);
+           //console.log(`Successfully loaded ${collections.length} knowledge collections`);
             return collections;
         } catch (error) {
             console.error('Error loading knowledge collections:', error);
@@ -3293,7 +3600,7 @@ class PaiperworkDB {
     }
 
     static async saveKnowledgeCollection(hashedMasterKey, collection) {
-        //console.log(`Saving knowledge collection "${collection.name}" (ID: ${collection.id})`);
+       //console.log(`Saving knowledge collection "${collection.name}" (ID: ${collection.id})`);
 
         try {
             // This now uses our unified database access method that handles browser compatibility
@@ -3308,7 +3615,7 @@ class PaiperworkDB {
             WHERE type='table' AND name='knowledge_collections_${hashedMasterKey}'`);
 
             if (!tableCheck.length || !tableCheck[0].values.length) {
-                //console.log('Creating knowledge collections table');
+               //console.log('Creating knowledge collections table');
                 // Create table if it doesn't exist
                 db.exec(`
                 CREATE TABLE IF NOT EXISTS knowledge_collections_${hashedMasterKey} (
@@ -3331,7 +3638,7 @@ class PaiperworkDB {
             `, [collection.id]);
 
             if (existingCheck.length && existingCheck[0].values.length) {
-                //console.log(`Updating existing collection "${collection.name}"`);
+               //console.log(`Updating existing collection "${collection.name}"`);
                 // Update existing collection
                 db.exec(`
                 UPDATE knowledge_collections_${hashedMasterKey}
@@ -3339,7 +3646,7 @@ class PaiperworkDB {
                 WHERE collection_id = ?
                 `, [JSON.stringify(encryptedData), timestamp, collection.id]);
             } else {
-                //console.log(`Creating new collection "${collection.name}"`);
+               //console.log(`Creating new collection "${collection.name}"`);
                 // Insert new collection
                 db.exec(`
                 INSERT INTO knowledge_collections_${hashedMasterKey}
@@ -3350,7 +3657,7 @@ class PaiperworkDB {
 
             // Save to either OPFS or IndexedDB based on browser support
             await this.saveToStorage(db.export(), hashedMasterKey);
-            //console.log(`Knowledge collection "${collection.name}" saved successfully`);
+           //console.log(`Knowledge collection "${collection.name}" saved successfully`);
             return true;
         } catch (error) {
             console.error('Error saving knowledge collection:', error);
@@ -3364,7 +3671,7 @@ class PaiperworkDB {
     }
 
     static async deleteKnowledgeCollection(hashedMasterKey, collectionId) {
-        //console.log(`Deleting knowledge collection ${collectionId} for key: ${hashedMasterKey}`);
+       //console.log(`Deleting knowledge collection ${collectionId} for key: ${hashedMasterKey}`);
 
         try {
             // Get database using our unified method that handles OPFS/IndexedDB properly
@@ -3379,7 +3686,7 @@ class PaiperworkDB {
             WHERE type='table' AND name='knowledge_collections_${hashedMasterKey}'`);
 
             if (!tableCheck.length || !tableCheck[0].values.length) {
-                //console.log('Knowledge collections table not found, nothing to delete');
+               //console.log('Knowledge collections table not found, nothing to delete');
                 return false;
             }
 
@@ -3390,12 +3697,12 @@ class PaiperworkDB {
             `, [collectionId]);
 
             if (!collectionCheck.length || !collectionCheck[0].values.length) {
-                //console.log(`Knowledge collection ${collectionId} not found, nothing to delete`);
+               //console.log(`Knowledge collection ${collectionId} not found, nothing to delete`);
                 return false;
             }
 
             // Perform the deletion
-            //console.log(`Deleting knowledge collection with ID: ${collectionId}`);
+           //console.log(`Deleting knowledge collection with ID: ${collectionId}`);
             db.exec(`
                 DELETE FROM knowledge_collections_${hashedMasterKey}
                 WHERE collection_id = ?
@@ -3403,7 +3710,7 @@ class PaiperworkDB {
 
             // Save changes using our unified method (OPFS for Chrome, IndexedDB for all browsers)
             await this.saveToStorage(db.export(), hashedMasterKey);
-            //console.log(`Knowledge collection ${collectionId} deleted successfully`);
+           //console.log(`Knowledge collection ${collectionId} deleted successfully`);
             return true;
         } catch (error) {
             console.error('Error deleting knowledge collection:', error);
@@ -3413,68 +3720,68 @@ class PaiperworkDB {
 
     // Translates code block UI elements in the DOM for localization.
     static applyTranslationsToCodeBlocks() {
-        //console.log('🔧 applyTranslationsToCodeBlocks: Starting...');
+       //console.log('🔧 applyTranslationsToCodeBlocks: Starting...');
 
         // Find all code blocks in the conversation history
         const codeBlocks = document.querySelectorAll(".assistant-message .code-block");
-        //console.log(`🔧 Found ${codeBlocks.length} code blocks to process`);
+       //console.log(`🔧 Found ${codeBlocks.length} code blocks to process`);
 
         codeBlocks.forEach((block, index) => {
-            //console.log(`🔧 Processing code block ${index + 1}/${codeBlocks.length}`);
+           //console.log(`🔧 Processing code block ${index + 1}/${codeBlocks.length}`);
 
             // Translate copy button
             const copyBtn = block.querySelector(".code-copy-btn");
             if (copyBtn) {
                 copyBtn.textContent = Lang.get("codeCopyButton") || "Copy";
-                //console.log(`✅ Copy button translated for block ${index + 1}`);
+               //console.log(`✅ Copy button translated for block ${index + 1}`);
             } else {
-                //console.log(`❌ No copy button found for block ${index + 1}`);
+               //console.log(`❌ No copy button found for block ${index + 1}`);
             }
 
             // Translate copy with line numbers button
             const copyWithLinesBtn = block.querySelector(".code-copy-with-lines-btn");
             if (copyWithLinesBtn) {
                 copyWithLinesBtn.textContent = Lang.get("codeCopyWithLinesButton") || "Copy with #";
-                //console.log(`✅ Copy with lines button translated for block ${index + 1}`);
+               //console.log(`✅ Copy with lines button translated for block ${index + 1}`);
             } else {
-                //console.log(`❌ No copy with lines button found for block ${index + 1}`);
+               //console.log(`❌ No copy with lines button found for block ${index + 1}`);
             }
 
             // Translate and fix line numbers toggle button
             const toggleLineNumBtn = block.querySelector(".toggle-line-numbers");
-            //console.log(`🔧 Block ${index + 1}: toggle button found:`, !!toggleLineNumBtn);
+           //console.log(`🔧 Block ${index + 1}: toggle button found:`, !!toggleLineNumBtn);
 
             if (toggleLineNumBtn) {
-                //console.log(`🔧 Block ${index + 1}: Processing toggle button...`);
+               //console.log(`🔧 Block ${index + 1}: Processing toggle button...`);
 
                 toggleLineNumBtn.textContent = Lang.get("codeToggleLineNumbers") || "#";
                 toggleLineNumBtn.title = Lang.get("codeToggleLineNumbersTitle") || "Toggle line numbers";
 
                 // Log current onclick attribute
-                //console.log(`🔧 Block ${index + 1}: Current onclick:`, toggleLineNumBtn.getAttribute('onclick'));
+               //console.log(`🔧 Block ${index + 1}: Current onclick:`, toggleLineNumBtn.getAttribute('onclick'));
 
                 // Remove existing onclick and event listeners
                 toggleLineNumBtn.removeAttribute('onclick');
-                //console.log(`🔧 Block ${index + 1}: Removed onclick attribute`);
+               //console.log(`🔧 Block ${index + 1}: Removed onclick attribute`);
 
                 // Clone the button to remove all event listeners
                 const newBtn = toggleLineNumBtn.cloneNode(true);
                 toggleLineNumBtn.parentNode.replaceChild(newBtn, toggleLineNumBtn);
-                //console.log(`🔧 Block ${index + 1}: Cloned button to remove event listeners`);
+               //console.log(`🔧 Block ${index + 1}: Cloned button to remove event listeners`);
 
                 // Make sure the code block structure is complete
                 const pre = block.querySelector('pre');
                 const code = block.querySelector('code');
 
-                //console.log(`🔧 Block ${index + 1}: Structure check - pre:`, !!pre, 'code:', !!code);
+               //console.log(`🔧 Block ${index + 1}: Structure check - pre:`, !!pre, 'code:', !!code);
 
                 if (pre && code) {
                     //  CRITICAL FIX: Always ensure line numbers container exists
                     let lineNumbersContainer = block.querySelector('.line-numbers');
-                    //console.log(`🔧 Block ${index + 1}: Line numbers container exists:`, !!lineNumbersContainer);
+                   //console.log(`🔧 Block ${index + 1}: Line numbers container exists:`, !!lineNumbersContainer);
 
                     if (!lineNumbersContainer) {
-                        //console.log(`🔧 Block ${index + 1}: Creating missing line numbers container for loaded code block`);
+                       //console.log(`🔧 Block ${index + 1}: Creating missing line numbers container for loaded code block`);
                         lineNumbersContainer = document.createElement('div');
                         lineNumbersContainer.className = 'line-numbers';
                         lineNumbersContainer.style.cssText = `
@@ -3497,9 +3804,9 @@ class PaiperworkDB {
                         // Ensure pre has relative positioning
                         pre.style.position = 'relative';
                         pre.appendChild(lineNumbersContainer);
-                        //console.log(`✅ Block ${index + 1}: Line numbers container created and added to pre element`);
+                       //console.log(`✅ Block ${index + 1}: Line numbers container created and added to pre element`);
                     } else {
-                        //console.log(`✅ Block ${index + 1}: Line numbers container already exists`);
+                       //console.log(`✅ Block ${index + 1}: Line numbers container already exists`);
                         // Ensure it has proper styling even if it exists
                         if (lineNumbersContainer.style.position !== 'absolute') {
                             lineNumbersContainer.style.cssText = `
@@ -3519,29 +3826,29 @@ class PaiperworkDB {
                             z-index: 1;
                         `;
                             pre.style.position = 'relative';
-                            //console.log(`🔧 Block ${index + 1}: Updated existing line numbers container styling`);
+                           //console.log(`🔧 Block ${index + 1}: Updated existing line numbers container styling`);
                         }
                     }
 
                     // Add the working event listener
-                    //console.log(`🔧 Block ${index + 1}: Adding click event listener`);
+                   //console.log(`🔧 Block ${index + 1}: Adding click event listener`);
 
                     newBtn.addEventListener('click', function (e) {
-                        //console.log(`🚀 CLICK EVENT TRIGGERED for block ${index + 1}`);
+                       //console.log(`🚀 CLICK EVENT TRIGGERED for block ${index + 1}`);
                         e.preventDefault();
                         e.stopPropagation();
 
                         // Use the global function if available
                         if (typeof window.toggleCodeLineNumbers === 'function') {
-                            //console.log(`🌍 Block ${index + 1}: Using global toggleCodeLineNumbers function`);
+                           //console.log(`🌍 Block ${index + 1}: Using global toggleCodeLineNumbers function`);
                             try {
                                 window.toggleCodeLineNumbers(this);
-                                //console.log(`✅ Block ${index + 1}: Global function executed successfully`);
+                               //console.log(`✅ Block ${index + 1}: Global function executed successfully`);
                             } catch (error) {
                                 console.error(`❌ Block ${index + 1}: Error in global function:`, error);
                             }
                         } else {
-                            //console.log(`🔄 Block ${index + 1}: Using fallback line numbers toggle`);
+                           //console.log(`🔄 Block ${index + 1}: Using fallback line numbers toggle`);
 
                             // Improved fallback implementation
                             const codeBlock = this.closest('.code-block');
@@ -3554,7 +3861,7 @@ class PaiperworkDB {
                             const codeElement = codeBlock.querySelector('code');
                             const lineNumbersContainer = codeBlock.querySelector('.line-numbers');
 
-                            //console.log(`🔧 Block ${index + 1}: Fallback elements - pre:`, !!pre, 'code:', !!codeElement, 'lineNumbers:', !!lineNumbersContainer);
+                           //console.log(`🔧 Block ${index + 1}: Fallback elements - pre:`, !!pre, 'code:', !!codeElement, 'lineNumbers:', !!lineNumbersContainer);
 
                             if (!lineNumbersContainer || !pre || !codeElement) {
                                 console.error(`❌ Block ${index + 1}: Missing required elements for line numbers`);
@@ -3565,26 +3872,26 @@ class PaiperworkDB {
                             const isVisible = lineNumbersContainer.style.display === 'block' ||
                                 lineNumbersContainer.style.visibility === 'visible';
 
-                            //console.log(`🔧 Block ${index + 1}: Current visibility state:`, isVisible);
+                           //console.log(`🔧 Block ${index + 1}: Current visibility state:`, isVisible);
 
                             if (isVisible) {
                                 // Hide line numbers
-                                //console.log(`👁️ Block ${index + 1}: Hiding line numbers`);
+                               //console.log(`👁️ Block ${index + 1}: Hiding line numbers`);
                                 lineNumbersContainer.style.display = 'none';
                                 lineNumbersContainer.style.visibility = 'hidden';
                                 pre.style.paddingLeft = '1em';
                                 codeElement.style.paddingLeft = '';
                             } else {
                                 // Show line numbers
-                                //console.log(`👁️ Block ${index + 1}: Showing line numbers`);
+                               //console.log(`👁️ Block ${index + 1}: Showing line numbers`);
 
                                 // Get the code content - try multiple sources
                                 let cleanCode = codeElement.dataset.cleanCode ||
                                     codeElement.textContent ||
                                     codeElement.innerText || '';
 
-                                //console.log(`📝 Block ${index + 1}: Code content length:`, cleanCode.length);
-                                //console.log(`📝 Block ${index + 1}: Code sample:`, cleanCode.substring(0, 50) + '...');
+                               //console.log(`📝 Block ${index + 1}: Code content length:`, cleanCode.length);
+                               //console.log(`📝 Block ${index + 1}: Code sample:`, cleanCode.substring(0, 50) + '...');
 
                                 if (!cleanCode.trim()) {
                                     console.warn(`⚠️ Block ${index + 1}: No code content found for line numbers`);
@@ -3593,7 +3900,7 @@ class PaiperworkDB {
 
                                 const lines = cleanCode.split('\n');
                                 const lineCount = lines.length;
-                                //console.log(`📊 Block ${index + 1}: Line count:`, lineCount);
+                               //console.log(`📊 Block ${index + 1}: Line count:`, lineCount);
 
                                 // Generate line numbers HTML
                                 let lineNumbersHTML = '';
@@ -3602,7 +3909,7 @@ class PaiperworkDB {
                                 }
 
                                 lineNumbersContainer.innerHTML = lineNumbersHTML;
-                                //console.log(`✅ Block ${index + 1}: Line numbers HTML generated`);
+                               //console.log(`✅ Block ${index + 1}: Line numbers HTML generated`);
 
                                 // Show with proper styling
                                 lineNumbersContainer.style.cssText = `
@@ -3627,26 +3934,26 @@ class PaiperworkDB {
                                 pre.style.paddingLeft = '3.5em';
                                 codeElement.style.paddingLeft = '0.5em';
 
-                                //console.log(`✅ Block ${index + 1}: Line numbers displayed and styling applied`);
+                               //console.log(`✅ Block ${index + 1}: Line numbers displayed and styling applied`);
                             }
                         }
                     });
 
-                    //console.log(`✅ Block ${index + 1}: Event listener added successfully`);
+                   //console.log(`✅ Block ${index + 1}: Event listener added successfully`);
 
                     // Test that the button is clickable
                     setTimeout(() => {
-                        //console.log(`🧪 Block ${index + 1}: Testing button accessibility...`);
-                        //console.log(`🧪 Block ${index + 1}: Button in DOM:`, document.contains(newBtn));
-                        //console.log(`🧪 Block ${index + 1}: Button visible:`, newBtn.offsetParent !== null);
-                        //console.log(`🧪 Block ${index + 1}: Button position:`, newBtn.getBoundingClientRect());
+                       //console.log(`🧪 Block ${index + 1}: Testing button accessibility...`);
+                       //console.log(`🧪 Block ${index + 1}: Button in DOM:`, document.contains(newBtn));
+                       //console.log(`🧪 Block ${index + 1}: Button visible:`, newBtn.offsetParent !== null);
+                       //console.log(`🧪 Block ${index + 1}: Button position:`, newBtn.getBoundingClientRect());
 
                         //  ADDITIONAL DEBUG: Verify line numbers container is properly attached
                         const verifyContainer = block.querySelector('.line-numbers');
-                        //console.log(`🧪 Block ${index + 1}: Line numbers container in DOM:`, !!verifyContainer);
+                       //console.log(`🧪 Block ${index + 1}: Line numbers container in DOM:`, !!verifyContainer);
                         if (verifyContainer) {
-                            //console.log(`🧪 Block ${index + 1}: Container parent:`, verifyContainer.parentNode?.tagName);
-                            //console.log(`🧪 Block ${index + 1}: Container styles:`, verifyContainer.style.cssText);
+                           //console.log(`🧪 Block ${index + 1}: Container parent:`, verifyContainer.parentNode?.tagName);
+                           //console.log(`🧪 Block ${index + 1}: Container styles:`, verifyContainer.style.cssText);
                         }
                     }, 1000);
 
@@ -3654,18 +3961,18 @@ class PaiperworkDB {
                     console.error(`❌ Block ${index + 1}: Missing pre or code elements`);
                 }
             } else {
-                //console.log(`❌ Block ${index + 1}: No toggle line numbers button found`);
+               //console.log(`❌ Block ${index + 1}: No toggle line numbers button found`);
             }
 
             // Translate run button if present
             const runBtn = block.querySelector(".code-run-btn");
             if (runBtn) {
                 runBtn.textContent = Lang.get("codeRunButton") || "Run";
-                //console.log(`✅ Run button translated for block ${index + 1}`);
+               //console.log(`✅ Run button translated for block ${index + 1}`);
             }
         });
 
-        //console.log('🔧 applyTranslationsToCodeBlocks: Completed processing all blocks');
+       //console.log('🔧 applyTranslationsToCodeBlocks: Completed processing all blocks');
     }
     // New helper method to translate code block buttons in a message HTML string
     static translateCodeBlockButtons(html) {

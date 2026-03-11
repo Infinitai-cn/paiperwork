@@ -3,7 +3,11 @@ window.helpContent = {
     gettingstarted: {
         title: "Inicio",
         intro:
-            "Bienvenido a Paiperwork, una interfaz web segura para Ollama que prioriza la privacidad de datos y la facilidad de uso. Este asistente enfocado en profesionales ofrece características de productividad mientras mantiene tus datos locales y protegidos.",
+            [
+                "Bienvenido a Paiperwork, una interfaz web segura para Ollama que prioriza la privacidad de datos y la facilidad de uso. Este asistente enfocado en profesionales ofrece características de productividad mientras mantiene tus datos locales y protegidos.",
+                "Puedes descargar y ejecutar modelos localmente en tu ordenador, o usar modelos en la nube si tu hardware no puede manejar modelos locales. Los modelos en la nube requieren iniciar sesion en ollama.com y crear una clave API. En el primer uso de un modelo en la nube, Paiperwork solicitara esta clave y la almacenara cifrada en tu base de datos local.",
+                "Para crear una clave API, registrate o inicia sesion en https://ollama.com. Luego abre Account Settings > Keys (https://ollama.com/settings/keys), agrega una nueva clave API, generala y copiala. En Paiperwork ve a la pestana Chat > Manage Cloud API key y pegala alli."
+            ],
         articles: [
             {
                 id: "gs-welcome",
@@ -853,6 +857,10 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Importante:</strong> En el Modo de Documento, la IA se enfoca exclusivamente en el contenido del documento seleccionado, usando su conocimiento para ayudar a interpretar pero sin agregar información externa.</p>
+                </div>
+
+                <div class="note">
+                    <p><strong>Nota para modelos en la nube:</strong> Al usar modelos en la nube en niveles gratuitos, las respuestas en el modo "Hacer preguntas" pueden ser limitadas o truncadas debido al gran tamaño de los prompts RAG. Para respuestas largas completas de forma consistente, se recomienda usar un nivel de nube de pago.</p>
                 </div>
             `,
                 image: "document_mode.png",

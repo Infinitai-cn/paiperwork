@@ -11,13 +11,13 @@ class ResearchTab {
     // Initializes the ResearchTab, sets up UI, event listeners, and components
     async initialize() {
         if (this.initialized) {
-            //console.log('ResearchTab: Already initialized, checking for model selection...');
+           //console.log('ResearchTab: Already initialized, checking for model selection...');
             // Clear warning if model is now selected
             this.clearModelWarningIfModelSelected();
             return;
         }
 
-        //console.log('ResearchTab: Initializing');
+       //console.log('ResearchTab: Initializing');
 
         try {
             this.addStyles();
@@ -39,7 +39,7 @@ class ResearchTab {
             this.setupSubTabHandlers();
 
             this.initialized = true;
-            //console.log('ResearchTab: Initialization complete');
+           //console.log('ResearchTab: Initialization complete');
 
             // Show the default sub-tab
             this.switchSubTab('research');
@@ -216,7 +216,7 @@ class ResearchTab {
         document.getElementById('research-size-selector').addEventListener('change', (e) => {
             if (this.researchAutomation) {
                 this.researchAutomation.reportSize = e.target.value;
-                //console.log(`Research report size set to ${e.target.value}`);
+               //console.log(`Research report size set to ${e.target.value}`);
             }
         });
     }
@@ -616,11 +616,11 @@ class ResearchTab {
         try {
             // Check if WebSearch is already loaded
             if (typeof window.WebSearch !== 'undefined') {
-                //console.log('Research: WebSearch module already loaded');
+               //console.log('Research: WebSearch module already loaded');
                 return true;
             }
 
-            //console.log('Research: Loading WebSearch module...');
+           //console.log('Research: Loading WebSearch module...');
 
             // Use the same method as in ChatTab to load the WebSearch feature
             if (!window.tabLoader || typeof window.tabLoader.loadFeatureScripts !== 'function') {
@@ -639,7 +639,7 @@ class ResearchTab {
                 window.WebSearch.initializeWebSearchReferences();
             }
 
-            //console.log('Research: WebSearch module loaded successfully');
+           //console.log('Research: WebSearch module loaded successfully');
             return true;
         } catch (error) {
             console.error('Research: Failed to load WebSearch module:', error);
@@ -680,7 +680,7 @@ class ResearchTab {
 
     // Handles actions when the research tab becomes active or inactive
     handleTabChange(isActive) {
-        //console.log('ResearchTab: Tab change, active =', isActive);
+       //console.log('ResearchTab: Tab change, active =', isActive);
 
         if (isActive && !this.initialized) {
             this.initialize();
@@ -697,13 +697,13 @@ class ResearchTab {
             if (errorMessage && errorMessage.textContent.includes(Lang.get('modelSelectionRequired'))) {
                 resultsContainer.innerHTML = '';
                 resultsContainer.style.display = 'none';
-                //console.log('ResearchTab: Cleared model selection warning - model is now selected');
+               //console.log('ResearchTab: Cleared model selection warning - model is now selected');
             }
         }
     }
     handleTabChange(isActive) {
         if (isActive) {
-            //console.log('ResearchTab: Tab activated, checking model selection...');
+           //console.log('ResearchTab: Tab activated, checking model selection...');
             // Clear warning if model is now selected when tab becomes active
             this.clearModelWarningIfModelSelected();
         }

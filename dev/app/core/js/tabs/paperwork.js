@@ -15,7 +15,7 @@ class Paperwork {
 
     async initialize() {
         if (this.initialized) return;
-        //console.log('Paperwork: Initializing paperwork manager');
+       //console.log('Paperwork: Initializing paperwork manager');
 
         // Add global styles
         this.addPaperworkGlobalStyles();
@@ -27,7 +27,7 @@ class Paperwork {
         this.initialized = true;
     }
     showDocumentTemplates() {
-        //console.log('Paperwork: Showing document templates');
+       //console.log('Paperwork: Showing document templates');
         if (window.paperworkTab) {
             window.paperworkTab.showPaperworkTab();
         } else {
@@ -308,7 +308,7 @@ class UIHelpers {
 
     async showDocumentEditor(templateType) {
         if (templateType === 'reporting') {
-            //console.log('Technical Report selected: Skipping editor form and going directly to template designer');
+           //console.log('Technical Report selected: Skipping editor form and going directly to template designer');
             // We're already in the intermediate window at this point, so close it first
             this.closeFloatingWindow();
 
@@ -391,8 +391,8 @@ class UIHelpers {
 
     async callAIService(systemPrompt, userPrompt) {
         try {
-            //console.log('Calling Ollama API with system prompt:', systemPrompt);
-            //console.log('And user prompt:', userPrompt);
+           //console.log('Calling Ollama API with system prompt:', systemPrompt);
+           //console.log('And user prompt:', userPrompt);
 
             // Get the selected model from the chat tab model selector
             const modelSelector = document.getElementById('model-selector');
@@ -404,22 +404,42 @@ class UIHelpers {
             }
 
             const selectedModel = modelSelector.value;
-            //console.log(`Using AI model: ${selectedModel}`);
+           //console.log(`Using AI model: ${selectedModel}`);
+            let routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
 
-            const response = await fetch('http://localhost:11434/api/generate', {
+            // Keep cloud behavior consistent with Chat: ensure a key exists before direct cloud calls.
+            if (routing && routing.source === 'cloud') {
+                const ensureCloudKey = window.chatTab && typeof window.chatTab.ensureCloudApiKeyForSend === 'function'
+                    ? window.chatTab.ensureCloudApiKeyForSend.bind(window.chatTab)
+                    : null;
+
+                if (ensureCloudKey) {
+                    const hasCloudKey = await ensureCloudKey();
+                    if (!hasCloudKey) {
+                        throw new Error('Cloud API key required');
+                    }
+                    // Refresh routing so headers include the newly-saved key.
+                    routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+                }
+            }
+
+            const requestOptions = {
+                temperature: 0.7,
+                num_ctx: 8192
+            };
+
+            const response = await fetch(`${routing.baseUrl}/generate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...routing.headers
                 },
                 body: JSON.stringify({
-                    model: selectedModel,
+                    model: routing.modelName || selectedModel,
                     system: systemPrompt,
                     prompt: userPrompt,
-                    stream: false, // We don't need streaming for this synchronous call
-                    options: {
-                        temperature: 0.7,
-                        num_ctx: 8192 // Use a reasonable context size
-                    }
+                    stream: false,
+                    options: requestOptions
                 }),
             });
 
@@ -430,7 +450,7 @@ class UIHelpers {
             const data = await response.json();
 
             // Get the AI response
-            let aiResponse = data.response || '';
+            let aiResponse = data?.response || data?.message?.content || '';
 
             // Remove any thinking/reasoning blocks
             aiResponse = this.removeAIThinkingBlocks(aiResponse);
@@ -475,7 +495,7 @@ class UIHelpers {
     }
     async showTemplateDesigner() {
         if (!this.paperwork.templateDesign) {
-            //console.log('Initializing TemplateDesign instance for Paperwork');
+           //console.log('Initializing TemplateDesign instance for Paperwork');
             this.paperwork.templateDesign = new TemplateDesign(this.paperwork);
             await this.paperwork.templateDesign.initialize(this.paperwork);
         }
@@ -1730,7 +1750,7 @@ class UIHelpers {
     //------------- Delegation for template designer generation
 
     addSectionFromPreset(presetType) {
-        //console.log(`UIHelpers: Delegating addSectionFromPreset to TemplateDesign: ${presetType}`);
+       //console.log(`UIHelpers: Delegating addSectionFromPreset to TemplateDesign: ${presetType}`);
 
         if (this.paperwork && this.paperwork.templateDesign) {
             // No need to set dimensions - each class maintains its own
@@ -1741,7 +1761,7 @@ class UIHelpers {
     }
 
     renderTemplateSections(sections) {
-        //console.log('UIHelpers: Delegating renderTemplateSections to TemplateDesign');
+       //console.log('UIHelpers: Delegating renderTemplateSections to TemplateDesign');
         // Make sure we're using templateDesign, not templateDesigner (wrong name)
         if (this.paperwork && this.paperwork.templateDesign) {
             return this.paperwork.templateDesign.renderTemplateSections(sections);
@@ -1751,7 +1771,7 @@ class UIHelpers {
     }
 
     saveTemplateDesign(templateId) {
-        //console.log(`UIHelpers: Delegating saveTemplateDesign to TemplateDesign: ${templateId}`);
+       //console.log(`UIHelpers: Delegating saveTemplateDesign to TemplateDesign: ${templateId}`);
         if (this.paperwork && this.paperwork.templateDesign) {
             return this.paperwork.templateDesign.saveTemplateDesign(templateId);
         } else {
@@ -3113,7 +3133,7 @@ class TemplateDesign {
                 `Please enhance the following text for my technical report:\n\n${textToEnhance}`
             );
 
-            //console.log('Raw AI response:', JSON.stringify(enhancedText));
+           //console.log('Raw AI response:', JSON.stringify(enhancedText));
 
             // If there was a response, process it
             if (enhancedText && enhancedText !== "AI failed to reply" && enhancedText !== "AI model not selected") {
@@ -3166,7 +3186,7 @@ class TemplateDesign {
         }
     }
     parseEnhancedText(enhancedText, fields) {
-        //console.log('Parsing AI response:', enhancedText);
+       //console.log('Parsing AI response:', enhancedText);
         const result = {};
 
         // First, try looking for the format [field]: content
@@ -3177,7 +3197,7 @@ class TemplateDesign {
 
             if (bracketMatch && bracketMatch[1]) {
                 result[field] = bracketMatch[1].trim();
-                //console.log(`Extracted ${field} using bracket format:`, result[field]);
+               //console.log(`Extracted ${field} using bracket format:`, result[field]);
             } else {
                 // As a fallback, try to identify content based on field name as heading
                 const headingRegex = new RegExp(`${this.getFieldFriendlyName(field)}:\\s*([\\s\\S]*?)(?=(?:\\w+):|$)`, 'i');
@@ -3185,9 +3205,9 @@ class TemplateDesign {
 
                 if (headingMatch && headingMatch[1]) {
                     result[field] = headingMatch[1].trim();
-                    //console.log(`Extracted ${field} using heading format:`, result[field]);
+                   //console.log(`Extracted ${field} using heading format:`, result[field]);
                 } else {
-                    //console.log(`Could not extract ${field} from AI response`);
+                   //console.log(`Could not extract ${field} from AI response`);
                 }
             }
         });
@@ -3195,7 +3215,7 @@ class TemplateDesign {
         // If we haven't found anything yet and there's only one field, use the entire response
         if (Object.keys(result).length === 0 && fields.length === 1) {
             result[fields[0]] = enhancedText.trim();
-            //console.log(`Using entire response for ${fields[0]}`);
+           //console.log(`Using entire response for ${fields[0]}`);
         }
 
         return result;
@@ -3220,7 +3240,7 @@ class TemplateDesign {
         const section = sections.find(s => s.id === sectionId);
         if (!section || !section._previousValues) return;
 
-        //console.log('Undoing changes for section:', sectionId, 'Previous values:', section._previousValues);
+       //console.log('Undoing changes for section:', sectionId, 'Previous values:', section._previousValues);
 
         // Restore previous values
         Object.keys(section._previousValues).forEach(field => {
@@ -4175,7 +4195,7 @@ class TemplateDesign {
             fontSelect.value = newFont;
         }
 
-        //console.log(`Report editor font updated to: ${newFont}`);
+       //console.log(`Report editor font updated to: ${newFont}`);
     }
     updateOpenPreviewFont(newFont) {
         // Check if a preview dialog is currently open
@@ -4201,7 +4221,7 @@ class TemplateDesign {
             });
         }
 
-        //console.log(`PDF preview font updated to: ${newFont}`);
+       //console.log(`PDF preview font updated to: ${newFont}`);
     }
     async previewPDF() {
         // Get template name
@@ -4249,7 +4269,7 @@ class TemplateDesign {
                 pageContents.push(pageElement.innerHTML);
             });
 
-            //console.log(`Preview: Found ${pageContents.length} pages in PDF content`);
+           //console.log(`Preview: Found ${pageContents.length} pages in PDF content`);
 
             // Create a preview dialog with theme-aware styling
             const previewDialog = document.createElement('div');
@@ -4441,7 +4461,7 @@ class TemplateDesign {
             } catch (e) {
                 selectedFont = localStorage.getItem('pdf-font-preference') || 'Arial';
             }
-            //console.log(`Using font: ${selectedFont} for PDF export`);
+           //console.log(`Using font: ${selectedFont} for PDF export`);
 
             // Create a hidden container to render the report for PDF conversion
             const pdfContainer = document.createElement('div');
@@ -4478,7 +4498,7 @@ class TemplateDesign {
             await new Promise(resolve => setTimeout(resolve, 500));
 
             // Ensure we have visible text for debugging
-            //console.log('PDF container content:', pdfContainer.innerText.substring(0, 100) + '...');
+           //console.log('PDF container content:', pdfContainer.innerText.substring(0, 100) + '...');
 
             // Use html2canvas to convert each page to an image
             const pages = pdfContainer.querySelectorAll('.pdf-page');
@@ -4488,7 +4508,7 @@ class TemplateDesign {
                 const page = pages[i];
 
                 // Debug page content
-                //console.log(`Page ${i + 1} content length:`, page.innerText.length);
+               //console.log(`Page ${i + 1} content length:`, page.innerText.length);
 
                 const canvas = await html2canvas(page, {
                     scale: 2, // Higher resolution
@@ -4534,7 +4554,7 @@ class TemplateDesign {
         const pageHeight = this.A4_HEIGHT_PX - this.PAGE_MARGINS.top - this.PAGE_MARGINS.bottom;
         const maxPageFill = pageHeight * 1;
 
-        //console.log(`PDF: Page height: ${pageHeight}px, Max fill: ${maxPageFill}px`);
+       //console.log(`PDF: Page height: ${pageHeight}px, Max fill: ${maxPageFill}px`);
 
         // Process each section
         sections.forEach((section, index) => {
@@ -4542,7 +4562,7 @@ class TemplateDesign {
             const sectionHTML = this.renderSectionForPDF(section, selectedFont);
             const sectionHeight = this.estimateSectionHeight(section);
 
-            //console.log(`PDF: Section ${index} (${section.type}): height=${sectionHeight}px, current page height=${currentPageHeight}px`);
+           //console.log(`PDF: Section ${index} (${section.type}): height=${sectionHeight}px, current page height=${currentPageHeight}px`);
 
             // Check if this is an explicit page break
             const isPageBreak = section.type === 'empty-space' && (section.isPageBreak || section.height >= 400);
@@ -4562,15 +4582,15 @@ class TemplateDesign {
 
             if (isPageBreak) {
                 shouldBreakPage = true;
-                //console.log(`PDF: Breaking page before section ${index} because: explicit page break`);
+               //console.log(`PDF: Breaking page before section ${index} because: explicit page break`);
             }
             else if (currentPageHeight > 0 && (currentPageHeight + sectionHeight > maxPageFill)) {
                 shouldBreakPage = true;
-                //console.log(`PDF: Breaking page before section ${index} because: would exceed max page fill (${currentPageHeight + sectionHeight}px > ${maxPageFill}px)`);
+               //console.log(`PDF: Breaking page before section ${index} because: would exceed max page fill (${currentPageHeight + sectionHeight}px > ${maxPageFill}px)`);
             }
             else if (isHeaderSection && nextSectionIsBig && (currentPageHeight + sectionHeight + 150 > maxPageFill)) {
                 shouldBreakPage = true;
-                //console.log(`PDF: Breaking page before section ${index} because: would orphan header`);
+               //console.log(`PDF: Breaking page before section ${index} because: would orphan header`);
             }
 
             // If we should break the page
@@ -4580,11 +4600,11 @@ class TemplateDesign {
                 currentPageContent = '';
                 currentPageHeight = 0;
 
-                //console.log(`PDF: Starting new page ${pages.length + 1}`);
+               //console.log(`PDF: Starting new page ${pages.length + 1}`);
 
                 // Skip rendering the empty space section that was just used as a page break
                 if (isPageBreak && section.type === 'empty-space') {
-                    //console.log(`PDF: Skipping empty space used for page break`);
+                   //console.log(`PDF: Skipping empty space used for page break`);
                     return; // Skip this iteration
                 }
             }
@@ -4592,7 +4612,7 @@ class TemplateDesign {
             // Add the section to current page
             currentPageContent += sectionHTML;
             currentPageHeight += sectionHeight;
-            //console.log(`PDF: Added section, new page height: ${currentPageHeight}px`);
+           //console.log(`PDF: Added section, new page height: ${currentPageHeight}px`);
         });
 
         // Add the last page if it has content
@@ -4611,7 +4631,7 @@ class TemplateDesign {
         // Close the wrapper div
         content += '</div>';
 
-        //console.log(`PDF: Finished with ${pages.length} pages`);
+       //console.log(`PDF: Finished with ${pages.length} pages`);
 
         return content;
     }
@@ -4952,7 +4972,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const paperwork = new Paperwork();
     await paperwork.initialize();
     window.paperworkInstance = paperwork;
-    //console.log('Paperwork system initialized');
+   //console.log('Paperwork system initialized');
 });
 
 // Make both classes globally available

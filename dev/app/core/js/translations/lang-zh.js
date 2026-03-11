@@ -152,6 +152,12 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 Ollamaerror500: "Ollama回复中的500错误。",
                 ollamaSelectModelPrompt: "发送消息前请选择模型。",
                 ollamaConnectionError: "连接Ollama失败。验证Ollama正在运行并重试。",
+                ollamaCloudApiKeyTitle: "需要 Ollama Cloud API 密钥",
+                ollamaCloudApiKeyInfo: "要使用云模型，请添加您的 Ollama API 密钥。该密钥将以加密方式存储在您的用户数据库中。",
+                ollamaApiKeyPlaceholder: "粘贴您的 Ollama API 密钥",
+                ollamaApiKeyRequired: "使用云模型需要 Ollama API 密钥。",
+                ollamaApiKeyInvalid: "您的 Ollama API 密钥似乎无效或已过期，请更新。",
+                manageCloudApiKey: "管理云 API 密钥",
                 ollamaConversationStart: "此对话从{count}条早期消息继续。下方显示最近的交流。",
 
                 // Copy Functionality
@@ -1420,6 +1426,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 artworkGenerateDesign: "生成设计",
                 artworkGeneratedDesign: "生成的设计：",
                 artworkSelectVisualModelOption: "选择一个视觉模型",
+                artworkLocalVisualModelsHeader: "本地视觉模型",
+                artworkCloudVisualModelsHeader: "云端视觉模型",
                 artworkVisualDesignStudio: "视觉设计工作室",
                 artworkCreateDesignsDescription: "使用视觉AI模型创建设计、网站或艺术作品。",
 

@@ -9,7 +9,7 @@ class DatabaseTab {
     async initialize() {
         if (this.initialized) return;
         
-        //console.log('Initializing Database Tab');
+       //console.log('Initializing Database Tab');
         
         // Create tab structure
         this.createTabStructure();
@@ -24,7 +24,7 @@ class DatabaseTab {
         }
         
         this.initialized = true;
-        //console.log('Database Tab initialized');
+       //console.log('Database Tab initialized');
     }
 
     // Creates the HTML structure for the database tab and attaches event listeners

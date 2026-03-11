@@ -2237,11 +2237,11 @@ class TranslateTab {
 		const scopeTarget = this.getScopeTarget(scope);
 
 		console.group('[TranslateTab] Transform request');
-		console.log('scope:', scope);
-		console.log('scopeTarget:', scopeTarget);
-		console.log('activePageNumber:', this.activePageNumber);
-		console.log('selectedPageNumbers:', Array.from(this.selectedPageNumbers).sort((left, right) => left - right));
-		console.log('instructionLength:', instruction.length);
+	//console.log('scope:', scope);
+	//console.log('scopeTarget:', scopeTarget);
+	//console.log('activePageNumber:', this.activePageNumber);
+	//console.log('selectedPageNumbers:', Array.from(this.selectedPageNumbers).sort((left, right) => left - right));
+	//console.log('instructionLength:', instruction.length);
 		console.groupEnd();
 
 		if (!scopeTarget) {

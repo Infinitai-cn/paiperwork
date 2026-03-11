@@ -34,10 +34,11 @@ async function modelSupportsSummaryGeneration(model) {
     }
 
     try {
-        const response = await fetch('http://localhost:11434/api/show', {
+        const routing = await OllamaAPI.getApiRoutingForModel(model);
+        const response = await fetch(`${routing.baseUrl}/show`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model, name: model })
+            headers: { 'Content-Type': 'application/json', ...routing.headers },
+            body: JSON.stringify({ model: routing.modelName || model, name: routing.modelName || model })
         });
 
         if (!response.ok) {
@@ -68,7 +69,7 @@ async function modelSupportsSummaryGeneration(model) {
 
 // Ensures the documents table exists in the database for the given master key
 async function ensureDocumentsTableExists(hashedMasterKey) {
-    //console.log('RAG_Utils: Ensuring documents table exists for masterkey:', hashedMasterKey);
+   //console.log('RAG_Utils: Ensuring documents table exists for masterkey:', hashedMasterKey);
 
     try {
         if (!RAG) {
@@ -91,12 +92,12 @@ async function ensureDocumentsTableExists(hashedMasterKey) {
                 WHERE type='table' AND name='documents_${hashedMasterKey}'
             `);
             tableExists = result && result.length > 0 && result[0]?.values.length > 0;
-            //console.log(`RAG_Utils: Table documents_${hashedMasterKey} exists:`, tableExists);
+           //console.log(`RAG_Utils: Table documents_${hashedMasterKey} exists:`, tableExists);
         } catch (error) {
             console.error('RAG_Utils: Error checking if table exists:', error);
         }
 
-        //console.log('RAG_Utils: Creating documents table for masterkey:', hashedMasterKey);
+       //console.log('RAG_Utils: Creating documents table for masterkey:', hashedMasterKey);
 
         // Create the documents table using the retrieved database WITH DOCUMENT_ PREFIX
         db.exec(`
@@ -113,7 +114,7 @@ async function ensureDocumentsTableExists(hashedMasterKey) {
         // Save metadata DB changes
         await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
 
-        //console.log('RAG_Utils: Document tables created or verified successfully');
+       //console.log('RAG_Utils: Document tables created or verified successfully');
         return true;
 
     } catch (error) {
@@ -139,11 +140,11 @@ async function buildDocumentSystemPrompt() {
 
 // Initializes the document UI and sets up event handlers
 function initializeDocumentUI() {
-    //console.log('RAG_Utils: initializeDocumentUI called');
+   //console.log('RAG_Utils: initializeDocumentUI called');
 
     // Get the current masterkey hash
     documentUIElements.hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-    //console.log('RAG_Utils: hashedMasterKey retrieved:', documentUIElements.hashedMasterKey);
+   //console.log('RAG_Utils: hashedMasterKey retrieved:', documentUIElements.hashedMasterKey);
 
     // If no masterkey hash, we can't set up the documents tab properly
     if (!documentUIElements.hashedMasterKey) {
@@ -161,7 +162,7 @@ function initializeDocumentUI() {
     })();
 
     const documentsTab = document.getElementById('documents-tab');
-    //console.log('RAG_Utils: documents-tab element found:', !!documentsTab);
+   //console.log('RAG_Utils: documents-tab element found:', !!documentsTab);
 
     if (!documentsTab) {
         console.error('RAG_Utils: documents-tab element not found');
@@ -201,12 +202,12 @@ function initializeDocumentUI() {
         browseText.addEventListener('click', () => {
             documentUIElements.fileInput.click();
         });
-        //console.log('RAG_Utils: Browse button click handler attached');
+       //console.log('RAG_Utils: Browse button click handler attached');
     }
 
     // Handle file selection via input
     documentUIElements.fileInput.addEventListener('change', () => {
-        //console.log('RAG_Utils: File input change detected');
+       //console.log('RAG_Utils: File input change detected');
         handleFiles(documentUIElements.fileInput.files);
     });
 
@@ -218,7 +219,7 @@ function initializeDocumentUI() {
     tabButtons.forEach(button => {
         button.addEventListener('click', (e) => {
             if (e.currentTarget.getAttribute('data-tab') === 'documents-tab') {
-                //console.log('RAG_Utils: Documents tab clicked, loading documents');
+               //console.log('RAG_Utils: Documents tab clicked, loading documents');
                 // Small delay to ensure UI is ready
                 setTimeout(() => {
                     // Check if we're processing and restore that state if needed
@@ -234,7 +235,7 @@ function initializeDocumentUI() {
 
     // Also check processing state immediately if we're already on the documents tab
     if (document.querySelector('.tab-button[data-tab="documents-tab"].active')) {
-        //console.log('RAG_Utils: Documents tab is already active');
+       //console.log('RAG_Utils: Documents tab is already active');
         // Small delay to ensure UI is fully initialized
         setTimeout(() => {
             if (documentProcessingState.isProcessing) {
@@ -245,13 +246,13 @@ function initializeDocumentUI() {
         }, 300);
     }
 
-    //console.log('RAG_Utils: Document initialization complete');
+   //console.log('RAG_Utils: Document initialization complete');
     documentUIElements.initialized = true;
 }
 
 // Sets up the HTML structure for the documents tab UI
 function setupDocumentUI(documentsTab) {
-    //console.log('RAG_Utils: Setting up document UI structure');
+   //console.log('RAG_Utils: Setting up document UI structure');
 
     // Clear out any existing content first
     documentsTab.innerHTML = `
@@ -297,7 +298,7 @@ function setupDocumentUI(documentsTab) {
     </div>
 `;
 
-    //console.log('RAG_Utils: Document UI structure setup complete');
+   //console.log('RAG_Utils: Document UI structure setup complete');
 }
 
 // Sets up drag and drop functionality for the upload zone
@@ -338,7 +339,7 @@ function setupDragAndDrop() {
             documentUIElements.progressContainer.style.display === 'none') {
             handleFiles(e.dataTransfer.files);
         } else {
-            //console.log('RAG_Utils: Document processing in progress, drop ignored');
+           //console.log('RAG_Utils: Document processing in progress, drop ignored');
         }
     });
 
@@ -357,7 +358,7 @@ function setupDragAndDrop() {
             // Trigger file input
             documentUIElements.fileInput.click();
         });
-        //console.log('RAG_Utils: Browse text click handler attached');
+       //console.log('RAG_Utils: Browse text click handler attached');
     } else {
         console.error('RAG_Utils: Browse text element not found');
     }
@@ -487,7 +488,7 @@ async function handleFiles(files) {
         progressBarFill.style.backgroundColor = '#4f46e5'; // Accent color
         progressBarFill.style.transition = 'width 0.3s ease';
         progressBarFill.style.height = '100%';
-        //console.log('Progress bar reset to 0% and styled properly');
+       //console.log('Progress bar reset to 0% and styled properly');
     }
 
     try {
@@ -501,11 +502,11 @@ async function handleFiles(files) {
 
         // Get current model to use for embeddings
         const currentModel = modelSelector.value;
-        //console.log('Using model for document processing:', currentModel);
+       //console.log('Using model for document processing:', currentModel);
 
         // Process the files - pass the current model
         await RAG.processDocuments(filesToProcess, hashedMasterKey, (progress, status) => {
-            //console.log(`Progress callback received:`, progress, status);
+           //console.log(`Progress callback received:`, progress, status);
 
             // Update global state
             documentProcessingState.currentProgress = progress;
@@ -514,14 +515,14 @@ async function handleFiles(files) {
             if (progress !== null && progress !== undefined) {
                 // Convert progress to percentage and update the progress bar width
                 const percentComplete = Math.round(progress * 100);
-                //console.log(`Converting progress ${progress} to ${percentComplete}%`);
+               //console.log(`Converting progress ${progress} to ${percentComplete}%`);
 
                 // Force DOM update with requestAnimationFrame for smoother updates
                 requestAnimationFrame(() => {
                     const progressBarElement = document.getElementById('progress-bar-fill');
                     if (progressBarElement) {
                         progressBarElement.style.width = `${percentComplete}%`;
-                        //console.log(`Set progress bar width to ${percentComplete}%`);
+                       //console.log(`Set progress bar width to ${percentComplete}%`);
 
                         // Check if processing is now complete
                         if (percentComplete === 100) {
@@ -537,11 +538,11 @@ async function handleFiles(files) {
             // Only update status message if not paused by AI
             if (status && progressStatus && !documentProcessingState.isPaused) {
                 progressStatus.textContent = status;
-                //console.log('Updated status text:', status);
+               //console.log('Updated status text:', status);
             }
         }, currentModel);
 
-        //console.log('Document processing completed successfully');
+       //console.log('Document processing completed successfully');
 
         const wasProcessing = documentProcessingState.isProcessing;
         documentProcessingState.isProcessing = false;
@@ -558,7 +559,7 @@ async function handleFiles(files) {
             const finalProgressBar = document.getElementById('progress-bar-fill');
             if (finalProgressBar) {
                 finalProgressBar.style.width = '100%';
-                //console.log('Set final progress to 100%');
+               //console.log('Set final progress to 100%');
             }
         }
     } catch (error) {
@@ -589,7 +590,7 @@ async function handleFiles(files) {
         }, 2000);
         setTimeout(async () => {
             if (document.querySelector('.tab-button[data-tab="documents-tab"].active')) {
-                //console.log('Documents tab still active, doing final refresh');
+               //console.log('Documents tab still active, doing final refresh');
                 await updateDocumentsList(true);
             }
         }, 2500);
@@ -634,12 +635,12 @@ async function checkPdfForText(file) {
 
 // Updates the documents list UI with current document metadata
 async function updateDocumentsList(forceReload = false) {
-    //console.log('RAG_Utils: Updating documents list (metadata only)');
+   //console.log('RAG_Utils: Updating documents list (metadata only)');
     const { hashedMasterKey, documentsList, documentSearch } = documentUIElements;
     if (!documentsList) return;
     // Check if we're in the middle of processing documents
     if (documentProcessingState.isProcessing) {
-        //console.log('Document processing in progress, restoring processing UI');
+       //console.log('Document processing in progress, restoring processing UI');
         restoreProcessingState();
         return;
     }
@@ -725,7 +726,7 @@ async function updateDocumentsList(forceReload = false) {
             return;
         }
 
-        //console.log(`RAG_Utils: Found ${documents.length} documents (metadata only)`);
+       //console.log(`RAG_Utils: Found ${documents.length} documents (metadata only)`);
 
         // Render document list with updated layout
         try {
@@ -746,7 +747,7 @@ async function updateDocumentsList(forceReload = false) {
                 let formattedDate = 'Unknown';
                 try {
                     if (doc.dateAdded) {
-                        //console.log('Raw dateAdded:', doc.dateAdded); // Debug log
+                       //console.log('Raw dateAdded:', doc.dateAdded); // Debug log
 
                         // Try to handle different date formats
                         let dateObj;
@@ -1399,7 +1400,7 @@ async function expandQuery(query, model) {
             .filter(q => q && q !== query && !q.includes("Alternative") && !q.includes("Query"))
             .slice(0, 3);
 
-        //console.log('Query expansion results:', alternativeQueries);
+       //console.log('Query expansion results:', alternativeQueries);
 
         // Return original query plus alternatives
         return [query, ...alternativeQueries];
@@ -1431,18 +1432,18 @@ function cleanThinkingContent(text) {
 
     // Log if thinking content was removed
     if (text !== cleanedText) {
-        //console.log('Removed thinking content from query expansion');
+       //console.log('Removed thinking content from query expansion');
     }
 
     return cleanedText;
 }
 
 async function diverseDocumentSearch(query, hashedMasterKey, model) {
-    //console.log('Starting sequential document search for:', query);
+   //console.log('Starting sequential document search for:', query);
 
     // Get expanded queries early
     const expandedQueries = await expandQuery(query, model);
-    //console.log(`Expanded query alternatives:`, expandedQueries);
+   //console.log(`Expanded query alternatives:`, expandedQueries);
 
     // Combine them for better coverage
     const combinedQuery = expandedQueries.join(' OR ');
@@ -1457,7 +1458,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model) {
 
     // If no documents exist, exit early
     if (!docListResult?.length || !docListResult[0]?.values?.length) {
-        //console.log('No documents found to search in');
+       //console.log('No documents found to search in');
         return [];
     }
 
@@ -1472,7 +1473,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model) {
         }
     }
 
-    //console.log(`Found ${docList.length} documents to search through sequentially`);
+   //console.log(`Found ${docList.length} documents to search through sequentially`);
 
     // STEP 2: Process each document INDIVIDUALLY to manage memory
     const allResults = [];
@@ -1497,7 +1498,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model) {
                 progressStatus.textContent = `Searching documents (${processedCount}/${docList.length}): ${doc.name}`;
             }
 
-            //console.log(`Searching document ${processedCount}/${docList.length}: ${doc.name}`);
+           //console.log(`Searching document ${processedCount}/${docList.length}: ${doc.name}`);
 
             // IMPORTANT: Create a lightweight search function that doesn't load ALL chunks at once
             const docResults = await searchSingleDocument(
@@ -1512,7 +1513,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model) {
 
             // Add results from this document (if any)
             if (docResults?.length) {
-                //console.log(`Found ${docResults.length} matches in "${doc.name}"`);
+               //console.log(`Found ${docResults.length} matches in "${doc.name}"`);
                 allResults.push(...docResults);
             }
 
@@ -1530,7 +1531,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model) {
 
     // If no results from any document, return empty
     if (allResults.length === 0) {
-        //console.log('No search results found across any documents');
+       //console.log('No search results found across any documents');
         return [];
     }
 
@@ -1665,7 +1666,7 @@ async function searchSingleDocument(docId, docName, query, hashedMasterKey, mode
                 .slice(0, 3);
 
             if (forcedResults.length) {
-                //console.log(`Including ${forcedResults.length} low-relevance results from ${docName}`);
+               //console.log(`Including ${forcedResults.length} low-relevance results from ${docName}`);
                 return forcedResults;
             }
         }
@@ -1868,7 +1869,7 @@ async function showDocumentSummary(documentId, documentTitle, hashedMasterKey) {
 
     // Get the current context size setting
     const contextSize = parseInt(document.getElementById('context-selector')?.value || 8192);
-    //console.log('Current context size setting:', contextSize);
+   //console.log('Current context size setting:', contextSize);
 
     // First, let's check if the document size is appropriate for the selected context
     try {
@@ -1924,7 +1925,7 @@ async function showDocumentSummary(documentId, documentTitle, hashedMasterKey) {
             recommendedContextSize = 65536; // Huge document
         }
 
-        //console.log(`Document size: ${sizeInKB.toFixed(2)}KB, estimated tokens: ${estimatedTokens}, recommended context: ${recommendedContextSize}`);
+       //console.log(`Document size: ${sizeInKB.toFixed(2)}KB, estimated tokens: ${estimatedTokens}, recommended context: ${recommendedContextSize}`);
 
         // If context is insufficient, warn the user
         if (contextSize < recommendedContextSize) {
@@ -2050,7 +2051,7 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
             if (confirm(Lang.get('ragSummaryCancelConfirm'))) {
                 // Use our local summaryAbortController instead of window.cancelOllamaGeneration
                 if (summaryAbortController) {
-                    //console.log('RAG_Utils: Cancelling summary generation');
+                   //console.log('RAG_Utils: Cancelling summary generation');
                     summaryAbortController.abort();
                     summaryAbortController = null;
                 }
@@ -2091,7 +2092,7 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
                 if (shouldCancel) {
                     // User confirmed cancellation - cancel generation and close modal
                     if (summaryAbortController) {
-                        //console.log('RAG_Utils: Cancelling summary generation via close button');
+                       //console.log('RAG_Utils: Cancelling summary generation via close button');
                         summaryAbortController.abort();
                         summaryAbortController = null;
                     }
@@ -2978,6 +2979,72 @@ function formatSummaryForDisplay(summaryText) {
     const lines = formatted.split('\n');
     const processedLines = [];
 
+    const isPipeTableRow = (rawLine) => {
+        const candidate = String(rawLine || '').trim();
+        if (!candidate || !candidate.includes('|')) return false;
+        const normalized = candidate.replace(/^\|/, '').replace(/\|$/, '');
+        const cells = normalized.split('|').map(cell => cell.trim());
+        return cells.length >= 2;
+    };
+
+    const parsePipeTableCells = (rawLine) => {
+        return String(rawLine || '')
+            .trim()
+            .replace(/^\|/, '')
+            .replace(/\|$/, '')
+            .split('|')
+            .map(cell => cell.trim());
+    };
+
+    const isSeparatorRow = (cells) => {
+        if (!Array.isArray(cells) || cells.length === 0) return false;
+        return cells.every(cell => /^:?-{3,}:?$/.test(cell));
+    };
+
+    const getColumnAlignments = (separatorCells) => {
+        if (!Array.isArray(separatorCells)) return [];
+        return separatorCells.map((cell) => {
+            const token = String(cell || '').trim();
+            const left = token.startsWith(':');
+            const right = token.endsWith(':');
+            if (left && right) return 'center';
+            if (right) return 'right';
+            return 'left';
+        });
+    };
+
+    const getAlignedCellHtml = (tag, content, align) => {
+        const safeAlign = (align === 'center' || align === 'right') ? align : 'left';
+        return `<${tag} style="text-align: ${safeAlign};">${content}</${tag}>`;
+    };
+
+    const buildHtmlTableFromBlock = (tableLines) => {
+        const parsedRows = tableLines.map(parsePipeTableCells).filter(row => row.length >= 2);
+        if (parsedRows.length < 2) return null;
+
+        const hasExplicitHeader = parsedRows.length >= 2 && isSeparatorRow(parsedRows[1]);
+        const alignments = hasExplicitHeader ? getColumnAlignments(parsedRows[1]) : [];
+        let theadHtml = '';
+        let bodyStartIndex = 0;
+
+        if (hasExplicitHeader) {
+            const headerCells = parsedRows[0]
+                .map((cell, index) => getAlignedCellHtml('th', processInlineMarkdown(cell), alignments[index]))
+                .join('');
+            theadHtml = `<thead><tr>${headerCells}</tr></thead>`;
+            bodyStartIndex = 2;
+        }
+
+        const bodyRows = parsedRows.slice(bodyStartIndex);
+        if (bodyRows.length === 0 && !hasExplicitHeader) {
+            return null;
+        }
+
+        const tbodyHtml = `<tbody>${bodyRows.map(row => `<tr>${row.map((cell, index) => getAlignedCellHtml('td', processInlineMarkdown(cell), alignments[index])).join('')}</tr>`).join('')}</tbody>`;
+
+        return `<div class="summary-table-wrapper"><table class="summary-table">${theadHtml}${tbodyHtml}</table></div>`;
+    };
+
     for (let i = 0; i < lines.length; i++) {
         // Trim whitespace from beginning and end, but preserve spaces after trimming
         const line = lines[i].trim();
@@ -2986,6 +3053,23 @@ function formatSummaryForDisplay(summaryText) {
             // Handle empty lines 
             processedLines.push('');
             continue;
+        }
+
+        // Convert markdown-style pipe tables into real HTML tables.
+        if (isPipeTableRow(line) && i + 1 < lines.length && isPipeTableRow(lines[i + 1])) {
+            const tableBlock = [line];
+            let j = i + 1;
+            while (j < lines.length && isPipeTableRow(lines[j])) {
+                tableBlock.push(lines[j].trim());
+                j++;
+            }
+
+            const tableHtml = buildHtmlTableFromBlock(tableBlock);
+            if (tableHtml) {
+                processedLines.push(tableHtml);
+                i = j - 1;
+                continue;
+            }
         }
 
         // Use regex to better match heading patterns and extract text
@@ -3018,6 +3102,37 @@ function formatSummaryForDisplay(summaryText) {
         <div class="summary-body" style="font-family: inherit; line-height: 1.6;">${formatted}</div>
     </div>`;
 }
+
+// Add minimal table styles used by final summary rendering.
+if (!document.getElementById('summary-table-styles')) {
+    const summaryTableStyles = document.createElement('style');
+    summaryTableStyles.id = 'summary-table-styles';
+    summaryTableStyles.textContent = `
+        .summary-table-wrapper {
+            overflow-x: auto;
+            margin: 12px 0;
+        }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95em;
+            border: 1px solid var(--border-color, #d1d5db);
+        }
+        .summary-table th,
+        .summary-table td {
+            border: 1px solid var(--border-color, #d1d5db);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .summary-table thead th {
+            background: rgba(0, 0, 0, 0.06);
+            font-weight: 600;
+        }
+    `;
+    document.head.appendChild(summaryTableStyles);
+}
+
 function processInlineMarkdown(text) {
     // Bold
     text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -3134,12 +3249,12 @@ function addSelectionPanel(documentsList, documents) {
 
 // Enables document questioning mode for a selected document (duplicate, can be merged)
 function enableDocumentQuestioningMode(documentId) {
-    //console.log('Enabling document questioning mode for document ID:', documentId);
+   //console.log('Enabling document questioning mode for document ID:', documentId);
 
     // Check if we're already in document mode for this document
     const activeDocumentId = localStorage.getItem('ragQuestioningDocumentId');
     if (activeDocumentId === documentId) {
-        //console.log('Document is already in questioning mode');
+       //console.log('Document is already in questioning mode');
         return;
     }
 
@@ -3400,7 +3515,7 @@ function updateDocumentQuestioningUI(forceShow = false) {
         return;
     }
 
-    //console.log('Found insertion point for document banner:', insertionPoint);
+   //console.log('Found insertion point for document banner:', insertionPoint);
 
     // Create the document questioning indicator
     const indicator = document.createElement('div');
@@ -3427,7 +3542,7 @@ function updateDocumentQuestioningUI(forceShow = false) {
         insertionPoint.appendChild(indicator);
     }
 
-    //console.log('Document questioning banner inserted');
+   //console.log('Document questioning banner inserted');
 
     // Update input placeholder if present
     const promptInput = document.getElementById('prompt-input');
@@ -3452,7 +3567,7 @@ function updateDocumentQuestioningUI(forceShow = false) {
 }
 
 async function handleDocumentGlobalSearch() {
-    //console.log('Performing global document search across all documents');
+   //console.log('Performing global document search across all documents');
     const aiReplies = document.querySelector('.ai-replies');
     const sendButton = document.getElementById('send-prompt');
     const promptInput = document.getElementById('prompt-input');
@@ -3569,42 +3684,40 @@ async function handleDocumentGlobalSearch() {
             }
         });
 
-        // MEMORY OPTIMIZATION 3: Build context with document boundaries more efficiently
+        // MEMORY OPTIMIZATION 3: Build ranked, compact context slices.
         let context = '';
+        const rankedResults = [...searchResults].sort((a, b) => (Number(b?.similarity || 0) - Number(a?.similarity || 0)));
+        const perDocCount = new Map();
+        const MAX_TOTAL_CHUNKS = 8;
+        const MAX_PER_DOC = 2;
+        const MAX_CHARS_PER_CHUNK = 650;
+        const CONTEXT_CHAR_BUDGET = 4200;
+        let usedChars = 0;
+        let selectedChunks = 0;
 
-        // Group chunks by document
-        const resultsByDocument = {};
-        searchResults.forEach(result => {
-            if (!resultsByDocument[result.documentId]) {
-                resultsByDocument[result.documentId] = {
-                    name: result.documentName,
-                    chunks: []
-                };
-            }
-            resultsByDocument[result.documentId].chunks.push(result);
-        });
+        for (const chunk of rankedResults) {
+            if (selectedChunks >= MAX_TOTAL_CHUNKS) break;
+            if (usedChars >= CONTEXT_CHAR_BUDGET) break;
 
-        // Limit number of documents to include (prevents excessive context)
-        const MAX_DOCS_IN_CONTEXT = 5;
-        const documentIds = Object.keys(resultsByDocument).slice(0, MAX_DOCS_IN_CONTEXT);
+            const docId = String(chunk?.documentId || 'unknown');
+            const countForDoc = perDocCount.get(docId) || 0;
+            if (countForDoc >= MAX_PER_DOC) continue;
 
-        // Build context document by document
-        documentIds.forEach(docId => {
-            const doc = resultsByDocument[docId];
-            context += `\n\n### Document: ${doc.name}\n\n`;
+            const rawText = String(chunk?.text || '').trim();
+            if (!rawText) continue;
 
-            // Sort chunks by page number if available
-            doc.chunks.sort((a, b) => {
-                const pageA = a.metadata?.pageNumber || 0;
-                const pageB = b.metadata?.pageNumber || 0;
-                return pageA - pageB;
-            });
+            const clipped = rawText.length > MAX_CHARS_PER_CHUNK
+                ? `${rawText.slice(0, MAX_CHARS_PER_CHUNK).trimEnd()}...`
+                : rawText;
 
-            // Add chunks with page information
-            doc.chunks.forEach(chunk => {
-                context += `[Page ${chunk.metadata?.pageNumber || 'unknown'}]: ${chunk.text.substring(0, 800)}\n\n`;
-            });
-        });
+            const block = `[Document: ${chunk.documentName || 'Unknown Document'} | Page: ${chunk.metadata?.pageNumber || 'unknown'} | Score: ${Number(chunk?.similarity || 0).toFixed(3)}]\n${clipped}\n\n`;
+            if (usedChars + block.length > CONTEXT_CHAR_BUDGET) continue;
+
+            context += block;
+            usedChars += block.length;
+            selectedChunks += 1;
+            perDocCount.set(docId, countForDoc + 1);
+        }
 
         // MEMORY OPTIMIZATION 4: Release search results after building context
         // This frees memory as we no longer need the detailed results
@@ -3655,6 +3768,8 @@ async function handleDocumentGlobalSearch() {
         // Process the response
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let streamBuffer = '';
+        let reachedDone = false;
 
         // Process the response stream
         while (true) {
@@ -3664,45 +3779,85 @@ async function handleDocumentGlobalSearch() {
                 throw new DOMException('The user aborted a request.', 'AbortError');
             }
 
-            if (done) break;
-
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
+            streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+            const lines = streamBuffer.split('\n');
+            streamBuffer = lines.pop() || '';
 
             for (const line of lines) {
-                if (line.trim()) {
-                    try {
-                        const data = JSON.parse(line);
-                        if (data.done) {
-                            // Complete the response
+                const trimmed = String(line || '').trim();
+                if (!trimmed || trimmed === 'data: [DONE]' || trimmed === '[DONE]') continue;
+
+                const normalizedLine = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
+                if (!normalizedLine || normalizedLine === '[DONE]') continue;
+
+                try {
+                    const data = JSON.parse(normalizedLine);
+                    const responseChunk = data.response || data.message?.content || '';
+                    if (responseChunk) {
+                        streamProcessor.processChunk(responseChunk);
+                    }
+
+                    if (data.done) {
+                        reachedDone = true;
+                        if (Array.isArray(data.context)) {
                             OllamaAPI.previousContext = data.context;
                             OllamaAPI.updateContextRemaining(data.context.length);
+                            OllamaAPI.previousContextLength = data.context.length;
+                        }
+
+                        window.chat.addMessageActionsToMessage(aiDiv);
+                        streamProcessor.finishResponse();
+
+                        const aiResponse = streamProcessor.responseContainer.outerHTML;
+                        await PaiperworkDB.storeConversationOnly(
+                            hashedMasterKey,
+                            prompt,
+                            aiResponse,
+                            false
+                        );
+                        break;
+                    }
+                } catch (parseError) {
+                    // Ignore partial streaming fragments.
+                }
+            }
+
+            if (reachedDone) break;
+
+            if (done) {
+                const tail = String(streamBuffer || '').trim();
+                if (tail && tail !== '[DONE]' && tail !== 'data: [DONE]') {
+                    const normalizedTail = tail.startsWith('data:') ? tail.slice(5).trim() : tail;
+                    try {
+                        const data = JSON.parse(normalizedTail);
+                        const responseChunk = data.response || data.message?.content || '';
+                        if (responseChunk) {
+                            streamProcessor.processChunk(responseChunk);
+                        }
+
+                        if (data.done) {
+                            reachedDone = true;
+                            if (Array.isArray(data.context)) {
+                                OllamaAPI.previousContext = data.context;
+                                OllamaAPI.updateContextRemaining(data.context.length);
+                                OllamaAPI.previousContextLength = data.context.length;
+                            }
                             window.chat.addMessageActionsToMessage(aiDiv);
                             streamProcessor.finishResponse();
 
-                            // Store conversation in database - use simplified approach
                             const aiResponse = streamProcessor.responseContainer.outerHTML;
                             await PaiperworkDB.storeConversationOnly(
                                 hashedMasterKey,
                                 prompt,
                                 aiResponse,
-                                false // Don't force new group
+                                false
                             );
-
-                            // MEMORY OPTIMIZATION 7: Clean up any unused context or data
-                            if (data.context) {
-                                // Store the minimal necessary context, not the full object
-                                OllamaAPI.previousContextLength = data.context.length;
-                                // Delete or minimize the actual content
-                                data.context = null;
-                            }
-                        } else {
-                            streamProcessor.processChunk(data.response);
                         }
-                    } catch (parseError) {
-                        console.error('Error parsing response chunk:', parseError);
+                    } catch (_tailErr) {
+                        // Ignore trailing partial chunks.
                     }
                 }
+                break;
             }
         }
 
@@ -3750,24 +3905,41 @@ Return ONLY the search query words with no explanations, quotes or additional te
                     if (searchQueryResponse && !searchQueryResponse.success) {
                         const searchQueryReader = searchQueryResponse.body.getReader();
                         const decoder = new TextDecoder();
+                        let queryStreamBuffer = '';
 
                         while (true) {
                             const { value, done } = await searchQueryReader.read();
-                            if (done) break;
-
-                            const chunk = decoder.decode(value);
-                            const lines = chunk.split('\n');
+                            queryStreamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                            const lines = queryStreamBuffer.split('\n');
+                            queryStreamBuffer = lines.pop() || '';
 
                             for (const line of lines) {
-                                if (line.trim()) {
+                                const trimmed = String(line || '').trim();
+                                if (!trimmed || trimmed === 'data: [DONE]' || trimmed === '[DONE]') continue;
+                                const normalizedLine = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
+                                if (!normalizedLine || normalizedLine === '[DONE]') continue;
+
+                                try {
+                                    const data = JSON.parse(normalizedLine);
+                                    searchQuery += data.response || data.message?.content || '';
+                                    if (data.done) break;
+                                } catch (_error) {
+                                    // Ignore partial streaming fragments.
+                                }
+                            }
+
+                            if (done) {
+                                const tail = String(queryStreamBuffer || '').trim();
+                                if (tail && tail !== '[DONE]' && tail !== 'data: [DONE]') {
+                                    const normalizedTail = tail.startsWith('data:') ? tail.slice(5).trim() : tail;
                                     try {
-                                        const data = JSON.parse(line);
-                                        searchQuery += data.response;
-                                        if (data.done) break;
-                                    } catch (error) {
-                                        console.error('Documents: Error processing search query response:', error);
+                                        const data = JSON.parse(normalizedTail);
+                                        searchQuery += data.response || data.message?.content || '';
+                                    } catch (_tailErr) {
+                                        // Ignore trailing partial fragments.
                                     }
                                 }
+                                break;
                             }
                         }
                     }
@@ -3867,7 +4039,7 @@ Instructions:
 }
 
 async function diverseDocumentSearch(query, hashedMasterKey, model, searchParams = {}) {
-    //console.log('Performing diverse document search for:', query);
+   //console.log('Performing diverse document search for:', query);
 
     // Set default parameters if not provided
     const params = {
@@ -3886,7 +4058,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model, searchParams
         // Only do query expansion for global search to save memory in document mode
         try {
             expandedQueries = await expandQuery(query, model);
-            //console.log(`Expanded original query to alternatives:`, expandedQueries);
+           //console.log(`Expanded original query to alternatives:`, expandedQueries);
         } catch (err) {
             console.warn('Query expansion failed, using original query only:', err);
         }
@@ -3901,7 +4073,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model, searchParams
     `);
 
     if (!docListResult || docListResult.length === 0 || !docListResult[0].values) {
-        //console.log('No documents found to search in');
+       //console.log('No documents found to search in');
         return [];
     }
 
@@ -3930,7 +4102,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model, searchParams
         }
     }
 
-    //console.log(`Found ${docList.length} documents to search in`);
+   //console.log(`Found ${docList.length} documents to search in`);
 
     // OPTIMIZATION: Process each document INDIVIDUALLY with limits
     const allResults = [];
@@ -4047,7 +4219,7 @@ async function diverseDocumentSearch(query, hashedMasterKey, model, searchParams
 
     // OPTIMIZATION: Retrieve final results and ensure diversity
     if (topResultsTracker.results.length === 0) {
-        //console.log('No search results found across any documents');
+       //console.log('No search results found across any documents');
         return [];
     }
 
@@ -4192,7 +4364,7 @@ async function generateSummaryWithAI(text, documentTitle, model, isMetaSummary =
           } else {
               // Add internal note about which part this is - for logging purposes only
               const partInfo = partNumber ? ` (Processing part ${partNumber}/${totalParts})` : '';
-              //console.log(`Generating summary for "${documentTitle}"${partInfo}`);
+             //console.log(`Generating summary for "${documentTitle}"${partInfo}`);
       
               prompt = `Please provide a comprehensive but short summary of the following document titled "${documentTitle}".
         Focus on the main points, key arguments, and important details.
@@ -4207,10 +4379,10 @@ async function generateSummaryWithAI(text, documentTitle, model, isMetaSummary =
 
     const hashedMasterKey = documentUIElements.hashedMasterKey;
     const contextSize = document.getElementById('context-selector')?.value || 8192;
-    //console.log('Using context size for summary:', contextSize);
+   //console.log('Using context size for summary:', contextSize);
     const systemPrompt = await buildSummarySystemPrompt(documentTitle);
 
-    //console.log('System prompt built successfully, length:', systemPrompt?.length || 0);
+   //console.log('System prompt built successfully, length:', systemPrompt?.length || 0);
     if (!systemPrompt || systemPrompt.length === 0) {
         console.warn('Warning: System prompt is empty despite successful building');
     }
@@ -4233,30 +4405,67 @@ async function generateSummaryWithAI(text, documentTitle, model, isMetaSummary =
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let fullText = '';
+        let pendingLine = '';
 
         // Process the stream to extract just the response text
         while (true) {
             const { value, done } = await reader.read();
-            if (done) break;
+            if (done) {
+                pendingLine += decoder.decode();
+            } else {
+                pendingLine += decoder.decode(value, { stream: true });
+            }
 
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
+            const lines = pendingLine.split('\n');
+            pendingLine = done ? '' : (lines.pop() || '');
 
-            for (const line of lines) {
-                if (line.trim()) {
+            for (let rawLine of lines) {
+                const trimmed = String(rawLine || '').trim();
+                if (!trimmed) continue;
+
+                // Cloud proxies can emit SSE-style lines: "data: {...}".
+                if (trimmed === 'data: [DONE]' || trimmed === '[DONE]') {
+                    continue;
+                }
+
+                const line = trimmed.startsWith('data:')
+                    ? trimmed.slice(5).trim()
+                    : trimmed;
+
+                if (!line || line === '[DONE]') continue;
+
+                try {
+                    const data = JSON.parse(line);
+                    if (typeof data.response === 'string') {
+                        fullText += data.response;
+                    } else if (data.message && typeof data.message.content === 'string') {
+                        fullText += data.message.content;
+                    }
+                } catch (_error) {
+                    // Ignore incomplete/non-JSON lines from streaming boundaries.
+                }
+            }
+
+            if (done) {
+                const trailing = String(pendingLine || '').trim();
+                if (trailing && trailing !== '[DONE]' && trailing !== 'data: [DONE]') {
+                    const lastLine = trailing.startsWith('data:') ? trailing.slice(5).trim() : trailing;
                     try {
-                        const data = JSON.parse(line);
-                        if (data.response) {
+                        const data = JSON.parse(lastLine);
+                        if (typeof data.response === 'string') {
                             fullText += data.response;
+                        } else if (data.message && typeof data.message.content === 'string') {
+                            fullText += data.message.content;
                         }
-                    } catch (error) {
-                        console.error('Error parsing JSON line:', error);
+                    } catch (_error) {
+                        // Ignore trailing partial line.
                     }
                 }
+                break;
             }
         }
 
-        //console.log('Summary: Successfully extracted response text');
+       //console.log('Summary: Successfully extracted response text');
 
         // CLEAN THINKING CONTAINERS HERE - before returning the summary
         fullText = fullText.replace(/<think>[\s\S]*?<\/think>/gi, '')
@@ -4269,7 +4478,7 @@ async function generateSummaryWithAI(text, documentTitle, model, isMetaSummary =
     } catch (error) {
         // Error handling remains the same
         if (error.name === 'AbortError') {
-            //console.log('Summary generation cancelled via AbortController');
+           //console.log('Summary generation cancelled via AbortController');
         } else {
             console.error('Error generating AI summary:', error);
         }
@@ -4402,11 +4611,11 @@ function highlightSearchText(text, query) {
 
 // Adds CSS styles for the documents tab and related UI elements
 function addDocumentStyles() {
-    //console.log('RAG_Utils: Adding document styles');
+   //console.log('RAG_Utils: Adding document styles');
 
     // Check if styles already exist
     if (document.getElementById('document-styles')) {
-        //console.log('RAG_Utils: Document styles already exist');
+       //console.log('RAG_Utils: Document styles already exist');
         return;
     }
 
@@ -5369,7 +5578,7 @@ function addDocumentStyles() {
         }
     `;
     document.head.appendChild(style);
-    //console.log('RAG_Utils: Document styles added to page');
+   //console.log('RAG_Utils: Document styles added to page');
 }
 // Function to explicitly add progress bar styles
 function addProgressBarStyles() {
@@ -5409,7 +5618,7 @@ function addProgressBarStyles() {
     `;
 
     styleElement.textContent = styles;
-    //console.log('Progress bar styles added to document');
+   //console.log('Progress bar styles added to document');
 }
 
 // Add a function to add document mode styles
@@ -5604,7 +5813,7 @@ function addDocumentModeStyles() {
 function restoreProcessingState() {
     if (!documentProcessingState.isProcessing) return;
 
-    //console.log('Restoring document processing UI state');
+   //console.log('Restoring document processing UI state');
 
     const { uploadZone, progressContainer, progressStatus } = documentUIElements;
 
@@ -5642,7 +5851,7 @@ function restoreProcessingState() {
                 window.documentPauseStateInterval = null;
             }
 
-            //console.log('Document processing UI reset due to completed state');
+           //console.log('Document processing UI reset due to completed state');
 
             // Refresh the documents list to show the newly processed documents
             updateDocumentsList(true);
@@ -5730,7 +5939,7 @@ function updateDocumentProcessingPauseState() {
         progressStatus.textContent = Lang.get('ragProcessingPaused') ||
             'Document processing paused until AI finishes current conversation';
 
-        //console.log('Document processing paused due to AI generation');
+       //console.log('Document processing paused due to AI generation');
     }
     else if (!isAIGenerating && documentProcessingState.isPaused) {
         // AI finished generating - restore processing state
@@ -5745,7 +5954,7 @@ function updateDocumentProcessingPauseState() {
                 Lang.get('ragProcessingStatus');
         }
 
-        //console.log('Document processing resumed after AI generation');
+       //console.log('Document processing resumed after AI generation');
     }
 }
 

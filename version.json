@@ -1,7 +1,7 @@
 {
-    "version": "1.0.6",
-    "releaseDate": "2025-02-26",
-    "notes": "<p>RAG ingestion and retrieval improved.</p> <p><strong>Improved database tab memory management.</p>",
+    "version": "1.0.7",
+    "releaseDate": "2025-03-11",
+    "notes": "<p>RCloud models now available to use.</p> <p><strong>Bug fixes.</p>",
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
     "requiredUpdate": false
 }

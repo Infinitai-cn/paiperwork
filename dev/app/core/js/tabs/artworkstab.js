@@ -1,7 +1,7 @@
 class ArtworksTab {
     // Initializes the ArtworksTab class and sets up initial state
     constructor() {
-        //console.log('ArtworksTab: Initializing ArtworksTab class');
+       //console.log('ArtworksTab: Initializing ArtworksTab class');
         this.artworksInstance = null;
         this.initialized = false;
         this.imageFile = null;
@@ -16,14 +16,14 @@ class ArtworksTab {
         if (this.initialized) return true;
 
         try {
-            //console.log('ArtworksTab: Starting initialization');
+           //console.log('ArtworksTab: Starting initialization');
 
             // Add CSS styles
             this.addStyles();
 
             // Initialize or get Artworks instance
             if (!window.artworksInstance) {
-                //console.log('ArtworksTab: Creating new Artworks instance');
+               //console.log('ArtworksTab: Creating new Artworks instance');
                 window.artworksInstance = new Artworks();
             }
             this.artworksInstance = window.artworksInstance;
@@ -204,14 +204,14 @@ class ArtworksTab {
                     .some(option => option.value === savedModel);
 
                 if (isModelAvailable) {
-                    //console.log('ArtworksTab: Restoring saved vision model:', savedModel);
+                   //console.log('ArtworksTab: Restoring saved vision model:', savedModel);
                     this.elements.modelSelector.value = savedModel;
                     this.artworksInstance.selectedModel = savedModel;
 
                     // Update button state
                     this.updateGenerateButtonState();
                 } else {
-                    //console.log('ArtworksTab: Saved model is no longer available, using default');
+                   //console.log('ArtworksTab: Saved model is no longer available, using default');
                 }
             }
         } catch (error) {
@@ -226,16 +226,50 @@ class ArtworksTab {
         // Clear existing options
         modelSelector.innerHTML = `<option value="">${Lang.get('artworkSelectVisualModelOption')}</option>`;
 
-        // Add options for each visual model
-        this.artworksInstance.visualModels.forEach(model => {
+        const localVisualModels = Array.isArray(this.artworksInstance.localVisualModels)
+            ? this.artworksInstance.localVisualModels
+            : this.artworksInstance.visualModels.filter(model => model.provider !== 'cloud');
+
+        const cloudVisualModels = Array.isArray(this.artworksInstance.cloudVisualModels)
+            ? this.artworksInstance.cloudVisualModels
+            : this.artworksInstance.visualModels.filter(model => model.provider === 'cloud');
+
+        const appendGroupHeader = (label) => {
+            const headerOption = document.createElement('option');
+            headerOption.value = '';
+            headerOption.disabled = true;
+            headerOption.className = 'model-group-header';
+            headerOption.textContent = `--- ${label} ---`;
+            modelSelector.appendChild(headerOption);
+        };
+
+        const appendModelOption = (model) => {
             const option = document.createElement('option');
             option.value = model.name;
             option.textContent = model.name;
+            option.dataset.provider = model.provider || 'local';
             modelSelector.appendChild(option);
-        });
+        };
 
-        if (this.artworksInstance.visualModels.length === 1) {
-            modelSelector.value = this.artworksInstance.visualModels[0].name;
+        if (localVisualModels.length > 0) {
+            appendGroupHeader(Lang.get('artworkLocalVisualModelsHeader') || 'LOCAL VISUAL MODELS');
+            localVisualModels.forEach(appendModelOption);
+        }
+
+        if (cloudVisualModels.length > 0) {
+            appendGroupHeader(Lang.get('artworkCloudVisualModelsHeader') || 'CLOUD VISUAL MODELS');
+            cloudVisualModels.forEach(appendModelOption);
+        }
+
+        // Fallback for unexpected data shapes.
+        if (localVisualModels.length === 0 && cloudVisualModels.length === 0) {
+            this.artworksInstance.visualModels.forEach(appendModelOption);
+        }
+
+        const availableModels = [...localVisualModels, ...cloudVisualModels];
+
+        if (availableModels.length === 1) {
+            modelSelector.value = availableModels[0].name;
             this.artworksInstance.selectedModel = modelSelector.value;
 
             // Save this auto-selection with the visual model key
@@ -297,15 +331,15 @@ class ArtworksTab {
     handleTabChange(isActive) {
         if (!this.initialized) return;
 
-        //console.log(`ArtworksTab: Handle tab change, isActive=${isActive}`);
+       //console.log(`ArtworksTab: Handle tab change, isActive=${isActive}`);
 
         if (!isActive) {
             // We're leaving the ArtworksTab
-            //console.log('ArtworksTab: Tab deactivated, cleaning up');
+           //console.log('ArtworksTab: Tab deactivated, cleaning up');
 
             // Clean up any image data to prevent memory leaks
             if (this.imageBase64) {
-                //console.log('ArtworksTab: Clearing image data');
+               //console.log('ArtworksTab: Clearing image data');
                 this.imageBase64 = null;
                 this.imageFile = null;
 
@@ -320,14 +354,14 @@ class ArtworksTab {
 
             // Reset Ollama context to prevent image data persistence
             if (window.OllamaAPI) {
-                //console.log('ArtworksTab: Resetting Ollama context');
+               //console.log('ArtworksTab: Resetting Ollama context');
                 window.OllamaAPI.resetContext();
 
                 // Rebuild system prompt for text conversation
                 const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                 if (hashedMasterKey) {
                     window.OllamaAPI.buildCompleteSystemPrompt(hashedMasterKey).then(systemPrompt => {
-                        //console.log('ArtworksTab: System prompt rebuilt for chat context');
+                       //console.log('ArtworksTab: System prompt rebuilt for chat context');
                     });
                 }
             }
@@ -336,7 +370,7 @@ class ArtworksTab {
             this.setupContinuationButton();
         } else {
             // We're activating the ArtworksTab
-            //console.log('ArtworksTab: Tab activated');
+           //console.log('ArtworksTab: Tab activated');
 
             // Reset Ollama context to ensure clean state
             if (window.OllamaAPI) {
@@ -451,7 +485,7 @@ class ArtworksTab {
                         modelSelector.__unloadDebounceTimeout = setTimeout(async () => {
                             try {
                                 if (this && typeof this.unloadOllamaModels === 'function') {
-                                    //console.log('ArtworksTab: User changed visual model — calling ArtworksTab.unloadOllamaModels() to free memory.');
+                                   //console.log('ArtworksTab: User changed visual model — calling ArtworksTab.unloadOllamaModels() to free memory.');
                                     await this.unloadOllamaModels();
                                 } else {
                                     console.warn('ArtworksTab: unloadOllamaModels not found on ArtworksTab; skipping unload on model change.');
@@ -474,7 +508,7 @@ class ArtworksTab {
                     const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                     if (hashedMasterKey) {
                         await PaiperworkDB.saveVisualModel(hashedMasterKey, this.artworksInstance.selectedModel);
-                        //console.log('ArtworksTab: Saved selected vision model to database');
+                       //console.log('ArtworksTab: Saved selected vision model to database');
                     }
                 } catch (error) {
                     console.error('ArtworksTab: Error saving vision model preference:', error);
@@ -590,12 +624,12 @@ class ArtworksTab {
 
                 // Only trigger if the generate button is enabled
                 if (!generateBtn.disabled) {
-                    //console.log('ArtworksTab: Enter key pressed in prompt input, triggering generation');
+                   //console.log('ArtworksTab: Enter key pressed in prompt input, triggering generation');
                     generateBtn.click();
                 } else {
                     // Provide feedback if button is disabled
                     const reason = generateBtn.getAttribute('title') || 'Cannot generate yet';
-                    //console.log(`ArtworksTab: Generation not possible: ${reason}`);
+                   //console.log(`ArtworksTab: Generation not possible: ${reason}`);
 
 
                 }
@@ -657,7 +691,7 @@ class ArtworksTab {
                 orientationInfo.style.display = this.activeMode === 'overlay' ? 'block' : 'none';
             };
             img.src = this.imageBase64;
-            //console.log('ArtworksTab: Image loaded and prepared for visual analysis');
+           //console.log('ArtworksTab: Image loaded and prepared for visual analysis');
 
             // Update UI
             this.elements.previewImg.src = this.imageBase64;
@@ -725,11 +759,11 @@ class ArtworksTab {
             // Update our reference and add new event listener
             this.elements.uploadArea = newUploadArea;
             this.elements.uploadArea.addEventListener('click', () => {
-                //console.log('ArtworksTab: Upload area clicked, opening file dialog');
+               //console.log('ArtworksTab: Upload area clicked, opening file dialog');
                 this.elements.fileInput.click();
             });
 
-            //console.log('ArtworksTab: File input and upload area completely recreated');
+           //console.log('ArtworksTab: File input and upload area completely recreated');
         }
 
         this.updateGenerateButtonState();
@@ -952,7 +986,7 @@ class ArtworksTab {
         const closeBtn = progressWindow.querySelector('.artwork-progress-close');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
-                //console.log('ArtworksTab: User canceled generation');
+               //console.log('ArtworksTab: User canceled generation');
                 if (window.artworkAbortController) {
                     window.artworkAbortController.abort();
                 }
@@ -1038,7 +1072,7 @@ class ArtworksTab {
             const systemPromptElement = document.getElementById('system-prompt');
             if (systemPromptElement) {
                 this.originalSystemPrompt = systemPromptElement.value;
-                //console.log('ArtworksTab: Stored original system prompt');
+               //console.log('ArtworksTab: Stored original system prompt');
             }
         }
 
@@ -1053,7 +1087,7 @@ class ArtworksTab {
             if (systemPromptElement) {
                 // Change the system prompt back to original
                 systemPromptElement.value = this.originalSystemPrompt;
-                //console.log('ArtworksTab: Restored original system prompt');
+               //console.log('ArtworksTab: Restored original system prompt');
 
                 // Also rebuild the Ollama context with original prompt
                 const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
@@ -1061,7 +1095,7 @@ class ArtworksTab {
                     await window.OllamaAPI.buildCompleteSystemPrompt(hashedMasterKey, this.originalSystemPrompt);
                     // Reset context to ensure clean state
                     window.OllamaAPI.resetContext();
-                    //console.log('ArtworksTab: Rebuilt system prompt and reset context');
+                   //console.log('ArtworksTab: Rebuilt system prompt and reset context');
 
                     // Update UI to show the change was made
                     const saveButton = document.getElementById('save-system-prompt');
@@ -1284,8 +1318,8 @@ class ArtworksTab {
             }
 
             // Add logging to track the issue:
-            //console.log('ArtworksTab: Image data length:', this.imageBase64.length);
-            //console.log('ArtworksTab: Active mode:', this.activeMode);
+           //console.log('ArtworksTab: Image data length:', this.imageBase64.length);
+           //console.log('ArtworksTab: Active mode:', this.activeMode);
 
             // Resize the image before sending
             const resizedImageData = await this.resizeImageForAI(
@@ -1295,7 +1329,7 @@ class ArtworksTab {
             window.cleanedImageBase64 = resizedImageData;
 
             // Log that we're correctly preparing the image
-            //console.log('ArtworksTab: Image properly prepared for visual analysis');
+           //console.log('ArtworksTab: Image properly prepared for visual analysis');
 
             // Create system prompts and user prompts based on active mode
             let systemPrompt, userPrompt;
@@ -1480,23 +1514,55 @@ class ArtworksTab {
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
                 let fullResponse = '';
+                let streamBuffer = '';
+
+                const processStreamLine = (rawLine) => {
+                    const trimmedLine = String(rawLine || '').trim();
+                    if (!trimmedLine || trimmedLine === '[DONE]' || trimmedLine === 'data: [DONE]') {
+                        return;
+                    }
+
+                    const normalizedLine = trimmedLine.startsWith('data:')
+                        ? trimmedLine.slice(5).trim()
+                        : trimmedLine;
+                    if (!normalizedLine || normalizedLine === '[DONE]') {
+                        return;
+                    }
+
+                    const data = JSON.parse(normalizedLine);
+                    if (typeof data.response === 'string') {
+                        fullResponse += data.response;
+                    } else if (data.message && typeof data.message.content === 'string') {
+                        fullResponse += data.message.content;
+                    }
+                };
 
                 while (true) {
                     const { value, done } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
+                    streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                    const lines = streamBuffer.split('\n');
+                    streamBuffer = lines.pop() || '';
 
                     for (const line of lines) {
                         if (line.trim()) {
                             try {
-                                const data = JSON.parse(line);
-                                fullResponse += data.response || '';
+                                processStreamLine(line);
                             } catch (error) {
                                 console.error('Error processing chunk:', error);
                             }
                         }
+                    }
+
+                    if (done) {
+                        const tail = streamBuffer.trim();
+                        if (tail) {
+                            try {
+                                processStreamLine(tail);
+                            } catch (_tailErr) {
+                                // Ignore trailing partial fragments on stream end.
+                            }
+                        }
+                        break;
                     }
                 }
 
@@ -1566,7 +1632,7 @@ class ArtworksTab {
                                 window.backgroundImageUrl = imageUrl;
                                 window.backgroundImage = this.imageBase64; // Keep for compatibility
 
-                                //console.log('ArtworksTab: Created blob URL for image to improve performance');
+                               //console.log('ArtworksTab: Created blob URL for image to improve performance');
                             } catch (error) {
                                 console.error('ArtworksTab: Failed to create blob URL, falling back to base64', error);
                                 imageUrl = this.imageBase64;
@@ -1616,7 +1682,7 @@ class ArtworksTab {
                                 }
                             );
 
-                            //console.log('ArtworksTab: Injected blob URL for background image to improve performance');
+                           //console.log('ArtworksTab: Injected blob URL for background image to improve performance');
                         }
 
                         // Create the preview with the improved image handling
@@ -1636,7 +1702,7 @@ class ArtworksTab {
                                 // Clean up blob URL when preview window is closed
                                 if (imageUrl && imageUrl.startsWith('blob:')) {
                                     URL.revokeObjectURL(imageUrl);
-                                    //console.log('ArtworksTab: Revoked blob URL to prevent memory leaks');
+                                   //console.log('ArtworksTab: Revoked blob URL to prevent memory leaks');
                                 }
                             });
                         }
@@ -1658,7 +1724,7 @@ class ArtworksTab {
             } catch (error) {
                 // If aborted, show appropriate message in the progress window
                 if (error.name === 'AbortError' || window.artworkAbortController.signal.aborted) {
-                    //console.log('ArtworksTab: Generation was canceled');
+                   //console.log('ArtworksTab: Generation was canceled');
 
                     // Update the floating progress window to show cancellation
                     const progressWindow = document.querySelector('.artwork-progress-window');
@@ -1805,7 +1871,7 @@ class ArtworksTab {
     stripThinkingTags(text) {
         if (!text || typeof text !== 'string') return text;
 
-        //console.log('ArtworksTab: Stripping thinking tags from response');
+       //console.log('ArtworksTab: Stripping thinking tags from response');
 
         // Remove thinking tags and their content
         let cleanedText = text
@@ -1826,7 +1892,7 @@ class ArtworksTab {
             .replace(/\n\s*\n\s*\n/g, '\n\n')
             .trim();
 
-        //console.log('ArtworksTab: Thinking tags removed from response');
+       //console.log('ArtworksTab: Thinking tags removed from response');
         return cleanedText;
     }
     // Resizes the uploaded image to fit within specified dimensions and returns base64 data
@@ -1877,7 +1943,17 @@ class ArtworksTab {
     // Helper method to unload all models from Ollama to ensure clean memory (localized to ArtworksTab)
     async unloadOllamaModels() {
         try {
-            //console.log('ArtworksTab: Getting list of loaded Ollama models...');
+            const modelName = this?.artworksInstance?.selectedModel || document.getElementById('artwork-model-selector')?.value || '';
+            const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+                ? (window.OllamaAPI.getModelSource(modelName) || 'local')
+                : 'local';
+
+            // Unload uses local daemon endpoints and should not run for cloud-only model selections.
+            if (selectedProvider === 'cloud') {
+                return;
+            }
+
+           //console.log('ArtworksTab: Getting list of loaded Ollama models...');
 
             // First, get the list of currently loaded models using /api/ps
             const psResponse = await fetch('http://localhost:11434/api/ps', {
@@ -1892,7 +1968,7 @@ class ArtworksTab {
             }
 
             const psData = await psResponse.json();
-            //console.log('ArtworksTab: Ollama /api/ps response:', psData);
+           //console.log('ArtworksTab: Ollama /api/ps response:', psData);
 
             // Extract loaded models from the response
             let loadedModels = [];
@@ -1900,17 +1976,17 @@ class ArtworksTab {
                 loadedModels = psData.models.map(model => model.name || model.model).filter(Boolean);
             }
 
-            //console.log('ArtworksTab: Found loaded models:', loadedModels);
+           //console.log('ArtworksTab: Found loaded models:', loadedModels);
 
             if (loadedModels.length === 0) {
-                //console.log('ArtworksTab: No models currently loaded. Skipping unload.');
+               //console.log('ArtworksTab: No models currently loaded. Skipping unload.');
                 return;
             }
 
             // Unload each model individually
             const unloadPromises = loadedModels.map(async (modelName) => {
                 try {
-                    //console.log('ArtworksTab: Unloading model:', modelName);
+                   //console.log('ArtworksTab: Unloading model:', modelName);
 
                     const unloadResponse = await fetch('http://localhost:11434/api/generate', {
                         method: 'POST',
@@ -1934,7 +2010,7 @@ class ArtworksTab {
                     if (!unloadResponse.ok) {
                         console.warn(`ArtworksTab: Warning - failed to unload ${modelName}: ${unloadResponse.status} ${unloadResponse.statusText}`);
                     } else {
-                        //console.log(`ArtworksTab: Successfully triggered unload for model: ${modelName}`);
+                       //console.log(`ArtworksTab: Successfully triggered unload for model: ${modelName}`);
                     }
 
                 } catch (modelError) {
@@ -1945,7 +2021,7 @@ class ArtworksTab {
             // Wait for all unload operations to complete
             await Promise.all(unloadPromises);
 
-            //console.log('ArtworksTab: All model unload operations completed');
+           //console.log('ArtworksTab: All model unload operations completed');
 
             // Wait a brief moment for the unloads to complete
             await new Promise(resolve => setTimeout(resolve, 500));

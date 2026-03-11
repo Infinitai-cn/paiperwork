@@ -1,8 +1,10 @@
 
 class Artworks {
     constructor() {
-        //console.log('Artworks: Initializing Artworks class');
+       //console.log('Artworks: Initializing Artworks class');
         this.visualModels = [];
+        this.localVisualModels = [];
+        this.cloudVisualModels = [];
         this.initialized = false;
         this.selectedModel = null;
         this.currentImage = null;
@@ -14,7 +16,7 @@ class Artworks {
         if (this.initialized) return true;
 
         try {
-            //console.log('Artworks: Starting initialization');
+           //console.log('Artworks: Starting initialization');
 
             // Load available visual models
             await this.loadVisualModels();
@@ -30,34 +32,116 @@ class Artworks {
     // Loads available visual models from the Ollama API and filters them for visual models
     async loadVisualModels() {
         try {
-            // Fetch models from Ollama API
-            const response = await fetch('http://localhost:11434/api/tags');
-            if (!response.ok) throw new Error('Failed to fetch models from Ollama');
+            const cloudApiKey = (window.OllamaAPI && typeof window.OllamaAPI.getStoredCloudApiKey === 'function')
+                ? await window.OllamaAPI.getStoredCloudApiKey()
+                : '';
 
-            const data = await response.json();
+            const [localResult, cloudResult] = await Promise.allSettled([
+                fetch('http://localhost:11434/api/tags'),
+                fetch('/api/cloud/tags', {
+                    headers: cloudApiKey ? { 'Authorization': `Bearer ${cloudApiKey}` } : undefined
+                })
+            ]);
+
+            const localModels = (localResult.status === 'fulfilled' && localResult.value.ok)
+                ? ((await localResult.value.json()).models || [])
+                : [];
+            const cloudModels = (cloudResult.status === 'fulfilled' && cloudResult.value.ok)
+                ? ((await cloudResult.value.json()).models || [])
+                : [];
+
+            const normalizeModel = (model, provider) => {
+                const rawName = String(model?.name || model?.model || '').trim();
+                if (!rawName) return null;
+
+                const normalizedName = (provider === 'cloud' && window.OllamaAPI && window.OllamaAPI.normalizeCloudModelName)
+                    ? window.OllamaAPI.normalizeCloudModelName(rawName)
+                    : rawName;
+
+                return {
+                    ...model,
+                    name: normalizedName,
+                    provider
+                };
+            };
+
+            if (window.OllamaAPI) {
+                if (!(window.OllamaAPI.localModelNames instanceof Set)) window.OllamaAPI.localModelNames = new Set();
+                if (!(window.OllamaAPI.cloudModelNames instanceof Set)) window.OllamaAPI.cloudModelNames = new Set();
+                localModels.forEach(model => model?.name && window.OllamaAPI.localModelNames.add(model.name));
+                cloudModels.forEach(model => {
+                    if (!model?.name) return;
+                    const normalizedCloudName = window.OllamaAPI.normalizeCloudModelName
+                        ? window.OllamaAPI.normalizeCloudModelName(model.name)
+                        : model.name;
+                    window.OllamaAPI.cloudModelNames.add(normalizedCloudName);
+                });
+            }
+
+            const allModels = [
+                ...localModels.map(model => normalizeModel(model, 'local')).filter(Boolean),
+                ...cloudModels.map(model => normalizeModel(model, 'cloud')).filter(Boolean)
+            ];
 
             // Use VISUAL_MODELS list from visualmodels.js if available
             const visualModelIdentifiers = window.VISUAL_MODELS || [
                 'gemma3', 'llava', 'bakllava', 'vision', 'phi3-vision'
             ];
 
-            //console.log('Artworks: Using visual model identifiers:', visualModelIdentifiers);
+           //console.log('Artworks: Using visual model identifiers:', visualModelIdentifiers);
+
+            const hasVisualCapabilityHint = (model) => {
+                const details = model?.details || {};
+                const capabilityFields = [
+                    model?.capabilities,
+                    details?.capabilities,
+                    details?.families,
+                    details?.family,
+                    details?.architecture,
+                    details?.type,
+                    model?.modality,
+                    model?.modalities
+                ];
+
+                const flattened = capabilityFields
+                    .flatMap(value => Array.isArray(value) ? value : [value])
+                    .filter(Boolean)
+                    .map(value => String(value).toLowerCase());
+
+                return flattened.some(value =>
+                    value.includes('vision') ||
+                    value.includes('image') ||
+                    value.includes('multimodal') ||
+                    value.includes('vl')
+                );
+            };
 
             // Filter for visual models by checking if any identifier is in the model name
-            this.visualModels = data.models.filter(model => {
-                const modelName = model.name.toLowerCase();
-                return visualModelIdentifiers.some(identifier =>
-                    modelName.includes(identifier.toLowerCase())
+            this.visualModels = allModels.filter(model => {
+                const modelName = String(model.name || '').toLowerCase();
+                const matchesByName = visualModelIdentifiers.some(identifier =>
+                    modelName.includes(String(identifier || '').toLowerCase())
                 );
+                return matchesByName || hasVisualCapabilityHint(model);
             });
 
-            //console.log(`Artworks: Loaded ${this.visualModels.length} visual models:`,
+            this.localVisualModels = this.visualModels
+                .filter(model => model.provider === 'local')
+                .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+            this.cloudVisualModels = this.visualModels
+                .filter(model => model.provider === 'cloud')
+                .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+
+           //console.log(`Artworks: Loaded ${this.visualModels.length} visual models:`,
                 //this.visualModels.map(m => m.name));
 
             return this.visualModels;
         } catch (error) {
             console.error('Artworks: Error loading visual models:', error);
             this.visualModels = [];
+            this.localVisualModels = [];
+            this.cloudVisualModels = [];
             return [];
         }
     }
@@ -79,7 +163,7 @@ class Artworks {
 
     // Compatibility wrapper for generating artwork, logs the call and delegates to ArtworksTab
     async generateArtwork(image, prompt, modelName) {
-        //console.log('Artworks: generateArtwork called with model:', modelName);
+       //console.log('Artworks: generateArtwork called with model:', modelName);
 
         // This is now just a compatibility wrapper that logs the call
         // The actual implementation is in ArtworksTab.generateArtwork
@@ -88,7 +172,7 @@ class Artworks {
             this.isGenerating = true;
 
             // Log that we're using the direct OllamaAPI approach instead
-            //console.log('Artworks: Using OllamaAPI directly for better image handling');
+           //console.log('Artworks: Using OllamaAPI directly for better image handling');
 
             // Return a placeholder - the actual implementation is now in ArtworksTab
             return {

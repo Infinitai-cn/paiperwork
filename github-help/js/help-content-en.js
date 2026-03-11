@@ -5,7 +5,11 @@ window.helpContent = {
     gettingstarted: {
         title: "Start",
         intro:
-            "Welcome to Paiperwork, a secure web interface for Ollama that prioritizes data privacy and ease of use. This professional-focused assistant offers productivity features while keeping your data local and protected.",
+            [
+                "Welcome to Paiperwork, a secure web interface for Ollama that prioritizes data privacy and ease of use. This professional-focused assistant offers productivity features while keeping your data local and protected.",
+                "You can either download and run models locally on your computer, or use cloud models if your hardware cannot handle local models. Cloud models require signing in on ollama.com and creating an API key. On first cloud model use, Paiperwork will ask for this key and store it encrypted in your local database.",
+                "To create an API key, sign up or log in at https://ollama.com, then open Account Settings > Keys (https://ollama.com/settings/keys), add a new API key, generate it, and copy it. In Paiperwork, go to Chat tab > Manage Cloud API key and paste it there."
+            ],
         articles: [
             {
                 id: "gs-welcome",
@@ -863,6 +867,10 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Important:</strong> In Document Mode, the AI focuses exclusively on the content of the selected document, using its knowledge to help interpret but not adding external information.</p>
+                </div>
+
+                <div class="note">
+                    <p><strong>Cloud Models Note:</strong> When using cloud models on free tiers, replies in Ask Questions mode can be limited or truncated because RAG prompts are large. If you need consistently complete long answers, use a paid cloud tier.</p>
                 </div>
             `,
                 image: "document_mode.png",

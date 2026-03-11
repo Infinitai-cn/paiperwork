@@ -150,6 +150,12 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         Ollamaerror500: "Error 500 en la respuesta de Ollama.",
         ollamaSelectModelPrompt: "Por favor, seleccione un modelo antes de enviar un mensaje.",
         ollamaConnectionError: "Falló la conexión a Ollama. Verifique que Ollama esté ejecutándose e inténtelo de nuevo.",
+        ollamaCloudApiKeyTitle: "Se requiere clave API de Ollama Cloud",
+        ollamaCloudApiKeyInfo: "Para usar modelos en la nube, agregue su clave API de Ollama. Esta clave se almacenará cifrada en su base de datos de usuario.",
+        ollamaApiKeyPlaceholder: "Pegue su clave API de Ollama",
+        ollamaApiKeyRequired: "Se requiere una clave API de Ollama para usar modelos en la nube.",
+        ollamaApiKeyInvalid: "Su clave API de Ollama parece inválida o expirada. Por favor actualícela.",
+        manageCloudApiKey: "Administrar clave API de Cloud",
         ollamaConversationStart: "Esta conversación continúa desde {count} mensajes anteriores. Los intercambios más recientes se muestran a continuación.",
 
         // Copy Functionality
@@ -1401,6 +1407,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         artworkGenerateDesign: "Generar diseño",
         artworkGeneratedDesign: "Diseño generado:",
         artworkSelectVisualModelOption: "Seleccionar un modelo visual",
+        artworkLocalVisualModelsHeader: "MODELOS VISUALES LOCALES",
+        artworkCloudVisualModelsHeader: "MODELOS VISUALES EN LA NUBE",
         artworkVisualDesignStudio: "Estudio de Diseño Visual",
         artworkCreateDesignsDescription: "Crea diseños, sitios web o ilustraciones usando modelos visuales de IA.",
 

@@ -5,7 +5,7 @@ function setAppropriateHelpImage() {
     logoImg.src = isDarkMode
       ? "../../images/Paiperwork-APP-dark.png"  // Updated path
       : "../../images/Paiperwork-APP-light.png"; // Updated path
-    //console.log("Help logo set to:", logoImg.src);
+   //console.log("Help logo set to:", logoImg.src);
   } else {
     console.warn("Help logo element not found");
   }
@@ -21,7 +21,7 @@ function setupNavigation() {
 
       // Get the section ID
       const sectionId = this.getAttribute("data-section");
-      //console.log("Clicked tab:", sectionId);
+     //console.log("Clicked tab:", sectionId);
 
       // Remove active class from all nav items and add to current
       navItems.forEach((nav) => nav.classList.remove("active"));
@@ -32,7 +32,7 @@ function setupNavigation() {
     });
   });
 
-  //console.log(`Navigation setup complete with ${navItems.length} tabs`);
+ //console.log(`Navigation setup complete with ${navItems.length} tabs`);
 }
 function createLightbox() {
   const lightbox = document.createElement("div");
@@ -141,7 +141,7 @@ function createFigureElement(imageSrc, imageAlt, imageCaption) {
   imageElement.addEventListener("error", function () {
     this.src = "../../images/help/placeholder.png";
     this.classList.add("loaded");
-    //console.log(`Image not found: ${imageSrc}, using placeholder instead`);
+   //console.log(`Image not found: ${imageSrc}, using placeholder instead`);
   });
 
   imageContainer.appendChild(imageElement);
@@ -203,9 +203,31 @@ function loadSectionContent(sectionId) {
 
   // Add section intro if available
   if (sectionData.intro) {
-    const introElement = document.createElement("p");
-    introElement.textContent = sectionData.intro;
-    sectionElement.appendChild(introElement);
+    const formatIntroTextWithLinks = (rawText) => {
+      const escaped = String(rawText || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+      return escaped.replace(/(https?:\/\/[\w.-]+(?:\/[\w\-./?%&=+#:]*)?)/g, (url) => {
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+      });
+    };
+
+    const introParagraphs = Array.isArray(sectionData.intro)
+      ? sectionData.intro
+      : [sectionData.intro];
+
+    introParagraphs
+      .map((text) => (typeof text === "string" ? text.trim() : ""))
+      .filter((text) => text.length > 0)
+      .forEach((text) => {
+        const introElement = document.createElement("p");
+        introElement.innerHTML = formatIntroTextWithLinks(text);
+        sectionElement.appendChild(introElement);
+      });
   }
 
   // Add articles
@@ -266,11 +288,11 @@ function loadSectionContent(sectionId) {
   }, 0);
 
   // Debug line to confirm header still exists after content is loaded
-  //console.log(
+ //console.log(
   //"Header element exists:",
   //!!document.querySelector(".help-header")
   //);
-  //console.log(
+ //console.log(
   //"Header element is visible:",
   //document.querySelector(".help-header").offsetParent !== null
   //);
@@ -290,7 +312,7 @@ function setupScrollDetection() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  //console.log("Help page initialized");
+ //console.log("Help page initialized");
 
   // Set logo based on theme
   setAppropriateHelpImage();

@@ -153,6 +153,12 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         Ollamaerror500: "Error 500 in Ollama reply.",
         ollamaSelectModelPrompt: "Please select a model before sending a message.",
         ollamaConnectionError: "Connection to Ollama failed. Verify Ollama is running and try again.",
+        ollamaCloudApiKeyTitle: "Ollama Cloud API key required",
+        ollamaCloudApiKeyInfo: "To use cloud models, add your Ollama API key. This key will be stored encrypted in your user database.",
+        ollamaApiKeyPlaceholder: "Paste your Ollama API key",
+        ollamaApiKeyRequired: "An Ollama API key is required to use cloud models.",
+        ollamaApiKeyInvalid: "Your Ollama API key appears invalid or expired. Please update it.",
+        manageCloudApiKey: "Manage Cloud API key",
         ollamaConversationStart: "This conversation continues from {count} earlier messages. The most recent exchanges are shown below.",
 
         // Copy Functionality
@@ -1442,6 +1448,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         artworkGenerateDesign: "Generate Design",
         artworkGeneratedDesign: "Generated Design:",
         artworkSelectVisualModelOption: "Select a visual model",
+        artworkLocalVisualModelsHeader: "LOCAL VISUAL MODELS",
+        artworkCloudVisualModelsHeader: "CLOUD VISUAL MODELS",
         artworkVisualDesignStudio: "Visual Design Studio",
         artworkCreateDesignsDescription: "Create designs, websites, or artwork using visual AI models.",
 

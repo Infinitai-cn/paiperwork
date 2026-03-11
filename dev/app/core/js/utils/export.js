@@ -15,12 +15,12 @@ class Export {
         });
 
         this.initialized = true;
-        //console.log('Export system initialized');
+       //console.log('Export system initialized');
     }
 
     // Exports the current conversation from the chat interface
     async exportConversation() {
-        //console.log('Export: Exporting conversation with enhanced UTF-8 support');
+       //console.log('Export: Exporting conversation with enhanced UTF-8 support');
 
         const aiReplies = document.querySelector('.ai-replies');
         if (!aiReplies) return;
@@ -57,7 +57,7 @@ class Export {
     }
     // Exports a document summary with export format options
     exportDocumentSummary(summaryText, documentTitle) {
-        //console.log('Export: Exporting document summary');
+       //console.log('Export: Exporting document summary');
 
         // Create modal overlay
         const overlay = document.createElement('div');
@@ -1111,7 +1111,7 @@ class Export {
 
     // Generates and downloads an HTML export of the conversation
     generateHtmlExport(filename, allMessages) {
-        //console.log('Export: Generating HTML export');
+       //console.log('Export: Generating HTML export');
 
         const now = new Date();
         const timestamp = now.toLocaleString();
@@ -1658,7 +1658,7 @@ class Export {
             // Show success notification
             this.showExportSuccessNotification(filename);
 
-            //console.log('Export: Successfully downloaded conversation as', filename);
+           //console.log('Export: Successfully downloaded conversation as', filename);
             return true;
         } catch (error) {
             console.error('Export: Error exporting conversation:', error);
@@ -1824,7 +1824,7 @@ class Export {
     addExportButton(deleteButton) {
         if (!deleteButton) return;
 
-        //console.log('Export: Adding export conversation button');
+       //console.log('Export: Adding export conversation button');
 
         // Create export button with same styling as delete button
         const exportButton = document.createElement('button');
@@ -1850,7 +1850,7 @@ class Export {
             }
         });
 
-        //console.log('Export: Export button added successfully');
+       //console.log('Export: Export button added successfully');
     }
 
 }
@@ -1859,5 +1859,5 @@ class Export {
 document.addEventListener('DOMContentLoaded', () => {
     window.export = new Export();
     window.export.initialize();
-    //console.log('Export system initialized and attached to window.export');
+   //console.log('Export system initialized and attached to window.export');
 });

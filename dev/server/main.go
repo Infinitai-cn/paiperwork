@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -132,6 +133,318 @@ func proxyOllamaLibrary(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	io.Copy(w, resp.Body)
 }
+
+func normalizeOllamaAPIKey(raw string) string {
+	key := strings.TrimSpace(raw)
+	for {
+		lower := strings.ToLower(key)
+		if strings.HasPrefix(lower, "bearer ") {
+			key = strings.TrimSpace(key[len("Bearer "):])
+			continue
+		}
+		break
+	}
+	key = strings.Trim(key, "\"'")
+	return strings.TrimSpace(key)
+}
+
+var cloudAPIHTTPClient = &http.Client{
+	Timeout: 0,
+	Transport: &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   20,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   15 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		// Prefer HTTP/1.1 stability for long-lived streaming proxies.
+		ForceAttemptHTTP2: false,
+	},
+}
+
+func cloudRequestWantsStream(body []byte) bool {
+	if len(body) == 0 {
+		return false
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return false
+	}
+
+	if streamVal, ok := payload["stream"]; ok {
+		if b, ok := streamVal.(bool); ok {
+			return b
+		}
+	}
+
+	return false
+}
+
+func isTransientCloudNetworkError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() || netErr.Temporary() {
+			return true
+		}
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unexpected eof") ||
+		strings.Contains(msg, "connection reset") ||
+		strings.Contains(msg, "broken pipe") ||
+		strings.Contains(msg, "timeout")
+}
+
+func proxyOllamaCloudTags(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "https://ollama.com/api/tags", nil)
+	if err != nil {
+		http.Error(w, "Failed to create request", http.StatusInternalServerError)
+		return
+	}
+
+	// Prefer explicit request headers first (X-Ollama-Api-Key or Authorization), then env var.
+	apiKey := strings.TrimSpace(r.Header.Get("X-Ollama-Api-Key"))
+	if apiKey == "" {
+		authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+		if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+			apiKey = strings.TrimSpace(authHeader[len("Bearer "):])
+		} else {
+			apiKey = authHeader
+		}
+	}
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(os.Getenv("OLLAMA_API_KEY"))
+	}
+	apiKey = normalizeOllamaAPIKey(apiKey)
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error fetching Ollama cloud tags: %v", err)
+		http.Error(w, "Failed to fetch cloud models", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
+	if err != nil {
+		http.Error(w, "Failed to read cloud models response", http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(resp.StatusCode)
+	_, _ = w.Write(body)
+}
+
+func proxyOllamaCloudAPIPath(path string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodPost && r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var bodyBytes []byte
+		var err error
+		if r.Body != nil {
+			bodyBytes, err = io.ReadAll(io.LimitReader(r.Body, 10*1024*1024))
+			if err != nil {
+				http.Error(w, "Failed to read request body", http.StatusBadRequest)
+				return
+			}
+		}
+
+		// Defensive normalization: cloud API expects base model names (without "-cloud").
+		bodyBytes = sanitizeCloudModelFields(bodyBytes)
+
+		targetURL := "https://ollama.com/api/" + path
+		req, err := http.NewRequest(r.Method, targetURL, strings.NewReader(string(bodyBytes)))
+		if err != nil {
+			http.Error(w, "Failed to create cloud request", http.StatusInternalServerError)
+			return
+		}
+
+		apiKey := strings.TrimSpace(r.Header.Get("X-Ollama-Api-Key"))
+		if apiKey == "" {
+			authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+			if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+				apiKey = strings.TrimSpace(authHeader[len("Bearer "):])
+			} else {
+				apiKey = authHeader
+			}
+		}
+		if apiKey == "" {
+			apiKey = strings.TrimSpace(os.Getenv("OLLAMA_API_KEY"))
+		}
+		apiKey = normalizeOllamaAPIKey(apiKey)
+		if apiKey != "" {
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+		}
+
+		if contentType := r.Header.Get("Content-Type"); contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		} else {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		req.Header.Set("Accept", "application/json")
+
+		wantsStream := cloudRequestWantsStream(bodyBytes)
+		maxAttempts := 2
+		resp, err := cloudAPIHTTPClient.Do(req)
+		if err != nil {
+			shouldRetry := maxAttempts > 1 && isTransientCloudNetworkError(err) && !(r.Method == http.MethodPost && wantsStream)
+			if shouldRetry {
+				log.Printf("[CloudProxyRetry] path=%s method=%s modelHint=%s err=%v (attempt 1/%d)", path, r.Method, extractCloudModelHint(bodyBytes), err, maxAttempts)
+				time.Sleep(200 * time.Millisecond)
+
+				retryReq, reqErr := http.NewRequest(r.Method, targetURL, strings.NewReader(string(bodyBytes)))
+				if reqErr != nil {
+					http.Error(w, "Failed to create cloud retry request", http.StatusInternalServerError)
+					return
+				}
+				retryReq.Header = req.Header.Clone()
+				resp, err = cloudAPIHTTPClient.Do(retryReq)
+			}
+		}
+		if err != nil {
+			log.Printf("Error proxying Ollama cloud %s: %v (stream=%v modelHint=%s)", path, err, wantsStream, extractCloudModelHint(bodyBytes))
+			http.Error(w, "Failed to reach Ollama cloud", http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+
+		if ct := resp.Header.Get("Content-Type"); ct != "" {
+			w.Header().Set("Content-Type", ct)
+		}
+
+		if resp.StatusCode == http.StatusUnauthorized {
+			unauthBody, _ := io.ReadAll(io.LimitReader(resp.Body, 8192))
+			preview := strings.TrimSpace(string(unauthBody))
+			if len(preview) > 300 {
+				preview = preview[:300] + "...[truncated]"
+			}
+			preview = strings.ReplaceAll(preview, "\n", " ")
+			preview = strings.ReplaceAll(preview, "\r", " ")
+			log.Printf("[CloudProxy401] path=%s keyLen=%d modelHint=%s body=%s", path, len(apiKey), extractCloudModelHint(bodyBytes), preview)
+			w.WriteHeader(resp.StatusCode)
+			_, _ = w.Write(unauthBody)
+			return
+		}
+
+		w.WriteHeader(resp.StatusCode)
+		if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
+			log.Printf("[CloudProxyStream] path=%s status=%d stream=%v modelHint=%s copyErr=%v", path, resp.StatusCode, wantsStream, extractCloudModelHint(bodyBytes), copyErr)
+		}
+	}
+}
+
+func extractCloudModelHint(body []byte) string {
+	if len(body) == 0 {
+		return "<empty>"
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return "<non-json>"
+	}
+
+	if model, ok := payload["model"].(string); ok && strings.TrimSpace(model) != "" {
+		return strings.TrimSpace(model)
+	}
+	if name, ok := payload["name"].(string); ok && strings.TrimSpace(name) != "" {
+		return strings.TrimSpace(name)
+	}
+	return "<missing-model>"
+}
+
+func sanitizeCloudModelFields(body []byte) []byte {
+	if len(body) == 0 {
+		return body
+	}
+
+	trimmed := strings.TrimSpace(string(body))
+	if trimmed == "" || (!strings.HasPrefix(trimmed, "{") && !strings.HasPrefix(trimmed, "[")) {
+		return body
+	}
+
+	stripCloudSuffix := func(s string) string {
+		clean := strings.TrimSpace(s)
+		for strings.HasSuffix(strings.ToLower(clean), "-cloud") {
+			clean = strings.TrimSpace(clean[:len(clean)-len("-cloud")])
+		}
+		return clean
+	}
+
+	var payload interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return body
+	}
+
+	updated := false
+	var walk func(v interface{})
+	walk = func(v interface{}) {
+		switch t := v.(type) {
+		case map[string]interface{}:
+			for k, raw := range t {
+				lowerKey := strings.ToLower(k)
+				if lowerKey == "model" || lowerKey == "name" {
+					if str, ok := raw.(string); ok {
+						sanitized := stripCloudSuffix(str)
+						if sanitized != str {
+							t[k] = sanitized
+							updated = true
+						}
+					}
+				}
+				walk(raw)
+			}
+		case []interface{}:
+			for _, item := range t {
+				walk(item)
+			}
+		}
+	}
+
+	walk(payload)
+	if !updated {
+		return body
+	}
+
+	normalized, err := json.Marshal(payload)
+	if err != nil {
+		return body
+	}
+	return normalized
+}
+
 func proxyBingSearch(w http.ResponseWriter, r *http.Request) {
 	// Extract query parameter from request
 	query := r.URL.Query().Get("q")
@@ -1320,6 +1633,12 @@ func main() {
 	// API endpoints
 	mux.HandleFunc("/api/library/", proxyOllamaLibrary)
 	mux.HandleFunc("/api/library", proxyOllamaLibrary)
+	mux.HandleFunc("/api/cloud/tags", proxyOllamaCloudTags)
+	mux.HandleFunc("/api/cloud/generate", proxyOllamaCloudAPIPath("generate"))
+	mux.HandleFunc("/api/cloud/show", proxyOllamaCloudAPIPath("show"))
+	mux.HandleFunc("/api/cloud/pull", proxyOllamaCloudAPIPath("pull"))
+	mux.HandleFunc("/api/cloud/embed", proxyOllamaCloudAPIPath("embed"))
+	mux.HandleFunc("/api/cloud/embeddings", proxyOllamaCloudAPIPath("embeddings"))
 	mux.HandleFunc("/api/extract/content", fetchAndExtractContent)
 	mux.HandleFunc("/api/search/bing", proxyBingSearch)
 	mux.HandleFunc("/api/extract/raw-html", fetchRawHtmlForLinks)
@@ -1367,11 +1686,14 @@ func main() {
 
 	// SECURITY: Create server that binds only to localhost
 	server := &http.Server{
-		Addr:         fmt.Sprintf("localhost:%s", port), // Only localhost, no 0.0.0.0
-		Handler:      mux,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  30 * time.Second,
+		Addr:              fmt.Sprintf("localhost:%s", port), // Only localhost, no 0.0.0.0
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		// Streaming generate responses can run longer than fixed write deadlines.
+		// Leave WriteTimeout disabled to avoid cutting active cloud streams.
+		WriteTimeout: 0,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	// Security-focused startup messages

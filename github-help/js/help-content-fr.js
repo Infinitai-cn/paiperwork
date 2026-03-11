@@ -2,7 +2,11 @@ window.helpContent = {
 
     gettingstarted: {
         title: "Commencer",
-        intro: "Bienvenue dans Paiperwork, une interface web sécurisée pour Ollama qui privilégie la confidentialité des données et la facilité d'utilisation. Cet assistant axé sur les professionnels offre des fonctionnalités de productivité tout en gardant vos données locales et protégées.",
+        intro: [
+            "Bienvenue dans Paiperwork, une interface web sécurisée pour Ollama qui privilégie la confidentialité des données et la facilité d'utilisation. Cet assistant axé sur les professionnels offre des fonctionnalités de productivité tout en gardant vos données locales et protégées.",
+            "Vous pouvez telecharger et executer des modeles localement sur votre ordinateur, ou utiliser des modeles cloud si votre machine ne peut pas gerer des modeles locaux. Les modeles cloud necessitent une connexion sur ollama.com et la creation d'une cle API. Lors de la premiere utilisation d'un modele cloud, Paiperwork demandera cette cle et la stockera chiffree dans votre base de donnees locale.",
+            "Pour creer une cle API, inscrivez-vous ou connectez-vous sur https://ollama.com. Ensuite, ouvrez Account Settings > Keys (https://ollama.com/settings/keys), ajoutez une nouvelle cle API, generez-la et copiez-la. Dans Paiperwork, allez dans l'onglet Chat > Manage Cloud API key et collez-la."
+        ],
         articles: [
             {
                 id: "gs-welcome",
@@ -843,6 +847,10 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Important :</strong> En Mode Document, l'IA se concentre exclusivement sur le contenu du document sélectionné, utilisant ses connaissances pour aider à interpréter mais sans ajouter d'informations externes.</p>
+                </div>
+
+                <div class="note">
+                    <p><strong>Note pour les modèles cloud :</strong> Lors de l'utilisation de modèles cloud sur des offres gratuites, les réponses en mode "Poser des Questions" peuvent être limitées ou tronquées en raison de la taille importante des prompts RAG. Pour obtenir de longues réponses complètes de manière constante, il est recommandé d'utiliser une offre cloud payante.</p>
                 </div>
             `,
                 image: "document_mode.png",
