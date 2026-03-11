@@ -212,7 +212,7 @@ function loadSectionContent(sectionId) {
         .replace(/'/g, "&#39;");
 
       return escaped.replace(/(https?:\/\/[\w.-]+(?:\/[\w\-./?%&=+#:]*)?)/g, (url) => {
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        return `<a class="article-index-link" href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
       });
     };
 
