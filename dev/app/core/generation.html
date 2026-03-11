@@ -310,6 +310,44 @@
                 updateElementText('loading-design', 'loadingDesignTools');
                 updateElementText('loading-presentation', 'loadingSlideForgeTools');
                 updateElementText('loading-database', 'loadingDatabaseStats');
+
+                const syncContextCardsVisibility = () => {
+                    const modelSelector = document.getElementById('model-selector');
+                    const contextSelector = document.getElementById('context-selector');
+                    const contextSizePanel = contextSelector ? contextSelector.closest('.panel') : null;
+                    const contextRemainingPanel = document.getElementById('context-remaining-panel');
+
+                    if (!modelSelector || !contextSizePanel || !contextRemainingPanel) {
+                        return;
+                    }
+
+                    const selectedOption = modelSelector.options[modelSelector.selectedIndex];
+                    const selectedModel = modelSelector.value || '';
+
+                    const provider = (selectedOption && selectedOption.dataset && selectedOption.dataset.provider)
+                        ? selectedOption.dataset.provider
+                        : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+                            ? (window.OllamaAPI.getModelSource(selectedModel) || window.OllamaAPI.getSelectedModelSource?.() || 'local')
+                            : 'local');
+
+                    const showContextCards = provider !== 'cloud';
+                    [contextSizePanel, contextRemainingPanel].forEach(panel => {
+                        panel.style.display = showContextCards ? '' : 'none';
+                        panel.setAttribute('aria-hidden', showContextCards ? 'false' : 'true');
+                    });
+                };
+
+                const modelSelector = document.getElementById('model-selector');
+                if (modelSelector && !modelSelector._contextVisibilityBound) {
+                    modelSelector.addEventListener('change', syncContextCardsVisibility);
+                    modelSelector._contextVisibilityBound = true;
+                }
+
+                // Startup retries ensure visibility is corrected even when model/provider is restored asynchronously.
+                syncContextCardsVisibility();
+                [150, 400, 800, 1500, 3000].forEach(delay => {
+                    setTimeout(syncContextCardsVisibility, delay);
+                });
             });
         </script>
     </body>
