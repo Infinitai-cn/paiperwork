@@ -7,10 +7,10 @@ class DataVizTab {
 
     // Initializes the DataVizTab, sets up UI and event listeners
     async initialize() {
-        //console.log('DataVizTab: Initializing tab');
+       //console.log('DataVizTab: Initializing tab');
         
         if (this.initialized) {
-            //console.log('DataVizTab: Already initialized');
+           //console.log('DataVizTab: Already initialized');
             return;
         }
     
@@ -132,7 +132,7 @@ class DataVizTab {
         this.checkForActiveVizType();
         
         this.initialized = true;
-        //console.log('DataVizTab: Initialization complete');
+       //console.log('DataVizTab: Initialization complete');
     }
 
     // Injects custom styles for the DataVizTab UI if not already present
@@ -228,7 +228,7 @@ class DataVizTab {
         // Check if the app has a theme toggle function we can listen to
         if (window.themeToggle) {
             window.themeToggle.addEventListener('themeChanged', (event) => {
-                //console.log('DataVizTab: Theme changed to', event.detail.theme);
+               //console.log('DataVizTab: Theme changed to', event.detail.theme);
             });
         }
 
@@ -236,7 +236,7 @@ class DataVizTab {
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.attributeName === 'class') {
-                    //console.log('DataVizTab: Body class changed, may indicate theme change');
+                   //console.log('DataVizTab: Body class changed, may indicate theme change');
                 }
             });
         });
@@ -264,7 +264,7 @@ class DataVizTab {
                     
                     // Get the visualization type
                     const vizType = button.dataset.vizType;
-                    //console.log(`DataVizTab: ${Lang.get('datavizModeActive')}: ${vizType}`);
+                   //console.log(`DataVizTab: ${Lang.get('datavizModeActive')}: ${vizType}`);
                     
                     // Set the visualization mode flag
                     this.isVizModeActive = true;
@@ -272,13 +272,13 @@ class DataVizTab {
                     // Exit document questioning mode if enabled
                     if (window.RAG_Utils &&
                         localStorage.getItem('ragQuestioningDocumentId')) {
-                        //console.log('DataVizTab: Exiting document questioning mode');
+                       //console.log('DataVizTab: Exiting document questioning mode');
                         window.RAG_Utils.exitDocumentQuestioningMode();
                     }
 
                     // Disable web search button
                     if (webSearchButton) {
-                        //console.log('DataVizTab: Disabling web search button');
+                       //console.log('DataVizTab: Disabling web search button');
                         webSearchButton.classList.remove('active');
                         webSearchButton.disabled = true;
                         webSearchButton.style.opacity = '0.5';
@@ -299,11 +299,11 @@ class DataVizTab {
                     // Button was deselected - restore normal mode
                     this.activeButton = null;
                     this.isVizModeActive = false;  // Reset the viz mode flag
-                    //console.log(`DataVizTab: ${Lang.get('datavizSelectionDeselected')}`);
+                   //console.log(`DataVizTab: ${Lang.get('datavizSelectionDeselected')}`);
 
                     // Re-enable web search button
                     if (webSearchButton) {
-                        //console.log('DataVizTab: Re-enabling web search button');
+                       //console.log('DataVizTab: Re-enabling web search button');
                         webSearchButton.disabled = false;
                         webSearchButton.style.opacity = '';
                         webSearchButton.style.cursor = '';
@@ -339,7 +339,7 @@ class DataVizTab {
             tabButton.addEventListener('click', () => {
                 // If switching to a tab other than dataviz, deselect any active viz button
                 if (tabButton.dataset.tab !== 'dataviz' && this.activeButton) {
-                    //console.log(`DataVizTab: ${Lang.get('datavizModeDeactivated')}`);
+                   //console.log(`DataVizTab: ${Lang.get('datavizModeDeactivated')}`);
 
                     // Deselect active button
                     if (this.activeButton) {
@@ -375,7 +375,7 @@ class DataVizTab {
         const datavizModeActive = sessionStorage.getItem('datavizModeActive') === 'true';
 
         if (activeVizType && datavizModeActive) {
-            //console.log('DataVizTab: Restoring active visualization type:', activeVizType);
+           //console.log('DataVizTab: Restoring active visualization type:', activeVizType);
 
             // Find the corresponding button and trigger a click
             const buttons = document.querySelectorAll('.dataviz-button');
@@ -408,7 +408,7 @@ class DataVizTab {
 
     // Sets up the configuration area for the selected visualization type
     setupVizConfig(vizType) {
-        //console.log(`DataVizTab: Setting up configuration for ${vizType}`);
+       //console.log(`DataVizTab: Setting up configuration for ${vizType}`);
 
         // This will be expanded later with specific configuration options for each chart type
         const configArea = document.getElementById('dataviz-config-area');
@@ -427,7 +427,7 @@ class DataVizTab {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.dataVizTab = new DataVizTab();
-    //console.log('DataVizTab: Instance created and assigned to window.dataVizTab');
+   //console.log('DataVizTab: Instance created and assigned to window.dataVizTab');
 });
 
 // Register the class on the window object immediately

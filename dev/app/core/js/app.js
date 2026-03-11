@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', async function () {
-    //console.log('DOM Content Loaded');
+   //console.log('DOM Content Loaded');
     Lang.initialize();
     OllamaAPI.currentContextSize = parseInt(document.getElementById('context-selector')?.value || 8192);
     setupTabSwitching();
@@ -7,17 +7,50 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Initialize app with database and UI elements
     const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
     if (hashedMasterKey && document.getElementById('model-selector')) {
-        //console.log('Starting initialization');
-        try {
+       //console.log('Starting initialization');
+        window.__paiperworkDbBootPromise = (async () => {
             const dbInitialized = await PaiperworkDB.initializeDatabase(hashedMasterKey);
+            if (!dbInitialized) {
+                return false;
+            }
+
+            const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
+
+            // Reconcile latest local selection into DB on startup when they diverge.
+            // This protects against stale persisted DB state after rapid tab/model changes.
+            try {
+                const localModel = await PaiperworkDB.readNormalizedLocalStorageValue('selectedModel', hashedMasterKey);
+                const localProvider = String(await PaiperworkDB.readNormalizedLocalStorageValue('selectedModelProvider', hashedMasterKey) || 'local').trim().toLowerCase() || 'local';
+                const dbModel = String(settings?.model || '').trim();
+                const dbProvider = String(settings?.modelProvider || 'local').trim().toLowerCase() || 'local';
+
+                if (localModel && (localModel !== dbModel || localProvider !== dbProvider)) {
+                    await PaiperworkDB.saveModel(hashedMasterKey, localModel, localProvider);
+                }
+            } catch (_reconcileErr) {
+                // Non-fatal; app should still continue startup.
+            }
+
+            // Warm API key lookup cache so first cloud send after refresh is not racing storage init.
+            try {
+                await PaiperworkDB.getOllamaApiKey(hashedMasterKey);
+            } catch (_warmErr) {
+                // Non-fatal warmup failure.
+            }
+
+            return true;
+        })();
+
+        try {
+            const dbInitialized = await window.__paiperworkDbBootPromise;
             if (dbInitialized) {
                 const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                //console.log('Settings loaded');
+               //console.log('Settings loaded');
 
                 // Initialize UI using ChatTab instead
-                //console.log('App.js: Initializing ChatTab');
+               //console.log('App.js: Initializing ChatTab');
                 await ChatTab.initialize();
-                //console.log('App.js: ChatTab UI initialization complete');
+               //console.log('App.js: ChatTab UI initialization complete');
             }
         } catch (error) {
             console.error('Initialization error:', error);
@@ -32,14 +65,14 @@ function setupTabSwitching() {
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabPanes = document.querySelectorAll('.tab-pane');
 
-    //console.log('App: Setting up tab buttons:', tabButtons.length);
-    //console.log('App: Setting up tab panes:', tabPanes.length);
+   //console.log('App: Setting up tab buttons:', tabButtons.length);
+   //console.log('App: Setting up tab panes:', tabPanes.length);
 
     let previousTab = document.querySelector('.tab-button.active')?.dataset?.tab || null;
 
     tabButtons.forEach(button => {
         button.addEventListener('click', async () => {
-            //console.log('App: Tab clicked:', button.dataset.tab);
+           //console.log('App: Tab clicked:', button.dataset.tab);
 
             // Remove active class from all buttons and panes
             tabButtons.forEach(btn => btn.classList.remove('active'));
@@ -51,7 +84,7 @@ function setupTabSwitching() {
             // Get corresponding tab pane and activate it
             const tabId = `${button.dataset.tab}-tab`;
             const tabElement = document.getElementById(tabId);
-            //console.log(`App: Looking for tab element: ${tabId}`, !!tabElement);
+           //console.log(`App: Looking for tab element: ${tabId}`, !!tabElement);
 
             if (tabElement) {
                 tabElement.classList.add('active');
@@ -63,7 +96,7 @@ function setupTabSwitching() {
             if (previousTab && previousTab !== button.dataset.tab) {
                 const prevTabInstance = window[`${previousTab}Tab`];
                 if (prevTabInstance && typeof prevTabInstance.handleTabChange === 'function') {
-                    //console.log(`App: Notifying ${previousTab}Tab it's being deactivated`);
+                   //console.log(`App: Notifying ${previousTab}Tab it's being deactivated`);
                     prevTabInstance.handleTabChange(false);
                 }
 
@@ -112,7 +145,7 @@ function setupTabSwitching() {
             // Notify the new tab it's being activated (if it has a handler)
             const newTabInstance = window[`${button.dataset.tab}Tab`];
             if (newTabInstance && typeof newTabInstance.handleTabChange === 'function') {
-                //console.log(`App: Notifying ${button.dataset.tab}Tab it's being activated`);
+               //console.log(`App: Notifying ${button.dataset.tab}Tab it's being activated`);
                 newTabInstance.handleTabChange(true);
             }
             // Special case: SlideForge tab (ensure UI always renders)
@@ -143,12 +176,12 @@ function setupTabSwitching() {
 
 // Handles initialization and UI setup for the DataViz tab
 async function handleDataVizTab() {
-    //console.log('App: DataViz tab clicked');
+   //console.log('App: DataViz tab clicked');
 
     try {
         // Wait for scripts to load first
         if (!window.DataViz) {
-            //console.log('App: Waiting for DataViz library to load...');
+           //console.log('App: Waiting for DataViz library to load...');
             await new Promise((resolve, reject) => {
                 let attempts = 0;
                 const checkInterval = setInterval(() => {
@@ -168,9 +201,9 @@ async function handleDataVizTab() {
         // Now initialize DataViz
         if (window.dataViz) {
             await window.dataViz.initialize();
-            //console.log('App: DataViz library initialized');
+           //console.log('App: DataViz library initialized');
         } else {
-            //console.log('App: Creating new DataViz instance');
+           //console.log('App: Creating new DataViz instance');
             window.dataViz = new window.DataViz();
             await window.dataViz.initialize();
         }
@@ -195,10 +228,10 @@ async function handleDataVizTab() {
 
         // Initialize DataViz UI
         if (window.dataVizTab) {
-            //console.log('App: Initializing DataViz UI');
+           //console.log('App: Initializing DataViz UI');
             await window.dataVizTab.initialize();
         } else {
-            //console.log('App: Creating new DataVizTab instance');
+           //console.log('App: Creating new DataVizTab instance');
             window.dataVizTab = new window.DataVizTab();
             await window.dataVizTab.initialize();
         }
@@ -224,42 +257,85 @@ async function handleDataVizTab() {
 
 // Handles refreshing and setting the model selector in the Chat tab
 async function handleChatTab() {
-    //console.log('Chat tab clicked - refreshing model list');
+   //console.log('Chat tab clicked - refreshing model list');
     const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-    const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
     const lastDeletedModel = sessionStorage.getItem('lastDeletedModel');
 
     // Give the DOM time to update after tab switch
     setTimeout(async () => {
+        const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
+        const persistedModel = await PaiperworkDB.readNormalizedLocalStorageValue('selectedModel', hashedMasterKey);
+        const persistedProvider = String(await PaiperworkDB.readNormalizedLocalStorageValue('selectedModelProvider', hashedMasterKey) || '').trim();
                        
         const modelSelector = document.getElementById('model-selector');
-        //console.log('Model selector present:', !!modelSelector);
+       //console.log('Model selector present:', !!modelSelector);
 
         if (modelSelector) {
             try {
+                // Preserve current UI selection as a fallback for tab switches.
+                const previousOption = modelSelector.options[modelSelector.selectedIndex] || null;
+                const previousModel = modelSelector.value || '';
+                const previousProvider = (previousOption && previousOption.dataset && previousOption.dataset.provider)
+                    ? previousOption.dataset.provider
+                    : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+                        ? (window.OllamaAPI.getModelSource(previousModel) || 'local')
+                        : 'local');
+
                 // Clear existing options
                 modelSelector.innerHTML = `<option value="">${Lang.get('selectModel')}</option>`;
 
                 // Wait for models to load and populate
-                await OllamaAPI.loadOllamaModels();
+                const modelsLoaded = await OllamaAPI.loadOllamaModels();
+                if (!modelsLoaded) {
+                    console.warn('App: Skipping model restore because model list failed to load');
+                    return;
+                }
+
+                // IMPORTANT: Prefer the model that is currently selected in UI memory.
+                // On quick tab switches, DB settings can still be stale for a brief moment.
+                const targetModel = previousModel || persistedModel || ((settings && settings.model) ? settings.model : '');
+                const targetProvider = previousModel
+                    ? previousProvider
+                    : (persistedModel
+                        ? (String(persistedProvider || '').trim().toLowerCase() || previousProvider)
+                        : ((settings && settings.modelProvider && String(settings.modelProvider).trim())
+                            ? String(settings.modelProvider).trim().toLowerCase()
+                            : previousProvider));
 
                 // Check if previously selected model still exists
-                if (settings && settings.model) {
-                    //console.log('Checking for previously selected model:', settings.model);
-                    const modelExists = Array.from(modelSelector.options)
-                        .some(option => option.value === settings.model);
+                if (targetModel) {
+                   //console.log('Checking for previously selected model:', settings.model);
+                    const desiredProvider = targetProvider;
+
+                    const exactProviderOption = Array.from(modelSelector.options).find(option =>
+                        option.value === targetModel &&
+                        option.dataset &&
+                        option.dataset.provider === desiredProvider
+                    );
+
+                    const modelExists = !!exactProviderOption || Array.from(modelSelector.options)
+                        .some(option => option.value === targetModel);
 
                     if (modelExists) {
-                        modelSelector.value = settings.model;
-                        //console.log('Successfully set model to:', settings.model);
+                        if (exactProviderOption) {
+                            modelSelector.value = exactProviderOption.value;
+                            modelSelector.selectedIndex = exactProviderOption.index;
+                        } else {
+                            modelSelector.value = targetModel;
+                        }
+                       //console.log('Successfully set model to:', targetModel);
                     } else {
                         // Check if this was the model we just deleted
-                        if (lastDeletedModel && lastDeletedModel === settings.model) {
-                            alert(Lang.get('modelDeleted').replace('{model}', settings.model));
+                        if (lastDeletedModel && lastDeletedModel === targetModel) {
+                            alert(Lang.get('modelDeleted').replace('{model}', targetModel));
                             sessionStorage.removeItem('lastDeletedModel'); // Clear the reference
                         }
-                        await PaiperworkDB.saveModel(hashedMasterKey, '');
-                        console.warn('Previously selected model not found:', settings.model);
+                        // Only clear persisted model if it came from settings; do not clear
+                        // when this was only an in-memory fallback selection.
+                        if (settings && settings.model) {
+                            await PaiperworkDB.saveModel(hashedMasterKey, '');
+                        }
+                        console.warn('Previously selected model not found:', targetModel);
                     }
                 }
             } catch (error) {
@@ -271,13 +347,13 @@ async function handleChatTab() {
 
 // Initializes or refreshes the Documents tab and its UI
 async function handleDocumentsTab() {
-    //console.log('App: Documents tab clicked');
+   //console.log('App: Documents tab clicked');
 
     // Create a helper function to initialize or refresh documents
     const initOrRefreshDocuments = async (retry = false) => {
         if (window.RAG_Utils) {
             if (!window.RAG_Utils.initialized) {
-                //console.log('App: Initializing document UI');
+               //console.log('App: Initializing document UI');
                 window.RAG_Utils.initializeDocumentUI();
                 // Additional wait to ensure documents load
                 setTimeout(() => {
@@ -286,7 +362,7 @@ async function handleDocumentsTab() {
                     });
                 }, 200);
             } else {
-                //console.log('App: Document UI already initialized, refreshing document list');
+               //console.log('App: Document UI already initialized, refreshing document list');
                 window.RAG_Utils.updateDocumentsList(true).catch(error => {
                     console.error('App: Error updating documents list:', error);
                 });
@@ -301,12 +377,12 @@ async function handleDocumentsTab() {
 
     // If RAG_Utils isn't available yet, wait and retry with increasing intervals
     if (!success) {
-        //console.log('App: RAG_Utils not available, waiting 100ms...');
+       //console.log('App: RAG_Utils not available, waiting 100ms...');
         await new Promise(resolve => setTimeout(resolve, 100));
         success = await initOrRefreshDocuments();
 
         if (!success) {
-            //console.log('App: RAG_Utils still not available, waiting 300ms...');
+           //console.log('App: RAG_Utils still not available, waiting 300ms...');
             await new Promise(resolve => setTimeout(resolve, 300));
             success = await initOrRefreshDocuments(true);
 
@@ -332,7 +408,7 @@ async function handleDocumentsTab() {
 
 // Initializes and displays the Paperwork tab and its tools
 async function handlePaperworkTab() {
-    //console.log('App: Paperwork tab clicked');
+   //console.log('App: Paperwork tab clicked');
 
     try {
         // Get the paperwork tab element
@@ -366,7 +442,7 @@ async function handlePaperworkTab() {
 
         // Create a new Paperwork instance if it doesn't exist yet
         if (!window.paperworkInstance) {
-            //console.log('App: Creating new Paperwork instance');
+           //console.log('App: Creating new Paperwork instance');
             window.paperworkInstance = new window.Paperwork();
 
             // Initialize the paperwork instance
@@ -375,7 +451,7 @@ async function handlePaperworkTab() {
 
         // Wait for PaperworkTab to be available
         if (!window.paperworkTab) {
-            //console.log('App: Waiting for PaperworkTab to load...');
+           //console.log('App: Waiting for PaperworkTab to load...');
             await new Promise((resolve, reject) => {
                 let attempts = 0;
                 const maxAttempts = 10;
@@ -397,7 +473,7 @@ async function handlePaperworkTab() {
         }
 
         // Now call showPaperworkTab from the global paperworkTab instance
-        //console.log('App: Showing paperwork tab content');
+       //console.log('App: Showing paperwork tab content');
         window.paperworkTab.showPaperworkTab();
 
     } catch (error) {
@@ -423,12 +499,12 @@ async function handlePaperworkTab() {
 
 // Initializes and displays the Research tab and its tools
 async function handleResearchTab() {
-    //console.log('App: Research tab clicked');
+   //console.log('App: Research tab clicked');
 
     try {
         // Wait for Research classes to be available
         if (!window.ResearchTab) {
-            //console.log('App: Waiting for ResearchTab to load...');
+           //console.log('App: Waiting for ResearchTab to load...');
             await new Promise((resolve, reject) => {
                 let attempts = 0;
                 const checkInterval = setInterval(() => {
@@ -447,7 +523,7 @@ async function handleResearchTab() {
 
         // Initialize Research tab
         if (window.researchTab) {
-            //console.log('App: Research module already initialized');
+           //console.log('App: Research module already initialized');
             if (!window.researchTab.initialized) {
                 await window.researchTab.initialize();
             } else {
@@ -457,7 +533,7 @@ async function handleResearchTab() {
                 }
             }
         } else {
-            //console.log('App: Creating new ResearchTab instance');
+           //console.log('App: Creating new ResearchTab instance');
             window.researchTab = new ResearchTab();
             await window.researchTab.initialize();
         }
@@ -484,12 +560,12 @@ async function handleResearchTab() {
 
 // Initializes and displays the Artworks tab and its tools
 async function handleArtworksTab() {
-    //console.log('App: Artwork tab clicked');
+   //console.log('App: Artwork tab clicked');
 
     try {
         // Wait for scripts to load first
         if (!window.Artworks) {
-            //console.log('App: Waiting for Artworks library to load...');
+           //console.log('App: Waiting for Artworks library to load...');
             await new Promise((resolve, reject) => {
                 let attempts = 0;
                 const checkInterval = setInterval(() => {
@@ -508,7 +584,7 @@ async function handleArtworksTab() {
 
         // Now initialize Artworks instance if needed
         if (!window.artworksInstance) {
-            //console.log('App: Creating new Artworks instance');
+           //console.log('App: Creating new Artworks instance');
             window.artworksInstance = new window.Artworks();
             await window.artworksInstance.initialize();
         }
@@ -533,10 +609,10 @@ async function handleArtworksTab() {
 
         // Initialize ArtworksTab UI
         if (window.artworksTab) {
-            //console.log('App: Initializing Artworks UI');
+           //console.log('App: Initializing Artworks UI');
             await window.artworksTab.initialize();
         } else {
-            //console.log('App: Creating new ArtworksTab instance');
+           //console.log('App: Creating new ArtworksTab instance');
             window.artworksTab = new window.ArtworksTab();
             await window.artworksTab.initialize();
         }
@@ -566,12 +642,12 @@ async function handleArtworksTab() {
 
 // Initializes and displays the SlideForge tab and its document processing tools
 async function handlepresentationtab() {
-    //console.log('App: SlideForge tab clicked');
+   //console.log('App: SlideForge tab clicked');
 
     try {
         // Wait for scripts to load first
         if (!window.presentation) {
-            //console.log('App: Waiting for SlideForge library to load...');
+           //console.log('App: Waiting for SlideForge library to load...');
             await new Promise((resolve, reject) => {
                 let attempts = 0;
                 const checkInterval = setInterval(() => {
@@ -590,7 +666,7 @@ async function handlepresentationtab() {
 
         // Now initialize SlideForge instance if needed
         if (!window.presentation) {
-            //console.log('App: Creating new SlideForge instance');
+           //console.log('App: Creating new SlideForge instance');
             window.presentation = new window.presentation();
             await window.presentation.initialize();
         }
@@ -615,10 +691,10 @@ async function handlepresentationtab() {
 
         // Initialize presentationtab UI
         if (window.presentationtab) {
-            //console.log('App: Initializing SlideForge UI');
+           //console.log('App: Initializing SlideForge UI');
             await window.presentationtab.initialize();
         } else {
-            //console.log('App: Creating new presentationtab instance');
+           //console.log('App: Creating new presentationtab instance');
             window.presentationtab = new window.presentationtab();
             await window.presentationtab.initialize();
         }
@@ -646,12 +722,12 @@ async function handlepresentationtab() {
 // Initializes and displays the Models tab and its model downloader UI
 async function handleModelsTab() {
 
-    //console.log('Models tab clicked - initializing model downloader UI');
+   //console.log('Models tab clicked - initializing model downloader UI');
 
     try {
         // Wait for ModelDownloader to be available
         if (!window.ModelDownloader) {
-            //console.log('Waiting for ModelDownloader to load...');
+           //console.log('Waiting for ModelDownloader to load...');
             await new Promise((resolve, reject) => {
                 let attempts = 0;
                 const checkInterval = setInterval(() => {
@@ -699,12 +775,12 @@ async function handleModelsTab() {
 
 // Initializes and displays the Database tab and its management UI
 async function handleDatabaseTab() {
-    //console.log('Database tab clicked');
+   //console.log('Database tab clicked');
 
     try {
         // Check if DatabaseTab is available
         if (!window.DatabaseTab) {
-            //console.log('Waiting for DatabaseTab to load...');
+           //console.log('Waiting for DatabaseTab to load...');
             await new Promise((resolve, reject) => {
                 let attempts = 0;
                 const checkInterval = setInterval(() => {
@@ -723,7 +799,7 @@ async function handleDatabaseTab() {
 
         // Initialize Database tab
         if (window.databaseTab) {
-            //console.log('Database module already initialized');
+           //console.log('Database module already initialized');
             if (!window.databaseTab.initialized) {
                 await window.databaseTab.initialize();
             } else {
@@ -733,7 +809,7 @@ async function handleDatabaseTab() {
                 }
             }
         } else {
-            //console.log('Creating new DatabaseTab instance');
+           //console.log('Creating new DatabaseTab instance');
             window.databaseTab = new DatabaseTab();
             await window.databaseTab.initialize();
         }
@@ -766,7 +842,7 @@ function setupChatHandlers(sendButton, promptInput) {
 
 // Cancels the current Ollama generation process and resets UI state
 function cancelOllamaGeneration() {
-    //console.log('App: Delegating cancellation to Chat instance');
+   //console.log('App: Delegating cancellation to Chat instance');
 
     // Simply delegate to ChatTab or Chat
     if (window.chatTab) {

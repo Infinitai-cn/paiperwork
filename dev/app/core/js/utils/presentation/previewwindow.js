@@ -53,7 +53,7 @@ class PreviewWindow {
         if (window.SlideForgeSidebar) {
             sidebar = new window.SlideForgeSidebar({
                 onStyleSelect: async styleKey => {
-                    //console.log('[PreviewWindow] Selected style:', styleKey);
+                   //console.log('[PreviewWindow] Selected style:', styleKey);
                     try {
                         // Ensure any active selectionHelpers are deselected to avoid selectionHelper trying to update removed nodes
                         try {
@@ -336,7 +336,7 @@ class PreviewWindow {
                             const selectedNodes = (payload && payload.selectedNodes) ? payload.selectedNodes : (Array.isArray(payload) ? payload : (payload ? [payload] : []));
                             const clickedClass = (payload && payload.clickedClass) ? payload.clickedClass : ((selectedNodes && selectedNodes[0] && typeof selectedNodes[0].getClassName === 'function') ? selectedNodes[0].getClassName() : (selectedNodes && selectedNodes[0] && selectedNodes[0].className) || null);
 
-                            //console.log('[PreviewWindow] selectionHelper selectionChange', selectedNodes && selectedNodes.length, 'clickedClass=', clickedClass);
+                           //console.log('[PreviewWindow] selectionHelper selectionChange', selectedNodes && selectedNodes.length, 'clickedClass=', clickedClass);
 
                             const now = Date.now();
 
@@ -420,7 +420,7 @@ class PreviewWindow {
                                 // If there was a recent non-empty selection within threshold, ignore this empty event to avoid UI flip-flop
                                 const SUPPRESSION_MS = 250;
                                 if (this._lastSelectionTimestamp && age >= 0 && age < SUPPRESSION_MS) {
-                                    //console.log('[PreviewWindow] suppressing empty selection because recent non-empty selection exists (age ms):', age);
+                                   //console.log('[PreviewWindow] suppressing empty selection because recent non-empty selection exists (age ms):', age);
                                     return;
                                 }
 
@@ -429,7 +429,7 @@ class PreviewWindow {
                                     if (this.sidebar && typeof this.sidebar.onSelectionChange === 'function') {
                                         try { this.sidebar.onSelectionChange({ selectedNodes: [], clickedClass }); } catch(e) { /* ignore */ }
                                     }
-                                    //console.log('[PreviewWindow] empty selection forwarded to sidebar (presentation.setSelection skipped)');
+                                   //console.log('[PreviewWindow] empty selection forwarded to sidebar (presentation.setSelection skipped)');
                                 } catch(e) { /* ignore */ }
 
                                 // If this empty selection comes from the last origin stage (user clicked stage to deselect),
@@ -438,7 +438,7 @@ class PreviewWindow {
                                     if (this._lastSelectionOriginStage && stage === this._lastSelectionOriginStage && this._lastSelectionWasText) {
                                         if (window.presentation && typeof window.presentation.setSelection === 'function') {
                                             try { window.presentation.setSelection([]); 
-                                                //console.log('[PreviewWindow] cleared presentation.selectedNodes due to user deselect of Text'); 
+                                               //console.log('[PreviewWindow] cleared presentation.selectedNodes due to user deselect of Text'); 
 
                                             } catch(e) { /* ignore */ }
                                         }
@@ -467,7 +467,7 @@ class PreviewWindow {
         if (window.presentation && typeof window.presentation.setStages === 'function') {
             try {
                 window.presentation.setStages(this.stages);
-                //console.log('[PreviewWindow] presentation.setStages called with', this.stages.length, 'stages');
+               //console.log('[PreviewWindow] presentation.setStages called with', this.stages.length, 'stages');
             } catch (e) {
                 console.warn('[PreviewWindow] Error calling presentation.setStages', e);
             }
@@ -577,7 +577,7 @@ class PreviewWindow {
                         } catch(e) { /* per-stage ignore */ }
                     }
                 }
-                //console.log('[PreviewWindow] built pwId->source mapping, entries=', Object.keys(this._pwIdToSource || {}).length);
+               //console.log('[PreviewWindow] built pwId->source mapping, entries=', Object.keys(this._pwIdToSource || {}).length);
                 // Notify sidebar to update Change Cover visibility. Images may load asynchronously
                 // so attempt immediate and delayed retries to ensure the overlay appears once images are ready.
                 try {
@@ -643,7 +643,7 @@ class PreviewWindow {
                     if (meta.field === 'title') {
                         this.parsedSlides.slides[sidx].title = newText;
                         try { window.presentationParsedSlidesRef = this.parsedSlides; } catch(e) {}
-                        //console.log('[PreviewWindow] updateParsedSlideText - updated slide title', sidx, newText);
+                       //console.log('[PreviewWindow] updateParsedSlideText - updated slide title', sidx, newText);
                         return true;
                     }
                     if (meta.field === 'content') {
@@ -653,7 +653,7 @@ class PreviewWindow {
                         while (this.parsedSlides.slides[sidx].content.length <= cidx) this.parsedSlides.slides[sidx].content.push('');
                         this.parsedSlides.slides[sidx].content[cidx] = newText;
                         try { window.presentationParsedSlidesRef = this.parsedSlides; } catch(e) {}
-                        //console.log('[PreviewWindow] updateParsedSlideText - updated slide content', sidx, cidx, newText);
+                       //console.log('[PreviewWindow] updateParsedSlideText - updated slide content', sidx, cidx, newText);
                         return true;
                     }
                 }
@@ -705,7 +705,7 @@ class PreviewWindow {
                         // keep a copy reference on parsedSlides for debugging/export
                         this.parsedSlides.cover.imageBase64 = base64;
                     } catch (e) { /* ignore */ }
-                    //console.log('[PreviewWindow] updateParsedSlideImage - updated cover image for pwId', pwId);
+                   //console.log('[PreviewWindow] updateParsedSlideImage - updated cover image for pwId', pwId);
                     return true;
                 }
 
@@ -722,7 +722,7 @@ class PreviewWindow {
                         this.parsedSlides.slides[sidx]._pw = this.parsedSlides.slides[sidx]._pw || {};
                         this.parsedSlides.slides[sidx]._pw.imageData = base64;
                     } catch (e) { /* ignore */ }
-                    //console.log('[PreviewWindow] updateParsedSlideImage - updated slide image', sidx, 'pwId=', pwId);
+                   //console.log('[PreviewWindow] updateParsedSlideImage - updated slide image', sidx, 'pwId=', pwId);
                     return true;
                 }
 
@@ -776,7 +776,7 @@ class PreviewWindow {
         if (window.presentation && typeof window.presentation.setStages === 'function') {
             try {
                 window.presentation.setStages([]);
-                //console.log('[PreviewWindow] presentation.setStages called with empty array on close');
+               //console.log('[PreviewWindow] presentation.setStages called with empty array on close');
             } catch (e) {
                 console.warn('[PreviewWindow] Error clearing presentation stages on close', e);
             }

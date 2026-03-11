@@ -10,7 +10,7 @@ class presentationtab {
     const file = this.selectedFile;
     // Debug: log selected file info to help diagnose incorrect document selection
     try { 
-        //console.log('[SlideForgeTab] createSlideForge - selectedFile:', file && file.name ? `${file.name} (${file.size || 'unknown'} bytes)` : file); 
+       //console.log('[SlideForgeTab] createSlideForge - selectedFile:', file && file.name ? `${file.name} (${file.size || 'unknown'} bytes)` : file); 
         } catch (e) {}
         const pagesSelector = document.getElementById('presentation-pages-selector');
         const modeSelector = document.getElementById('presentation-mode-selector');
@@ -133,7 +133,7 @@ class presentationtab {
 
             const contentInstance = new window.Content();
             const logCallback = msg => { 
-            //console.log('[SlideForgeTab]', msg); 
+           //console.log('[SlideForgeTab]', msg); 
             };
             setLoadingMessage(Lang.get('extractingTextFromDocument'));
             try {
@@ -310,7 +310,7 @@ class presentationtab {
             return;
         }
 
-        //console.log('SlideForgetab: Initializing SlideForge tab interface');
+       //console.log('SlideForgetab: Initializing SlideForge tab interface');
         this.injectStyles();
         await this.createTabUI();
         this.setupEventListeners();
@@ -504,7 +504,7 @@ class presentationtab {
     this.selectedFile = file;
     // Debug: log when a file is processed/selected
     try { 
-        //console.log('[SlideForgeTab] processFile - stored selectedFile:', file && file.name ? `${file.name} (${file.size || 'unknown'} bytes)` : file); 
+       //console.log('[SlideForgeTab] processFile - stored selectedFile:', file && file.name ? `${file.name} (${file.size || 'unknown'} bytes)` : file); 
     } catch (e) {}
 
         // Update UI
@@ -557,7 +557,7 @@ class presentationtab {
         }
 
         // Show notification
-        //console.log('SlideForge generation aborted by user');
+       //console.log('SlideForge generation aborted by user');
     }
 
     async handleTabChange(isActive) {

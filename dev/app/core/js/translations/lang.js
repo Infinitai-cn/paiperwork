@@ -23,7 +23,7 @@ class Lang {
 static async loadLanguage(lang) {
     // Return early if already loaded
     if (this.loadedLanguages[lang]) {
-        //console.log(`Language ${lang} already loaded`);
+       //console.log(`Language ${lang} already loaded`);
         return true;
     }
 
@@ -35,7 +35,7 @@ static async loadLanguage(lang) {
         const currentPath = window.location.pathname;
         let langPath;
         
-        //console.log('Current path for language loading:', currentPath); // Debug log
+       //console.log('Current path for language loading:', currentPath); // Debug log
         
         if (currentPath.includes('/core/js/help/')) {
             // help.html at /dev/app/core/js/help/help.html
@@ -51,7 +51,7 @@ static async loadLanguage(lang) {
             langPath = `core/js/translations/lang-${lang}.js`;
         }
         
-        //console.log('Using language path:', langPath); // Debug log
+       //console.log('Using language path:', langPath); // Debug log
         script.src = langPath;
         
         return new Promise((resolve, reject) => {
@@ -59,7 +59,7 @@ static async loadLanguage(lang) {
                 // Wait a brief moment to ensure registration completes
                 setTimeout(() => {
                     if (this.loadedLanguages[lang]) {
-                        //console.log(`Language file lang-${lang}.js loaded successfully from ${langPath}`);
+                       //console.log(`Language file lang-${lang}.js loaded successfully from ${langPath}`);
                         resolve(true);
                     } else {
                         console.warn(`Language file loaded but registration failed for ${lang}`);
@@ -149,7 +149,7 @@ static async loadLanguage(lang) {
     // Register a language when its file is loaded
     static registerLanguage(langCode, translations) {
         this.loadedLanguages[langCode] = translations;
-        //console.log(`Language ${langCode} registered with ${Object.keys(translations).length} translations`);
+       //console.log(`Language ${langCode} registered with ${Object.keys(translations).length} translations`);
     }
 }
 

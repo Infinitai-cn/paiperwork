@@ -16,7 +16,7 @@ function loadScript(url) {
 
 // HTML code execution functionality
 window.runHtmlCode = function (button) {
-    //console.log('Running HTML code...');
+   //console.log('Running HTML code...');
     const codeBlock = button.closest('.code-block');
     if (!codeBlock) return;
 
@@ -27,7 +27,7 @@ window.runHtmlCode = function (button) {
     let htmlContent = codeElement.dataset.cleanCode || extractTextContent(codeElement);
 
 
-    //console.log('HTML content to run:', htmlContent.substring(0, 50) + '...');
+   //console.log('HTML content to run:', htmlContent.substring(0, 50) + '...');
 
     // Create and get modal if it doesn't exist
     let modal = document.getElementById('html-preview-modal');
@@ -131,7 +131,7 @@ window.runHtmlCode = function (button) {
 
         // Display the modal
         modal.style.display = 'block';
-        //console.log('HTML preview modal opened');
+       //console.log('HTML preview modal opened');
     } catch (error) {
         console.error('Error preparing HTML preview:', error);
         showHtmlErrorPage(iframe, error, htmlContent);
@@ -373,7 +373,7 @@ function showHtmlErrorPage(iframe, error, htmlContent) {
 
 // Create the modal for HTML preview
 function createHtmlPreviewModal() {
-    //console.log('Creating HTML preview modal');
+   //console.log('Creating HTML preview modal');
     const modal = document.createElement('div');
     modal.id = 'html-preview-modal';
     modal.style.cssText = `
@@ -830,7 +830,7 @@ function createHtmlPreviewModal() {
     modal.appendChild(container);
     document.body.appendChild(modal);
 
-    //console.log('HTML preview modal created and added to DOM');
+   //console.log('HTML preview modal created and added to DOM');
 
     // Set up resize observer for iframe refresh
     setupResizeObserver(container, iframe);
@@ -851,7 +851,7 @@ function setupResizeObserver(container, iframe) {
 
         // Handle size changes with a delay
         resizeTimeout = setTimeout(() => {
-            //console.log('Resize detected, refreshing iframe content');
+           //console.log('Resize detected, refreshing iframe content');
 
             if (htmlPreviewOriginalContent) {
                 const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
@@ -923,7 +923,7 @@ function createBaseModal(id, headerColor, title, options = {}) {
         return document.getElementById(id);
     }
 
-    //console.log(`Creating ${title} modal`);
+   //console.log(`Creating ${title} modal`);
     const modal = document.createElement('div');
     modal.id = id;
     modal.style.cssText = `
@@ -1068,7 +1068,7 @@ function setupModalDragging(header, container) {
     function globalMouseUpHandler(e) {
         if (!dragState.active) return;
 
-        //console.log('Ending drag operation');
+       //console.log('Ending drag operation');
         e.preventDefault();
         e.stopPropagation();
 
@@ -1082,7 +1082,7 @@ function setupModalDragging(header, container) {
 
     // Handle mousedown to start dragging
     function handleMouseDown(e) {
-        //console.log('Starting drag operation');
+       //console.log('Starting drag operation');
         e.preventDefault();
         e.stopPropagation();
 
@@ -1130,7 +1130,7 @@ function setupModalDragging(header, container) {
     if (isSafari) {
         window.addEventListener('blur', function () {
             if (dragState.active) {
-                //console.log('Window blur detected, ending drag');
+               //console.log('Window blur detected, ending drag');
                 dragState.active = false;
                 document.removeEventListener('mousemove', globalMouseMoveHandler);
                 document.removeEventListener('mouseup', globalMouseUpHandler);

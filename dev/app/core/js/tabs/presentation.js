@@ -76,7 +76,7 @@ class presentation {
                 const keys = Object.keys(this.nodeMap || {});
                 keys.forEach(k => { if (!newIds.has(k)) { try { delete this.nodeMap[k]; } catch(e) {} } });
             } catch(e) {}
-            //console.log('[SlideForge] assignPwIdsForStages completed - total ids=', Object.keys(this.nodeMap).length);
+           //console.log('[SlideForge] assignPwIdsForStages completed - total ids=', Object.keys(this.nodeMap).length);
             return true;
         } catch (e) { console.warn('[SlideForge] assignPwIdsForStages failed', e); return false; }
     }
@@ -87,7 +87,7 @@ class presentation {
             this.selectedNodes = Array.isArray(selectedNodes) ? selectedNodes : (selectedNodes ? [selectedNodes] : []);
             // update any global controls state which depends on available text nodes
             try { this._updateGlobalControlsState(); } catch (e) {}
-            //console.log('[SlideForge] setSelection called, count=', this.selectedNodes.length);
+           //console.log('[SlideForge] setSelection called, count=', this.selectedNodes.length);
             return true;
         } catch (e) {
             console.warn('[SlideForge] setSelection error', e);
@@ -384,7 +384,7 @@ class presentation {
 
         // update controls state if needed
         this._updateGlobalControlsState();
-        //console.log('[SlideForge] applyToAllTextNodes', attrs);
+       //console.log('[SlideForge] applyToAllTextNodes', attrs);
     }
 
     // Helper similar to Sidebar implementation for applying attributes to a Konva.Text node
@@ -499,9 +499,9 @@ class presentation {
 
             if (!anyApplied) {
                 // nothing applied — no selection helper or selected nodes available
-                //console.log('[SlideForge] _applyToSelectedTextNodes: no selected nodes found');
+               //console.log('[SlideForge] _applyToSelectedTextNodes: no selected nodes found');
             } else {
-                //console.log('[SlideForge] _applyToSelectedTextNodes applied', attrs);
+               //console.log('[SlideForge] _applyToSelectedTextNodes applied', attrs);
             }
             return anyApplied;
         } catch (e) {

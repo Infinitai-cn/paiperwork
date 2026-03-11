@@ -2,7 +2,11 @@ window.helpContent = {
 
     gettingstarted: {
         title: "Erste Schritte",
-        intro: "Willkommen bei Paiperwork, einer sicheren Web-Oberfläche für Ollama, die Datenschutz und Benutzerfreundlichkeit priorisiert. Dieser professionell ausgerichtete Assistent bietet Produktivitätsfunktionen und hält dabei Ihre Daten lokal und geschützt.",
+        intro: [
+            "Willkommen bei Paiperwork, einer sicheren Web-Oberfläche für Ollama, die Datenschutz und Benutzerfreundlichkeit priorisiert. Dieser professionell ausgerichtete Assistent bietet Produktivitätsfunktionen und hält dabei Ihre Daten lokal und geschützt.",
+            "Sie konnen Modelle lokal auf Ihrem Computer herunterladen und ausfuhren oder Cloud-Modelle verwenden, wenn Ihre Hardware lokale Modelle nicht verarbeiten kann. Fur Cloud-Modelle sind eine Anmeldung auf ollama.com und ein API-Schlussel erforderlich. Bei der ersten Nutzung eines Cloud-Modells fordert Paiperwork diesen Schlussel an und speichert ihn verschlusselt in Ihrer lokalen Datenbank.",
+            "Um einen API-Schlussel zu erstellen, registrieren Sie sich oder melden Sie sich unter https://ollama.com an. Offnen Sie dann Account Settings > Keys (https://ollama.com/settings/keys), erstellen Sie einen neuen API-Schlussel, generieren Sie ihn und kopieren Sie ihn. In Paiperwork gehen Sie zu Chat-Tab > Manage Cloud API key und fugen ihn dort ein."
+        ],
         articles: [
             {
                 id: "gs-welcome",
@@ -843,6 +847,10 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Wichtig:</strong> Im Dokumentenmodus konzentriert sich die KI ausschließlich auf den Inhalt des ausgewählten Dokuments und nutzt ihr Wissen zur Interpretation, fügt aber keine externen Informationen hinzu.</p>
+                </div>
+
+                <div class="note">
+                    <p><strong>Hinweis zu Cloud-Modellen:</strong> Bei der Nutzung von Cloud-Modellen in Free-Tiers können Antworten im Modus "Fragen stellen" begrenzt oder abgeschnitten werden, da RAG-Prompts groß sind. Für dauerhaft vollständige längere Antworten sollte ein kostenpflichtiger Cloud-Tier verwendet werden.</p>
                 </div>
             `,
                 image: "document_mode.png",

@@ -26,10 +26,10 @@ class Chat {
 
     // Initializes the chat system, sets up event listeners and global references
     async initialize() {
-        //console.log('Chat: Initializing chat system');
+       //console.log('Chat: Initializing chat system');
 
         if (this.initialized) {
-            //console.log('Chat: Already initialized, skipping');
+           //console.log('Chat: Already initialized, skipping');
             return true;
         }
 
@@ -62,7 +62,7 @@ class Chat {
                 this.checkScrollBottom();
             });
 
-            //console.log('Chat: Simplified scroll event listeners attached');
+           //console.log('Chat: Simplified scroll event listeners attached');
         }
 
         // Set up system prompt save button handler
@@ -70,7 +70,7 @@ class Chat {
 
         // Mark as initialized
         this.initialized = true;
-        //console.log('Chat: Chat system initialized');
+       //console.log('Chat: Chat system initialized');
         return true;
     }
 
@@ -92,13 +92,13 @@ class Chat {
                 // Check if the system prompt has changed
                 const confirmed = this.handleSystemPromptChange(systemPrompt);
                 if (!confirmed) {
-                    //console.log('System prompt change was cancelled by user');
+                   //console.log('System prompt change was cancelled by user');
                     return;
                 }
 
                 try {
                     await PaiperworkDB.saveSystemPrompt(hashedMasterKey, systemPrompt);
-                    //console.log('System prompt saved successfully');
+                   //console.log('System prompt saved successfully');
 
                     // Show save confirmation
                     const saveConfirmation = document.createElement('div');
@@ -146,9 +146,9 @@ class Chat {
 
     // Enhances the system prompt with additional insights using OllamaAPI
     async enhanceSystemPromptWithInsights(systemPromptText) {
-        //console.log('Chat DEBUG: Starting enhanceSystemPromptWithInsights');
-        //console.log('Chat DEBUG: Input system prompt type:', typeof systemPromptText);
-        //console.log('Chat DEBUG: Input system prompt length:',
+       //console.log('Chat DEBUG: Starting enhanceSystemPromptWithInsights');
+       //console.log('Chat DEBUG: Input system prompt type:', typeof systemPromptText);
+       //console.log('Chat DEBUG: Input system prompt length:',
         // systemPromptText ? systemPromptText.length : 0);
 
 
@@ -158,13 +158,13 @@ class Chat {
             return systemPromptText;
         }
 
-        //console.log('Enhancing system prompt using OllamaAPI.buildCompleteSystemPrompt');
+       //console.log('Enhancing system prompt using OllamaAPI.buildCompleteSystemPrompt');
 
         try {
             // Use the comprehensive system prompt builder from OllamaAPI
             const enhancedPrompt = await OllamaAPI.buildCompleteSystemPrompt(hashedMasterKey, systemPromptText);
 
-            //console.log('Prompt enhancement complete:', {
+           //console.log('Prompt enhancement complete:', {
             //originalLength: systemPromptText.length,
             //enhancedLength: enhancedPrompt.length,
             //enhancedFirst100: enhancedPrompt.substring(0, 100) + '...'
@@ -322,7 +322,7 @@ class Chat {
 
     // Handles user scroll events and manages auto-scroll state
     handleUserScroll() {
-        //console.log('Chat: User scroll detected');
+       //console.log('Chat: User scroll detected');
 
         // If already marked as user scrolling, just reset the timer
         if (this.userScrollActive) {
@@ -332,14 +332,14 @@ class Chat {
             }
         } else {
             // First user scroll action - disable auto-scroll
-            //console.log('Chat: User scrolled, disabling auto-scroll');
+           //console.log('Chat: User scrolled, disabling auto-scroll');
             this.userScrollActive = true;
             window.autoScrollEnabled = false; // Set GLOBAL flag instead
         }
 
         // Set timer to re-enable auto-scroll after inactivity period
         this.scrollIdleTimer = setTimeout(() => {
-            //console.log('Chat: Scroll idle timeout reached, re-enabling auto-scroll');
+           //console.log('Chat: Scroll idle timeout reached, re-enabling auto-scroll');
             this.userScrollActive = false;
             window.autoScrollEnabled = true; // Set GLOBAL flag instead
 
@@ -359,7 +359,7 @@ class Chat {
         const isAtBottom = aiReplies.scrollTop + aiReplies.clientHeight >= aiReplies.scrollHeight - 80;
 
         if (isAtBottom && this.userScrollActive) {
-            //console.log('Chat: User scrolled to bottom, re-enabling auto-scroll');
+           //console.log('Chat: User scrolled to bottom, re-enabling auto-scroll');
 
             // Clear idle timer
             if (this.scrollIdleTimer) {
@@ -514,48 +514,12 @@ class Chat {
             return;
         }
 
-        // Set generating flag FIRST before any async operations
-        window.isGenerating = true;
-        this.isGenerating = true;
-        window.currentMessageImages = [];
-
-        // Capture the current image data before it gets cleared
-        const isGemma3 = modelSelector.value.toLowerCase().includes('gemma3');
-        if (isGemma3 && window.selectedImages && window.selectedImages.length > 0) {
-            // Save Gemma3 multi-image data
-            window.currentMessageImages = window.selectedImages.map(img => ({
-                src: img,
-                thumbnail: img
-            }));
-        } else if (window.selectedImage) {
-            // Save single image data
-            window.currentMessageImages = [{
-                src: window.selectedImage,
-                thumbnail: window.selectedImage
-            }];
-        }
-
-        // Apply inline styles DIRECTLY to ensure the button changes immediately
-        sendButton.textContent = Lang.get('cancelButton');
-        sendButton.style.backgroundColor = '#ef4444'; // Red color for cancel
-        sendButton.style.color = 'white';
-        sendButton.classList.add('cancel-state');
-
-        // Create a new AbortController for this request
-        this.globalAbortController = new AbortController();
-        window.globalAbortController = this.globalAbortController;
-
-        progressBar.classList.add('active', 'indeterminate');
         const prompt = promptInput.value.trim();
         if (!prompt) {
-            // Reset button if no prompt
-            sendButton.textContent = Lang.get('sendButton');
-            sendButton.style.backgroundColor = '';
-            sendButton.classList.remove('cancel-state');
-            window.isGenerating = false;
-            this.isGenerating = false;
             return;
         }
+
+        const isGemma3 = modelSelector.value.toLowerCase().includes('gemma3');
 
         const userDiv = document.createElement('div');
         userDiv.className = 'user-message';
@@ -632,9 +596,7 @@ class Chat {
             userDiv.appendChild(imgContainer);
         }
 
-        // Add line break
         userDiv.appendChild(document.createElement('br'));
-
         aiReplies.appendChild(userDiv);
         if (window.autoScrollEnabled) {
             requestAnimationFrame(() => {
@@ -642,7 +604,61 @@ class Chat {
             });
         }
 
+        // Clear input immediately so UI reflects that the message has been queued.
         promptInput.value = '';
+
+        // Cloud workflow gate: require a stored API key before sending.
+        const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
+            ? (window.OllamaAPI.getSelectedModelSource() || 'local')
+            : 'local';
+        if (selectedProvider === 'cloud') {
+            const routing = await OllamaAPI.getApiRoutingForModel(modelSelector.value);
+            const requiresDirectCloudKey = routing && routing.baseUrl === '/api/cloud';
+            if (!requiresDirectCloudKey) {
+                // Local-daemon cloud mode (`ollama signin`) does not require app-managed API key.
+            } else {
+            if (!window.chatTab || typeof window.chatTab.ensureCloudApiKeyForSend !== 'function') {
+                alert((Lang.get && Lang.get('ollamaApiKeyRequired')) || 'An Ollama API key is required to use cloud models.');
+                return;
+            }
+            const hasCloudKey = await window.chatTab.ensureCloudApiKeyForSend();
+            if (!hasCloudKey) {
+                return;
+            }
+            }
+        }
+
+        // Set generating flag FIRST before any async operations
+        window.isGenerating = true;
+        this.isGenerating = true;
+        window.currentMessageImages = [];
+
+        // Capture the current image data before it gets cleared
+        if (isGemma3 && window.selectedImages && window.selectedImages.length > 0) {
+            // Save Gemma3 multi-image data
+            window.currentMessageImages = window.selectedImages.map(img => ({
+                src: img,
+                thumbnail: img
+            }));
+        } else if (window.selectedImage) {
+            // Save single image data
+            window.currentMessageImages = [{
+                src: window.selectedImage,
+                thumbnail: window.selectedImage
+            }];
+        }
+
+        // Apply inline styles DIRECTLY to ensure the button changes immediately
+        sendButton.textContent = Lang.get('cancelButton');
+        sendButton.style.backgroundColor = '#ef4444'; // Red color for cancel
+        sendButton.style.color = 'white';
+        sendButton.classList.add('cancel-state');
+
+        // Create a new AbortController for this request
+        this.globalAbortController = new AbortController();
+        window.globalAbortController = this.globalAbortController;
+
+        progressBar.classList.add('active', 'indeterminate');
 
         const baseSystemPrompt = document.getElementById('system-prompt').value;
         const contextSize = document.getElementById('context-selector').value;
@@ -660,6 +676,46 @@ class Chat {
         }
 
         const enhancedSystemPrompt = await this.enhanceSystemPromptWithInsights(basePrompt);
+        const buildRankedRagContext = (ragResults, options = {}) => {
+            const maxChunks = Number.isFinite(options.maxChunks) ? options.maxChunks : 6;
+            const maxPerDocument = Number.isFinite(options.maxPerDocument) ? options.maxPerDocument : 3;
+            const maxCharsPerChunk = Number.isFinite(options.maxCharsPerChunk) ? options.maxCharsPerChunk : 650;
+            const totalBudgetChars = Number.isFinite(options.totalBudgetChars) ? options.totalBudgetChars : 3600;
+
+            const safeResults = Array.isArray(ragResults) ? ragResults : [];
+            const sorted = [...safeResults].sort((a, b) => (Number(b?.similarity || 0) - Number(a?.similarity || 0)));
+            const perDocCount = new Map();
+            const picked = [];
+            let usedChars = 0;
+
+            for (const item of sorted) {
+                if (picked.length >= maxChunks || usedChars >= totalBudgetChars) break;
+
+                const docId = String(item?.documentId || 'unknown');
+                const currentDocCount = perDocCount.get(docId) || 0;
+                if (currentDocCount >= maxPerDocument) continue;
+
+                const rawText = String(item?.text || '').trim();
+                if (!rawText) continue;
+
+                const clipped = rawText.length > maxCharsPerChunk
+                    ? `${rawText.slice(0, maxCharsPerChunk).trimEnd()}...`
+                    : rawText;
+
+                const pageNum = item?.metadata?.pageNumber || item?.pageNumber || 'unknown';
+                const docName = item?.documentName || 'Unknown Document';
+                const entry = `[Document: ${docName} | Page: ${pageNum} | Score: ${Number(item?.similarity || 0).toFixed(3)}]\n${clipped}`;
+
+                const nextUsed = usedChars + entry.length;
+                if (nextUsed > totalBudgetChars) continue;
+
+                picked.push(entry);
+                usedChars = nextUsed;
+                perDocCount.set(docId, currentDocCount + 1);
+            }
+
+            return picked.join('\n\n');
+        };
 
         try {
             // Generate a unique request ID
@@ -690,7 +746,7 @@ class Chat {
             streamProcessor._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
                 ? window.ThinkingState.getEffectiveThinkingEnabled()
                 : (localStorage.getItem('thinkingEnabled') === 'true');
-            //console.log('🧠 Chat: Created StreamProcessor with thinking state:', streamProcessor._cachedThinkingEnabled);
+           //console.log('🧠 Chat: Created StreamProcessor with thinking state:', streamProcessor._cachedThinkingEnabled);
 
             // Detach the auto-created container from aiReplies
             const autoContainer = streamProcessor.responseContainer;
@@ -716,7 +772,12 @@ class Chat {
                         constraints
                     );
 
-                    const documentContext = ragResults.map(result => result.text).join('\n\n');
+                    const documentContext = buildRankedRagContext(ragResults, {
+                        maxChunks: 6,
+                        maxPerDocument: 4,
+                        maxCharsPerChunk: 650,
+                        totalBudgetChars: 3800
+                    });
 
                     //  FIX: Remove duplicate AI div and streamProcessor creation
                     // Use the existing aiDiv and streamProcessor from above
@@ -740,28 +801,31 @@ class Chat {
 
                     //  CRITICAL FIX: Check if response was handled by StreamProcessor
                     if (documentResponse && documentResponse.success && documentResponse.streamProcessor) {
-                        //console.log('🧠 Chat: Document response fully handled by OllamaAPI with thinking support');
+                       //console.log('🧠 Chat: Document response fully handled by OllamaAPI with thinking support');
                         // Skip manual stream processing since it was handled by sendToOllama
                     } else {
                         //  FALLBACK: Manual stream processing if needed
                         const docReader = documentResponse.body.getReader();
                         const decoder = new TextDecoder();
                         let documentAnswer = '';
+                        let streamBuffer = '';
 
                         // Read document response
                         while (true) {
                             const { value, done } = await docReader.read();
-                            if (done) break;
-
-                            const chunk = decoder.decode(value);
-                            const lines = chunk.split('\n');
+                            streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                            const lines = streamBuffer.split('\n');
+                            streamBuffer = lines.pop() || '';
 
                             for (const line of lines) {
                                 if (line.trim()) {
                                     try {
                                         const data = JSON.parse(line);
-                                        streamProcessor.processChunk(data.response);
-                                        documentAnswer += data.response;
+                                        const responseChunk = data.response || data.message?.content || '';
+                                        if (responseChunk) {
+                                            streamProcessor.processChunk(responseChunk);
+                                            documentAnswer += responseChunk;
+                                        }
                                         this.scrollToBottom();
 
                                         if (data.done) {
@@ -772,6 +836,27 @@ class Chat {
                                         console.error('Chat: Error processing document response chunk:', error);
                                     }
                                 }
+                            }
+
+                            if (done) {
+                                const tail = streamBuffer.trim();
+                                if (tail) {
+                                    try {
+                                        const data = JSON.parse(tail);
+                                        const responseChunk = data.response || data.message?.content || '';
+                                        if (responseChunk) {
+                                            streamProcessor.processChunk(responseChunk);
+                                            documentAnswer += responseChunk;
+                                        }
+                                        this.scrollToBottom();
+                                        if (data.done) {
+                                            OllamaAPI.previousContext = data.context;
+                                        }
+                                    } catch (error) {
+                                        console.error('Chat: Error processing document response tail chunk:', error);
+                                    }
+                                }
+                                break;
                             }
                         }
                     }
@@ -816,24 +901,43 @@ class Chat {
                         if (searchQueryResponse && !searchQueryResponse.success) {
                             const searchQueryReader = searchQueryResponse.body.getReader();
                             const decoder = new TextDecoder();
+                            let streamBuffer = '';
+                            let reachedDone = false;
 
                             while (true) {
                                 const { value, done } = await searchQueryReader.read();
-                                if (done) break;
-
-                                const chunk = decoder.decode(value);
-                                const lines = chunk.split('\n');
+                                streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                                const lines = streamBuffer.split('\n');
+                                streamBuffer = lines.pop() || '';
 
                                 for (const line of lines) {
                                     if (line.trim()) {
                                         try {
                                             const data = JSON.parse(line);
-                                            searchQuery += data.response;
-                                            if (data.done) break;
+                                            searchQuery += data.response || data.message?.content || '';
+                                            if (data.done) {
+                                                reachedDone = true;
+                                                break;
+                                            }
                                         } catch (error) {
                                             console.error('Chat: Error processing search query response:', error);
                                         }
                                     }
+                                }
+
+                                if (reachedDone) break;
+
+                                if (done) {
+                                    const tail = streamBuffer.trim();
+                                    if (tail) {
+                                        try {
+                                            const data = JSON.parse(tail);
+                                            searchQuery += data.response || data.message?.content || '';
+                                        } catch (error) {
+                                            console.error('Chat: Error processing search query response tail:', error);
+                                        }
+                                    }
+                                    break;
                                 }
                             }
                         }
@@ -894,7 +998,7 @@ class Chat {
                         );
 
                         if (window.forceNewConversationGroup) {
-                            //console.log('Chat: Reset forceNewConversationGroup flag after conversation storage');
+                           //console.log('Chat: Reset forceNewConversationGroup flag after conversation storage');
                             window.forceNewConversationGroup = false;
                         }
 
@@ -907,7 +1011,7 @@ class Chat {
                         console.error('Chat: Error in web search enhancement:', error);
 
                         if (error.name === 'AbortError') {
-                            //console.log('Chat: Web search was aborted by user');
+                           //console.log('Chat: Web search was aborted by user');
                         } else {
                             streamProcessor.processChunk(`<p><em>Error enhancing with web search: ${error.message}</em></p>`);
                         }
@@ -954,7 +1058,7 @@ class Chat {
                 return; // Skip the standard response handling
 
             } else if (webSearchEnabled) {
-                //console.log('Chat: Web search enabled, checking for images');
+               //console.log('Chat: Web search enabled, checking for images');
 
                 // FIXED: Declare these variables at the beginning of the web search block
                 const modelSelector = document.getElementById('model-selector');
@@ -964,7 +1068,7 @@ class Chat {
                 const hasValidImageData = hasValidSingleImage || hasValidMultiImages;
 
                 if (hasValidImageData && OllamaAPI.isVisualModel(modelSelector.value)) {
-                    //console.log('Chat: Image + Web search mode detected');
+                   //console.log('Chat: Image + Web search mode detected');
 
                     try {
                         // Step 1: Send image + prompt to AI to get a descriptive search query
@@ -1017,24 +1121,43 @@ class Chat {
                         if (searchQueryResponse && searchQueryResponse.body) {
                             const reader = searchQueryResponse.body.getReader();
                             const decoder = new TextDecoder();
+                            let streamBuffer = '';
+                            let reachedDone = false;
 
                             while (true) {
                                 const { value, done } = await reader.read();
-                                if (done) break;
-
-                                const chunk = decoder.decode(value);
-                                const lines = chunk.split('\n');
+                                streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                                const lines = streamBuffer.split('\n');
+                                streamBuffer = lines.pop() || '';
 
                                 for (const line of lines) {
                                     if (line.trim()) {
                                         try {
                                             const data = JSON.parse(line);
-                                            searchQuery += data.response || '';
-                                            if (data.done) break;
+                                            searchQuery += data.response || data.message?.content || '';
+                                            if (data.done) {
+                                                reachedDone = true;
+                                                break;
+                                            }
                                         } catch (error) {
                                             console.error('Error parsing image analysis response:', error);
                                         }
                                     }
+                                }
+
+                                if (reachedDone) break;
+
+                                if (done) {
+                                    const tail = streamBuffer.trim();
+                                    if (tail) {
+                                        try {
+                                            const data = JSON.parse(tail);
+                                            searchQuery += data.response || data.message?.content || '';
+                                        } catch (error) {
+                                            console.error('Error parsing image analysis response tail:', error);
+                                        }
+                                    }
+                                    break;
                                 }
                             }
                         }
@@ -1051,7 +1174,7 @@ class Chat {
                             searchQuery = prompt.split(/\s+/).slice(0, 10).join(' ');
                         }
 
-                        //console.log('Generated search query from image analysis:', searchQuery);
+                       //console.log('Generated search query from image analysis:', searchQuery);
 
                         // Step 2: Perform web search with the generated query
                         streamProcessor.processChunk(`\n\n<h3>🌐 Searching the web for: "${searchQuery}"</h3>`);
@@ -1063,7 +1186,7 @@ class Chat {
                         let webSearchContext = '';
                         if (webSearchResults && webSearchResults.items && webSearchResults.items.length > 0) {
                             webSearchContext = WebSearch.formatSearchResults(webSearchResults, false);
-                            //console.log('Web search found results for image query:', webSearchResults.items.length);
+                           //console.log('Web search found results for image query:', webSearchResults.items.length);
                         } else {
                             webSearchContext = 'Web search found no relevant results for this image-based query.';
                         }
@@ -1117,7 +1240,7 @@ class Chat {
 
                         // Check if response was handled by StreamProcessor
                         if (finalResponse && finalResponse.success && finalResponse.streamProcessor) {
-                            //console.log('🧠 Chat: Image + Web search response fully handled by OllamaAPI');
+                           //console.log('🧠 Chat: Image + Web search response fully handled by OllamaAPI');
 
                             // Handle final cleanup
                             this.addMessageActionsToMessage(aiDiv);
@@ -1154,13 +1277,14 @@ class Chat {
                         if (finalResponse && finalResponse.body) {
                             const reader = finalResponse.body.getReader();
                             const decoder = new TextDecoder();
+                            let streamBuffer = '';
+                            let reachedDone = false;
 
                             while (true) {
                                 const { value, done } = await reader.read();
-                                if (done) break;
-
-                                const chunk = decoder.decode(value);
-                                const lines = chunk.split('\n');
+                                streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                                const lines = streamBuffer.split('\n');
+                                streamBuffer = lines.pop() || '';
 
                                 for (const line of lines) {
                                     if (line.trim()) {
@@ -1185,14 +1309,56 @@ class Chat {
                                                 }
 
                                                 return;
-                                            } else if (data.response) {
-                                                streamProcessor.processChunk(data.response);
+                                            } else {
+                                                const responseChunk = data.response || data.message?.content;
+                                                if (responseChunk) {
+                                                    streamProcessor.processChunk(responseChunk);
+                                                }
                                                 this.scrollToBottom();
                                             }
                                         } catch (error) {
                                             console.error('Error processing final response chunk:', error);
                                         }
                                     }
+                                }
+
+                                if (reachedDone) break;
+
+                                if (done) {
+                                    const tail = streamBuffer.trim();
+                                    if (tail) {
+                                        try {
+                                            const data = JSON.parse(tail);
+                                            if (data.done) {
+                                                streamProcessor.finishResponse();
+                                                this.addMessageActionsToMessage(aiDiv);
+
+                                                await PaiperworkDB.storeConversationOnly(
+                                                    hashedMasterKey,
+                                                    prompt,
+                                                    streamProcessor.getCleanResponseHTML(),
+                                                    forceNewGroup,
+                                                    window.currentConversationGroup
+                                                );
+
+                                                if (window.currentConversationGroup) {
+                                                    await PaiperworkDB.touchConversationGroup(hashedMasterKey, window.currentConversationGroup);
+                                                    await this.refreshConversationListIfNeeded(hashedMasterKey, window.currentConversationGroup);
+                                                }
+
+                                                return;
+                                            } else {
+                                                const responseChunk = data.response || data.message?.content;
+                                                if (responseChunk) {
+                                                    streamProcessor.processChunk(responseChunk);
+                                                    this.scrollToBottom();
+                                                }
+                                            }
+                                        } catch (error) {
+                                            console.error('Error processing final response tail chunk:', error);
+                                        }
+                                    }
+                                    break;
                                 }
                             }
                         }
@@ -1201,7 +1367,7 @@ class Chat {
                         console.error('Chat: Error in image + web search mode:', error);
 
                         if (error.name === 'AbortError') {
-                            //console.log('Chat: Image + web search was aborted');
+                           //console.log('Chat: Image + web search was aborted');
                             this.cleanupIncompleteResponses();
                             return;
                         }
@@ -1226,7 +1392,7 @@ class Chat {
                     }
 
                     // Standard web search without images (existing code)
-                    //console.log('Chat: Standard web search without images');
+                   //console.log('Chat: Standard web search without images');
 
                     try {
                         //  CRITICAL FIX: Standard web search with thinking support
@@ -1241,7 +1407,7 @@ class Chat {
 
                         // Check if the response was aborted
                         if (!response && this.globalAbortController.signal.aborted) {
-                            //console.log('Chat: Request was aborted by user');
+                           //console.log('Chat: Request was aborted by user');
                             this.cleanupIncompleteResponses();
                             return;
                         }
@@ -1253,7 +1419,7 @@ class Chat {
                         console.error('Chat: Error in web search:', error);
 
                         if (error.name === 'AbortError') {
-                            //console.log('Chat: Request was aborted');
+                           //console.log('Chat: Request was aborted');
                             this.cleanupIncompleteResponses();
                             return;
                         }
@@ -1269,11 +1435,11 @@ class Chat {
 
             } else {
                 // No web search mode
-                //console.log('Chat: Standard mode without web search');
+               //console.log('Chat: Standard mode without web search');
 
                 if (documentId) {
                     // RAG only
-                    //console.log('Chat: Using document-specific RAG for document ID:', documentId);
+                   //console.log('Chat: Using document-specific RAG for document ID:', documentId);
 
                     // Get document context
                     const ragResults = await RAG.searchDocumentsWithConstraint(
@@ -1283,7 +1449,7 @@ class Chat {
                         { documentId: documentId }
                     );
 
-                    //console.log(`Chat: RAG: Found ${ragResults.length} chunks from document ${documentId}`);
+                   //console.log(`Chat: RAG: Found ${ragResults.length} chunks from document ${documentId}`);
 
                     // If no chunks found, inform user
                     if (!ragResults || ragResults.length === 0) {
@@ -1303,10 +1469,16 @@ class Chat {
                     }
 
                     const context = ragResults.map(result => result.text).join('\n\n');
-                    const ragSystemPrompt = `${enhancedSystemPrompt || ''}\n\nAnswer the user's question based on the following information retrieved from the document. Only use information from this document to answer:\n\n${context || ''}`;
+                    const rankedContext = buildRankedRagContext(ragResults, {
+                        maxChunks: 5,
+                        maxPerDocument: 3,
+                        maxCharsPerChunk: 700,
+                        totalBudgetChars: 3400
+                    });
+                    const ragSystemPrompt = `${enhancedSystemPrompt || ''}\n\nAnswer the user's question based on the following information retrieved from the document. Only use information from this document to answer:\n\n${rankedContext || ''}`;
 
-                    //console.log(`Chat: RAG: Found ${ragResults.length} matching chunks for document ${documentId}`);
-                    //console.log('Chat: RAG: Context length:', context.length > 0 ? context.length : "Empty context!");
+                   //console.log(`Chat: RAG: Found ${ragResults.length} matching chunks for document ${documentId}`);
+                   //console.log('Chat: RAG: Context length:', context.length > 0 ? context.length : "Empty context!");
 
                     if (!context || context.length === 0) {
                         console.warn('Chat: RAG: No context found for document questioning!');
@@ -1331,7 +1503,7 @@ class Chat {
                     const hasValidImageData = hasValidSingleImage || hasValidMultiImages;
 
                     if (hasValidImageData && OllamaAPI.isVisualModel(modelSelector.value)) {
-                        //console.log('Chat: Including image in prompt for visual model');
+                       //console.log('Chat: Including image in prompt for visual model');
                         const isMultiImageModel = isGemma3 && hasValidMultiImages;
 
                         //  CRITICAL FIX: Pass streamProcessor to enable native thinking
@@ -1364,8 +1536,18 @@ class Chat {
 
             //  CRITICAL CHECK: If response was handled by StreamProcessor, skip manual processing
             if (response && response.success && response.streamProcessor) {
+                if (response.partial || response.interrupted) {
+                    console.warn('Chat: Stream completed with partial/interrupted flag', {
+                        requestId: this.currentRequestId,
+                        documentMode: !!documentId,
+                        partial: !!response.partial,
+                        interrupted: !!response.interrupted,
+                        model: modelSelector?.value || ''
+                    });
+                }
+
                 // Response was fully processed by sendToOllama, we're done!
-                //console.log('🧠 Chat: Response fully handled by OllamaAPI with thinking support');
+               //console.log('🧠 Chat: Response fully handled by OllamaAPI with thinking support');
 
                 // Handle final cleanup
                 this.addMessageActionsToMessage(aiDiv);
@@ -1415,7 +1597,7 @@ class Chat {
                 console.warn('Chat: No standard response object received from Ollama');
                 // Check if this is web search mode - response might be handled differently
                 if (webSearchEnabled) {
-                    //console.log('Chat: Web search mode completed without standard response object');
+                   //console.log('Chat: Web search mode completed without standard response object');
                     // Skip the error for web search since it handles its own response
                     return;
                 } else {
@@ -1424,22 +1606,27 @@ class Chat {
                 }
             }
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Ollama request failed (${response.status}): ${errorText || response.statusText}`);
+            }
+
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            let streamBuffer = '';
 
             // Process the response stream
             while (true) {
                 const { value, done } = await reader.read();
 
                 if (this.globalAbortController && this.globalAbortController.signal.aborted) {
-                    //console.log('Chat: Abort detected during stream processing');
+                   //console.log('Chat: Abort detected during stream processing');
                     throw new DOMException('The user aborted a request.', 'AbortError');
                 }
 
-                if (done) break;
-
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
+                streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                const lines = streamBuffer.split('\n');
+                streamBuffer = lines.pop() || '';
 
                 for (const line of lines) {
                     // Add this check for visual model errors
@@ -1483,9 +1670,11 @@ class Chat {
                                 window.globalAbortController = null;
                                 this.currentRequestId = null;
 
-                                // Handle context management
-                                OllamaAPI.previousContext = data.context;
-                                OllamaAPI.updateContextRemaining(data.context.length);
+                                // Handle context management (cloud responses may omit `context`).
+                                if (Array.isArray(data.context)) {
+                                    OllamaAPI.previousContext = data.context;
+                                    OllamaAPI.updateContextRemaining(data.context.length);
+                                }
 
                                 this.addMessageActionsToMessage(aiDiv);
                                 streamProcessor.finishResponse();
@@ -1509,7 +1698,7 @@ class Chat {
                                     );
 
                                     if (window.forceNewConversationGroup) {
-                                        //console.log('Chat: Reset forceNewConversationGroup flag after regular conversation storage');
+                                       //console.log('Chat: Reset forceNewConversationGroup flag after regular conversation storage');
                                         window.forceNewConversationGroup = false;
                                     }
                                     if (window.currentConversationGroup) {
@@ -1525,12 +1714,86 @@ class Chat {
                                 }
                             }
                             else {
-                                streamProcessor.processChunk(data.response);
+                                const responseChunk = data.response || data.message?.content;
+                                if (responseChunk) {
+                                    streamProcessor.processChunk(responseChunk);
+                                }
                             }
                         } catch (parseError) {
                             console.error('Chat: Error parsing response chunk:', parseError, line);
                         }
                     }
+                }
+
+                if (done) {
+                    const tail = streamBuffer.trim();
+                    if (tail) {
+                        try {
+                            const data = JSON.parse(tail);
+                            if (data.done) {
+                                const buttons = streamProcessor.responseContainer.querySelectorAll('.code-copy-btn');
+                                buttons.forEach(button => button.style.display = 'block');
+                                this.aiResponse = streamProcessor.responseContainer.outerHTML;
+                                window.isGenerating = false;
+                                this.isGenerating = false;
+
+                                sendButton.textContent = Lang.get('sendButton');
+                                sendButton.classList.remove('cancel-state');
+                                sendButton.style.backgroundColor = '';
+                                sendButton.style.color = '';
+
+                                this.globalAbortController = null;
+                                window.globalAbortController = null;
+                                this.currentRequestId = null;
+
+                                if (Array.isArray(data.context)) {
+                                    OllamaAPI.previousContext = data.context;
+                                    OllamaAPI.updateContextRemaining(data.context.length);
+                                }
+
+                                this.addMessageActionsToMessage(aiDiv);
+                                streamProcessor.finishResponse();
+
+                                if (window.autoScrollEnabled) {
+                                    aiReplies.scrollTop = aiReplies.scrollHeight;
+                                }
+
+                                const dbData = await PaiperworkDB.getExistingDatabase(hashedMasterKey);
+
+                                if (dbData) {
+                                    await PaiperworkDB.storeConversationOnly(
+                                        hashedMasterKey,
+                                        prompt,
+                                        streamProcessor.getCleanResponseHTML(),
+                                        forceNewGroup,
+                                        window.currentConversationGroup
+                                    );
+
+                                    if (window.forceNewConversationGroup) {
+                                        window.forceNewConversationGroup = false;
+                                    }
+                                    if (window.currentConversationGroup) {
+                                        await PaiperworkDB.touchConversationGroup(hashedMasterKey, window.currentConversationGroup);
+                                        await this.refreshConversationListIfNeeded(hashedMasterKey, window.currentConversationGroup);
+                                    }
+                                    const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
+                                    if (settings.insights_enabled === 'true' && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
+                                        const insights = await SubjectiveInteractions.analyzeUserMessage(prompt, promptInput, sendButton);
+                                        await SubjectiveInteractions.storeInsights(hashedMasterKey, insights);
+                                    }
+                                }
+                            }
+                            else {
+                                const responseChunk = data.response || data.message?.content;
+                                if (responseChunk) {
+                                    streamProcessor.processChunk(responseChunk);
+                                }
+                            }
+                        } catch (parseError) {
+                            console.error('Chat: Error parsing response tail chunk:', parseError, tail);
+                        }
+                    }
+                    break;
                 }
             }
 
@@ -1563,7 +1826,7 @@ class Chat {
 
                 console.warn("Visual model error detected:", error.message);
             } else if (error.name === 'AbortError') {
-                //console.log('Chat: Request was aborted by user');
+               //console.log('Chat: Request was aborted by user');
 
                 // Reset UI state
                 sendButton.textContent = Lang.get('sendButton');
@@ -1573,6 +1836,23 @@ class Chat {
                 window.isGenerating = false;
                 this.isGenerating = false;
                 this.cleanupIncompleteResponses();
+            } else if (
+                error &&
+                error.message &&
+                (error.message.includes('(401)') || error.message.toLowerCase().includes('unauthorized'))
+            ) {
+                const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
+                    ? (window.OllamaAPI.getSelectedModelSource() || 'local')
+                    : 'local';
+
+                if (selectedProvider === 'cloud' && window.chatTab && typeof window.chatTab.openOllamaApiKeyManager === 'function') {
+                    await window.chatTab.openOllamaApiKeyManager(true);
+                }
+
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'system-message';
+                errorDiv.innerHTML = `<div class="message-bubble error">${(Lang.get && Lang.get('ollamaApiKeyRequired')) || 'An Ollama API key is required to use cloud models.'}</div>`;
+                aiReplies.appendChild(errorDiv);
             } else {
                 // Handle other errors by showing them in chat
                 const errorDiv = document.createElement('div');
@@ -1641,8 +1921,8 @@ class Chat {
     }
     // Cancels ongoing AI generation and resets UI state
     cancelOllamaGeneration() {
-        //console.log('Chat: cancelOllamaGeneration called, stack:', new Error().stack);
-        //console.log('Chat: Aborting generation');
+       //console.log('Chat: cancelOllamaGeneration called, stack:', new Error().stack);
+       //console.log('Chat: Aborting generation');
 
         // Try to abort using this instance's controller first
         if (this.globalAbortController) {
@@ -1661,7 +1941,7 @@ class Chat {
                 // Reset send button
                 const sendButton = document.getElementById('send-prompt');
                 if (sendButton) {
-                    //console.log('Chat: Resetting send button to Send state');
+                   //console.log('Chat: Resetting send button to Send state');
                     sendButton.textContent = Lang.get('sendButton');
                     sendButton.style.backgroundColor = '';
                     sendButton.style.color = '';
@@ -1683,7 +1963,7 @@ class Chat {
         // Fallback to global controller if instance one didn't work
         if (window.globalAbortController) {
             try {
-                //console.log('Chat: Trying with global abort controller');
+               //console.log('Chat: Trying with global abort controller');
                 window.globalAbortController.abort();
                 window.globalAbortController = null;
                 this.isGenerating = false;
@@ -1735,15 +2015,15 @@ class Chat {
     }
     // Cleans up incomplete AI responses and updates the UI accordingly
     cleanupIncompleteResponses() {
-        //console.log('Chat: Cleaning up incomplete responses');
+       //console.log('Chat: Cleaning up incomplete responses');
 
         // FIRST ALWAYS: Check for and cancel ALL active thinking modes
         if (window.activeThinkingModes && window.activeThinkingModes.size > 0) {
-            //console.log(`Chat: Found ${window.activeThinkingModes.size} active thinking modes to cancel`);
+           //console.log(`Chat: Found ${window.activeThinkingModes.size} active thinking modes to cancel`);
 
             // Cancel all active thinking modes
             window.activeThinkingModes.forEach((thinkingMode, id) => {
-                //console.log(`Chat: Cancelling thinking mode ${id}`);
+               //console.log(`Chat: Cancelling thinking mode ${id}`);
 
                 // First clear the timer
                 if (thinkingMode.timer) {
@@ -1766,7 +2046,7 @@ class Chat {
 
             // Clear the registry
             window.activeThinkingModes.clear();
-            //console.log('Chat: All thinking modes cancelled');
+           //console.log('Chat: All thinking modes cancelled');
         }
 
         // Get all messages to determine the correct placement for cancel note
@@ -1785,7 +2065,7 @@ class Chat {
         // If the last message is a user message, we need to create a placeholder assistant message
         // or add the cancel note to the user message itself
         if (isLastMessageUser) {
-            //console.log('Chat: Last message is from user, AI never started responding');
+           //console.log('Chat: Last message is from user, AI never started responding');
 
             // Check if this user message already has a cancel note
             if (!lastMessage.querySelector('.cancel-note')) {
@@ -1959,7 +2239,7 @@ class Chat {
 
         // Also check if there are any incomplete message bubbles
         const incompleteMessages = document.querySelectorAll('.incomplete-message');
-        //console.log('Chat: Found incomplete messages:', incompleteMessages.length);
+       //console.log('Chat: Found incomplete messages:', incompleteMessages.length);
         incompleteMessages.forEach(msg => {
             msg.classList.remove('incomplete-message');
             msg.classList.add('cancelled-message');
@@ -1971,7 +2251,7 @@ class Chat {
     resetImageData() {
         // First preserve any current images in OllamaAPI.lastUsedImages for continuity
         if ((window.selectedImages && window.selectedImages.length > 0) || window.selectedImage) {
-            //console.log('Chat: Preserving images for continuity before UI reset');
+           //console.log('Chat: Preserving images for continuity before UI reset');
 
             // Create array for storing images
             let imagesToSave = [];
@@ -1998,7 +2278,7 @@ class Chat {
             if (imagesToSave.length > 0) {
                 OllamaAPI.lastUsedImages = [...imagesToSave];
                 OllamaAPI.maxImagesUsed = Math.max(OllamaAPI.maxImagesUsed || 0, imagesToSave.length);
-                //console.log(`Chat: Saved ${imagesToSave.length} images under-the-hood for continuity`);
+               //console.log(`Chat: Saved ${imagesToSave.length} images under-the-hood for continuity`);
             }
         }
 
@@ -2050,8 +2330,8 @@ class Chat {
         // Mark images as hidden (used only under the hood)
         window.imagesUnderTheHood = true;
 
-        //console.log('Chat: Image UI reset, keeping images under the hood for continuity');
-        //console.log(`Chat: We have ${OllamaAPI.lastUsedImages.length} images preserved for continuity`);
+       //console.log('Chat: Image UI reset, keeping images under the hood for continuity');
+       //console.log(`Chat: We have ${OllamaAPI.lastUsedImages.length} images preserved for continuity`);
     }
     // Regenerates an AI response for a given message, restoring prompt, images, and web search state
     async regenerateMessage(messageElement) {
@@ -2095,7 +2375,7 @@ class Chat {
             originalImages = [];
 
             if (imageElements.length > 0 || imageDataElements.length > 0) {
-                //console.log(`Regenerate: Found ${imageElements.length + imageDataElements.length} images to restore`);
+               //console.log(`Regenerate: Found ${imageElements.length + imageDataElements.length} images to restore`);
 
                 // Collect image data from img elements
                 imageElements.forEach(img => {
@@ -2121,7 +2401,7 @@ class Chat {
                         const img = singleImageContainer.querySelector('img');
                         if (img && img.src && img.src.startsWith('data:image/') && !originalImages.includes(img.src)) {
                             originalImages.push(img.src);
-                            //console.log('Regenerate: Found single image in .user-message-image container');
+                           //console.log('Regenerate: Found single image in .user-message-image container');
                         }
                     }
 
@@ -2135,7 +2415,7 @@ class Chat {
                             }
                         });
                         if (imgs.length > 0) {
-                            //console.log(`Regenerate: Found ${imgs.length} images in .user-message-images container`);
+                           //console.log(`Regenerate: Found ${imgs.length} images in .user-message-images container`);
                         }
                     }
                 }
@@ -2155,7 +2435,7 @@ class Chat {
                 '.continue-button-container, .continuation-container, .continue-conversation-container, [class*="continue"]'
             );
             continueButtons.forEach(button => {
-                //console.log('Regenerate: Removing continue button due to regeneration');
+               //console.log('Regenerate: Removing continue button due to regeneration');
                 button.remove();
             });
 
@@ -2168,7 +2448,7 @@ class Chat {
 
             //  RESTORE IMAGES: Set up image state for regeneration
             if (originalImages.length > 0 && isVisualModel) {
-                //console.log('Regenerate: Restoring images for visual model');
+               //console.log('Regenerate: Restoring images for visual model');
 
                 // Restore image state variables
                 if (isGemma3 && originalImages.length > 1) {
@@ -2182,7 +2462,7 @@ class Chat {
                     });
                     window.currentMessageImages = originalImages.map(img => ({ src: img }));
 
-                    //console.log(`Regenerate: Restored ${originalImages.length} images for Gemma3`);
+                   //console.log(`Regenerate: Restored ${originalImages.length} images for Gemma3`);
                 } else {
                     // Single image mode
                     window.selectedImage = originalImages[0];
@@ -2191,7 +2471,7 @@ class Chat {
                         : originalImages[0];
                     window.currentMessageImages = [{ src: originalImages[0] }];
 
-                    //console.log('Regenerate: Restored single image');
+                   //console.log('Regenerate: Restored single image');
                 }
 
                 // Update UI to show image button as active
@@ -2236,10 +2516,10 @@ class Chat {
             if (webSearchButton) {
                 if (wasWebSearchActive) {
                     webSearchButton.classList.add('active');
-                    //console.log('Regenerate: Activated web search');
+                   //console.log('Regenerate: Activated web search');
                 } else {
                     webSearchButton.classList.remove('active');
-                    //console.log('Regenerate: Deactivated web search');
+                   //console.log('Regenerate: Deactivated web search');
                 }
             }
 
@@ -2285,7 +2565,7 @@ class Chat {
 
                 //  ROUTE TO APPROPRIATE METHOD: Choose the right generation method
                 if (wasWebSearchActive) {
-                    //console.log('Regenerate: Using web search method (preserve original system prompt)');
+                   //console.log('Regenerate: Using web search method (preserve original system prompt)');
                     // Per requirement: do NOT pass the enhanced/modified system prompt here — use the base prompt as-is.
                     // `basePrompt` was loaded from settings or fallback above.
                     try {
@@ -2306,7 +2586,7 @@ class Chat {
                         throw e;
                     }
                 } else if (originalImages.length > 0 && isVisualModel) {
-                    //console.log('Regenerate: Using image method');
+                   //console.log('Regenerate: Using image method');
 
                     // Determine which image data to use
                     let imageDataToSend = null;
@@ -2333,7 +2613,7 @@ class Chat {
                         await this.handleImageResponse(response, originalPrompt, systemPrompt, abortController.signal);
                     }
                 } else {
-                    //console.log('Regenerate: Using normal method');
+                   //console.log('Regenerate: Using normal method');
                     const aiReplies = document.querySelector('.ai-replies');
                     const aiDiv = document.createElement('div');
                     aiDiv.className = 'assistant-message';
@@ -2385,7 +2665,7 @@ class Chat {
                 console.error('Error during regeneration:', error);
 
                 if (error.name === 'AbortError') {
-                    //console.log('Regeneration was cancelled by user');
+                   //console.log('Regeneration was cancelled by user');
                 } else {
                     alert(Lang.get('regenerationError') || 'Error during regeneration: ' + error.message);
                 }
@@ -2426,14 +2706,14 @@ class Chat {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let streamBuffer = '';
 
         try {
             while (true) {
                 const { value, done } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
+            streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+            const lines = streamBuffer.split('\n');
+            streamBuffer = lines.pop() || '';
 
                 for (const line of lines) {
                     if (line.trim()) {
@@ -2470,12 +2750,62 @@ class Chat {
 
                                 return;
                             } else {
-                                streamProcessor.processChunk(data.response);
+                                const responseChunk = data.response || data.message?.content;
+                                if (responseChunk) {
+                                    streamProcessor.processChunk(responseChunk);
+                                }
                             }
                         } catch (error) {
                             console.error('Error processing image response chunk:', error);
                         }
                     }
+                }
+
+                if (done) {
+                    const tail = streamBuffer.trim();
+                    if (tail) {
+                        try {
+                            const data = JSON.parse(tail);
+
+                            if (data.done) {
+                                const buttons = streamProcessor.responseContainer.querySelectorAll('.code-copy-btn');
+                                buttons.forEach(button => button.style.display = 'block');
+
+                                streamProcessor.finishResponse();
+
+                                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
+                                    window.chat.addMessageActionsToMessage(aiDiv);
+                                }
+
+                                const aiResponse = streamProcessor.responseContainer.outerHTML;
+                                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+
+                                await PaiperworkDB.storeConversationOnly(
+                                    hashedMasterKey,
+                                    originalPrompt,
+                                    aiResponse,
+                                    false,
+                                    window.currentConversationGroup
+                                );
+
+                                if (data.context) {
+                                    this.previousContext = data.context;
+                                    window.currentCheckpoint = { lastContext: data.context };
+                                    OllamaAPI.updateContextRemaining(data.context.length);
+                                }
+
+                                return;
+                            } else {
+                                const responseChunk = data.response || data.message?.content;
+                                if (responseChunk) {
+                                    streamProcessor.processChunk(responseChunk);
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error processing image response tail chunk:', error);
+                        }
+                    }
+                    break;
                 }
             }
         } catch (error) {
@@ -2492,7 +2822,7 @@ class Chat {
 
         // Store the most recent fetched group ID
         if (!this.lastFetchedGroupId || this.lastFetchedGroupId !== groupId) {
-            //console.log(`Chat: Group changed from ${this.lastFetchedGroupId} to ${groupId}, refreshing conversation list`);
+           //console.log(`Chat: Group changed from ${this.lastFetchedGroupId} to ${groupId}, refreshing conversation list`);
             this.lastFetchedGroupId = groupId;
 
             if (window.chatTab && typeof window.chatTab.loadSessionsList === 'function') {
@@ -2501,7 +2831,7 @@ class Chat {
             }
             return true;
         } else {
-            //console.log(`Chat: Still in group ${groupId}, skipping conversation list refresh`);
+           //console.log(`Chat: Still in group ${groupId}, skipping conversation list refresh`);
             return false;
         }
     }
@@ -2591,7 +2921,7 @@ class Chat {
                     if (imageElements.length > 0) {
                         // If there are images, the database might store this as JSON
                         // We need to match against both the text and the full JSON structure
-                        //console.log(`User message has ${imageElements.length} images, will try multiple match strategies`);
+                       //console.log(`User message has ${imageElements.length} images, will try multiple match strategies`);
                     }
                 }
             }
@@ -2636,19 +2966,19 @@ class Chat {
 
                     // Strategy 1: Try with both user and assistant content
                     if (userContent && assistantContent) {
-                        //console.log('Trying deletion with both user and assistant content');
+                       //console.log('Trying deletion with both user and assistant content');
                         deletionSuccess = await PaiperworkDB.deleteConversationPair(hashedMasterKey, userContent, assistantContent);
                     }
 
                     // Strategy 2: If that failed, try with just user content
                     if (!deletionSuccess && userContent) {
-                        //console.log('Trying deletion with user content only');
+                       //console.log('Trying deletion with user content only');
                         deletionSuccess = await PaiperworkDB.deleteConversationPair(hashedMasterKey, userContent, null);
                     }
 
                     // Strategy 3: If that failed, try with just assistant content
                     if (!deletionSuccess && assistantContent) {
-                        //console.log('Trying deletion with assistant content only');
+                       //console.log('Trying deletion with assistant content only');
                         deletionSuccess = await PaiperworkDB.deleteConversationPair(hashedMasterKey, null, assistantContent);
                     }
 
@@ -2657,7 +2987,7 @@ class Chat {
                     }
 
                     await new Promise(resolve => setTimeout(resolve, 100));
-                    //console.log('Database deletion completed successfully');
+                   //console.log('Database deletion completed successfully');
                 } catch (dbError) {
                     console.error('Error in database deletion:', dbError);
                     // Remove modal before showing error
@@ -2699,11 +3029,11 @@ class Chat {
             const remainingMessages = aiReplies.querySelectorAll('.user-message, .assistant-message:not(.welcome-message)');
             const welcomeMessages = aiReplies.querySelectorAll('.welcome-message');
 
-            //console.log(`After deletion: ${remainingMessages.length} conversation messages + ${welcomeMessages.length} welcome messages remain in UI`);
+           //console.log(`After deletion: ${remainingMessages.length} conversation messages + ${welcomeMessages.length} welcome messages remain in UI`);
 
             // CRITICAL FIX: Check if ONLY welcome messages remain (no real conversation messages)
             if (remainingMessages.length === 0) {
-                //console.log('No real conversation messages left, group should be considered empty');
+               //console.log('No real conversation messages left, group should be considered empty');
 
                 // Update modal status to show session refresh
                 this.updateDeleteModalStatus(deleteModal, 'refresh');
@@ -2718,7 +3048,7 @@ class Chat {
 
                 // CLEAR WELCOME MESSAGES TOO - they're not part of real conversation
                 welcomeMessages.forEach(welcomeMsg => {
-                    //console.log('Removing welcome message as conversation is empty');
+                   //console.log('Removing welcome message as conversation is empty');
                     welcomeMsg.remove();
                 });
 
@@ -2726,7 +3056,7 @@ class Chat {
 
                 if (hashedMasterKey && currentGroupId) {
                     // Double-check database state
-                    //console.log(`Checking database for remaining messages in group ${currentGroupId}`);
+                   //console.log(`Checking database for remaining messages in group ${currentGroupId}`);
 
                     const db = await PaiperworkDB.getDatabase(hashedMasterKey);
                     if (db) {
@@ -2737,10 +3067,10 @@ class Chat {
                     `, [currentGroupId]);
 
                         const messageCount = result[0]?.values[0]?.[0] || 0;
-                        //console.log(`Database shows ${messageCount} messages remaining in group ${currentGroupId}`);
+                       //console.log(`Database shows ${messageCount} messages remaining in group ${currentGroupId}`);
 
                         if (messageCount === 0) {
-                            //console.log('Group is empty in database, clearing current conversation group and refreshing list');
+                           //console.log('Group is empty in database, clearing current conversation group and refreshing list');
 
                             // Clear the current conversation group
                             window.currentConversationGroup = null;
@@ -2752,7 +3082,7 @@ class Chat {
 
                             // Refresh the conversation list to remove the empty group
                             if (window.chatTab && typeof window.chatTab.loadSessionsList === 'function') {
-                                //console.log('Refreshing conversation list due to empty group');
+                               //console.log('Refreshing conversation list due to empty group');
                                 const updatedSessions = await window.chatTab.loadSessionsList(hashedMasterKey);
                                 window.chatTab.renderSessionsList(updatedSessions);
                             }
@@ -2761,7 +3091,7 @@ class Chat {
                 }
             } else {
                 // Messages remain - NO conversation list refresh
-                //console.log(`${remainingMessages.length} conversation messages remain - not refreshing list`);
+               //console.log(`${remainingMessages.length} conversation messages remain - not refreshing list`);
 
                 // Optional: Touch the conversation group to update its timestamp (no refresh)
                 const currentGroupId = window.currentConversationGroup;
@@ -2778,7 +3108,7 @@ class Chat {
             this.updateDeleteModalStatus(deleteModal, 'success');
             await new Promise(resolve => setTimeout(resolve, 1000)); // Show success for 1 second
 
-            //console.log('Delete operation completed successfully');
+           //console.log('Delete operation completed successfully');
             return true;
         } catch (error) {
             console.error('Error deleting conversation pair:', error);
@@ -2965,7 +3295,7 @@ class Chat {
     }
     // Adds action buttons (regenerate, delete, copy) to an assistant message
     addMessageActionsToMessage(assistantMessage) {
-        //console.log('Chat: Adding message actions to assistant message');
+       //console.log('Chat: Adding message actions to assistant message');
 
         if (!assistantMessage || !assistantMessage.classList.contains('assistant-message')) {
             console.error('Invalid message element for adding actions');
@@ -3103,7 +3433,7 @@ class Chat {
         // Add container to response container
         responseContainer.appendChild(actionsContainer);
 
-        //console.log('Message actions added successfully');
+       //console.log('Message actions added successfully');
     }
     // Checks if a given error text matches known visual model errors
     isVisualModelError(text) {
@@ -3121,7 +3451,7 @@ class Chat {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    //console.log('DOMContentLoaded: Setting up Chat static methods for global access');
+   //console.log('DOMContentLoaded: Setting up Chat static methods for global access');
 
     // Ensure Chat class methods are available globally via both Chat and chat
     if (window.Chat) {
@@ -3135,7 +3465,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return false;
                 }
             };
-            //console.log('Set up window.Chat.deleteConversationPair');
+           //console.log('Set up window.Chat.deleteConversationPair');
         }
 
         if (!window.Chat.regenerateMessage) {
@@ -3147,14 +3477,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     return false;
                 }
             };
-            //console.log('Set up window.Chat.regenerateMessage');
+           //console.log('Set up window.Chat.regenerateMessage');
         }
     }
 
     // Also make sure the instance methods are available if needed
     if (window.chat && !window.chatInstance) {
         window.chatInstance = window.chat;
-        //console.log('Set window.chatInstance from window.chat');
+       //console.log('Set window.chatInstance from window.chat');
     }
 });
 

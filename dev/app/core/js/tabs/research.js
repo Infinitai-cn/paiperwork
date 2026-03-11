@@ -39,7 +39,7 @@ class ResearchAutomation {
         const sizeSelector = document.getElementById('research-size-selector');
         if (sizeSelector) {
             this.reportSize = sizeSelector.value;
-            //console.log(`Research: Report size initialized to ${this.reportSize}`);
+           //console.log(`Research: Report size initialized to ${this.reportSize}`);
         }
 
         // ADD THIS CHECK to prevent duplicate controls
@@ -133,19 +133,19 @@ class ResearchAutomation {
             toggleCheckbox.addEventListener('change', (e) => {
                 this.deepSearchEnabled = e.target.checked;
                 deepSearchOptions.style.display = this.deepSearchEnabled ? 'block' : 'none';
-                //console.log(`Deep Search ${this.deepSearchEnabled ? 'ENABLED' : 'DISABLED'} ✅`);
+               //console.log(`Deep Search ${this.deepSearchEnabled ? 'ENABLED' : 'DISABLED'} ✅`);
             });
 
             // Update depth configuration when changed
             depthSelector.addEventListener('change', (e) => {
                 this.maxDeepSearchDepth = parseInt(e.target.value, 10);
-                //console.log(`Deep Search depth set to ${this.maxDeepSearchDepth} levels 🔍`);
+               //console.log(`Deep Search depth set to ${this.maxDeepSearchDepth} levels 🔍`);
             });
 
             // Update links per page configuration when changed
             linksSelector.addEventListener('change', (e) => {
                 this.maxLinksPerPage = parseInt(e.target.value, 10);
-                //console.log(`Deep Search links per page set to ${this.maxLinksPerPage} links 🔗`);
+               //console.log(`Deep Search links per page set to ${this.maxLinksPerPage} links 🔗`);
             });
 
             // Add tooltip hover effect
@@ -300,15 +300,15 @@ class ResearchAutomation {
         let isClosing = false;
 
         closeButton.addEventListener('click', () => {
-            //console.log('Close button clicked - starting close sequence');
+           //console.log('Close button clicked - starting close sequence');
 
             // Prevent multiple clicks - NO CHANGES HERE
             if (isClosing) {
-                //console.log('Already closing - ignoring repeated click');
+               //console.log('Already closing - ignoring repeated click');
                 return;
             }
 
-            //console.log('Setting isClosing = true');
+           //console.log('Setting isClosing = true');
             isClosing = true;
 
             // IMPORTANT: Store all references FIRST before any cleanup
@@ -319,20 +319,20 @@ class ResearchAutomation {
             closeButton.disabled = true;
             closeButton.textContent = '✓';
             closeButton.style.color = 'var(--accent-color, #4f46e5)';
-            //console.log('Button visual feedback applied');
+           //console.log('Button visual feedback applied');
 
             // Set flags BEFORE any async operations
             this.isCancelled = true;
             this.isResearching = false;
             this._skipAllSummarizations = true; // This is crucial!
-            //console.log('Cancellation flags set: isCancelled=true, isResearching=false, _skipAllSummarizations=true');
+           //console.log('Cancellation flags set: isCancelled=true, isResearching=false, _skipAllSummarizations=true');
 
             // CRITICAL FIX: Immediately remove from DOM with zero delay
             try {
                 // Remove element first - highest priority
                 if (document.body.contains(overlayElement)) {
                     document.body.removeChild(overlayElement);
-                    //console.log('Overlay successfully removed from DOM');
+                   //console.log('Overlay successfully removed from DOM');
                 }
             } catch (err) {
                 console.error('Error removing overlay element:', err);
@@ -341,13 +341,13 @@ class ResearchAutomation {
             // ONLY AFTER DOM removal, handle the object reference
             if (this.activeWindow === windowReference) {
                 this.activeWindow = null;
-                //console.log('Active window reference cleared');
+               //console.log('Active window reference cleared');
             }
 
             // Run cleanup operations AFTER DOM is modified
             // This ensures visual feedback is immediate
             setTimeout(() => {
-                //console.log('Running post-close cleanup operations');
+               //console.log('Running post-close cleanup operations');
                 this.completeTermination();
             }, 0);
         });
@@ -546,7 +546,7 @@ class ResearchAutomation {
     // Processes all search results sequentially, extracting and summarizing sources one by one
     async processAllSourcesSequentially(searchResults, query, loadingWindow = null) {
         const allSources = [];
-        //console.log(`Research: Beginning sequential processing of all search results`);
+       //console.log(`Research: Beginning sequential processing of all search results`);
 
         try {
             // First, calculate EXACTLY how many UNIQUE sources we'll process
@@ -572,7 +572,7 @@ class ResearchAutomation {
                 }
             }
 
-            //console.log(`Research: Will process exactly ${totalSourcesToProcess} sources in sequence`);
+           //console.log(`Research: Will process exactly ${totalSourcesToProcess} sources in sequence`);
 
             // Now process each source ONE BY ONE
             let processedCount = 0;
@@ -593,7 +593,7 @@ class ResearchAutomation {
                     for (const content of searchGroup.enhancedContent) {
                         // Skip if already visited
                         if (this.visitedUrls.has(content.url)) continue;
-                        //console.log(`Research: Processing source ${processedCount + 1}/${totalSourcesToProcess}`);
+                       //console.log(`Research: Processing source ${processedCount + 1}/${totalSourcesToProcess}`);
 
                         // NEW: Clean title before processing
                         const cleanedTitle = this.cleanSearchResultTitle(content.title, content.url);
@@ -639,7 +639,7 @@ class ResearchAutomation {
                     for (const result of searchGroup.results.slice(0, 3)) {
                         // Skip if already visited
                         if (this.visitedUrls.has(result.link)) continue;
-                        //console.log(`Research: Processing source ${processedCount + 1}/${totalSourcesToProcess}`);
+                       //console.log(`Research: Processing source ${processedCount + 1}/${totalSourcesToProcess}`);
 
                         // NEW: Clean title before processing
                         const cleanedTitle = this.cleanSearchResultTitle(result.title, result.link);
@@ -673,7 +673,7 @@ class ResearchAutomation {
                 if (this.isCancelled) break;
             }
 
-            //console.log(`Research: Completed sequential processing of ${processedCount}/${totalSourcesToProcess} sources`);
+           //console.log(`Research: Completed sequential processing of ${processedCount}/${totalSourcesToProcess} sources`);
             return allSources;
         } catch (error) {
             console.error("Error in sequential source processing:", error);
@@ -683,7 +683,7 @@ class ResearchAutomation {
 
     // Cleans up search result titles by removing translation prompts, breadcrumbs, and domain artifacts
     cleanSearchResultTitle(title, url) {
-        //console.log(`TITLE CLEANING INPUT: "${title}" for URL: ${url}`);
+       //console.log(`TITLE CLEANING INPUT: "${title}" for URL: ${url}`);
 
         if (!title || !url) return title || '';
 
@@ -707,7 +707,7 @@ class ResearchAutomation {
             for (const prefix of urlPrefixes) {
                 const prefixIndex = cleanedTitle.indexOf(prefix);
                 if (prefixIndex > 0) {
-                    //console.log(`TITLE CLEANING: Splitting at ${prefix}`);
+                   //console.log(`TITLE CLEANING: Splitting at ${prefix}`);
                     cleanedTitle = cleanedTitle.substring(0, prefixIndex).trim();
                     break; // Exit after first match
                 }
@@ -720,7 +720,7 @@ class ResearchAutomation {
             // 5. Check for domain being fused within title (like "ScienceAlerthttps://")
             const domainIndex = cleanedTitle.toLowerCase().indexOf(domain.toLowerCase());
             if (domainIndex > 0) {
-                //console.log(`TITLE CLEANING: Taking text before domain`);
+               //console.log(`TITLE CLEANING: Taking text before domain`);
                 cleanedTitle = cleanedTitle.substring(0, domainIndex).trim();
             }
 
@@ -731,7 +731,7 @@ class ResearchAutomation {
                 const tldRegex = new RegExp(`(.*?)${tld}(?:[^a-zA-Z0-9]|$)`, 'i');
                 const match = cleanedTitle.match(tldRegex);
                 if (match && match[1] && match.index > 0) {
-                    //console.log(`TITLE CLEANING: Splitting at domain extension ${tld}`);
+                   //console.log(`TITLE CLEANING: Splitting at domain extension ${tld}`);
                     cleanedTitle = match[1].trim();
                     break;
                 }
@@ -739,13 +739,13 @@ class ResearchAutomation {
 
             // 7. Handle remaining path separators in title
             if (cleanedTitle.includes('›')) {
-                //console.log(`TITLE CLEANING: Cleaning title with path separators`);
+               //console.log(`TITLE CLEANING: Cleaning title with path separators`);
                 cleanedTitle = cleanedTitle.split('›')[0].trim();
             }
 
             // 8. If domain starts with title, extract site name
             if (cleanedTitle.toLowerCase().startsWith(domain.toLowerCase())) {
-                //console.log(`TITLE CLEANING: Title starts with domain`);
+               //console.log(`TITLE CLEANING: Title starts with domain`);
                 const siteName = domain.split('.')[0];
                 cleanedTitle = siteName.charAt(0).toUpperCase() + siteName.slice(1);
             }
@@ -756,7 +756,7 @@ class ResearchAutomation {
                 .replace(/\s*-\s*$/, '') // Remove trailing dashes
                 .trim();
 
-            //console.log(`TITLE CLEANING: Final result: "${cleanedTitle}"`);
+           //console.log(`TITLE CLEANING: Final result: "${cleanedTitle}"`);
             return cleanedTitle || title; // Fallback to original if cleaning resulted in empty string
 
         } catch (error) {
@@ -771,7 +771,7 @@ class ResearchAutomation {
 
         this.totalOperations++;
         this.pendingOperations.add(operationId);
-        //console.log(`Research: Operation started [${operationId}], ${this.pendingOperations.size}/${this.totalOperations} pending`);
+       //console.log(`Research: Operation started [${operationId}], ${this.pendingOperations.size}/${this.totalOperations} pending`);
         return true;
     }
 
@@ -781,11 +781,11 @@ class ResearchAutomation {
 
         this.pendingOperations.delete(operationId);
         this.completedOperations++;
-        //console.log(`Research: Operation completed [${operationId}], ${this.pendingOperations.size}/${this.totalOperations} pending`);
+       //console.log(`Research: Operation completed [${operationId}], ${this.pendingOperations.size}/${this.totalOperations} pending`);
     }
     // Executes all search queries in parallel and cleans up the results
     async executeAllSearches(searchQueries) {
-        //console.log(`Research: Executing ${searchQueries.length} search queries in parallel`);
+       //console.log(`Research: Executing ${searchQueries.length} search queries in parallel`);
 
         // Run searches in parallel with Promise.all
         const searchPromises = searchQueries.map(async (searchQuery) => {
@@ -822,14 +822,14 @@ class ResearchAutomation {
 
         // Wait for all searches to complete
         const searchResults = (await Promise.all(searchPromises)).filter(Boolean);
-        //console.log(`Research: Completed ${searchResults.length} search queries`);
+       //console.log(`Research: Completed ${searchResults.length} search queries`);
 
         return searchResults;
     }
 
     // Processes only the primary (top-level) sources from search results
     async processPrimarySources(searchResults) {
-        //console.log("Research: Processing primary sources");
+       //console.log("Research: Processing primary sources");
         const allSources = [];
 
         // Process all search groups sequentially
@@ -848,7 +848,7 @@ class ResearchAutomation {
 
                     // Check for cancellation
                     if (this.isCancelled) {
-                        //console.log("Research cancelled during primary source processing");
+                       //console.log("Research cancelled during primary source processing");
                         break;
                     }
                 }
@@ -884,7 +884,7 @@ class ResearchAutomation {
 
                     // Check for cancellation
                     if (this.isCancelled) {
-                        //console.log("Research cancelled during enhanced content processing");
+                       //console.log("Research cancelled during enhanced content processing");
                         break;
                     }
                 }
@@ -894,43 +894,43 @@ class ResearchAutomation {
             if (this.isCancelled) break;
         }
 
-        //console.log(`Research: Completed processing ${allSources.length} primary sources`);
+       //console.log(`Research: Completed processing ${allSources.length} primary sources`);
         return allSources;
     }
 
     // Processes deep links found within primary sources up to a specified depth
     async processDeepLinks(primarySources, query) {
-        //console.log(`Research: Processing deep links with max depth ${this.maxDeepSearchDepth}`);
+       //console.log(`Research: Processing deep links with max depth ${this.maxDeepSearchDepth}`);
         const deepSources = [];
         let processingPromises = []; // Track ALL promises across ALL depth levels
 
         try {
             // Process each level of depth sequentially
             for (let currentDepth = 1; currentDepth <= this.maxDeepSearchDepth; currentDepth++) {
-                //console.log(`Research: Processing depth level ${currentDepth}`);
+               //console.log(`Research: Processing depth level ${currentDepth}`);
 
                 // Identify sources to process at this level
                 const sourcesToProcess = currentDepth === 1 ?
                     primarySources :
                     deepSources.filter(source => source.depth === currentDepth - 1);
 
-                //console.log(`Research: Found ${sourcesToProcess.length} sources to process at depth ${currentDepth}`);
+               //console.log(`Research: Found ${sourcesToProcess.length} sources to process at depth ${currentDepth}`);
 
                 // For each source at the current depth level
                 for (const source of sourcesToProcess) {
                     // Skip sources with no content
                     if (!source.originalContent) {
-                        //console.log(`Research: Skipping source with no content: ${source.title}`);
+                       //console.log(`Research: Skipping source with no content: ${source.title}`);
                         continue;
                     }
 
                     try {
                         // Extract relevant links from the source content
                         const links = await this.extractRelevantLinks(source.originalContent, source.url, query);
-                        //console.log(`Research: Found ${links.length} links from source: ${source.title}`);
+                       //console.log(`Research: Found ${links.length} links from source: ${source.title}`);
 
                         if (this.isCancelled) {
-                            //console.log(`Research: Processing cancelled, stopping deep link extraction`);
+                           //console.log(`Research: Processing cancelled, stopping deep link extraction`);
                             break;
                         }
 
@@ -939,7 +939,7 @@ class ResearchAutomation {
                             link && !this.visitedUrls.has(link) && !this.isCancelled
                         ).slice(0, this.maxLinksPerPage);
 
-                        //console.log(`Research: Will process ${validLinks.length} valid links from source: ${source.title}`);
+                       //console.log(`Research: Will process ${validLinks.length} valid links from source: ${source.title}`);
 
                         // Process each link and explicitly track the promise
                         for (const link of validLinks) {
@@ -969,16 +969,16 @@ class ResearchAutomation {
 
                 // Wait for all links at current depth level to finish before moving to next level
                 if (processingPromises.length > 0) {
-                    //console.log(`Research: Waiting for ${processingPromises.length} link processing operations at depth ${currentDepth}...`);
+                   //console.log(`Research: Waiting for ${processingPromises.length} link processing operations at depth ${currentDepth}...`);
                     await Promise.all(processingPromises);
-                    //console.log(`Research: Completed processing all links at depth ${currentDepth}`);
+                   //console.log(`Research: Completed processing all links at depth ${currentDepth}`);
                     // Clear the array for next depth level
                     processingPromises = [];
                 }
             }
 
             // Log completion
-            //console.log(`Research: Completed processing ${deepSources.length} deep links across all depths`);
+           //console.log(`Research: Completed processing ${deepSources.length} deep links across all depths`);
             return deepSources;
         } catch (error) {
             console.error(`Research: Error in deep link processing:`, error);
@@ -991,7 +991,7 @@ class ResearchAutomation {
         // Skip if already visited or cancelled
         if (this.visitedUrls.has(url) || this.isCancelled) return;
 
-        //console.log(`Research: Processing ${depth > 0 ? 'deep link' : 'primary source'}: ${url}`);
+       //console.log(`Research: Processing ${depth > 0 ? 'deep link' : 'primary source'}: ${url}`);
 
         // Mark as visited immediately to prevent duplicates
         this.visitedUrls.add(url);
@@ -1010,7 +1010,7 @@ class ResearchAutomation {
             // Wait for extraction or timeout
             const content = await Promise.race([extractionPromise, timeoutPromise]);
             if (!content) {
-                //console.log(`Research: No content extracted from ${url}`);
+               //console.log(`Research: No content extracted from ${url}`);
                 return;
             }
 
@@ -1052,7 +1052,7 @@ class ResearchAutomation {
                 isPdf: isPdf
             });
 
-            //console.log(`Research: Successfully processed ${pageTitle}`);
+           //console.log(`Research: Successfully processed ${pageTitle}`);
 
         } catch (error) {
             console.error(`Research: Error processing ${url}:`, error);
@@ -1139,7 +1139,7 @@ class ResearchAutomation {
         try {
             // Check for cancellation first
             if (this.isCancelled) {
-                //console.log("Research: Summarization cancelled");
+               //console.log("Research: Summarization cancelled");
                 throw new DOMException('Research process aborted', 'AbortError');
             }
 
@@ -1153,7 +1153,7 @@ class ResearchAutomation {
         } catch (error) {
             // Handle cancellation errors specifically
             if (error.name === 'AbortError' || this.isCancelled) {
-                //console.log("Research: Summarization cancelled after started");
+               //console.log("Research: Summarization cancelled after started");
                 throw error; // Re-throw to propagate the cancellation
             }
 
@@ -1167,16 +1167,16 @@ class ResearchAutomation {
 
         // Register this operation in our master tracking system
         if (!this.trackOperation(`summarize_${operationId}`)) {
-            //console.log(`Research: Skipping summarization ${operationId} - tracking disabled`);
+           //console.log(`Research: Skipping summarization ${operationId} - tracking disabled`);
             return Lang.get('researchSummaryProcessingCompleted');
         }
 
         try {
-            //console.log(`Research: Starting content summarization (operation id: ${operationId})`);
+           //console.log(`Research: Starting content summarization (operation id: ${operationId})`);
 
             // Check for enhanced cancellation
             if (this.isCancelled || this._skipAllSummarizations) {
-                //console.log(`Research: Summarization ${operationId} skipped due to cancellation flag`);
+               //console.log(`Research: Summarization ${operationId} skipped due to cancellation flag`);
                 throw new DOMException('Research process aborted', 'AbortError');
             }
 
@@ -1214,7 +1214,7 @@ class ResearchAutomation {
 
             // Check cancellation again before API call
             if (this.isCancelled || this._skipAllSummarizations) {
-                //console.log("Research: Summarization cancelled before API call");
+               //console.log("Research: Summarization cancelled before API call");
                 throw new DOMException('Research process aborted', 'AbortError');
             }
             const selectedModel = document.getElementById('model-selector').value;
@@ -1224,18 +1224,19 @@ class ResearchAutomation {
             const controller = this.abortController || new AbortController();
             const signal = controller.signal;
 
-            const response = await fetch('http://localhost:11434/api/generate', {
+            const { routing, options: requestOptions } = await this.buildResearchRoutingAndOptions(selectedModel, {
+                num_ctx: parseInt(this.contextSize),
+                ...modelParams
+            });
+            const response = await fetch(`${routing.baseUrl}/generate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...routing.headers },
                 body: JSON.stringify({
-                    model: document.getElementById('model-selector').value,
+                    model: routing.modelName || selectedModel,
                     prompt: `Query: ${query}\n\nContent: ${content.substring(0, 8000)}`,
                     system: systemPrompt,
                     think: false,
-                    options: {
-                        num_ctx: parseInt(this.contextSize),
-                        ...modelParams
-                    },
+                    options: requestOptions,
                     stream: false
                 }),
                 signal: signal
@@ -1265,7 +1266,7 @@ class ResearchAutomation {
                 summaryFirstSentence: data.response?.substring(0, 50) + '...' || 'No summary'
             });*/
 
-            return this.removeAIThinkingTags(data.response.trim());
+            return this.removeAIThinkingTags(String(data?.response || data?.message?.content || '').trim());
         } catch (error) {
             console.error(`Research: Error in summarization ${operationId}:`, error);
             return content.substring(0, 150) + Lang.get('summaryFailedSuffix');
@@ -1277,11 +1278,11 @@ class ResearchAutomation {
     // Waits for all tracked research operations to complete or until a timeout
     async waitForAllOperationsToComplete(maxWaitTimeMs = 30000, loadingWindow = null) {
         if (this.pendingOperations.size === 0) {
-            //console.log(`Research: No pending operations (${this.completedOperations}/${this.totalOperations}), continuing immediately`);
+           //console.log(`Research: No pending operations (${this.completedOperations}/${this.totalOperations}), continuing immediately`);
             return true;
         }
 
-        //console.log(`Research: Waiting for ${this.pendingOperations.size} operations to complete (${this.completedOperations}/${this.totalOperations} total)`);
+       //console.log(`Research: Waiting for ${this.pendingOperations.size} operations to complete (${this.completedOperations}/${this.totalOperations} total)`);
 
 		const startedAt = Date.now();
 		let timeoutWarningShown = false;
@@ -1317,17 +1318,17 @@ class ResearchAutomation {
     async waitForSummarizationsToComplete(maxWaitTimeMs = 30000) {
         // If already complete, return immediately
         if (this.allSummarizationsComplete && this.pendingSummarizations.size === 0) {
-            //console.log(`Research: No pending summarizations (${this._totalSummarizationsCompleted}/${this._totalSummarizationsStarted}), continuing immediately`);
+           //console.log(`Research: No pending summarizations (${this._totalSummarizationsCompleted}/${this._totalSummarizationsStarted}), continuing immediately`);
             return;
         }
 
-        //console.log(`Research: Waiting for ${this.pendingSummarizations.size} summarization operations to complete (${this._totalSummarizationsCompleted}/${this._totalSummarizationsStarted} total)`);
+       //console.log(`Research: Waiting for ${this.pendingSummarizations.size} summarization operations to complete (${this._totalSummarizationsCompleted}/${this._totalSummarizationsStarted} total)`);
 
         // Create a promise that resolves when all summarizations are done
         return new Promise((resolve) => {
             // Set a timeout for the maximum wait time
             const timeoutId = setTimeout(() => {
-                //console.log(`Research: Maximum wait time reached, continuing anyway (${this._totalSummarizationsCompleted}/${this._totalSummarizationsStarted} completed, ${this.pendingSummarizations.size} still pending)`);
+               //console.log(`Research: Maximum wait time reached, continuing anyway (${this._totalSummarizationsCompleted}/${this._totalSummarizationsStarted} completed, ${this.pendingSummarizations.size} still pending)`);
                 this.allSummarizationsComplete = true; // Force complete
                 resolve();
             }, maxWaitTimeMs);
@@ -1337,10 +1338,10 @@ class ResearchAutomation {
                 if (this.allSummarizationsComplete || this.pendingSummarizations.size === 0) {
                     clearTimeout(timeoutId);
                     clearInterval(intervalId);
-                    //console.log(`Research: All summarizations complete (${this._totalSummarizationsCompleted}/${this._totalSummarizationsStarted}), continuing`);
+                   //console.log(`Research: All summarizations complete (${this._totalSummarizationsCompleted}/${this._totalSummarizationsStarted}), continuing`);
                     resolve();
                 } else {
-                    //console.log(`Research: Still waiting for ${this.pendingSummarizations.size} summarizations (${this._totalSummarizationsCompleted}/${this._totalSummarizationsStarted} total)`);
+                   //console.log(`Research: Still waiting for ${this.pendingSummarizations.size} summarizations (${this._totalSummarizationsCompleted}/${this._totalSummarizationsStarted} total)`);
                 }
             };
 
@@ -1373,6 +1374,30 @@ class ResearchAutomation {
         return cleanedText;
     }
 
+    async buildResearchRoutingAndOptions(selectedModel, baseOptions = {}) {
+        let routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+
+        // Keep cloud authentication flow consistent with Chat before direct cloud requests.
+        if (routing && routing.source === 'cloud') {
+            const ensureCloudKey = window.chatTab && typeof window.chatTab.ensureCloudApiKeyForSend === 'function'
+                ? window.chatTab.ensureCloudApiKeyForSend.bind(window.chatTab)
+                : null;
+
+            if (ensureCloudKey) {
+                const hasCloudKey = await ensureCloudKey();
+                if (!hasCloudKey) {
+                    throw new Error('Cloud API key required');
+                }
+                // Refresh routing so auth headers include the saved key.
+                routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+            }
+        }
+
+        const options = { ...(baseOptions || {}) };
+
+        return { routing, options };
+    }
+
     // Sorts sources by relevance and removes duplicates by URL
     processResultSources(allSources) {
         // Sort sources by relevance
@@ -1403,7 +1428,7 @@ class ResearchAutomation {
                 url.toLowerCase().includes('arxiv.org'); // Academic PDFs
 
             if (isPdfUrl) {
-                //console.log('Research: Detected PDF URL, using PDF.js for extraction:', url);
+               //console.log('Research: Detected PDF URL, using PDF.js for extraction:', url);
                 const pdfContent = await this.extractPdfContent(url);
 
                 // Mark this content as coming from a PDF for better source display
@@ -1428,7 +1453,7 @@ class ResearchAutomation {
             if (!response.ok) {
                 // If server returns a 415 (Unsupported Media Type), try PDF extraction as fallback
                 if (response.status === 415 || response.status === 422) {
-                    //console.log('Research: Server indicated unsupported content type, trying PDF extraction:', url);
+                   //console.log('Research: Server indicated unsupported content type, trying PDF extraction:', url);
                     const pdfContent = await this.extractPdfContent(url);
                     return {
                         text: pdfContent,
@@ -1464,7 +1489,7 @@ class ResearchAutomation {
     removeTranslationPrompts(text) {
         if (!text || typeof text !== 'string') return text;
 
-        //console.log('Cleaning translation prompts from content...');
+       //console.log('Cleaning translation prompts from content...');
 
         // Remove various translation prompt patterns
         let cleanedText = text
@@ -1502,7 +1527,7 @@ class ResearchAutomation {
         // Check for cancellation
         if (this.isCancelled) return [];
 
-        //console.log(`🔎 [Deep Search] Extracting links from ${sourceUrl}`);
+       //console.log(`🔎 [Deep Search] Extracting links from ${sourceUrl}`);
 
         try {
             // For link extraction, we need raw HTML rather than the extracted text content
@@ -1521,18 +1546,18 @@ class ResearchAutomation {
                 return urlMatch ? urlMatch[1] : null;
             }).filter(url => url !== null);
 
-            //console.log(`🔎 [Deep Search] Found ${links.length} raw links in content`);
+           //console.log(`🔎 [Deep Search] Found ${links.length} raw links in content`);
 
             // Limit number of links to process
             if (links.length === 0) {
-                //console.log(`🔎 [Deep Search] No links found in content`);
+               //console.log(`🔎 [Deep Search] No links found in content`);
                 return [];
             }
 
             // Filter out links we've already visited
             const beforeFilter = links.length;
             links = links.filter(url => !this.visitedUrls.has(url));
-            //console.log(`🔎 [Deep Search] Filtered ${beforeFilter - links.length} already visited links, ${links.length} remaining`);
+           //console.log(`🔎 [Deep Search] Filtered ${beforeFilter - links.length} already visited links, ${links.length} remaining`);
             const beforeResourceFilter = links.length;
             links = links.filter(url => {
                 const lowerUrl = url.toLowerCase();
@@ -1586,7 +1611,7 @@ class ResearchAutomation {
                     !isStaticAsset && // Exclude static asset domains & paths
                     !isHomepage; // Skip homepages
             });
-            //console.log(`🔎 [Deep Search] Filtered ${beforeResourceFilter - links.length} API/resource links, ${links.length} remaining`);
+           //console.log(`🔎 [Deep Search] Filtered ${beforeResourceFilter - links.length} API/resource links, ${links.length} remaining`);
 
             // Filter out URLs from common domains we want to avoid
             const beforeDomainFilter = links.length;
@@ -1602,7 +1627,7 @@ class ResearchAutomation {
                     !lowerUrl.includes('pinterest.com') &&
                     !lowerUrl.includes('reddit.com');
             });
-            //console.log(`🔎 [Deep Search] Filtered ${beforeDomainFilter - links.length} social/video links, ${links.length} remaining`);
+           //console.log(`🔎 [Deep Search] Filtered ${beforeDomainFilter - links.length} social/video links, ${links.length} remaining`);
             if (links.length > this.maxLinksPerPage) {
                 // Score links based on domain quality
                 const scoredLinks = links.map(url => {
@@ -1628,7 +1653,7 @@ class ResearchAutomation {
                 scoredLinks.sort((a, b) => b.score - a.score);
                 links = scoredLinks.map(item => item.url).slice(0, this.maxLinksPerPage);
 
-                //console.log(`🔎 [Deep Search] Prioritized ${links.length} academic/research links`);
+               //console.log(`🔎 [Deep Search] Prioritized ${links.length} academic/research links`);
             }
             // If we still have too many links, filter them based on relevance to query
             if (links.length > this.maxLinksPerPage * 2) {
@@ -1673,9 +1698,9 @@ class ResearchAutomation {
                 links = links.slice(0, this.maxLinksPerPage);
             }
 
-            //console.log(`🔎 [Deep Search] Selected ${links.length} top links for deep search exploration`);
+           //console.log(`🔎 [Deep Search] Selected ${links.length} top links for deep search exploration`);
             if (links.length > 0) {
-                //console.log(`🔎 [Deep Search] First few links:`, links.slice(0, 3));
+               //console.log(`🔎 [Deep Search] First few links:`, links.slice(0, 3));
             }
             return links;
         } catch (error) {
@@ -1695,11 +1720,11 @@ class ResearchAutomation {
         }
 
         try {
-            //console.log('📄 PDF EXTRACTION: Starting extraction for URL:', url);
+           //console.log('📄 PDF EXTRACTION: Starting extraction for URL:', url);
 
             // Use our proxy server with abort controller
             const proxyUrl = `/api/proxy/pdf?url=${encodeURIComponent(url)}`;
-            //console.log('📄 PDF EXTRACTION: Using proxy URL:', proxyUrl);
+           //console.log('📄 PDF EXTRACTION: Using proxy URL:', proxyUrl);
 
             const loadingTask = window.pdfjsLib.getDocument({
                 url: proxyUrl,
@@ -1714,7 +1739,7 @@ class ResearchAutomation {
             }
 
             const pdf = await loadingTask.promise;
-            //console.log(`📄 PDF EXTRACTION: Successfully loaded PDF with ${pdf.numPages} pages`);
+           //console.log(`📄 PDF EXTRACTION: Successfully loaded PDF with ${pdf.numPages} pages`);
 
             // Another cancellation check after PDF loading
             if (this.isCancelled) {
@@ -1753,12 +1778,12 @@ class ResearchAutomation {
                 textContent = textContent.substring(0, 100000) + '...[content truncated due to size]';
             }
 
-            //console.log(`📄 PDF EXTRACTION: Successfully extracted ${textContent.length} characters from PDF`);
+           //console.log(`📄 PDF EXTRACTION: Successfully extracted ${textContent.length} characters from PDF`);
             return textContent;
         } catch (error) {
             // Propagate abort errors
             if (error.name === 'AbortError' || this.isCancelled) {
-                //console.log('PDF extraction cancelled');
+               //console.log('PDF extraction cancelled');
                 throw new DOMException('Research process aborted', 'AbortError');
             }
 
@@ -1776,7 +1801,7 @@ class ResearchAutomation {
                 url.includes('doi.org');
 
             if (isProbablyPaywalled || error.toString().includes("403")) {
-                //console.log('📄 PDF EXTRACTION: Detected academic paywall, adding placeholder content');
+               //console.log('📄 PDF EXTRACTION: Detected academic paywall, adding placeholder content');
 
                 // Extract publication details from URL
                 const urlParts = url.split('/');
@@ -1818,20 +1843,20 @@ class ResearchAutomation {
         this.activeWindow = null;
 
         // Log completion without referencing the stats variable
-        //console.log(`RESEARCH COMPLETE: Research process finished successfully`);
+       //console.log(`RESEARCH COMPLETE: Research process finished successfully`);
 
         // Now display results
         this.displayResearchResults(report, uniqueSources);
     }
     async processSearchResults(searchResults) {
         const sources = [];
-        //console.log(`Research: Processing ${searchResults.length} search result groups sequentially`);
+       //console.log(`Research: Processing ${searchResults.length} search result groups sequentially`);
 
         // Process each search group sequentially
         for (const searchGroup of searchResults) {
             // Process enhanced content first
             if (searchGroup.enhancedContent?.length > 0) {
-                //console.log(`Research: Processing ${searchGroup.enhancedContent.length} enhanced content items sequentially`);
+               //console.log(`Research: Processing ${searchGroup.enhancedContent.length} enhanced content items sequentially`);
 
                 // Process one item at a time in sequence
                 for (const content of searchGroup.enhancedContent) {
@@ -1839,7 +1864,7 @@ class ResearchAutomation {
                     const cleanedTitle = this.cleanSearchResultTitle(content.title, content.url);
 
                     if (content.isPdf === true || content.requiresSpecialExtraction === true) {
-                        //console.log(`Research: Processing PDF: ${content.url}`);
+                       //console.log(`Research: Processing PDF: ${content.url}`);
 
                         // Process completely before continuing - await each step
                         await this.processSearchResultWithExtraction(
@@ -1901,9 +1926,9 @@ class ResearchAutomation {
 
             // Log depth information with source type
             const depthIndicator = depth > 0 ? `[${"→".repeat(depth)}]` : "";
-            //console.log(`${depthIndicator} Processing ${sourceType.toUpperCase()} source: ${url}`);
+           //console.log(`${depthIndicator} Processing ${sourceType.toUpperCase()} source: ${url}`);
             if (depth > 0 && linkedFrom) {
-                //console.log(`${depthIndicator} This link was found in: ${linkedFrom}`);
+               //console.log(`${depthIndicator} This link was found in: ${linkedFrom}`);
             }
 
             // Mark as visited to avoid duplicates
@@ -1923,7 +1948,7 @@ class ResearchAutomation {
 
                 // For PDFs, still add to sources even if extraction failed
                 if (isPdfUrl) {
-                    //console.log(`${depthIndicator} Adding PDF to sources despite extraction failure: ${url}`);
+                   //console.log(`${depthIndicator} Adding PDF to sources despite extraction failure: ${url}`);
 
                     // Create a placeholder title if needed
                     let pageTitle = title;
@@ -1937,7 +1962,7 @@ class ResearchAutomation {
                         pageTitle = `${title} [PDF Document]`;
                     }
                     if (isPdfUrl) {
-                        //console.log(`📄 PDF PROCESSING: Detected PDF URL requiring special extraction: ${url}`);
+                       //console.log(`📄 PDF PROCESSING: Detected PDF URL requiring special extraction: ${url}`);
                         /*console.log(`📄 PDF CRITERIA MET: 
                             - URL ends with .pdf: ${url.toLowerCase().endsWith('.pdf')}
                             - URL contains /pdf/: ${url.toLowerCase().includes('/pdf/')}
@@ -1957,7 +1982,7 @@ class ResearchAutomation {
                         originalContent: null,
                         isPdf: true // Mark as PDF explicitly
                     });
-                    //console.log(`${depthIndicator} Added PDF to sources: "${pageTitle}"`);
+                   //console.log(`${depthIndicator} Added PDF to sources: "${pageTitle}"`);
 
 
                     return;
@@ -1985,7 +2010,7 @@ class ResearchAutomation {
 
             // Special handling for PDFs with extraction problems
             if (isPdf && (!extractedContent || extractedContent.includes(Lang.get('failedToExtractContent')))) {
-                //console.log(`${depthIndicator} PDF extraction had issues but still adding to sources: ${url}`);
+               //console.log(`${depthIndicator} PDF extraction had issues but still adding to sources: ${url}`);
 
                 // Create a title for PDF if needed
                 let pageTitle = title;
@@ -2003,18 +2028,18 @@ class ResearchAutomation {
                     }
                 }
 
-                //console.log(`📄 Processing URL: ${url}`);
-                //console.log(`📄 isPdfUrl detected: ${isPdfUrl}`);
-                //console.log(`📄 isPdf from content: ${isPdf}`);
+               //console.log(`📄 Processing URL: ${url}`);
+               //console.log(`📄 isPdfUrl detected: ${isPdfUrl}`);
+               //console.log(`📄 isPdf from content: ${isPdf}`);
 
                 // IMPORTANT: Make sure URL-based PDF detection sets the flag even if content object didn't
                 if (isPdfUrl && !isPdf) {
-                    //console.log(`📄 Setting isPdf=true based on URL pattern for: ${url}`);
+                   //console.log(`📄 Setting isPdf=true based on URL pattern for: ${url}`);
                     isPdf = true;
                 }
 
                 // Add more logging of the final state
-                //console.log(`📄 Final isPdf flag before adding to sources: ${isPdf}`);
+               //console.log(`📄 Final isPdf flag before adding to sources: ${isPdf}`);
 
                 // Get a basic summary for the PDF
                 const summary = Lang.get('pdfCouldNotBeFullyProcessed');
@@ -2032,7 +2057,7 @@ class ResearchAutomation {
                 });
 
                 // Log the addition
-                //console.log(`${depthIndicator} Added PDF with extraction issues to sources: "${pageTitle}"`);
+               //console.log(`${depthIndicator} Added PDF with extraction issues to sources: "${pageTitle}"`);
 
                 // Decrement PDF counter before returning
 
@@ -2041,7 +2066,7 @@ class ResearchAutomation {
 
             // Skip empty content for non-PDF files
             if (!isPdf && (!extractedContent || extractedContent.includes("Failed to extract content"))) {
-                //console.log(`${depthIndicator} Skipping empty/failed content for: ${url}`);
+               //console.log(`${depthIndicator} Skipping empty/failed content for: ${url}`);
 
                 return;
             }
@@ -2113,7 +2138,7 @@ class ResearchAutomation {
                 pageTitle = `${title} [PDF Document]`;
             }
 
-            //console.log(`${depthIndicator} Summarizing content for: "${pageTitle}"`);
+           //console.log(`${depthIndicator} Summarizing content for: "${pageTitle}"`);
 
 
             // Summarize
@@ -2133,7 +2158,7 @@ class ResearchAutomation {
                     isPdf: isPdf
                 });
 
-                //console.log(`${depthIndicator} Added to sources: "${pageTitle}" (depth=${depth})`);
+               //console.log(`${depthIndicator} Added to sources: "${pageTitle}" (depth=${depth})`);
 
                 // IMPORTANT FIX: Track parent operation for entire deep search process
                 // Only increment the parent deep search operation if we're going to process links
@@ -2205,9 +2230,23 @@ class ResearchAutomation {
         Return ONLY a JSON array of strings in ${queryLanguage}, nothing else.`;
 
         try {
+            const selectedModel = document.getElementById('model-selector').value;
+            // Get model-specific parameters using OllamaAPI utility
+            const modelParams = OllamaAPI.getModelParameters(selectedModel);
+            const { routing, options: requestOptions } = await this.buildResearchRoutingAndOptions(selectedModel, {
+                num_ctx: parseInt(this.contextSize),
+                temperature: 0.3, // Lower temperature for more consistent language output
+                ...modelParams
+            });
+
             // First check if Ollama is actually available
             try {
-                //console.log('Research: Checking Ollama API availability...');
+                // Cloud calls are proxied through the app backend and do not require local daemon checks.
+                if (routing.source === 'cloud') {
+                    throw new Error('skip-local-version-check-for-cloud');
+                }
+
+               //console.log('Research: Checking Ollama API availability...');
                 const checkResponse = await fetch('http://localhost:11434/api/version', {
                     method: 'GET',
                     signal: AbortSignal.timeout(2000) // 2 second timeout
@@ -2216,12 +2255,16 @@ class ResearchAutomation {
                 if (!checkResponse.ok) {
                     throw new Error(`Ollama server responded with ${checkResponse.status}`);
                 }
-                //console.log('Research: Ollama API is available');
+               //console.log('Research: Ollama API is available');
             } catch (connectionError) {
+                if (connectionError?.message === 'skip-local-version-check-for-cloud') {
+                    // Continue without fallback for cloud providers.
+                } else {
                 console.warn('Research: Ollama API is not available:', connectionError);
-                //console.log('Research: Using direct query and generated sub-queries as fallback');
+               //console.log('Research: Using direct query and generated sub-queries as fallback');
                 // Fall back to basic query breakdown if Ollama is not available
                 return this.generateBasicQueries(mainQuery);
+                }
             }
 
             // Check cancellation before proceeding to next API call
@@ -2229,26 +2272,18 @@ class ResearchAutomation {
                 throw new DOMException('Research process aborted', 'AbortError');
             }
 
-            const selectedModel = document.getElementById('model-selector').value;
-            // Get model-specific parameters using OllamaAPI utility
-            const modelParams = OllamaAPI.getModelParameters(selectedModel);
-
             // Proceed with the Ollama API call
-            const response = await fetch('http://localhost:11434/api/generate', {
+            const response = await fetch(`${routing.baseUrl}/generate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...routing.headers },
                 body: JSON.stringify({
-                    model: selectedModel,
+                    model: routing.modelName || selectedModel,
                     prompt: `User query: "${mainQuery}"
 
                     Please generate 3-5 research queries in the SAME language as this query.`,
                     system: systemPrompt,
                     think: false,
-                    options: {
-                        num_ctx: parseInt(this.contextSize),
-                        temperature: 0.3, // Lower temperature for more consistent language output
-                        ...modelParams
-                    },
+                    options: requestOptions,
                     stream: false
                 }),
                 signal: this.abortController?.signal
@@ -2265,7 +2300,7 @@ class ResearchAutomation {
                 throw new DOMException('Research process aborted', 'AbortError');
             }
 
-            const cleanedResponse = this.removeAIThinkingTags(data.response);
+            const cleanedResponse = this.removeAIThinkingTags(data?.response || data?.message?.content || '');
 
             // Enhanced logging of raw response
             /*console.log('Research: Raw AI response for search queries:', {
@@ -2303,7 +2338,7 @@ class ResearchAutomation {
                 console.warn('Failed to parse search queries as JSON, using fallback method', e);
 
                 // Fallback: extract queries line by line, excluding markdown and JSON syntax
-                const lines = data.response
+                const lines = cleanedResponse
                     .split('\n')
                     .map(line => line.trim())
                     .filter(line => line &&
@@ -2321,7 +2356,7 @@ class ResearchAutomation {
         } catch (error) {
             // Check if this is an abortion error
             if (error.name === 'AbortError' || this.isCancelled) {
-                //console.log('Research: Query generation cancelled');
+               //console.log('Research: Query generation cancelled');
                 throw new DOMException('Research process aborted', 'AbortError');
             }
 
@@ -2373,7 +2408,7 @@ class ResearchAutomation {
             return this.generateBasicQueries(originalQuery);
         }
 
-        //console.log(`Research: Validated ${validQueries.length} queries in ${expectedLanguage}:`, validQueries);
+       //console.log(`Research: Validated ${validQueries.length} queries in ${expectedLanguage}:`, validQueries);
         return validQueries;
     }
 
@@ -2421,7 +2456,7 @@ class ResearchAutomation {
     }
 
     async fetchRawHtmlForLinkExtraction(url) {
-        //console.log(`🔎 [Deep Search] Fetching raw HTML from: ${url}`);
+       //console.log(`🔎 [Deep Search] Fetching raw HTML from: ${url}`);
 
         try {
             const encodedUrl = encodeURIComponent(url);
@@ -2436,7 +2471,7 @@ class ResearchAutomation {
             }
 
             const data = await response.json();
-            //console.log(`🔎 [Deep Search] Fetched ${data.rawHtml?.length || 0} bytes of HTML`);
+           //console.log(`🔎 [Deep Search] Fetched ${data.rawHtml?.length || 0} bytes of HTML`);
 
             return data.rawHtml || '';
         } catch (error) {
@@ -2518,7 +2553,7 @@ class ResearchAutomation {
         // Check cancellation before starting
         if (this.isCancelled) throw new DOMException('Research process aborted', 'AbortError');
 
-        //console.log(`Generating partial report for batch ${startIndex / 5 + 1} with ${sourceBatch.length} sources`);
+       //console.log(`Generating partial report for batch ${startIndex / 5 + 1} with ${sourceBatch.length} sources`);
 
         // Combine sources into context with adjusted indices
         let context = sourceBatch.map((source, index) =>
@@ -2557,18 +2592,19 @@ class ResearchAutomation {
             const controller = this.abortController || new AbortController();
             const signal = controller.signal;
 
-            const response = await fetch('http://localhost:11434/api/generate', {
+            const { routing, options: requestOptions } = await this.buildResearchRoutingAndOptions(selectedModel, {
+                num_ctx: parseInt(this.contextSize),
+                ...modelParams
+            });
+            const response = await fetch(`${routing.baseUrl}/generate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...routing.headers },
                 body: JSON.stringify({
-                    model: selectedModel,
+                    model: routing.modelName || selectedModel,
                     prompt: `Research Question: ${query}\n\nAvailable Sources:\n${context}\n\nPlease generate a partial research report covering these specific sources.`,
                     system: systemPrompt,
                     think: false,
-                    options: {
-                        num_ctx: parseInt(this.contextSize),
-                        ...modelParams
-                    },
+                    options: requestOptions,
                     stream: false
                 }),
                 signal: signal
@@ -2586,7 +2622,7 @@ class ResearchAutomation {
             // Check cancellation after parse
             if (this.isCancelled) throw new DOMException('Research process aborted', 'AbortError');
 
-            return this.removeAIThinkingTags(data.response);
+            return this.removeAIThinkingTags(data?.response || data?.message?.content || '');
         } catch (error) {
             // Handle cancellation errors specifically
             if (error.name === 'AbortError' || this.isCancelled) {
@@ -2610,7 +2646,7 @@ class ResearchAutomation {
             return reportParts[0]; // If only one part, no need to combine
         }
 
-        //console.log(`Combining ${reportParts.length} report parts into final report`);
+       //console.log(`Combining ${reportParts.length} report parts into final report`);
 
         // Create a context with all report parts
         const context = reportParts.map((part, index) =>
@@ -2651,18 +2687,19 @@ class ResearchAutomation {
             const controller = this.abortController || new AbortController();
             const signal = controller.signal;
 
-            const response = await fetch('http://localhost:11434/api/generate', {
+            const { routing, options: requestOptions } = await this.buildResearchRoutingAndOptions(selectedModel, {
+                num_ctx: parseInt(this.contextSize),
+                ...modelParams
+            });
+            const response = await fetch(`${routing.baseUrl}/generate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...routing.headers },
                 body: JSON.stringify({
-                    model: selectedModel,
+                    model: routing.modelName || selectedModel,
                     prompt: `Research Question: ${query}\n\nReport Sections to Combine:\n${context}\n\nPlease create a cohesive final research report.`,
                     system: systemPrompt,
                     think: false,
-                    options: {
-                        num_ctx: parseInt(this.contextSize),
-                        ...modelParams
-                    },
+                    options: requestOptions,
                     stream: false
                 }),
                 signal: signal
@@ -2676,7 +2713,7 @@ class ResearchAutomation {
             }
 
             const data = await response.json();
-            return this.removeAIThinkingTags(data.response);
+            return this.removeAIThinkingTags(data?.response || data?.message?.content || '');
         } catch (error) {
             // Handle cancellation errors specifically
             if (error.name === 'AbortError' || this.isCancelled) {
@@ -2701,12 +2738,12 @@ class ResearchAutomation {
 
         // Simple flag to prevent duplicate windows
         if (this._isDisplayingResults || document.querySelector('.research-results-overlay')) {
-            //console.log('Research: Results window already exists or is being displayed, skipping duplicate call');
+           //console.log('Research: Results window already exists or is being displayed, skipping duplicate call');
             return;
         }
 
         try {
-            //console.log('Research: Beginning display of results');
+           //console.log('Research: Beginning display of results');
 
 
             // NEW ADDITION: Call the force stop method to terminate any lingering processes 
@@ -2722,7 +2759,7 @@ class ResearchAutomation {
             progressElements.forEach(el => {
                 try {
                     if (document.body.contains(el)) {
-                        //console.log('Research: Removing progress overlay element');
+                       //console.log('Research: Removing progress overlay element');
                         document.body.removeChild(el);
                     }
                 } catch (e) {
@@ -2732,7 +2769,7 @@ class ResearchAutomation {
 
             // Reset any existing window reference
             if (this.activeWindow) {
-                //console.log('Research: Clearing active window reference');
+               //console.log('Research: Clearing active window reference');
                 this.activeWindow = null;
             }
 
@@ -2746,7 +2783,7 @@ class ResearchAutomation {
             // Create display window for results
             const contentContainer = this.createResultsWindow(report, sources);
 
-            //console.log('Research: Results displayed in floating window');
+           //console.log('Research: Results displayed in floating window');
 
         } catch (error) {
             console.error('Research: Error displaying results:', error);
@@ -2755,7 +2792,7 @@ class ResearchAutomation {
             // Reset display flag AFTER cleanup
             setTimeout(() => {
                 this._isDisplayingResults = false;
-                //console.log('Research: Reset _isDisplayingResults flag');
+               //console.log('Research: Reset _isDisplayingResults flag');
             }, 500);
         }
 
@@ -2764,13 +2801,13 @@ class ResearchAutomation {
 
     // Creates the floating results window for the research report and sources panel
     createResultsWindow(report, sources) {
-        //console.log('Research: Creating results window');
+       //console.log('Research: Creating results window');
 
         try {
             const progressContainer = document.getElementById('research-progress');
             if (progressContainer) {
                 progressContainer.style.display = 'none';
-                //console.log('Research: Hidden progress container');
+               //console.log('Research: Hidden progress container');
             }
 
             // Debug the sources
@@ -2784,7 +2821,7 @@ class ResearchAutomation {
 
             // Count PDFs for debugging
             const pdfCount = sources.filter(s => s.isPdf || s.url.toLowerCase().includes('.pdf')).length;
-            //console.log(`Research: Found ${pdfCount} PDF sources out of ${sources.length} total sources`);
+           //console.log(`Research: Found ${pdfCount} PDF sources out of ${sources.length} total sources`);
 
             // Create floating window for comfortable research viewing
             const overlay = document.createElement('div');
@@ -2826,7 +2863,7 @@ class ResearchAutomation {
                 const progressContainer = document.getElementById('research-progress');
                 if (progressContainer) {
                     progressContainer.style.display = 'none';
-                    //console.log('Research: Hidden progress container');
+                   //console.log('Research: Hidden progress container');
                 }
                 // Debug the sources
                 /*console.log('All sources:', sources.map(s => ({
@@ -2839,7 +2876,7 @@ class ResearchAutomation {
 
                 // Count PDFs for debugging
                 const pdfCount = sources.filter(s => s.isPdf || s.url.toLowerCase().includes('.pdf')).length;
-                //console.log(`Research: Found ${pdfCount} PDF sources out of ${sources.length} total sources`);
+               //console.log(`Research: Found ${pdfCount} PDF sources out of ${sources.length} total sources`);
 
                 // Create floating window for comfortable research viewing
                 const overlay = document.createElement('div');
@@ -3003,7 +3040,7 @@ class ResearchAutomation {
                 `;
                 }
 
-                //console.log("PDF sources before rendering:",
+               //console.log("PDF sources before rendering:",
                    // sources.filter(s => s.isPdf || s.url.toLowerCase().includes('.pdf')));
 
                 sources.forEach((source, index) => {
@@ -3101,14 +3138,14 @@ class ResearchAutomation {
                     if (e.target.classList.contains('view-source-link')) {
                         e.preventDefault();
                         const url = e.target.getAttribute('data-url');
-                        //console.log('PDF link clicked, opening in new tab:', url);
+                       //console.log('PDF link clicked, opening in new tab:', url);
                         window.open(url, '_blank');
                     }
                 }, false);
 
                 sourcesContainer.innerHTML = sourcesHTML;
 
-                //console.log("Before enhanced PDF detection:",
+               //console.log("Before enhanced PDF detection:",
                    // sources.filter(s => s.isPdf || s.url.toLowerCase().includes('.pdf')).length);
 
                 // Enhanced PDF detection
@@ -3129,12 +3166,12 @@ class ResearchAutomation {
                         /view.*pdf/i.test(source.url);
 
                     if (isPdfUrl) {
-                        //console.log(`Enhanced PDF detection: ${source.title} (${source.url})`);
+                       //console.log(`Enhanced PDF detection: ${source.title} (${source.url})`);
                         source.isPdf = true;
                     }
                 });
 
-                //console.log("After enhanced PDF detection:",
+               //console.log("After enhanced PDF detection:",
                     //sources.filter(s => s.isPdf || s.url.toLowerCase().includes('.pdf')).length);
 
                 // Log ALL sources with full details
@@ -3339,7 +3376,7 @@ class ResearchAutomation {
                             // Add the event listener to the new button
                             newReopenButton.addEventListener('click', (e) => {
                                 e.preventDefault();
-                                //console.log('Reopen button clicked by user');
+                               //console.log('Reopen button clicked by user');
                                 // Remove any existing overlays first
                                 document.querySelectorAll('.research-results-overlay').forEach(el => el.remove());
                                 // Call this function again to reopen the window
@@ -3350,12 +3387,12 @@ class ResearchAutomation {
                 }
 
 
-                //console.log('Research: Results displayed in floating window');
+               //console.log('Research: Results displayed in floating window');
 
                 // Set the flag immediately rather than with timeout
                 this._isDisplayingResults = false;
-                //console.log('Research: Reset _isDisplayingResults flag');
-                //console.log('Research: Results displayed in floating window');
+               //console.log('Research: Reset _isDisplayingResults flag');
+               //console.log('Research: Results displayed in floating window');
             } catch (error) {
                 console.error('Research: Error displaying results in floating window:', error);
 
@@ -3376,7 +3413,7 @@ class ResearchAutomation {
 
                 // Reset display flag
                 this._isDisplayingResults = false;
-                //console.log('Research: Reset _isDisplayingResults flag');
+               //console.log('Research: Reset _isDisplayingResults flag');
             }
 
             // Set the research results reference for reopening
@@ -3503,7 +3540,7 @@ class ResearchAutomation {
                 URL.revokeObjectURL(url);
             }, 100);
 
-            //console.log('Research: Successfully downloaded report as', filename);
+           //console.log('Research: Successfully downloaded report as', filename);
             return true;
         } catch (error) {
             console.error('Research: Error exporting report:', error);
@@ -3589,7 +3626,7 @@ class ResearchAutomation {
     }
     // Initiates the process to save a research report and sources to the knowledge base
     async saveToKnowledgeBase(report, sources) {
-        //console.log('Research: Preparing to save report to knowledge base');
+       //console.log('Research: Preparing to save report to knowledge base');
 
         // Make sure the research tab is initialized first
         if (!window.researchTab || !window.researchTab.initialized) {
@@ -3616,7 +3653,7 @@ class ResearchAutomation {
 
     // Shows the modal dialog for saving a report and sources to the knowledge base
     showSaveToKnowledgeBaseDialog(report, sources) {
-        //console.log('Research: Showing save to knowledge base dialog');
+       //console.log('Research: Showing save to knowledge base dialog');
 
         // Create modal overlay
         const overlay = document.createElement('div');
@@ -4023,7 +4060,7 @@ class ResearchAutomation {
 
     // Forcefully stops all ongoing research operations, timers, and UI overlays
     forceStopAllOperations() {
-        //console.log('RESEARCH: Force stopping ALL search operations');
+       //console.log('RESEARCH: Force stopping ALL search operations');
 
         // 1. Set cancellation flags immediately
         this.isCancelled = true;
@@ -4043,7 +4080,7 @@ class ResearchAutomation {
 
         // 4. Kill WebSearch operations specifically - simplified approach
         if (window.WebSearch && typeof window.WebSearch.cancelAllOperations === 'function') {
-            //console.log('Calling WebSearch cancelAllOperations');
+           //console.log('Calling WebSearch cancelAllOperations');
             window.WebSearch.cancelAllOperations();
         }
 
@@ -4057,7 +4094,7 @@ class ResearchAutomation {
             try {
                 this.activeWindow.close();
                 this.activeWindow = null;
-                //console.log('Closed active window');
+               //console.log('Closed active window');
             } catch (e) {
                 console.error('Error closing active window:', e);
             }
@@ -4083,30 +4120,30 @@ class ResearchAutomation {
         // 9. Reset visited URLs set
         this.visitedUrls = new Set();
 
-        //console.log('RESEARCH: All operations successfully terminated');
+       //console.log('RESEARCH: All operations successfully terminated');
         return true;
     }
     // Completes termination of all research processes and resets state
     completeTermination() {
-        //console.log('ENHANCED TERMINATION: Ensuring all processes are fully stopped');
+       //console.log('ENHANCED TERMINATION: Ensuring all processes are fully stopped');
 
         // 1. Abort any ongoing fetch operations
         if (this.abortController) {
-            //console.log('Aborting fetch operations with AbortController');
+           //console.log('Aborting fetch operations with AbortController');
             this.abortController.abort();
             this.abortController = new AbortController();
         }
 
         // 2. Terminate WebSearch operations
         if (window.WebSearch && typeof window.WebSearch.cancelAllOperations === 'function') {
-            //console.log('Terminating all WebSearch operations');
+           //console.log('Terminating all WebSearch operations');
             window.WebSearch.cancelAllOperations();
         }
 
         // 3. Clear all pending summarizations
         const pendingCount = this.pendingSummarizations.size;
         if (pendingCount > 0) {
-            //console.log(`Clearing ${pendingCount} pending summarization operations`);
+           //console.log(`Clearing ${pendingCount} pending summarization operations`);
             this.pendingSummarizations.clear();
             this.allSummarizationsComplete = true;
         }
@@ -4116,7 +4153,7 @@ class ResearchAutomation {
 
         // 5. Clear all pending timers and intervals
         if (this._pendingTimers && this._pendingTimers.length) {
-            //console.log(`Clearing ${this._pendingTimers.length} pending timers`);
+           //console.log(`Clearing ${this._pendingTimers.length} pending timers`);
             this._pendingTimers.forEach(timerId => clearTimeout(timerId));
             this._pendingTimers = [];
         }
@@ -4129,7 +4166,7 @@ class ResearchAutomation {
         // 7. Force clear all queued or pending requests
         this.visitedUrls = new Set();
 
-        //console.log('ENHANCED TERMINATION: All cancellation measures applied');
+       //console.log('ENHANCED TERMINATION: All cancellation measures applied');
     }
 }
 
@@ -4151,7 +4188,7 @@ class KnowledgeBase {
             () => this.createNewCollection());
 
         // Log initialization
-        //console.log(`Knowledge Base: Initialized with ${this.collections?.length || 0} collections`);
+       //console.log(`Knowledge Base: Initialized with ${this.collections?.length || 0} collections`);
     }
 
     // Helper method for HTML escaping
@@ -4203,7 +4240,7 @@ class KnowledgeBase {
         });
 
         // Add debug log
-        //console.log(`Knowledge Base: Rendered ${this.collections.length} collections`);
+       //console.log(`Knowledge Base: Rendered ${this.collections.length} collections`);
     }
     renderCollection(collection) {
         const card = document.createElement('div');
@@ -4296,7 +4333,7 @@ class KnowledgeBase {
 
         // If no model is selected, show a warning and return
         if (!selectedModel) {
-            //console.log('Knowledge Base: No model selected for viewing collection');
+           //console.log('Knowledge Base: No model selected for viewing collection');
 
             // Create warning overlay
             const warningOverlay = document.createElement('div');
@@ -4651,7 +4688,7 @@ class KnowledgeBase {
         });
     }
     async addEntry(collectionId, entryData) {
-        //console.log('Knowledge Base: Adding entry to collection', collectionId);
+       //console.log('Knowledge Base: Adding entry to collection', collectionId);
 
         try {
             // Find the collection by ID
@@ -4673,7 +4710,7 @@ class KnowledgeBase {
                 updated: new Date().toISOString()
             };
 
-            //console.log('Knowledge Base: Creating text-only entry:', {
+           //console.log('Knowledge Base: Creating text-only entry:', {
                // title: entry.title
            // });
 
@@ -4691,7 +4728,7 @@ class KnowledgeBase {
 
             this.renderAllCollections();
 
-            //console.log('Knowledge Base: Entry added successfully');
+           //console.log('Knowledge Base: Entry added successfully');
             return entryId;
         } catch (error) {
             console.error('Knowledge Base: Error adding entry:', error);
@@ -5227,7 +5264,7 @@ class KnowledgeBase {
         return content;
     }
     editCollection(collectionId) {
-        //console.log(`Knowledge Base: Editing collection ${collectionId}`);
+       //console.log(`Knowledge Base: Editing collection ${collectionId}`);
 
         // Find the collection
         const collection = this.collections.find(c => c.id === collectionId);
@@ -5258,7 +5295,7 @@ class KnowledgeBase {
     }
 
     deleteCollection(collectionId) {
-        //console.log(`Knowledge Base: Deleting collection ${collectionId}`);
+       //console.log(`Knowledge Base: Deleting collection ${collectionId}`);
 
         // Find the collection
         const collectionIndex = this.collections.findIndex(c => c.id === collectionId);

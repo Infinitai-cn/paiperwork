@@ -79,7 +79,7 @@ class ModelDownloader {
             const savedState = JSON.parse(savedStateJson);
             this.browsingState = savedState;
 
-            //console.log('Restoring browsing state:', savedState);
+           //console.log('Restoring browsing state:', savedState);
             return true;
         } catch (error) {
             console.error('Error restoring browsing state:', error);
@@ -97,7 +97,7 @@ class ModelDownloader {
             this.downloadState = savedState;
 
             if (savedState.isDownloading) {
-                //console.log('Restoring download state:', savedState);
+               //console.log('Restoring download state:', savedState);
 
                 // Get UI elements
                 const modelSelect = document.getElementById('model-select');
@@ -115,7 +115,7 @@ class ModelDownloader {
 
                 if (modelExists) {
                     // Download completed while away
-                    //console.log('Download completed while app was closed');
+                   //console.log('Download completed while app was closed');
                     this.downloadState.isDownloading = false;
                     await this.saveDownloadState();
                     return;
@@ -225,7 +225,7 @@ class ModelDownloader {
                     // Set a timeout to abort this request after a few seconds
                     const timeoutId = setTimeout(() => abortController.abort(), 5000);
 
-                    //console.log(`Checking download status for: ${fullModelName}`);
+                   //console.log(`Checking download status for: ${fullModelName}`);
 
                     // Reconnect to the model download stream
                     const response = await fetch('http://localhost:11434/api/pull', {
@@ -372,7 +372,7 @@ class ModelDownloader {
         const confirmCancel = confirm(Lang.get('modelCancelDownloadConfirm'));
         if (!confirmCancel) return;
 
-        //console.log('Cancelling download for:', modelName);
+       //console.log('Cancelling download for:', modelName);
 
         const downloadBtn = document.getElementById('download-btn');
         const btnText = downloadBtn?.querySelector('.btn-text');
@@ -409,7 +409,7 @@ class ModelDownloader {
                 sizeSelect.disabled = false;
                 sizeSelect.title = '';
             }
-            //console.log('Download cancelled. Partial files may remain on disk.');
+           //console.log('Download cancelled. Partial files may remain on disk.');
 
             // Add restart advice
             const restartMsg = document.createElement('p');
@@ -459,7 +459,7 @@ class ModelDownloader {
                 await this.loadLocalModels();
             } else {
                 // Model doesn't exist yet - try to reconnect to download stream
-                //console.log('Reconnecting to download stream for:', fullModelName);
+               //console.log('Reconnecting to download stream for:', fullModelName);
 
                 try {
                     // Create a controller to abort this request when needed
@@ -636,7 +636,7 @@ class ModelDownloader {
                     // Check if we already have tags cached for this model
                     let tags = [];
                     if (this.browsingState.modelTags[modelName]) {
-                        //console.log('Using cached tags for model:', modelName);
+                       //console.log('Using cached tags for model:', modelName);
                         tags = this.browsingState.modelTags[modelName];
                     } else {
                         // Fetch tags for selected model
@@ -728,22 +728,22 @@ class ModelDownloader {
 
     // Fetches the list of available models from the Ollama library API
     static async fetchAvailableModels() {
-        //console.log('Starting model fetch from Ollama library...');
+       //console.log('Starting model fetch from Ollama library...');
         try {
-            //console.log('Fetching webpage...');
+           //console.log('Fetching webpage...');
             const url = 'http://localhost:8182/api/library';
-            //console.log('Using URL:', url);
+           //console.log('Using URL:', url);
 
             const response = await fetch(url);
-            //console.log('Response status:', response.status);
+           //console.log('Response status:', response.status);
 
             if (!response.ok) {
                 throw new Error(`Model library request failed: ${response.status}`);
             }
 
             const html = await response.text();
-            //console.log('Received HTML length:', html.length);
-            //console.log('First 500 chars of HTML:', html.substring(0, 500));
+           //console.log('Received HTML length:', html.length);
+           //console.log('First 500 chars of HTML:', html.substring(0, 500));
 
             return this.parseWithDOM(html);
         } catch (error) {
@@ -758,14 +758,14 @@ class ModelDownloader {
         const doc = parser.parseFromString(html, 'text/html');
         const models = [];
 
-        //console.log('Parsing HTML document...');
+       //console.log('Parsing HTML document...');
 
         // Try different selectors for model cards
         const modelElements = doc.querySelectorAll('a[href^="/library/"]') ||
             doc.querySelectorAll('.card') ||
             doc.querySelectorAll('[data-testid="model-card"]');
 
-        //console.log('Found model elements:', modelElements.length);
+       //console.log('Found model elements:', modelElements.length);
 
         modelElements.forEach((element, index) => {
             try {
@@ -799,14 +799,14 @@ class ModelDownloader {
                     };
 
                     models.push(model);
-                    //console.log('Added model:', model);
+                   //console.log('Added model:', model);
                 }
             } catch (error) {
                 console.error('Error parsing model element:', error);
             }
         });
 
-        //console.log(`Total models parsed: ${models.length}`);
+       //console.log(`Total models parsed: ${models.length}`);
         return models;
     }
 
@@ -1852,7 +1852,7 @@ class ModelDownloader {
         if (filteredModels.some(model => model.name === selectedModelBeforeRender)) {
             modelSelect.value = selectedModelBeforeRender;
         }
-        //console.log(`Updated online models list with ${filteredModels.length}/${models.length} models`);
+       //console.log(`Updated online models list with ${filteredModels.length}/${models.length} models`);
 
         // Save models in browsing state
         this.browsingState.models = models;
@@ -1862,7 +1862,7 @@ class ModelDownloader {
     // Fetches and updates the online models list asynchronously
     static async fetchAndUpdateOnlineModels() {
         try {
-            //console.log('Starting async fetch of online models');
+           //console.log('Starting async fetch of online models');
 
             // Update selector to show fetching status
             const modelSelect = document.getElementById('model-select');
@@ -1871,7 +1871,7 @@ class ModelDownloader {
             }
 
             const models = await this.fetchAvailableModels();
-            //console.log(`Fetched ${models.length} online models`);
+           //console.log(`Fetched ${models.length} online models`);
             this.updateOnlineModelsList(models);
         } catch (error) {
             console.error('Error fetching online models:', error);
@@ -1891,7 +1891,7 @@ class ModelDownloader {
             if (response.ok) {
                 const data = await response.json();
                 if (data.version) {
-                    //console.log('Detected Ollama version:', data.version);
+                   //console.log('Detected Ollama version:', data.version);
                     localStorage.setItem('ollamaVersion', data.version);
                     return data.version;
                 }
@@ -1905,52 +1905,52 @@ class ModelDownloader {
 
     // Fetches all tags (variants/sizes) for a given model from the Ollama library
     static async fetchModelTags(modelName) {
-        //console.log(`Fetching tags for model: ${modelName}`);
+       //console.log(`Fetching tags for model: ${modelName}`);
 
         // Method 1: Try the direct Ollama library API first
         try {
             const encodedModelName = encodeURIComponent(modelName);
             const url = `http://localhost:8182/api/library/${encodedModelName}/tags`;
-            //console.log('Fetching from URL:', url);
+           //console.log('Fetching from URL:', url);
 
             const response = await fetch(url);
-            //console.log('Tags response status:', response.status);
+           //console.log('Tags response status:', response.status);
 
             if (response.ok) {
                 const html = await response.text();
-                //console.log('Received HTML content length:', html.length);
+               //console.log('Received HTML content length:', html.length);
 
                 // Try the main parsing method first
                 let tags = this.parseTagsFromHTML(html, modelName);
 
                 if (tags.length > 0) {
-                    //console.log(`Successfully parsed ${tags.length} tags using HTML parsing`);
+                   //console.log(`Successfully parsed ${tags.length} tags using HTML parsing`);
                     return this.removeDuplicateTags(tags);
                 }
 
                 // Only try alternative methods if the main one fails
                 tags = this.parseTagsAlternativeMethod(html, modelName);
                 if (tags.length > 0) {
-                    //console.log(`Successfully parsed ${tags.length} tags using alternative method`);
+                   //console.log(`Successfully parsed ${tags.length} tags using alternative method`);
                     return this.removeDuplicateTags(tags);
                 }
 
                 // Try JSON extraction method as last resort
                 tags = this.parseTagsFromJSON(html, modelName);
                 if (tags.length > 0) {
-                    //console.log(`Successfully parsed ${tags.length} tags using JSON extraction`);
+                   //console.log(`Successfully parsed ${tags.length} tags using JSON extraction`);
                     return this.removeDuplicateTags(tags);
                 }
             }
         } catch (error) {
-            //console.log('Direct HTML scraping failed:', error);
+           //console.log('Direct HTML scraping failed:', error);
         }
 
         // Method 2: Try the main model page only if direct tags page fails
         try {
             const encodedModelName = encodeURIComponent(modelName);
             const mainUrl = `http://localhost:8182/api/library/${encodedModelName}`;
-            //console.log('Trying main model page:', mainUrl);
+           //console.log('Trying main model page:', mainUrl);
 
             const response = await fetch(mainUrl);
             if (response.ok) {
@@ -1958,15 +1958,15 @@ class ModelDownloader {
                 const tags = this.parseTagsFromMainPage(html, modelName);
 
                 if (tags.length > 0) {
-                    //console.log(`Successfully parsed ${tags.length} tags from main page`);
+                   //console.log(`Successfully parsed ${tags.length} tags from main page`);
                     return this.removeDuplicateTags(tags);
                 }
             }
         } catch (error) {
-            //console.log('Main page scraping failed:', error);
+           //console.log('Main page scraping failed:', error);
         }
 
-        //console.log(`All tag fetching methods failed for ${modelName}`);
+       //console.log(`All tag fetching methods failed for ${modelName}`);
         return [];
     }
 
@@ -1982,7 +1982,7 @@ class ModelDownloader {
             }
         }
 
-        //console.log(`Removed ${tags.length - uniqueTags.length} duplicate tags`);
+       //console.log(`Removed ${tags.length - uniqueTags.length} duplicate tags`);
         return uniqueTags;
     }
 
@@ -1992,11 +1992,11 @@ class ModelDownloader {
         const doc = parser.parseFromString(html, 'text/html');
         const tags = [];
 
-        //console.log('Parsing HTML for model tags...');
+       //console.log('Parsing HTML for model tags...');
 
         // First, try to parse the model table which contains both tag names and sizes
         const modelRows = doc.querySelectorAll('a[href*="' + modelName + ':"], div[class*="group"] a[href*="' + modelName + ':"]');
-        //console.log(`Found ${modelRows.length} model row links`);
+       //console.log(`Found ${modelRows.length} model row links`);
 
         if (modelRows.length > 0) {
             modelRows.forEach(link => {
@@ -2021,7 +2021,7 @@ class ModelDownloader {
                                     const sizeMatch = sizeText.match(/(\d+(?:\.\d+)?\s*(?:GB|MB|KB|TB))/i);
                                     if (sizeMatch) {
                                         size = sizeMatch[1].replace(/\s+/g, '');
-                                        //console.log(`Found size ${size} for tag ${tagName} from table row`);
+                                       //console.log(`Found size ${size} for tag ${tagName} from table row`);
                                         break;
                                     }
                                 }
@@ -2035,7 +2035,7 @@ class ModelDownloader {
                                     const sizeMatch = mobileText.match(/(\d+(?:\.\d+)?\s*(?:GB|MB|KB|TB))/i);
                                     if (sizeMatch) {
                                         size = sizeMatch[1].replace(/\s+/g, '');
-                                        //console.log(`Found size ${size} for tag ${tagName} from mobile view`);
+                                       //console.log(`Found size ${size} for tag ${tagName} from mobile view`);
                                     }
                                 }
                             }
@@ -2046,7 +2046,7 @@ class ModelDownloader {
                                 fullName: `${modelName}:${tagName}`
                             });
 
-                            //console.log(`Found tag from model table: ${tagName} (${size})`);
+                           //console.log(`Found tag from model table: ${tagName} (${size})`);
                         }
                     }
                 } catch (error) {
@@ -2061,7 +2061,7 @@ class ModelDownloader {
 
         // Fallback: try the x-test-size elements, but with better size detection
         const sizeElements = doc.querySelectorAll('span[x-test-size]');
-        //console.log(`Found ${sizeElements.length} x-test-size elements`);
+       //console.log(`Found ${sizeElements.length} x-test-size elements`);
 
         if (sizeElements.length > 0) {
             sizeElements.forEach(element => {
@@ -2081,7 +2081,7 @@ class ModelDownloader {
                                 const sizeMatch = sizeText.match(/(\d+(?:\.\d+)?\s*(?:GB|MB|KB|TB))/i);
                                 if (sizeMatch) {
                                     size = sizeMatch[1].replace(/\s+/g, '');
-                                    //console.log(`Found size ${size} for tag ${tagName} via correlation`);
+                                   //console.log(`Found size ${size} for tag ${tagName} via correlation`);
                                     break;
                                 }
                             }
@@ -2093,7 +2093,7 @@ class ModelDownloader {
                         size: size,
                         fullName: `${modelName}:${tagName}`
                     });
-                    //console.log(`Found tag from x-test-size: ${tagName} (${size})`);
+                   //console.log(`Found tag from x-test-size: ${tagName} (${size})`);
                 }
             });
 
@@ -2123,7 +2123,7 @@ class ModelDownloader {
                     fullName: `${modelName}:${tagName}`
                 });
 
-                //console.log(`Found tag via pattern matching: ${tagName} (${size})`);
+               //console.log(`Found tag via pattern matching: ${tagName} (${size})`);
             }
         }
 
@@ -2142,7 +2142,7 @@ class ModelDownloader {
 
             for (const selector of possibleSelectors) {
                 const items = doc.querySelectorAll(selector);
-                //console.log(`Trying selector "${selector}": found ${items.length} items`);
+               //console.log(`Trying selector "${selector}": found ${items.length} items`);
 
                 if (items.length > 0) {
                     items.forEach(item => {
@@ -2185,7 +2185,7 @@ class ModelDownloader {
                                             fullName: `${modelName}:${tagName}`
                                         });
 
-                                        //console.log(`Found tag: ${tagName} (${size})`);
+                                       //console.log(`Found tag: ${tagName} (${size})`);
                                     }
                                 }
                             }
@@ -2207,7 +2207,7 @@ class ModelDownloader {
     // Alternative method to parse tags from HTML using regex patterns
     static parseTagsAlternativeMethod(html, modelName) {
         const tags = [];
-        //console.log('Trying alternative parsing method...');
+       //console.log('Trying alternative parsing method...');
 
         // Look for patterns like "modelname:tag" in the HTML
         const tagPattern = new RegExp(`${modelName}:([a-zA-Z0-9._-]+)`, 'g');
@@ -2230,7 +2230,7 @@ class ModelDownloader {
                     fullName: `${modelName}:${tagName}`
                 });
 
-                //console.log(`Alternative method found tag: ${tagName} (${size})`);
+               //console.log(`Alternative method found tag: ${tagName} (${size})`);
             }
         }
 
@@ -2243,7 +2243,7 @@ class ModelDownloader {
         const doc = parser.parseFromString(html, 'text/html');
         const tags = [];
 
-        //console.log('Parsing tags from main model page...');
+       //console.log('Parsing tags from main model page...');
 
         // Look for size badges or tags in the main page
         const possibleElements = [
@@ -2272,7 +2272,7 @@ class ModelDownloader {
                             fullName: fullName
                         });
 
-                        //console.log(`Main page found potential tag: ${text}`);
+                       //console.log(`Main page found potential tag: ${text}`);
                     }
                 }
             }
@@ -2284,7 +2284,7 @@ class ModelDownloader {
     // Extracts from JSON embedded in script tags
     static extractTagsFromScripts(html, modelName) {
         const tags = [];
-        //console.log('Extracting tags from script tags...');
+       //console.log('Extracting tags from script tags...');
 
         // Look for JSON data in script tags
         const scriptMatches = html.matchAll(/<script[^>]*>(.*?)<\/script>/gis);
@@ -2344,7 +2344,7 @@ class ModelDownloader {
     // Parses tags from JSON blobs embedded in the HTML
     static parseTagsFromJSON(html, modelName) {
         const tags = [];
-        //console.log('Trying JSON extraction method...');
+       //console.log('Trying JSON extraction method...');
 
         // Look for window.__INITIAL_STATE__ or similar patterns
         const patterns = [
@@ -2369,7 +2369,7 @@ class ModelDownloader {
                     this.extractTagsFromObject(data, modelName, tags);
 
                     if (tags.length > 0) {
-                        //console.log(`JSON extraction found ${tags.length} tags`);
+                       //console.log(`JSON extraction found ${tags.length} tags`);
                         break;
                     }
                 } catch (e) {
@@ -2447,7 +2447,7 @@ class ModelDownloader {
             if (settings && settings.model === modelName) {
                 settings.model = null;
                 await PaiperworkDB.saveModel(hashedMasterKey, '');
-                //console.log(`Removed deleted model ${modelName} from settings`);
+               //console.log(`Removed deleted model ${modelName} from settings`);
             }
             try {
 
@@ -2463,7 +2463,7 @@ class ModelDownloader {
 
             btnText.textContent = Lang.get('modelDeleted2');
             description.textContent = Lang.get('modelDeleteSuccess', { model: modelName });
-            //console.log(`Model ${modelName} deleted successfully`);
+           //console.log(`Model ${modelName} deleted successfully`);
 
             // Reset button text after a short delay
             setTimeout(() => {
@@ -2539,11 +2539,11 @@ class ModelDownloader {
 
         // Status message depends on whether we're resuming
         if (isResume) {
-            //console.log(`Resuming download for model: ${modelName}`);
+           //console.log(`Resuming download for model: ${modelName}`);
             btnText.textContent = Lang.get('modelDownloadResuming');
             description.textContent = Lang.get('modelDownloadResuming');
         } else {
-            //console.log(`Starting new download for model: ${modelName}`);
+           //console.log(`Starting new download for model: ${modelName}`);
             btnText.textContent = Lang.get('modelDownloadStarting');
             description.textContent = Lang.get('modelDownloadStarting');
         }
@@ -2560,7 +2560,7 @@ class ModelDownloader {
             const confirmCancel = confirm(Lang.get('modelCancelDownloadConfirm'));
             if (!confirmCancel) return;
 
-            //console.log('Cancelling download for:', modelName);
+           //console.log('Cancelling download for:', modelName);
             description.textContent = Lang.get('modelCancellingDownload');
 
             // Update download state
@@ -2599,7 +2599,7 @@ class ModelDownloader {
                     sizeSelect.title = '';
                 }
 
-                //console.log('Download cancelled. Partial files may remain on disk.');
+               //console.log('Download cancelled. Partial files may remain on disk.');
 
                 // Add restart advice
                 const restartMsg = document.createElement('p');
@@ -2625,7 +2625,7 @@ class ModelDownloader {
         cancelBtn.onclick = cancelHandler;
 
         try {
-            //console.log('Making API call to Ollama:', {
+           //console.log('Making API call to Ollama:', {
             //url: 'http://localhost:11434/api/pull',
                 //body: { name: modelName }
         //});
@@ -2639,7 +2639,7 @@ class ModelDownloader {
             signal: signal // This is crucial - pass the abort signal to fetch
         });
 
-        //console.log('API response status:', response.status);
+       //console.log('API response status:', response.status);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -2707,7 +2707,7 @@ class ModelDownloader {
                         this.downloadState.status = "success";
                         await this.saveDownloadState();
 
-                        //console.log('Download complete:', {
+                       //console.log('Download complete:', {
                         //model: modelName,
                             //size: this.formatBytes(totalSize),
                                 //status: status.status
@@ -2722,10 +2722,10 @@ class ModelDownloader {
 
     // Only verify after we've seen the success status
     if(lastStatus === "success") {
-    //console.log('Verifying download completion...');
+   //console.log('Verifying download completion...');
     const verifyResponse = await fetch('http://localhost:11434/api/tags');
     const tags = await verifyResponse.json();
-    //console.log('Available models after download:', tags);
+   //console.log('Available models after download:', tags);
 
     const fetchBtn = document.getElementById('fetch-models-btn');
     const modelSelect = document.getElementById('model-select');
@@ -2745,7 +2745,7 @@ class ModelDownloader {
     }
 
     const modelFound = tags.models?.some(m => m.name === modelName);
-    //console.log(`Model ${modelName} verification:`, modelFound ? 'Found' : 'Not found');
+   //console.log(`Model ${modelName} verification:`, modelFound ? 'Found' : 'Not found');
 
     if (!modelFound) {
         throw new Error('Model not found after download completed');
@@ -2770,7 +2770,7 @@ class ModelDownloader {
         } catch (error) {
     // Check if this was an AbortError
     if (error.name === 'AbortError') {
-        //console.log('Download was aborted by user');
+       //console.log('Download was aborted by user');
         // The cancel handler will take care of UI updates
     } else {
         console.error('Error in pull process:', error);
@@ -2812,7 +2812,7 @@ class ModelDownloader {
         cancelBtn.style.display = 'none';
     }
 
-    //console.log('Pull process completed for:', modelName);
+   //console.log('Pull process completed for:', modelName);
 }
     }
 
@@ -3106,7 +3106,7 @@ window.ModelDownloaderLoaded = true;
 (async function () {
     try {
         const version = await ModelDownloader.detectOllamaVersion();
-        //console.log('Initialized Ollama version detection:', version);
+       //console.log('Initialized Ollama version detection:', version);
     } catch (error) {
         console.error('Error initializing Ollama version detection:', error);
     }

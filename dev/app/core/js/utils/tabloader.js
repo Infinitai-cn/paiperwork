@@ -91,10 +91,10 @@ class TabLoader {
 
     // Initializes the UI components or class instances for the specified tab after its scripts are loaded.
     initializeTabComponent(tabName) {
-        //console.log(`TabLoader: Initializing component for tab "${tabName}"`);
+       //console.log(`TabLoader: Initializing component for tab "${tabName}"`);
 
         if (tabName === 'documents') {
-            //console.log('TabLoader: Initializing Documents tab');
+           //console.log('TabLoader: Initializing Documents tab');
             if (typeof initializeDocumentUI === 'function') {
                 initializeDocumentUI();
             } else {
@@ -104,11 +104,11 @@ class TabLoader {
         // For DataViz, create instances if they don't exist
         if (tabName === 'dataviz' && window.DataViz && window.DataVizTab) {
             if (!window.dataViz) {
-                //console.log('TabLoader: Creating DataViz instance');
+               //console.log('TabLoader: Creating DataViz instance');
                 window.dataViz = new window.DataViz();
             }
             if (!window.dataVizTab) {
-                //console.log('TabLoader: Creating DataVizTab instance');
+               //console.log('TabLoader: Creating DataVizTab instance');
                 window.dataVizTab = new window.DataVizTab();
             }
 
@@ -117,11 +117,11 @@ class TabLoader {
         // For Paperwork, ensure the instance is created
         if (tabName === 'paperwork' && window.Paperwork) {
             if (!window.paperworkInstance) {
-                //console.log('TabLoader: Creating Paperwork instance');
+               //console.log('TabLoader: Creating Paperwork instance');
                 window.paperworkInstance = new window.Paperwork();
                 // Initialize the Paperwork instance
                 window.paperworkInstance.initialize().then(() => {
-                    //console.log('TabLoader: Paperwork instance initialized');
+                   //console.log('TabLoader: Paperwork instance initialized');
                 }).catch(err => {
                     console.error('TabLoader: Error initializing Paperwork:', err);
                 });
@@ -131,11 +131,11 @@ class TabLoader {
         if (tabName === 'research') {
             if (window.Research && window.ResearchTab) {
                 // Initialize Research components
-                //console.log('TabLoader: Initializing Research components');
+               //console.log('TabLoader: Initializing Research components');
 
                 // Create KnowledgeBase instance
                 if (!window.knowledgeBase) {
-                    //console.log('TabLoader: Creating KnowledgeBase instance');
+                   //console.log('TabLoader: Creating KnowledgeBase instance');
                     window.knowledgeBase = new window.Research.KnowledgeBase();
                     window.knowledgeBase.initialize().catch(err => {
                         console.error('TabLoader: Error initializing KnowledgeBase:', err);
@@ -144,7 +144,7 @@ class TabLoader {
 
                 // Create ResearchAutomation instance
                 if (!window.researchAutomation) {
-                    //console.log('TabLoader: Creating ResearchAutomation instance');
+                   //console.log('TabLoader: Creating ResearchAutomation instance');
                     window.researchAutomation = new window.Research.ResearchAutomation();
                     window.researchAutomation.initialize().catch(err => {
                         console.error('TabLoader: Error initializing ResearchAutomation:', err);
@@ -154,7 +154,7 @@ class TabLoader {
 
                 // Create ResearchTab instance
                 if (!window.researchTab) {
-                    //console.log('TabLoader: Creating ResearchTab instance');
+                   //console.log('TabLoader: Creating ResearchTab instance');
                     window.researchTab = new window.ResearchTab();
                 }
             }
@@ -162,11 +162,11 @@ class TabLoader {
         // For Artwork, create instances if they don't exist
         if (tabName === 'artwork' && window.Artworks && window.ArtworksTab) {
             if (!window.artworksInstance) {
-                //console.log('TabLoader: Creating Artworks instance');
+               //console.log('TabLoader: Creating Artworks instance');
                 window.artworksInstance = new window.Artworks();
             }
             if (!window.artworksTab) {
-                //console.log('TabLoader: Creating ArtworksTab instance');
+               //console.log('TabLoader: Creating ArtworksTab instance');
                 window.artworksTab = new window.ArtworksTab();
             }
         }
@@ -184,14 +184,14 @@ class TabLoader {
 
             case 'paperwork':
                 if (window.paperworkTab && !window.paperworkTab.initialized) {
-                    //console.log('TabLoader: Initializing Paperwork tab');
+                   //console.log('TabLoader: Initializing Paperwork tab');
                     window.paperworkTab.initialize();
                 }
                 break;
 
             case 'artwork':
                 if (window.artworksTab && !window.artworksTab.initialized) {
-                    //console.log('TabLoader: Initializing Artwork tab');
+                   //console.log('TabLoader: Initializing Artwork tab');
                     window.artworksTab.initialize();
                 }
                 break;
@@ -204,7 +204,7 @@ class TabLoader {
             
             case 'presentation':
                 if (window.presentationtab && !window.presentationtab.isInitialized) {
-                    //console.log('TabLoader: Initializing presentation tab');
+                   //console.log('TabLoader: Initializing presentation tab');
                     window.presentationtab.initialize();
                 }
                 break;
@@ -213,7 +213,7 @@ class TabLoader {
 
     // Loads all required scripts for the specified tab sequentially, waits for their availability, and then initializes the tab's components.
     async loadTabScripts(tabName) {
-        //console.log(`TabLoader: Loading scripts for tab "${tabName}"`);
+       //console.log(`TabLoader: Loading scripts for tab "${tabName}"`);
         const tabConfig = this.tabConfigs[tabName];
         if (!tabConfig) return;
 
@@ -240,7 +240,7 @@ class TabLoader {
                         attempts++;
                         if (window.documentsTabLoaded) {
                             clearInterval(checkInterval);
-                            //console.log('TabLoader: Documents tab components ready');
+                           //console.log('TabLoader: Documents tab components ready');
                             resolve();
                         } else if (attempts >= maxAttempts) {
                             clearInterval(checkInterval);
@@ -262,7 +262,7 @@ class TabLoader {
                         if (window.UIHelpers && window.TemplateDesign &&
                             window.DocumentGenerator && window.Paperwork) {
                             clearInterval(checkInterval);
-                            //console.log('TabLoader: Paperwork components ready');
+                           //console.log('TabLoader: Paperwork components ready');
                             resolve();
                         } else if (attempts >= maxAttempts) {
                             clearInterval(checkInterval);
@@ -287,7 +287,7 @@ class TabLoader {
                         if (window.Research && window.ResearchTab &&
                             window.ResearchLoaded && window.ResearchTabLoaded) {
                             clearInterval(checkInterval);
-                            //console.log('TabLoader: Research components ready');
+                           //console.log('TabLoader: Research components ready');
                             resolve();
                         } else if (attempts >= maxAttempts) {
                             clearInterval(checkInterval);
@@ -313,7 +313,7 @@ class TabLoader {
                         if (window.DataViz && window.DataVizTab &&
                             window.DataVizLoaded && window.DataVizTabLoaded) {
                             clearInterval(checkInterval);
-                            //console.log('TabLoader: DataViz components ready');
+                           //console.log('TabLoader: DataViz components ready');
                             resolve();
                         } else if (attempts >= maxAttempts) {
                             clearInterval(checkInterval);
@@ -338,7 +338,7 @@ class TabLoader {
                         if (window.Artworks && window.ArtworksTab &&
                             window.ArtworksLoaded && window.ArtworksTabLoaded) {
                             clearInterval(checkInterval);
-                            //console.log('TabLoader: Artwork components ready');
+                           //console.log('TabLoader: Artwork components ready');
                             resolve();
                         } else if (attempts >= maxAttempts) {
                             clearInterval(checkInterval);
@@ -362,7 +362,7 @@ class TabLoader {
                         attempts++;
                         if (window.presentation && window.presentationtab) {
                             clearInterval(checkInterval);
-                            //console.log('TabLoader: SlideForge components ready');
+                           //console.log('TabLoader: SlideForge components ready');
                             resolve();
                         } else if (attempts >= maxAttempts) {
                             clearInterval(checkInterval);
@@ -384,7 +384,7 @@ class TabLoader {
                         attempts++;
                         if (window.ModelDownloader) {
                             clearInterval(checkInterval);
-                            //console.log('TabLoader: ModelDownloader component ready');
+                           //console.log('TabLoader: ModelDownloader component ready');
                             resolve();
                         } else if (attempts >= maxAttempts) {
                             clearInterval(checkInterval);
@@ -417,7 +417,7 @@ class TabLoader {
             script.type = 'text/javascript';
             script.src = src;
             script.onload = () => {
-                //console.log(`TabLoader: Successfully loaded script: ${src}`);
+               //console.log(`TabLoader: Successfully loaded script: ${src}`);
 
                 // No need to check for chat.js or chattab.js since they're loaded in HTML
 
@@ -481,13 +481,13 @@ class TabLoader {
 
 // Initialize on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
-    //console.log('TabLoader: DOM content loaded, initializing tabLoader');
+   //console.log('TabLoader: DOM content loaded, initializing tabLoader');
     window.tabLoader = new TabLoader();
 
     // Since ChatTab is already in the HTML, we can initialize it immediately
     // if the chat tab is active
     if (document.querySelector('.tab-button[data-tab="chat"].active')) {
-        //console.log('TabLoader: Chat tab is active, initializing ChatTab directly');
+       //console.log('TabLoader: Chat tab is active, initializing ChatTab directly');
         if (window.ChatTab) {
 
         } else {

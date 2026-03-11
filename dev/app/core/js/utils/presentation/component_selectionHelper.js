@@ -51,7 +51,7 @@ class selectionHelper {
                 const rawTarget = e.target;
                 const tClass = (rawTarget && rawTarget.getClassName && rawTarget.getClassName()) || null;
                 const tId = (rawTarget && rawTarget._id) || null;
-                //console.log('[selectionHelper] stage click target:', { className: tClass, id: tId });
+               //console.log('[selectionHelper] stage click target:', { className: tClass, id: tId });
 
                 // remember last clicked class so we can include it in selectionChange payloads
                 try { this._lastClickedClass = tClass; } catch (e) { this._lastClickedClass = null; }
@@ -64,14 +64,14 @@ class selectionHelper {
 
                 // Ignore clicks on the visible selection rect itself
                 if (this._selectionRect && rawTarget === this._selectionRect) {
-                    //console.log('[selectionHelper] click on selection rect - ignored');
+                   //console.log('[selectionHelper] click on selection rect - ignored');
                     return;
                 }
 
                 // Also ignore clicks coming from overlay UI children
                 try {
                     if (rawTarget && typeof rawTarget.getParent === 'function' && rawTarget.getParent() === this.overlayLayer) {
-                        //console.log('[selectionHelper] click on overlay UI - ignored');
+                       //console.log('[selectionHelper] click on overlay UI - ignored');
                         return;
                     }
                 } catch (e) { /* ignore overlay-parent check errors */ }
@@ -209,7 +209,7 @@ class selectionHelper {
     select(nodeOrArray) {
         const nodes = Array.isArray(nodeOrArray) ? nodeOrArray : [nodeOrArray];
         const valid = nodes.filter(n => n && n.getClassName && n.getClassName() !== 'selectionHelper');
-        //console.log('[selectionHelper] select called, valid nodes count:', valid.length);
+       //console.log('[selectionHelper] select called, valid nodes count:', valid.length);
 
         this.selected = valid;
 
@@ -292,7 +292,7 @@ class selectionHelper {
         // emit selection event
         try {
             const info = valid.map(n => ({ className: n.getClassName(), attrs: (typeof n.getAttrs === 'function') ? n.getAttrs() : (n.attrs || {}) }));
-            //console.log('[selectionHelper] selection', info);
+           //console.log('[selectionHelper] selection', info);
             this._emit('selectionChange', { selectedNodes: valid, clickedClass: this._lastClickedClass || null });
         } catch (e) {
             this._emit('selectionChange', { selectedNodes: valid, clickedClass: this._lastClickedClass || null });
@@ -305,7 +305,7 @@ class selectionHelper {
     deselect() {
         // Diagnostic trace to help identify who is calling deselect
         try {
-            //console.log('[selectionHelper] deselect called - current selected count=', Array.isArray(this.selected) ? this.selected.length : 0);
+           //console.log('[selectionHelper] deselect called - current selected count=', Array.isArray(this.selected) ? this.selected.length : 0);
             //console.trace('[selectionHelper] deselect call stack');
         } catch (e) { }
 
@@ -318,7 +318,7 @@ class selectionHelper {
             }
         } catch (e) { }
 
-        //console.log('[selectionHelper] deselected');
+       //console.log('[selectionHelper] deselected');
         // Emit deselect with no clickedClass to avoid propagating stale click context
         try { this._lastClickedClass = null; } catch (e) { }
         this._emit('selectionChange', { selectedNodes: [], clickedClass: null });
@@ -348,14 +348,14 @@ class selectionHelper {
         const qk = query.trim();
         const cached = Array.isArray(this._imageCache[qk]) ? this._imageCache[qk] : [];
         if (cached && cached.length >= count) {
-            //console.log('[selectionHelper] searchImages - returning cached results:', qk, 'count=', Math.min(count, cached.length));
+           //console.log('[selectionHelper] searchImages - returning cached results:', qk, 'count=', Math.min(count, cached.length));
             return cached.slice(0, count);
         }
 
         // helper to convert a list of urls (or data URIs) to base64 data URIs
         const loadUrlsToBase64 = async (urls = [], progressCb) => {
             const out = [];
-            //console.log('[selectionHelper] loadUrlsToBase64 - starting download/convert for', urls.length, 'items');
+           //console.log('[selectionHelper] loadUrlsToBase64 - starting download/convert for', urls.length, 'items');
             for (let i = 0; i < urls.length; i++) {
                 const raw = urls[i];
                 try {
@@ -365,12 +365,12 @@ class selectionHelper {
                     if (typeof raw === 'string' && raw.startsWith('data:')) {
                         out.push(raw);
                         progressCb && progressCb(i + 1, urls.length);
-                        //console.log('[selectionHelper] loadUrlsToBase64 - already data URI at', i);
+                       //console.log('[selectionHelper] loadUrlsToBase64 - already data URI at', i);
                         continue;
                     }
                     const resp = await fetch(raw);
                     if (!resp.ok) { progressCb && progressCb(i + 1, urls.length); 
-                        //console.log('[selectionHelper] loadUrlsToBase64 - fetch failed for', raw, 'status=', resp.status); 
+                       //console.log('[selectionHelper] loadUrlsToBase64 - fetch failed for', raw, 'status=', resp.status); 
                         continue; 
                     }
                     const blob = await resp.blob();
@@ -381,13 +381,13 @@ class selectionHelper {
                         reader.readAsDataURL(blob);
                     });
                     out.push(base64);
-                    //console.log('[selectionHelper] loadUrlsToBase64 - converted item', i + 1, '/', urls.length);
+                   //console.log('[selectionHelper] loadUrlsToBase64 - converted item', i + 1, '/', urls.length);
                 } catch (e) {
                     console.warn('[selectionHelper] loadUrlsToBase64 - error converting url at index', i, e);
                 }
                 progressCb && progressCb(i + 1, urls.length);
             }
-            //console.log('[selectionHelper] loadUrlsToBase64 - finished, converted count=', out.length);
+           //console.log('[selectionHelper] loadUrlsToBase64 - finished, converted count=', out.length);
             return out;
         };
 
@@ -395,7 +395,7 @@ class selectionHelper {
 
         // Primary: call server multi-image endpoint to obtain multiple image URLs in one request
         try {
-            //console.log('[selectionHelper] searchImages - calling server multi-image endpoint for:', qk);
+           //console.log('[selectionHelper] searchImages - calling server multi-image endpoint for:', qk);
             const resp = await fetch(`/api/proxy/image-search-multi?q=${encodeURIComponent(qk)}`);
             if (resp && resp.ok) {
                 const j = await resp.json();
@@ -416,7 +416,7 @@ class selectionHelper {
                 }).filter(Boolean);
 
                 images = Array.from(new Set(images)).filter(u => /^https?:\/\//i.test(u));
-                //console.log('[selectionHelper] server multi - extracted urls count=', images.length, 'sample=', images.slice(0, Math.min(5, images.length)));
+               //console.log('[selectionHelper] server multi - extracted urls count=', images.length, 'sample=', images.slice(0, Math.min(5, images.length)));
 
                 if (images.length > 0) {
                     const limited = images.slice(0, count);
@@ -434,13 +434,13 @@ class selectionHelper {
         // That fallback has been removed because Content.searchSlideImage performs a single-image search.
         // Rely on the server multi-image endpoint and the single-image proxy only.
         if ((!results || results.length < count)) {
-            //console.log('[selectionHelper] searchImages - skipping Content.searchSlideImage fallback (removed)');
+           //console.log('[selectionHelper] searchImages - skipping Content.searchSlideImage fallback (removed)');
         }
 
         // Last-resort fallback: call single-image proxy and extract urls
         if ((!results || results.length < count)) {
             try {
-                //console.log('[selectionHelper] searchImages - falling back to single proxy search for:', qk);
+               //console.log('[selectionHelper] searchImages - falling back to single proxy search for:', qk);
                 const resp2 = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(qk)}`);
                 if (resp2 && resp2.ok) {
                     const j = await resp2.json();
@@ -472,7 +472,7 @@ class selectionHelper {
                     };
 
                     let urls = Array.from(new Set(extractUrls(j))).filter(Boolean);
-                    //console.log('[selectionHelper] proxy single - extracted urls count=', urls.length, 'sample=', urls.slice(0, Math.min(5, urls.length)));
+                   //console.log('[selectionHelper] proxy single - extracted urls count=', urls.length, 'sample=', urls.slice(0, Math.min(5, urls.length)));
 
                     const need = count - (results ? results.length : 0);
                     if (need > 0 && urls.length > 0) {
@@ -489,7 +489,7 @@ class selectionHelper {
         // Merge with cache, keep unique and limit to count
         const merged = Array.from(new Set([...(cached || []), ...(results || [])])).slice(0, count);
         this._imageCache[qk] = merged;
-        //console.log('[selectionHelper] searchImages finished - final base64 count=', merged.length, 'for query=', qk);
+       //console.log('[selectionHelper] searchImages finished - final base64 count=', merged.length, 'for query=', qk);
         return merged;
     }
 
@@ -627,7 +627,7 @@ class selectionHelper {
     // Replace image(s) on currently selected Konva.Image nodes with a base64 data URI.
     replaceSelectedImage(base64, opts = { preserveSize: true }) {
         try {
-            //console.log('[selectionHelper] replaceSelectedImage called, selectedCount=', Array.isArray(this.selected) ? this.selected.length : 0, 'preserveSize=', opts && opts.preserveSize);
+           //console.log('[selectionHelper] replaceSelectedImage called, selectedCount=', Array.isArray(this.selected) ? this.selected.length : 0, 'preserveSize=', opts && opts.preserveSize);
             if (!base64 || typeof base64 !== 'string') return false;
             let sel = Array.isArray(this.selected) ? this.selected : [];
             // allow forcing a target node via opts.forceTargetNode
@@ -642,7 +642,7 @@ class selectionHelper {
             try { this._ensureOriginalSizeRecorded(n); } catch (e) {}
                         const className = (n && n.getClassName && typeof n.getClassName === 'function') ? n.getClassName() : null;
                         const isImage = (className && className.toLowerCase() === 'image') || (n && typeof n.image === 'function');
-                        //console.log('[selectionHelper] replaceSelectedImage - node', idx, 'className=', className, 'isImage=', !!isImage);
+                       //console.log('[selectionHelper] replaceSelectedImage - node', idx, 'className=', className, 'isImage=', !!isImage);
                         if (!isImage) return;
 
                         // preserve previous size unless opt says otherwise
@@ -696,7 +696,7 @@ class selectionHelper {
                         } catch (e) { /* ignore sizing errors */ }
 
                         const layer = n.getLayer && n.getLayer(); if (layer && typeof layer.batchDraw === 'function') layer.batchDraw();
-                        //console.log('[selectionHelper] replaceSelectedImage - replaced node', idx);
+                       //console.log('[selectionHelper] replaceSelectedImage - replaced node', idx);
                         // Persist replacement into parsedSlides/slideImagesResult if preview API is available
                         try {
                             const pwId = this._getNodeIdentifier(n);
@@ -740,7 +740,7 @@ class selectionHelper {
     // Import a File/Blob (e.g., from an <input type=file>) and replace currently selected image nodes with it.
     async importAndReplace(fileOrBlob, opts = { preserveSize: true }) {
         try {
-            //console.log('[selectionHelper] importAndReplace called, selectedCount=', Array.isArray(this.selected) ? this.selected.length : 0);
+           //console.log('[selectionHelper] importAndReplace called, selectedCount=', Array.isArray(this.selected) ? this.selected.length : 0);
             if (!fileOrBlob) return false;
             const sel = Array.isArray(this.selected) ? this.selected : [];
             if (!sel.length) return false;
@@ -961,7 +961,7 @@ class selectionHelper {
                             const pwId = this._getNodeIdentifier(node);
                             if (pwId && typeof window.presentationPreview !== 'undefined' && window.presentationPreview && typeof window.presentationPreview.updateParsedSlideText === 'function') {
                                 try { window.presentationPreview.updateParsedSlideText(pwId, reply); 
-                                    //console.log('[selectionHelper] persisted AI edit to parsedSlides pwId=', pwId); 
+                                   //console.log('[selectionHelper] persisted AI edit to parsedSlides pwId=', pwId); 
                                 } catch (e) { }
                             }
                         } catch (e) { }
@@ -1170,7 +1170,7 @@ class selectionHelper {
                         const pwId = this._getNodeIdentifier(node);
                         if (pwId && typeof window.presentationPreview !== 'undefined' && window.presentationPreview && typeof window.presentationPreview.updateParsedSlideText === 'function') {
                             try { window.presentationPreview.updateParsedSlideText(pwId, newText); 
-                                //console.log('[selectionHelper] persisted inline edit to parsedSlides pwId=', pwId); 
+                               //console.log('[selectionHelper] persisted inline edit to parsedSlides pwId=', pwId); 
                                 } catch (e) { }
                         }
                     } catch (e) { }
@@ -1251,7 +1251,7 @@ class selectionHelper {
 
         // gather text nodes (prefer presentation nodeMap)
         const allNodes = (window.presentation && Object.values(window.presentation.nodeMap || {})) || [];
-        //console.log('[selectionHelper] processAllTextNodesWithAI - nodeMap size =', allNodes.length);
+       //console.log('[selectionHelper] processAllTextNodesWithAI - nodeMap size =', allNodes.length);
 
         // Expand Groups into descendant Text nodes as well
         const textNodes = [];
@@ -1271,7 +1271,7 @@ class selectionHelper {
         // If nothing found in nodeMap, try fallback: scan all stages for Text nodes
         if (!textNodes.length) {
             try {
-                //console.log('[selectionHelper] processAllTextNodesWithAI - no text nodes in nodeMap, scanning stages fallback');
+               //console.log('[selectionHelper] processAllTextNodesWithAI - no text nodes in nodeMap, scanning stages fallback');
                 const stages = (window.presentation && window.presentation.stages) || [];
                 for (const s of stages) {
                     try {
@@ -1282,14 +1282,14 @@ class selectionHelper {
                         }
                     } catch (e) { }
                 }
-                //console.log('[selectionHelper] processAllTextNodesWithAI - fallback scan found text nodes=', textNodes.length);
+               //console.log('[selectionHelper] processAllTextNodesWithAI - fallback scan found text nodes=', textNodes.length);
             } catch (e) { console.warn('[selectionHelper] processAllTextNodesWithAI - stage scan failed', e); }
         } else {
-            //console.log('[selectionHelper] processAllTextNodesWithAI - textNodes found via nodeMap=', textNodes.length);
+           //console.log('[selectionHelper] processAllTextNodesWithAI - textNodes found via nodeMap=', textNodes.length);
         }
 
         if (!textNodes || textNodes.length === 0) {
-            //console.log('[selectionHelper] processAllTextNodesWithAI - no text nodes to process, exiting');
+           //console.log('[selectionHelper] processAllTextNodesWithAI - no text nodes to process, exiting');
             return;
         }
 
@@ -1338,7 +1338,7 @@ class selectionHelper {
             const node = textNodes[i];
             if (!node) continue;
             if (signal.aborted) {
-                //console.log('[selectionHelper] processAllTextNodesWithAI - aborted before processing node', i);
+               //console.log('[selectionHelper] processAllTextNodesWithAI - aborted before processing node', i);
                 break;
             }
 
@@ -1413,7 +1413,7 @@ class selectionHelper {
 
             try {
                 const label = `ai_modify_node_${i}`;
-                //console.log('[selectionHelper] processAllTextNodesWithAI - processing node', i + 1, 'of', total, 'label=', label);
+               //console.log('[selectionHelper] processAllTextNodesWithAI - processing node', i + 1, 'of', total, 'label=', label);
                 let fullReply = '';
 
                 // Use the curated non-stream helper that disables "thinking" streaming mode.
@@ -1444,7 +1444,7 @@ class selectionHelper {
                     continue;
                 }
 
-                //console.log('[selectionHelper] processAllTextNodesWithAI - raw reply length for node', i + 1, '=', fullReply ? fullReply.length : 0);
+               //console.log('[selectionHelper] processAllTextNodesWithAI - raw reply length for node', i + 1, '=', fullReply ? fullReply.length : 0);
 
                 const cleaned = (typeof this._cleanAIReply === 'function') ? this._cleanAIReply(fullReply) : fullReply;
                 const finalText = cleaned || original;
@@ -1453,13 +1453,13 @@ class selectionHelper {
                     if (typeof node.text === 'function') node.text(finalText);
                     else if (node.setAttr) node.setAttr('text', finalText);
                     const layer = node.getLayer && node.getLayer(); if (layer && typeof layer.batchDraw === 'function') layer.batchDraw();
-                    //console.log('[selectionHelper] processAllTextNodesWithAI - applied text to node', i + 1);
+                   //console.log('[selectionHelper] processAllTextNodesWithAI - applied text to node', i + 1);
                     // Persist AI batch modification to parsedSlides if preview helper exists
                     try {
                         const pwId = this._getNodeIdentifier(node);
                         if (pwId && typeof window.presentationPreview !== 'undefined' && window.presentationPreview && typeof window.presentationPreview.updateParsedSlideText === 'function') {
                             try { window.presentationPreview.updateParsedSlideText(pwId, finalText); 
-                                //console.log('[selectionHelper] persisted AI batch edit to parsedSlides pwId=', pwId); 
+                               //console.log('[selectionHelper] persisted AI batch edit to parsedSlides pwId=', pwId); 
                                 } catch (e) { }
                         }
                     } catch (e) { }
@@ -1473,7 +1473,7 @@ class selectionHelper {
 
             } catch (e) {
                 if (e && (e.name === 'AbortError' || (e.message && e.message.toLowerCase().includes('abort')))) {
-                    //console.log('[AI] processing aborted by user');
+                   //console.log('[AI] processing aborted by user');
                     break;
                 } else {
                     console.warn('[AI] error processing node', e);

@@ -1,5 +1,9 @@
 class OllamaAPI {
 
+    static localModelNames = new Set();
+    static cloudModelNames = new Set();
+    static pulledCloudModels = new Set();
+
     static _cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
         ? window.ThinkingState.getEffectiveThinkingEnabled()
         : ((localStorage.getItem('thinkingEnabledGptOss') === 'true') || (localStorage.getItem('thinkingEnabled') === 'true'));
@@ -14,14 +18,14 @@ class OllamaAPI {
                 this._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
                     ? window.ThinkingState.getEffectiveThinkingEnabled()
                     : ((localStorage.getItem('thinkingEnabledGptOss') === 'true') || (localStorage.getItem('thinkingEnabled') === 'true'));
-                //console.log('🧠 OllamaAPI: Thinking state changed via storage event:', this._cachedThinkingEnabled);
+               //console.log('🧠 OllamaAPI: Thinking state changed via storage event:', this._cachedThinkingEnabled);
             }
         });
 
         // Listen for custom events when thinking is toggled in same tab
         window.addEventListener('thinkingStateChanged', (e) => {
             this._cachedThinkingEnabled = e.detail.enabled;
-            //console.log('🧠 OllamaAPI: Thinking state changed via custom event:', this._cachedThinkingEnabled);
+           //console.log('🧠 OllamaAPI: Thinking state changed via custom event:', this._cachedThinkingEnabled);
         });
     }
     static totalTokensUsed = 0;
@@ -37,45 +41,366 @@ class OllamaAPI {
     static visualModels = null;
     static maxImagesUsed = 0; // Track the maximum number of images used in this conversation
     static lastUsedImages = []; // Store the last real images used in the conversation
+    static systemPromptCache = new Map();
+    static systemPromptRevision = new Map();
+    static insightsRevision = new Map();
 
 
     constructor() {
     }
 
+    static _getRevision(map, hashedMasterKey) {
+        return map.get(hashedMasterKey) || 0;
+    }
+
+    static _bumpRevision(map, hashedMasterKey) {
+        const next = (map.get(hashedMasterKey) || 0) + 1;
+        map.set(hashedMasterKey, next);
+        return next;
+    }
+
+    static invalidateSystemPromptCache(hashedMasterKey, reason = 'manual') {
+        if (hashedMasterKey) {
+            this.systemPromptCache.delete(hashedMasterKey);
+            console.info('[PromptCache] invalidated', { hashedMasterKey: 'present', reason });
+            return;
+        }
+
+        this.systemPromptCache.clear();
+        console.info('[PromptCache] invalidated all', { reason });
+    }
+
+    static notifySystemPromptChanged(hashedMasterKey) {
+        if (!hashedMasterKey) return;
+        this._bumpRevision(this.systemPromptRevision, hashedMasterKey);
+        this.invalidateSystemPromptCache(hashedMasterKey, 'system-prompt-changed');
+    }
+
+    static notifyInsightsChanged(hashedMasterKey) {
+        if (!hashedMasterKey) return;
+        this._bumpRevision(this.insightsRevision, hashedMasterKey);
+        this.invalidateSystemPromptCache(hashedMasterKey, 'insights-changed');
+    }
+
+    static createStreamProcessorForRouting(isCloudRouting, existingProcessor = null) {
+        if (existingProcessor instanceof StreamProcessor) {
+            console.info('[StreamRouting] Reusing StreamProcessor for display', {
+                source: isCloudRouting ? 'cloud' : 'local'
+            });
+            return existingProcessor;
+        }
+
+        console.info('[StreamRouting] Creating StreamProcessor for display', {
+            source: isCloudRouting ? 'cloud' : 'local'
+        });
+        return new StreamProcessor();
+    }
+
     static countTokens(text) {
         return text.split(/[\s,.!?;:'"()\[\]{}]+/).length;
     }
+    static logCloudStreamDiagnostics(scope, details = {}) {
+        try {
+            console.warn('[CloudStream] ' + scope, details);
+        } catch (_err) {
+            // Logging must never break response handling.
+        }
+    }
+
+    static isStreamDebugEnabled() {
+        try {
+            return localStorage.getItem('debugStream') === 'true';
+        } catch (_err) {
+            return false;
+        }
+    }
+
+    static logStreamSummary(scope, details = {}) {
+        if (!this.isStreamDebugEnabled()) return;
+        try {
+            console.info('[StreamDebug] ' + scope, details);
+        } catch (_err) {
+            // Debug logging must never break response handling.
+        }
+    }
+
+    static trackCloudTokenUsage(sentText = '', receivedText = '') {
+        const sentTokens = sentText ? this.countTokens(String(sentText)) : 0;
+        const receivedTokens = receivedText ? this.countTokens(String(receivedText)) : 0;
+        this.totalTokensUsed += (sentTokens + receivedTokens);
+        this.updateContextRemaining(this.totalTokensUsed);
+    }
+
+    static getModelSource(modelName) {
+        if (!modelName) return null;
+        if (String(modelName).toLowerCase().endsWith('-cloud')) return 'cloud';
+        if (this.cloudModelNames.has(modelName)) return 'cloud';
+        if (this.localModelNames.has(modelName)) return 'local';
+        return null;
+    }
+
+    static normalizeCloudModelName(modelName) {
+        const name = String(modelName || '').trim();
+        if (!name) return '';
+        return this.getCloudApiModelName(name);
+    }
+
+    // Direct ollama.com API expects model names without the -cloud suffix.
+    static getCloudApiModelName(modelName) {
+        const name = String(modelName || '').trim();
+        if (!name) return '';
+        return name.replace(/(?:-cloud)+$/i, '').trim();
+    }
+
+    // Local Ollama signed-in cloud mode expects cloud model calls through localhost with -cloud suffix.
+    static getCloudLocalModelName(modelName) {
+        return this.getCloudApiModelName(modelName);
+    }
+
+    static async ensureCloudModelPulled(modelName, headers) {
+        const requestedModel = String(modelName || '').trim();
+        const normalizedModel = this.normalizeCloudModelName(requestedModel);
+
+        console.info('[CloudPull] ensureCloudModelPulled called', { modelName, requestedModel, normalizedModel });
+
+        if (!normalizedModel) return normalizedModel;
+        if (this.pulledCloudModels.has(normalizedModel)) {
+            console.info('[CloudPull] already pulled in session cache', { normalizedModel });
+            return normalizedModel;
+        }
+
+        console.info('[CloudPull] request start', { endpoint: 'http://localhost:11434/api/pull', model: normalizedModel });
+        const pullResponse = await fetch('http://localhost:11434/api/pull', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            // Match Models tab semantics: streamed pull with `name` payload.
+            body: JSON.stringify({ name: normalizedModel })
+        });
+
+        if (!pullResponse.ok) {
+            const text = await pullResponse.text();
+            console.error('[CloudPull] request failed', {
+                model: normalizedModel,
+                status: pullResponse.status,
+                text
+            });
+            throw new Error(`Cloud model pull failed (${pullResponse.status}) for ${normalizedModel}: ${text || pullResponse.statusText}`);
+        }
+
+        // Consume stream updates similarly to the Models tab flow.
+        if (pullResponse.body && typeof pullResponse.body.getReader === 'function') {
+            const reader = pullResponse.body.getReader();
+            const decoder = new TextDecoder();
+            let streamBuffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                const lines = streamBuffer.split('\n');
+                streamBuffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const status = JSON.parse(line);
+                        const statusText = String(status?.status || '').toLowerCase();
+                        if (statusText) {
+                            console.info('[CloudPull] stream status', { model: normalizedModel, status: status.status });
+                        }
+                        if (status?.error) {
+                            console.error('[CloudPull] stream error', { model: normalizedModel, error: status.error });
+                            throw new Error(String(status.error));
+                        }
+                    } catch (_parseErr) {
+                        // Ignore non-JSON chunk fragments while streaming.
+                    }
+                }
+
+                if (done) {
+                    const tail = streamBuffer.trim();
+                    if (tail) {
+                        try {
+                            const status = JSON.parse(tail);
+                            const statusText = String(status?.status || '').toLowerCase();
+                            if (statusText) {
+                                console.info('[CloudPull] stream status', { model: normalizedModel, status: status.status });
+                            }
+                            if (status?.error) {
+                                console.error('[CloudPull] stream error', { model: normalizedModel, error: status.error });
+                                throw new Error(String(status.error));
+                            }
+                        } catch (_parseErr) {
+                            // Ignore any trailing partial fragments.
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        this.pulledCloudModels.add(normalizedModel);
+        console.info('[CloudPull] completed and cached', { normalizedModel });
+        return normalizedModel;
+    }
+
+    static getSelectedModelSource() {
+        const modelSelector = document.getElementById('model-selector');
+        if (!modelSelector || modelSelector.selectedIndex < 0) {
+            return null;
+        }
+
+        const selectedOption = modelSelector.options[modelSelector.selectedIndex];
+        if (selectedOption && selectedOption.dataset && selectedOption.dataset.provider) {
+            return selectedOption.dataset.provider;
+        }
+
+        return this.getModelSource(modelSelector.value);
+    }
+
+    static isCloudModelSelected() {
+        return this.getSelectedModelSource() === 'cloud';
+    }
+
+    static async getStoredCloudApiKey() {
+        try {
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+            const dbApi = (window && window.PaiperworkDB)
+                ? window.PaiperworkDB
+                : (typeof PaiperworkDB !== 'undefined' ? PaiperworkDB : null);
+
+            if (!hashedMasterKey || !dbApi || typeof dbApi.getOllamaApiKey !== 'function') {
+                return '';
+            }
+            const key = await dbApi.getOllamaApiKey(hashedMasterKey);
+            const trimmed = (key || '').trim();
+            if (!trimmed) return '';
+            return trimmed
+                .replace(/^(?:Bearer\s+)+/i, '')
+                .replace(/^['"]+|['"]+$/g, '')
+                .trim();
+        } catch (_err) {
+            return '';
+        }
+    }
+
+    static async getApiRoutingForModel(modelName) {
+        const source = this.getModelSource(modelName) || this.getSelectedModelSource() || 'local';
+        const isCloud = source === 'cloud';
+        const baseUrl = isCloud ? '/api/cloud' : 'http://localhost:11434/api';
+        const headers = { 'Content-Type': 'application/json' };
+        let normalizedModelName = modelName;
+
+        if (isCloud) {
+            normalizedModelName = this.getCloudApiModelName(modelName);
+            const cloudApiKey = await this.getStoredCloudApiKey();
+            if (cloudApiKey) {
+                headers['Authorization'] = `Bearer ${cloudApiKey}`;
+            }
+        }
+
+        return { source, baseUrl, headers, modelName: normalizedModelName };
+    }
+
     static async loadOllamaModels() {
         const modelSelector = document.getElementById('model-selector');
-        //console.log('Loading Ollama models...');
+       //console.log('Loading Ollama models...');
 
         try {
-            //console.log('Fetching from Ollama API...');
-            const response = await fetch('http://localhost:11434/api/tags');
+           //console.log('Fetching local and cloud Ollama models...');
+            const cloudApiKey = await this.getStoredCloudApiKey();
 
-            if (!response.ok) {
-                throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`);
+            const fetchLocalTagsWithRetry = async () => {
+                const timeouts = [7000, 12000];
+                let lastError = null;
+
+                for (let i = 0; i < timeouts.length; i++) {
+                    try {
+                        const resp = await fetch('http://localhost:11434/api/tags', {
+                            signal: AbortSignal.timeout(timeouts[i])
+                        });
+                        if (resp.ok) {
+                            return resp;
+                        }
+                        lastError = new Error(`local /api/tags returned ${resp.status}`);
+                    } catch (err) {
+                        lastError = err;
+                    }
+                }
+
+                throw lastError || new Error('local /api/tags unavailable');
+            };
+
+            const [localResponse, cloudResponse] = await Promise.allSettled([
+                fetchLocalTagsWithRetry(),
+                fetch('/api/cloud/tags', {
+                    // Cloud fetch should never block local model visibility.
+                    signal: AbortSignal.timeout(2500),
+                    headers: cloudApiKey
+                        ? {
+                            'Authorization': `Bearer ${cloudApiKey}`
+                        }
+                        : undefined
+                })
+            ]);
+
+            let localModels = [];
+            let cloudModels = [];
+
+            if (localResponse.status === 'fulfilled' && localResponse.value.ok) {
+                const localData = await localResponse.value.json();
+                localModels = Array.isArray(localData.models) ? localData.models : [];
+
+                // Normalize shape defensively in case backend returns `model` instead of `name`.
+                localModels = localModels
+                    .map(model => ({
+                        ...model,
+                        name: model?.name || model?.model || ''
+                    }))
+                    .filter(model => model.name);
+
+                this._cachedLocalModels = localModels;
+            } else {
+                console.warn('OllamaAPI: local /api/tags unavailable during loadOllamaModels', {
+                    status: localResponse.status,
+                    httpOk: localResponse.status === 'fulfilled' ? localResponse.value.ok : false
+                });
+
+                // Keep local selector usable during transient daemon startup by using cache.
+                if (Array.isArray(this._cachedLocalModels) && this._cachedLocalModels.length > 0) {
+                    localModels = [...this._cachedLocalModels];
+                    console.info('OllamaAPI: using cached local models due to temporary local /api/tags failure', {
+                        cachedCount: localModels.length
+                    });
+                }
             }
 
-            const data = await response.json();
-            // //console.log('Found models:', data.models ? data.models.length : 0);
+            if (cloudResponse.status === 'fulfilled' && cloudResponse.value.ok) {
+                const cloudData = await cloudResponse.value.json();
+                cloudModels = Array.isArray(cloudData.models) ? cloudData.models : [];
+            } else if (cloudResponse.status === 'rejected') {
+                console.info('OllamaAPI: cloud /api/cloud/tags unavailable or timed out; continuing with local models only');
+            }
 
-            // Check if there are no models
-            if (!data.models || data.models.length === 0) {
-                console.warn('No models found in Ollama');
+            // If local tags include already pulled cloud models, keep them only in CLOUD MODELS.
+            const cloudNormalizedNames = new Set(cloudModels.map(model => this.normalizeCloudModelName(model.name)));
+            localModels = localModels.filter(model => {
+                const localName = String(model?.name || '').trim();
+                const looksLikeCloudModel = localName.toLowerCase().endsWith('-cloud');
+                if (!looksLikeCloudModel) {
+                    return true;
+                }
+                return !cloudNormalizedNames.has(this.getCloudApiModelName(localName));
+            });
 
-                // Show alert and redirect to models tab
+            this.localModelNames = new Set(localModels.map(model => model.name));
+            this.cloudModelNames = new Set(cloudModels.map(model => this.normalizeCloudModelName(model.name)));
+
+            // Keep old behavior: if nothing is available at all, show guidance.
+            if (localModels.length === 0 && cloudModels.length === 0) {
+                console.warn('No local or cloud models found in Ollama');
+
                 setTimeout(() => {
-                    alert(Lang.get('noModelsFound') || 'No models found in Ollama. Redirecting to the Models tab to download one.');
-
-                    // Find and click the models tab button
-                    const modelsTabButton = document.querySelector('.tab-button[data-tab="models"]');
-                    if (modelsTabButton) {
-                        modelsTabButton.click();
-                    } else {
-                        // If no tab button, try direct navigation
-                        window.location.href = 'index.html?tab=models';
-                    }
+                    alert(Lang.get('noModelsFound') || 'No models found in Ollama.');
                 }, 500);
 
                 return false;
@@ -84,13 +409,39 @@ class OllamaAPI {
             // Clear existing options first
             modelSelector.innerHTML = `<option value="">${Lang.get('selectModel')}</option>`;
 
-            // Add models to selector
-            data.models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model.name;
-                option.textContent = model.name;
-                modelSelector.appendChild(option);
-            });
+            const appendGroupHeader = (label) => {
+                const headerOption = document.createElement('option');
+                headerOption.value = '';
+                headerOption.disabled = true;
+                headerOption.className = 'model-group-header';
+                headerOption.textContent = `--- ${label} ---`;
+                modelSelector.appendChild(headerOption);
+            };
+
+            // Add local models first.
+            if (localModels.length > 0) {
+                appendGroupHeader('LOCAL MODELS');
+                localModels.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = model.name;
+                    option.dataset.provider = 'local';
+                    modelSelector.appendChild(option);
+                });
+            }
+
+            // Then add cloud models.
+            if (cloudModels.length > 0) {
+                appendGroupHeader('CLOUD MODELS');
+                cloudModels.forEach(model => {
+                    const normalizedCloudName = this.normalizeCloudModelName(model.name);
+                    const option = document.createElement('option');
+                    option.value = normalizedCloudName;
+                    option.textContent = normalizedCloudName;
+                    option.dataset.provider = 'cloud';
+                    modelSelector.appendChild(option);
+                });
+            }
 
             if (modelSelector.options.length > 1) {
                 // Keep the "Select Model" option selected initially
@@ -128,7 +479,7 @@ class OllamaAPI {
 
         // First try exact match
         if (window.MODEL_PARAMETERS[baseModelName]) {
-            //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (exact match)`);
+           //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (exact match)`);
             return window.MODEL_PARAMETERS[baseModelName];
         }
 
@@ -138,7 +489,7 @@ class OllamaAPI {
         // Then look for most specific prefix match
         for (const prefix of sortedKeys) {
             if (baseModelName.startsWith(prefix)) {
-                //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (matched prefix ${prefix})`);
+               //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (matched prefix ${prefix})`);
                 return window.MODEL_PARAMETERS[prefix];
             }
         }
@@ -146,13 +497,13 @@ class OllamaAPI {
         // Finally, try substring match as fallback
         for (const key of sortedKeys) {
             if (baseModelName.includes(key)) {
-                //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (matched substring ${key})`);
+               //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (matched substring ${key})`);
                 return window.MODEL_PARAMETERS[key];
             }
         }
 
         // No match found, return empty object (use Ollama defaults)
-        //console.log(`OllamaAPI: No custom parameters for ${baseModelName}, using defaults`);
+       //console.log(`OllamaAPI: No custom parameters for ${baseModelName}, using defaults`);
         return {};
     }
     // Fetches metadata for a given model from the Ollama API.
@@ -160,18 +511,28 @@ class OllamaAPI {
         // Returns { data, nativeContext, nativeContextPath } or null on error
         try {
             const doAutoload = options && options.autoload;
+            const routing = await this.getApiRoutingForModel(modelName);
+            const isLocalhostRouting = String(routing.baseUrl || '').startsWith('http://localhost:11434/api');
+            const hasCloudApiKey = routing.source !== 'cloud' || !!routing.headers['Authorization'];
 
-            if (doAutoload) {
+            // Do not call cloud metadata endpoints before a user key is configured.
+            if (routing.source === 'cloud' && !hasCloudApiKey) {
+                return null;
+            }
+
+            // For cloud-routed models, skip /generate autoload entirely to avoid startup-side auth noise.
+            const shouldAutoload = doAutoload && hasCloudApiKey && routing.source !== 'cloud';
+            if (shouldAutoload) {
                 try {
-                    const loadResp = await fetch('http://localhost:11434/api/generate', {
+                    const loadResp = await fetch(`${routing.baseUrl}/generate`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: modelName, keep_alive: '-1s', stream: false, prompt: '' })
+                        headers: routing.headers,
+                        body: JSON.stringify({ model: routing.modelName || modelName, keep_alive: '-1s', stream: false, prompt: '' })
                     });
-                    //console.log('OllamaAPI: Autoload response status:', loadResp.status, 'ok?', loadResp.ok);
+                   //console.log('OllamaAPI: Autoload response status:', loadResp.status, 'ok?', loadResp.ok);
                     try {
                         const bodyText = await loadResp.text();
-                        //console.log('OllamaAPI: Autoload response body (trimmed):', bodyText ? (bodyText.length > 1000 ? bodyText.substring(0, 1000) + '...[truncated]' : bodyText) : '<empty>');
+                       //console.log('OllamaAPI: Autoload response body (trimmed):', bodyText ? (bodyText.length > 1000 ? bodyText.substring(0, 1000) + '...[truncated]' : bodyText) : '<empty>');
                     } catch (e) {
                         // ignore
                     }
@@ -180,15 +541,57 @@ class OllamaAPI {
                 }
             }
 
-            const candidateNames = ['context_length', 'context_size', 'num_ctx', 'max_context', 'num_context', 'context'];
+            const candidateNames = ['context_length', 'context_size', 'context_window', 'num_ctx', 'max_context', 'num_context', 'context', 'n_ctx'];
+
+            const isLikelyContextPath = (path) => {
+                const lowerPath = String(path || '').toLowerCase();
+                if (!lowerPath) return false;
+
+                if (lowerPath.includes('context')) return true;
+
+                return candidateNames.some(name =>
+                    lowerPath.endsWith(`.${name}`) ||
+                    lowerPath.endsWith(`_${name}`) ||
+                    lowerPath.endsWith(`-${name}`) ||
+                    lowerPath === name
+                );
+            };
+
+            const toNumericContextValue = (value) => {
+                if (typeof value === 'number' && Number.isFinite(value)) {
+                    return value;
+                }
+
+                if (typeof value === 'string') {
+                    const cleaned = value.trim().toLowerCase().replace(/,/g, '');
+
+                    if (/^\d+(?:\.\d+)?$/.test(cleaned)) {
+                        return Number(cleaned);
+                    }
+
+                    // Handle compact formats like "128k", "2m", "1.5b".
+                    const compactMatch = cleaned.match(/^(\d+(?:\.\d+)?)([kmb])$/);
+                    if (compactMatch) {
+                        const n = Number(compactMatch[1]);
+                        const unit = compactMatch[2];
+                        if (!Number.isFinite(n)) return null;
+                        if (unit === 'k') return n * 1000;
+                        if (unit === 'm') return n * 1000000;
+                        if (unit === 'b') return n * 1000000000;
+                    }
+                }
+
+                return null;
+            };
 
             const findContext = (obj, path = '', seen = new Set()) => {
                 if (obj === null || obj === undefined) return undefined;
                 if (seen.has(obj)) return undefined;
-                if (typeof obj === 'number') return { value: obj, path };
-                if (typeof obj === 'string') {
-                    const numericRe = /^\s*\d+(?:\.\d+)?\s*$/;
-                    if (numericRe.test(obj)) return { value: Number(obj), path };
+                if (typeof obj === 'number' || typeof obj === 'string') {
+                    const maybeNumeric = toNumericContextValue(obj);
+                    if (maybeNumeric !== null && isLikelyContextPath(path)) {
+                        return { value: maybeNumeric, path };
+                    }
                     return undefined;
                 }
                 if (typeof obj === 'object') {
@@ -200,8 +603,8 @@ class OllamaAPI {
                             try {
                                 const v = obj[name];
                                 const p = path ? `${path}.${name}` : name;
-                                if (typeof v === 'number') return { value: v, path: p };
-                                if (typeof v === 'string' && /^\s*\d+(?:\.\d+)?\s*$/.test(v)) return { value: Number(v), path: p };
+                                const maybeNumeric = toNumericContextValue(v);
+                                if (maybeNumeric !== null) return { value: maybeNumeric, path: p };
                                 if (Array.isArray(v)) return { value: v.length, path: p };
                                 if (typeof v === 'object' && v !== null && v.length !== undefined) return { value: v.length, path: p };
                             } catch (e) { /* ignore */ }
@@ -215,8 +618,8 @@ class OllamaAPI {
                             try {
                                 const v = obj[k];
                                 const p = path ? `${path}.${k}` : k;
-                                if (typeof v === 'number') return { value: v, path: p };
-                                if (typeof v === 'string' && /^\s*\d+(?:\.\d+)?\s*$/.test(v)) return { value: Number(v), path: p };
+                                const maybeNumeric = toNumericContextValue(v);
+                                if (maybeNumeric !== null) return { value: maybeNumeric, path: p };
                                 if (Array.isArray(v) && v.length > 0) return { value: v.length, path: p };
                                 const nested = findContext(v, p, seen);
                                 if (nested !== undefined) return nested;
@@ -224,7 +627,8 @@ class OllamaAPI {
                         }
                     }
 
-                    // Generic recursion into properties (shallow) as a last resort
+                    // Generic recursion into properties as a last resort.
+                    // Primitive values are only accepted when their path is context-related.
                     for (const k of Object.keys(obj)) {
                         try {
                             const v = obj[k];
@@ -239,25 +643,41 @@ class OllamaAPI {
 
             const attemptFetch = async (attempt) => {
                 try {
-                    //console.log(`OllamaAPI: Fetching metadata for ${modelName} (attempt ${attempt})`);
-                    const response = await fetch(`http://localhost:11434/api/show`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: modelName })
-                    });
+                   //console.log(`OllamaAPI: Fetching metadata for ${modelName} (attempt ${attempt})`);
+                    const targetName = routing.modelName || modelName;
+                    const payloadCandidates = [
+                        { name: targetName },
+                        { model: targetName }
+                    ];
 
-                    if (!response.ok) {
-                        throw new Error(`Failed to fetch model metadata: ${response.status}`);
+                    let best = null;
+
+                    for (let i = 0; i < payloadCandidates.length; i++) {
+                        const response = await fetch(`${routing.baseUrl}/show`, {
+                            method: 'POST',
+                            headers: routing.headers,
+                            body: JSON.stringify(payloadCandidates[i])
+                        });
+
+                        if (!response.ok) {
+                            if (i === payloadCandidates.length - 1) {
+                                throw new Error(`Failed to fetch model metadata: ${response.status}`);
+                            }
+                            continue;
+                        }
+
+                        const data = await response.json();
+                        const foundObj = findContext(data);
+                        const nativeContext = (foundObj && typeof foundObj === 'object' && foundObj.value !== undefined) ? foundObj.value : null;
+                        const nativeContextPath = (foundObj && typeof foundObj === 'object' && foundObj.path) ? foundObj.path : null;
+
+                        best = { data, nativeContext, nativeContextPath };
+                        if (nativeContext !== null && nativeContext !== undefined) {
+                            break;
+                        }
                     }
 
-                    const data = await response.json();
-                    // Try to find native context in the returned object
-                    const foundObj = findContext(data);
-                    const nativeContext = (foundObj && typeof foundObj === 'object' && foundObj.value !== undefined) ? foundObj.value : null;
-                    const nativeContextPath = (foundObj && typeof foundObj === 'object' && foundObj.path) ? foundObj.path : null;
-
-                    //console.log('OllamaAPI: /api/show returned metadata; nativeContextPath:', nativeContextPath, 'nativeContext:', nativeContext);
-                    return { data, nativeContext, nativeContextPath };
+                    return best;
                 } catch (err) {
                     console.warn('OllamaAPI: Error fetching model metadata on attempt', attempt, err);
                     return null;
@@ -265,7 +685,7 @@ class OllamaAPI {
             };
 
             let result = await attemptFetch(1);
-            if ((!result || result.nativeContext === null) && doAutoload) {
+            if ((!result || result.nativeContext === null) && shouldAutoload) {
                 // wait and retry once
                 await new Promise(r => setTimeout(r, options.retryDelayMs || 500));
                 result = await attemptFetch(2);
@@ -279,7 +699,7 @@ class OllamaAPI {
     }
     // Sends a prompt to the Ollama API for text models, handling streaming and thinking mode.
     static async sendToOllama(userPrompt, systemPrompt, contextSize, previousContext = null, abortSignal = null, requestId = null, streamProcessor = null) {
-        //console.log('Normal OllamaAPI: Sending to Ollama...');
+       //console.log('Normal OllamaAPI: Sending to Ollama...');
 
         const modelSelector = document.getElementById('model-selector');
         const selectedModel = modelSelector.value;
@@ -298,13 +718,8 @@ class OllamaAPI {
         const thinkingEnabled = this._cachedThinkingEnabled;
         const supportsNativeThinking = window.isThinkingModel && window.isThinkingModel(selectedModel);
 
-        //  ALSO: Update StreamProcessor's cache if it exists
-        if (streamProcessor) {
-            streamProcessor._cachedThinkingEnabled = thinkingEnabled;
-            //console.log('🧠 OllamaAPI: Updated StreamProcessor cache to:', thinkingEnabled);
-        }
-
         let enhancedPrompt = userPrompt;
+        const localContextPayload = window.currentCheckpoint?.lastContext || OllamaAPI.previousContext;
         const jsonPost = {
             model: selectedModel,
             keep_alive: "-1s",
@@ -316,25 +731,24 @@ class OllamaAPI {
                 num_ctx: parseInt(contextSize),
                 ...modelParams  // Spread in any parameters that exist
             },
-            context: window.currentCheckpoint?.lastContext || OllamaAPI.previousContext,
             request_id: requestId || `ollama_${Date.now()}`
         };
 
         // Add thinking parameter for Ollama 0.9.0+ native thinking support
         if (supportsNativeThinking && thinkingEnabled) {
             jsonPost.think = true;
-            //console.log('🧠 OllamaAPI: ✅ SET think=true in request payload');
+           //console.log('🧠 OllamaAPI: ✅ SET think=true in request payload');
         } else if (supportsNativeThinking && !thinkingEnabled) {
             jsonPost.think = false;
-            //console.log('🧠 OllamaAPI: ✅ SET think=false in request payload');
+           //console.log('🧠 OllamaAPI: ✅ SET think=false in request payload');
         } else {
-            //console.log('🧠 OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
+           //console.log('🧠 OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
         }
 
         if (isVisualModel) {
             // First check if we have real images saved from the previous message
             if (window.currentMessageImages && window.currentMessageImages.length > 0) {
-                //console.log(`OllamaAPI: Using ${window.currentMessageImages.length} saved real images from previous message`);
+               //console.log(`OllamaAPI: Using ${window.currentMessageImages.length} saved real images from previous message`);
 
                 const savedImages = window.currentMessageImages.map(img => {
                     let imgData = img.src || img;
@@ -351,52 +765,89 @@ class OllamaAPI {
             else if (OllamaAPI.maxImagesUsed > 0) {
                 if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
                     if (isGemma3) {
-                        //console.log(`OllamaAPI: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
+                       //console.log(`OllamaAPI: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
                         if (OllamaAPI.lastUsedImages.length < OllamaAPI.maxImagesUsed) {
-                            //console.log(`OllamaAPI: Adjusting maxImagesUsed to match actual available images (${OllamaAPI.lastUsedImages.length})`);
+                           //console.log(`OllamaAPI: Adjusting maxImagesUsed to match actual available images (${OllamaAPI.lastUsedImages.length})`);
                             OllamaAPI.maxImagesUsed = OllamaAPI.lastUsedImages.length;
                             jsonPost.images = [...OllamaAPI.lastUsedImages];
                         } else {
                             jsonPost.images = OllamaAPI.lastUsedImages;
                         }
                     } else {
-                        //console.log(`OllamaAPI: Reusing previously sent image for ${selectedModel}`);
+                       //console.log(`OllamaAPI: Reusing previously sent image for ${selectedModel}`);
                         jsonPost.images = [OllamaAPI.lastUsedImages[0]];
                     }
                 } else {
-                    //console.log(`OllamaAPI: No saved real images found, resetting counter and not sending any images`);
+                   //console.log(`OllamaAPI: No saved real images found, resetting counter and not sending any images`);
                     OllamaAPI.maxImagesUsed = 0;
                 }
             } else {
-                //console.log(`OllamaAPI: No images used yet, not adding any images`);
+               //console.log(`OllamaAPI: No images used yet, not adding any images`);
             }
         }
 
         try {
+            const routing = await this.getApiRoutingForModel(selectedModel);
+            jsonPost.model = routing.modelName || jsonPost.model;
+            const isCloudRouting = routing.source === 'cloud';
+
+            // Keep cloud/local context paths separated: cloud requests must not reuse local context arrays.
+            if (!isCloudRouting && localContextPayload) {
+                jsonPost.context = localContextPayload;
+            } else {
+                delete jsonPost.context;
+            }
+
+            if (streamProcessor) {
+                streamProcessor = this.createStreamProcessorForRouting(isCloudRouting, streamProcessor);
+            }
+
+            // Keep processor thinking state in sync after potential processor replacement.
+            if (streamProcessor) {
+                streamProcessor._cachedThinkingEnabled = thinkingEnabled;
+            }
+
+            const cloudPromptText = `${jsonPost.system || ''}\n${enhancedPrompt || ''}`;
+            let cloudResponseText = '';
+            const requestPayload = jsonPost;
+
             const fetchOptions = {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(jsonPost)
+                headers: routing.headers,
+                body: JSON.stringify(requestPayload)
             };
+
+            if (isCloudRouting) {
+                const authHeader = fetchOptions.headers?.Authorization || '';
+                const hasAuth = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') && authHeader.length > 8;
+                console.info('[CloudAuth] sendToOllama request headers', {
+                    hasAuthorizationHeader: hasAuth,
+                    authorizationLength: authHeader ? authHeader.length : 0,
+                    hasLegacyKeyHeader: !!fetchOptions.headers?.['X-Ollama-Api-Key']
+                });
+            }
 
             if (abortSignal instanceof AbortSignal) {
                 fetchOptions.signal = abortSignal;
             }
 
-            //console.log('🧠 OllamaAPI: Sending request with thinking support:', !!jsonPost.think);
+           //console.log('🧠 OllamaAPI: Sending request with thinking support:', !!jsonPost.think);
 
-            const response = await fetch('http://localhost:11434/api/generate', fetchOptions);
+            const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
 
             if (response.status === 500) {
                 alert(Lang.get('ollamaContextSizeError', 'Communication error, please try again or restart Ollama.'));
                 return null;
             }
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Ollama request failed (${response.status}): ${errorText || response.statusText}`);
+            }
+
             // If we have a stream processor, we need to handle the response here
-            if (streamProcessor && response.ok) {
-                //console.log('🧠 OllamaAPI: Processing response with StreamProcessor');
+            if (streamProcessor) {
+               //console.log('🧠 OllamaAPI: Processing response with StreamProcessor');
 
                 streamProcessor.thinkingMode = {
                     active: false,
@@ -413,19 +864,54 @@ class OllamaAPI {
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
+                let streamBuffer = '';
+                let sawDoneEvent = false;
+                let parsedLineCount = 0;
+                let parseErrorCount = 0;
+                let rawChunkCount = 0;
+                let lastParsedEvent = null;
+                let finalContext = null;
+                let doneMeta = null;
+                let sawResponseAfterDone = false;
+                const streamStartedAt = Date.now();
+                let firstChunkAt = null;
+                let lastChunkAt = null;
 
                 try {
                     while (true) {
                         const { value, done } = await reader.read();
-                        if (done) break;
-
-                        const chunk = decoder.decode(value);
-                        const lines = chunk.split('\n');
+                        rawChunkCount += 1;
+                        if (!firstChunkAt && value && value.length) {
+                            firstChunkAt = Date.now();
+                        }
+                        lastChunkAt = Date.now();
+                        streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                        const lines = streamBuffer.split('\n');
+                        streamBuffer = lines.pop() || '';
 
                         for (const line of lines) {
                             if (line.trim()) {
                                 try {
-                                    const data = JSON.parse(line);
+                                    const trimmedLine = String(line || '').trim();
+                                    if (!trimmedLine || trimmedLine === '[DONE]' || trimmedLine === 'data: [DONE]') {
+                                        continue;
+                                    }
+
+                                    const normalizedLine = trimmedLine.startsWith('data:')
+                                        ? trimmedLine.slice(5).trim()
+                                        : trimmedLine;
+                                    if (!normalizedLine || normalizedLine === '[DONE]') {
+                                        continue;
+                                    }
+
+                                    const data = JSON.parse(normalizedLine);
+                                    parsedLineCount += 1;
+                                    lastParsedEvent = {
+                                        done: !!data.done,
+                                        hasResponse: !!(data.response || data.message?.content),
+                                        hasThinking: !!data.thinking,
+                                        responseLength: String(data.response || data.message?.content || '').length
+                                    };
 
                                     //  CRITICAL FIX: Always get FRESH thinking state for each chunk
                                     const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
@@ -434,7 +920,8 @@ class OllamaAPI {
                                             ? window.ThinkingState.getUserThinkingEnabled()
                                             : (localStorage.getItem('thinkingEnabled') === 'true');
                                     const hasThinkingData = 'thinking' in data;
-                                    const hasResponseData = 'response' in data;
+                                    const responseChunk = data.response || data.message?.content;
+                                    const hasResponseData = typeof responseChunk === 'string' && responseChunk.length > 0;
 
                                     //  ENHANCED LOGGING: Add model info to debug (throttled)
                                     const shouldLog = (hasThinkingData || hasResponseData) &&
@@ -462,13 +949,13 @@ class OllamaAPI {
                                     //  CRITICAL FIX: Check if we need to start native thinking mode
                                     // Even if we don't have thinking data yet, we might need to prepare the container
                                     if (currentThinkingEnabled && supportsNativeThinking && !streamProcessor.thinkingMode.isNative) {
-                                        //console.log('🧠 OllamaAPI: Initializing native thinking mode for upcoming data');
+                                       //console.log('🧠 OllamaAPI: Initializing native thinking mode for upcoming data');
                                         streamProcessor.startNativeThinkingMode();
                                     }
 
                                     // 🧠 Enhanced: Handle native thinking data with detailed logging
                                     if (data.thinking && supportsNativeThinking && currentThinkingEnabled) {
-                                        //console.log('🧠 OllamaAPI: Processing thinking data chunk, length:', data.thinking.length);
+                                       //console.log('🧠 OllamaAPI: Processing thinking data chunk, length:', data.thinking.length);
 
                                         //  ADD: Call processThinking method if it exists
                                         if (streamProcessor.processThinking) {
@@ -478,42 +965,223 @@ class OllamaAPI {
                                             streamProcessor.processChunk(data.thinking);
                                         }
                                     } else if (data.thinking && supportsNativeThinking && !currentThinkingEnabled) {
-                                        //console.log('🧠 OllamaAPI: Skipping thinking data - thinking disabled');
+                                       //console.log('🧠 OllamaAPI: Skipping thinking data - thinking disabled');
                                     } else if (data.thinking && !supportsNativeThinking) {
-                                        //console.log('🧠 OllamaAPI: Skipping thinking data - model not supported');
+                                       //console.log('🧠 OllamaAPI: Skipping thinking data - model not supported');
                                     }
 
                                     // Handle regular response data
-                                    if (data.response) {
-                                        streamProcessor.processChunk(data.response);
+                                    if (responseChunk) {
+                                        if (sawDoneEvent) {
+                                            sawResponseAfterDone = true;
+                                        }
+                                        streamProcessor.processChunk(responseChunk);
+                                        if (isCloudRouting) {
+                                            cloudResponseText += responseChunk;
+                                        }
                                     }
 
-                                    // Handle completion
+                                    // Mark completion and keep reading until stream closes.
                                     if (data.done) {
-                                        //console.log('🧠 OllamaAPI: Response complete');
-                                        streamProcessor.finishResponse();
-
-                                        // Update context
-                                        if (data.context) {
-                                            OllamaAPI.previousContext = data.context;
-                                            window.currentCheckpoint = {
-                                                lastContext: data.context
-                                            };
-                                            OllamaAPI.updateContextRemaining(data.context.length);
+                                        sawDoneEvent = true;
+                                        doneMeta = {
+                                            done_reason: data.done_reason || data.stop_reason || data.finish_reason || null,
+                                            eval_count: data.eval_count ?? null,
+                                            eval_duration: data.eval_duration ?? null,
+                                            prompt_eval_count: data.prompt_eval_count ?? null,
+                                            prompt_eval_duration: data.prompt_eval_duration ?? null,
+                                            total_duration: data.total_duration ?? null,
+                                            load_duration: data.load_duration ?? null,
+                                            hasContext: Array.isArray(data.context),
+                                            responseCharsOnDone: String(responseChunk || '').length
+                                        };
+                                        if (Array.isArray(data.context)) {
+                                            finalContext = data.context;
                                         }
-
-                                        return { success: true, streamProcessor };
                                     }
                                 } catch (error) {
+                                    parseErrorCount += 1;
                                     console.error('🧠 OllamaAPI: Error processing response chunk:', error);
                                     console.error('🧠 OllamaAPI: Problematic line:', line);
+                                    if (isCloudRouting) {
+                                        this.logCloudStreamDiagnostics('sendToOllama parse error', {
+                                            model: jsonPost.model,
+                                            lineLength: line.length,
+                                            linePreview: line.substring(0, 220),
+                                            parsedLineCount,
+                                            parseErrorCount,
+                                            rawChunkCount
+                                        });
+                                    }
+                                    this.logStreamSummary('sendToOllama parse error', {
+                                        requestId: jsonPost.request_id,
+                                        model: jsonPost.model,
+                                        source: isCloudRouting ? 'cloud' : 'local',
+                                        linePreview: String(line || '').substring(0, 180),
+                                        parsedLineCount,
+                                        parseErrorCount,
+                                        rawChunkCount
+                                    });
                                 }
                             }
                         }
+
+                        if (done) {
+                            if (isCloudRouting && !sawDoneEvent) {
+                                this.logCloudStreamDiagnostics('sendToOllama stream ended without done', {
+                                    model: jsonPost.model,
+                                    parsedLineCount,
+                                    parseErrorCount,
+                                    rawChunkCount,
+                                    cloudResponseChars: cloudResponseText.length,
+                                    tailLength: streamBuffer.length,
+                                    tailPreview: (streamBuffer || '').substring(0, 220),
+                                    lastParsedEvent
+                                });
+                            }
+                            const tail = streamBuffer.trim();
+                            if (tail) {
+                                try {
+                                    const normalizedTail = tail.startsWith('data:') ? tail.slice(5).trim() : tail;
+                                    if (!normalizedTail || normalizedTail === '[DONE]') {
+                                        break;
+                                    }
+
+                                    const data = JSON.parse(normalizedTail);
+                                    const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
+                                        ? window.ThinkingState.getUserThinkingEnabled()
+                                        : (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
+                                            ? window.ThinkingState.getUserThinkingEnabled()
+                                            : (localStorage.getItem('thinkingEnabled') === 'true');
+                                    const responseChunk = data.response || data.message?.content;
+
+                                    if (currentThinkingEnabled && supportsNativeThinking && !streamProcessor.thinkingMode.isNative) {
+                                        streamProcessor.startNativeThinkingMode();
+                                    }
+
+                                    if (data.thinking && supportsNativeThinking && currentThinkingEnabled) {
+                                        if (streamProcessor.processThinking) {
+                                            streamProcessor.processThinking(data.thinking);
+                                        } else {
+                                            streamProcessor.processChunk(data.thinking);
+                                        }
+                                    }
+
+                                    if (responseChunk) {
+                                        if (sawDoneEvent) {
+                                            sawResponseAfterDone = true;
+                                        }
+                                        streamProcessor.processChunk(responseChunk);
+                                        if (isCloudRouting) {
+                                            cloudResponseText += responseChunk;
+                                        }
+                                    }
+
+                                    if (data.done) {
+                                        sawDoneEvent = true;
+                                        doneMeta = {
+                                            done_reason: data.done_reason || data.stop_reason || data.finish_reason || null,
+                                            eval_count: data.eval_count ?? null,
+                                            eval_duration: data.eval_duration ?? null,
+                                            prompt_eval_count: data.prompt_eval_count ?? null,
+                                            prompt_eval_duration: data.prompt_eval_duration ?? null,
+                                            total_duration: data.total_duration ?? null,
+                                            load_duration: data.load_duration ?? null,
+                                            hasContext: Array.isArray(data.context),
+                                            responseCharsOnDone: String(responseChunk || '').length
+                                        };
+                                        if (Array.isArray(data.context)) {
+                                            finalContext = data.context;
+                                        }
+                                    }
+                                } catch (_tailErr) {
+                                    // Ignore trailing partial line on stream end.
+                                }
+                            }
+                            break;
+                        }
                     }
+
+                    // Finalize once after stream closure so delayed chunks are not dropped.
+                    streamProcessor.finishResponse();
+                    if (Array.isArray(finalContext)) {
+                        OllamaAPI.previousContext = finalContext;
+                        window.currentCheckpoint = {
+                            lastContext: finalContext
+                        };
+                        OllamaAPI.updateContextRemaining(finalContext.length);
+                    } else if (isCloudRouting) {
+                        OllamaAPI.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
+                    }
+
+                    return {
+                        success: true,
+                        streamProcessor,
+                        partial: !sawDoneEvent,
+                        doneMeta,
+                        responseChars: isCloudRouting
+                            ? cloudResponseText.length
+                            : (streamProcessor?.responseContainer?.textContent || '').length,
+                        source: isCloudRouting ? 'cloud' : 'local'
+                    };
                 } catch (streamError) {
                     console.error('🧠 OllamaAPI: Stream processing error:', streamError);
+
+                    // If cloud streaming drops after partial text arrived, preserve partial output
+                    // instead of bubbling a null response to Chat UI.
+                    const hasPartialCloudOutput = isCloudRouting && (
+                        (typeof cloudResponseText === 'string' && cloudResponseText.length > 0) ||
+                        (streamProcessor && streamProcessor.responseContainer && streamProcessor.responseContainer.textContent && streamProcessor.responseContainer.textContent.trim().length > 0)
+                    );
+
+                    if (hasPartialCloudOutput) {
+                        this.logCloudStreamDiagnostics('sendToOllama recovered with partial output', {
+                            model: jsonPost.model,
+                            errorName: streamError?.name || '<unknown>',
+                            errorMessage: streamError?.message || String(streamError),
+                            partialChars: cloudResponseText.length
+                        });
+
+                        try {
+                            streamProcessor.finishResponse();
+                        } catch (_finishErr) {
+                            // Keep recovery path resilient.
+                        }
+
+                        // No context array is expected in interrupted streams, but keep cloud usage accounting.
+                        OllamaAPI.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
+
+                        return { success: true, streamProcessor, partial: true, interrupted: true };
+                    }
+
                     throw streamError;
+                } finally {
+                    const endedAt = Date.now();
+                    this.logStreamSummary('sendToOllama completed', {
+                        requestId: jsonPost.request_id,
+                        model: jsonPost.model,
+                        source: isCloudRouting ? 'cloud' : 'local',
+                        sawDoneEvent,
+                        parsedLineCount,
+                        parseErrorCount,
+                        rawChunkCount,
+                        hadFinalContext: Array.isArray(finalContext),
+                        doneMeta,
+                        sawResponseAfterDone,
+                        optionsDebug: {
+                            num_ctx: jsonPost?.options?.num_ctx ?? null,
+                            hasStop: !!jsonPost?.options?.stop,
+                            stopType: jsonPost?.options?.stop ? (Array.isArray(jsonPost.options.stop) ? 'array' : typeof jsonPost.options.stop) : null
+                        },
+                        promptChars: cloudPromptText.length,
+                        responseChars: isCloudRouting
+                            ? cloudResponseText.length
+                            : (streamProcessor?.responseContainer?.textContent || '').length,
+                        streamMs: endedAt - streamStartedAt,
+                        ttfbMs: firstChunkAt ? (firstChunkAt - streamStartedAt) : null,
+                        tailGapMs: (firstChunkAt && lastChunkAt) ? (endedAt - lastChunkAt) : null,
+                        endedWithBufferedTail: String(streamBuffer || '').trim().length > 0
+                    });
                 }
             }
 
@@ -523,11 +1191,11 @@ class OllamaAPI {
             console.error('Ollama connection error:', error);
 
             if (error.name === 'AbortError') {
-                //console.log('🧠 OllamaAPI: Request was aborted by user');
+               //console.log('🧠 OllamaAPI: Request was aborted by user');
 
                 // If we have a stream processor and thinking is active, cancel it
                 if (streamProcessor && streamProcessor.thinkingMode.active) {
-                    //console.log('🧠 OllamaAPI: Cancelling active thinking mode due to abort');
+                   //console.log('🧠 OllamaAPI: Cancelling active thinking mode due to abort');
                     streamProcessor.cancelThinkingMode();
                 }
 
@@ -540,13 +1208,13 @@ class OllamaAPI {
     }
     // Sends a prompt to the Ollama API with web search context, handles streaming and UI updates.
     static async sendToOllamaWithWebSearch(prompt, systemPrompt, includeContext = true, abortSignal = null, documentContext = '', isDocumentWebSearch = false) {
-        //console.log('Websearch OllamaAPI: Sending to Ollama...');
+       //console.log('Websearch OllamaAPI: Sending to Ollama...');
         const progressBar = document.getElementById('progress-bar');
         progressBar.classList.add('active', 'indeterminate');
 
         // Track if we have an abort controller
         if (abortSignal) {
-            //console.log('WebSearch has abort signal, adding listener');
+           //console.log('WebSearch has abort signal, adding listener');
         }
 
         // Create an artificial response object to return
@@ -683,7 +1351,7 @@ class OllamaAPI {
 
             // Log the query received from Ollama that we'll use for the web search
             try {
-                //console.log('Ollama generated websearch query:', generatedQuery);
+               //console.log('Ollama generated websearch query:', generatedQuery);
             } catch (e) {
                 // ignore console errors in unusual environments
             }
@@ -700,7 +1368,7 @@ class OllamaAPI {
 
             // Debug log which query will actually be used for WebSearch
             try {
-                //console.log('Using search query for WebSearch.smartSearch:', searchQueryToUse);
+               //console.log('Using search query for WebSearch.smartSearch:', searchQueryToUse);
             } catch (e) {}
 
             // Pass the isDocumentWebSearch flag to WebSearch.smartSearch
@@ -731,21 +1399,21 @@ class OllamaAPI {
             let webSearchContext = '';
             try {
                 // Use the actual prompt as the search query
-                //console.log(`Performing web search for query: "${prompt}"`);
+               //console.log(`Performing web search for query: "${prompt}"`);
 
                 if (webSearchResults && webSearchResults.items && webSearchResults.items.length > 0) {
                     webSearchContext = WebSearch.formatSearchResults(webSearchResults, isDocumentWebSearch);
-                    //console.log('Web search found results:', webSearchResults.items.length);
+                   //console.log('Web search found results:', webSearchResults.items.length);
                     // Log the first result for debugging
                     if (webSearchResults.items[0]) {
-                        //console.log('First result:', {
+                       //console.log('First result:', {
                         //  title: webSearchResults.items[0].title,
                         //  link: webSearchResults.items[0].link,
                         //   snippet: webSearchResults.items[0].snippet?.substring(0, 100) + '...'
                         //   });
                     }
                 } else {
-                    //console.log('Web search found no results');
+                   //console.log('Web search found no results');
                     webSearchContext = 'Web search found no relevant results for this query.';
                 }
             } catch (searchError) {
@@ -775,12 +1443,13 @@ class OllamaAPI {
 
             }
 
-            //console.log('Enhanced prompt created with web search results');
+           //console.log('Enhanced prompt created with web search results');
 
             // Set up UI
             const aiReplies = document.querySelector('.ai-replies');
             const modelSelector = document.getElementById('model-selector');
             const selectedModel = modelSelector.value;
+            const routing = await this.getApiRoutingForModel(selectedModel);
             const contextSize = document.getElementById('context-selector').value;
             const modelParams = this.getModelParameters(selectedModel);
 
@@ -800,12 +1469,12 @@ class OllamaAPI {
             aiReplies.appendChild(aiDiv);
 
             // Create the stream processor
-            const streamProcessor = new StreamProcessor();
+            const streamProcessor = this.createStreamProcessorForRouting(routing.source === 'cloud');
 
             //  ALSO: Update StreamProcessor's cache if it exists
             if (streamProcessor) {
                 streamProcessor._cachedThinkingEnabled = thinkingEnabled;
-                //console.log('🧠 WebSearch OllamaAPI: Updated StreamProcessor cache to:', thinkingEnabled);
+               //console.log('🧠 WebSearch OllamaAPI: Updated StreamProcessor cache to:', thinkingEnabled);
             }
 
             /*console.log('🧠 WebSearch OllamaAPI: Fresh thinking state check:', {
@@ -824,17 +1493,19 @@ class OllamaAPI {
             // Add it to our aiDiv
             aiDiv.appendChild(streamProcessor.responseContainer);
 
-            // Prepare the context if needed
+            const isCloudRouting = routing.source === 'cloud';
+
+            // Prepare context only for local routes.
             let context = [];
-            if (includeContext && OllamaAPI.previousContext) {
+            if (!isCloudRouting && includeContext && OllamaAPI.previousContext) {
                 context = OllamaAPI.previousContext;
             }
 
             // Log the request details for debugging
-            //console.log('Sending Ollama request with:');
-            //console.log('- Model:', selectedModel);
-            //console.log('- Context size:', contextSize);
-            //console.log('- Has abort signal:', !!abortSignal);
+           //console.log('Sending Ollama request with:');
+           //console.log('- Model:', selectedModel);
+           //console.log('- Context size:', contextSize);
+           //console.log('- Has abort signal:', !!abortSignal);
 
             // Check if this is a visual model
             const isVisualModel = await OllamaAPI.isVisualModel(selectedModel);
@@ -847,22 +1518,25 @@ class OllamaAPI {
                 prompt: userPromptForRequest,
                 system: enhancedSystemPrompt,
                 stream: true,
-                context: context,
                 options: {
                     num_ctx: parseInt(contextSize),
                     ...modelParams  // Spread in any parameters that exist
                 }
             };
 
+            if (!isCloudRouting && context && context.length > 0) {
+                requestBody.context = context;
+            }
+
             //  ADD THINKING SUPPORT: Add thinking parameter for Ollama 0.9.0+ native thinking support
             if (supportsNativeThinking && thinkingEnabled) {
                 requestBody.think = true;
-                //console.log('🧠 WebSearch OllamaAPI: ✅ SET think=true in request payload');
+               //console.log('🧠 WebSearch OllamaAPI: ✅ SET think=true in request payload');
             } else if (supportsNativeThinking && !thinkingEnabled) {
                 requestBody.think = false;
-                //console.log('🧠 WebSearch OllamaAPI: ✅ SET think=false in request payload');
+               //console.log('🧠 WebSearch OllamaAPI: ✅ SET think=false in request payload');
             } else {
-                //console.log('🧠 WebSearch OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
+               //console.log('🧠 WebSearch OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
             }
 
             //  LOG THE FINAL REQUEST PAYLOAD (excluding sensitive data):
@@ -880,10 +1554,10 @@ class OllamaAPI {
                     // Check if we have last used images first
                     if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
                         if (isGemma3) {
-                            //console.log(`OllamaAPI WebSearch: Reusing previously sent images`);
+                           //console.log(`OllamaAPI WebSearch: Reusing previously sent images`);
                             // For Gemma3, ensure we have the right number of images
                             if (OllamaAPI.lastUsedImages.length < OllamaAPI.maxImagesUsed) {
-                                //console.log(`OllamaAPI: Adjusting maxImagesUsed to match actual available images (${OllamaAPI.lastUsedImages.length})`);
+                               //console.log(`OllamaAPI: Adjusting maxImagesUsed to match actual available images (${OllamaAPI.lastUsedImages.length})`);
                                 // Instead of padding with images, adjust maxImagesUsed to match what we have
                                 OllamaAPI.maxImagesUsed = OllamaAPI.lastUsedImages.length;
                                 requestBody.images = [...OllamaAPI.lastUsedImages];
@@ -891,40 +1565,44 @@ class OllamaAPI {
                                 requestBody.images = OllamaAPI.lastUsedImages;
                             }
                         } else {
-                            //console.log(`OllamaAPI WebSearch: Reusing previously sent image`);
+                           //console.log(`OllamaAPI WebSearch: Reusing previously sent image`);
                             requestBody.images = [OllamaAPI.lastUsedImages[0]];
                         }
                     } else {
                         // No previous real images exist, reset counter
-                        //console.log(`OllamaAPI WebSearch: No saved real images found, resetting counter and not sending any images`);
+                       //console.log(`OllamaAPI WebSearch: No saved real images found, resetting counter and not sending any images`);
                         OllamaAPI.maxImagesUsed = 0; // Reset this to avoid problems in future requests
                         // Don't set requestBody.images at all
                     }
                 } else {
-                    //console.log(`OllamaAPI WebSearch: No images used yet, not adding any images`);
+                   //console.log(`OllamaAPI WebSearch: No images used yet, not adding any images`);
                 }
             }
 
             // Send to Ollama with our enhanced prompt and fetch options
+            requestBody.model = routing.modelName || requestBody.model;
+            const cloudPromptText = `${requestBody.system || ''}\n${requestBody.prompt || ''}`;
+            let cloudResponseText = '';
+            const requestPayload = requestBody;
             const fetchOptions = {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
+                headers: routing.headers,
+                body: JSON.stringify(requestPayload)
             };
 
             if (abortSignal instanceof AbortSignal) {
                 fetchOptions.signal = abortSignal;
             }
 
-            //console.log('OllamaAPI WebSearch: Fetch options include signal:', !!fetchOptions.signal);
+           //console.log('OllamaAPI WebSearch: Fetch options include signal:', !!fetchOptions.signal);
 
-            const response = await fetch('http://localhost:11434/api/generate', fetchOptions);
+            const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
 
             // Add additional logging right after the fetch call
-            //console.log('Fetch request sent with abort signal:', !!abortSignal);
+           //console.log('Fetch request sent with abort signal:', !!abortSignal);
             if (!response || !response.ok) {
                 if (abortSignal && abortSignal.aborted) {
-                    //console.log('Request was aborted during fetch');
+                   //console.log('Request was aborted during fetch');
                     throw new Error('Request was aborted');
                 }
                 throw new Error(`Failed to get response from Ollama: ${response ? response.status : 'No response'}`);
@@ -936,7 +1614,7 @@ class OllamaAPI {
                 return;
             }
 
-            //console.log('🧠 WebSearch OllamaAPI: Processing response with StreamProcessor');
+           //console.log('🧠 WebSearch OllamaAPI: Processing response with StreamProcessor');
 
             //  INITIALIZE THINKING MODE: Reset thinking mode for this stream
             streamProcessor.thinkingMode = {
@@ -954,18 +1632,18 @@ class OllamaAPI {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            let streamBuffer = '';
 
             // Process the stream
             while (true) {
                 if (abortSignal && abortSignal.aborted) {
-                    //console.log('Abort signal detected during stream processing - breaking out of read loop');
+                   //console.log('Abort signal detected during stream processing - breaking out of read loop');
                     break;
                 }
                 const { value, done } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
+                streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                const lines = streamBuffer.split('\n');
+                streamBuffer = lines.pop() || '';
 
                 for (const line of lines) {
                     if (line.trim()) {
@@ -977,7 +1655,8 @@ class OllamaAPI {
                                 ? window.ThinkingState.getUserThinkingEnabled()
                                 : (localStorage.getItem('thinkingEnabled') === 'true');
                             const hasThinkingData = 'thinking' in data;
-                            const hasResponseData = 'response' in data;
+                            const responseChunk = data.response || data.message?.content;
+                            const hasResponseData = typeof responseChunk === 'string' && responseChunk.length > 0;
 
                             //  ENHANCED LOGGING: Add model info to debug
                             const shouldLog = (hasThinkingData || hasResponseData) &&
@@ -1003,13 +1682,13 @@ class OllamaAPI {
                             //  CRITICAL FIX: Check if we need to start native thinking mode
                             // Even if we don't have thinking data yet, we might need to prepare the container
                             if (currentThinkingEnabled && supportsNativeThinking && !streamProcessor.thinkingMode.isNative) {
-                                //console.log('🧠 WebSearch OllamaAPI: Initializing native thinking mode for upcoming data');
+                               //console.log('🧠 WebSearch OllamaAPI: Initializing native thinking mode for upcoming data');
                                 streamProcessor.startNativeThinkingMode();
                             }
 
                             // 🧠 Enhanced: Handle native thinking data with detailed logging
                             if (data.thinking && supportsNativeThinking && currentThinkingEnabled) {
-                                //console.log('🧠 WebSearch OllamaAPI: Processing thinking data chunk, length:', data.thinking.length);
+                               //console.log('🧠 WebSearch OllamaAPI: Processing thinking data chunk, length:', data.thinking.length);
 
                                 //  ADD: Call processThinking method if it exists
                                 if (streamProcessor.processThinking) {
@@ -1019,9 +1698,9 @@ class OllamaAPI {
                                     streamProcessor.processChunk(data.thinking);
                                 }
                             } else if (data.thinking && supportsNativeThinking && !currentThinkingEnabled) {
-                                //console.log('🧠 WebSearch OllamaAPI: Skipping thinking data - thinking disabled');
+                               //console.log('🧠 WebSearch OllamaAPI: Skipping thinking data - thinking disabled');
                             } else if (data.thinking && !supportsNativeThinking) {
-                                //console.log('🧠 WebSearch OllamaAPI: Skipping thinking data - model not supported');
+                               //console.log('🧠 WebSearch OllamaAPI: Skipping thinking data - model not supported');
                             }
 
                             if (data.done) {
@@ -1037,11 +1716,15 @@ class OllamaAPI {
                                 const aiResponse = streamProcessor.responseContainer.outerHTML;
 
                                 // Handle context management
-                                OllamaAPI.previousContext = data.context;
-                                window.currentCheckpoint = {
-                                    lastContext: data.context
-                                };
-                                OllamaAPI.updateContextRemaining(data.context.length);
+                                if (Array.isArray(data.context)) {
+                                    OllamaAPI.previousContext = data.context;
+                                    window.currentCheckpoint = {
+                                        lastContext: data.context
+                                    };
+                                    OllamaAPI.updateContextRemaining(data.context.length);
+                                } else if (isCloudRouting) {
+                                    OllamaAPI.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
+                                }
 
                                 if (OllamaAPI.contextLimitReached) {
                                     this.handleContextLimitReached();
@@ -1049,7 +1732,7 @@ class OllamaAPI {
 
                                 // Store conversation if needed - use the original user prompt (not the enhanced request prompt)
                                 const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-                                //console.log('WebSearch: Saving conversation to database');
+                               //console.log('WebSearch: Saving conversation to database');
                                 await PaiperworkDB.storeConversationOnly(
                                     hashedMasterKey,
                                     originalPrompt,
@@ -1059,7 +1742,7 @@ class OllamaAPI {
                                 );
 
                                 if (window.forceNewConversationGroup) {
-                                    //console.log('WebSearch: Created new conversation group based on forceNewConversationGroup flag');
+                                   //console.log('WebSearch: Created new conversation group based on forceNewConversationGroup flag');
                                     window.forceNewConversationGroup = false;
                                 }
                                 OllamaAPI.scrollToBottom();
@@ -1067,8 +1750,11 @@ class OllamaAPI {
                                 return artificialResponse;
                             } else {
                                 // Handle regular response data
-                                if (data.response) {
-                                    streamProcessor.processChunk(data.response);
+                                if (responseChunk) {
+                                    streamProcessor.processChunk(responseChunk);
+                                    if (isCloudRouting) {
+                                        cloudResponseText += responseChunk;
+                                    }
                                 }
                                 OllamaAPI.scrollToBottom();
                             }
@@ -1076,6 +1762,82 @@ class OllamaAPI {
                             console.error('Error processing chunk:', error);
                         }
                     }
+                }
+
+                if (done) {
+                    const tail = streamBuffer.trim();
+                    if (tail) {
+                        try {
+                            const data = JSON.parse(tail);
+                            const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
+                                ? window.ThinkingState.getUserThinkingEnabled()
+                                : (localStorage.getItem('thinkingEnabled') === 'true');
+                            const responseChunk = data.response || data.message?.content;
+
+                            if (currentThinkingEnabled && supportsNativeThinking && !streamProcessor.thinkingMode.isNative) {
+                                streamProcessor.startNativeThinkingMode();
+                            }
+
+                            if (data.thinking && supportsNativeThinking && currentThinkingEnabled) {
+                                if (streamProcessor.processThinking) {
+                                    streamProcessor.processThinking(data.thinking);
+                                } else {
+                                    streamProcessor.processChunk(data.thinking);
+                                }
+                            }
+
+                            if (data.done) {
+                                const buttons = streamProcessor.responseContainer.querySelectorAll('.code-copy-btn');
+                                buttons.forEach(button => button.style.display = 'block');
+
+                                streamProcessor.finishResponse();
+
+                                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
+                                    window.chat.addMessageActionsToMessage(aiDiv);
+                                }
+                                const aiResponse = streamProcessor.responseContainer.outerHTML;
+
+                                if (Array.isArray(data.context)) {
+                                    OllamaAPI.previousContext = data.context;
+                                    window.currentCheckpoint = {
+                                        lastContext: data.context
+                                    };
+                                    OllamaAPI.updateContextRemaining(data.context.length);
+                                } else if (isCloudRouting) {
+                                    OllamaAPI.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
+                                }
+
+                                if (OllamaAPI.contextLimitReached) {
+                                    this.handleContextLimitReached();
+                                }
+
+                                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+                                await PaiperworkDB.storeConversationOnly(
+                                    hashedMasterKey,
+                                    originalPrompt,
+                                    aiResponse,
+                                    window.forceNewConversationGroup || false,
+                                    window.currentConversationGroup
+                                );
+
+                                if (window.forceNewConversationGroup) {
+                                    window.forceNewConversationGroup = false;
+                                }
+                                OllamaAPI.scrollToBottom();
+
+                                return artificialResponse;
+                            } else if (responseChunk) {
+                                streamProcessor.processChunk(responseChunk);
+                                if (isCloudRouting) {
+                                    cloudResponseText += responseChunk;
+                                }
+                                OllamaAPI.scrollToBottom();
+                            }
+                        } catch (_tailErr) {
+                            // Ignore trailing partial line on stream end.
+                        }
+                    }
+                    break;
                 }
             }
 
@@ -1087,11 +1849,11 @@ class OllamaAPI {
             console.error('Error sending to Ollama with web search:', error);
 
             if (error.name === 'AbortError') {
-                //console.log('Request was aborted by user');
+               //console.log('Request was aborted by user');
 
                 // If we have a stream processor and thinking is active, cancel it
                 if (streamProcessor && streamProcessor.thinkingMode.active) {
-                    //console.log('🧠 WebSearch OllamaAPI: Cancelling active thinking mode due to abort');
+                   //console.log('🧠 WebSearch OllamaAPI: Cancelling active thinking mode due to abort');
                     streamProcessor.cancelThinkingMode();
                 }
 
@@ -1113,23 +1875,24 @@ class OllamaAPI {
     }
     // Sends a prompt with image data to the Ollama API for visual models, handles single and multi-image cases.
     static async sendToOllamaWithImage(userPrompt, systemPrompt, contextSize, imageData, previousContext = null, abortSignal = null, requestId = null, multiImages = null, modelOverride = null) {
-        //console.log('Picture OllamaAPI: Sending to Ollama...');
+       //console.log('Picture OllamaAPI: Sending to Ollama...');
         try {
             // Use the model override if provided, otherwise fall back to selectors
             let selectedModel;
             if (modelOverride) {
                 selectedModel = modelOverride;
-                //console.log('OllamaAPI: Using provided model override:', selectedModel);
+               //console.log('OllamaAPI: Using provided model override:', selectedModel);
             } else if (window.artworksTab && window.artworksTab.artworksInstance && window.artworksTab.artworksInstance.selectedModel) {
                 selectedModel = window.artworksTab.artworksInstance.selectedModel;
-                //console.log('OllamaAPI: Using artwork tab model:', selectedModel);
+               //console.log('OllamaAPI: Using artwork tab model:', selectedModel);
             } else {
                 const modelSelector = document.getElementById('model-selector');
                 selectedModel = modelSelector.value;
-                //console.log('OllamaAPI: Using chat tab model:', selectedModel);
+               //console.log('OllamaAPI: Using chat tab model:', selectedModel);
             }
             const isGemma3 = selectedModel.toLowerCase().includes('gemma3');
             const modelParams = this.getModelParameters(selectedModel);
+            const localContextPayload = window.currentCheckpoint?.lastContext || OllamaAPI.previousContext;
             // Create the request body
             const jsonPost = {
                 model: selectedModel,
@@ -1142,13 +1905,12 @@ class OllamaAPI {
                     num_ctx: parseInt(contextSize),
                     ...modelParams  // Spread in any parameters that exist
                 },
-                context: window.currentCheckpoint?.lastContext || OllamaAPI.previousContext,
                 request_id: requestId || `ollama_image_${Date.now()}`
             };
 
             // Handle multi-image mode for Gemma3
             if (isGemma3 && multiImages && Array.isArray(multiImages) && multiImages.length > 0) {
-                //console.log(`OllamaAPI: Preparing multi-image request with ${multiImages.length} images`);
+               //console.log(`OllamaAPI: Preparing multi-image request with ${multiImages.length} images`);
 
                 // Make sure we have the cleanedImageBase64Array
                 if (!window.cleanedImageBase64Array || window.cleanedImageBase64Array.length === 0) {
@@ -1158,14 +1920,14 @@ class OllamaAPI {
 
                 // Update max images if this batch is larger than previous max
                 OllamaAPI.maxImagesUsed = Math.max(OllamaAPI.maxImagesUsed, window.cleanedImageBase64Array.length);
-                //console.log(`OllamaAPI: Updated max images used to ${OllamaAPI.maxImagesUsed}`);
+               //console.log(`OllamaAPI: Updated max images used to ${OllamaAPI.maxImagesUsed}`);
 
                 // Create images array with the actual images
                 const imagesArray = [...window.cleanedImageBase64Array];
 
                 // If we've previously sent more images than we have now, pad with  images
                 if (imagesArray.length < OllamaAPI.maxImagesUsed) {
-                    //console.log(`OllamaAPI: Adjusting maxImagesUsed to match available images (${imagesArray.length})`);
+                   //console.log(`OllamaAPI: Adjusting maxImagesUsed to match available images (${imagesArray.length})`);
                     OllamaAPI.maxImagesUsed = imagesArray.length;
                 }
 
@@ -1174,7 +1936,7 @@ class OllamaAPI {
 
             } else if (imageData && typeof imageData === 'string' && imageData.trim().length > 0) {
                 // Single image mode
-                //console.log('OllamaAPI: Preparing single image request for model:', selectedModel);
+               //console.log('OllamaAPI: Preparing single image request for model:', selectedModel);
 
                 // Store the cleaned base64 image if we don't have it already
                 if (!window.cleanedImageBase64) {
@@ -1206,9 +1968,9 @@ class OllamaAPI {
                     if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
                         if (isGemma3) {
                             // For Gemma3, ensure we have the right number of images by reusing or padding
-                            //console.log(`OllamaAPI Image: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
+                           //console.log(`OllamaAPI Image: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
                             if (OllamaAPI.lastUsedImages.length < OllamaAPI.maxImagesUsed) {
-                                //console.log(`OllamaAPI: Adjusting maxImagesUsed to match actual available images (${OllamaAPI.lastUsedImages.length})`);
+                               //console.log(`OllamaAPI: Adjusting maxImagesUsed to match actual available images (${OllamaAPI.lastUsedImages.length})`);
                                 // Instead of padding with  images, adjust maxImagesUsed to match what we have
                                 OllamaAPI.maxImagesUsed = OllamaAPI.lastUsedImages.length;
                                 jsonPost.images = [...OllamaAPI.lastUsedImages];
@@ -1217,13 +1979,13 @@ class OllamaAPI {
                             }
                         } else {
                             // For other visual models, just use the first previously sent image
-                            //console.log(`OllamaAPI Image: Reusing previously sent image for ${selectedModel}`);
+                           //console.log(`OllamaAPI Image: Reusing previously sent image for ${selectedModel}`);
                             jsonPost.images = [OllamaAPI.lastUsedImages[0]];
                         }
                     } else {
                         // No previous real images exist, just reset maxImagesUsed
                         // IMPORTANT: Don't send  images at all
-                        //console.log(`OllamaAPI Image: No saved real images found, not sending any images`);
+                       //console.log(`OllamaAPI Image: No saved real images found, not sending any images`);
                         OllamaAPI.maxImagesUsed = 0; // Reset this to avoid the problem in future requests
                         // Don't set jsonPost.images at all
                     }
@@ -1236,31 +1998,40 @@ class OllamaAPI {
             }
 
             // Rest of method for sending request
-            //console.log('OllamaAPI: Sending image request with abort signal:', !!abortSignal);
+           //console.log('OllamaAPI: Sending image request with abort signal:', !!abortSignal);
+            const routing = await this.getApiRoutingForModel(selectedModel);
+            jsonPost.model = routing.modelName || jsonPost.model;
+            const isCloudRouting = routing.source === 'cloud';
+
+            if (!isCloudRouting && localContextPayload) {
+                jsonPost.context = localContextPayload;
+            } else {
+                delete jsonPost.context;
+            }
+
+            const requestPayload = jsonPost;
 
             const fetchOptions = {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(jsonPost)
+                headers: routing.headers,
+                body: JSON.stringify(requestPayload)
             };
 
             if (abortSignal instanceof AbortSignal) {
                 fetchOptions.signal = abortSignal;
             }
 
-            //console.log('OllamaAPI: Fetch options include signal:', !!fetchOptions.signal);
-            //console.log(`OllamaAPI: Sending request with ${jsonPost.images.length} images`);
+           //console.log('OllamaAPI: Fetch options include signal:', !!fetchOptions.signal);
+           //console.log(`OllamaAPI: Sending request with ${jsonPost.images.length} images`);
 
-            const response = await fetch('http://localhost:11434/api/generate', fetchOptions);
+            const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
 
             // After successful API call, conditionally schedule an image reset
             if (response.ok) {
                 // Use setTimeout to ensure this happens after processing completes
                 setTimeout(() => {
                     if (window.chat && typeof window.chat.resetImageData === 'function') {
-                        //console.log('OllamaAPI: Resetting image data for visual models');
+                       //console.log('OllamaAPI: Resetting image data for visual models');
                         window.chat.resetImageData();
                     }
                 }, 100);
@@ -1282,7 +2053,7 @@ class OllamaAPI {
             console.error('OllamaAPI: Error sending image:', error);
 
             if (error.name === 'AbortError') {
-                //console.log('OllamaAPI: Request was aborted by user');
+               //console.log('OllamaAPI: Request was aborted by user');
                 throw error; // Rethrow so the caller knows it was aborted
             }
 
@@ -1292,29 +2063,29 @@ class OllamaAPI {
     }
 
     static updateContextRemaining(usedContext) {
-        //console.log('Context used:', usedContext);
+       //console.log('Context used:', usedContext);
         const totalContextSize = parseInt(document.getElementById('context-selector').value);
-        //console.log('Total context available:', totalContextSize);
+       //console.log('Total context available:', totalContextSize);
 
         const percentRemaining = Math.max(0, Math.round(((totalContextSize - usedContext) / totalContextSize) * 100));
-        //console.log('Calculated percent remaining:', percentRemaining);
+       //console.log('Calculated percent remaining:', percentRemaining);
 
         const contextLabel = document.getElementById('context-remaining-label');
         if (contextLabel) {
             contextLabel.textContent = Lang.get('ollamaContextRemaining', { percent: percentRemaining });
-            //console.log('Updated context label to:', contextLabel.textContent);
+           //console.log('Updated context label to:', contextLabel.textContent);
 
             if (percentRemaining <= 20) {
                 contextLabel.style.color = 'orange';
-                //console.log('Context warning: Orange');
+               //console.log('Context warning: Orange');
             }
             if (percentRemaining <= 10) {
                 contextLabel.style.color = 'red';
-                //console.log('Context warning: Red');
+               //console.log('Context warning: Red');
             }
             if (percentRemaining <= 0) {
                 this.contextLimitReached = true;
-                //console.log('Context limit reached');
+               //console.log('Context limit reached');
 
                 // Instead of waiting for an alert later, handle it here gracefully
                 this.handleContextLimitReached();
@@ -1409,30 +2180,72 @@ class OllamaAPI {
         window.currentCheckpoint = null;
         this.contextLimitReached = false;
         this.maxImagesUsed = 0;
-        //console.log('OllamaAPI: Reset maxImagesUsed to 0');
+       //console.log('OllamaAPI: Reset maxImagesUsed to 0');
         const contextLabel = document.getElementById('context-remaining-label');
         if (contextLabel) {
             contextLabel.style.color = '';
-            contextLabel.textContent = Lang.get('ollamaContextReset');
+            contextLabel.textContent = Lang.get('ollamaContextRemaining', { percent: 100 });
         }
 
-        //console.log('Context reset complete');
+       //console.log('Context reset complete');
     }
     static async buildCompleteSystemPrompt(hashedMasterKey, basePrompt = '') {
-        //console.log('OllamaAPI DEBUG: Building complete system prompt with temporal awareness and language enforcement...');
+       //console.log('OllamaAPI DEBUG: Building complete system prompt with temporal awareness and language enforcement...');
 
-        // First, if no basePrompt is provided, load it from the database
         let formattedBasePrompt = basePrompt?.trim() || '';
+        const hasProvidedBasePrompt = !!formattedBasePrompt;
+        const basePromptSignature = hasProvidedBasePrompt
+            ? `${formattedBasePrompt.length}:${formattedBasePrompt.slice(0, 80)}`
+            : '<db>';
+        const languageCode = (window.Lang && typeof window.Lang.getCurrentLanguage === 'function')
+            ? (window.Lang.getCurrentLanguage() || '')
+            : (navigator.language || navigator.userLanguage || 'en');
+        const dayKey = new Date().toISOString().slice(0, 10);
+
+        let reasoningLevel = '';
+        try {
+            if (window.gptOssReasoningLevel) {
+                reasoningLevel = (window.gptOssReasoningLevel || '').toLowerCase().trim();
+            }
+        } catch (_wErr) {
+            // ignore
+        }
+        if (!reasoningLevel) {
+            try {
+                const activeBtn = document.querySelector('#gptoss-reasoning-selector .gptoss-reasoning-btn.active');
+                if (activeBtn && activeBtn.dataset && activeBtn.dataset.level) {
+                    reasoningLevel = (activeBtn.dataset.level || '').toLowerCase().trim();
+                }
+            } catch (_domErr) {
+                // ignore
+            }
+        }
+        if (!reasoningLevel) {
+            reasoningLevel = (localStorage.getItem('gptOssReasoningLevel') || '').toLowerCase().trim();
+        }
+
+        const selectedModel = document.getElementById('model-selector')?.value || '';
+        const baseModel = ((window.getBaseModelName ? window.getBaseModelName(selectedModel) : (selectedModel || '').toLowerCase()) || '').split(':')[0];
+        const appliesReasoningPrefix = baseModel === 'gpt-oss' && !!reasoningLevel;
+        const reasoningKey = appliesReasoningPrefix ? (reasoningLevel === 'mid' ? 'medium' : reasoningLevel) : '';
+
+        const cacheKey = [
+            `sysRev:${this._getRevision(this.systemPromptRevision, hashedMasterKey)}`,
+            `insRev:${this._getRevision(this.insightsRevision, hashedMasterKey)}`,
+            `lang:${languageCode}`,
+            `day:${dayKey}`,
+            `reason:${reasoningKey}`,
+            `base:${basePromptSignature}`
+        ].join('|');
+
+        const cachedEntry = this.systemPromptCache.get(hashedMasterKey);
+        if (cachedEntry && cachedEntry.cacheKey === cacheKey && cachedEntry.prompt) {
+            return cachedEntry.prompt;
+        }
 
         if (!formattedBasePrompt) {
-            //console.log('OllamaAPI DEBUG: No base prompt provided, loading from database');
             const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
             formattedBasePrompt = settings?.systemPrompt || '';
-            //console.log('OllamaAPI DEBUG: Loaded system prompt from database:',
-                //formattedBasePrompt ? `Found (${formattedBasePrompt.length} chars)` : 'None');
-        } else {
-            //console.log('OllamaAPI DEBUG: Using provided base prompt:',
-                //formattedBasePrompt.substring(0, 30) + '...');
         }
 
         // Ensure base prompt ends with proper punctuation and space
@@ -1448,25 +2261,16 @@ class OllamaAPI {
         // ADD LANGUAGE ENFORCEMENT: Detect user's language and add enforcement
         let languageEnforcement = '';
         try {
-            //console.log('OllamaAPI DEBUG: Adding language enforcement...');
+           //console.log('OllamaAPI DEBUG: Adding language enforcement...');
 
             // Get user's language from browser or saved preference
             let userLanguage = 'English'; // Default fallback
-
-            // Try to get language from Lang system if available
-            if (window.Lang && typeof window.Lang.getCurrentLanguage === 'function') {
-                const langCode = window.Lang.getCurrentLanguage();
-                userLanguage = this.getLanguageDisplayName(langCode);
-            } else {
-                // Fallback to browser language
-                const browserLang = navigator.language || navigator.userLanguage || 'en';
-                userLanguage = this.getLanguageDisplayName(browserLang);
-            }
+            userLanguage = this.getLanguageDisplayName(languageCode);
 
             // Create language enforcement instruction
             languageEnforcement = `Always respond in ${userLanguage}. Match the user's language and communication style. If the user writes in ${userLanguage}, respond in ${userLanguage}. `;
 
-            //console.log('OllamaAPI DEBUG: Language enforcement added for:', userLanguage);
+           //console.log('OllamaAPI DEBUG: Language enforcement added for:', userLanguage);
         } catch (error) {
             console.error('OllamaAPI: Error adding language enforcement:', error);
             // Continue without language enforcement if there's an error
@@ -1488,11 +2292,11 @@ class OllamaAPI {
         // LOAD INSIGHTS: Always load insights from database
         let insightsString = '';
         try {
-            //console.log('OllamaAPI DEBUG: Loading insights from database (always loaded regardless of toggle)...');
+           //console.log('OllamaAPI DEBUG: Loading insights from database (always loaded regardless of toggle)...');
             const insights = await SubjectiveInteractions.loadInsights(hashedMasterKey);
 
             if (insights && insights.length > 0) {
-                //console.log('OllamaAPI DEBUG: Found insights in database:', insights.length);
+               //console.log('OllamaAPI DEBUG: Found insights in database:', insights.length);
 
                 // Clean quotes from insights before joining
                 const cleanedInsights = insights.map(insight => insight.replace(/^"|"$/g, ''));
@@ -1507,9 +2311,9 @@ class OllamaAPI {
                 // Ensure space after punctuation
                 insightsString += ' ';
 
-                //console.log('OllamaAPI DEBUG: Insights added to system prompt:', insightsString.substring(0, 100) + '...');
+               //console.log('OllamaAPI DEBUG: Insights added to system prompt:', insightsString.substring(0, 100) + '...');
             } else {
-                //console.log('OllamaAPI DEBUG: No insights found in database');
+               //console.log('OllamaAPI DEBUG: No insights found in database');
             }
         } catch (error) {
             console.error('OllamaAPI: Error loading insights:', error);
@@ -1523,45 +2327,11 @@ class OllamaAPI {
         const finalPrompt = formattedBasePrompt + languageEnforcement + insightsString + temporalContext;
 
         // If the gpt-oss reasoning selector is present and a level is set, prepend it to the system prompt
+        let finalPromptWithReasoning = finalPrompt;
         try {
-            // Prefer window-level quick-access (set immediately on click), then DOM active button, then localStorage
-            let reasoningLevel = '';
-            try {
-                if (window.gptOssReasoningLevel) {
-                    reasoningLevel = (window.gptOssReasoningLevel || '').toLowerCase().trim();
-                    //console.log('OllamaAPI DEBUG: using window.gptOssReasoningLevel=', reasoningLevel);
-                }
-            } catch (wErr) { /* ignore */ }
-
-            if (!reasoningLevel) {
-                try {
-                    const activeBtn = document.querySelector('#gptoss-reasoning-selector .gptoss-reasoning-btn.active');
-                    if (activeBtn && activeBtn.dataset && activeBtn.dataset.level) {
-                        reasoningLevel = (activeBtn.dataset.level || '').toLowerCase().trim();
-                        //console.log('OllamaAPI DEBUG: using DOM active reasoning level=', reasoningLevel);
-                    }
-                } catch (domErr) {
-                    // ignore DOM read errors
-                }
-            }
-
-            // If still no value, read localStorage
-            if (!reasoningLevel) {
-                const reasoningLevelRaw = localStorage.getItem('gptOssReasoningLevel') || '';
-                reasoningLevel = (reasoningLevelRaw || '').toLowerCase().trim();
-                //console.log('OllamaAPI DEBUG: falling back to stored gptOssReasoningLevel=', reasoningLevel);
-            }
-            // Only apply when the model selector is gpt-oss (or variant) - check base token
-            const modelSelector = document.getElementById('model-selector');
-            const selectedModel = modelSelector ? modelSelector.value : '';
-            const baseModel = (window.getBaseModelName ? window.getBaseModelName(selectedModel) : (selectedModel || '').toLowerCase()).split(':')[0];
-            if (baseModel === 'gpt-oss' && reasoningLevel) {
-                // Map mid -> medium for the token name if needed
-                const mapLevel = reasoningLevel === 'mid' ? 'medium' : reasoningLevel;
-                const reasoningPrefix = `reasoning:${mapLevel}\n\n`;
-                //console.log('OllamaAPI DEBUG: Complete system prompt with reasoning level:', mapLevel);
-                //console.log(reasoningPrefix + finalPrompt);
-                return (reasoningPrefix + finalPrompt).trim();
+            if (appliesReasoningPrefix) {
+                const reasoningPrefix = `reasoning:${reasoningKey}\n\n`;
+                finalPromptWithReasoning = reasoningPrefix + finalPrompt;
             }
         } catch (e) {
             console.warn('OllamaAPI: error applying gpt-oss reasoning prefix', e);
@@ -1576,10 +2346,15 @@ class OllamaAPI {
         });*/
 
         // Enhanced logging to show what's actually in the final prompt
-        //console.log('OllamaAPI DEBUG: Complete system prompt with language enforcement + insights:');
-        //console.log(finalPrompt);
+       //console.log('OllamaAPI DEBUG: Complete system prompt with language enforcement + insights:');
+       //console.log(finalPrompt);
 
-        return finalPrompt.trim();
+        const finalResult = finalPromptWithReasoning.trim();
+        this.systemPromptCache.set(hashedMasterKey, {
+            cacheKey,
+            prompt: finalResult
+        });
+        return finalResult;
     }
 
     // Converts a language code (e.g., 'en-US') to a human-readable language name.
@@ -1734,10 +2509,10 @@ class OllamaAPI {
         };
     }
     static async buildContextFromConversations(conversations) {
-        //console.log('OllamaAPI: Building context from conversations:', conversations.length);
+       //console.log('OllamaAPI: Building context from conversations:', conversations.length);
 
         if (!conversations || conversations.length === 0) {
-            //console.log('OllamaAPI: No conversations provided, resetting context');
+           //console.log('OllamaAPI: No conversations provided, resetting context');
             this.previousContext = [];
             return [];
         }
@@ -1746,7 +2521,7 @@ class OllamaAPI {
             // Get the system prompt with insights and temporal context
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             const systemPrompt = await this.buildCompleteSystemPrompt(hashedMasterKey);
-            //console.log('OllamaAPI: Got enhanced system prompt for context building');
+           //console.log('OllamaAPI: Got enhanced system prompt for context building');
 
             // Format messages in the way Ollama expects
             const messages = conversations.map(conv => ({
@@ -1759,15 +2534,16 @@ class OllamaAPI {
 
             // Create a special message that just initializes context without generating a response
             const initMessage = "This is a context initialization message. Please acknowledge receipt without elaborating.";
+            const routing = await this.getApiRoutingForModel(modelSelector.value);
 
             // Make a direct API call to build context without generating a visible response
-            //console.log('OllamaAPI: Making API call to initialize context');
-            const response = await fetch('http://localhost:11434/api/chat', {
+           //console.log('OllamaAPI: Making API call to initialize context');
+            const response = await fetch(`${routing.baseUrl}/generate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: routing.headers,
                 body: JSON.stringify({
-                    model: modelSelector.value,
-                    messages: [...messages, { role: 'user', content: initMessage }],
+                    model: routing.modelName || modelSelector.value,
+                    prompt: `${messages.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n\n')}\n\n${initMessage}`,
                     stream: false,
                     system: systemPrompt,
                     options: {
@@ -1785,7 +2561,7 @@ class OllamaAPI {
             // Store both the context and conversations
             if (result && result.context) {
                 this.previousContext = result.context;
-                //console.log('OllamaAPI: Context built successfully with',
+               //console.log('OllamaAPI: Context built successfully with',
                 //  this.previousContext.length, 'tokens');
             } else {
                 console.warn('OllamaAPI: No context returned from Ollama');
@@ -1842,6 +2618,7 @@ class OllamaAPI {
             const contextSize = document.getElementById('context-selector').value;
             const selectedModel = document.getElementById('model-selector').value;
             const modelParams = this.getModelParameters(selectedModel);
+            const routing = await this.getApiRoutingForModel(selectedModel);
             const aiReplies = document.querySelector('.ai-replies');
 
             // STEP 2: The user prompt will contain the continuation instructions and previous messages
@@ -1860,7 +2637,7 @@ class OllamaAPI {
             aiReplies.appendChild(aiDiv);
 
             // Create the stream processor, which will create its own response container
-            const streamProcessor = new StreamProcessor();
+            const streamProcessor = this.createStreamProcessorForRouting(routing.source === 'cloud');
 
             // Detach the auto-created container from aiReplies
             const autoContainer = streamProcessor.responseContainer;
@@ -1873,20 +2650,29 @@ class OllamaAPI {
 
             // STEP 3: Send to Ollama with CLEAR separation of system prompt and user continuation prompt
             // Pass the abort signal to the fetch request
-            const response = await fetch('http://localhost:11434/api/generate', {
+            const isCloudRouting = routing.source === 'cloud';
+            const cloudPromptText = `${systemPrompt || ''}\n${userPrompt || ''}`;
+            let cloudResponseText = '';
+            const continuationContext = window.currentCheckpoint?.lastContext || this.previousContext || [];
+            const requestBody = {
+                model: routing.modelName || document.getElementById('model-selector').value,
+                prompt: userPrompt,
+                system: systemPrompt,
+                stream: true,
+                options: {
+                    num_ctx: parseInt(contextSize),
+                    ...modelParams
+                }
+            };
+
+            if (!isCloudRouting && continuationContext) {
+                requestBody.context = continuationContext;
+            }
+
+            const response = await fetch(`${routing.baseUrl}/generate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: document.getElementById('model-selector').value,
-                    prompt: userPrompt,
-                    system: systemPrompt,
-                    stream: true,
-                    context: window.currentCheckpoint?.lastContext || this.previousContext || [],
-                    options: {
-                        num_ctx: parseInt(contextSize),
-                        ...modelParams
-                    }
-                }),
+                headers: routing.headers,
+                body: JSON.stringify(requestBody),
                 signal: abortController.signal // Add the abort signal here
             });
 
@@ -1898,14 +2684,14 @@ class OllamaAPI {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
+            let streamBuffer = '';
 
             // Process the stream
             while (true) {
                 const { value, done } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value);
-                const lines = chunk.split('\n');
+                streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                const lines = streamBuffer.split('\n');
+                streamBuffer = lines.pop() || '';
 
                 for (const line of lines) {
                     if (line.trim()) {
@@ -1918,11 +2704,15 @@ class OllamaAPI {
                                 buttons.forEach(button => button.style.display = 'block');
 
                                 // Handle context management
-                                this.previousContext = data.context;
-                                window.currentCheckpoint = {
-                                    lastContext: data.context
-                                };
-                                this.updateContextRemaining(data.context.length);
+                                if (Array.isArray(data.context)) {
+                                    this.previousContext = data.context;
+                                    window.currentCheckpoint = {
+                                        lastContext: data.context
+                                    };
+                                    this.updateContextRemaining(data.context.length);
+                                } else if (isCloudRouting) {
+                                    this.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
+                                }
 
                                 if (this.contextLimitReached) {
                                     alert(Lang.get('ollamaContextSizeError'));
@@ -1978,13 +2768,99 @@ class OllamaAPI {
 
                                 return true;
                             } else {
-                                streamProcessor.processChunk(data.response);
+                                const responseChunk = data.response || data.message?.content;
+                                if (responseChunk) {
+                                    streamProcessor.processChunk(responseChunk);
+                                    if (isCloudRouting) {
+                                        cloudResponseText += responseChunk;
+                                    }
+                                }
                                 OllamaAPI.scrollToBottom();
                             }
                         } catch (error) {
                             console.error('Error processing chunk:', error);
                         }
                     }
+                }
+
+                if (done) {
+                    const tail = streamBuffer.trim();
+                    if (tail) {
+                        try {
+                            const data = JSON.parse(tail);
+
+                            if (data.done) {
+                                const buttons = streamProcessor.responseContainer.querySelectorAll('.code-copy-btn');
+                                buttons.forEach(button => button.style.display = 'block');
+
+                                if (Array.isArray(data.context)) {
+                                    this.previousContext = data.context;
+                                    window.currentCheckpoint = {
+                                        lastContext: data.context
+                                    };
+                                    this.updateContextRemaining(data.context.length);
+                                } else if (isCloudRouting) {
+                                    this.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
+                                }
+
+                                if (this.contextLimitReached) {
+                                    alert(Lang.get('ollamaContextSizeError'));
+                                    this.resetContext();
+                                }
+
+                                streamProcessor.finishResponse();
+
+                                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
+                                    window.chat.addMessageActionsToMessage(aiDiv);
+                                }
+
+                                const aiResponse = streamProcessor.responseContainer.outerHTML;
+                                OllamaAPI.scrollToBottom();
+
+                                const targetConversationGroup = window.currentConversationGroup;
+                                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+                                await PaiperworkDB.storeConversationOnly(
+                                    hashedMasterKey,
+                                    `${noticeToUser}<div class="continuation-prompt" style="display:none;">${continuationPrompt}</div>`,
+                                    aiResponse,
+                                    false,
+                                    targetConversationGroup
+                                );
+
+                                if (window.chatTab && typeof window.chatTab.loadSessionsList === 'function') {
+                                    const updatedSessions = await window.chatTab.loadSessionsList(hashedMasterKey);
+                                    window.chatTab.renderSessionsList(updatedSessions);
+                                }
+
+                                const promptInput = document.getElementById('prompt-input');
+                                if (promptInput) {
+                                    promptInput.disabled = false;
+
+                                    if (promptInput.dataset.originalPlaceholder) {
+                                        promptInput.placeholder = promptInput.dataset.originalPlaceholder;
+                                    } else {
+                                        promptInput.placeholder = Lang.get('enterMessage') || 'Enter your message...';
+                                    }
+
+                                    promptInput.focus();
+                                }
+
+                                return true;
+                            } else {
+                                const responseChunk = data.response || data.message?.content;
+                                if (responseChunk) {
+                                    streamProcessor.processChunk(responseChunk);
+                                    if (isCloudRouting) {
+                                        cloudResponseText += responseChunk;
+                                    }
+                                }
+                                OllamaAPI.scrollToBottom();
+                            }
+                        } catch (_tailErr) {
+                            // Ignore trailing partial line on stream end.
+                        }
+                    }
+                    break;
                 }
 
                 OllamaAPI.scrollToBottom();
@@ -1994,7 +2870,7 @@ class OllamaAPI {
 
             // Handle abort errors specially
             if (error.name === 'AbortError') {
-                //console.log('Continuation was cancelled by user');
+               //console.log('Continuation was cancelled by user');
 
                 // If there's a cleanup function for incomplete responses, call it
                 if (window.cleanupIncompleteResponses && typeof window.cleanupIncompleteResponses === 'function') {
@@ -2155,7 +3031,7 @@ class OllamaAPI {
             Continue the conversation naturally from this point.`;
 
                 // Log how much context we're including
-                //console.log(`OllamaAPI: Creating continuation with ${contextData.includedMessages} messages (${contextData.totalTokens} tokens)`);
+               //console.log(`OllamaAPI: Creating continuation with ${contextData.includedMessages} messages (${contextData.totalTokens} tokens)`);
 
                 // 6. Send the continuation prompt to Ollama
                 const success = await OllamaAPI.continuePreviousConversation(continuationPrompt, contextData.includedMessages);
@@ -2207,7 +3083,7 @@ class OllamaAPI {
         continuationDiv.appendChild(continueButton);
         setTimeout(() => {
             continuationDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            //console.log('Scrolled to continue button to ensure visibility');
+           //console.log('Scrolled to continue button to ensure visibility');
         }, 150);
         return continuationDiv;
     }
@@ -2226,7 +3102,7 @@ class OllamaAPI {
                     const aiReplies = document.querySelector('.ai-replies');
                     if (aiReplies) {
                         aiReplies.scrollTop = aiReplies.scrollHeight + 100;
-                        //console.log('Scroll executed, height:', aiReplies.scrollHeight);
+                       //console.log('Scroll executed, height:', aiReplies.scrollHeight);
                     }
                 });
             });
@@ -2240,7 +3116,7 @@ class OllamaAPI {
             // Check if window.VISUAL_MODELS is available (from visualmodels.js)
             if (window.VISUAL_MODELS && Array.isArray(window.VISUAL_MODELS)) {
                 this.visualModels = window.VISUAL_MODELS;
-                //console.log('OllamaAPI: Loaded visual models from global array:', this.visualModels);
+               //console.log('OllamaAPI: Loaded visual models from global array:', this.visualModels);
                 return this.visualModels;
             }
 
@@ -2257,32 +3133,32 @@ class OllamaAPI {
 
     static isVisualModel(modelName) {
         if (!this.visualModels) {
-            //console.log('OllamaAPI: Visual models list not loaded yet');
+           //console.log('OllamaAPI: Visual models list not loaded yet');
             return false;
         }
 
         if (!modelName) {
-            //console.log('OllamaAPI: No model name provided to isVisualModel');
+           //console.log('OllamaAPI: No model name provided to isVisualModel');
             return false;
         }
 
         // Normalize model name for comparison (lowercase, remove version numbers)
         const normalizedName = modelName.toLowerCase();
-        //console.log(`OllamaAPI: Checking if '${normalizedName}' is a visual model`);
+       //console.log(`OllamaAPI: Checking if '${normalizedName}' is a visual model`);
 
         // Log all models we're checking against
-        //console.log('OllamaAPI: Available visual models:', this.visualModels);
+       //console.log('OllamaAPI: Available visual models:', this.visualModels);
 
         // Check if any visual model name is contained in the selected model
         const isVisual = this.visualModels.some(visualModel => {
             const isMatch = normalizedName.includes(visualModel.toLowerCase());
             if (isMatch) {
-                //console.log(`OllamaAPI: Match found! '${visualModel}' is in '${normalizedName}'`);
+               //console.log(`OllamaAPI: Match found! '${visualModel}' is in '${normalizedName}'`);
             }
             return isMatch;
         });
 
-        //console.log(`OllamaAPI: Model '${modelName}' is visual:`, isVisual);
+       //console.log(`OllamaAPI: Model '${modelName}' is visual:`, isVisual);
         return isVisual;
     }
 }
@@ -2291,7 +3167,7 @@ window.OllamaAPI = OllamaAPI;
     try {
         // Pre-load the visual models list when the file loads
         await OllamaAPI.loadVisualModels();
-        //console.log('OllamaAPI: Visual models preloaded:', OllamaAPI.visualModels);
+       //console.log('OllamaAPI: Visual models preloaded:', OllamaAPI.visualModels);
     } catch (error) {
         console.error('OllamaAPI: Failed to preload visual models:', error);
     }

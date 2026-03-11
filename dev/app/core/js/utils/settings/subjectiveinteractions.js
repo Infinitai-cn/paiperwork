@@ -71,9 +71,9 @@ class SubjectiveInteractions {
 
         // Log what was removed if anything changed
         if (text !== cleanedText) {
-            //console.log('Removed thinking content from insight');
-            //console.log('Original:', text);
-            //console.log('Cleaned:', cleanedText);
+           //console.log('Removed thinking content from insight');
+           //console.log('Original:', text);
+           //console.log('Cleaned:', cleanedText);
         }
 
         return cleanedText;
@@ -94,37 +94,38 @@ class SubjectiveInteractions {
         progressBar.classList.add('active');
 
         try {
-            //console.log('Starting subjective analysis for:', userPrompt);
+           //console.log('Starting subjective analysis for:', userPrompt);
             const analysisPrompt = `Extract a single, meaningful insight about the user from this message: "${userPrompt}"
             Focus on identity, personality traits, or personal information.
             Respond with only the insight, for example: "Name is John" or "Shows friendly personality"`;
 
             // ADD SYSTEM PROMPT for better results
             const systemPrompt = "You are an AI assistant that extracts concise insights about users from their messages. Keep responses brief, focused only on extracting a single meaningful insight about the user's identity, preferences, or personality. Remove identifying personal details.";
+            const routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
 
-            const response = await fetch('http://localhost:11434/api/generate', {
+            const response = await fetch(`${routing.baseUrl}/generate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...routing.headers },
                 body: JSON.stringify({
-                    model: selectedModel,
+                    model: routing.modelName || selectedModel,
                     prompt: analysisPrompt,
-                    system: systemPrompt,  // ADD THIS LINE
+                    system: systemPrompt,
                     stream: false
                 })
             });
 
             const analysis = await response.json();
-            let insight = analysis.response;
+            let insight = analysis?.response || analysis?.message?.content || '';
 
             insight = this.cleanThinkingContent(insight);
 
             // ADDED: Remove trailing period if present
             if (insight.endsWith('.')) {
                 insight = insight.slice(0, -1);
-                //console.log('Removed trailing period from analysis result:', insight);
+               //console.log('Removed trailing period from analysis result:', insight);
             }
 
-            //console.log('Analysis result (cleaned):', insight);
+           //console.log('Analysis result (cleaned):', insight);
             return insight;
         } finally {
             // Re-enable input
@@ -142,7 +143,7 @@ class SubjectiveInteractions {
         // REMOVED: Toggle check that was preventing insights from loading
         // The toggle should only control gathering NEW insights, not loading existing ones
 
-        //console.log('Loading insights for masterkey:', hashedMasterKey);
+       //console.log('Loading insights for masterkey:', hashedMasterKey);
         const db = await PaiperworkDB.getDatabase(hashedMasterKey);
         const result = db.exec(`
         SELECT insight_content, timestamp
@@ -151,7 +152,7 @@ class SubjectiveInteractions {
     `);
 
         if (!result[0]?.values) {
-            //console.log('No insights found');
+           //console.log('No insights found');
             return [];
         }
 
@@ -164,12 +165,12 @@ class SubjectiveInteractions {
             insights.push(decryptedInsight);
         }
 
-        //console.log('Loaded insights:', insights);
+       //console.log('Loaded insights:', insights);
         return insights;
     }
     // Clears all subjective insights for a given user (by hashed master key) from the database.
     static async clearInsights(hashedMasterKey) {
-        //console.log('Clearing all insights for masterkey:', hashedMasterKey);
+       //console.log('Clearing all insights for masterkey:', hashedMasterKey);
 
         try {
             const db = await PaiperworkDB.getDatabase(hashedMasterKey);
@@ -180,7 +181,11 @@ class SubjectiveInteractions {
         `);
 
             await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
-            //console.log('All insights cleared successfully');
+           //console.log('All insights cleared successfully');
+
+            if (window.OllamaAPI && typeof window.OllamaAPI.notifyInsightsChanged === 'function') {
+                window.OllamaAPI.notifyInsightsChanged(hashedMasterKey);
+            }
 
             return true;
         } catch (error) {
@@ -191,13 +196,13 @@ class SubjectiveInteractions {
 
     // Stores a single subjective insight for a given user (by hashed master key) in the database.
     static async storeInsight(hashedMasterKey, insight) {
-        //console.log('Storing individual insight for masterkey:', hashedMasterKey);
+       //console.log('Storing individual insight for masterkey:', hashedMasterKey);
 
         // ADDED: Clean the insight by removing trailing period if present
         let cleanedInsight = insight;
         if (cleanedInsight.endsWith('.')) {
             cleanedInsight = cleanedInsight.slice(0, -1);
-            //console.log('Removed trailing period from insight:', cleanedInsight);
+           //console.log('Removed trailing period from insight:', cleanedInsight);
         }
 
         const db = await PaiperworkDB.getDatabase(hashedMasterKey);
@@ -214,14 +219,18 @@ class SubjectiveInteractions {
     `, [insightId, JSON.stringify(encryptedInsight), timestamp]);
 
         await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
-        //console.log('Individual insight stored successfully');
+       //console.log('Individual insight stored successfully');
+
+        if (window.OllamaAPI && typeof window.OllamaAPI.notifyInsightsChanged === 'function') {
+            window.OllamaAPI.notifyInsightsChanged(hashedMasterKey);
+        }
 
         return true;
     }
 
     // Stores multiple subjective insights for a given user (by hashed master key) in the database.
     static async storeInsights(hashedMasterKey, insights) {
-        //console.log('Storing insights for masterkey:', hashedMasterKey);
+       //console.log('Storing insights for masterkey:', hashedMasterKey);
 
         // Clean the insight by removing trailing period and surrounding quotes
         let cleanedInsight = insights;
@@ -229,13 +238,13 @@ class SubjectiveInteractions {
         // Remove trailing period if present
         if (cleanedInsight.endsWith('.')) {
             cleanedInsight = cleanedInsight.slice(0, -1);
-            //console.log('Removed trailing period from insight:', cleanedInsight);
+           //console.log('Removed trailing period from insight:', cleanedInsight);
         }
 
         // Remove surrounding quotes if present
         if (cleanedInsight.startsWith('"') && cleanedInsight.endsWith('"')) {
             cleanedInsight = cleanedInsight.slice(1, -1);
-            //console.log('Removed surrounding quotes from insight:', cleanedInsight);
+           //console.log('Removed surrounding quotes from insight:', cleanedInsight);
         }
 
         const db = await PaiperworkDB.getDatabase(hashedMasterKey);
@@ -252,7 +261,11 @@ class SubjectiveInteractions {
         `, [insightId, JSON.stringify(encryptedInsights), timestamp]);
 
         await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
-        //console.log('Insights stored successfully');
+       //console.log('Insights stored successfully');
+
+        if (window.OllamaAPI && typeof window.OllamaAPI.notifyInsightsChanged === 'function') {
+            window.OllamaAPI.notifyInsightsChanged(hashedMasterKey);
+        }
 
         return true;
     }

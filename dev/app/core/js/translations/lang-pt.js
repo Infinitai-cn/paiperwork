@@ -132,6 +132,8 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
     artworkGenerateDesign: "Gerar Design",
     artworkGeneratedDesign: "Design Gerado:",
     artworkSelectVisualModelOption: "Selecione um modelo visual",
+    artworkLocalVisualModelsHeader: "MODELOS VISUAIS LOCAIS",
+    artworkCloudVisualModelsHeader: "MODELOS VISUAIS NA NUVEM",
     artworkVisualDesignStudio: "Estúdio de Design Visual",
     artworkCreateDesignsDescription: "Crie designs, sites ou obras usando modelos visuais de IA.",
 
@@ -320,6 +322,12 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         Ollamaerror500: "Erro 500 na resposta do Ollama.",
         ollamaSelectModelPrompt: "Por favor, selecione um modelo antes de enviar uma mensagem.",
         ollamaConnectionError: "Conexão com Ollama falhou. Verifique se o Ollama está rodando e tente novamente.",
+        ollamaCloudApiKeyTitle: "Chave de API do Ollama Cloud obrigatoria",
+        ollamaCloudApiKeyInfo: "Para usar modelos em nuvem, adicione sua chave de API do Ollama. Esta chave sera armazenada de forma criptografada no seu banco de dados de usuario.",
+        ollamaApiKeyPlaceholder: "Cole sua chave de API do Ollama",
+        ollamaApiKeyRequired: "Uma chave de API do Ollama e obrigatoria para usar modelos em nuvem.",
+        ollamaApiKeyInvalid: "Sua chave de API do Ollama parece invalida ou expirada. Atualize-a.",
+        manageCloudApiKey: "Gerenciar chave de API da nuvem",
         ollamaConversationStart: "Esta conversa continua de {count} mensagens anteriores. As trocas mais recentes são mostradas abaixo.",
 
         // Copy Functionality

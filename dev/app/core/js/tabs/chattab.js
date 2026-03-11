@@ -6,7 +6,7 @@ class ChatTab {
     }
     // Initializes the chat tab, sets up UI, loads settings, and prepares the chat environment.
     async initialize() {
-        //console.log('ChatTab: Initializing chat tab instance');
+       //console.log('ChatTab: Initializing chat tab instance');
         // Add CSS for insights editor
         const style = document.createElement('style');
         style.id = 'insights-editor-styles';
@@ -50,7 +50,7 @@ class ChatTab {
         }
 
         if (this.initialized) {
-            //console.log('ChatTab: Already initialized, skipping');
+           //console.log('ChatTab: Already initialized, skipping');
             return true;
         }
 
@@ -64,14 +64,14 @@ class ChatTab {
 
             // Make sure Chat module is loaded and initialized first
             if (!window.chat) {
-                //console.log('ChatTab: Creating new Chat instance');
+               //console.log('ChatTab: Creating new Chat instance');
                 window.chat = new Chat();
                 await window.chat.initialize();
             } else if (!window.chat.initialized) {
-                //console.log('ChatTab: Initializing existing Chat instance');
+               //console.log('ChatTab: Initializing existing Chat instance');
                 await window.chat.initialize();
             } else {
-                //console.log('ChatTab: Using existing initialized Chat instance');
+               //console.log('ChatTab: Using existing initialized Chat instance');
             }
 
             // Set up UI elements with proper context
@@ -85,9 +85,9 @@ class ChatTab {
 
             const systemPromptElement = document.getElementById('system-prompt');
             if (systemPromptElement) {
-                //console.log('ChatTab: Building complete system prompt using OllamaAPI');
+               //console.log('ChatTab: Building complete system prompt using OllamaAPI');
                 const enhancedPrompt = await OllamaAPI.buildCompleteSystemPrompt(hashedMasterKey);
-                //console.log('ChatTab: System prompt enhanced with temporal context and insights');
+               //console.log('ChatTab: System prompt enhanced with temporal context and insights');
                 window.enhancedSystemPrompt = enhancedPrompt; // Store for future use
             }
 
@@ -101,11 +101,11 @@ class ChatTab {
             // }
 
             // ADD: Check for thinking toggle after model selector is loaded
-            //console.log('🧠 ChatTab: Checking for thinking toggle button after initialization');
+           //console.log('🧠 ChatTab: Checking for thinking toggle button after initialization');
             await this.checkInitialThinkingToggle();
 
             this.initialized = true;
-            //console.log('ChatTab: Chat tab instance initialized successfully');
+           //console.log('ChatTab: Chat tab instance initialized successfully');
             return true;
         } catch (error) {
             console.error('ChatTab: Error initializing chat tab:', error);
@@ -116,15 +116,21 @@ class ChatTab {
 
     // Checks if the "thinking" toggle should be shown for the current model and updates UI accordingly.
     async checkInitialThinkingToggle() {
-        //console.log('🧠 ChatTab: Starting initial thinking toggle check');
+       //console.log('🧠 ChatTab: Starting initial thinking toggle check');
 
-        // First check Ollama version
-        const ollamaVersion = await this.getOllamaVersion();
-        //console.log('🔍 ChatTab: Ollama version detected:', ollamaVersion);
+        const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
+            ? (window.OllamaAPI.getSelectedModelSource() || 'local')
+            : 'local';
 
-        if (!this.isVersionSupported(ollamaVersion, '0.9.0')) {
-            //console.log('🚫 ChatTab: Ollama version too old for thinking feature. Requires 0.9.0+, found:', ollamaVersion);
-            return;
+        // Local daemon version checks do not apply to cloud-selected models.
+        if (selectedProvider !== 'cloud') {
+            const ollamaVersion = await this.getOllamaVersion();
+           //console.log('🔍 ChatTab: Ollama version detected:', ollamaVersion);
+
+            if (!this.isVersionSupported(ollamaVersion, '0.9.0')) {
+               //console.log('🚫 ChatTab: Ollama version too old for thinking feature. Requires 0.9.0+, found:', ollamaVersion);
+                return;
+            }
         }
 
         // Wait for model selector to be available and populated
@@ -154,13 +160,13 @@ class ChatTab {
             return;
         }
 
-        //console.log('🧠 ChatTab: Model selector populated, checking current model');
+       //console.log('🧠 ChatTab: Model selector populated, checking current model');
 
         // Get the current model value
         const currentModel = modelSelector.value;
 
         if (currentModel) {
-            //console.log('🧠 ChatTab: Found current model on startup:', currentModel);
+           //console.log('🧠 ChatTab: Found current model on startup:', currentModel);
 
             // Ensure isThinkingModel function is available
             if (window.isThinkingModel && typeof window.isThinkingModel === 'function') {
@@ -172,7 +178,7 @@ class ChatTab {
                 // Retry after a short delay to allow other scripts to load
                 setTimeout(() => {
                     if (window.isThinkingModel && typeof window.isThinkingModel === 'function') {
-                        //console.log('🧠 ChatTab: Retrying thinking toggle check after delay');
+                       //console.log('🧠 ChatTab: Retrying thinking toggle check after delay');
                         this.updateThinkingToggleUI(currentModel);
                     } else {
                         console.error('🧠 ChatTab: isThinkingModel function still not available after retry');
@@ -180,13 +186,22 @@ class ChatTab {
                 }, 500);
             }
         } else {
-            //console.log('🧠 ChatTab: No model selected on startup, thinking toggle check skipped');
+           //console.log('🧠 ChatTab: No model selected on startup, thinking toggle check skipped');
         }
     }
 
     // Fetches the current Ollama server version from the local API.
     async getOllamaVersion() {
         try {
+            const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
+                ? (window.OllamaAPI.getSelectedModelSource() || 'local')
+                : 'local';
+
+            // Version endpoint is local-daemon specific; cloud models should bypass this check.
+            if (selectedProvider === 'cloud') {
+                return this._lastKnownOllamaVersion || null;
+            }
+
             const response = await fetch('http://localhost:11434/api/version', {
                 method: 'GET',
                 headers: {
@@ -215,6 +230,12 @@ class ChatTab {
     // Compares two version strings to determine if the current version meets the required version.
     isVersionSupported(currentVersion, requiredVersion) {
         if (!currentVersion) {
+            const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
+                ? (window.OllamaAPI.getSelectedModelSource() || 'local')
+                : 'local';
+            if (selectedProvider === 'cloud') {
+                return true;
+            }
             console.warn('🔍 ChatTab: No Ollama version available, assuming not supported');
             return false;
         }
@@ -249,10 +270,199 @@ class ChatTab {
         }
     }
 
+    showCloudModelPrepToast(message) {
+        console.info('[CloudPrep] Toast show:', message || 'Preparing cloud model...');
+
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.zIndex = '10080';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.background = 'rgba(0, 0, 0, 0.35)';
+
+        const modal = document.createElement('div');
+        modal.style.width = 'min(460px, 90vw)';
+        modal.style.background = 'var(--panel-background, #222426)';
+        modal.style.border = '1px solid var(--border-color, #404040)';
+        modal.style.borderRadius = '10px';
+        modal.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.35)';
+        modal.style.color = 'var(--text-color, #f5f5f5)';
+        modal.style.padding = '14px';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.gap = '10px';
+
+        const title = document.createElement('div');
+        title.textContent = 'Cloud Model Preparation';
+        title.style.fontSize = '14px';
+        title.style.fontWeight = '600';
+
+        const body = document.createElement('div');
+        body.textContent = message || 'Downloading model metadata, please wait (or close this window and choose a different model).';
+        body.style.fontSize = '13px';
+        body.style.lineHeight = '1.4';
+
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.justifyContent = 'flex-end';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.textContent = 'Close';
+        closeBtn.style.padding = '7px 11px';
+        closeBtn.style.border = '1px solid var(--border-color, #404040)';
+        closeBtn.style.borderRadius = '6px';
+        closeBtn.style.background = 'transparent';
+        closeBtn.style.color = 'var(--text-color, #f5f5f5)';
+        closeBtn.style.cursor = 'pointer';
+
+        let userClosed = false;
+        closeBtn.addEventListener('click', () => {
+            userClosed = true;
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+            console.info('[CloudPrep] Toast manually closed by user');
+        });
+
+        actions.appendChild(closeBtn);
+        modal.appendChild(title);
+        modal.appendChild(body);
+        modal.appendChild(actions);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        return () => {
+            console.info('[CloudPrep] Toast close');
+            if (userClosed) {
+                return;
+            }
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        };
+    }
+
+    async prepareSelectedCloudModel(modelName, options = {}) {
+        const modelNameStr = String(modelName || '').trim();
+        console.info('[CloudPrep] prepareSelectedCloudModel called', {
+            modelName: modelNameStr
+        });
+        const selectedProvider = ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+            ? (window.OllamaAPI.getModelSource(modelNameStr) || window.OllamaAPI.getSelectedModelSource?.() || 'local')
+            : 'local');
+        console.info('[CloudPrep] provider resolved', { selectedProvider });
+        if (selectedProvider !== 'cloud') {
+            console.info('[CloudPrep] skip: not a cloud model');
+            return true;
+        }
+
+        const hasExternalToast = !!(options && typeof options.closeToast === 'function');
+        const closeToast = hasExternalToast
+            ? options.closeToast
+            : this.showCloudModelPrepToast('Downloading model metadata, please wait (or close this window and choose a different model).');
+        const toastStart = Date.now();
+
+        const routing = await OllamaAPI.getApiRoutingForModel(modelName);
+        const requiresDirectCloudKey = routing && routing.baseUrl === '/api/cloud';
+        const hasCloudKey = !!(routing && routing.headers && routing.headers['Authorization']);
+        console.info('[CloudPrep] routing resolved', {
+            source: routing?.source,
+            baseUrl: routing?.baseUrl,
+            apiModelName: routing?.modelName,
+            hasCloudKey,
+            requiresDirectCloudKey
+        });
+        if (requiresDirectCloudKey && !hasCloudKey) {
+            console.warn('[CloudPrep] skip: no cloud key available yet');
+            closeToast();
+            return false;
+        }
+
+        try {
+            if (requiresDirectCloudKey) {
+                // Direct ollama.com routing does not use local daemon pull semantics.
+                console.info('[CloudPrep] direct cloud mode: skipping local pull, refreshing metadata only', {
+                    model: routing.modelName || modelName
+                });
+            } else {
+                console.info('[CloudPrep] pull start', { model: routing.modelName || modelName });
+                await OllamaAPI.ensureCloudModelPulled(routing.modelName || modelName, routing.headers);
+                console.info('[CloudPrep] pull success', { model: routing.modelName || modelName });
+            }
+            await this.refreshModelMaximumContextLabel(modelNameStr);
+            return true;
+        } catch (error) {
+            console.error('[CloudPrep] pull failed', error);
+            throw error;
+        } finally {
+            const elapsed = Date.now() - toastStart;
+            if (elapsed < 800) {
+                await new Promise(resolve => setTimeout(resolve, 800 - elapsed));
+            }
+            closeToast();
+        }
+    }
+
+    async refreshModelMaximumContextLabel(modelName) {
+        const nativeCtxEl = document.getElementById('model-native-context');
+        if (nativeCtxEl) {
+            nativeCtxEl.textContent = Lang.get('retrievingModelContext') || 'Retrieving model max context size...';
+            nativeCtxEl.removeAttribute('title');
+        }
+
+        try {
+            const metaResult = await OllamaAPI.fetchModelMetadata(modelName, { autoload: true, retryDelayMs: 500 });
+            const nativeContext = (metaResult && metaResult.nativeContext !== null && metaResult.nativeContext !== undefined)
+                ? Number(metaResult.nativeContext)
+                : null;
+            const displayVal = Number.isFinite(nativeContext)
+                ? this.formatTokenCountForDisplay(nativeContext)
+                : 'n/a';
+            if (nativeCtxEl) {
+                nativeCtxEl.textContent = displayVal;
+                if (Number.isFinite(nativeContext)) {
+                    nativeCtxEl.title = `${Math.round(nativeContext).toLocaleString()} tokens`;
+                } else {
+                    nativeCtxEl.removeAttribute('title');
+                }
+            }
+            return displayVal;
+        } catch (metaErr) {
+            console.warn('ChatTab: Error fetching model metadata', metaErr);
+            if (nativeCtxEl) {
+                nativeCtxEl.textContent = 'n/a';
+                nativeCtxEl.removeAttribute('title');
+            }
+            return 'n/a';
+        }
+    }
+
+    formatTokenCountForDisplay(rawValue) {
+        const value = Number(rawValue);
+        if (!Number.isFinite(value) || value <= 0) {
+            return 'n/a';
+        }
+
+        const rounded = Math.round(value);
+
+        const compact = (divisor, suffix) => {
+            const normalized = rounded / divisor;
+            const shown = normalized < 100 ? Math.round(normalized * 10) / 10 : Math.round(normalized);
+            return `${String(shown).replace(/\.0$/, '')}${suffix}`;
+        };
+
+        if (rounded >= 1000000000) return compact(1000000000, 'B');
+        if (rounded >= 1000000) return compact(1000000, 'M');
+        if (rounded >= 1000) return compact(1000, 'k');
+        return String(rounded);
+    }
+
 
     // Sets up all UI elements, event handlers, and model/context selectors for the chat tab.
     setupUIElements() {
-        //console.log('ChatTab: Setting up UI elements');
+       //console.log('ChatTab: Setting up UI elements');
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
 
     // Get all UI elements
@@ -274,6 +484,7 @@ class ChatTab {
         const sendButton = document.getElementById('send-prompt');
         const promptInput = document.getElementById('prompt-input');
         this.addExportButton(deleteButton);
+        this.addCloudApiKeyButton(deleteButton);
 
         // Set up insights toggle
         const insightsEnabled = localStorage.getItem('insightsEnabled') === 'true';
@@ -288,7 +499,7 @@ class ChatTab {
 
         // Add edit button for insights
         const insightsContainer = document.querySelector('.insights-container');
-        //console.log('Toggle container found:', insightsContainer); // Log if container is found
+       //console.log('Toggle container found:', insightsContainer); // Log if container is found
 
         if (insightsContainer) {
             const editButton = document.createElement('button');
@@ -312,7 +523,7 @@ class ChatTab {
         justify-content: center;
         transition: background-color 0.2s;
             `;
-            //console.log('Edit button created:', editButton); // Log button creation
+           //console.log('Edit button created:', editButton); // Log button creation
 
             // Add hover effect
             editButton.addEventListener('mouseenter', () => {
@@ -356,15 +567,15 @@ class ChatTab {
                 editButton.style.marginRight = '0';
             } else {
                 // Fallback: insert as first child if label can't be found
-                //console.log('No label found, using fallback insertion');
+               //console.log('No label found, using fallback insertion');
                 insightsContainer.insertBefore(editButton, toggleSwitch);
-                //console.log('Button inserted as first child:', insightsContainer.firstChild === editButton); // Verify insertion
+               //console.log('Button inserted as first child:', insightsContainer.firstChild === editButton); // Verify insertion
             }
 
             // Add an additional check to see if button is in DOM after insertion
             setTimeout(() => {
                 const buttonInDOM = document.getElementById('edit-insights-button');
-                //console.log('Button found in DOM after insertion:', !!buttonInDOM);
+               //console.log('Button found in DOM after insertion:', !!buttonInDOM);
             }, 100);
         }
 
@@ -458,11 +669,11 @@ class ChatTab {
         if (modelSelector) {
             // First, load visual models list
             OllamaAPI.loadVisualModels().then(async () => {
-                //console.log('ChatTab: Visual models loaded successfully');
+               //console.log('ChatTab: Visual models loaded successfully');
 
                 // Check current model on startup AND load its context
                 if (modelSelector.value) {
-                    //console.log('ChatTab: Checking initial model:', modelSelector.value);
+                   //console.log('ChatTab: Checking initial model:', modelSelector.value);
                     this.updateVisualModelUI(modelSelector.value);
 
                     // CRITICAL: Load model-specific context for the currently selected model
@@ -483,16 +694,14 @@ class ChatTab {
                 try {
                     const initialModel = modelSelector.value;
                     if (initialModel) {
-                        const nativeCtxEl = document.getElementById('model-native-context');
-                        if (nativeCtxEl) {
-                            nativeCtxEl.textContent = Lang.get('retrievingModelContext') || 'Retrieving model max context size...';
-                        }
+                        const startupProvider = (window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+                            ? (window.OllamaAPI.getModelSource(initialModel) || 'local')
+                            : 'local';
 
-                        const metaResult = await OllamaAPI.fetchModelMetadata(initialModel, { autoload: true, retryDelayMs: 500 });
-                        if (nativeCtxEl) {
-                            const displayVal = (metaResult && metaResult.nativeContext !== null && metaResult.nativeContext !== undefined) ? metaResult.nativeContext : 'n/a';
-                            nativeCtxEl.textContent = displayVal;
-                            //console.log('ChatTab: Startup updated native context legend with', displayVal, 'path:', metaResult ? metaResult.nativeContextPath : null);
+                        if (startupProvider === 'cloud') {
+                            await this.prepareSelectedCloudModel(initialModel);
+                        } else {
+                            await this.refreshModelMaximumContextLabel(initialModel);
                         }
                     }
                 } catch (startupErr) {
@@ -504,10 +713,31 @@ class ChatTab {
 
             modelSelector.addEventListener('change', async (event) => {
                 const selectedModel = modelSelector.value;
-                //console.log('🔄 ChatTab: Model changed to:', selectedModel);
+                const selectedOption = modelSelector.options[modelSelector.selectedIndex];
+                const selectedProvider = (selectedOption && selectedOption.dataset && selectedOption.dataset.provider)
+                    ? selectedOption.dataset.provider
+                    : ((window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
+                        ? (window.OllamaAPI.getSelectedModelSource() || 'local')
+                        : 'local');
+                const liveMasterKey = sessionStorage.getItem('hashedMasterKey') || hashedMasterKey;
+                console.info('[CloudPrep] model selector changed', {
+                    selectedModel,
+                    selectedProvider,
+                    hasLiveMasterKey: !!liveMasterKey,
+                    trustedEvent: !!(event && event.isTrusted)
+                });
+
+                // Persist immediately in plaintext to survive hard-refresh before async DB writes complete.
+                try {
+                    localStorage.setItem('selectedModel', String(selectedModel || ''));
+                    localStorage.setItem('selectedModelProvider', String(selectedProvider || 'local'));
+                } catch (_storageErr) {
+                    // Non-fatal: DB persistence still runs below.
+                }
+               //console.log('🔄 ChatTab: Model changed to:', selectedModel);
                 try {
                     const base = (window.getBaseModelName && window.getBaseModelName(selectedModel)) || selectedModel;
-                    //console.log('🔍 ChatTab: base model for selectedModel=', selectedModel, '->', base);
+                   //console.log('🔍 ChatTab: base model for selectedModel=', selectedModel, '->', base);
                 } catch (e) {
                     console.warn('ChatTab: Error computing base model for logging', e);
                 }
@@ -522,7 +752,7 @@ class ChatTab {
                             modelSelector.__unloadDebounceTimeout = setTimeout(async () => {
                                 try {
                                     if (chatTab && typeof chatTab.unloadOllamaModels === 'function') {
-                                        //console.log('ChatTab: User changed model — calling ChatTab.unloadOllamaModels() to free memory.');
+                                       //console.log('ChatTab: User changed model — calling ChatTab.unloadOllamaModels() to free memory.');
                                         await chatTab.unloadOllamaModels();
                                     } else {
                                         // If the ChatTab method isn't present, skip unload to avoid calling presentation-only code
@@ -540,8 +770,62 @@ class ChatTab {
                     console.error('ChatTab: Error in unload-on-select handler:', err);
                 }
 
-                // Save the selected model to the database
-                await PaiperworkDB.saveModel(hashedMasterKey, selectedModel);
+                // Save the selected model and provider to the database
+                const savedModelOk = await PaiperworkDB.saveModel(liveMasterKey, selectedModel, selectedProvider);
+                if (!savedModelOk) {
+                    console.error('ChatTab: Failed to persist selected model/provider', {
+                        selectedModel,
+                        selectedProvider
+                    });
+                }
+
+                // For cloud models, ensure key exists and pre-pull model metadata on selection.
+                if (selectedProvider === 'cloud') {
+                    console.info('[CloudPrep] cloud model selected, ensuring key and preparing pull');
+                    const keyCheckMasterKey = sessionStorage.getItem('hashedMasterKey');
+                    const existingCloudKey = keyCheckMasterKey
+                        ? this.normalizeCloudApiKey(await PaiperworkDB.getOllamaApiKey(keyCheckMasterKey))
+                        : '';
+                    const shouldDelayPrepToast = !existingCloudKey;
+                    let closePrepToast = null;
+
+                    // Show immediately when a key already exists; delay for first-time key setup.
+                    if (!shouldDelayPrepToast) {
+                        closePrepToast = this.showCloudModelPrepToast('Preparing selected cloud model, please wait...');
+                    }
+                    try {
+                        const routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+                        const requiresDirectCloudKey = routing && routing.baseUrl === '/api/cloud';
+                        let canPrepare = true;
+                        if (requiresDirectCloudKey) {
+                            let hasCloudKey = !!existingCloudKey;
+                            if (!hasCloudKey) {
+                                hasCloudKey = await this.ensureCloudApiKeyForSend();
+                                console.info('[CloudPrep] ensureCloudApiKeyForSend result', { hasCloudKey });
+                            } else {
+                                console.info('[CloudPrep] cloud key already present in DB, skipping key manager prompt');
+                            }
+                            canPrepare = hasCloudKey;
+
+                            // Key may have just been saved via modal; only now show prep toast.
+                            if (hasCloudKey && !closePrepToast) {
+                                closePrepToast = this.showCloudModelPrepToast('Preparing selected cloud model, please wait...');
+                            }
+                        }
+                        if (canPrepare) {
+                            try {
+                                const prepOptions = closePrepToast ? { closeToast: closePrepToast } : undefined;
+                                await this.prepareSelectedCloudModel(selectedModel, prepOptions);
+                            } catch (prepError) {
+                                console.error('[CloudPrep] prepare on selector change failed', prepError);
+                            }
+                        }
+                    } finally {
+                        if (typeof closePrepToast === 'function') {
+                            closePrepToast();
+                        }
+                    }
+                }
 
                 // Reset context for the new model
                 if (saveButton) saveButton.disabled = true;
@@ -563,7 +847,7 @@ class ChatTab {
                 this.updateVisualModelUI(selectedModel);
 
                 // Update UI for thinking models
-                //console.log('🧠 ChatTab: Updating thinking toggle for model:', selectedModel);
+               //console.log('🧠 ChatTab: Updating thinking toggle for model:', selectedModel);
                 this.updateThinkingToggleUI(selectedModel);
 
                 // Ensure the reasoning selector visibility reflects the newly selected model
@@ -612,18 +896,8 @@ class ChatTab {
 
                 // Fetch model metadata (autoload then /api/show) and update native context legend
                 try {
-                    const nativeCtxEl = document.getElementById('model-native-context');
-                    if (nativeCtxEl) {
-                        // Show a retrieval message so users know we're fetching the model info
-                        nativeCtxEl.textContent = Lang.get('retrievingModelContext') || 'Retrieving model max context size...';
-                    }
-
-                    const metaResult = await OllamaAPI.fetchModelMetadata(selectedModel, { autoload: true, retryDelayMs: 500 });
-
-                    if (nativeCtxEl) {
-                        const displayVal = (metaResult && metaResult.nativeContext !== null && metaResult.nativeContext !== undefined) ? metaResult.nativeContext : 'n/a';
-                        nativeCtxEl.textContent = displayVal;
-                        //console.log('ChatTab: Updated native context legend with', displayVal, 'path:', metaResult ? metaResult.nativeContextPath : null);
+                    if (selectedProvider !== 'cloud') {
+                        await this.refreshModelMaximumContextLabel(selectedModel);
                     }
                 } catch (metaErr) {
                     console.warn('ChatTab: Error fetching model metadata after model change', metaErr);
@@ -640,7 +914,7 @@ class ChatTab {
 
     // Loads the list of conversation sessions from the database and prepares them for display.
     async loadSessionsList(hashedMasterKey) {
-        //console.log('ChatTab: Loading sessions list for masterkey:', hashedMasterKey);
+       //console.log('ChatTab: Loading sessions list for masterkey:', hashedMasterKey);
 
         // Get the conversation list container
         const conversationList = document.getElementById('conversation-list');
@@ -653,7 +927,7 @@ class ChatTab {
             // OPTIMIZATION: Open database ONCE at the beginning
             const db = await PaiperworkDB.getDatabase(hashedMasterKey);
             if (!db) {
-                //console.log('ChatTab: No database found');
+               //console.log('ChatTab: No database found');
                 if (conversationList) {
                     conversationList.innerHTML = `<div class="no-sessions" style="text-align: center;">${Lang.get('noPreviousConversations')}</div>`;
                 }
@@ -684,7 +958,7 @@ class ChatTab {
 
             const groupResult = db.exec(groupQuery);
             if (!groupResult[0]?.values || groupResult[0].values.length === 0) {
-                //console.log('ChatTab: No conversation groups found');
+               //console.log('ChatTab: No conversation groups found');
                 if (conversationList) {
                     conversationList.innerHTML = `<div class="no-sessions" style="text-align: center;">${Lang.get('noPreviousConversations')}</div>`;
                 }
@@ -697,7 +971,7 @@ class ChatTab {
                 latest_timestamp: row[1]
             }));
 
-            //console.log(`ChatTab: Found ${groupData.length} conversation groups`);
+           //console.log(`ChatTab: Found ${groupData.length} conversation groups`);
 
             // OPTIMIZATION: Load ALL conversations at once instead of per-group
             const allConversationsQuery = `
@@ -855,7 +1129,7 @@ class ChatTab {
                 }
             }
 
-            //console.log(`ChatTab: Successfully loaded ${renderedSessions.length} conversation sessions`);
+           //console.log(`ChatTab: Successfully loaded ${renderedSessions.length} conversation sessions`);
             return renderedSessions;
 
         } catch (error) {
@@ -880,7 +1154,7 @@ class ChatTab {
 
         // Store the current session group ID globally
         window.currentConversationGroup = session.group_id;
-        //console.log('ChatTab: Set currentConversationGroup =', session.group_id);
+       //console.log('ChatTab: Set currentConversationGroup =', session.group_id);
 
         // IMPORTANT: Instead of using the session object passed in,
         // load the most up-to-date data from the database for this group
@@ -888,7 +1162,7 @@ class ChatTab {
 
         try {
             // Load fresh data for this specific group from database
-            //console.log('ChatTab: Loading fresh conversation data for group:', session.group_id);
+           //console.log('ChatTab: Loading fresh conversation data for group:', session.group_id);
             const result = await PaiperworkDB.loadConversationsByGroup(hashedMasterKey, session.group_id);
 
             if (!result || !result.conversations || result.conversations.length === 0) {
@@ -902,7 +1176,7 @@ class ChatTab {
                 new Date(a.timestamp) - new Date(b.timestamp)
             );
 
-            //console.log(`ChatTab: Rendering ${conversations.length} messages for group ${session.group_id}`);
+           //console.log(`ChatTab: Rendering ${conversations.length} messages for group ${session.group_id}`);
 
             // Keep track of existing code blocks
             let existingCodeBlockCount = 0;
@@ -926,28 +1200,28 @@ class ChatTab {
                     let messageImages = conv.images || [];
 
                     try {
-                        //console.log('IMAGES DEBUG: Processing user message:', typeof conv.message);
+                       //console.log('IMAGES DEBUG: Processing user message:', typeof conv.message);
                         // Check if the message is a JSON string containing text and images
                         const parsedMessage = JSON.parse(conv.message);
-                        //console.log('IMAGES DEBUG: Parsed message successfully:', parsedMessage);
+                       //console.log('IMAGES DEBUG: Parsed message successfully:', parsedMessage);
 
                         if (parsedMessage && typeof parsedMessage === 'object') {
                             if (parsedMessage.text !== undefined) {
                                 messageText = parsedMessage.text;
-                                //console.log('IMAGES DEBUG: Found text content:', messageText.substring(0, 50) + '...');
+                               //console.log('IMAGES DEBUG: Found text content:', messageText.substring(0, 50) + '...');
 
                                 if (Array.isArray(parsedMessage.images)) {
                                     messageImages = parsedMessage.images;
-                                    //console.log('IMAGES DEBUG: Found images array with length:', messageImages.length);
+                                   //console.log('IMAGES DEBUG: Found images array with length:', messageImages.length);
                                     // messageImages.forEach((img, idx) => {
-                                    //console.log(`IMAGES DEBUG: Image ${idx} type:`, typeof img,
+                                   //console.log(`IMAGES DEBUG: Image ${idx} type:`, typeof img,
                                     // 'src exists:', Boolean(img.src || img));
                                     // });
                                 }
                             }
                         }
                     } catch (e) {
-                        //console.log('IMAGES DEBUG: Not JSON or parsing error:', e.message);
+                       //console.log('IMAGES DEBUG: Not JSON or parsing error:', e.message);
                         // Not JSON, use the message as plain text
                         messageText = conv.message;
                     }
@@ -957,7 +1231,7 @@ class ChatTab {
 
                     // Add images if present in parsed data
                     if (messageImages && messageImages.length > 0) {
-                        //console.log('IMAGES DEBUG: Creating image containers for', messageImages.length, 'images');
+                       //console.log('IMAGES DEBUG: Creating image containers for', messageImages.length, 'images');
                         const imagesContainer = document.createElement('div');
                         imagesContainer.className = 'user-message-images';
                         imagesContainer.style.display = 'flex';
@@ -977,15 +1251,15 @@ class ChatTab {
 
                             const imgEl = document.createElement('img');
                             if (typeof img === 'string') {
-                                //console.log('IMAGES DEBUG: Setting img.src from string:', img.substring(0, 30) + '...');
+                               //console.log('IMAGES DEBUG: Setting img.src from string:', img.substring(0, 30) + '...');
                                 imgEl.src = img;
                                 imgEl.dataset.fullImage = img;
                             } else if (img && typeof img === 'object') {
-                                //console.log('IMAGES DEBUG: Setting img.src from object:', img);
+                               //console.log('IMAGES DEBUG: Setting img.src from object:', img);
                                 imgEl.src = img.src || img.thumbnail || '';
                                 imgEl.dataset.fullImage = img.src || img.thumbnail || '';
                             } else {
-                                //console.log('IMAGES DEBUG: Invalid image data:', img);
+                               //console.log('IMAGES DEBUG: Invalid image data:', img);
                             }
                             imgEl.style.maxWidth = '100%';
                             imgEl.style.maxHeight = '150px';
@@ -1446,7 +1720,7 @@ class ChatTab {
                 return;
             }
 
-            //console.log(`ChatTab: Deleting conversation group ${groupId} for masterkey ${hashedMasterKey}`);
+           //console.log(`ChatTab: Deleting conversation group ${groupId} for masterkey ${hashedMasterKey}`);
 
             // Add visual feedback during deletion
             if (sessionItem) {
@@ -1489,7 +1763,7 @@ class ChatTab {
                     }
                 }
 
-                //console.log(`ChatTab: Successfully deleted conversation group ${groupId}`);
+               //console.log(`ChatTab: Successfully deleted conversation group ${groupId}`);
             } else {
                 // Restore UI on failure
                 if (sessionItem) {
@@ -1520,7 +1794,7 @@ class ChatTab {
                 return false;
             }
 
-            //console.log(`DATABASE: Deleting conversation group ${groupId} from conversations_${hashedMasterKey}`);
+           //console.log(`DATABASE: Deleting conversation group ${groupId} from conversations_${hashedMasterKey}`);
 
             // Delete all messages with this group ID
             db.exec(`DELETE FROM conversations_${hashedMasterKey} WHERE conversation_group = ?`, [groupId]);
@@ -1563,13 +1837,13 @@ class ChatTab {
 
         // Check if the selected model is a visual model
         const isVisual = OllamaAPI.isVisualModel(modelName);
-        //console.log('ChatTab: Model is visual:', isVisual, modelName);
+       //console.log('ChatTab: Model is visual:', isVisual, modelName);
         OllamaAPI.maxImagesUsed = 0;
-        //console.log('ChatTab: Reset maxImagesUsed to 0 due to model change');
+       //console.log('ChatTab: Reset maxImagesUsed to 0 due to model change');
 
         // Check if the model is Gemma3 for multi-image support
         const isGemma3 = modelName.toLowerCase().includes('gemma3');
-        //console.log('ChatTab: Model is Gemma3 (multi-image):', isGemma3);
+       //console.log('ChatTab: Model is Gemma3 (multi-image):', isGemma3);
 
         // Only reset image data if NOT Gemma3
         if (!isGemma3) {
@@ -1711,7 +1985,7 @@ class ChatTab {
                     window.cleanedImageBase64Array = [];
                     window.currentMessageImages = [];
 
-                    //console.log('ChatTab: Resetting under-the-hood image data for new visible images');
+                   //console.log('ChatTab: Resetting under-the-hood image data for new visible images');
                 }
                 // Reset the UI state based on current image data before showing the modal
                 const uploadPlaceholder = imageModal.querySelector('.upload-placeholder');
@@ -1777,7 +2051,7 @@ class ChatTab {
                 }
 
                 // Add quality information for the user
-                //console.log(`Image selected: ${file.name}, ${(file.size / 1024 / 1024).toFixed(2)}MB, ${file.type}`);
+               //console.log(`Image selected: ${file.name}, ${(file.size / 1024 / 1024).toFixed(2)}MB, ${file.type}`);
 
                 const reader = new FileReader();
                 reader.onload = (e) => {
@@ -1832,7 +2106,7 @@ class ChatTab {
                         img.src = e.target.result;
                     }
 
-                    //console.log('ChatTab: Image(s) loaded and ready for sending');
+                   //console.log('ChatTab: Image(s) loaded and ready for sending');
                 };
 
                 reader.readAsDataURL(file);
@@ -1888,7 +2162,7 @@ class ChatTab {
 
                         // Replace the old input with the new one
                         oldFileInput.parentNode.replaceChild(newFileInput, oldFileInput);
-                        //console.log('ChatTab: File input replaced after Clear All');
+                       //console.log('ChatTab: File input replaced after Clear All');
                     }
 
                     // Use the updateMultiImageGrid method which properly handles empty state
@@ -1939,7 +2213,7 @@ class ChatTab {
                     // Replace the old input with the new one
                     oldFileInput.parentNode.replaceChild(newFileInput, oldFileInput);
 
-                    //console.log('ChatTab: File input replaced to allow selecting same file again');
+                   //console.log('ChatTab: File input replaced to allow selecting same file again');
                 }
 
                 // Reset UI elements
@@ -1970,7 +2244,7 @@ class ChatTab {
                 imageButton.style.transform = 'none';
                 imageButton.style.boxShadow = 'none';
 
-                //console.log('ChatTab: Image removed, UI reset');
+               //console.log('ChatTab: Image removed, UI reset');
             });
 
             // Handle image insertion with multi-image support
@@ -2015,7 +2289,7 @@ class ChatTab {
                         imageButton.appendChild(badge);
                     }
 
-                    //console.log(`ChatTab: ${window.selectedImages.length} images confirmed and ready for sending`);
+                   //console.log(`ChatTab: ${window.selectedImages.length} images confirmed and ready for sending`);
                 } else {
                     // Single image mode - check if we have an image
                     if (!window.selectedImage || typeof window.selectedImage !== 'string') {
@@ -2033,7 +2307,7 @@ class ChatTab {
                     imageButton.style.transform = 'scale(0.95)';
                     imageButton.style.boxShadow = 'inset 0 0 5px rgba(0,0,0,0.2)';
 
-                    //console.log('ChatTab: Image confirmed and ready for sending');
+                   //console.log('ChatTab: Image confirmed and ready for sending');
                 }
 
                 closeModal();
@@ -2100,7 +2374,7 @@ class ChatTab {
                     } else {
                         // Only process the first file for other models
                         if (files.length > 1) {
-                            //console.log('ChatTab: Multiple files dropped but this model only supports one image - using first image only');
+                           //console.log('ChatTab: Multiple files dropped but this model only supports one image - using first image only');
                         }
 
                         // Find the first valid image
@@ -2174,7 +2448,7 @@ class ChatTab {
                     } else {
                         // Only process the first file for other models
                         if (files.length > 1) {
-                            //console.log('ChatTab: Multiple files dropped but this model only supports one image - using first image only');
+                           //console.log('ChatTab: Multiple files dropped but this model only supports one image - using first image only');
                         }
 
                         // Find the first valid image
@@ -2199,8 +2473,8 @@ class ChatTab {
                     const selectedModel = modelSelector ? modelSelector.value : '';
                     const isGemma3 = selectedModel.toLowerCase().includes('gemma3');
 
-                    //console.log('ChatTab: Upload area clicked, creating new file input for model:', selectedModel);
-                    //console.log('ChatTab: Multi-image mode (Gemma3):', isGemma3);
+                   //console.log('ChatTab: Upload area clicked, creating new file input for model:', selectedModel);
+                   //console.log('ChatTab: Multi-image mode (Gemma3):', isGemma3);
 
                     // Get the current file input
                     const oldFileInput = document.getElementById('image-upload');
@@ -2237,7 +2511,7 @@ class ChatTab {
 
                     // Trigger a click on the new input to open the file dialog
                     newFileInput.click();
-                    //console.log('ChatTab: File input replaced before opening file dialog with multiple =', newFileInput.multiple);
+                   //console.log('ChatTab: File input replaced before opening file dialog with multiple =', newFileInput.multiple);
                 }
             });
         }
@@ -2293,7 +2567,7 @@ class ChatTab {
     }
     // Updates the image modal UI and resets image data based on the selected model type.
     updateImageModalForModel(isGemma3) {
-        //console.log('ChatTab: Updating image modal for model type:', isGemma3 ? 'Gemma3' : 'Other visual model');
+       //console.log('ChatTab: Updating image modal for model type:', isGemma3 ? 'Gemma3' : 'Other visual model');
 
         const imageModal = document.getElementById('image-modal');
         if (!imageModal) return;
@@ -2318,7 +2592,7 @@ class ChatTab {
             fileInput.multiple = isGemma3;
             // Reset file input value (ADD THIS)
             fileInput.value = '';
-            //console.log('ChatTab: File input multiple attribute set to:', isGemma3);
+           //console.log('ChatTab: File input multiple attribute set to:', isGemma3);
         }
 
         // Update text elements
@@ -2371,7 +2645,7 @@ class ChatTab {
             this.updateMultiImageGrid();
         }
 
-        //console.log('ChatTab: Image modal updated for', isGemma3 ? 'Gemma3' : 'regular visual model');
+       //console.log('ChatTab: Image modal updated for', isGemma3 ? 'Gemma3' : 'regular visual model');
     }
 
     // Updates the image grid in the modal for multi-image (Gemma3) support.
@@ -2529,7 +2803,7 @@ class ChatTab {
             }
 
             // Add quality information for the user
-            //console.log(`Image selected: ${file.name}, ${(file.size / 1024 / 1024).toFixed(2)}MB, ${file.type}`);
+           //console.log(`Image selected: ${file.name}, ${(file.size / 1024 / 1024).toFixed(2)}MB, ${file.type}`);
 
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -2562,7 +2836,7 @@ class ChatTab {
                 };
                 img.src = e.target.result;
 
-                //console.log('ChatTab: Image loaded and ready for sending');
+               //console.log('ChatTab: Image loaded and ready for sending');
             };
 
             reader.readAsDataURL(file);
@@ -2636,7 +2910,7 @@ class ChatTab {
                 window.forceNewConversationGroup = true;
 
                 window.currentConversationGroup = null;
-                //console.log('ChatTab: Reset currentConversationGroup = null on new chat button click');
+               //console.log('ChatTab: Reset currentConversationGroup = null on new chat button click');
 
                 // Reset any global state
                 window.selectedImage = null;
@@ -2696,7 +2970,7 @@ class ChatTab {
                 } catch (error) {
                     console.error('ChatTab: Error refreshing sessions list:', error);
                 }
-                //console.log('ChatTab: New chat initialized - context and UI reset');
+               //console.log('ChatTab: New chat initialized - context and UI reset');
             });
         }
     }
@@ -2719,7 +2993,7 @@ class ChatTab {
 
     // Updates or creates the "thinking" toggle button in the UI based on model support and version.
     updateThinkingToggleUI(modelName) {
-        //console.log('🧠 ChatTab: updateThinkingToggleUI called with model:', modelName);
+       //console.log('🧠 ChatTab: updateThinkingToggleUI called with model:', modelName);
 
         // Track the latest request so delayed async responses do not overwrite newer UI state.
         this._thinkingUiRequestId = (this._thinkingUiRequestId || 0) + 1;
@@ -2738,7 +3012,7 @@ class ChatTab {
                 return;
             }
 
-            //console.log('🔍 ChatTab: Ollama version for thinking toggle:', ollamaVersion);
+           //console.log('🔍 ChatTab: Ollama version for thinking toggle:', ollamaVersion);
 
             // When version fetch is temporarily unavailable, keep current UI unchanged.
             if (!ollamaVersion) {
@@ -2746,12 +3020,12 @@ class ChatTab {
             }
 
             if (!this.isVersionSupported(ollamaVersion, '0.9.0')) {
-                //console.log('🚫 ChatTab: Ollama version too old for thinking feature. Requires 0.9.0+, found:', ollamaVersion);
+               //console.log('🚫 ChatTab: Ollama version too old for thinking feature. Requires 0.9.0+, found:', ollamaVersion);
 
                 // Remove thinking button if it exists (version downgrade scenario)
                 const existingThinkingButton = document.getElementById('thinking-toggle-btn');
                 if (existingThinkingButton) {
-                    //console.log('🧠 ChatTab: Removing thinking toggle button due to unsupported Ollama version');
+                   //console.log('🧠 ChatTab: Removing thinking toggle button due to unsupported Ollama version');
                     existingThinkingButton.remove();
                 }
                 return;
@@ -2783,10 +3057,10 @@ class ChatTab {
             const baseOnly = (baseModelForCheck || '').split(':')[0];
             const isGptOss = baseOnly === 'gpt-oss';
             const shouldShowThinkingUI = !!supportsThinking || isGptOss;
-            //console.log('🧠 ChatTab: updateThinkingToggleUI model=', modelName, 'baseModelForCheck=', baseModelForCheck, 'baseOnly=', baseOnly, 'supportsThinking=', supportsThinking, 'isGptOss=', isGptOss);
+           //console.log('🧠 ChatTab: updateThinkingToggleUI model=', modelName, 'baseModelForCheck=', baseModelForCheck, 'baseOnly=', baseOnly, 'supportsThinking=', supportsThinking, 'isGptOss=', isGptOss);
 
             if (shouldShowThinkingUI && !existingThinkingButton) {
-                //console.log('🧠 ChatTab: Creating thinking toggle button');
+               //console.log('🧠 ChatTab: Creating thinking toggle button');
 
                 // Create thinking toggle button
                 const thinkingButton = document.createElement('button');
@@ -2857,7 +3131,7 @@ class ChatTab {
                         : (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
                             ? window.ThinkingState.getEffectiveThinkingEnabled()
                             : (localStorage.getItem('thinkingEnabled') === 'true');
-                    //console.log('🧠 ChatTab: Initial thinking state from localStorage:', thinkingEnabled);
+                   //console.log('🧠 ChatTab: Initial thinking state from localStorage:', thinkingEnabled);
 
                     // Set initial visual state without triggering click
                     if (thinkingEnabled) {
@@ -2867,7 +3141,7 @@ class ChatTab {
                         thinkingButton.style.color = 'white';
                         thinkingButton.querySelector('.thinking-toggle-text').textContent =
                             Lang.get('deactivateThinking') || 'Deactivate thinking';
-                        //console.log('🧠 ChatTab: Set initial active state');
+                       //console.log('🧠 ChatTab: Set initial active state');
                     } else {
                         thinkingButton.classList.remove('active');
                         thinkingButton.style.backgroundColor = 'var(--button-bg, #f3f4f6)';
@@ -2875,7 +3149,7 @@ class ChatTab {
                         thinkingButton.style.color = 'var(--text-color)';
                         thinkingButton.querySelector('.thinking-toggle-text').textContent =
                             Lang.get('activateThinking') || 'Activate thinking';
-                        //console.log('🧠 ChatTab: Set initial inactive state');
+                       //console.log('🧠 ChatTab: Set initial inactive state');
                     }
 
                     // Add click handler AFTER setting initial state (named so we can remove later if needed)
@@ -3037,15 +3311,15 @@ class ChatTab {
                     modelSelector.insertAdjacentElement('afterend', thinkingButton);
                 }
 
-                //console.log('🧠 ChatTab: Thinking toggle button added to DOM after model selector');
+               //console.log('🧠 ChatTab: Thinking toggle button added to DOM after model selector');
 
             } else if (!shouldShowThinkingUI && existingThinkingButton) {
-                //console.log('🧠 ChatTab: Removing thinking toggle button (model not supported)');
+               //console.log('🧠 ChatTab: Removing thinking toggle button (model not supported)');
                 existingThinkingButton.remove();
                 const reasoningSelector = document.getElementById('gptoss-reasoning-selector');
                 if (reasoningSelector) reasoningSelector.style.display = 'none';
             } else if (shouldShowThinkingUI && existingThinkingButton) {
-                //console.log('🧠 ChatTab: Thinking toggle button already exists for supported model - updating state if needed');
+               //console.log('🧠 ChatTab: Thinking toggle button already exists for supported model - updating state if needed');
 
                 // If the selected model is gpt-oss, enforce active + disabled state
                 if (isGptOss) {
@@ -3167,7 +3441,7 @@ class ChatTab {
                     console.warn('ChatTab: error managing gpt-oss reasoning selector visibility', e);
                 }
             } else {
-                //console.log('🧠 ChatTab: Model does not support thinking, no button needed');
+               //console.log('🧠 ChatTab: Model does not support thinking, no button needed');
             }
         }).catch(error => {
             console.error('🔍 ChatTab: Error checking Ollama version for thinking toggle:', error);
@@ -3192,7 +3466,7 @@ class ChatTab {
                 if (event) event.preventDefault();
 
                 // Log the click explicitly
-                //console.log('TOGGLE CLICKED:', this.getAttribute('data-value'));
+               //console.log('TOGGLE CLICKED:', this.getAttribute('data-value'));
 
                 // Get state of clicked button
                 const isToggleOn = this.getAttribute('data-value') === 'on';
@@ -3225,14 +3499,14 @@ class ChatTab {
                     try {
                         // Save the setting to the database FIRST
                         await PaiperworkDB.saveInsightsEnabled(hashedMasterKey, isToggleOn);
-                        //console.log('INSIGHTS TOGGLE: State saved to database:', isToggleOn);
+                       //console.log('INSIGHTS TOGGLE: State saved to database:', isToggleOn);
 
                         // CORRECTED LOGIC: This toggle ONLY controls whether insights are included in system prompts
                         // Insights are ALWAYS loaded from the database - this just controls their USAGE
                         if (isToggleOn) {
-                            //console.log('INSIGHTS TOGGLE: Insights collection ON');
+                           //console.log('INSIGHTS TOGGLE: Insights collection ON');
                         } else {
-                            //console.log('INSIGHTS TOGGLE: Insights collection OFF');
+                           //console.log('INSIGHTS TOGGLE: Insights collection OFF');
                         }
 
                         // The actual inclusion/exclusion of insights happens in OllamaAPI.buildCompleteSystemPrompt()
@@ -3263,7 +3537,7 @@ class ChatTab {
                 // Only store it the first time it gets focus in a session
                 if (this._originalSystemPrompt === undefined) {
                     this._originalSystemPrompt = systemPrompt.value;
-                    //console.log('ChatTab: Original system prompt stored:', this._originalSystemPrompt);
+                   //console.log('ChatTab: Original system prompt stored:', this._originalSystemPrompt);
                 }
             });
             // Save system prompt
@@ -3281,7 +3555,7 @@ class ChatTab {
                 const hasActiveContext = OllamaAPI.previousContext !== null &&
                     OllamaAPI.previousContext !== undefined;
 
-                //console.log('ChatTab: Active conversation context exists:', hasActiveContext);
+               //console.log('ChatTab: Active conversation context exists:', hasActiveContext);
 
                 // Only show warning and add continue button if there's an active conversation
                 if (assistantMessages.length > 0 && window.chat && hasActiveContext) {
@@ -3294,7 +3568,7 @@ class ChatTab {
                     if (!confirmed) {
                         // User canceled - restore the original prompt
                         systemPrompt.value = settings.systemPrompt || '';
-                        //console.log('ChatTab: System prompt change canceled, reverting to:', systemPrompt.value);
+                       //console.log('ChatTab: System prompt change canceled, reverting to:', systemPrompt.value);
                         saveButton.disabled = true; // Disable save button since we're back to original
                         return;
                     }
@@ -3305,7 +3579,7 @@ class ChatTab {
 
                     // Reset the context
                     OllamaAPI.resetContext();
-                    //console.log('ChatTab: Context reset due to system prompt change');
+                   //console.log('ChatTab: Context reset due to system prompt change');
 
                     // Build conversation history in the format OllamaAPI expects
                     const conversations = [];
@@ -3349,7 +3623,7 @@ class ChatTab {
                                 // Fallback to group 1 if we can't determine the group
                                 window.currentConversationGroup = 1;
                             }
-                            //console.log('ChatTab: Setting currentConversationGroup =', window.currentConversationGroup);
+                           //console.log('ChatTab: Setting currentConversationGroup =', window.currentConversationGroup);
                         }
 
                         // Create the continue button using OllamaAPI's method
@@ -3366,7 +3640,7 @@ class ChatTab {
                         // Make sure the container is appended to the chat area
                         if (!continueButton.parentElement) {
                             aiReplies.appendChild(continueButton);
-                            //console.log('ChatTab: Continue button appended directly to chat area');
+                           //console.log('ChatTab: Continue button appended directly to chat area');
                         }
 
                         // Ensure it's visible by scrolling to it
@@ -3397,12 +3671,12 @@ class ChatTab {
                 const kvcacheCheckbox = document.getElementById('kvcache-q8-checkbox');
                 const isKvcacheQ8 = kvcacheCheckbox ? kvcacheCheckbox.checked : false;
 
-                //console.log(`🔧 ChatTab: User manually selected context ${newContextSize} for ${selectedModel}`);
+               //console.log(`🔧 ChatTab: User manually selected context ${newContextSize} for ${selectedModel}`);
 
                 // vramramcalculator removed: save directly to PaiperworkDB
                 await PaiperworkDB.saveModelContextSize(hashedMasterKey, selectedModel, parseInt(newContextSize), isKvcacheQ8, false);
 
-                //console.log(`✅ ChatTab: Saved MANUAL context size ${newContextSize} for model ${selectedModel}`);
+               //console.log(`✅ ChatTab: Saved MANUAL context size ${newContextSize} for model ${selectedModel}`);
             }
 
             // First check if there are any messages to continue from
@@ -3427,7 +3701,7 @@ class ChatTab {
                 if (!confirmed) {
                     // User canceled - restore the original value
                     contextSelector.value = previousValue;
-                    //console.log('ChatTab: Context size change canceled, reverting to:', previousValue);
+                   //console.log('ChatTab: Context size change canceled, reverting to:', previousValue);
                     return;
                 }
 
@@ -3439,7 +3713,7 @@ class ChatTab {
                 // Reset the context
                 OllamaAPI.previousContext = null;
                 OllamaAPI.resetContext();
-                //console.log('ChatTab: Context reset due to context size change');
+               //console.log('ChatTab: Context reset due to context size change');
 
                 // Build conversation history in the format OllamaAPI expects
                 const conversations = [];
@@ -3510,7 +3784,7 @@ class ChatTab {
 
             // Attach the event handler
             contextSelector.addEventListener('change', contextSelector._changeHandler);
-            //console.log('ChatTab: Context selector change handler attached');
+           //console.log('ChatTab: Context selector change handler attached');
         }
         // Web search button
         const webButton = document.getElementById('web-search');
@@ -3544,7 +3818,7 @@ class ChatTab {
                             webButton.classList.remove('loading');
                             webButton.textContent = Lang.get('webButton') || 'Web';
 
-                            //console.log('WebSearch module loaded successfully');
+                           //console.log('WebSearch module loaded successfully');
                         } catch (error) {
                             console.error('Failed to load WebSearch module:', error);
                             alert('Failed to load web search functionality. Please try again.');
@@ -3601,7 +3875,7 @@ class ChatTab {
 
     // Loads master key-specific settings (system prompt, model, context, insights) from the database.
     async loadMasterKeyData(hashedMasterKey) {
-        //console.log('ChatTab: Loading masterkey data for', hashedMasterKey);
+       //console.log('ChatTab: Loading masterkey data for', hashedMasterKey);
         try {
             // Load settings from database
             const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
@@ -3630,6 +3904,9 @@ class ChatTab {
                     });
                 }
 
+                settings.model = await PaiperworkDB.normalizeStoredStringValue(settings.model, hashedMasterKey);
+                settings.modelProvider = String(await PaiperworkDB.normalizeStoredStringValue(settings.modelProvider, hashedMasterKey) || settings.modelProvider || '').trim();
+
                 if (settings.model) {
                     try {
                         const modelSelector = document.getElementById('model-selector');
@@ -3638,24 +3915,48 @@ class ChatTab {
                             modelSelector.innerHTML = `<option value="">${Lang.get('selectModel')}</option>`;
 
                             // Load available models
-                            //console.log('ChatTab: Loading available Ollama models');
-                            await OllamaAPI.loadOllamaModels();
+                           //console.log('ChatTab: Loading available Ollama models');
+                            const modelsLoaded = await OllamaAPI.loadOllamaModels();
+                            if (!modelsLoaded) {
+                                console.warn('ChatTab: Skipping saved-model restore because model list failed to load');
+                                return;
+                            }
 
-                            // Check if the saved model still exists
-                            const modelExists = Array.from(modelSelector.options)
+                            const persistedProvider = await PaiperworkDB.readNormalizedLocalStorageValue('selectedModelProvider', hashedMasterKey);
+
+                            const desiredProvider = (settings.modelProvider && String(settings.modelProvider).trim())
+                                ? String(settings.modelProvider).trim().toLowerCase()
+                                : (persistedProvider
+                                    ? String(persistedProvider).trim().toLowerCase()
+                                    : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+                                        ? (window.OllamaAPI.getModelSource(settings.model) || 'local')
+                                        : 'local'));
+
+                            const exactProviderOption = Array.from(modelSelector.options).find(option =>
+                                option.value === settings.model &&
+                                option.dataset &&
+                                option.dataset.provider === desiredProvider
+                            );
+
+                            const modelExists = !!exactProviderOption || Array.from(modelSelector.options)
                                 .some(option => option.value === settings.model);
 
                             if (modelExists) {
-                                modelSelector.value = settings.model;
-                                //console.log('ChatTab: Successfully set model to:', settings.model);
+                                if (exactProviderOption) {
+                                    modelSelector.value = exactProviderOption.value;
+                                    modelSelector.selectedIndex = exactProviderOption.index;
+                                } else {
+                                    modelSelector.value = settings.model;
+                                }
+                               //console.log('ChatTab: Successfully set model to:', settings.model);
 
                                 // IMPORTANT: Check if this is a visual model after loading
                                 await OllamaAPI.loadVisualModels(); // Ensure visual models are loaded
-                                //console.log('ChatTab: Checking if saved model is visual:', settings.model);
+                               //console.log('ChatTab: Checking if saved model is visual:', settings.model);
                                 this.updateVisualModelUI(settings.model);
 
                                 //  NEW: Load model-specific context after setting the model
-                                //console.log('🚀 ChatTab: App startup - loading context for model:', settings.model);
+                               //console.log('🚀 ChatTab: App startup - loading context for model:', settings.model);
                                 const contextSelector = document.getElementById('context-selector');
                                 if (contextSelector) {
                                     await this.loadAndSetModelContext(hashedMasterKey, settings.model, contextSelector);
@@ -3683,8 +3984,9 @@ class ChatTab {
                             modelSelector.innerHTML = `<option value="">${Lang.get('selectModel')}</option>`;
 
                             // Load available models
-                            //console.log('ChatTab: Loading available Ollama models without preselection');
+                           //console.log('ChatTab: Loading available Ollama models without preselection');
                             await OllamaAPI.loadOllamaModels();
+                            
                         }
                     } catch (error) {
                         console.error('ChatTab: Error loading models without preselection:', error);
@@ -3779,7 +4081,7 @@ class ChatTab {
 
     // Loads and sets the context size for a specific model, using the calculator if available.
     async loadAndSetModelContext(hashedMasterKey, modelName, contextSelector) {
-        //console.log('🔄 ChatTab: Loading and setting context for model:', modelName);
+       //console.log('🔄 ChatTab: Loading and setting context for model:', modelName);
 
         if (!contextSelector) {
             console.error('❌ ChatTab: Context selector not found');
@@ -3793,36 +4095,7 @@ class ChatTab {
             // Also fetch and display native model context if available
             try {
                 if (modelName) {
-                    const nativeCtxEl = document.getElementById('model-native-context');
-                    if (nativeCtxEl) nativeCtxEl.textContent = Lang.get('retrievingModelContext') || 'Retrieving model max context size...';
-
-                    const meta = await OllamaAPI.fetchModelMetadata(modelName);
-
-                    if (nativeCtxEl) {
-                        let nativeVal = 'n/a';
-
-                        // Prefer the standardized return value from OllamaAPI.fetchModelMetadata
-                        if (meta && meta.nativeContext !== undefined && meta.nativeContext !== null) {
-                            nativeVal = meta.nativeContext;
-                        } else if (meta && meta.data) {
-                            // Fallback: attempt legacy heuristics on the raw data object
-                            const d = meta.data;
-                            let v = d.context_size || d.num_ctx || d.max_context || d.num_context || d.context || d.context_length || null;
-                            if (v === null) {
-                                // try searching a few nested vendor keys we sometimes see
-                                v = d.model_info?.context_length || d.model_info?.context || v;
-                            }
-
-                            if (Array.isArray(v)) v = v.length;
-                            if (typeof v === 'object' && v !== null) {
-                                if (v.length !== undefined) v = v.length;
-                                else v = JSON.stringify(v);
-                            }
-                            if (v !== null && v !== undefined) nativeVal = v;
-                        }
-
-                        nativeCtxEl.textContent = nativeVal;
-                    }
+                    await this.refreshModelMaximumContextLabel(modelName);
                 }
             } catch (err) {
                 console.warn('ChatTab: Error fetching model metadata during loadAndSetModelContext', err);
@@ -3876,7 +4149,7 @@ class ChatTab {
                     window.selectedImages = [];
                     window.cleanedImageBase64Array = [];
 
-                    //console.log('ChatTab: Reset image button state on cancellation');
+                   //console.log('ChatTab: Reset image button state on cancellation');
                 }
             } else {
                 // Fallback if no chat instance
@@ -3895,6 +4168,17 @@ class ChatTab {
         const prompt = promptInput?.value?.trim();
         if (!prompt) {
             return;
+        }
+
+        // Cloud workflow gate: require a stored API key before sending.
+        const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
+            ? (window.OllamaAPI.getSelectedModelSource() || 'local')
+            : 'local';
+        if (selectedProvider === 'cloud') {
+            const hasCloudKey = await this.ensureCloudApiKeyForSend();
+            if (!hasCloudKey) {
+                return;
+            }
         }
 
         // --- Temporary thinking toggle for gpt-oss ---
@@ -3928,7 +4212,7 @@ class ChatTab {
                     }
                     // record that we changed it so we can restore after send
                     _weToggledThinking = true;
-                    //console.log('ChatTab: Temporarily enabled thinkingEnabled (and thinkingEnabledGptOss) for gpt-oss send');
+                   //console.log('ChatTab: Temporarily enabled thinkingEnabled (and thinkingEnabledGptOss) for gpt-oss send');
 
                     // Dispatch a custom event so in-tab listeners (StreamProcessor, others)
                     // update their cached thinking state immediately.
@@ -3978,7 +4262,7 @@ class ChatTab {
                             // ignore
                         }
 
-                        //console.log('ChatTab: Restored thinkingEnabled and thinkingEnabledGptOss after gpt-oss send');
+                       //console.log('ChatTab: Restored thinkingEnabled and thinkingEnabledGptOss after gpt-oss send');
                     } catch (err) {
                         console.warn('ChatTab: Error restoring thinking flags for gpt-oss', err);
                     }
@@ -3988,6 +4272,333 @@ class ChatTab {
             console.error('ChatTab: Chat instance not available');
             alert(Lang.get('errorChatNotInitialized'));
         }
+    }
+
+    async ensureCloudApiKeyForSend() {
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+        if (!hashedMasterKey) return false;
+
+        try {
+            if (window.__paiperworkDbBootPromise && typeof window.__paiperworkDbBootPromise.then === 'function') {
+                await window.__paiperworkDbBootPromise;
+            }
+        } catch (bootErr) {
+            console.warn('[CloudAuth] DB boot promise wait failed', bootErr);
+        }
+
+        try {
+            if (PaiperworkDB && typeof PaiperworkDB.initializeDatabase === 'function') {
+                await PaiperworkDB.initializeDatabase(hashedMasterKey);
+            }
+        } catch (initErr) {
+            console.warn('[CloudAuth] DB init before key read failed', initErr);
+        }
+
+        let existingApiKey = '';
+        for (let attempt = 0; attempt < 3; attempt++) {
+            existingApiKey = this.normalizeCloudApiKey(await PaiperworkDB.getOllamaApiKey(hashedMasterKey));
+            if (existingApiKey) {
+                break;
+            }
+            if (attempt < 2) {
+                await new Promise(resolve => setTimeout(resolve, 150));
+            }
+        }
+
+        // Send-time gate should only require key presence.
+        // If a key already exists in DB, do not reopen the required-key modal.
+        if (existingApiKey) {
+            return true;
+        }
+
+        if (!existingApiKey) {
+            const saved = await this.openOllamaApiKeyManager(true);
+            if (!saved) {
+                alert((Lang.get && Lang.get('ollamaApiKeyRequired')) || 'An Ollama API key is required to use cloud models.');
+                return false;
+            }
+            existingApiKey = this.normalizeCloudApiKey(await PaiperworkDB.getOllamaApiKey(hashedMasterKey));
+        }
+
+        return !!existingApiKey;
+    }
+
+    normalizeCloudApiKey(rawKey) {
+        const key = String(rawKey || '').trim();
+        if (!key) return '';
+        return key
+            .replace(/^(?:Bearer\s+)+/i, '')
+            .replace(/^['"]+|['"]+$/g, '')
+            .trim();
+    }
+
+    async validateCloudApiKey(apiKey) {
+        const normalized = this.normalizeCloudApiKey(apiKey);
+        if (!normalized) {
+            return {
+                isValid: false,
+                definitiveInvalid: true,
+                status: null,
+                reason: 'empty-key'
+            };
+        }
+
+        try {
+            const selectedModel = document.getElementById('model-selector')?.value || '';
+            const routing = (window.OllamaAPI && typeof window.OllamaAPI.getApiRoutingForModel === 'function')
+                ? await window.OllamaAPI.getApiRoutingForModel(selectedModel)
+                : null;
+            const modelName = routing?.modelName || selectedModel;
+
+            const runValidationAttempt = async (attemptNo) => {
+                const controller = new AbortController();
+                const timeoutMs = 20000;
+                const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+                try {
+                    // Validate against the same endpoint style used by real sends.
+                    const response = await fetch('/api/cloud/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${normalized}`
+                        },
+                        body: JSON.stringify({
+                            model: modelName,
+                            stream: false,
+                            prompt: 'ping'
+                        }),
+                        signal: controller.signal
+                    });
+
+                    const definitiveInvalid = response.status === 401 || response.status === 403;
+                    const result = {
+                        isValid: response.ok,
+                        definitiveInvalid,
+                        status: response.status,
+                        reason: response.ok ? 'ok' : (definitiveInvalid ? 'unauthorized' : 'non-auth-status')
+                    };
+
+                    console.info('[CloudAuth] validateCloudApiKey result', {
+                        status: response.status,
+                        ok: response.ok,
+                        modelName: modelName || '<empty>',
+                        normalizedKeyLooksBearerPrefixed: /^Bearer\s+/i.test(normalized),
+                        attempt: attemptNo,
+                        reason: result.reason
+                    });
+
+                    return result;
+                } catch (error) {
+                    const isAbort = error && error.name === 'AbortError';
+                    const result = {
+                        isValid: false,
+                        definitiveInvalid: false,
+                        status: null,
+                        reason: isAbort ? 'timeout' : 'network-error'
+                    };
+
+                    console.warn('[CloudAuth] validateCloudApiKey transient failure', {
+                        modelName: modelName || '<empty>',
+                        attempt: attemptNo,
+                        reason: result.reason,
+                        error: error?.message || String(error)
+                    });
+
+                    return result;
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+            };
+
+            const firstAttempt = await runValidationAttempt(1);
+            if (firstAttempt.isValid || firstAttempt.definitiveInvalid) {
+                return firstAttempt;
+            }
+
+            // Transient path: retry once before deciding.
+            await new Promise(resolve => setTimeout(resolve, 350));
+            const secondAttempt = await runValidationAttempt(2);
+            if (secondAttempt.isValid || secondAttempt.definitiveInvalid) {
+                return secondAttempt;
+            }
+
+            // If both attempts are transient/non-auth failures, don't block send with "invalid key".
+            return {
+                isValid: false,
+                definitiveInvalid: false,
+                status: secondAttempt.status,
+                reason: secondAttempt.reason || 'transient-unknown'
+            };
+        } catch (_error) {
+            return {
+                isValid: false,
+                definitiveInvalid: false,
+                status: null,
+                reason: 'unexpected-error'
+            };
+        }
+    }
+
+    async openOllamaApiKeyManager(requireKey = false) {
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+        if (!hashedMasterKey) return false;
+
+        const existingApiKey = await PaiperworkDB.getOllamaApiKey(hashedMasterKey);
+
+        return new Promise((resolve) => {
+            const modalOverlay = document.createElement('div');
+            modalOverlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 2000;
+            `;
+
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                width: min(560px, 92vw);
+                background: var(--bg-color);
+                color: var(--text-color);
+                border: 1px solid var(--border-color);
+                border-radius: 10px;
+                box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            `;
+
+            const title = document.createElement('h3');
+            title.textContent = (Lang.get && Lang.get('ollamaCloudApiKeyTitle')) || 'Ollama Cloud API key required';
+            title.style.margin = '0';
+
+            const info = document.createElement('p');
+            info.style.margin = '0';
+            info.innerHTML = `${(Lang.get && Lang.get('ollamaCloudApiKeyInfo')) || 'To use cloud models, add your Ollama API key. This key will be stored encrypted in your user database.'} <a href="https://ollama.com" target="_blank" rel="noopener noreferrer">ollama.com</a>`;
+
+            const input = document.createElement('input');
+            input.type = 'password';
+            input.placeholder = (Lang.get && Lang.get('ollamaApiKeyPlaceholder')) || 'Paste your Ollama API key';
+            input.value = existingApiKey || '';
+            input.autocomplete = 'off';
+            input.style.cssText = `
+                width: 100%;
+                box-sizing: border-box;
+                padding: 10px 12px;
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                background: var(--input-bg);
+                color: var(--text-color);
+            `;
+
+            const actions = document.createElement('div');
+            actions.style.cssText = `display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;`;
+
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = (Lang.get && Lang.get('cancelButton')) || 'Cancel';
+            closeBtn.style.cssText = `padding:8px 12px; border:1px solid var(--border-color); border-radius:6px; background:var(--button-bg); color:var(--text-color); cursor:pointer;`;
+
+            const addBtn = document.createElement('button');
+            addBtn.textContent = 'Add';
+            addBtn.style.cssText = `padding:8px 12px; border:none; border-radius:6px; background:var(--accent-color); color:var(--accent-text); cursor:pointer;`;
+
+            const updateBtn = document.createElement('button');
+            updateBtn.textContent = 'Update';
+            updateBtn.style.cssText = `padding:8px 12px; border:none; border-radius:6px; background:var(--accent-color); color:var(--accent-text); cursor:pointer;`;
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.style.cssText = `padding:8px 12px; border:none; border-radius:6px; background:var(--danger-color); color:white; cursor:pointer;`;
+
+            const hasExisting = !!(existingApiKey && existingApiKey.trim().length > 0);
+            addBtn.disabled = hasExisting;
+            addBtn.style.opacity = hasExisting ? '0.6' : '1';
+            updateBtn.disabled = !hasExisting;
+            updateBtn.style.opacity = !hasExisting ? '0.6' : '1';
+            deleteBtn.disabled = !hasExisting;
+            deleteBtn.style.opacity = !hasExisting ? '0.6' : '1';
+
+            const finish = (saved) => {
+                if (modalOverlay.parentNode) {
+                    modalOverlay.parentNode.removeChild(modalOverlay);
+                }
+                resolve(saved);
+            };
+
+            closeBtn.addEventListener('click', () => finish(false));
+
+            addBtn.addEventListener('click', async () => {
+                const value = input.value.trim();
+                if (!value) {
+                    alert('Please provide an API key.');
+                    return;
+                }
+                const ok = await PaiperworkDB.saveOllamaApiKey(hashedMasterKey, value);
+                if (ok) {
+                    finish(true);
+                } else {
+                    alert('Failed to save API key. Please try again.');
+                }
+            });
+
+            updateBtn.addEventListener('click', async () => {
+                const value = input.value.trim();
+                if (!value) {
+                    alert('Please provide an API key.');
+                    return;
+                }
+                const ok = await PaiperworkDB.saveOllamaApiKey(hashedMasterKey, value);
+                if (ok) {
+                    finish(true);
+                } else {
+                    alert('Failed to update API key. Please verify the key and try again.');
+                }
+            });
+
+            deleteBtn.addEventListener('click', async () => {
+                const ok = (typeof PaiperworkDB.deleteOllamaApiKey === 'function')
+                    ? await PaiperworkDB.deleteOllamaApiKey(hashedMasterKey)
+                    : await PaiperworkDB.saveOllamaApiKey(hashedMasterKey, '');
+                if (!requireKey && ok) {
+                    finish(true);
+                    return;
+                }
+                if (requireKey && ok) {
+                    alert('API key deleted. Add a key to continue with cloud models.');
+                    finish(false);
+                    return;
+                }
+                if (!ok) {
+                    alert('Failed to delete API key. Please try again.');
+                }
+            });
+
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    finish(false);
+                }
+            });
+
+            actions.appendChild(closeBtn);
+            actions.appendChild(deleteBtn);
+            actions.appendChild(updateBtn);
+            actions.appendChild(addBtn);
+
+            modal.appendChild(title);
+            modal.appendChild(info);
+            modal.appendChild(input);
+            modal.appendChild(actions);
+            modalOverlay.appendChild(modal);
+            document.body.appendChild(modalOverlay);
+            input.focus();
+        });
     }
 
     // Opens the modal editor for user insights, allowing editing and saving to the database.
@@ -4302,14 +4913,14 @@ class ChatTab {
     // Initializes the ChatTab singleton instance if not already created.
     static initialize() {
         if (!window.chatTab) {
-            //console.log('ChatTab: Creating new ChatTab instance');
+           //console.log('ChatTab: Creating new ChatTab instance');
             window.chatTab = new ChatTab();
             return window.chatTab.initialize();
         } else if (!window.chatTab.initialized) {
-            //console.log('ChatTab: Initializing existing ChatTab instance');
+           //console.log('ChatTab: Initializing existing ChatTab instance');
             return window.chatTab.initialize();
         } else {
-            //console.log('ChatTab: Using existing initialized ChatTab instance');
+           //console.log('ChatTab: Using existing initialized ChatTab instance');
             return Promise.resolve(true);
         }
     }
@@ -4318,13 +4929,13 @@ class ChatTab {
     addExportButton(deleteButton) {
         if (!deleteButton) return;
 
-        //console.log('ChatTab: Adding export conversation button via delegator');
+       //console.log('ChatTab: Adding export conversation button via delegator');
 
         // Check if there's a Chat instance with the method
         if (window.chat && typeof window.chat.addExportButton === 'function') {
             // Call the Chat class's implementation
             window.chat.addExportButton(deleteButton);
-            //console.log('ChatTab: Delegated to Chat.addExportButton successfully');
+           //console.log('ChatTab: Delegated to Chat.addExportButton successfully');
         } else {
             console.error('ChatTab: Failed to delegate - Chat instance or addExportButton method not available');
 
@@ -4348,6 +4959,36 @@ class ChatTab {
                 }
             });
         }
+    }
+
+    addCloudApiKeyButton(deleteButton) {
+        if (!deleteButton || !deleteButton.parentNode) return;
+
+        // Avoid duplicate button creation when chat tab is re-initialized.
+        if (document.getElementById('manage-cloud-api-key')) {
+            return;
+        }
+
+        const manageButton = document.createElement('button');
+        manageButton.id = 'manage-cloud-api-key';
+        manageButton.className = deleteButton.className || 'primary-button';
+        manageButton.innerHTML = `<i class="fa-solid fa-key"></i> ${Lang.get('manageCloudApiKey') || 'Manage Cloud API key'}`;
+
+        if (deleteButton.nextSibling) {
+            deleteButton.parentNode.insertBefore(manageButton, deleteButton.nextSibling);
+        } else {
+            deleteButton.parentNode.appendChild(manageButton);
+        }
+
+        manageButton.addEventListener('click', async () => {
+            try {
+                if (typeof this.openOllamaApiKeyManager === 'function') {
+                    await this.openOllamaApiKeyManager(false);
+                }
+            } catch (error) {
+                console.error('ChatTab: Failed to open cloud API key manager', error);
+            }
+        });
     }
 
 
@@ -4507,7 +5148,17 @@ class ChatTab {
         // Helper method to unload all models from Ollama to ensure clean memory
         async unloadOllamaModels() {
             try {
-                //console.log('ChatTab: Getting list of loaded Ollama models...');
+                const modelName = document.getElementById('model-selector')?.value || '';
+                const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
+                    ? (window.OllamaAPI.getSelectedModelSource() || window.OllamaAPI.getModelSource?.(modelName) || 'local')
+                    : 'local';
+
+                // Unload uses local daemon endpoints and should not run for cloud-only model selections.
+                if (selectedProvider === 'cloud') {
+                    return;
+                }
+
+               //console.log('ChatTab: Getting list of loaded Ollama models...');
 
                 // First, get the list of currently loaded models using /api/ps
                 const psResponse = await fetch('http://localhost:11434/api/ps', {
@@ -4522,7 +5173,7 @@ class ChatTab {
                 }
 
                 const psData = await psResponse.json();
-                //console.log('ChatTab: Ollama /api/ps response:', psData);
+               //console.log('ChatTab: Ollama /api/ps response:', psData);
 
                 // Extract loaded models from the response
                 let loadedModels = [];
@@ -4530,17 +5181,17 @@ class ChatTab {
                     loadedModels = psData.models.map(model => model.name || model.model).filter(Boolean);
                 }
 
-                //console.log('ChatTab: Found loaded models:', loadedModels);
+               //console.log('ChatTab: Found loaded models:', loadedModels);
 
                 if (loadedModels.length === 0) {
-                    //console.log('ChatTab: No models currently loaded. Skipping unload.');
+                   //console.log('ChatTab: No models currently loaded. Skipping unload.');
                     return;
                 }
 
                 // Unload each model individually
                 const unloadPromises = loadedModels.map(async (modelName) => {
                     try {
-                        //console.log('ChatTab: Unloading model:', modelName);
+                       //console.log('ChatTab: Unloading model:', modelName);
 
                         const unloadResponse = await fetch('http://localhost:11434/api/generate', {
                             method: 'POST',
@@ -4570,7 +5221,7 @@ class ChatTab {
                         if (!unloadResponse.ok) {
                             console.warn(`ChatTab: Warning - failed to unload ${modelName}: ${unloadResponse.status} ${unloadResponse.statusText}`);
                         } else {
-                            //console.log(`ChatTab: Successfully triggered unload for model: ${modelName}`);
+                           //console.log(`ChatTab: Successfully triggered unload for model: ${modelName}`);
                         }
 
                     } catch (modelError) {
@@ -4581,7 +5232,7 @@ class ChatTab {
                 // Wait for all unload operations to complete
                 await Promise.all(unloadPromises);
 
-                //console.log('ChatTab: All model unload operations completed');
+               //console.log('ChatTab: All model unload operations completed');
 
                 // Wait a brief moment for the unloads to complete
                 await new Promise(resolve => setTimeout(resolve, 500));

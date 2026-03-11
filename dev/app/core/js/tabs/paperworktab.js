@@ -8,7 +8,7 @@ class PaperworkTab {
     async initialize() {
         if (this.initialized) return;
 
-        //console.log('PaperworkTab: Initializing paperwork tab interface');
+       //console.log('PaperworkTab: Initializing paperwork tab interface');
 
         // Initialize the paperwork manager
         this.paperworkManager = new Paperwork();
@@ -101,7 +101,7 @@ class PaperworkTab {
 
     // Handles selection of a paperwork template and opens the appropriate editor
     selectTemplate(templateType) {
-        //console.log(`PaperworkTab: Selected template type: ${templateType}`);
+       //console.log(`PaperworkTab: Selected template type: ${templateType}`);
 
         // Make sure we have a reference to the paperworkManager
         if (!this.paperworkManager) {

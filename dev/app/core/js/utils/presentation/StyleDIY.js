@@ -27,22 +27,22 @@ class StyleDIY {
         if (!customStyleCode) {
             // Try to use the last generated style if available
             if (StyleDIY.lastGeneratedStyle) {
-                //console.log('StyleDIY: Using last generated style');
+               //  //console.log('StyleDIY: Using last generated style');
                 customStyleCode = StyleDIY.lastGeneratedStyle;
             } else {
-                //console.log('StyleDIY: No custom style available, falling back to classic');
+               //  //console.log('StyleDIY: No custom style available, falling back to classic');
                 return await SlideStyles.renderClassic(stages, parsedSlides, slideImagesResult);
             }
         }
 
         try {
-            //console.log('StyleDIY: Parsing custom function...');
+           //  //console.log('StyleDIY: Parsing custom function...');
             // Parse and execute custom style function
             const customFunction = StyleDIY.parseCustomFunction(customStyleCode);
-            //console.log('StyleDIY: Custom function parsed successfully, executing...');
+           //  //console.log('StyleDIY: Custom function parsed successfully, executing...');
 
             const result = await customFunction(stages, parsedSlides, slideImagesResult);
-            //console.log('StyleDIY: Custom style rendering completed successfully');
+           //  //console.log('StyleDIY: Custom style rendering completed successfully');
             return result;
         } catch (error) {
             console.error('DIY Style Error:', error);
@@ -52,7 +52,7 @@ class StyleDIY {
                 customStyleCode: customStyleCode ? customStyleCode.substring(0, 200) + '...' : 'null'
             });
             // Fallback to classic style on error
-            //console.log('StyleDIY: Falling back to classic style due to error');
+           //  //console.log('StyleDIY: Falling back to classic style due to error');
             return await SlideStyles.renderClassic(stages, parsedSlides, slideImagesResult);
         }
     }
@@ -65,17 +65,17 @@ class StyleDIY {
         const tagMatch = styleCode.match(/<custom_style>([\s\S]*?)<\/custom_style>/i);
         if (tagMatch) {
             functionCode = tagMatch[1].trim();
-            //console.log('StyleDIY: Found <custom_style> tags, using inner content');
+           //  //console.log('StyleDIY: Found <custom_style> tags, using inner content');
         } else {
             // Try to strip common Markdown code fences ``` or ```javascript
             const mdMatch = styleCode.match(/```(?:javascript|js)?\n?([\s\S]*?)```/i);
             if (mdMatch) {
                 functionCode = mdMatch[1].trim();
-                //console.log('StyleDIY: Found Markdown code fence, using fenced content');
+               //  //console.log('StyleDIY: Found Markdown code fence, using fenced content');
             } else {
                 // No tags or fences — assume the entire response is the function/source
                 functionCode = String(styleCode || '').trim();
-                //console.log('StyleDIY: No <custom_style> tags or code fences found, using full response');
+               //  //console.log('StyleDIY: No <custom_style> tags or code fences found, using full response');
             }
         }
 
@@ -87,14 +87,14 @@ class StyleDIY {
         if (functionMatch) {
             aiFunctionName = functionMatch[1];
             functionCode = functionMatch[2].trim();
-            //console.log('StyleDIY: Extracted function name:', aiFunctionName, 'and body from static declaration');
+           //  //console.log('StyleDIY: Extracted function name:', aiFunctionName, 'and body from static declaration');
         } else {
             // Check for regular async function pattern
             const asyncFunctionMatch = functionCode.match(/async\s+function\s+(\w+)\s*\([^)]*\)\s*\{([\s\S]*)\}\s*$/);
             if (asyncFunctionMatch) {
                 aiFunctionName = asyncFunctionMatch[1];
                 functionCode = asyncFunctionMatch[2].trim();
-                //console.log('StyleDIY: Extracted function name:', aiFunctionName, 'and body from async function declaration');
+               //  //console.log('StyleDIY: Extracted function name:', aiFunctionName, 'and body from async function declaration');
             }
         }
 
@@ -108,7 +108,7 @@ class StyleDIY {
         // Store the display name for later use (for DB, manager, etc.)
         StyleDIY._lastParsedFunctionName = displayFunctionName;
 
-        //console.log('StyleDIY: Final function name will be:', finalFunctionName, '| Display name:', displayFunctionName);
+       //  //console.log('StyleDIY: Final function name will be:', finalFunctionName, '| Display name:', displayFunctionName);
 
         // Security validation - check for dangerous patterns
     // Focused blacklist for dangerous window identifiers. We only treat these as violations
@@ -181,16 +181,16 @@ const __pw_makeImage = (props) => { props = props || {}; if (!Object.prototype.h
                 });
             `;
 
-            //console.log('StyleDIY: Creating function with name:', finalFunctionName);
-            //console.log('StyleDIY: Original function code length:', functionCode.length);
-            //console.log('StyleDIY: Transformed function code length:', transformedFunctionCode.length);
-            //console.log('StyleDIY: Function code preview:', transformedFunctionCode.substring(0, 300) + '...');
+           //  //console.log('StyleDIY: Creating function with name:', finalFunctionName);
+           //  //console.log('StyleDIY: Original function code length:', functionCode.length);
+           //  //console.log('StyleDIY: Transformed function code length:', transformedFunctionCode.length);
+           //  //console.log('StyleDIY: Function code preview:', transformedFunctionCode.substring(0, 300) + '...');
 
             // Execute in controlled environment (provide SlideStyles so demo templates can reference it)
             const createFunction = new Function('window', 'SlideStyles', wrappedCode);
             const customFunction = createFunction(window, SlideStyles);
 
-            //console.log('StyleDIY: Function created successfully, type:', typeof customFunction);
+           //  //console.log('StyleDIY: Function created successfully, type:', typeof customFunction);
             return customFunction;
         } catch (error) {
             console.error('StyleDIY: Function parsing failed with error:', error);
@@ -231,7 +231,7 @@ const __pw_makeImage = (props) => { props = props || {}; if (!Object.prototype.h
             sanitized = sanitized.substring(0, 50);
         }
 
-        //console.log('StyleDIY: Sanitized function name from', aiFunctionName, 'to', sanitized);
+       //  //console.log('StyleDIY: Sanitized function name from', aiFunctionName, 'to', sanitized);
         return sanitized;
     }
 
@@ -245,7 +245,7 @@ const __pw_makeImage = (props) => { props = props || {}; if (!Object.prototype.h
                 const hasSavedStyles = StyleDIY.savedStyles.length > 0;
                 const hasAnyStyles = hasCurrentStyle || hasSavedStyles;
 
-                //console.log('StyleDIY: updateDIYCardBehavior - hasCurrentStyle:', hasCurrentStyle, 'hasSavedStyles:', hasSavedStyles, 'hasAnyStyles:', hasAnyStyles);
+               //  //console.log('StyleDIY: updateDIYCardBehavior - hasCurrentStyle:', hasCurrentStyle, 'hasSavedStyles:', hasSavedStyles, 'hasAnyStyles:', hasAnyStyles);
 
                 if (hasAnyStyles) {
                     // Show indicator that styles are available
@@ -286,7 +286,7 @@ const __pw_makeImage = (props) => { props = props || {}; if (!Object.prototype.h
 
                     // Update the onclick handler to open style manager when styles are present
                     diyCard.onclick = () => {
-                        //console.log('StyleDIY: DIY card clicked with styles present - opening style manager');
+                       //  //console.log('StyleDIY: DIY card clicked with styles present - opening style manager');
                         StyleDIY.openDIYStyleManager();
                     };
 
@@ -304,12 +304,12 @@ const __pw_makeImage = (props) => { props = props || {}; if (!Object.prototype.h
 
                     // Update the onclick handler to open create modal when no styles are present
                     diyCard.onclick = () => {
-                        //console.log('StyleDIY: DIY card clicked with no styles - opening create modal');
+                       //  //console.log('StyleDIY: DIY card clicked with no styles - opening create modal');
                         StyleDIY.openDIYModal();
                     };
                 }
 
-                //console.log('StyleDIY: Updated DIY card behavior based on available styles');
+               //  //console.log('StyleDIY: Updated DIY card behavior based on available styles');
             } else {
                 console.warn('StyleDIY: Could not find DIY card to update behavior');
             }
@@ -367,7 +367,7 @@ const __pw_makeImage = (props) => { props = props || {}; if (!Object.prototype.h
                 console.warn('StyleDIY: Could not read diy-template-selected element:', e);
             }
 
-            //console.log('StyleDIY: getDemoTemplate - selectedKey:', selectedKey);
+           //  //console.log('StyleDIY: getDemoTemplate - selectedKey:', selectedKey);
 
             // Find style entry from the known list
             const styleEntry = styles.find(s => String(s.key) === String(selectedKey));
@@ -377,7 +377,7 @@ const __pw_makeImage = (props) => { props = props || {}; if (!Object.prototype.h
             }
 
             const renderFnName = styleEntry.render;
-            //console.log('StyleDIY: getDemoTemplate - matched styleEntry:', styleEntry);
+           //  //console.log('StyleDIY: getDemoTemplate - matched styleEntry:', styleEntry);
 
             if (!window.SlideStyles || typeof window.SlideStyles[renderFnName] !== 'function') {
                 console.warn(`StyleDIY: SlideStyles.${renderFnName} not found or not a function`);
@@ -387,8 +387,8 @@ const __pw_makeImage = (props) => { props = props || {}; if (!Object.prototype.h
             // Get function source
             let fnSource = window.SlideStyles[renderFnName].toString();
             const detectedName = window.SlideStyles[renderFnName].name || renderFnName;
-            //console.log(`StyleDIY: Found SlideStyles.${renderFnName} (detected name: ${detectedName})`);
-            //console.log('StyleDIY: Original function source preview:', fnSource.substring(0, 300));
+           //  //console.log(`StyleDIY: Found SlideStyles.${renderFnName} (detected name: ${detectedName})`);
+           //  //console.log('StyleDIY: Original function source preview:', fnSource.substring(0, 300));
 
             // Normalize the function name to renderDemoStyle and enforce parameter list
             let normalized = fnSource;
@@ -417,7 +417,7 @@ const __pw_makeImage = (props) => { props = props || {}; if (!Object.prototype.h
             // Enforce the standard parameter list for the demo template (idempotent)
             normalized = normalized.replace(/renderDemoStyle\s*\([^)]*\)/, 'renderDemoStyle(stages, parsedSlides, slideImagesResult)');
 
-            //console.log('StyleDIY: Normalized demo function (preview):', normalized.substring(0, 3000));
+           //  //console.log('StyleDIY: Normalized demo function (preview):', normalized.substring(0, 3000));
             return normalized;
 
         } catch (error) {
@@ -585,14 +585,14 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
         }, 500);
 
         try {
-            //console.log('Generating style with model:', selectedModel);
-            //console.log('Prompt:', prompt);
+           //  //console.log('Generating style with model:', selectedModel);
+           //  //console.log('Prompt:', prompt);
 
             // STEP 1: Unload any previously loaded models to ensure clean memory
             createButton.textContent = (window.Lang ? Lang.get('preparingAI') : 'Preparing AI...');
             try {
                 await StyleDIY.unloadOllamaModels();
-                //console.log('StyleDIY: Successfully unloaded previous models');
+               //  //console.log('StyleDIY: Successfully unloaded previous models');
             } catch (unloadError) {
                 console.warn('StyleDIY: Warning - could not unload models:', unloadError.message);
                 // Don't fail the entire process if unloading fails, just log the warning
@@ -604,21 +604,21 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
             const response = await StyleDIY.sendToOllama(prompt, systemPrompt, selectedModel, StyleDIY.generationAbortController.signal);
 
             // Log the raw AI response for debugging
-            //console.log('=== RAW AI RESPONSE START ===');
-            //console.log('Raw response:', response);
-            //console.log('=== RAW AI RESPONSE END ===');
+           //  //console.log('=== RAW AI RESPONSE START ===');
+           //  //console.log('Raw response:', response);
+           //  //console.log('=== RAW AI RESPONSE END ===');
 
             if (response && response.trim()) {
-                //console.log('Generated custom style code:', response);
+               //  //console.log('Generated custom style code:', response);
 
                 // Parse and validate the generated code
                 try {
                     const customFunction = StyleDIY.parseCustomFunction(response);
-                    //console.log('Custom style function parsed successfully');
+                   //  //console.log('Custom style function parsed successfully');
 
                     // TASK 2: If there's already a style present, move it to saved styles
                     if (StyleDIY.lastGeneratedStyleInfo) {
-                        //console.log('StyleDIY: Moving current style to saved styles:', StyleDIY.lastGeneratedStyleInfo.name);
+                       //  //console.log('StyleDIY: Moving current style to saved styles:', StyleDIY.lastGeneratedStyleInfo.name);
                         // Add the current style to saved styles array if not already there
                         const existingIndex = StyleDIY.savedStyles.findIndex(style =>
                             style.name === StyleDIY.lastGeneratedStyleInfo.name &&
@@ -627,7 +627,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                         );
                         if (existingIndex === -1) {
                             StyleDIY.savedStyles.push({ ...StyleDIY.lastGeneratedStyleInfo });
-                            //console.log('StyleDIY: Added previous style to saved styles');
+                           //  //console.log('StyleDIY: Added previous style to saved styles');
                         }
                     }
 
@@ -656,7 +656,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                             counter++;
                         }
                         finalStyleName = `${originalName} ${counter}`;
-                        //console.log(`StyleDIY: Name collision detected, renamed from "${originalName}" to "${finalStyleName}"`);
+                       //  //console.log(`StyleDIY: Name collision detected, renamed from "${originalName}" to "${finalStyleName}"`);
 
                         // Also update the function name to match
                         finalFunctionName = StyleDIY.sanitizeAndValidateFunctionName(`render${originalName}${counter}`);
@@ -673,8 +673,8 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                         model: selectedModel
                     };
 
-                    //console.log('StyleDIY: Stored new style info for DB:', StyleDIY.lastGeneratedStyleInfo);
-                    //console.log('StyleDIY: Current saved styles count:', StyleDIY.savedStyles.length);
+                   //  //console.log('StyleDIY: Stored new style info for DB:', StyleDIY.lastGeneratedStyleInfo);
+                   //  //console.log('StyleDIY: Current saved styles count:', StyleDIY.savedStyles.length);
 
                     // Update DIY card behavior to allow selection
                     StyleDIY.updateDIYCardBehavior();
@@ -725,7 +725,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
 
             // Check if it was an abort error
             if (error.name === 'AbortError') {
-                //console.log('StyleDIY: Style generation was cancelled by user');
+               //  //console.log('StyleDIY: Style generation was cancelled by user');
                 alert(window.Lang ? Lang.get('styleGenerationCancelled') : 'Style generation cancelled.');
             } else {
                 alert(window.Lang ? Lang.get('errorGeneratingStyleOllama') : 'Error generating style. Please check that Ollama is running and try again.');
@@ -759,7 +759,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
 
         // First try exact match
         if (window.MODEL_PARAMETERS[baseModelName]) {
-            //console.log(`StyleDIY: Using custom parameters for ${baseModelName} (exact match)`);
+           //  //console.log(`StyleDIY: Using custom parameters for ${baseModelName} (exact match)`);
             return window.MODEL_PARAMETERS[baseModelName];
         }
 
@@ -769,7 +769,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
         // Then look for most specific prefix match
         for (const prefix of sortedKeys) {
             if (baseModelName.startsWith(prefix)) {
-                //console.log(`StyleDIY: Using custom parameters for ${baseModelName} (matched prefix ${prefix})`);
+               //  //console.log(`StyleDIY: Using custom parameters for ${baseModelName} (matched prefix ${prefix})`);
                 return window.MODEL_PARAMETERS[prefix];
             }
         }
@@ -777,22 +777,24 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
         // Finally, try substring match as fallback
         for (const key of sortedKeys) {
             if (baseModelName.includes(key)) {
-                //console.log(`StyleDIY: Using custom parameters for ${baseModelName} (matched substring ${key})`);
+               //  //console.log(`StyleDIY: Using custom parameters for ${baseModelName} (matched substring ${key})`);
                 return window.MODEL_PARAMETERS[key];
             }
         }
 
         // No match found, return empty object (use Ollama defaults)
-        //console.log(`StyleDIY: No custom parameters for ${baseModelName}, using defaults`);
+       //  //console.log(`StyleDIY: No custom parameters for ${baseModelName}, using defaults`);
         return {};
     }
 
     // Simplified Ollama API call for DIY style generation (adapted from OllamaAPI.sendToOllama)
     static async sendToOllama(userPrompt, systemPrompt, selectedModel, abortSignal = null, requestId = null) {
-        //console.log('StyleDIY: Sending request to Ollama...', { requestId: requestId || '<none>' });
+       //  //console.log('StyleDIY: Sending request to Ollama...', { requestId: requestId || '<none>' });
 
         const modelParams = StyleDIY.getDIYModelParameters(selectedModel);
-        const contextSize = 16384; // Fixed context size for DIY as requested
+        const contextSelector = document.getElementById('context-selector');
+        const selectedContext = contextSelector ? parseInt(contextSelector.value, 10) : NaN;
+        const contextSize = Number.isFinite(selectedContext) && selectedContext > 0 ? selectedContext : 8192;
 
         // Prepare request payload (simplified - no streaming, no visual, no thinking)
         const jsonPost = {
@@ -810,23 +812,75 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
         };
 
         try {
+            let routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+
+            // Keep cloud auth flow consistent with chat before direct cloud calls.
+            if (routing && routing.source === 'cloud') {
+                const ensureCloudKey = window.chatTab && typeof window.chatTab.ensureCloudApiKeyForSend === 'function'
+                    ? window.chatTab.ensureCloudApiKeyForSend.bind(window.chatTab)
+                    : null;
+
+                if (ensureCloudKey) {
+                    const hasCloudKey = await ensureCloudKey();
+                    if (!hasCloudKey) {
+                        throw new Error('Cloud API key required');
+                    }
+                    routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+                }
+            }
+
+            const payload = {
+                ...jsonPost,
+                model: routing.modelName || selectedModel
+            };
+
+            if (routing && routing.source === 'cloud') {
+                // Cloud gateway is stricter than local daemon for some fields.
+                delete payload.keep_alive;
+                delete payload.raw;
+                delete payload.think;
+                if (payload.options && Object.prototype.hasOwnProperty.call(payload.options, 'num_ctx')) {
+                    delete payload.options.num_ctx;
+                }
+            }
+
             const fetchOptions = {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...routing.headers
                 },
-                body: JSON.stringify(jsonPost),
+                body: JSON.stringify(payload),
                 signal: abortSignal // Add abort signal to fetch options
             };
 
-            //console.log('StyleDIY: Sending request to Ollama API...', { requestId: requestId || '<none>' });
-            const response = await fetch('http://localhost:11434/api/generate', fetchOptions);
+           //  //console.log('StyleDIY: Sending request to Ollama API...', { requestId: requestId || '<none>' });
+            let response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
+
+            // Retry once for cloud 400 using a minimal options payload.
+            if (!response.ok && response.status === 400 && routing && routing.source === 'cloud') {
+                try {
+                    const retryPayload = {
+                        ...payload,
+                        options: { ...(payload.options || {}) }
+                    };
+                    delete retryPayload.options.num_ctx;
+                    const retryFetchOptions = {
+                        ...fetchOptions,
+                        body: JSON.stringify(retryPayload)
+                    };
+                    response = await fetch(`${routing.baseUrl}/generate`, retryFetchOptions);
+                } catch (_retryError) {
+                    // Keep original response handling below.
+                }
+            }
 
             if (!response.ok) {
+                const errorText = await response.text();
                 if (response.status === 500) {
                     throw new Error('Ollama server error. Please restart Ollama and try again.');
                 }
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
             }
 
 
@@ -836,8 +890,8 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
             // Debug: Log whether the AI response contains 'thinking' and 'response' fields
             try {
                 const hasThinkingData = data && Object.prototype.hasOwnProperty.call(data, 'thinking');
-                const hasResponseData = data && Object.prototype.hasOwnProperty.call(data, 'response');
-                //console.log('StyleDIY: Ollama non-stream response - thinking field present?', hasThinkingData, 'response field present?', hasResponseData, 'model:', selectedModel, 'requestId:', requestId || '<none>');
+                const hasResponseData = !!(data && (Object.prototype.hasOwnProperty.call(data, 'response') || data?.message?.content));
+               //  //console.log('StyleDIY: Ollama non-stream response - thinking field present?', hasThinkingData, 'response field present?', hasResponseData, 'model:', selectedModel, 'requestId:', requestId || '<none>');
             } catch (logErr) {
                 console.warn('StyleDIY: Failed to inspect Ollama response for thinking field', logErr);
             }
@@ -847,9 +901,10 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
             }
 
             // Return the generated response (log summary with requestId)
-            try { //console.log('StyleDIY: Returning response length:', (data && data.response) ? String(data.response).length : 0, 'requestId:', requestId || '<none>'); 
+            const responseText = data?.response || data?.message?.content || '';
+            try { //console.log('StyleDIY: Returning response length:', responseText ? String(responseText).length : 0, 'requestId:', requestId || '<none>'); 
             } catch (e) {}
-            return data.response || '';
+            return responseText;
 
         } catch (error) {
             console.error('StyleDIY Ollama connection error:', error);
@@ -865,7 +920,17 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
     // Helper method to unload all models from Ollama to ensure clean memory
     static async unloadOllamaModels() {
         try {
-            //console.log('StyleDIY: Getting list of loaded Ollama models...');
+            const modelName = document.getElementById('model-selector')?.value || '';
+            const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
+                ? (window.OllamaAPI.getSelectedModelSource() || window.OllamaAPI.getModelSource?.(modelName) || 'local')
+                : 'local';
+
+            // Unload uses local daemon endpoints and should not run for cloud-only model selections.
+            if (selectedProvider === 'cloud') {
+                return;
+            }
+
+           //  //console.log('StyleDIY: Getting list of loaded Ollama models...');
 
             // First, get the list of currently loaded models using /api/ps
             const psResponse = await fetch('http://localhost:11434/api/ps', {
@@ -880,7 +945,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
             }
 
             const psData = await psResponse.json();
-            //console.log('StyleDIY: Ollama /api/ps response:', psData);
+           //  //console.log('StyleDIY: Ollama /api/ps response:', psData);
 
             // Extract loaded models from the response
             let loadedModels = [];
@@ -888,17 +953,17 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 loadedModels = psData.models.map(model => model.name || model.model).filter(Boolean);
             }
 
-            //console.log('StyleDIY: Found loaded models:', loadedModels);
+           //  //console.log('StyleDIY: Found loaded models:', loadedModels);
 
             if (loadedModels.length === 0) {
-                //console.log('StyleDIY: No models currently loaded. Skipping unload.');
+               //  //console.log('StyleDIY: No models currently loaded. Skipping unload.');
                 return;
             }
 
             // Unload each model individually
             const unloadPromises = loadedModels.map(async (modelName) => {
                 try {
-                    //console.log('StyleDIY: Unloading model:', modelName);
+                   //  //console.log('StyleDIY: Unloading model:', modelName);
 
                     const unloadResponse = await fetch('http://localhost:11434/api/generate', {
                         method: 'POST',
@@ -922,7 +987,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                     if (!unloadResponse.ok) {
                         console.warn(`StyleDIY: Warning - failed to unload ${modelName}: ${unloadResponse.status} ${unloadResponse.statusText}`);
                     } else {
-                        //console.log(`StyleDIY: Successfully triggered unload for model: ${modelName}`);
+                       //  //console.log(`StyleDIY: Successfully triggered unload for model: ${modelName}`);
                     }
 
                 } catch (modelError) {
@@ -933,7 +998,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
             // Wait for all unload operations to complete
             await Promise.all(unloadPromises);
 
-            //console.log('StyleDIY: All model unload operations completed');
+           //  //console.log('StyleDIY: All model unload operations completed');
 
             // Wait a brief moment for the unloads to complete
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -950,37 +1015,37 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
     // Helper method to activate DIY style in the sidebar and trigger re-render
     static activateDIYStyle() {
         try {
-            //console.log('StyleDIY: Attempting to activate DIY style in sidebar');
+           //  //console.log('StyleDIY: Attempting to activate DIY style in sidebar');
 
             // Find the presentation sidebar instance
             const sidebarElement = document.querySelector('.presentation-sidebar');
             if (sidebarElement) {
-                //console.log('StyleDIY: Found sidebar element');
+               //  //console.log('StyleDIY: Found sidebar element');
 
                 // Find the DIY style card and simulate click to select it
                 const diyCard = sidebarElement.querySelector('.sidebar-style-card.diy');
                 if (diyCard) {
-                    //console.log('StyleDIY: Found DIY style card');
+                   //  //console.log('StyleDIY: Found DIY style card');
 
                     // Remove selected class from all cards
                     const allCards = sidebarElement.querySelectorAll('.sidebar-style-card');
                     allCards.forEach(card => {
                         card.classList.remove('selected');
-                        //console.log('StyleDIY: Removed selected from card:', card.className);
+                       //  //console.log('StyleDIY: Removed selected from card:', card.className);
                     });
 
                     // Add selected class to DIY card
                     diyCard.classList.add('selected');
-                    //console.log('StyleDIY: Added selected class to DIY card');
+                   //  //console.log('StyleDIY: Added selected class to DIY card');
 
                     // Try different approaches to find the sidebar instance and trigger re-render
                     const sidebarInstance = StyleDIY.findSidebarInstance();
 
                     // If we found a sidebar instance, trigger the style selection
                     if (sidebarInstance && typeof sidebarInstance.selectStyle === 'function') {
-                        //console.log('StyleDIY: Calling sidebar selectStyle method');
+                       //  //console.log('StyleDIY: Calling sidebar selectStyle method');
                         sidebarInstance.selectStyle('diy');
-                        //console.log('StyleDIY: Style selection triggered successfully');
+                       //  //console.log('StyleDIY: Style selection triggered successfully');
                     } else {
                         console.warn('StyleDIY: No sidebar instance found, trying manual re-render approach');
 
@@ -988,7 +1053,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                         StyleDIY.tryManualRerender();
                     }
 
-                    //console.log('StyleDIY: Activated DIY style in sidebar');
+                   //  //console.log('StyleDIY: Activated DIY style in sidebar');
                 } else {
                     console.warn('StyleDIY: Could not find DIY style card in sidebar');
                     // List all available style cards for debugging
@@ -1011,7 +1076,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
             let renderingCompleted = false;
             let hasError = false;
 
-            //console.log('StyleDIY: Starting DIY style activation with completion tracking');
+           //  //console.log('StyleDIY: Starting DIY style activation with completion tracking');
 
             // Set up error monitoring - listen for DIY style errors
             const originalConsoleError = console.error;
@@ -1021,7 +1086,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                     errorMessage.includes('undefined is not a constructor') ||
                     errorMessage.includes('StyleDIY: Error details:')) {
                     hasError = true;
-                    //console.log('StyleDIY: Detected rendering error during activation');
+                   //  //console.log('StyleDIY: Detected rendering error during activation');
                 }
                 originalConsoleError.apply(console, args);
             };
@@ -1033,10 +1098,10 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 const logMessage = args.join(' ');
                 if (logMessage.includes('StyleDIY: Custom style rendering completed successfully')) {
                     renderingCompleted = true;
-                    //console.log('StyleDIY: Detected successful rendering completion');
+                   //  //console.log('StyleDIY: Detected successful rendering completion');
                 } else if (logMessage.includes('StyleDIY: Falling back to classic style due to error')) {
                     hasError = true;
-                    //console.log('StyleDIY: Detected fallback to classic style');
+                   //  //console.log('StyleDIY: Detected fallback to classic style');
                 }
                 originalConsoleLog.apply(console, args);
             };
@@ -1066,7 +1131,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 setTimeout(() => {
                     const diyCard = document.querySelector('.sidebar-style-card.diy');
                     if (diyCard && diyCard.onclick) {
-                        //console.log('StyleDIY: Triggering DIY card click handler as backup');
+                       //  //console.log('StyleDIY: Triggering DIY card click handler as backup');
                         diyCard.click();
                         renderingStarted = true;
                     }
@@ -1079,7 +1144,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                         clearInterval(checkInterval);
                         console.error = originalConsoleError;
                         //console.log = originalConsoleLog;
-                        //console.log('StyleDIY: Style activation completed successfully');
+                       //  //console.log('StyleDIY: Style activation completed successfully');
                         resolve();
                     } else if (hasError) {
                         clearTimeout(timeout);
@@ -1102,7 +1167,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
     // Alternative manual re-render approach
     static tryManualRerender() {
         try {
-            //console.log('StyleDIY: Attempting manual re-render');
+           //  //console.log('StyleDIY: Attempting manual re-render');
 
             // Search for preview window instances or stage containers
             const previewWindows = Object.keys(window).filter(key =>
@@ -1111,17 +1176,17 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 (window[key].stages || window[key].sidebar)
             );
 
-            //console.log('StyleDIY: Found potential preview instances:', previewWindows);
+           //  //console.log('StyleDIY: Found potential preview instances:', previewWindows);
 
             for (const windowKey of previewWindows) {
                 const instance = window[windowKey];
                 if (instance.stages && instance.parsedSlides && instance.sidebar) {
-                    //console.log('StyleDIY: Found complete preview instance, triggering manual render');
+                   //  //console.log('StyleDIY: Found complete preview instance, triggering manual render');
 
                     // Set the sidebar's selected style to DIY
                     if (instance.sidebar) {
                         instance.sidebar.selectedStyle = 'diy';
-                        //console.log('StyleDIY: Set sidebar selectedStyle to diy');
+                       //  //console.log('StyleDIY: Set sidebar selectedStyle to diy');
 
                         // Trigger the re-render
                         if (typeof instance.sidebar.renderSelectedStyle === 'function') {
@@ -1130,7 +1195,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                                 instance.parsedSlides,
                                 instance.slideImagesResult
                             ).then(() => {
-                                //console.log('StyleDIY: Manual re-render completed successfully');
+                               //  //console.log('StyleDIY: Manual re-render completed successfully');
                             }).catch(error => {
                                 console.error('StyleDIY: Manual re-render failed:', error);
                             });
@@ -1150,7 +1215,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
     // TASK 2: Methods for managing saved styles
     static makeStyleActive(styleInfo) {
         try {
-            //console.log('StyleDIY: Making style active:', styleInfo.name);
+           //  //console.log('StyleDIY: Making style active:', styleInfo.name);
 
             // DO NOT automatically save the current style to saved styles
             // The user should explicitly choose to save styles they want to keep
@@ -1158,14 +1223,14 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
 
             // DO NOT remove the selected style from saved styles - keep all saved styles intact!
             // The saved styles array should remain intact as a permanent collection
-            //console.log('StyleDIY: Keeping selected style in saved styles collection');
+           //  //console.log('StyleDIY: Keeping selected style in saved styles collection');
 
             // Set the selected style as current (make a copy to avoid reference issues)
             StyleDIY.lastGeneratedStyle = styleInfo.code;
             StyleDIY.lastGeneratedStyleInfo = { ...styleInfo };
 
-            //console.log('StyleDIY: Style activated successfully');
-            //console.log('StyleDIY: Saved styles count after activation:', StyleDIY.savedStyles.length);
+           //  //console.log('StyleDIY: Style activated successfully');
+           //  //console.log('StyleDIY: Saved styles count after activation:', StyleDIY.savedStyles.length);
 
             // Update DIY card behavior and activate the style
             StyleDIY.updateDIYCardBehavior();
@@ -1182,11 +1247,11 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
 
     static async saveStyleToDatabase(styleInfo) {
         try {
-            //console.log('StyleDIY: Saving style to database (START):', styleInfo && styleInfo.name);
+           //  //console.log('StyleDIY: Saving style to database (START):', styleInfo && styleInfo.name);
 
             // Determine owner key from sessionStorage (hashed masterkey)
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-            //console.log('StyleDIY: saveStyleToDatabase - hashedMasterKey:', hashedMasterKey);
+           //  //console.log('StyleDIY: saveStyleToDatabase - hashedMasterKey:', hashedMasterKey);
             if (!hashedMasterKey) {
                 alert(window.Lang ? Lang.get('cannotSaveNoMasterKey') : 'Cannot save style: no master key available in session. Please re-open the app and enter your master key.');
                 return;
@@ -1201,11 +1266,11 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 is_active: styleInfo.is_active ? 1 : 0
             };
 
-            //console.log('StyleDIY: saveStyleToDatabase - payload:', info);
+           //  //console.log('StyleDIY: saveStyleToDatabase - payload:', info);
 
             try {
                 const id = await PaiperworkDB.insertCustomStyle(hashedMasterKey, info);
-                //console.log('StyleDIY: Style saved to DB with id:', id);
+               //  //console.log('StyleDIY: Style saved to DB with id:', id);
                 alert((window.Lang ? Lang.get('styleSavedToDatabase') : 'Style "{name}" saved to database!').replace('{name}', info.name));
                 // Refresh manager UI so it reads from DB
                 try { await StyleDIY.openDIYStyleManager(); } catch (e) { console.warn('StyleDIY: Could not re-open manager after save:', e); }
@@ -1224,7 +1289,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
         try {
             const confirmDelete = confirm((window.Lang ? Lang.get('styleDIYConfirmDeleteStyle') : `Are you sure you want to delete the style "{name}"? This action cannot be undone.`).replace('{name}', styleInfo.name));
             if (!confirmDelete) return;
-            //console.log('StyleDIY: Deleting style:', styleInfo.name);
+           //  //console.log('StyleDIY: Deleting style:', styleInfo.name);
 
             // If the style has a DB id, prefer deleting from DB
             if (styleInfo.id) {
@@ -1232,7 +1297,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                     const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
                     if (!hashedMasterKey) throw new Error('No master key');
                     await PaiperworkDB.deleteCustomStyle(hashedMasterKey, styleInfo.id);
-                    //console.log('StyleDIY: Deleted style from DB id=', styleInfo.id);
+                   //  //console.log('StyleDIY: Deleted style from DB id=', styleInfo.id);
                     alert((window.Lang ? Lang.get('styleHasBeenDeleted') : 'Style "{name}" has been deleted.').replace('{name}', styleInfo.name));
                     // Refresh the manager to reflect DB state
                     try { await StyleDIY.openDIYStyleManager(); } catch (e) { console.warn('StyleDIY: Could not re-open manager after delete:', e); }
@@ -1251,7 +1316,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
 
             if (styleIndex !== -1) {
                 StyleDIY.savedStyles.splice(styleIndex, 1);
-                //console.log('StyleDIY: Style deleted from memory');
+               //  //console.log('StyleDIY: Style deleted from memory');
                 // Refresh the style manager to update the UI
                 try { StyleDIY.openDIYStyleManager(); } catch (e) { console.warn('StyleDIY: Could not re-open manager after memory delete:', e); }
                     alert((window.Lang ? Lang.get('styleHasBeenDeleted') : 'Style "{name}" has been deleted.').replace('{name}', styleInfo.name));
@@ -1284,10 +1349,10 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 return;
             }
 
-            //console.log('StyleDIY: Saving current style to DB:', style.name);
+           //  //console.log('StyleDIY: Saving current style to DB:', style.name);
             try {
                 const id = await PaiperworkDB.insertCustomStyle(hashedMasterKey, style);
-                //console.log('StyleDIY: saveCurrentStyleToSaved - saved id=', id);
+               //  //console.log('StyleDIY: saveCurrentStyleToSaved - saved id=', id);
                 alert((window.Lang ? Lang.get('styleHasBeenSaved') : 'Style "{name}" has been saved!').replace('{name}', style.name));
                 // Refresh manager to show DB-backed list
                 try { await StyleDIY.openDIYStyleManager(); } catch (e) { console.warn('StyleDIY: Could not open manager after saving current style:', e); }
@@ -1312,8 +1377,8 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
             const confirmDelete = confirm((window.Lang ? Lang.get('styleDIYConfirmDeleteActive') : `Are you sure you want to delete the active style "{name}"? This will switch back to the Classic style.`).replace('{name}', StyleDIY.lastGeneratedStyleInfo.name));
             if (!confirmDelete) return;
 
-            //console.log('StyleDIY: Deleting current style only, preserving saved styles');
-            //console.log('StyleDIY: Saved styles count before deletion:', StyleDIY.savedStyles.length);
+           //  //console.log('StyleDIY: Deleting current style only, preserving saved styles');
+           //  //console.log('StyleDIY: Saved styles count before deletion:', StyleDIY.savedStyles.length);
 
             // Clear ONLY the current style - DO NOT touch savedStyles array
             StyleDIY.lastGeneratedStyle = null;
@@ -1331,11 +1396,11 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 // First, try using the sidebar instance
                 const sidebarInstance = StyleDIY.findSidebarInstance();
                 if (sidebarInstance && typeof sidebarInstance.selectStyle === 'function') {
-                    //console.log('StyleDIY: Switching to classic style via sidebar instance');
+                   //  //console.log('StyleDIY: Switching to classic style via sidebar instance');
                     sidebarInstance.selectStyle('classic');
                 } else {
                     // Fallback: manually update the UI
-                    //console.log('StyleDIY: Manually switching to classic style');
+                   //  //console.log('StyleDIY: Manually switching to classic style');
                     const sidebarElement = document.querySelector('.presentation-sidebar');
                     if (sidebarElement) {
                         // Remove selected class from DIY card
@@ -1356,8 +1421,8 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                     }
                 }
 
-                //console.log('StyleDIY: Successfully switched to classic style');
-                //console.log('StyleDIY: Saved styles count after deletion:', StyleDIY.savedStyles.length);
+               //  //console.log('StyleDIY: Successfully switched to classic style');
+               //  //console.log('StyleDIY: Saved styles count after deletion:', StyleDIY.savedStyles.length);
 
                 alert(window.Lang ? Lang.get('currentStyleDeletedSwitchedClassic') : 'Current style deleted successfully! Switched back to Classic style.');
 
@@ -1555,7 +1620,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
         StyleDIY.closeDIYModal();
         StyleDIY.closeDIYStyleManager();
 
-        //console.log('StyleDIY: Opening style manager modal');
+       //  //console.log('StyleDIY: Opening style manager modal');
         // Load saved styles from database (if master key available) before rendering
         let dbStyles = [];
         try {
@@ -1564,11 +1629,11 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 console.warn('StyleDIY: No hashedMasterKey in sessionStorage; opening manager without DB styles');
             } else {
                 dbStyles = await PaiperworkDB.getCustomStyles(hashedMasterKey) || [];
-                //console.log('StyleDIY: Loaded', dbStyles.length, 'styles from DB');
+               //  //console.log('StyleDIY: Loaded', dbStyles.length, 'styles from DB');
                 // Keep in-memory savedStyles in sync with DB to avoid UI mismatches
                 try {
                     StyleDIY.savedStyles = Array.isArray(dbStyles) ? dbStyles.slice() : [];
-                    //console.log('StyleDIY: synced in-memory savedStyles with DB, count=', StyleDIY.savedStyles.length);
+                   //  //console.log('StyleDIY: synced in-memory savedStyles with DB, count=', StyleDIY.savedStyles.length);
                 } catch (syncErr) {
                     console.warn('StyleDIY: Could not sync savedStyles with DB:', syncErr);
                 }
@@ -1744,13 +1809,13 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
     // Helper method to apply the current style and trigger re-render
     static applyCurrentStyle() {
         try {
-            //console.log('StyleDIY: Applying current custom style');
+           //  //console.log('StyleDIY: Applying current custom style');
 
             // Find sidebar instance and trigger DIY style selection
             const sidebarInstance = StyleDIY.findSidebarInstance();
             if (sidebarInstance && typeof sidebarInstance.selectStyle === 'function') {
                 sidebarInstance.selectStyle('diy');
-                //console.log('StyleDIY: Successfully applied current custom style');
+               //  //console.log('StyleDIY: Successfully applied current custom style');
             } else {
                 console.warn('StyleDIY: Could not find sidebar instance to apply style');
                 // Try manual re-render as fallback
@@ -2209,24 +2274,57 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
         if (!select) return;
 
         try {
-            // 1. Call Ollama to find out available models
-            //console.log('StyleDIY: Fetching available models from Ollama...');
-            const response = await fetch('http://localhost:11434/api/tags');
+            const cloudApiKey = (window.OllamaAPI && typeof window.OllamaAPI.getStoredCloudApiKey === 'function')
+                ? await window.OllamaAPI.getStoredCloudApiKey()
+                : '';
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const [localResult, cloudResult] = await Promise.allSettled([
+                fetch('http://localhost:11434/api/tags'),
+                fetch('/api/cloud/tags', {
+                    headers: cloudApiKey ? { 'Authorization': `Bearer ${cloudApiKey}` } : undefined
+                })
+            ]);
+
+            const localModels = (localResult.status === 'fulfilled' && localResult.value.ok)
+                ? ((await localResult.value.json()).models || [])
+                : [];
+            const cloudModels = (cloudResult.status === 'fulfilled' && cloudResult.value.ok)
+                ? ((await cloudResult.value.json()).models || [])
+                : [];
+
+            if (window.OllamaAPI) {
+                if (!(window.OllamaAPI.localModelNames instanceof Set)) window.OllamaAPI.localModelNames = new Set();
+                if (!(window.OllamaAPI.cloudModelNames instanceof Set)) window.OllamaAPI.cloudModelNames = new Set();
+                localModels.forEach(model => model?.name && window.OllamaAPI.localModelNames.add(model.name));
+                cloudModels.forEach(model => {
+                    if (!model?.name) return;
+                    const normalizedCloudName = window.OllamaAPI.normalizeCloudModelName
+                        ? window.OllamaAPI.normalizeCloudModelName(model.name)
+                        : model.name;
+                    window.OllamaAPI.cloudModelNames.add(normalizedCloudName);
+                });
             }
 
-            const data = await response.json();
+            const allModels = [
+                ...localModels.map(model => ({ ...model, provider: 'local' })),
+                ...cloudModels.map(model => ({
+                    ...model,
+                    name: (window.OllamaAPI && window.OllamaAPI.normalizeCloudModelName)
+                        ? window.OllamaAPI.normalizeCloudModelName(model.name)
+                        : model.name,
+                    provider: 'cloud'
+                }))
+            ];
 
-                        select.innerHTML = '<option value="">' + (window.Lang ? Lang.get('styleDIYSelectModel') : 'Select a model...') + '</option>';
+            select.innerHTML = '<option value="">' + (window.Lang ? Lang.get('styleDIYSelectModel') : 'Select a model...') + '</option>';
 
-            if (data.models && data.models.length > 0) {
+            if (allModels && allModels.length > 0) {
                 // Populate the dropdown with available models
-                data.models.forEach(model => {
+                allModels.forEach(model => {
                     const option = document.createElement('option');
                     option.value = model.name;
                     option.textContent = model.name;
+                    option.dataset.provider = model.provider || 'local';
                     select.appendChild(option);
                 });
 
@@ -2236,14 +2334,14 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
 
                 if (chatTabModelSelector && chatTabModelSelector.value) {
                     selectedModel = chatTabModelSelector.value;
-                    //console.log('StyleDIY: Found selected model in ChatTab:', selectedModel);
+                   //  //console.log('StyleDIY: Found selected model in ChatTab:', selectedModel);
 
                     // Check if the ChatTab model exists in our available models
-                    const modelExists = data.models.some(model => model.name === selectedModel);
+                    const modelExists = allModels.some(model => model.name === selectedModel);
 
                     if (modelExists) {
                         select.value = selectedModel;
-                        //console.log('StyleDIY: Successfully synced with ChatTab model:', selectedModel);
+                       //  //console.log('StyleDIY: Successfully synced with ChatTab model:', selectedModel);
                     } else {
                         console.warn('StyleDIY: ChatTab model not found in available models:', selectedModel);
                         selectedModel = null;
@@ -2251,10 +2349,10 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 }
 
                 // Fallback: if no ChatTab model or it doesn't exist, auto-select first available model
-                if (!selectedModel && data.models.length > 0) {
-                    const fallbackModel = data.models[0].name;
+                if (!selectedModel && allModels.length > 0) {
+                    const fallbackModel = allModels[0].name;
                     select.value = fallbackModel;
-                    //console.log('StyleDIY: Using fallback model:', fallbackModel);
+                   //  //console.log('StyleDIY: Using fallback model:', fallbackModel);
                 }
 
             } else {
@@ -2277,7 +2375,7 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 option.textContent = `${chatModel} (From ChatTab)`;
                 select.appendChild(option);
                 select.value = chatModel;
-                //console.log('StyleDIY: Synced with ChatTab model despite Ollama error:', chatModel);
+               //  //console.log('StyleDIY: Synced with ChatTab model despite Ollama error:', chatModel);
             }
         }
     }
@@ -2544,12 +2642,12 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
     }
 
     static abortgeneration() {
-        //console.log('StyleDIY: Aborting style generation...');
+       //  //console.log('StyleDIY: Aborting style generation...');
 
         // Abort StyleDIY generation if active
         if (StyleDIY.generationAbortController && typeof StyleDIY.generationAbortController.abort === 'function') {
             StyleDIY.generationAbortController.abort();
-            //console.log('StyleDIY: Style generation aborted');
+           //  //console.log('StyleDIY: Style generation aborted');
         }
 
         // Close modal after abort

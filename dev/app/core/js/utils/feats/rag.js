@@ -32,7 +32,7 @@ class RAG {
 
   // Processes an array of files (PDF or text), extracting content, chunking, embedding, and storing in the database.
   static async processDocuments(files, hashedMasterKey, progressCallback, model) {
-    //console.log("RAG: Processing documents with model:", model);
+   //console.log("RAG: Processing documents with model:", model);
 
     const supportsEmbeddings = await this.modelSupportsEmbeddings(model);
     if (supportsEmbeddings === false) {
@@ -140,7 +140,7 @@ class RAG {
   ) {
     // Load PDF.js library dynamically if not already loaded
     if (typeof window.pdfjsLib === "undefined") {
-      //console.log("PDF.js not found, loading dynamically...");
+     //console.log("PDF.js not found, loading dynamically...");
 
       await new Promise((resolve, reject) => {
         const script = document.createElement("script");
@@ -170,7 +170,7 @@ class RAG {
         document.head.appendChild(script);
       });
 
-      //console.log("PDF.js loaded dynamically");
+     //console.log("PDF.js loaded dynamically");
     }
 
     try {
@@ -193,7 +193,7 @@ class RAG {
 
       // Get total pages - DEFINE THIS VARIABLE HERE
       const totalPages = pdf.numPages;
-      //console.log(`PDF loaded with ${totalPages} pages`);
+     //console.log(`PDF loaded with ${totalPages} pages`);
 
       // Report progress after PDF is loaded (10%)
       if (progressCallback)
@@ -656,7 +656,7 @@ class RAG {
 
       // Check table structure
       const tableInfo = db.exec(`PRAGMA table_info(documents_${hashedMasterKey})`);
-      //console.log("RAG: Table structure:", tableInfo);
+     //console.log("RAG: Table structure:", tableInfo);
 
       if (!tableInfo[0]?.values || tableInfo[0].values.length === 0) {
         console.warn("RAG: Documents table missing or empty");
@@ -667,7 +667,7 @@ class RAG {
       const columnNames = tableInfo[0].values.map((col) => col[1]);
       const hasDocumentPrefix = columnNames.includes("document_id");
 
-      //console.log("RAG: Using document_ prefix:", hasDocumentPrefix);
+     //console.log("RAG: Using document_ prefix:", hasDocumentPrefix);
 
       // Use the appropriate column names based on table structure
       const query = hasDocumentPrefix
@@ -678,15 +678,15 @@ class RAG {
              FROM documents_${hashedMasterKey} 
              ORDER BY dateAdded DESC`;
 
-      //console.log("RAG: Executing query:", query);
+     //console.log("RAG: Executing query:", query);
       const result = db.exec(query);
 
       if (!result || result.length === 0 || !result[0]?.values) {
-        //console.log("RAG: No documents found in table");
+       //console.log("RAG: No documents found in table");
         return [];
       }
 
-      //console.log("RAG: Documents found:", result[0].values.length);
+     //console.log("RAG: Documents found:", result[0].values.length);
 
       // Process documents using our mapping function
       const documents = [];
@@ -881,10 +881,11 @@ class RAG {
     }
 
     try {
-      const response = await fetch("http://localhost:11434/api/show", {
+      const routing = await OllamaAPI.getApiRoutingForModel(model);
+      const response = await fetch(`${routing.baseUrl}/show`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, name: model }),
+        headers: { "Content-Type": "application/json", ...routing.headers },
+        body: JSON.stringify({ model: routing.modelName || model, name: routing.modelName || model }),
       });
 
       if (!response.ok) {
@@ -1274,14 +1275,16 @@ class RAG {
         return null;
       };
 
+      const routing = await OllamaAPI.getApiRoutingForModel(model);
+      const routedModelName = routing.modelName || model;
       const endpointConfigs = [
         {
-          url: "http://localhost:11434/api/embed",
-          createBody: (inputText, options) => ({ model, input: inputText, options }),
+          url: `${routing.baseUrl}/embed`,
+          createBody: (inputText, options) => ({ model: routedModelName, input: inputText, options }),
         },
         {
-          url: "http://localhost:11434/api/embeddings",
-          createBody: (inputText, options) => ({ model, prompt: inputText, options }),
+          url: `${routing.baseUrl}/embeddings`,
+          createBody: (inputText, options) => ({ model: routedModelName, prompt: inputText, options }),
         },
       ];
 
@@ -1294,7 +1297,7 @@ class RAG {
           const endpoint = endpointConfigs[i];
           const response = await fetch(endpoint.url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...routing.headers },
             body: JSON.stringify(endpoint.createBody(inputText, options)),
           });
 
@@ -1400,7 +1403,7 @@ class RAG {
   }
   // Displays a warning notification if the selected model does not support embeddings.
   static showEmbeddingWarning(modelName, mode = "general") {
-    //console.log(`Showing embedding warning for model: ${modelName}`);
+   //console.log(`Showing embedding warning for model: ${modelName}`);
 
     // First remove any existing warnings
     const existingWarnings = document.querySelectorAll('.embedding-warning-notification');
@@ -1507,7 +1510,7 @@ class RAG {
 
   // Searches all document chunks for matches to the query using embeddings and text fallback.
   static async searchDocuments(query, hashedMasterKey, model) {
-    //console.log(`Searching documents for: "${query}" using model: ${model}`);
+   //console.log(`Searching documents for: "${query}" using model: ${model}`);
 
     if (!query || !hashedMasterKey) {
       throw new Error("Search query and masterkey are required");
@@ -1597,7 +1600,7 @@ class RAG {
       const hasGoodMatches = normalizedChunks.some((chunk) => chunk.similarity > 0.5);
 
       if (!hasGoodMatches && normalizedChunks.length > 0 && !usedLexicalFallback) {
-        //console.log("No good embedding matches, falling back to text search");
+       //console.log("No good embedding matches, falling back to text search");
         const terms = query
           .toLowerCase()
           .split(/\s+/)
@@ -1663,7 +1666,7 @@ class RAG {
   }
   // Searches document chunks with additional constraints (e.g., by document ID), using embeddings.
   static async searchDocumentsWithConstraint(query, hashedMasterKey, model, constraints) {
-    //console.log("RAG: Searching documents with constraints:", constraints);
+   //console.log("RAG: Searching documents with constraints:", constraints);
 
     if (!hashedMasterKey || !constraints) {
       console.error("RAG: Missing required parameters for searchDocumentsWithConstraint");

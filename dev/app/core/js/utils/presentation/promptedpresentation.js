@@ -645,6 +645,28 @@ class PromptedPresentationWorkflow {
 		return Number.isFinite(value) ? value : 8192;
 	}
 
+	static async buildPresentationRoutingAndOptions(model, baseOptions = {}) {
+		let routing = await OllamaAPI.getApiRoutingForModel(model);
+
+		if (routing && routing.source === 'cloud') {
+			const ensureCloudKey = window.chatTab && typeof window.chatTab.ensureCloudApiKeyForSend === 'function'
+				? window.chatTab.ensureCloudApiKeyForSend.bind(window.chatTab)
+				: null;
+
+			if (ensureCloudKey) {
+				const hasCloudKey = await ensureCloudKey();
+				if (!hasCloudKey) {
+					throw new Error('Cloud API key required');
+				}
+				routing = await OllamaAPI.getApiRoutingForModel(model);
+			}
+		}
+
+		const options = { ...(baseOptions || {}) };
+
+		return { routing, options };
+	}
+
 	static buildArtisticPresentationSystemPrompt() {
 		return [
 			'You are an expert artistic HTML presentation creator.',
@@ -803,16 +825,20 @@ class PromptedPresentationWorkflow {
 				: 'You generate concise web search queries.',
 			prompt: queryPrompt,
 			stream: false,
-			options: {
-				num_ctx: this.getSelectedContextSize(),
-			},
+			options: {},
 		};
+		const { routing, options: requestOptions } = await this.buildPresentationRoutingAndOptions(model, {
+			num_ctx: this.getSelectedContextSize(),
+		});
+		requestBody.model = routing.modelName || requestBody.model;
+		requestBody.options = requestOptions;
+		const payload = requestBody;
 
 		try {
-			const response = await fetch('http://localhost:11434/api/generate', {
+			const response = await fetch(`${routing.baseUrl}/generate`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(requestBody),
+				headers: { 'Content-Type': 'application/json', ...routing.headers },
+				body: JSON.stringify(payload),
 				signal: abortSignal,
 			});
 
@@ -821,7 +847,7 @@ class PromptedPresentationWorkflow {
 			}
 
 			const data = await response.json();
-			const optimized = String(data && data.response ? data.response : '')
+			const optimized = String(data?.response || data?.message?.content || '')
 				.trim()
 				.replace(/^```[a-zA-Z]*\s*/, '')
 				.replace(/\s*```$/, '')
@@ -2206,15 +2232,19 @@ class PromptedPresentationWorkflow {
 				: this.buildArtisticPresentationSystemPrompt(),
 			prompt: promptPayload,
 			stream: false,
-			options: {
-				num_ctx: this.getSelectedContextSize(),
-			},
+			options: {},
 		};
+		const { routing, options: requestOptions } = await this.buildPresentationRoutingAndOptions(model, {
+			num_ctx: this.getSelectedContextSize(),
+		});
+		requestBody.model = routing.modelName || requestBody.model;
+		requestBody.options = requestOptions;
+		const payload = requestBody;
 
-		const response = await fetch('http://localhost:11434/api/generate', {
+		const response = await fetch(`${routing.baseUrl}/generate`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(requestBody),
+			headers: { 'Content-Type': 'application/json', ...routing.headers },
+			body: JSON.stringify(payload),
 			signal: abortSignal,
 		});
 
@@ -2224,7 +2254,7 @@ class PromptedPresentationWorkflow {
 		}
 
 		const data = await response.json();
-		const htmlResponse = this.cleanHtmlResponse(data && data.response ? data.response : '');
+		const htmlResponse = this.cleanHtmlResponse(data?.response || data?.message?.content || '');
 
 		if (!htmlResponse) {
 			throw new Error('Model returned an empty HTML response.');
