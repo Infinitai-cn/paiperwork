@@ -820,11 +820,11 @@ class OllamaAPI {
             if (isCloudRouting) {
                 const authHeader = fetchOptions.headers?.Authorization || '';
                 const hasAuth = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') && authHeader.length > 8;
-                console.info('[CloudAuth] sendToOllama request headers', {
-                    hasAuthorizationHeader: hasAuth,
-                    authorizationLength: authHeader ? authHeader.length : 0,
-                    hasLegacyKeyHeader: !!fetchOptions.headers?.['X-Ollama-Api-Key']
-                });
+                //console.info('[CloudAuth] sendToOllama request headers', {
+                    //hasAuthorizationHeader: hasAuth,
+                    //authorizationLength: authHeader ? authHeader.length : 0,
+                    //hasLegacyKeyHeader: !!fetchOptions.headers?.['X-Ollama-Api-Key']
+                //});
             }
 
             if (abortSignal instanceof AbortSignal) {
