@@ -1410,18 +1410,19 @@ class RAG {
     existingWarnings.forEach(el => el.remove());
 
     const isIngestMode = mode === "ingest";
+    const safeModelName = String(modelName || '');
     const titleText = isIngestMode
       ? Lang.get(
         'ragIngestModelNotCompatibleTitle',
         'Model Not Compatible with Document Ingestion'
       )
       : Lang.get('ragModelNotCompatibleTitle', 'Model Not Compatible with Document Search');
-    const messageText = isIngestMode
+    const messageTemplate = isIngestMode
       ? Lang.get(
         'ragIngestModelNotCompatibleMessage',
         'The model <strong>{model}</strong> cannot be used to ingest documents because it does not support embeddings.'
-      ).replace('{model}', modelName)
-      : Lang.get('ragModelNotCompatibleMessage', 'The model <strong>{model}</strong> doesn\'t support embeddings, which are required for document search and RAG functionality.').replace('{model}', modelName);
+      )
+      : Lang.get('ragModelNotCompatibleMessage', 'The model <strong>{model}</strong> doesn\'t support embeddings, which are required for document search and RAG functionality.');
     const suggestionText = isIngestMode
       ? Lang.get(
         'ragIngestModelSelectCompatible',
@@ -1453,28 +1454,55 @@ class RAG {
       animation: fadeIn 0.3s ease-out;
     `;
 
-    notification.innerHTML = `
-      <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 18px; display: flex; align-items: center;">
-        <span style="margin-right: 8px; font-size: 20px;">⚠️</span> 
-        ${titleText}
-      </h3>
-      <p style="margin-bottom: 12px; font-size: 15px;">
-        ${messageText}
-      </p>
-      <p style="margin-bottom: 16px; font-size: 15px;">
-        ${suggestionText}
-      </p>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <a href="https://ollama.com/search?q=&sort=downloads&filter=embedding" 
-           target="_blank" style="color: #4F46E5; text-decoration: underline; font-weight: 600;">
-           ${Lang.get('ragFindEmbeddingModels', 'Find embedding-capable models')}
-        </a>
-        <button id="close-embedding-warning" style="background: #DC2626; border: none; color: white; 
-                padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;">
-            ${Lang.get('ragIUnderstand', 'I Understand')}
-        </button>
-      </div>
-    `;
+    const header = document.createElement('h3');
+    header.style.cssText = 'margin-top: 0; margin-bottom: 10px; font-size: 18px; display: flex; align-items: center;';
+
+    const icon = document.createElement('span');
+    icon.style.cssText = 'margin-right: 8px; font-size: 20px;';
+    icon.textContent = '⚠️';
+    header.appendChild(icon);
+    header.appendChild(document.createTextNode(` ${titleText}`));
+
+    const message = document.createElement('p');
+    message.style.cssText = 'margin-bottom: 12px; font-size: 15px;';
+
+    const messageTemplateWithoutTags = messageTemplate.replace(/<\/?strong>/gi, '');
+    if (messageTemplateWithoutTags.includes('{model}')) {
+      const parts = messageTemplateWithoutTags.split('{model}');
+      message.appendChild(document.createTextNode(parts[0] || ''));
+      const modelStrong = document.createElement('strong');
+      modelStrong.textContent = safeModelName;
+      message.appendChild(modelStrong);
+      message.appendChild(document.createTextNode(parts.slice(1).join('{model}')));
+    } else {
+      message.textContent = messageTemplateWithoutTags;
+    }
+
+    const suggestion = document.createElement('p');
+    suggestion.style.cssText = 'margin-bottom: 16px; font-size: 15px;';
+    suggestion.textContent = suggestionText;
+
+    const footer = document.createElement('div');
+    footer.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+
+    const link = document.createElement('a');
+    link.href = 'https://ollama.com/search?q=&sort=downloads&filter=embedding';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.style.cssText = 'color: #4F46E5; text-decoration: underline; font-weight: 600;';
+    link.textContent = Lang.get('ragFindEmbeddingModels', 'Find embedding-capable models');
+
+    const closeButton = document.createElement('button');
+    closeButton.style.cssText = 'background: #DC2626; border: none; color: white; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 500;';
+    closeButton.textContent = Lang.get('ragIUnderstand', 'I Understand');
+
+    footer.appendChild(link);
+    footer.appendChild(closeButton);
+
+    notification.appendChild(header);
+    notification.appendChild(message);
+    notification.appendChild(suggestion);
+    notification.appendChild(footer);
 
     // Add animation styles
     const style = document.createElement('style');
@@ -1488,7 +1516,7 @@ class RAG {
     document.body.appendChild(notification);
 
     // Add click handler for the close button
-    document.getElementById('close-embedding-warning').addEventListener('click', () => {
+    closeButton.addEventListener('click', () => {
       notification.style.opacity = '0';
       notification.style.transform = 'translate(-50%, -20px)';
       notification.style.transition = 'opacity 0.3s, transform 0.3s';

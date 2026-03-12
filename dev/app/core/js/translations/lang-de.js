@@ -183,6 +183,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         contextLimitReachedMessage: "Ihr Gespräch hat das Kontextlimit erreicht. Ich habe unten einen Gespräch Fortsetzen-Button hinzugefügt, damit Sie weiter chatten können, ohne den Fluss zu verlieren, und auch Ihren Kontext wieder auf 100% zurücksetzen, klicken Sie einfach darauf, um dort fortzufahren, wo wir aufgehört haben.",
         ollamaContextRemaining: "Verbleibender Kontext: {percent}%",
         ollamaContextReset: "Verbleibender Kontext: 100%",
+        modelChangeContextResetNote: "Der Kontext wurde wegen eines Modellwechsels zurückgesetzt",
 
         // Message Management
         deleteMessagePair: "Dieses Nachrichtenpaar löschen",

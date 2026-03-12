@@ -2836,8 +2836,7 @@ function createSummaryModal() {
     copyBtn.onclick = () => {
         // Get the summary body and create a clone to safely manipulate
         const summaryBody = document.getElementById('document-summary-body');
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = summaryBody.innerHTML;
+        const tempDiv = summaryBody.cloneNode(true);
 
         // Remove the editable notice
         const editableNotice = tempDiv.querySelector('.editable-notice');
@@ -2848,7 +2847,7 @@ function createSummaryModal() {
         // Create an invisible div for proper text extraction
         const textDiv = document.createElement('div');
         textDiv.style.cssText = 'white-space: pre-wrap; position: absolute; left: -9999px;';
-        textDiv.innerHTML = tempDiv.innerHTML;
+        textDiv.appendChild(tempDiv);
         document.body.appendChild(textDiv);
 
         // Extract properly formatted plain text with preserved structure
@@ -2885,8 +2884,7 @@ function createSummaryModal() {
         const documentTitle = document.getElementById('document-summary-title')?.textContent || 'Document Summary';
 
         // Clone the body to avoid modifying the original
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = summaryBody.innerHTML;
+        const tempDiv = summaryBody.cloneNode(true);
 
         // Remove the editable notice
         const editableNotice = tempDiv.querySelector('.editable-notice');

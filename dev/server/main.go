@@ -28,6 +28,64 @@ func noCacheHandler(h http.Handler) http.Handler {
 	})
 }
 
+// validateOutboundURL restricts outbound requests to standard web URLs and blocks local/private targets.
+func validateOutboundURL(rawURL string) (*url.URL, error) {
+	parsedURL, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL: %w", err)
+	}
+
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return nil, errors.New("only http and https URLs are allowed")
+	}
+
+	if parsedURL.Host == "" {
+		return nil, errors.New("URL host is required")
+	}
+
+	hostname := parsedURL.Hostname()
+	if hostname == "" {
+		return nil, errors.New("URL hostname is required")
+	}
+
+	if strings.EqualFold(hostname, "localhost") {
+		return nil, errors.New("localhost is not allowed")
+	}
+
+	if ip := net.ParseIP(hostname); ip != nil {
+		if isDisallowedOutboundIP(ip) {
+			return nil, errors.New("local/private network targets are not allowed")
+		}
+		return parsedURL, nil
+	}
+
+	ips, err := net.LookupIP(hostname)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve host: %w", err)
+	}
+
+	if len(ips) == 0 {
+		return nil, errors.New("host did not resolve to any IP address")
+	}
+
+	for _, ip := range ips {
+		if isDisallowedOutboundIP(ip) {
+			return nil, errors.New("resolved host points to a local/private network")
+		}
+	}
+
+	return parsedURL, nil
+}
+
+func isDisallowedOutboundIP(ip net.IP) bool {
+	return ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsMulticast() ||
+		ip.IsUnspecified()
+}
+
 func proxyVersionCheck(w http.ResponseWriter, r *http.Request) {
 	// Set CORS headers first - this ensures they're sent even if there's an error
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -638,12 +696,25 @@ func fetchRawHtmlForLinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Raw HTML extraction request for URL: %s", targetURL)
+	validatedTargetURL, err := validateOutboundURL(targetURL)
+	if err != nil {
+		log.Printf("Raw HTML extraction rejected URL %q: %v", targetURL, err)
+		http.Error(w, "Invalid or disallowed URL", http.StatusBadRequest)
+		return
+	}
+
+	targetURLString := validatedTargetURL.String()
+
+	log.Printf("Raw HTML extraction request for URL: %s", targetURLString)
 
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if _, err := validateOutboundURL(req.URL.String()); err != nil {
+				return fmt.Errorf("redirect blocked: %w", err)
+			}
+
 			if len(via) >= 5 {
 				return errors.New("too many redirects")
 			}
@@ -651,7 +722,7 @@ func fetchRawHtmlForLinks(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	req, err := http.NewRequest("GET", targetURL, nil)
+	req, err := http.NewRequest("GET", targetURLString, nil)
 	if err != nil {
 		log.Printf("Error creating request: %v", err)
 		http.Error(w, "Failed to create request", http.StatusInternalServerError)
@@ -685,7 +756,7 @@ func fetchRawHtmlForLinks(w http.ResponseWriter, r *http.Request) {
 	htmlContent := string(body)
 
 	// Fix relative URLs
-	baseURL, err := url.Parse(targetURL)
+	baseURL, err := url.Parse(targetURLString)
 	if err == nil {
 		// Fix relative links to absolute
 		htmlContent = regexp.MustCompile(`href="/(.*?)"`).ReplaceAllStringFunc(htmlContent, func(m string) string {
@@ -699,7 +770,7 @@ func fetchRawHtmlForLinks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	response := map[string]interface{}{
-		"url":         targetURL,
+		"url":         targetURLString,
 		"rawHtml":     htmlContent,
 		"extractedAt": time.Now().Format(time.RFC3339),
 	}
@@ -1026,12 +1097,25 @@ func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Content extraction request for URL: %s", targetURL)
+	validatedTargetURL, err := validateOutboundURL(targetURL)
+	if err != nil {
+		log.Printf("Content extraction rejected URL %q: %v", targetURL, err)
+		http.Error(w, "Invalid or disallowed URL", http.StatusBadRequest)
+		return
+	}
+
+	targetURLString := validatedTargetURL.String()
+
+	log.Printf("Content extraction request for URL: %s", targetURLString)
 
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if _, err := validateOutboundURL(req.URL.String()); err != nil {
+				return fmt.Errorf("redirect blocked: %w", err)
+			}
+
 			// Allow redirects but limit to 5
 			if len(via) >= 5 {
 				return errors.New("too many redirects")
@@ -1041,7 +1125,7 @@ func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build request with browser-like headers
-	req, err := http.NewRequest("GET", targetURL, nil)
+	req, err := http.NewRequest("GET", targetURLString, nil)
 	if err != nil {
 		log.Printf("Error creating request: %v", err)
 		http.Error(w, "Failed to create request", http.StatusInternalServerError)
@@ -1080,7 +1164,7 @@ func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Simple content extraction - in reality, you'd want to use a more robust algorithm
-	extractedContent, contentType := extractMainContent(body, targetURL)
+	extractedContent, contentType := extractMainContent(body, targetURLString)
 
 	// Return the extracted content as JSON
 	w.Header().Set("Content-Type", "application/json")
@@ -1088,7 +1172,7 @@ func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 
 	// Format the response
 	response := map[string]interface{}{
-		"url":         targetURL,
+		"url":         targetURLString,
 		"content":     extractedContent,
 		"contentType": contentType,
 		"extractedAt": time.Now().Format(time.RFC3339),
@@ -1221,12 +1305,25 @@ func proxyPdfContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("PDF Proxy: Attempting to fetch PDF from: %s", pdfUrl)
+	validatedPDFURL, err := validateOutboundURL(pdfUrl)
+	if err != nil {
+		log.Printf("PDF Proxy: Rejected URL %q: %v", pdfUrl, err)
+		http.Error(w, "Invalid or disallowed PDF URL", http.StatusBadRequest)
+		return
+	}
+
+	pdfURLString := validatedPDFURL.String()
+
+	log.Printf("PDF Proxy: Attempting to fetch PDF from: %s", pdfURLString)
 
 	// Create HTTP client with timeout and redirect handling
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if _, err := validateOutboundURL(req.URL.String()); err != nil {
+				return fmt.Errorf("redirect blocked: %w", err)
+			}
+
 			// Copy headers on redirect
 			for key, values := range via[0].Header {
 				for _, value := range values {
@@ -1242,7 +1339,7 @@ func proxyPdfContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build request with advanced browser-like headers
-	req, err := http.NewRequest("GET", pdfUrl, nil)
+	req, err := http.NewRequest("GET", pdfURLString, nil)
 	if err != nil {
 		log.Printf("PDF Proxy: Error creating request: %v", err)
 		http.Error(w, "Failed to create PDF request", http.StatusInternalServerError)
@@ -1264,7 +1361,7 @@ func proxyPdfContent(w http.ResponseWriter, r *http.Request) {
 	req.Header.Set("Referer", "https://scholar.google.com/")
 
 	// Fetch the PDF
-	log.Printf("PDF Proxy: Sending request to %s", pdfUrl)
+	log.Printf("PDF Proxy: Sending request to %s", pdfURLString)
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("PDF Proxy: Error fetching PDF: %v", err)
@@ -1279,7 +1376,7 @@ func proxyPdfContent(w http.ResponseWriter, r *http.Request) {
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("PDF Proxy: Target server returned status %d for %s", resp.StatusCode, pdfUrl)
+		log.Printf("PDF Proxy: Target server returned status %d for %s", resp.StatusCode, pdfURLString)
 		http.Error(w, fmt.Sprintf("PDF source returned status %d", resp.StatusCode), resp.StatusCode)
 		return
 	}
