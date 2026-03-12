@@ -184,6 +184,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         contextLimitReachedMessage: "Your conversation has reached the context limit. I've added a Continue Conversation button below so you can keep chatting without losing flow, also reset your context to 100% again, just click it to continue from where we left off.",
         ollamaContextRemaining: "Context remaining: {percent}%",
         ollamaContextReset: "Context remaining: 100%",
+        modelChangeContextResetNote: "Context was reset due to model change",
 
         // Message Management
         deleteMessagePair: "Delete this message pair",

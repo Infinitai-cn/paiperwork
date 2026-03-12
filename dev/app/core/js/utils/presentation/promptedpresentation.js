@@ -8,17 +8,21 @@ class PromptedPresentationWorkflow {
 			return 'Untitled presentation';
 		}
 
-		const titleMatch = htmlContent.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-		if (titleMatch && titleMatch[1] && titleMatch[1].trim()) {
-			return titleMatch[1].trim().slice(0, 120);
-		}
+		try {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(htmlContent, 'text/html');
 
-		const h1Match = htmlContent.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-		if (h1Match && h1Match[1]) {
-			const cleanH1 = h1Match[1].replace(/<[^>]+>/g, '').trim();
-			if (cleanH1) {
-				return cleanH1.slice(0, 120);
+			const titleText = (doc.querySelector('title')?.textContent || '').trim();
+			if (titleText) {
+				return titleText.slice(0, 120);
 			}
+
+			const h1Text = (doc.querySelector('h1')?.textContent || '').trim();
+			if (h1Text) {
+				return h1Text.slice(0, 120);
+			}
+		} catch (error) {
+			// Fall through to default title if parsing fails.
 		}
 
 		return 'Untitled presentation';

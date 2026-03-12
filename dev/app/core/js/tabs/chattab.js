@@ -190,6 +190,77 @@ class ChatTab {
         }
     }
 
+    addModelChangeContinueButton() {
+        const aiReplies = document.querySelector('.ai-replies');
+        if (!aiReplies || !window.OllamaAPI || typeof window.OllamaAPI.createContinueButton !== 'function') {
+            return;
+        }
+
+        const assistantMessages = Array.from(aiReplies.querySelectorAll('.assistant-message'))
+            .filter(message => !message.classList.contains('welcome-message'));
+
+        if (assistantMessages.length === 0) {
+            return;
+        }
+
+        const conversations = [];
+        const messageNodes = aiReplies.querySelectorAll('.user-message, .assistant-message');
+
+        messageNodes.forEach(node => {
+            if (node.classList.contains('assistant-message')) {
+                if (node.classList.contains('welcome-message')) {
+                    return;
+                }
+                const assistantMessage = node.querySelector('.ai-response-container')?.innerHTML;
+                if (assistantMessage) {
+                    conversations.push({
+                        role: 'assistant',
+                        message: assistantMessage,
+                        timestamp: Date.now()
+                    });
+                }
+                return;
+            }
+
+            const userMessage = node.querySelector('.message-bubble')?.innerHTML;
+            if (userMessage) {
+                conversations.push({
+                    role: 'user',
+                    message: userMessage,
+                    timestamp: Date.now()
+                });
+            }
+        });
+
+        if (conversations.length === 0) {
+            return;
+        }
+
+        const existingButtons = aiReplies.querySelectorAll('.continuation-container');
+        existingButtons.forEach(button => button.remove());
+
+        const continueButton = window.OllamaAPI.createContinueButton(conversations, aiReplies);
+        const resetNote = document.createElement('div');
+        resetNote.className = 'context-reset-note';
+        resetNote.style.cssText = 'width:100%; text-align:center; align-self:flex-start; margin-bottom:8px;';
+        resetNote.innerHTML = `<small style="color: #888; font-style: italic;">${Lang.get('modelChangeContextResetNote') || Lang.get('contextResetNote') || 'Context was reset due to model change'}</small>`;
+
+        if (continueButton.firstChild) {
+            continueButton.insertBefore(resetNote, continueButton.firstChild);
+        } else {
+            continueButton.appendChild(resetNote);
+        }
+
+        aiReplies.appendChild(continueButton);
+        setTimeout(() => {
+            try {
+                continueButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } catch (_e) {
+                // ignore scroll errors
+            }
+        }, 50);
+    }
+
     // Fetches the current Ollama server version from the local API.
     async getOllamaVersion() {
         try {
@@ -865,6 +936,7 @@ class ChatTab {
                 if (saveButton) saveButton.disabled = true;
                 OllamaAPI.previousContext = null;
                 OllamaAPI.resetContext();
+                this.addModelChangeContinueButton();
 
                 // Load model-specific context size (legacy vramramcalculator removed)
                 if (selectedModel) {

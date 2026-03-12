@@ -383,38 +383,52 @@ class CodeStyler {
 
         return tokenized;
     }
+    static highlightEscapedMarkupTags(input) {
+        return input.replace(/&lt;\/?[a-zA-Z][a-zA-Z0-9]*[\s\S]*?&gt;/g,
+            (fullTag) => {
+                const open = '&lt;';
+                const close = '&gt;';
+                const inner = fullTag.slice(open.length, fullTag.length - close.length);
+                const tagParts = inner.match(/^(\/?[a-zA-Z][a-zA-Z0-9]*)([\s\S]*)$/);
+
+                if (!tagParts) {
+                    return fullTag;
+                }
+
+                const tagName = tagParts[1];
+                const attrs = tagParts[2] || '';
+                let processedAttrs = attrs;
+
+                if (attrs.trim()) {
+                    processedAttrs = attrs.replace(/\s+([a-zA-Z0-9-]+)(?:=(?:&quot;([\s\S]*?)&quot;|&#039;([\s\S]*?)&#039;|([^\s>]*)))?/g,
+                        (attrMatch, attrName, quotedDouble, quotedSingle, unquotedValue) => {
+                            if (quotedDouble !== undefined) {
+                                return ' <span class="syntax-attr">' + attrName + '</span>=<span class="syntax-string">&quot;' + quotedDouble + '&quot;</span>';
+                            }
+
+                            if (quotedSingle !== undefined) {
+                                return ' <span class="syntax-attr">' + attrName + '</span>=<span class="syntax-string">&#039;' + quotedSingle + '&#039;</span>';
+                            }
+
+                            if (unquotedValue !== undefined) {
+                                return ' <span class="syntax-attr">' + attrName + '</span>=<span class="syntax-string">' + unquotedValue + '</span>';
+                            }
+
+                            return ' <span class="syntax-attr">' + attrName + '</span>';
+                        });
+                }
+
+                return `<span class="syntax-tag">${open}${tagName}</span>${processedAttrs}<span class="syntax-tag">${close}</span>`;
+            });
+    }
+
     // Highlights markup (HTML/XML) code with tag and attribute coloring.
     static highlightMarkup(code) {
         // Ensure styles are added
         this.addSyntaxStyles();
 
         // Tags with attributes
-        let html = code.replace(/(&lt;)(\/?[a-zA-Z][a-zA-Z0-9]*)((?:\s+[a-zA-Z0-9-]+(?:=&quot;.*?&quot;|\=&#039;.*?&#039;|\=[^\s&]*)?)*\s*)(&gt;)/g,
-            (match, open, tagName, attrs, close) => {
-                // Process attributes if present
-                let processedAttrs = attrs;
-
-                if (attrs.trim()) {
-                    // Fix: Improved attribute regex pattern that handles both quoted and unquoted values
-                    processedAttrs = attrs.replace(/\s+([a-zA-Z0-9-]+)(=)(?:(&quot;|&#039;)(.*?)(\3)|([^\s>]*))/g,
-                        (attrMatch, attrName, eq, quote, quotedValue, endQuote, unquotedValue) => {
-                            if (quote) {
-                                // Quoted attribute (with &quot; or &#039;)
-                                return ' <span class="syntax-attr">' + attrName + '</span>' + eq +
-                                    '<span class="syntax-string">' + quote + quotedValue + endQuote + '</span>';
-                            } else if (unquotedValue) {
-                                // Unquoted attribute
-                                return ' <span class="syntax-attr">' + attrName + '</span>' + eq +
-                                    '<span class="syntax-string">' + unquotedValue + '</span>';
-                            } else {
-                                // Boolean attribute (without value)
-                                return ' <span class="syntax-attr">' + attrName + '</span>';
-                            }
-                        });
-                }
-
-                return `<span class="syntax-tag">${open}${tagName}</span>${processedAttrs}<span class="syntax-tag">${close}</span>`;
-            });
+        let html = this.highlightEscapedMarkupTags(code);
 
         // HTML comments
         html = html.replace(/(&lt;!--[\s\S]*?--&gt;)/g,
@@ -1535,6 +1549,12 @@ class StreamProcessor {
             this.endCodeBlock();
         }
 
+        // Flush any pending RAF render so post-processing works on the final HTML snapshot.
+        cancelAnimationFrame(this.updateTimer);
+        if (this.responseContainer) {
+            this.responseContainer.innerHTML = this.rawResponseHtml;
+        }
+
         // Handle thinking mode cleanup
         if (this.thinkingMode.timer) {
            //console.log('StreamProcessor: Timer interval cleared in finishResponse');
@@ -1553,6 +1573,7 @@ class StreamProcessor {
         this.cleanLatexExpressions();
         this.postProcessMarkdownLinks();
         this.postProcessTextTables();
+        this.rawResponseHtml = this.responseContainer ? this.responseContainer.innerHTML : this.rawResponseHtml;
        //console.log('StreamProcessor: finishResponse - ensuring message actions are added');
 
         // Store the StreamProcessor instance for reference
@@ -2803,25 +2824,8 @@ class StreamProcessor {
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;');
 
-                    // Apply highlighting that matches the highlightMarkup() method
-                    const highlightedLine = escapedLine.replace(
-                        /(&lt;)(\/?[a-zA-Z][a-zA-Z0-9]*)((?:\s+[a-zA-Z0-9-]+(?:=&quot;.*?&quot;|\=&#039;.*?&#039;|\=[^\s&]*)?)*\s*)(&gt;)/g,
-                        (match, open, tagName, attrs, close) => {
-                            // Process attributes if present
-                            let processedAttrs = attrs;
-
-                            if (attrs.trim()) {
-                                processedAttrs = attrs.replace(/\s+([a-zA-Z0-9-]+)(=)(?:(&quot;|&#039;)(.*?)(\3)|([^\s>]*))/g,
-                                    (attrMatch, attrName, eq, quote, quotedValue, endQuote, unquotedValue) => {
-                                        return ' <span class="syntax-attr">' + attrName + '</span>' + eq +
-                                            (quote ? '<span class="syntax-string">' + quote + quotedValue + endQuote + '</span>' :
-                                                '<span class="syntax-string">' + unquotedValue + '</span>');
-                                    });
-                            }
-
-                            return `<span class="syntax-tag">${open}${tagName}</span>${processedAttrs}<span class="syntax-tag">${close}</span>`;
-                        }
-                    );
+                    // Apply highlighting that matches the highlightMarkup() method.
+                    const highlightedLine = this.highlightEscapedMarkupTags(escapedLine);
 
                     highlightedHtml += highlightedLine + "\n";
                 }

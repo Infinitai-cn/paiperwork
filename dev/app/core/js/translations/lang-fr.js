@@ -183,6 +183,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         contextLimitReachedMessage: "Votre conversation a atteint la limite de contexte. J'ai ajouté un bouton Continuer la Conversation ci-dessous pour que vous puissiez continuer à chatter sans perdre le fil, et aussi remettre votre contexte à 100%, cliquez simplement dessus pour continuer là où nous nous sommes arrêtés.",
         ollamaContextRemaining: "Contexte restant : {percent}%",
         ollamaContextReset: "Contexte restant : 100%",
+        modelChangeContextResetNote: "Le contexte a été réinitialisé en raison d'un changement de modèle",
 
         // Message Management
         deleteMessagePair: "Supprimer cette paire de messages",

@@ -3,6 +3,15 @@
 let htmlPreviewOriginalContent = '';
 let htmlPreviewIsErrorPage = false;
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 
 function loadScript(url) {
     return new Promise((resolve, reject) => {
@@ -140,26 +149,9 @@ window.runHtmlCode = function (button) {
 
 // Helper function to extract text from DOM elements
 function extractTextContent(element) {
-    const tempElement = document.createElement('div');
-    tempElement.innerHTML = element.innerHTML;
+    // Read rendered text directly instead of reparsing HTML markup.
+    const plainText = element?.textContent || '';
 
-    // Extract text content
-    let plainText = '';
-    const extractTextFromNode = (node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-            plainText += node.textContent;
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-            for (const childNode of node.childNodes) {
-                extractTextFromNode(childNode);
-            }
-        }
-    };
-
-    for (const childNode of tempElement.childNodes) {
-        extractTextFromNode(childNode);
-    }
-
-    // Unescape HTML entities
     return plainText
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
@@ -172,17 +164,23 @@ function extractTextContent(element) {
 function addErrorHandlingToScripts(htmlContent) {
     // Get the translated error message text before injecting into script
     const errorMessage = Lang.get('previewJsError');
+    const safeErrorMessageLiteral = JSON.stringify(errorMessage || 'JavaScript Error');
 
     // Create the error handler with the pre-translated text
     const errorHandler = `
     <script>
+    const __previewErrorLabel = ${safeErrorMessageLiteral};
     window.onerror = function(message, source, lineno, colno, error) {
         console.error('Error in preview:', message, 'at', source, lineno, colno);
         if (!document.querySelector('.js-error-overlay')) {
             var errorDiv = document.createElement('div');
             errorDiv.className = 'js-error-overlay';
             errorDiv.style.cssText = 'position:fixed; bottom:0; left:0; right:0; background:#f44336; color:white; padding:10px; z-index:9999; font-family:sans-serif;';
-            errorDiv.innerHTML = '<strong>${errorMessage}</strong> ' + message + (source ? ' in ' + source.split('/').pop() + ':' + lineno : '');
+            var details = String(message || '') + (source ? ' in ' + source.split('/').pop() + ':' + lineno : '');
+            var title = document.createElement('strong');
+            title.textContent = __previewErrorLabel;
+            errorDiv.appendChild(title);
+            errorDiv.appendChild(document.createTextNode(' ' + details));
             document.body.appendChild(errorDiv);
         }
         return true; // Prevents default error handling
@@ -197,7 +195,10 @@ function addErrorHandlingToScripts(htmlContent) {
     ${code}
     } catch (error) {
         console.error('Script error:', error);
-        document.body.innerHTML += '<div style="position:fixed; bottom:0; left:0; right:0; background:#f44336; color:white; padding:10px; z-index:9999; font-family:sans-serif;">' + '${Lang.get('previewJsError')}' + ': ' + error.message + '</div>';
+        var previewErrorDiv = document.createElement('div');
+        previewErrorDiv.style.cssText = 'position:fixed; bottom:0; left:0; right:0; background:#f44336; color:white; padding:10px; z-index:9999; font-family:sans-serif;';
+        previewErrorDiv.textContent = __previewErrorLabel + ': ' + (error && error.message ? error.message : String(error));
+        document.body.appendChild(previewErrorDiv);
     }
     </script>`;
     });
@@ -246,6 +247,13 @@ function showHtmlErrorPage(iframe, error, htmlContent) {
 
     // If we have a line number, show the relevant code snippet
     let codeSnippet = '';
+    const safeErrorMessage = escapeHtml(errorMessage);
+    const safePreviewTitle = escapeHtml(Lang.get('previewHtmlError'));
+    const safeErrorInCode = escapeHtml(Lang.get('previewErrorInCode'));
+    const safeErrorOnLine = escapeHtml(Lang.get('previewErrorOnLine'));
+    const safePreviewColumn = escapeHtml(Lang.get('previewColumn'));
+    const safePreviewYourCode = escapeHtml(Lang.get('previewYourCode'));
+
     if (lineNumber) {
         const lines = htmlContent.split('\n');
 
@@ -255,17 +263,18 @@ function showHtmlErrorPage(iframe, error, htmlContent) {
 
         for (let i = startLine; i <= endLine; i++) {
             const line = lines[i] || '';
+            const safeLine = escapeHtml(line);
             const isErrorLine = i + 1 === lineNumber;
 
             if (isErrorLine && columnNumber) {
                 // Highlight the specific column if available
                 const spacer = ' '.repeat(columnNumber - 1);
                 codeSnippet += `<div class="line-number">${i + 1}</div>
-                                <pre class="error-line">${line}</pre>
-                                <pre class="error-indicator">${spacer}^</pre>`;
+                                <pre class="error-line">${safeLine}</pre>
+                                <pre class="error-indicator">${escapeHtml(spacer)}^</pre>`;
             } else {
                 codeSnippet += `<div class="line-number">${i + 1}</div>
-                                <pre class="${isErrorLine ? 'error-line' : ''}">${line}</pre>`;
+                                <pre class="${isErrorLine ? 'error-line' : ''}">${safeLine}</pre>`;
             }
         }
     }
@@ -275,7 +284,7 @@ function showHtmlErrorPage(iframe, error, htmlContent) {
     <!DOCTYPE html>
     <html>
     <head>
-        <title>${Lang.get('previewHtmlError')}</title>
+        <title>${safePreviewTitle}</title>
         <style>
             html, body {
                 height: 100%;
@@ -343,19 +352,19 @@ function showHtmlErrorPage(iframe, error, htmlContent) {
     <body>
         <div id="content-wrapper">
             <div class="error-banner">
-                <h2>${Lang.get('previewErrorInCode')}</h2>
-                <p>${errorMessage}</p>
+                <h2>${safeErrorInCode}</h2>
+                <p>${safeErrorMessage}</p>
             </div>
             
             ${lineNumber ? `
             <div class="error-specific">
-                <h3>${Lang.get('previewErrorOnLine')} ${lineNumber}${columnNumber ? ', ' + Lang.get('previewColumn') + ' ' + columnNumber : ''}</h3>
+                <h3>${safeErrorOnLine} ${lineNumber}${columnNumber ? ', ' + safePreviewColumn + ' ' + columnNumber : ''}</h3>
                 ${codeSnippet}
             </div>
             ` : ''}
             
-            <h3>${Lang.get('previewYourCode')}</h3>
-            <pre>${htmlContent.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+            <h3>${safePreviewYourCode}</h3>
+            <pre>${escapeHtml(htmlContent)}</pre>
         </div>
     </body>
     </html>
@@ -889,24 +898,7 @@ function extractCodeContent(codeElement) {
         return codeElement.dataset.cleanCode;
     }
 
-    // Create a temp element and extract text, removing HTML tags
-    const tempElement = document.createElement('div');
-    tempElement.innerHTML = codeElement.innerHTML;
-
-    let plainText = '';
-    const extractTextFromNode = (node) => {
-        if (node.nodeType === Node.TEXT_NODE) {
-            plainText += node.textContent;
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-            for (const childNode of node.childNodes) {
-                extractTextFromNode(childNode);
-            }
-        }
-    };
-
-    for (const childNode of tempElement.childNodes) {
-        extractTextFromNode(childNode);
-    }
+    const plainText = codeElement?.textContent || '';
 
     // Unescape HTML entities
     return plainText

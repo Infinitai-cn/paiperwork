@@ -183,6 +183,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 contextLimitReachedMessage: "您的对话已达到上下文限制。我已在下方添加继续对话按钮，这样您可以保持聊天流畅，同时将您的上下文重置为100%，只需点击即可从中断处继续。",
                 ollamaContextRemaining: "剩余上下文：{percent}%",
                 ollamaContextReset: "剩余上下文：100%",
+                modelChangeContextResetNote: "上下文已因模型切换而重置",
 
                 // Message Management
                 deleteMessagePair: "删除此消息对",
