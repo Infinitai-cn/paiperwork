@@ -2204,6 +2204,54 @@ window.helpContent = {
         ],
     },
     // 翻译选项卡部分
+    artifacts: {
+        title: "Artifacts",
+        intro: "Artifacts 标签页是一个专用工作区，用于生成交互式 HTML 成品、结合 AI 持续优化，并保存可复用结果。",
+        articles: [
+            {
+                id: "artifacts-overview",
+                title: "功能概览",
+                content: `
+            <p>Artifacts 标签页聚焦全屏 HTML 成品生成流程，适合快速制作原型、落地页、交互片段和视觉实验。</p>
+            <ul>
+                <li><strong>主要输出</strong> - AI 返回可运行的 HTML/CSS/JS，并直接在预览区域打开。</li>
+                <li><strong>迭代流程</strong> - 可持续提出修改、重新生成，并在同一工作区即时验证效果。</li>
+                <li><strong>模型支持</strong> - 支持你在模型选择器中可用的本地或云端模型。</li>
+            </ul>
+        `,
+            },
+            {
+                id: "artifacts-controls",
+                title: "按钮与控制项",
+                content: `
+            <p>顶部控制项专为快速提示词迭代设计：</p>
+            <ul>
+                <li><strong>Web / Web active</strong> - 切换联网辅助生成模式；激活后标签会变化。</li>
+                <li><strong>Send</strong> - 提交提示词并开始生成。</li>
+                <li><strong>进度条</strong> - 请求进行中时会显示在顶部栏。</li>
+                <li><strong>Cancel</strong> - 按需停止当前生成。</li>
+            </ul>
+            <p>提示：建议按“目标、布局、交互、约束”组织提示词，可提升首轮结果质量。</p>
+        `,
+            },
+            {
+                id: "artifacts-saved",
+                title: "已保存 Artifacts 与提示词记录",
+                content: `
+            <p>生成结果可保存到本地加密数据库，并可在侧边栏随时重新打开。</p>
+            <ul>
+                <li><strong>Save</strong> - 保存当前成品，便于后续复用。</li>
+                <li><strong>从侧边栏打开</strong> - 点击已保存项可重新加载到预览区。</li>
+                <li><strong>Prompt 按钮</strong> - 查看创建该 artifact 时使用的提示词。</li>
+                <li><strong>复制提示词</strong> - 在提示词弹窗中复制已保存提示词，用于复用或继续优化。</li>
+                <li><strong>Delete</strong> - 删除不再需要的已保存 artifacts。</li>
+            </ul>
+            <p>该流程可帮助你建立“结果 + 原始指令”的可复用资产库。</p>
+        `,
+            },
+        ],
+    },
+
     translate: {
         title: "翻译",
         intro: "翻译选项卡使用 AI 转换文档文本，并提供浮动预览窗口用于审阅、实时更新与导出。",

@@ -2217,6 +2217,54 @@ window.helpContent = {
         ],
     },
     // Sección de la pestaña Traducir
+    artifacts: {
+        title: "Artifacts",
+        intro: "La pestaña Artifacts es un espacio dedicado para generar artefactos HTML interactivos, refinarlos con IA y guardar resultados reutilizables.",
+        articles: [
+            {
+                id: "artifacts-overview",
+                title: "Descripcion general",
+                content: `
+            <p>La pestaña Artifacts se centra en la generacion de artefactos HTML en un flujo de trabajo de pantalla completa. Es ideal para prototipos, landing pages, fragmentos interactivos y experimentos visuales a partir de prompts.</p>
+            <ul>
+                <li><strong>Salida principal</strong> - la IA devuelve contenido HTML/CSS/JS ejecutable y lo abre en el area de vista previa.</li>
+                <li><strong>Bucle de iteracion</strong> - solicita cambios, regenera y valida el comportamiento en el mismo espacio.</li>
+                <li><strong>Compatibilidad de modelos</strong> - funciona con modelos locales o en la nube disponibles en el selector.</li>
+            </ul>
+        `,
+            },
+            {
+                id: "artifacts-controls",
+                title: "Botones y controles",
+                content: `
+            <p>Los controles del encabezado estan pensados para iterar prompts rapidamente:</p>
+            <ul>
+                <li><strong>Web / Web active</strong> - activa o desactiva el modo asistido por web; la etiqueta cambia cuando esta activo.</li>
+                <li><strong>Send</strong> - envia el prompt e inicia la generacion.</li>
+                <li><strong>Barra de progreso</strong> - aparece en el encabezado mientras la solicitud esta en curso.</li>
+                <li><strong>Cancel</strong> - detiene la generacion actual cuando sea necesario.</li>
+            </ul>
+            <p>Consejo: estructura el prompt (objetivo, layout, interacciones, restricciones) para mejorar la calidad del primer resultado.</p>
+        `,
+            },
+            {
+                id: "artifacts-saved",
+                title: "Artifacts guardados e historial de prompts",
+                content: `
+            <p>Los artifacts generados pueden guardarse en la base de datos local cifrada y abrirse mas tarde desde la barra lateral.</p>
+            <ul>
+                <li><strong>Save</strong> - guarda el resultado actual para reutilizarlo despues.</li>
+                <li><strong>Abrir desde la barra lateral</strong> - haz clic en un elemento guardado para cargarlo en la vista previa.</li>
+                <li><strong>Boton Prompt</strong> - muestra el prompt usado para crear ese artifact.</li>
+                <li><strong>Copiar prompt</strong> - copia el prompt guardado desde el dialogo para reutilizarlo o ajustarlo.</li>
+                <li><strong>Delete</strong> - elimina artifacts guardados que ya no necesites.</li>
+            </ul>
+            <p>Este flujo te ayuda a mantener una biblioteca reutilizable de resultados y sus instrucciones originales.</p>
+        `,
+            },
+        ],
+    },
+
     translate: {
         title: "Traducir",
         intro: "La pestaña Traducir convierte texto de documentos con IA y ofrece una ventana flotante de vista previa para revisión, actualizaciones en vivo y exportación.",

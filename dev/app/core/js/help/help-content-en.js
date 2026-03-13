@@ -2232,6 +2232,54 @@ window.helpContent = {
         ],
     },
 
+    artifacts: {
+        title: "Artifacts",
+        intro: "The Artifacts tab is a dedicated workspace for generating interactive HTML artifacts, refining them with AI, and saving reusable results.",
+        articles: [
+            {
+                id: "artifacts-overview",
+                title: "Overview",
+                content: `
+            <p>The Artifacts tab focuses on HTML artifact generation in a full-screen workflow. It is useful for building prototypes, landing pages, interactive snippets, and visual experiments directly from prompts.</p>
+            <ul>
+                <li><strong>Main output</strong> - AI returns runnable HTML/CSS/JS content and opens it in the preview area.</li>
+                <li><strong>Iteration loop</strong> - ask for changes, regenerate, and immediately validate behavior in the same workspace.</li>
+                <li><strong>Model support</strong> - works with local or cloud models available in your model selector.</li>
+            </ul>
+        `,
+            },
+            {
+                id: "artifacts-controls",
+                title: "Buttons and Controls",
+                content: `
+            <p>The header controls are designed for fast prompt iteration:</p>
+            <ul>
+                <li><strong>Web / Web active</strong> - toggles web-assisted generation mode; label changes when active.</li>
+                <li><strong>Send</strong> - submits your prompt and starts generation.</li>
+                <li><strong>Progress bar</strong> - appears in the header while a request is running.</li>
+                <li><strong>Cancel</strong> - stop the current generation when needed.</li>
+            </ul>
+            <p>Tip: keep prompts structured (goal, layout, interactions, constraints) to improve first-pass output quality.</p>
+        `,
+            },
+            {
+                id: "artifacts-saved",
+                title: "Saved Artifacts and Prompt History",
+                content: `
+            <p>Generated artifacts can be stored in the encrypted local database and reopened later from the sidebar.</p>
+            <ul>
+                <li><strong>Save</strong> - stores the current artifact output for later reuse.</li>
+                <li><strong>Open from sidebar</strong> - click a saved entry to load it back into preview.</li>
+                <li><strong>Prompt button</strong> - opens the prompt used to create that artifact.</li>
+                <li><strong>Copy prompt</strong> - copy the saved prompt from the prompt dialog to reuse or refine it.</li>
+                <li><strong>Delete</strong> - remove saved artifacts you no longer need.</li>
+            </ul>
+            <p>This workflow helps you keep a reusable library of artifact outputs and their original instructions.</p>
+        `,
+            },
+        ],
+    },
+
     // Translate Tab section
     translate: {
         title: "Translate",

@@ -101,6 +101,7 @@
                         <button class="tab-button" data-tab="research">Research</button>
                         <button class="tab-button" data-tab="artwork">Artwork</button>
                         <button class="tab-button" data-tab="presentation">SlideForge</button>
+                        <button class="tab-button" data-tab="artifacts">Artifacts</button>
                         <button class="tab-button" data-tab="models">Models</button>
                         <button class="tab-button" data-tab="database">Database</button>
                     </div>
@@ -170,6 +171,12 @@
                         <div class="tab-pane" id="presentation-tab">
                             <div class="loading-placeholder">
                                 <p id="loading-presentation">Loading SlideForge tools...</p>
+                            </div>
+                        </div>
+                        <!-- Artifacts Tab -->
+                        <div class="tab-pane" id="artifacts-tab">
+                            <div class="loading-placeholder">
+                                <p id="loading-artifacts">Loading Artifacts tools...</p>
                             </div>
                         </div>
                         <!-- Models Tab -->
@@ -309,6 +316,7 @@
                 updateElementText('loading-research', 'loadingResearchTools');
                 updateElementText('loading-design', 'loadingDesignTools');
                 updateElementText('loading-presentation', 'loadingSlideForgeTools');
+                updateElementText('loading-artifacts', 'loadingArtifactsTools');
                 updateElementText('loading-database', 'loadingDatabaseStats');
 
                 const syncContextCardsVisibility = () => {

@@ -9,7 +9,9 @@ class PaiperworkDB {
     static ollamaApiKeyCache = new Map();
 
     static normalizeDbRole(role = 'main') {
-        return role === 'rag' ? 'rag' : 'main';
+        if (role === 'rag') return 'rag';
+        if (role === 'html') return 'html';
+        return 'main';
     }
 
     static getTrackedOpenDatabase(hashedMasterKey, role = 'main') {
@@ -36,22 +38,31 @@ class PaiperworkDB {
     static getOpenDatabaseState(hashedMasterKey) {
         return {
             main: !!this.getTrackedOpenDatabase(hashedMasterKey, 'main'),
-            rag: !!this.getTrackedOpenDatabase(hashedMasterKey, 'rag')
+            rag: !!this.getTrackedOpenDatabase(hashedMasterKey, 'rag'),
+            html: !!this.getTrackedOpenDatabase(hashedMasterKey, 'html')
         };
     }
 
     static getDbFileName(hashedMasterKey, role = 'main') {
         const normalizedRole = this.normalizeDbRole(role);
-        return normalizedRole === 'rag'
-            ? `${hashedMasterKey}.rag.db`
-            : `${hashedMasterKey}.db`;
+        if (normalizedRole === 'rag') {
+            return `${hashedMasterKey}.rag.db`;
+        }
+        if (normalizedRole === 'html') {
+            return `${hashedMasterKey}.html.db`;
+        }
+        return `${hashedMasterKey}.db`;
     }
 
     static getDbStorageKey(hashedMasterKey, role = 'main') {
         const normalizedRole = this.normalizeDbRole(role);
-        return normalizedRole === 'rag'
-            ? `${hashedMasterKey}::rag`
-            : hashedMasterKey;
+        if (normalizedRole === 'rag') {
+            return `${hashedMasterKey}::rag`;
+        }
+        if (normalizedRole === 'html') {
+            return `${hashedMasterKey}::html`;
+        }
+        return hashedMasterKey;
     }
 
     // Detects if the browser is Safari.
@@ -324,6 +335,10 @@ class PaiperworkDB {
         return this.getDatabase(hashedMasterKey, 'rag', true);
     }
 
+    static async getHtmlDatabase(hashedMasterKey) {
+        return this.getDatabase(hashedMasterKey, 'html', true);
+    }
+
     static async closeRoleDatabases(role = 'rag', hashedMasterKey = null) {
         const normalizedRole = this.normalizeDbRole(role);
         const remaining = [];
@@ -349,6 +364,10 @@ class PaiperworkDB {
 
     static async closeRagDatabases(hashedMasterKey = null) {
         return this.closeRoleDatabases('rag', hashedMasterKey);
+    }
+
+    static async closeHtmlDatabases(hashedMasterKey = null) {
+        return this.closeRoleDatabases('html', hashedMasterKey);
     }
 
     // Migrates a plaintext localStorage key to encrypted storage using secureLocalStorageSet.
@@ -1091,7 +1110,47 @@ class PaiperworkDB {
         }
     }
 
-    // Save a promptable presentation HTML (encrypted) for a given masterkey
+    static async savePromptablePresentationHtmlContent(hashedMasterKey, presentationId, html) {
+        if (!hashedMasterKey || !presentationId) return false;
+
+        let htmlDb = null;
+
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const htmlTableName = `promptable_presentations_html_${hashedMasterKey}`;
+            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
+            htmlDb = existingHtmlDb ? new this.SQL.Database(existingHtmlDb) : new this.SQL.Database();
+
+            htmlDb.run(`
+                CREATE TABLE IF NOT EXISTS ${htmlTableName} (
+                    presentation_id INTEGER PRIMARY KEY,
+                    html_content TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            const encryptedHtml = await this.encrypt(hashedMasterKey, html || '');
+            htmlDb.run(
+                `INSERT OR REPLACE INTO ${htmlTableName} (presentation_id, html_content, updated_at) VALUES (?, ?, ?)`,
+                [presentationId, JSON.stringify(encryptedHtml), new Date().toISOString()]
+            );
+
+            await this.saveToStorage(htmlDb.export(), hashedMasterKey, 'html');
+            return true;
+        } finally {
+            try {
+                htmlDb?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
+        }
+    }
+
+    // Save a promptable presentation metadata in main DB and HTML content in html DB.
     static async savePromptablePresentation(hashedMasterKey, payload) {
         try {
             if (!hashedMasterKey) throw new Error('Missing master key');
@@ -1106,13 +1165,6 @@ class PaiperworkDB {
             const now = new Date().toISOString();
             const tableName = `promptable_presentations_${hashedMasterKey}`;
 
-            console.info('savePromptablePresentation: start', {
-                tableName,
-                title,
-                htmlLength: html.length,
-                masterKeyPrefix: String(hashedMasterKey).slice(0, 8)
-            });
-
             await this.initializeDatabase(hashedMasterKey);
 
             if (!this.SQL) {
@@ -1121,16 +1173,12 @@ class PaiperworkDB {
 
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
             const db = existingDb ? new this.SQL.Database(existingDb) : new this.SQL.Database();
-            console.info('savePromptablePresentation: opened database', {
-                tableName,
-                hasExistingDb: !!existingDb
-            });
 
+            // Keep metadata in main database only.
             db.run(`
                 CREATE TABLE IF NOT EXISTS ${tableName} (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title TEXT,
-                    html_content TEXT,
                     mode TEXT DEFAULT 'html',
                     created_at TEXT,
                     updated_at TEXT
@@ -1143,10 +1191,9 @@ class PaiperworkDB {
                 db.run(`ALTER TABLE ${tableName} ADD COLUMN mode TEXT DEFAULT 'html'`);
             }
 
-            const encryptedHtml = await this.encrypt(hashedMasterKey, html);
             db.run(
-                `INSERT INTO ${tableName} (title, html_content, mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-                [title, JSON.stringify(encryptedHtml), mode, now, now]
+                `INSERT INTO ${tableName} (title, mode, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+                [title, mode, now, now]
             );
 
             const idResult = db.exec(`SELECT last_insert_rowid() AS id`);
@@ -1155,22 +1202,15 @@ class PaiperworkDB {
                 : null;
 
             await this.saveToStorage(db.export(), hashedMasterKey);
-            console.info('savePromptablePresentation: success', {
-                tableName,
-                insertedId
-            });
+
+            if (!insertedId) {
+                throw new Error('Could not create promptable presentation metadata record');
+            }
+
+            await this.savePromptablePresentationHtmlContent(hashedMasterKey, insertedId, html);
             return insertedId;
         } catch (error) {
-            console.error('savePromptablePresentation error:', {
-                error,
-                message: error && error.message ? error.message : String(error),
-                stack: error && error.stack ? error.stack : null,
-                hasPayload: !!payload,
-                payloadKeys: payload && typeof payload === 'object' ? Object.keys(payload) : [],
-                htmlLength: payload && typeof payload.html === 'string' ? payload.html.length : 0,
-                hasMasterKey: !!hashedMasterKey,
-                masterKeyPrefix: hashedMasterKey ? String(hashedMasterKey).slice(0, 8) : null
-            });
+            console.error('savePromptablePresentation error:', error);
             throw error;
         }
     }
@@ -1220,6 +1260,7 @@ class PaiperworkDB {
 
     // Load and decrypt a promptable presentation HTML by id
     static async loadPromptablePresentationHtml(hashedMasterKey, id) {
+        let htmlDb = null;
         try {
             if (!hashedMasterKey || !id) return '';
 
@@ -1229,41 +1270,49 @@ class PaiperworkDB {
                 this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
             }
 
-            const existingDb = await this.getExistingDatabase(hashedMasterKey);
-            if (!existingDb) return '';
+            const htmlTableName = `promptable_presentations_html_${hashedMasterKey}`;
+            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
+            if (!existingHtmlDb) return '';
 
-            const db = new this.SQL.Database(existingDb);
-            const tableName = `promptable_presentations_${hashedMasterKey}`;
-            const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
-            if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
+            htmlDb = new this.SQL.Database(existingHtmlDb);
+            const htmlTableCheck = htmlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
+            if (!htmlTableCheck || !htmlTableCheck[0] || !htmlTableCheck[0].values.length) {
                 return '';
             }
 
-            const rowResult = db.exec(`SELECT html_content FROM ${tableName} WHERE id = ? LIMIT 1`, [id]);
-            if (!rowResult || !rowResult[0] || !rowResult[0].values || !rowResult[0].values.length) {
+            const htmlResult = htmlDb.exec(
+                `SELECT html_content FROM ${htmlTableName} WHERE presentation_id = ? LIMIT 1`,
+                [id]
+            );
+            if (!htmlResult || !htmlResult[0] || !htmlResult[0].values || !htmlResult[0].values.length) {
                 return '';
             }
 
-            const encryptedStr = rowResult[0].values[0][0];
+            const encryptedStr = htmlResult[0].values[0][0];
             if (!encryptedStr) return '';
 
-            let parsedEncrypted;
             try {
-                parsedEncrypted = JSON.parse(encryptedStr);
-            } catch (error) {
+                const parsedEncrypted = JSON.parse(encryptedStr);
+                const decrypted = await this.decrypt(hashedMasterKey, parsedEncrypted);
+                return decrypted || '';
+            } catch (_error) {
                 return '';
             }
-
-            const decrypted = await this.decrypt(hashedMasterKey, parsedEncrypted);
-            return decrypted || '';
         } catch (error) {
             console.error('loadPromptablePresentationHtml error:', error);
             return '';
+        } finally {
+            try {
+                htmlDb?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
         }
     }
 
     // Delete a saved promptable presentation by id
     static async deletePromptablePresentation(hashedMasterKey, id) {
+        let htmlDb = null;
         try {
             if (!hashedMasterKey || !id) return false;
 
@@ -1285,10 +1334,276 @@ class PaiperworkDB {
 
             db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
             await this.saveToStorage(db.export(), hashedMasterKey);
+
+            const htmlTableName = `promptable_presentations_html_${hashedMasterKey}`;
+            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
+            if (existingHtmlDb) {
+                htmlDb = new this.SQL.Database(existingHtmlDb);
+                const htmlTableCheck = htmlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
+                if (htmlTableCheck && htmlTableCheck[0] && htmlTableCheck[0].values.length) {
+                    htmlDb.run(`DELETE FROM ${htmlTableName} WHERE presentation_id = ?`, [id]);
+                    await this.saveToStorage(htmlDb.export(), hashedMasterKey, 'html');
+                }
+            }
+
             return true;
         } catch (error) {
             console.error('deletePromptablePresentation error:', error);
             return false;
+        } finally {
+            try {
+                htmlDb?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
+        }
+    }
+
+    static async saveArtifactHtmlContent(hashedMasterKey, artifactId, html) {
+        if (!hashedMasterKey || !artifactId) return false;
+
+        let htmlDb = null;
+
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const htmlTableName = `artifacts_html_${hashedMasterKey}`;
+            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
+            htmlDb = existingHtmlDb ? new this.SQL.Database(existingHtmlDb) : new this.SQL.Database();
+
+            htmlDb.run(`
+                CREATE TABLE IF NOT EXISTS ${htmlTableName} (
+                    artifact_id INTEGER PRIMARY KEY,
+                    html_content TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            const encryptedHtml = await this.encrypt(hashedMasterKey, html || '');
+            htmlDb.run(
+                `INSERT OR REPLACE INTO ${htmlTableName} (artifact_id, html_content, updated_at) VALUES (?, ?, ?)`,
+                [artifactId, JSON.stringify(encryptedHtml), new Date().toISOString()]
+            );
+
+            await this.saveToStorage(htmlDb.export(), hashedMasterKey, 'html');
+            return true;
+        } finally {
+            try {
+                htmlDb?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
+        }
+    }
+
+    // Save artifact metadata in main DB and HTML content in html DB.
+    static async saveArtifact(hashedMasterKey, payload) {
+        try {
+            if (!hashedMasterKey) throw new Error('Missing master key');
+
+            const html = payload && typeof payload.html === 'string' ? payload.html : '';
+            if (!html.trim()) {
+                throw new Error('Missing artifact HTML');
+            }
+
+            const title = (payload && payload.title ? String(payload.title) : '').trim() || 'Untitled artifact';
+            const promptText = payload && typeof payload.prompt === 'string' ? payload.prompt : '';
+            const now = new Date().toISOString();
+            const tableName = `artifacts_${hashedMasterKey}`;
+
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            const db = existingDb ? new this.SQL.Database(existingDb) : new this.SQL.Database();
+
+            db.run(`
+                CREATE TABLE IF NOT EXISTS ${tableName} (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT,
+                    prompt_text TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            const tableInfo = db.exec(`PRAGMA table_info(${tableName})`);
+            const hasPromptColumn = !!(tableInfo && tableInfo[0] && tableInfo[0].values && tableInfo[0].values.some((row) => row[1] === 'prompt_text'));
+            if (!hasPromptColumn) {
+                db.run(`ALTER TABLE ${tableName} ADD COLUMN prompt_text TEXT`);
+            }
+
+            db.run(
+                `INSERT INTO ${tableName} (title, prompt_text, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+                [title, promptText, now, now]
+            );
+
+            const idResult = db.exec(`SELECT last_insert_rowid() AS id`);
+            const insertedId = idResult && idResult[0] && idResult[0].values && idResult[0].values[0]
+                ? idResult[0].values[0][0]
+                : null;
+
+            await this.saveToStorage(db.export(), hashedMasterKey);
+
+            if (!insertedId) {
+                throw new Error('Could not create artifact metadata record');
+            }
+
+            await this.saveArtifactHtmlContent(hashedMasterKey, insertedId, html);
+            return insertedId;
+        } catch (error) {
+            console.error('saveArtifact error:', error);
+            throw error;
+        }
+    }
+
+    // Load artifact list metadata for a given masterkey
+    static async getArtifacts(hashedMasterKey) {
+        try {
+            if (!hashedMasterKey) return [];
+
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            if (!existingDb) return [];
+
+            const db = new this.SQL.Database(existingDb);
+            const tableName = `artifacts_${hashedMasterKey}`;
+            const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+            if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
+                return [];
+            }
+
+            const tableInfo = db.exec(`PRAGMA table_info(${tableName})`);
+            const hasPromptColumn = !!(tableInfo && tableInfo[0] && tableInfo[0].values && tableInfo[0].values.some((row) => row[1] === 'prompt_text'));
+            const selectPrompt = hasPromptColumn ? 'prompt_text' : "'' AS prompt_text";
+
+            const rows = db.exec(`SELECT id, title, ${selectPrompt}, created_at, updated_at FROM ${tableName} ORDER BY updated_at DESC, id DESC`);
+            if (!rows || !rows[0] || !rows[0].values) {
+                return [];
+            }
+
+            return rows[0].values.map(row => ({
+                id: row[0],
+                title: row[1] || '',
+                prompt_text: row[2] || '',
+                created_at: row[3] || '',
+                updated_at: row[4] || ''
+            }));
+        } catch (error) {
+            console.error('getArtifacts error:', error);
+            return [];
+        }
+    }
+
+    // Load and decrypt artifact HTML by id
+    static async loadArtifactHtml(hashedMasterKey, id) {
+        let htmlDb = null;
+        try {
+            if (!hashedMasterKey || !id) return '';
+
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const htmlTableName = `artifacts_html_${hashedMasterKey}`;
+            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
+            if (!existingHtmlDb) return '';
+
+            htmlDb = new this.SQL.Database(existingHtmlDb);
+            const htmlTableCheck = htmlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
+            if (!htmlTableCheck || !htmlTableCheck[0] || !htmlTableCheck[0].values.length) {
+                return '';
+            }
+
+            const htmlResult = htmlDb.exec(
+                `SELECT html_content FROM ${htmlTableName} WHERE artifact_id = ? LIMIT 1`,
+                [id]
+            );
+            if (!htmlResult || !htmlResult[0] || !htmlResult[0].values || !htmlResult[0].values.length) {
+                return '';
+            }
+
+            const encryptedStr = htmlResult[0].values[0][0];
+            if (!encryptedStr) return '';
+
+            try {
+                const parsedEncrypted = JSON.parse(encryptedStr);
+                const decrypted = await this.decrypt(hashedMasterKey, parsedEncrypted);
+                return decrypted || '';
+            } catch (_error) {
+                return '';
+            }
+        } catch (error) {
+            console.error('loadArtifactHtml error:', error);
+            return '';
+        } finally {
+            try {
+                htmlDb?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
+        }
+    }
+
+    // Delete a saved artifact by id
+    static async deleteArtifact(hashedMasterKey, id) {
+        let htmlDb = null;
+        try {
+            if (!hashedMasterKey || !id) return false;
+
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey);
+            if (!existingDb) return false;
+
+            const db = new this.SQL.Database(existingDb);
+            const tableName = `artifacts_${hashedMasterKey}`;
+            const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+            if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
+                return false;
+            }
+
+            db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
+            await this.saveToStorage(db.export(), hashedMasterKey);
+
+            const htmlTableName = `artifacts_html_${hashedMasterKey}`;
+            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
+            if (existingHtmlDb) {
+                htmlDb = new this.SQL.Database(existingHtmlDb);
+                const htmlTableCheck = htmlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
+                if (htmlTableCheck && htmlTableCheck[0] && htmlTableCheck[0].values.length) {
+                    htmlDb.run(`DELETE FROM ${htmlTableName} WHERE artifact_id = ?`, [id]);
+                    await this.saveToStorage(htmlDb.export(), hashedMasterKey, 'html');
+                }
+            }
+
+            return true;
+        } catch (error) {
+            console.error('deleteArtifact error:', error);
+            return false;
+        } finally {
+            try {
+                htmlDb?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
         }
     }
 
@@ -1334,6 +1649,15 @@ class PaiperworkDB {
                         opfsDeleted = false;
                     }
                 }
+
+                try {
+                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'html'));
+                } catch (error) {
+                    if (error?.name !== 'NotFoundError') {
+                        console.warn('Error deleting html database from OPFS:', error);
+                        opfsDeleted = false;
+                    }
+                }
             } catch (error) {
                 // If directory doesn't exist, that's fine
                //console.log('No PaiperworkDB directory in OPFS or other error:', error);
@@ -1350,11 +1674,19 @@ class PaiperworkDB {
                 const store = transaction.objectStore('databases');
                 const mainKey = this.getDbStorageKey(hashedMasterKey, 'main');
                 const ragKey = this.getDbStorageKey(hashedMasterKey, 'rag');
+                const htmlKey = this.getDbStorageKey(hashedMasterKey, 'html');
                 const deleteRequest = store.delete(mainKey);
 
                 deleteRequest.onsuccess = () => {
                     const deleteRagRequest = store.delete(ragKey);
-                    deleteRagRequest.onsuccess = () => resolve(true);
+                    deleteRagRequest.onsuccess = () => {
+                        const deleteHtmlRequest = store.delete(htmlKey);
+                        deleteHtmlRequest.onsuccess = () => resolve(true);
+                        deleteHtmlRequest.onerror = () => {
+                            console.error('Error deleting html database from IndexedDB:', deleteHtmlRequest.error);
+                            resolve(false);
+                        };
+                    };
                     deleteRagRequest.onerror = () => {
                         console.error('Error deleting rag database from IndexedDB:', deleteRagRequest.error);
                         resolve(false);
@@ -1381,6 +1713,7 @@ class PaiperworkDB {
        //console.log('🗑️ Starting deletion of all data');
 
         await this.closeRoleDatabases('rag');
+        await this.closeRoleDatabases('html');
         await this.closeRoleDatabases('main');
 
         // CRITICAL FIX: Ensure we know our current storage strategy
@@ -4114,14 +4447,16 @@ class PaiperworkDB {
         try {
             const db = await PaiperworkDB.getDatabase(hashedMasterKey, 'main');
             const ragDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'rag');
-            if (!db || !ragDb) {
+            const htmlDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'html');
+            if (!db || !ragDb || !htmlDb) {
                 throw new Error(Lang.get("databaseNotAvailable") || "Database not available");
             }
 
-            // Get total database size (main + rag)
+            // Get total database size (main + rag + html payload db)
             const exportedDb = db.export();
             const exportedRagDb = ragDb.export();
-            const totalSizeInBytes = exportedDb.length + exportedRagDb.length;
+            const exportedHtmlDb = htmlDb.export();
+            const totalSizeInBytes = exportedDb.length + exportedRagDb.length + exportedHtmlDb.length;
 
             // Get document count (guard if table doesn't exist yet)
             let documentCount = 0;

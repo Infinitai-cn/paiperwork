@@ -2844,15 +2844,26 @@ function createSummaryModal() {
             editableNotice.remove();
         }
 
-        // Create an invisible div for proper text extraction
-        const textDiv = document.createElement('div');
-        textDiv.style.cssText = 'white-space: pre-wrap; position: absolute; left: -9999px;';
-        textDiv.appendChild(tempDiv);
-        document.body.appendChild(textDiv);
+        // Remove optional UI helpers that should not be copied
+        const tableOfContents = tempDiv.querySelector('.summary-toc');
+        if (tableOfContents) {
+            tableOfContents.remove();
+        }
 
-        // Extract properly formatted plain text with preserved structure
-        const textToCopy = textDiv.innerText || textDiv.textContent;
-        document.body.removeChild(textDiv);
+        // Convert structural tags to consistent line breaks, then normalize spacing.
+        tempDiv.querySelectorAll('br').forEach((el) => {
+            el.replaceWith(document.createTextNode('\n'));
+        });
+        tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6, p, li, tr').forEach((el) => {
+            el.appendChild(document.createTextNode('\n'));
+        });
+
+        const rawText = tempDiv.textContent || '';
+        const textToCopy = rawText
+            .replace(/\r\n?/g, '\n')
+            .replace(/[ \t]+\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
 
         navigator.clipboard.writeText(textToCopy)
             .then(() => {

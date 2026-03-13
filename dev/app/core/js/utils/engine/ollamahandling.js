@@ -99,6 +99,97 @@ class OllamaAPI {
     static countTokens(text) {
         return text.split(/[\s,.!?;:'"()\[\]{}]+/).length;
     }
+    
+    static normalizeConversationText(text, maxChars = 1200) {
+        if (typeof text !== 'string') return '';
+        const normalized = text
+            .replace(/\s+/g, ' ')
+            .replace(/\u00a0/g, ' ')
+            .trim();
+        if (!normalized) return '';
+        if (normalized.length <= maxChars) return normalized;
+        return normalized.substring(0, maxChars) + '...';
+    }
+    
+    static getMessageTextForHistory(messageNode, maxCharsPerTurn = 1200) {
+        if (!messageNode) return '';
+        
+        const role = messageNode.classList.contains('user-message') ? 'user' : 'assistant';
+        let text = '';
+        
+        if (role === 'user') {
+            const userBubble = messageNode.querySelector('.message-bubble');
+            text = userBubble?.textContent || '';
+        } else {
+            const responseContainer = messageNode.querySelector('.ai-response-container');
+            const assistantBubble = messageNode.querySelector('.message-bubble');
+            text = responseContainer?.textContent || assistantBubble?.textContent || '';
+        }
+        
+        return this.normalizeConversationText(text, maxCharsPerTurn);
+    }
+    
+    static buildCloudConversationHistoryBlock(currentUserPrompt = '', options = {}) {
+        const aiReplies = document.querySelector('.ai-replies');
+        if (!aiReplies) return '';
+        
+        const maxTurns = Number.isFinite(options.maxTurns) ? options.maxTurns : 8;
+        const maxCharsPerTurn = Number.isFinite(options.maxCharsPerTurn) ? options.maxCharsPerTurn : 1200;
+        const maxCharsTotal = Number.isFinite(options.maxCharsTotal) ? options.maxCharsTotal : 12000;
+        
+        const messageNodes = Array.from(aiReplies.querySelectorAll('.user-message, .assistant-message:not(.welcome-message)'));
+        if (!messageNodes.length) return '';
+        
+        const turns = [];
+        for (const node of messageNodes) {
+            const role = node.classList.contains('user-message') ? 'user' : 'assistant';
+            const content = this.getMessageTextForHistory(node, maxCharsPerTurn);
+            if (content) {
+                turns.push({ role, content });
+            }
+        }
+        
+        if (!turns.length) return '';
+        
+        // The active prompt is already represented by the live input/request body.
+        // Remove it from history to avoid duplicating the same turn.
+        const normalizedCurrentPrompt = this.normalizeConversationText(currentUserPrompt, maxCharsPerTurn);
+        if (normalizedCurrentPrompt) {
+            while (turns.length > 0) {
+                const lastTurn = turns[turns.length - 1];
+                if (lastTurn.role !== 'user') break;
+                if (lastTurn.content !== normalizedCurrentPrompt) break;
+                turns.pop();
+            }
+        }
+        
+        if (!turns.length) return '';
+        
+        const cappedTurns = turns.slice(-maxTurns * 2);
+        const selectedTurns = [];
+        let usedChars = 0;
+        
+        for (let i = cappedTurns.length - 1; i >= 0; i--) {
+            const turn = cappedTurns[i];
+            const cost = turn.content.length;
+            if (selectedTurns.length > 0 && (usedChars + cost) > maxCharsTotal) {
+                break;
+            }
+            selectedTurns.unshift(turn);
+            usedChars += cost;
+        }
+        
+        if (!selectedTurns.length) return '';
+        
+        const historyLines = selectedTurns.map(turn => `${turn.role === 'user' ? 'User' : 'Assistant'}: ${turn.content}`);
+        
+        return [
+            'Conversation history (prior turns):',
+            historyLines.join('\n\n'),
+            'Treat this as the active in-session context and continue naturally. Do not claim the conversation has no prior context.'
+        ].join('\n\n');
+    }
+    
     static logCloudStreamDiagnostics(scope, details = {}) {
         try {
             console.warn('[CloudStream] ' + scope, details);
@@ -790,12 +881,19 @@ class OllamaAPI {
             const routing = await this.getApiRoutingForModel(selectedModel);
             jsonPost.model = routing.modelName || jsonPost.model;
             const isCloudRouting = routing.source === 'cloud';
+            const cloudHistoryBlock = isCloudRouting
+                ? this.buildCloudConversationHistoryBlock(userPrompt)
+                : '';
 
             // Keep cloud/local context paths separated: cloud requests must not reuse local context arrays.
             if (!isCloudRouting && localContextPayload) {
                 jsonPost.context = localContextPayload;
             } else {
                 delete jsonPost.context;
+            }
+
+            if (isCloudRouting && cloudHistoryBlock) {
+                jsonPost.prompt = `${cloudHistoryBlock}\n\nCurrent user message:\n${enhancedPrompt}`;
             }
 
             if (streamProcessor) {
@@ -807,7 +905,7 @@ class OllamaAPI {
                 streamProcessor._cachedThinkingEnabled = thinkingEnabled;
             }
 
-            const cloudPromptText = `${jsonPost.system || ''}\n${enhancedPrompt || ''}`;
+            const cloudPromptText = `${jsonPost.system || ''}\n${jsonPost.prompt || ''}`;
             let cloudResponseText = '';
             const requestPayload = jsonPost;
 
@@ -926,7 +1024,6 @@ class OllamaAPI {
                                     //  ENHANCED LOGGING: Add model info to debug (throttled)
                                     const shouldLog = (hasThinkingData || hasResponseData) &&
                                         (Date.now() - this._lastThinkingCheck > 5000);
-
                                     if (shouldLog) {
                                         try {
                                          /* console.log('🧠 OllamaAPI: thinking presence check', {
@@ -1581,6 +1678,12 @@ class OllamaAPI {
 
             // Send to Ollama with our enhanced prompt and fetch options
             requestBody.model = routing.modelName || requestBody.model;
+            if (isCloudRouting) {
+                const cloudHistoryBlock = this.buildCloudConversationHistoryBlock(originalPrompt);
+                if (cloudHistoryBlock) {
+                    requestBody.prompt = `${cloudHistoryBlock}\n\nCurrent user message:\n${userPromptForRequest}`;
+                }
+            }
             const cloudPromptText = `${requestBody.system || ''}\n${requestBody.prompt || ''}`;
             let cloudResponseText = '';
             const requestPayload = requestBody;
@@ -2002,11 +2105,18 @@ class OllamaAPI {
             const routing = await this.getApiRoutingForModel(selectedModel);
             jsonPost.model = routing.modelName || jsonPost.model;
             const isCloudRouting = routing.source === 'cloud';
+            const cloudHistoryBlock = isCloudRouting
+                ? this.buildCloudConversationHistoryBlock(userPrompt)
+                : '';
 
             if (!isCloudRouting && localContextPayload) {
                 jsonPost.context = localContextPayload;
             } else {
                 delete jsonPost.context;
+            }
+
+            if (isCloudRouting && cloudHistoryBlock) {
+                jsonPost.prompt = `${cloudHistoryBlock}\n\nCurrent user message:\n${userPrompt}`;
             }
 
             const requestPayload = jsonPost;
@@ -2651,7 +2761,6 @@ class OllamaAPI {
             // STEP 3: Send to Ollama with CLEAR separation of system prompt and user continuation prompt
             // Pass the abort signal to the fetch request
             const isCloudRouting = routing.source === 'cloud';
-            const cloudPromptText = `${systemPrompt || ''}\n${userPrompt || ''}`;
             let cloudResponseText = '';
             const continuationContext = window.currentCheckpoint?.lastContext || this.previousContext || [];
             const requestBody = {
@@ -2668,6 +2777,18 @@ class OllamaAPI {
             if (!isCloudRouting && continuationContext) {
                 requestBody.context = continuationContext;
             }
+
+            if (isCloudRouting) {
+                const cloudHistoryBlock = this.buildCloudConversationHistoryBlock(
+                    Lang.get('continueConversation') || 'Continue conversation',
+                    { maxTurns: 12, maxCharsTotal: 16000 }
+                );
+                if (cloudHistoryBlock) {
+                    requestBody.prompt = `${cloudHistoryBlock}\n\nContinuation summary:\n${userPrompt}`;
+                }
+            }
+
+            const cloudPromptText = `${systemPrompt || ''}\n${requestBody.prompt || ''}`;
 
             const response = await fetch(`${routing.baseUrl}/generate`, {
                 method: 'POST',

@@ -443,6 +443,41 @@ class CodeStyler {
 }
 
 class StreamProcessor {
+    static _codeBlockIdCounter = 0;
+
+    static _syncCodeBlockCounterFromDom() {
+        try {
+            const blocks = document.querySelectorAll('.code-block[id^="code-block-"]');
+            let maxId = this._codeBlockIdCounter || 0;
+            blocks.forEach((block) => {
+                const idText = String(block.id || '');
+                const match = idText.match(/^code-block-(\d+)$/);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (Number.isFinite(num) && num > maxId) {
+                        maxId = num;
+                    }
+                }
+            });
+            this._codeBlockIdCounter = maxId;
+        } catch (_err) {
+            // Counter sync is best-effort only.
+        }
+    }
+
+    static nextCodeBlockId() {
+        this._syncCodeBlockCounterFromDom();
+        this._codeBlockIdCounter += 1;
+        return this._codeBlockIdCounter;
+    }
+
+    static reserveCodeBlockId(idValue) {
+        const num = Number.parseInt(String(idValue || '').replace(/^code-block-/, ''), 10);
+        if (Number.isFinite(num) && num > (this._codeBlockIdCounter || 0)) {
+            this._codeBlockIdCounter = num;
+        }
+    }
+
     constructor() {
         this.responseContainer = document.createElement('div');
         this.responseContainer.className = 'ai-response-container';
@@ -926,7 +961,7 @@ class StreamProcessor {
 
         const codeBlock = document.createElement('div');
         codeBlock.className = 'code-block';
-        codeBlock.id = `code-block-${++this.existingCodeBlockCount}`;
+        codeBlock.id = `code-block-${StreamProcessor.nextCodeBlockId()}`;
 
         // Add code container first
         const pre = document.createElement('pre');

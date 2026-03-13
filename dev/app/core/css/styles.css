@@ -213,6 +213,60 @@ body {
     position: relative;
 }
 
+.artifacts-container {
+    width: calc(100% - 40px);
+    margin: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.artifacts-description {
+    margin: 0;
+    line-height: 1.55;
+}
+
+.artifacts-open-button {
+    min-width: 220px;
+    min-height: 54px;
+    padding: 14px 24px;
+    align-self: center;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 52%, #0ea5e9 100%);
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    cursor: pointer;
+    box-shadow: 0 12px 24px rgba(37, 99, 235, 0.3);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.artifacts-open-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 26px rgba(37, 99, 235, 0.38);
+    filter: saturate(1.08);
+}
+
+.artifacts-open-button:active {
+    transform: translateY(0);
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.3);
+}
+
+.artifacts-open-button:focus-visible {
+    outline: 3px solid rgba(255, 255, 255, 0.8);
+    outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+    .artifacts-open-button {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
 /* Fix for sidebar and main content alignment */
 .main-container {
     position: relative;
