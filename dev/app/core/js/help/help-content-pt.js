@@ -2201,14 +2201,14 @@ window.helpContent = {
     },
     // Seção da aba Traduzir
     artifacts: {
-        title: "Artifacts",
-        intro: "A aba Artifacts e um espaco dedicado para gerar artefatos HTML interativos, refiná-los com IA e salvar resultados reutilizaveis.",
+        title: "Artefatos",
+        intro: "A aba Artefatos e um espaco dedicado para gerar artefatos HTML interativos, refiná-los com IA e salvar resultados reutilizaveis.",
         articles: [
             {
                 id: "artifacts-overview",
                 title: "Visao geral",
                 content: `
-            <p>A aba Artifacts e focada na geracao de artefatos HTML em um fluxo de trabalho de tela cheia. Ela e util para criar prototipos, landing pages, trechos interativos e experimentos visuais a partir de prompts.</p>
+            <p>A aba Artefatos e focada na geracao de artefatos HTML em um fluxo de trabalho de tela cheia. Ela e util para criar prototipos, landing pages, trechos interativos e experimentos visuais a partir de prompts.</p>
             <ul>
                 <li><strong>Saida principal</strong> - a IA retorna HTML/CSS/JS executavel e abre o resultado na area de visualizacao.</li>
                 <li><strong>Ciclo de iteracao</strong> - peca alteracoes, regenere e valide o comportamento no mesmo espaco.</li>
@@ -2222,25 +2222,25 @@ window.helpContent = {
                 content: `
             <p>Os controles do cabecalho foram pensados para iteracao rapida de prompts:</p>
             <ul>
-                <li><strong>Web / Web active</strong> - ativa ou desativa o modo assistido pela web; o rotulo muda quando ativo.</li>
-                <li><strong>Send</strong> - envia o prompt e inicia a geracao.</li>
+                <li><strong>Web / Web ativo</strong> - ativa ou desativa o modo assistido pela web; o rotulo muda quando ativo.</li>
+                <li><strong>Enviar</strong> - envia o prompt e inicia a geracao.</li>
                 <li><strong>Barra de progresso</strong> - aparece no cabecalho enquanto a solicitacao estiver em andamento.</li>
-                <li><strong>Cancel</strong> - interrompe a geracao atual quando necessario.</li>
+                <li><strong>Cancelar</strong> - interrompe a geracao atual quando necessario.</li>
             </ul>
             <p>Dica: estruture o prompt (objetivo, layout, interacoes, restricoes) para melhorar a qualidade da primeira resposta.</p>
         `,
             },
             {
                 id: "artifacts-saved",
-                title: "Artifacts salvos e historico de prompts",
+                title: "Artefatos salvos e historico de prompts",
                 content: `
-            <p>Artifacts gerados podem ser salvos no banco de dados local criptografado e reabertos depois pela barra lateral.</p>
+            <p>Artefatos gerados podem ser salvos no banco de dados local criptografado e reabertos depois pela barra lateral.</p>
             <ul>
-                <li><strong>Save</strong> - salva o resultado atual para reutilizacao futura.</li>
+                <li><strong>Salvar</strong> - salva o resultado atual para reutilizacao futura.</li>
                 <li><strong>Abrir pela barra lateral</strong> - clique em uma entrada salva para carregar novamente na visualizacao.</li>
-                <li><strong>Botao Prompt</strong> - abre o prompt usado para criar aquele artifact.</li>
+                <li><strong>Botao Prompt</strong> - abre o prompt usado para criar aquele artefato.</li>
                 <li><strong>Copiar prompt</strong> - copia o prompt salvo na janela para reutilizar ou ajustar.</li>
-                <li><strong>Delete</strong> - remove artifacts salvos que nao sao mais necessarios.</li>
+                <li><strong>Excluir</strong> - remove artefatos salvos que nao sao mais necessarios.</li>
             </ul>
             <p>Esse fluxo ajuda a manter uma biblioteca reutilizavel de resultados e instrucoes originais.</p>
         `,
