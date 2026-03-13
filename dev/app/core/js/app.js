@@ -110,6 +110,15 @@ function setupTabSwitching() {
                         await window.PaiperworkDB.closeRagDatabases(sessionStorage.getItem('hashedMasterKey'));
                     }
                 }
+
+                // Release html payload DB handles when exiting Artifacts/SlideForge context.
+                const leavesHtmlTabs = (previousTab === 'artifacts' || previousTab === 'presentation') &&
+                    button.dataset.tab !== 'artifacts' &&
+                    button.dataset.tab !== 'presentation';
+
+                if (leavesHtmlTabs && window.PaiperworkDB && typeof window.PaiperworkDB.closeHtmlDatabases === 'function') {
+                    await window.PaiperworkDB.closeHtmlDatabases(sessionStorage.getItem('hashedMasterKey'));
+                }
             }
             // Handle specific tab activations
             if (button.dataset.tab === 'models') {

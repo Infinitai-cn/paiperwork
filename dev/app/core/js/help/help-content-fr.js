@@ -2198,6 +2198,54 @@ window.helpContent = {
         ],
     },
     // Section de l'onglet Traduire
+    artifacts: {
+        title: "Artifacts",
+        intro: "L'onglet Artifacts est un espace dedie pour generer des artefacts HTML interactifs, les affiner avec l'IA et enregistrer des resultats reutilisables.",
+        articles: [
+            {
+                id: "artifacts-overview",
+                title: "Vue d'ensemble",
+                content: `
+            <p>L'onglet Artifacts se concentre sur la generation d'artefacts HTML dans un flux plein ecran. Il est utile pour creer des prototypes, des pages d'atterrissage, des extraits interactifs et des experiences visuelles a partir de prompts.</p>
+            <ul>
+                <li><strong>Sortie principale</strong> - l'IA renvoie du HTML/CSS/JS executable et l'ouvre dans la zone d'aperçu.</li>
+                <li><strong>Boucle d'iteration</strong> - demandez des modifications, regenerez, puis verifiez le comportement dans le meme espace.</li>
+                <li><strong>Compatibilite des modeles</strong> - fonctionne avec les modeles locaux ou cloud disponibles dans le selecteur.</li>
+            </ul>
+        `,
+            },
+            {
+                id: "artifacts-controls",
+                title: "Boutons et controles",
+                content: `
+            <p>Les controles de l'en-tete sont conçus pour iterer rapidement sur les prompts :</p>
+            <ul>
+                <li><strong>Web / Web active</strong> - active ou desactive le mode assiste par le web ; le libelle change lorsqu'il est actif.</li>
+                <li><strong>Send</strong> - envoie le prompt et lance la generation.</li>
+                <li><strong>Barre de progression</strong> - apparait dans l'en-tete pendant l'execution de la requete.</li>
+                <li><strong>Cancel</strong> - arrete la generation en cours si necessaire.</li>
+            </ul>
+            <p>Conseil : structurez votre prompt (objectif, mise en page, interactions, contraintes) pour ameliorer la qualite du premier resultat.</p>
+        `,
+            },
+            {
+                id: "artifacts-saved",
+                title: "Artifacts enregistres et historique des prompts",
+                content: `
+            <p>Les artifacts generes peuvent etre stockes dans la base locale chiffree puis reouverts plus tard depuis la barre laterale.</p>
+            <ul>
+                <li><strong>Save</strong> - enregistre la sortie actuelle pour une reutilisation ulterieure.</li>
+                <li><strong>Ouverture depuis la barre laterale</strong> - cliquez sur une entree enregistree pour la recharger dans l'aperçu.</li>
+                <li><strong>Bouton Prompt</strong> - affiche le prompt utilise pour creer cet artifact.</li>
+                <li><strong>Copier le prompt</strong> - copie le prompt enregistre depuis la boite de dialogue pour le reutiliser ou l'ameliorer.</li>
+                <li><strong>Delete</strong> - supprime les artifacts enregistres devenus inutiles.</li>
+            </ul>
+            <p>Ce flux permet de constituer une bibliotheque reutilisable des resultats et de leurs instructions d'origine.</p>
+        `,
+            },
+        ],
+    },
+
     translate: {
         title: "Traduire",
         intro: "L'onglet Traduire convertit le texte des documents avec l'IA et fournit une fenêtre d'aperçu flottante pour la révision, les mises à jour en direct et l'export.",

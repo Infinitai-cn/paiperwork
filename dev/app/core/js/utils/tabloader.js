@@ -63,6 +63,9 @@ class TabLoader {
                     'js/tabs/presentationTab.js'
                 ]
             },
+            'artifacts': {
+                scripts: ['js/tabs/artifacts.js', 'js/tabs/artifactstab.js']
+            },
 
         };
 
@@ -206,6 +209,12 @@ class TabLoader {
                 if (window.presentationtab && !window.presentationtab.isInitialized) {
                    //console.log('TabLoader: Initializing presentation tab');
                     window.presentationtab.initialize();
+                }
+                break;
+
+            case 'artifacts':
+                if (window.artifactsTab && !window.artifactsTab.isInitialized) {
+                    window.artifactsTab.initialize();
                 }
                 break;
         }

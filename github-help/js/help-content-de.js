@@ -2198,6 +2198,55 @@ window.helpContent = {
             },
         ],
     },
+
+    artifacts: {
+        title: "Artifacts",
+        intro: "Der Artifacts-Tab ist ein eigener Arbeitsbereich zum Erzeugen interaktiver HTML-Artefakte, zur KI-gestuetzten Verfeinerung und zum Speichern wiederverwendbarer Ergebnisse.",
+        articles: [
+            {
+                id: "artifacts-overview",
+                title: "Ueberblick",
+                content: `
+            <p>Der Artifacts-Tab konzentriert sich auf die Erstellung von HTML-Artefakten in einem Vollbild-Workflow. Er eignet sich fuer Prototypen, Landingpages, interaktive Snippets und visuelle Experimente direkt aus Prompts.</p>
+            <ul>
+                <li><strong>Hauptausgabe</strong> - Die KI liefert lauffaehigen HTML/CSS/JS-Code und oeffnet ihn in der Vorschau.</li>
+                <li><strong>Iterative Schleife</strong> - Aenderungen anfordern, neu generieren und Verhalten direkt im selben Arbeitsbereich pruefen.</li>
+                <li><strong>Modellunterstuetzung</strong> - Funktioniert mit lokalen oder Cloud-Modellen aus Ihrer Modellauswahl.</li>
+            </ul>
+        `,
+            },
+            {
+                id: "artifacts-controls",
+                title: "Schaltflaechen und Steuerungen",
+                content: `
+            <p>Die Kopfzeilen-Steuerungen sind fuer schnelle Prompt-Iterationen ausgelegt:</p>
+            <ul>
+                <li><strong>Web / Web active</strong> - schaltet den web-gestuetzten Generierungsmodus um; die Beschriftung wechselt bei Aktivierung.</li>
+                <li><strong>Send</strong> - sendet den Prompt und startet die Generierung.</li>
+                <li><strong>Fortschrittsbalken</strong> - erscheint in der Kopfzeile, solange eine Anfrage laeuft.</li>
+                <li><strong>Cancel</strong> - stoppt bei Bedarf die aktuelle Generierung.</li>
+            </ul>
+            <p>Tipp: Strukturierte Prompts (Ziel, Layout, Interaktionen, Einschränkungen) verbessern die Erstresultate.</p>
+        `,
+            },
+            {
+                id: "artifacts-saved",
+                title: "Gespeicherte Artifacts und Prompt-Verlauf",
+                content: `
+            <p>Generierte Artifacts koennen in der verschluesselten lokalen Datenbank gespeichert und spaeter ueber die Seitenleiste erneut geoeffnet werden.</p>
+            <ul>
+                <li><strong>Save</strong> - speichert die aktuelle Artifact-Ausgabe fuer die spaetere Wiederverwendung.</li>
+                <li><strong>Aus Seitenleiste oeffnen</strong> - klicken Sie auf einen gespeicherten Eintrag, um ihn wieder in die Vorschau zu laden.</li>
+                <li><strong>Prompt-Schaltflaeche</strong> - zeigt den Prompt, mit dem das Artifact erzeugt wurde.</li>
+                <li><strong>Prompt kopieren</strong> - kopiert den gespeicherten Prompt aus dem Dialog zum Wiederverwenden oder Verfeinern.</li>
+                <li><strong>Delete</strong> - entfernt gespeicherte Artifacts, die nicht mehr benoetigt werden.</li>
+            </ul>
+            <p>So bauen Sie eine wiederverwendbare Bibliothek aus Artifact-Ergebnissen und den zugehoerigen Anweisungen auf.</p>
+        `,
+            },
+        ],
+    },
+
     // Translate-Tab Abschnitt
     translate: {
         title: "Übersetzen",

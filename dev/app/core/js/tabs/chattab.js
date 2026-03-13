@@ -4,6 +4,38 @@ class ChatTab {
         window.chat = new Chat();
         window.chatInstance = window.chat;
     }
+
+    async cancelActiveGenerationForTransition(reason = 'conversation-transition') {
+        const hasActiveGeneration = !!(window.isGenerating || window.globalAbortController);
+        if (!hasActiveGeneration) return;
+
+        try {
+            if (window.chat && typeof window.chat.cancelOllamaGeneration === 'function') {
+                window.chat.cancelOllamaGeneration();
+            } else if (typeof window.cancelOllamaGeneration === 'function') {
+                window.cancelOllamaGeneration();
+            } else if (window.globalAbortController) {
+                window.globalAbortController.abort();
+                window.globalAbortController = null;
+            }
+        } catch (cancelError) {
+            console.warn(`ChatTab: Failed to cancel in-flight generation during ${reason}`, cancelError);
+        }
+
+        window.isGenerating = false;
+        const progressBar = document.getElementById('progress-bar');
+        if (progressBar) {
+            progressBar.classList.remove('active', 'indeterminate');
+        }
+        const sendButton = document.getElementById('send-prompt');
+        if (sendButton) {
+            sendButton.textContent = Lang.get('sendButton') || 'Send';
+            sendButton.style.backgroundColor = '';
+            sendButton.style.color = '';
+            sendButton.classList.remove('cancel-state');
+        }
+    }
+
     // Initializes the chat tab, sets up UI, loads settings, and prepares the chat environment.
     async initialize() {
        //console.log('ChatTab: Initializing chat tab instance');
@@ -1249,6 +1281,8 @@ class ChatTab {
 
     // Loads and renders all messages for a selected conversation session.
     async loadSessionConversation(session) {
+        await this.cancelActiveGenerationForTransition('load-session-conversation');
+
         const aiReplies = document.querySelector('.ai-replies');
         if (!aiReplies) {
             console.error('ChatTab: AI replies container not found');
@@ -1283,9 +1317,6 @@ class ChatTab {
             );
 
            //console.log(`ChatTab: Rendering ${conversations.length} messages for group ${session.group_id}`);
-
-            // Keep track of existing code blocks
-            let existingCodeBlockCount = 0;
 
             // Create array to track conversations for the continue button
             const conversationsForContinue = [];
@@ -1445,10 +1476,16 @@ class ChatTab {
                     // Create StreamProcessor instance for this response
                     const streamProcessor = new StreamProcessor();
 
+                    // Remove constructor-created placeholder container from chat root.
+                    if (streamProcessor.responseContainer && streamProcessor.responseContainer.parentNode) {
+                        streamProcessor.responseContainer.parentNode.removeChild(streamProcessor.responseContainer);
+                    }
+
                     // Replace the auto-created empty container with our loaded content
                     const loadedContent = container.querySelector('.ai-response-container');
                     if (loadedContent) {
                         streamProcessor.responseContainer = loadedContent;
+                        streamProcessor.rawResponseHtml = loadedContent.innerHTML;
                         // Attach the streamProcessor to the container for reference
                         loadedContent.streamProcessor = streamProcessor;
                     }
@@ -1456,7 +1493,9 @@ class ChatTab {
                     // DO NOT MODIFY CONTENT - Just process code blocks for functionality
                     const codeBlocks = container.querySelectorAll('.code-block');
                     codeBlocks.forEach((block, idx) => {
-                        block.id = `code-block-${++existingCodeBlockCount}`;
+                        const nextBlockId = `code-block-${StreamProcessor.nextCodeBlockId()}`;
+                        block.id = nextBlockId;
+                        StreamProcessor.reserveCodeBlockId(nextBlockId);
 
                         // Configure code block buttons
                         const copyBtn = block.querySelector('.code-copy-btn');
@@ -1599,8 +1638,9 @@ class ChatTab {
         window.chatSessions[index] = session;
 
         // Add click handler to load this session
-        sessionContent.addEventListener('click', () => {
-            this.loadSessionConversation(session);
+        sessionContent.addEventListener('click', async () => {
+            await this.cancelActiveGenerationForTransition('session-switch');
+            await this.loadSessionConversation(session);
 
             // Update active state in UI
             document.querySelectorAll('.session-item').forEach(item => {
@@ -1766,8 +1806,9 @@ class ChatTab {
             window.chatSessions[index] = session;
 
             // Add click handler to load this session
-            sessionContent.addEventListener('click', () => {
-                this.loadSessionConversation(session);
+            sessionContent.addEventListener('click', async () => {
+                await this.cancelActiveGenerationForTransition('session-switch');
+                await this.loadSessionConversation(session);
 
                 // Update active state in UI
                 document.querySelectorAll('.session-item').forEach(item => {
@@ -2998,6 +3039,8 @@ class ChatTab {
             });
 
             newChatButton.addEventListener('click', async () => {
+                await this.cancelActiveGenerationForTransition('new-chat');
+
                 // Clear the current conversation
                 const aiReplies = document.querySelector('.ai-replies');
                 if (aiReplies) {
