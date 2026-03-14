@@ -4177,6 +4177,8 @@ class KnowledgeBase {
         this.hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         this.abortController = null;
         this.usingSyntheticEmbeddings = false;
+        this._createCollectionHandler = null;
+        this._creatingCollection = false;
     }
 
     async initialize() {
@@ -4184,8 +4186,16 @@ class KnowledgeBase {
         this.collections = await PaiperworkDB.loadKnowledgeCollections(this.hashedMasterKey);
 
         // Set up event listeners for collection creation
-        document.getElementById('create-collection-btn').addEventListener('click',
-            () => this.createNewCollection());
+        const createBtn = document.getElementById('create-collection-btn');
+        if (createBtn) {
+            if (createBtn.__kbCreateHandler && typeof createBtn.__kbCreateHandler === 'function') {
+                createBtn.removeEventListener('click', createBtn.__kbCreateHandler);
+            }
+
+            this._createCollectionHandler = () => this.createNewCollection();
+            createBtn.addEventListener('click', this._createCollectionHandler);
+            createBtn.__kbCreateHandler = this._createCollectionHandler;
+        }
 
         // Log initialization
        //console.log(`Knowledge Base: Initialized with ${this.collections?.length || 0} collections`);
@@ -4301,8 +4311,25 @@ class KnowledgeBase {
         return card;
     }
     async createNewCollection() {
-        const name = document.getElementById('collection-name-input').value;
-        if (!name.trim()) return;
+        if (this._creatingCollection) return;
+
+        const nameInput = document.getElementById('collection-name-input');
+        const createBtn = document.getElementById('create-collection-btn');
+        const name = (nameInput?.value || '').trim();
+        if (!name) return;
+
+        const existing = this.collections.find(c => String(c?.name || '').trim().toLowerCase() === name.toLowerCase());
+        if (existing) {
+            if (nameInput) nameInput.value = '';
+            this.renderAllCollections();
+            this.viewCollection(existing.id);
+            return;
+        }
+
+        this._creatingCollection = true;
+        if (createBtn) {
+            createBtn.disabled = true;
+        }
 
         const newCollection = {
             id: `collection_${Date.now()}`,
@@ -4312,11 +4339,19 @@ class KnowledgeBase {
             updated: new Date().toISOString()
         };
 
-        this.collections.push(newCollection);
-        await PaiperworkDB.saveKnowledgeCollection(this.hashedMasterKey, newCollection);
+        try {
+            this.collections.push(newCollection);
+            await PaiperworkDB.saveKnowledgeCollection(this.hashedMasterKey, newCollection);
+            if (nameInput) nameInput.value = '';
 
-        // Update UI
-        this.renderAllCollections();
+            // Update UI
+            this.renderAllCollections();
+        } finally {
+            this._creatingCollection = false;
+            if (createBtn) {
+                createBtn.disabled = false;
+            }
+        }
     }
 
     viewCollection(collectionId) {
