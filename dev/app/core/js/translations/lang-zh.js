@@ -186,6 +186,9 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 ollamaApiKeyRequired: "使用云模型需要 Ollama API 密钥。",
                 ollamaApiKeyInvalid: "您的 Ollama API 密钥似乎无效或已过期，请更新。",
                 manageCloudApiKey: "管理云 API 密钥",
+                ollamaApiKeyAddButton: "添加",
+                ollamaApiKeyUpdateButton: "更新",
+                ollamaApiKeyDeleteButton: "删除",
                 ollamaConversationStart: "此对话从{count}条早期消息继续。下方显示最近的交流。",
 
                 // Copy Functionality

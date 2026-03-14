@@ -356,6 +356,9 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         ollamaApiKeyRequired: "Uma chave de API do Ollama e obrigatoria para usar modelos em nuvem.",
         ollamaApiKeyInvalid: "Sua chave de API do Ollama parece invalida ou expirada. Atualize-a.",
         manageCloudApiKey: "Gerenciar chave de API da nuvem",
+        ollamaApiKeyAddButton: "Adicionar",
+        ollamaApiKeyUpdateButton: "Atualizar",
+        ollamaApiKeyDeleteButton: "Excluir",
         ollamaConversationStart: "Esta conversa continua de {count} mensagens anteriores. As trocas mais recentes são mostradas abaixo.",
 
         // Copy Functionality

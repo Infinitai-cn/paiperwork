@@ -4523,8 +4523,6 @@ class KnowledgeBase {
             </div>
         `;
         } else {
-            const convertMarkdownToHtml = window.researchTab.researchAutomation.convertMarkdownToHtml;
-
             // Render each entry
             collection.entries.forEach(entry => {
                 const entryCard = document.createElement('div');
@@ -4542,11 +4540,9 @@ class KnowledgeBase {
                 cursor: pointer;
             `;
 
-                // Get truncated content and convert to HTML
+                // Keep preview faithful to authored text (preserve manual newlines)
                 const truncatedContent = entry.content.substring(0, 200);
-                const previewContent = typeof convertMarkdownToHtml === 'function'
-                    ? convertMarkdownToHtml(truncatedContent)
-                    : truncatedContent;
+                const previewContent = this.escapeHtml(truncatedContent).replace(/\n/g, '<br>');
 
                 entryCard.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -4609,7 +4605,7 @@ class KnowledgeBase {
             </div>
             <div style="margin-bottom: 16px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: bold;">${Lang.get('content')}</label>
-                <textarea id="entry-content" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color, #ddd); min-height: 300px; font-family: inherit;"></textarea>
+                <textarea id="entry-content" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color, #ddd); min-height: 300px; font-family: inherit; font-size: 16px; line-height: 1.6;"></textarea>
                 <div style="font-size: 12px; margin-top: 4px; color: var(--text-muted, #666);">${Lang.get('markdownFormattingNote')}</div>
             </div>
             <!-- Add embedding status indicator -->
@@ -4878,11 +4874,9 @@ class KnowledgeBase {
         overflow-wrap: break-word;
     `;
 
-        // Convert markdown content to HTML
-        const convertMarkdownToHtml = window.researchTab.researchAutomation.convertMarkdownToHtml;
-        contentEl.innerHTML = typeof convertMarkdownToHtml === 'function' ?
-            convertMarkdownToHtml(entry.content) :
-            entry.content;
+        // Preserve original user text exactly to avoid markdown conversion adding
+        // extra visual spacing for numbered lists and paragraphs.
+        contentEl.textContent = entry.content || '';
 
         entryOverlay.appendChild(contentEl);
         // Add styling for markdown content
@@ -5022,9 +5016,9 @@ class KnowledgeBase {
         background-color: var(--bg-color, #fff);
         padding: 20px;
         border-radius: 8px;
-        width: 90%;
-        max-width: 800px;
-        max-height: 90vh;
+        width: 94%;
+        max-width: 980px;
+        max-height: 94vh;
         overflow-y: auto;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     `;
@@ -5037,7 +5031,7 @@ class KnowledgeBase {
         </div>
         <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 8px; font-weight: bold;">Content</label>
-            <textarea id="entry-content" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color, #ddd); min-height: 300px; font-family: inherit;">${entry.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+            <textarea id="entry-content" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color, #ddd); min-height: 420px; font-family: inherit; font-size: 16px; line-height: 1.6;">${entry.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
             <div style="font-size: 12px; margin-top: 4px; color: var(--text-muted, #666);">${Lang.get('markdownFormattingNote')}</div>
         </div>
         <div id="entry-embedding-status" class="entry-embedding-status" style="font-size: 13px; margin-top: 8px; padding: 5px 0; display: none;"></div>
@@ -5179,10 +5173,7 @@ class KnowledgeBase {
             return;
         }
 
-        // Get the markdown converter function
-        const convertMarkdownToHtml = window.researchTab.researchAutomation.convertMarkdownToHtml;
-
-        // Render each entry with rendered markdown for previews
+        // Render each entry with plain-text previews to avoid injected blank lines
         collection.entries.forEach(entry => {
             const entryCard = document.createElement('div');
             entryCard.className = 'entry-card';
@@ -5199,11 +5190,9 @@ class KnowledgeBase {
             cursor: pointer;
         `;
 
-            // Get truncated content and convert to HTML if the converter is available
+            // Keep preview faithful to authored text (preserve manual newlines)
             const truncatedContent = entry.content.substring(0, 200);
-            const previewContent = typeof convertMarkdownToHtml === 'function'
-                ? convertMarkdownToHtml(truncatedContent)
-                : truncatedContent;
+            const previewContent = this.escapeHtml(truncatedContent).replace(/\n/g, '<br>');
 
             entryCard.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center;">
