@@ -186,6 +186,9 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         ollamaApiKeyRequired: "Ein Ollama-API-Schlüssel ist für die Nutzung von Cloud-Modellen erforderlich.",
         ollamaApiKeyInvalid: "Ihr Ollama-API-Schlüssel scheint ungültig oder abgelaufen zu sein. Bitte aktualisieren Sie ihn.",
         manageCloudApiKey: "Cloud-API-Schlüssel verwalten",
+        ollamaApiKeyAddButton: "Hinzufügen",
+        ollamaApiKeyUpdateButton: "Aktualisieren",
+        ollamaApiKeyDeleteButton: "Löschen",
         ollamaConversationStart: "Dieses Gespräch setzt sich aus {count} früheren Nachrichten fort. Die neuesten Austausche werden unten angezeigt.",
 
         // Copy Functionality

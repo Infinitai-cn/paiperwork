@@ -1,8 +1,18 @@
 class ChatTab {
     constructor() {
         this.initialized = false;
+        this.ollamaApiKeyModalPromise = null;
         window.chat = new Chat();
         window.chatInstance = window.chat;
+    }
+
+    closeAllOllamaApiKeyModals() {
+        const overlays = document.querySelectorAll('.ollama-api-key-overlay');
+        overlays.forEach((overlay) => {
+            if (overlay && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        });
     }
 
     async cancelActiveGenerationForTransition(reason = 'conversation-transition') {
@@ -4592,13 +4602,20 @@ class ChatTab {
     }
 
     async openOllamaApiKeyManager(requireKey = false) {
+        if (this.ollamaApiKeyModalPromise) {
+            return this.ollamaApiKeyModalPromise;
+        }
+
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         if (!hashedMasterKey) return false;
 
         const existingApiKey = await PaiperworkDB.getOllamaApiKey(hashedMasterKey);
 
-        return new Promise((resolve) => {
+        this.closeAllOllamaApiKeyModals();
+
+        this.ollamaApiKeyModalPromise = new Promise((resolve) => {
             const modalOverlay = document.createElement('div');
+            modalOverlay.className = 'ollama-api-key-overlay';
             modalOverlay.style.cssText = `
                 position: fixed;
                 top: 0;
@@ -4657,15 +4674,15 @@ class ChatTab {
             closeBtn.style.cssText = `padding:8px 12px; border:1px solid var(--border-color); border-radius:6px; background:var(--button-bg); color:var(--text-color); cursor:pointer;`;
 
             const addBtn = document.createElement('button');
-            addBtn.textContent = 'Add';
+            addBtn.textContent = (Lang.get && Lang.get('ollamaApiKeyAddButton')) || 'Add';
             addBtn.style.cssText = `padding:8px 12px; border:none; border-radius:6px; background:var(--accent-color); color:var(--accent-text); cursor:pointer;`;
 
             const updateBtn = document.createElement('button');
-            updateBtn.textContent = 'Update';
+            updateBtn.textContent = (Lang.get && Lang.get('ollamaApiKeyUpdateButton')) || 'Update';
             updateBtn.style.cssText = `padding:8px 12px; border:none; border-radius:6px; background:var(--accent-color); color:var(--accent-text); cursor:pointer;`;
 
             const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'Delete';
+            deleteBtn.textContent = (Lang.get && Lang.get('ollamaApiKeyDeleteButton')) || 'Delete';
             deleteBtn.style.cssText = `padding:8px 12px; border:none; border-radius:6px; background:var(--danger-color); color:white; cursor:pointer;`;
 
             const hasExisting = !!(existingApiKey && existingApiKey.trim().length > 0);
@@ -4676,10 +4693,12 @@ class ChatTab {
             deleteBtn.disabled = !hasExisting;
             deleteBtn.style.opacity = !hasExisting ? '0.6' : '1';
 
+            let finished = false;
             const finish = (saved) => {
-                if (modalOverlay.parentNode) {
-                    modalOverlay.parentNode.removeChild(modalOverlay);
-                }
+                if (finished) return;
+                finished = true;
+                this.closeAllOllamaApiKeyModals();
+                this.ollamaApiKeyModalPromise = null;
                 resolve(saved);
             };
 
@@ -4750,6 +4769,8 @@ class ChatTab {
             document.body.appendChild(modalOverlay);
             input.focus();
         });
+
+        return this.ollamaApiKeyModalPromise;
     }
 
     // Opens the modal editor for user insights, allowing editing and saving to the database.

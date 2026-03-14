@@ -24,6 +24,44 @@ class Chat {
 
     }
 
+    isCloudAuthFailureError(error) {
+        const message = String(error?.message || '').toLowerCase();
+        const directStatus = Number(error?.status || error?.statusCode || error?.response?.status || NaN);
+
+        if (directStatus === 401 || directStatus === 403) {
+            return true;
+        }
+
+        // Catch multiple edge-case formats:
+        // - "Ollama request failed (401): ..."
+        // - "Failed to get response from Ollama: 401"
+        // - proxy-auth hints and explicit unauthorized wording
+        return /(^|\D)401(\D|$)/.test(message)
+            || message.includes('unauthorized')
+            || message.includes('cloudproxy401')
+            || message.includes('keylen=0');
+    }
+
+    async handleCloudAuthFailureIfNeeded(error) {
+        const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
+            ? (window.OllamaAPI.getSelectedModelSource() || 'local')
+            : 'local';
+
+        if (selectedProvider !== 'cloud' || !this.isCloudAuthFailureError(error)) {
+            return false;
+        }
+
+        if (window.chatTab && typeof window.chatTab.openOllamaApiKeyManager === 'function') {
+            try {
+                await window.chatTab.openOllamaApiKeyManager(true);
+            } catch (modalError) {
+                console.error('Chat: Failed to open cloud API key manager after auth failure', modalError);
+            }
+        }
+
+        return true;
+    }
+
     // Initializes the chat system, sets up event listeners and global references
     async initialize() {
        //console.log('Chat: Initializing chat system');
@@ -625,6 +663,9 @@ class Chat {
             if (!hasCloudKey) {
                 return;
             }
+            if (typeof window.chatTab.closeAllOllamaApiKeyModals === 'function') {
+                window.chatTab.closeAllOllamaApiKeyModals();
+            }
             }
         }
 
@@ -1047,6 +1088,15 @@ class Chat {
 
                 } catch (error) {
                     console.error('Chat: Error in document + web search mode:', error);
+
+                    const handledCloudAuth = await this.handleCloudAuthFailureIfNeeded(error);
+                    if (handledCloudAuth) {
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'system-message';
+                        errorDiv.innerHTML = `<div class="message-bubble error">${(Lang.get && Lang.get('ollamaApiKeyRequired')) || 'An Ollama API key is required to use cloud models.'}</div>`;
+                        aiReplies.appendChild(errorDiv);
+                        return;
+                    }
 
                     // Display error message
                     const errorDiv = document.createElement('div');
@@ -1836,18 +1886,7 @@ class Chat {
                 window.isGenerating = false;
                 this.isGenerating = false;
                 this.cleanupIncompleteResponses();
-            } else if (
-                error &&
-                error.message &&
-                (error.message.includes('(401)') || error.message.toLowerCase().includes('unauthorized'))
-            ) {
-                const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
-                    ? (window.OllamaAPI.getSelectedModelSource() || 'local')
-                    : 'local';
-
-                if (selectedProvider === 'cloud' && window.chatTab && typeof window.chatTab.openOllamaApiKeyManager === 'function') {
-                    await window.chatTab.openOllamaApiKeyManager(true);
-                }
+            } else if (await this.handleCloudAuthFailureIfNeeded(error)) {
 
                 const errorDiv = document.createElement('div');
                 errorDiv.className = 'system-message';
