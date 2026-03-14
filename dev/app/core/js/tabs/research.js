@@ -4636,7 +4636,7 @@ class KnowledgeBase {
             <h3 style="margin-top: 0;">${Lang.get('addNewKnowledgeEntry')}</h3>
             <div style="margin-bottom: 16px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: bold;">${Lang.get('entryTitle')}</label>
-                <input type="text" id="entry-title" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color, #ddd);">
+                <input type="text" id="entry-title" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color, #ddd); font-size: 16px; line-height: 1.6;">
             </div>
             <div style="margin-bottom: 16px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: bold;">${Lang.get('content')}</label>
@@ -5062,7 +5062,7 @@ class KnowledgeBase {
         <h3 style="margin-top: 0;">${Lang.get('editKnowledgeEntry')}</h3>
         <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 8px; font-weight: bold;">${Lang.get('entryTitle')}</label>
-            <input type="text" id="entry-title" value="${entry.title.replace(/"/g, '&quot;')}" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color, #ddd);">
+            <input type="text" id="entry-title" value="${entry.title.replace(/"/g, '&quot;')}" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color, #ddd); font-size: 16px; line-height: 1.6;">
         </div>
         <div style="margin-bottom: 16px;">
             <label style="display: block; margin-bottom: 8px; font-weight: bold;">Content</label>
