@@ -99,6 +99,25 @@ class OllamaAPI {
     static countTokens(text) {
         return text.split(/[\s,.!?;:'"()\[\]{}]+/).length;
     }
+
+    static getOllamaRateLimitMessage() {
+        return (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded'))
+            || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
+    }
+
+    static isOllamaRateLimitStatus(status, responseText = '') {
+        if (Number(status) === 429) {
+            return true;
+        }
+
+        const text = String(responseText || '').toLowerCase();
+        return text.includes('too many requests')
+            || text.includes('weekly usage')
+            || text.includes('daily limit')
+            || text.includes('statuscode":429')
+            || text.includes('status": "429')
+            || text.includes('status":429');
+    }
     
     static normalizeConversationText(text, maxChars = 1200) {
         if (typeof text !== 'string') return '';
@@ -270,6 +289,9 @@ class OllamaAPI {
 
         if (!pullResponse.ok) {
             const text = await pullResponse.text();
+            if (this.isOllamaRateLimitStatus(pullResponse.status, text)) {
+                throw new Error(`${this.getOllamaRateLimitMessage()}${text ? `\n${text}` : ''}`);
+            }
             console.error('[CloudPull] request failed', {
                 model: normalizedModel,
                 status: pullResponse.status,
@@ -412,6 +434,9 @@ class OllamaAPI {
                         if (resp.ok) {
                             return resp;
                         }
+                        if (this.isOllamaRateLimitStatus(resp.status)) {
+                            throw new Error(this.getOllamaRateLimitMessage());
+                        }
                         lastError = new Error(`local /api/tags returned ${resp.status}`);
                     } catch (err) {
                         lastError = err;
@@ -468,6 +493,8 @@ class OllamaAPI {
             if (cloudResponse.status === 'fulfilled' && cloudResponse.value.ok) {
                 const cloudData = await cloudResponse.value.json();
                 cloudModels = Array.isArray(cloudData.models) ? cloudData.models : [];
+            } else if (cloudResponse.status === 'fulfilled' && cloudResponse.value.status === 429) {
+                console.warn('OllamaAPI: cloud model list rate-limited (429).', this.getOllamaRateLimitMessage());
             } else if (cloudResponse.status === 'rejected') {
                 console.info('OllamaAPI: cloud /api/cloud/tags unavailable or timed out; continuing with local models only');
             }
@@ -621,6 +648,9 @@ class OllamaAPI {
                         body: JSON.stringify({ model: routing.modelName || modelName, keep_alive: '-1s', stream: false, prompt: '' })
                     });
                    //  //console.log('OllamaAPI: Autoload response status:', loadResp.status, 'ok?', loadResp.ok);
+                    if (loadResp.status === 429) {
+                        console.warn('OllamaAPI: Autoload skipped due to rate limit (429)');
+                    }
                     try {
                         const bodyText = await loadResp.text();
                        //  //console.log('OllamaAPI: Autoload response body (trimmed):', bodyText ? (bodyText.length > 1000 ? bodyText.substring(0, 1000) + '...[truncated]' : bodyText) : '<empty>');
@@ -751,6 +781,10 @@ class OllamaAPI {
                         });
 
                         if (!response.ok) {
+                            const errorText = await response.text();
+                            if (this.isOllamaRateLimitStatus(response.status, errorText)) {
+                                throw new Error(`${this.getOllamaRateLimitMessage()}${errorText ? `\n${errorText}` : ''}`);
+                            }
                             if (i === payloadCandidates.length - 1) {
                                 throw new Error(`Failed to fetch model metadata: ${response.status}`);
                             }
@@ -932,6 +966,11 @@ class OllamaAPI {
            //  //console.log('🧠 OllamaAPI: Sending request with thinking support:', !!jsonPost.think);
 
             const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
+
+            if (response.status === 429) {
+                const errorText = await response.text();
+                throw new Error(`${this.getOllamaRateLimitMessage()}${errorText ? `\n${errorText}` : ''}`);
+            }
 
             if (response.status === 500) {
                 alert(Lang.get('ollamaContextSizeError', 'Communication error, please try again or restart Ollama.'));
@@ -1701,6 +1740,11 @@ class OllamaAPI {
 
             const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
 
+            if (response.status === 429) {
+                const errorText = await response.text();
+                throw new Error(`${this.getOllamaRateLimitMessage()}${errorText ? `\n${errorText}` : ''}`);
+            }
+
             // Add additional logging right after the fetch call
            //  //console.log('Fetch request sent with abort signal:', !!abortSignal);
             if (!response || !response.ok) {
@@ -2148,6 +2192,11 @@ class OllamaAPI {
             }
 
             if (!response.ok) {
+                if (response.status === 429) {
+                    const errorText = await response.text();
+                    throw new Error(`${this.getOllamaRateLimitMessage()}${errorText ? `\n${errorText}` : ''}`);
+                }
+
                 if (response.status === 500) {
                     alert(Lang.get('ollamaContextSizeError'));
                     return null;
@@ -2663,6 +2712,10 @@ class OllamaAPI {
             });
 
             if (!response.ok) {
+                const errorText = await response.text();
+                if (this.isOllamaRateLimitStatus(response.status, errorText)) {
+                    throw new Error(`${this.getOllamaRateLimitMessage()}${errorText ? `\n${errorText}` : ''}`);
+                }
                 throw new Error(`Failed to build context: ${response.status}`);
             }
 
@@ -2797,10 +2850,22 @@ class OllamaAPI {
                 signal: abortController.signal // Add the abort signal here
             });
 
+            if (response.status === 429) {
+                const errorText = await response.text();
+                alert(this.getOllamaRateLimitMessage());
+                aiDiv.remove();
+                throw new Error(`${this.getOllamaRateLimitMessage()}${errorText ? `\n${errorText}` : ''}`);
+            }
+
             if (response.status === 500) {
                 alert(Lang.get('ollamaContextSizeError'));
                 aiDiv.remove();
                 return false;
+            }
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Ollama request failed (${response.status}): ${errorText || response.statusText}`);
             }
 
             const reader = response.body.getReader();

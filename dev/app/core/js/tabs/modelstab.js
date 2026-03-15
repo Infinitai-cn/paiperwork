@@ -18,6 +18,17 @@ class ModelDownloader {
 
     static _modelFetchNotificationCooldownUntil = 0;
 
+    static getOllamaRateLimitMessage() {
+        return (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded'))
+            || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
+    }
+
+    static isRateLimitedResponse(response, responseText = '') {
+        if (Number(response?.status) === 429) return true;
+        const text = String(responseText || '').toLowerCase();
+        return text.includes('too many requests') || text.includes('weekly usage') || text.includes('daily limit');
+    }
+
     static showModelFetchConnectionNotification(message) {
         const now = Date.now();
         if (now < this._modelFetchNotificationCooldownUntil) {
@@ -160,6 +171,13 @@ class ModelDownloader {
         try {
             // First check if model already exists (completed while app was closed)
             const tagsResponse = await fetch('http://localhost:11434/api/tags');
+            if (!tagsResponse.ok) {
+                const errText = await tagsResponse.text();
+                if (this.isRateLimitedResponse(tagsResponse, errText)) {
+                    throw new Error(this.getOllamaRateLimitMessage());
+                }
+                throw new Error(`local /api/tags returned ${tagsResponse.status}`);
+            }
             const tagsData = await tagsResponse.json();
             const fullModelName = `${this.downloadState.selectedModel}:${this.downloadState.selectedTag}`;
             const modelExists = tagsData.models?.some(m => m.name === fullModelName);
@@ -436,6 +454,13 @@ class ModelDownloader {
         try {
             // First check if model already exists (download completed)
             const tagsResponse = await fetch('http://localhost:11434/api/tags');
+            if (!tagsResponse.ok) {
+                const errText = await tagsResponse.text();
+                if (this.isRateLimitedResponse(tagsResponse, errText)) {
+                    throw new Error(this.getOllamaRateLimitMessage());
+                }
+                throw new Error(`local /api/tags returned ${tagsResponse.status}`);
+            }
             const tagsData = await tagsResponse.json();
             const fullModelName = `${this.downloadState.selectedModel}:${this.downloadState.selectedTag}`;
             const modelExists = tagsData.models?.some(m => m.name === fullModelName);
@@ -1896,6 +1921,12 @@ class ModelDownloader {
                     return data.version;
                 }
             }
+            if (!response.ok) {
+                const errText = await response.text();
+                if (this.isRateLimitedResponse(response, errText)) {
+                    this.showModelFetchConnectionNotification(this.getOllamaRateLimitMessage());
+                }
+            }
             return '0.0.0'; // Default if not found
         } catch (error) {
             console.error('Error detecting Ollama version:', error);
@@ -2385,6 +2416,14 @@ class ModelDownloader {
     static async loadLocalModels() {
         try {
             const response = await fetch('http://localhost:11434/api/tags');
+            if (!response.ok) {
+                const errText = await response.text();
+                if (this.isRateLimitedResponse(response, errText)) {
+                    this.showModelFetchConnectionNotification(this.getOllamaRateLimitMessage());
+                    return [];
+                }
+                throw new Error(`local /api/tags returned ${response.status}`);
+            }
             const data = await response.json();
             const localModelSelect = document.getElementById('local-model-select');
 
@@ -2724,6 +2763,13 @@ class ModelDownloader {
     if(lastStatus === "success") {
    //console.log('Verifying download completion...');
     const verifyResponse = await fetch('http://localhost:11434/api/tags');
+    if (!verifyResponse.ok) {
+        const errText = await verifyResponse.text();
+        if (this.isRateLimitedResponse(verifyResponse, errText)) {
+            throw new Error(this.getOllamaRateLimitMessage());
+        }
+        throw new Error(`local /api/tags returned ${verifyResponse.status}`);
+    }
     const tags = await verifyResponse.json();
    //console.log('Available models after download:', tags);
 

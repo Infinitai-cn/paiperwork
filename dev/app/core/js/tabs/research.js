@@ -1248,6 +1248,10 @@ class ResearchAutomation {
             }
 
             if (!response.ok) {
+                const errorText = await response.text();
+                if (response.status === 429) {
+                    throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+                }
                 throw new Error(`Summarization request failed: ${response.status}`);
             }
 
@@ -1269,6 +1273,10 @@ class ResearchAutomation {
             return this.removeAIThinkingTags(String(data?.response || data?.message?.content || '').trim());
         } catch (error) {
             console.error(`Research: Error in summarization ${operationId}:`, error);
+            const msg = String(error?.message || '').toLowerCase();
+            if (msg.includes('429') || msg.includes('too many requests') || msg.includes('weekly usage') || msg.includes('daily limit')) {
+                return (window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
+            }
             return content.substring(0, 150) + Lang.get('summaryFailedSuffix');
         } finally {
             // CRITICAL: Mark this operation as complete in our master tracker
@@ -2289,6 +2297,14 @@ class ResearchAutomation {
                 signal: this.abortController?.signal
             });
 
+            if (!response.ok) {
+                const errorText = await response.text();
+                if (response.status === 429) {
+                    throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+                }
+                throw new Error(`Query generation request failed: ${response.status}`);
+            }
+
             if (this.isCancelled) {
                 throw new DOMException('Research process aborted', 'AbortError');
             }
@@ -2358,6 +2374,11 @@ class ResearchAutomation {
             if (error.name === 'AbortError' || this.isCancelled) {
                //console.log('Research: Query generation cancelled');
                 throw new DOMException('Research process aborted', 'AbortError');
+            }
+
+            const msg = String(error?.message || '').toLowerCase();
+            if (msg.includes('429') || msg.includes('too many requests') || msg.includes('weekly usage') || msg.includes('daily limit')) {
+                throw error;
             }
 
             console.error('Error generating search queries:', error);
@@ -2614,6 +2635,10 @@ class ResearchAutomation {
             if (this.isCancelled) throw new DOMException('Research process aborted', 'AbortError');
 
             if (!response.ok) {
+                const errorText = await response.text();
+                if (response.status === 429) {
+                    throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+                }
                 throw new Error(`Partial report generation failed: ${response.status}`);
             }
 
@@ -2709,6 +2734,10 @@ class ResearchAutomation {
             if (this.isCancelled) throw new DOMException('Research process aborted', 'AbortError');
 
             if (!response.ok) {
+                const errorText = await response.text();
+                if (response.status === 429) {
+                    throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+                }
                 throw new Error(`Final report combination failed: ${response.status}`);
             }
 
@@ -2718,6 +2747,11 @@ class ResearchAutomation {
             // Handle cancellation errors specifically
             if (error.name === 'AbortError' || this.isCancelled) {
                 throw new DOMException('Research process aborted', 'AbortError');
+            }
+
+            const msg = String(error?.message || '').toLowerCase();
+            if (msg.includes('429') || msg.includes('too many requests') || msg.includes('weekly usage') || msg.includes('daily limit')) {
+                return (window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
             }
 
             console.error('Error combining research report parts:', error);

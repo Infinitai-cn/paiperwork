@@ -249,12 +249,15 @@ class DataViz {
     </div>
                 `);
             } else {
+                const isRateLimited = this.isRateLimitError(error);
+                const rateLimitMessage = (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded'))
+                    || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
                 // For all other types of errors, show the detailed error message
                 console.error('Error creating visualization:', error);
                 this.showFloatingWindow(`
     <div class="dataviz-error" style="color: #000000;">
         <h3>${Lang.get('datavizErrorCreating')}</h3>
-        <p>${error.message}</p>
+        <p>${isRateLimited ? rateLimitMessage : error.message}</p>
         <p>${Lang.get('datavizErrorMessage')}</p>
         <p>${Lang.get('datavizErrorSuggestion')}</p>
     </div>
@@ -265,6 +268,17 @@ class DataViz {
             window.globalAbortController = null;
         }
     }
+
+    isRateLimitError(error) {
+        const message = String(error?.message || '').toLowerCase();
+        return message.includes('429')
+            || message.includes('420')
+            || message.includes('too many requests')
+            || message.includes('weekly usage')
+            || message.includes('daily limit')
+            || message.includes('rate limit');
+    }
+
     // Returns the appropriate system prompt string for the specified visualization type
     getSystemPrompt(vizType) {
         switch (vizType) {

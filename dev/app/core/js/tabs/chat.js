@@ -62,6 +62,37 @@ class Chat {
         return true;
     }
 
+    isOllamaRateLimitError(error) {
+        const message = String(error?.message || '').toLowerCase();
+        const directStatus = Number(error?.status || error?.statusCode || error?.response?.status || NaN);
+
+        if (directStatus === 429) {
+            return true;
+        }
+
+        return /(^|\D)429(\D|$)/.test(message)
+            || message.includes('too many requests')
+            || message.includes('weekly usage')
+            || message.includes('daily limit')
+            || message.includes('ollama api error 429');
+    }
+
+    handleOllamaRateLimitInChat(error, aiReplies) {
+        if (!this.isOllamaRateLimitError(error)) {
+            return false;
+        }
+
+        const message = (Lang.get && Lang.get('ollamaRateLimitExceeded'))
+            || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
+
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'system-message';
+        errorDiv.innerHTML = `<div class="message-bubble error">${message}</div>`;
+        aiReplies.appendChild(errorDiv);
+
+        return true;
+    }
+
     // Initializes the chat system, sets up event listeners and global references
     async initialize() {
        //console.log('Chat: Initializing chat system');
@@ -1089,6 +1120,10 @@ class Chat {
                 } catch (error) {
                     console.error('Chat: Error in document + web search mode:', error);
 
+                    if (this.handleOllamaRateLimitInChat(error, aiReplies)) {
+                        return;
+                    }
+
                     const handledCloudAuth = await this.handleCloudAuthFailureIfNeeded(error);
                     if (handledCloudAuth) {
                         const errorDiv = document.createElement('div');
@@ -1886,6 +1921,8 @@ class Chat {
                 window.isGenerating = false;
                 this.isGenerating = false;
                 this.cleanupIncompleteResponses();
+            } else if (this.handleOllamaRateLimitInChat(error, aiReplies)) {
+                // Specific usage-limit message already shown.
             } else if (await this.handleCloudAuthFailureIfNeeded(error)) {
 
                 const errorDiv = document.createElement('div');

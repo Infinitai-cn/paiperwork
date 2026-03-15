@@ -42,6 +42,12 @@ async function modelSupportsSummaryGeneration(model) {
         });
 
         if (!response.ok) {
+            if (response.status === 429) {
+                const rateLimitMessage = (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded'))
+                    || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
+                console.warn('DocumentsTab: Model capability check rate-limited (429).', rateLimitMessage);
+                return null;
+            }
             return null;
         }
 
