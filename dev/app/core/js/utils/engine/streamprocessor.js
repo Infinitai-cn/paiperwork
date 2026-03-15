@@ -3158,16 +3158,22 @@ class StreamProcessor {
         copyButton.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            self.copyFullResponse();
+            self.copyFullResponse(this);
         });
 
         container.appendChild(copyButton);
         this.responseContainer.appendChild(container);
     }
     // Copies the full response text to the clipboard, including code blocks and optional metadata.
-    copyFullResponse() {
+    copyFullResponse(triggerElement = null) {
         // First check if user wants to include metadata in copied text
         const includeMetadata = localStorage.getItem('copyIncludeMetadata') === 'true';
+
+        const blockTags = new Set([
+            'P', 'DIV', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER',
+            'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+            'UL', 'OL', 'LI', 'PRE', 'BLOCKQUOTE', 'TABLE', 'TR'
+        ]);
 
         const collectTextContent = (element) => {
             let text = '';
@@ -3182,6 +3188,9 @@ class StreamProcessor {
                 if (node.nodeType === Node.TEXT_NODE) {
                     text += node.textContent;
                 }
+                else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+                    text += '\n';
+                }
                 else if (node.classList && node.classList.contains('code-block')) {
                     const codeElement = node.querySelector('code');
                     if (codeElement) {
@@ -3195,7 +3204,11 @@ class StreamProcessor {
                     }
                 }
                 else if (node.classList && node.classList.contains('text-content')) {
-                    text += node.textContent + '\n';
+                    text += collectTextContent(node);
+
+                    if (!text.endsWith('\n\n')) {
+                        text += '\n\n';
+                    }
                 }
                 // Skip the header section of code blocks which contains buttons
                 else if (node.classList && node.classList.contains('code-header')) {
@@ -3207,13 +3220,28 @@ class StreamProcessor {
                 }
                 // Process other nodes recursively
                 else if (node.childNodes && node.childNodes.length > 0) {
-                    text += collectTextContent(node);
+                    const nestedText = collectTextContent(node);
+                    const tagName = (node.tagName || '').toUpperCase();
+
+                    if (tagName === 'LI') {
+                        const itemText = nestedText.trim();
+                        if (itemText) {
+                            text += `- ${itemText}\n`;
+                        }
+                        continue;
+                    }
+
+                    text += nestedText;
+
+                    if (blockTags.has(tagName) && !text.endsWith('\n\n')) {
+                        text += '\n\n';
+                    }
                 }
             }
             return text;
         };
 
-        let fullText = collectTextContent(this.responseContainer);
+        let fullText = collectTextContent(this.responseContainer).replace(/\r\n/g, '\n').trimEnd();
 
         // Add metadata if enabled
         if (includeMetadata) {
@@ -3228,18 +3256,14 @@ class StreamProcessor {
 
         navigator.clipboard.writeText(fullText).then(() => {
            //console.log('Full text copied to clipboard, length:', fullText.length);
-            const copyLinks = this.responseContainer.querySelectorAll('.copy-response-container a, .message-actions a');
+            const target = triggerElement
+                || this.responseContainer.querySelector('.copy-response-container a, .message-actions a');
 
-            // Find the copy link - look through all links to find the one with "Copy" text
-            const copyLink = Array.from(copyLinks).find(link =>
-                link.textContent.toLowerCase().includes('copy') &&
-                !link.textContent.toLowerCase().includes('copied'));
-
-            if (copyLink) {
-                const originalText = copyLink.textContent;
-                copyLink.textContent = 'Copied!';
+            if (target) {
+                const originalText = target.textContent;
+                target.textContent = (Lang.get && Lang.get('copied')) || 'Copied';
                 setTimeout(() => {
-                    copyLink.textContent = originalText;
+                    target.textContent = originalText;
                 }, 2000);
             }
         }).catch(err => {

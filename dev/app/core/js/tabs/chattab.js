@@ -1528,6 +1528,11 @@ class ChatTab {
 
                     messageDiv.appendChild(container);
 
+                    // Saved HTML may contain old action labels from a different language.
+                    if (window.chat && typeof window.chat.localizeMessageActionButtons === 'function') {
+                        window.chat.localizeMessageActionButtons(messageDiv);
+                    }
+
                     // Add to conversations array for continue button
                     conversationsForContinue.push({
                         role: 'assistant',
@@ -1535,14 +1540,34 @@ class ChatTab {
                         timestamp: conv.timestamp
                     });
 
-                    // Add event listeners to copy links
-                    const copyLinks = messageDiv.querySelectorAll('.copy-response-container a');
+                    // Add event listeners to copy links (legacy + current action containers)
+                    const copyLinks = messageDiv.querySelectorAll('.copy-response-container a, .message-actions a.copy-btn');
                     copyLinks.forEach(link => {
                         link.addEventListener('click', (e) => {
                             e.preventDefault();
-                            const container = link.closest('.assistant-message').querySelector('.ai-response-container');
+                            e.stopPropagation();
+                            const container = link.closest('.assistant-message')?.querySelector('.ai-response-container');
                             if (container && container.streamProcessor) {
-                                container.streamProcessor.copyFullResponse();
+                                container.streamProcessor.copyFullResponse(link);
+                                return;
+                            }
+
+                            // Fallback copy path if streamProcessor reference is unavailable.
+                            if (container) {
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = container.innerHTML;
+                                tempDiv.querySelectorAll('.message-actions, .copy-response-container, .cancel-note').forEach(el => el.remove());
+                                const cleanText = (tempDiv.innerText || tempDiv.textContent || '').replace(/\r\n/g, '\n').trimEnd();
+
+                                navigator.clipboard.writeText(cleanText).then(() => {
+                                    const originalText = link.textContent;
+                                    link.textContent = (Lang.get('copied') || 'Copied');
+                                    setTimeout(() => {
+                                        link.textContent = originalText;
+                                    }, 2000);
+                                }).catch(err => {
+                                    console.error('Failed to copy loaded message:', err);
+                                });
                             }
                         });
                     });

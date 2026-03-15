@@ -119,6 +119,11 @@ function setupTabSwitching() {
                 if (leavesHtmlTabs && window.PaiperworkDB && typeof window.PaiperworkDB.closeHtmlDatabases === 'function') {
                     await window.PaiperworkDB.closeHtmlDatabases(sessionStorage.getItem('hashedMasterKey'));
                 }
+
+                // Release knowledge-base DB handles when exiting Research tab.
+                if (previousTab === 'research' && button.dataset.tab !== 'research' && window.PaiperworkDB && typeof window.PaiperworkDB.closeKnowledgeDatabases === 'function') {
+                    await window.PaiperworkDB.closeKnowledgeDatabases(sessionStorage.getItem('hashedMasterKey'));
+                }
             }
             // Handle specific tab activations
             if (button.dataset.tab === 'models') {

@@ -439,6 +439,13 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         // Statistics Display
         databaseStats: "Database Statistics",
         databaseSize: "Database Size",
+        databaseBreakdown: "Database Breakdown",
+        databaseMain: "Main",
+        databaseRag: "RAG",
+        databaseOpenStatus: "Open",
+        databaseClosedStatus: "Closed",
+        databaseCountLabel: "Count",
+        databaseCollectionsLabel: "Collections",
         documents: "Documents",
         totalChunks: "Total Chunks",
         orphanedChunks: "Orphaned Chunks",

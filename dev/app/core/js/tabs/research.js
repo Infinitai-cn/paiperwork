@@ -521,9 +521,18 @@ class ResearchAutomation {
         catch (error) {
             console.error("Research error:", error);
 
+            const isAbortError = error?.name === 'AbortError'
+                || String(error?.message || '').toLowerCase().includes('research process aborted');
+
             if (this.activeWindow === loadingWindow) {
                 loadingWindow.close();
                 this.activeWindow = null;
+            }
+
+            // Abort can be intentional (e.g., when closing/transitioning windows).
+            // Do not replace the tab UI with an error panel for this case.
+            if (isAbortError) {
+                return;
             }
 
             // Show error message
@@ -3946,6 +3955,8 @@ class ResearchAutomation {
                 // Show success message
                 alert(Lang.get('researchSavedSuccessfully'));
 
+                await window.researchTab.knowledgeBase.reloadCollections();
+
                 // Refresh collections display if we're on the knowledge base tab
                 if (window.researchTab.currentSubTab === 'knowledge-base') {
                     window.researchTab.knowledgeBase.renderAllCollections();
@@ -3973,6 +3984,13 @@ class ResearchAutomation {
             // Clear the loading option
             selectElement.innerHTML = '';
 
+            // Add create new option
+            const newOption = document.createElement('option');
+            newOption.value = 'new';
+            newOption.textContent = Lang.get('createNewCollectionOption');
+            newOption.selected = true;
+            selectElement.appendChild(newOption);
+
             // Add collections to dropdown
             if (collections && collections.length > 0) {
                 collections.forEach(collection => {
@@ -3983,11 +4001,8 @@ class ResearchAutomation {
                 });
             }
 
-            // Add create new option
-            const newOption = document.createElement('option');
-            newOption.value = 'new';
-            newOption.textContent = Lang.get('createNewCollectionOption');
-            selectElement.appendChild(newOption);
+            // Keep the safer default to prevent accidental saves into existing collections.
+            selectElement.value = 'new';
         } catch (error) {
             console.error('Error loading collections:', error);
             selectElement.innerHTML = `<option value="">${Lang.get('errorLoadingCollections')}</option>`;
@@ -4215,9 +4230,15 @@ class KnowledgeBase {
         this._creatingCollection = false;
     }
 
+    async reloadCollections() {
+        const collections = await PaiperworkDB.loadKnowledgeCollections(this.hashedMasterKey);
+        this.collections = Array.isArray(collections) ? collections : [];
+        return this.collections;
+    }
+
     async initialize() {
         // Simply load knowledge collections from database
-        this.collections = await PaiperworkDB.loadKnowledgeCollections(this.hashedMasterKey);
+        await this.reloadCollections();
 
         // Set up event listeners for collection creation
         const createBtn = document.getElementById('create-collection-btn');
@@ -4695,14 +4716,14 @@ class KnowledgeBase {
 
         document.getElementById('save-entry').addEventListener('click', async () => {
             const title = document.getElementById('entry-title').value.trim();
-            const content = document.getElementById('entry-content').value.trim();
+            const content = document.getElementById('entry-content').value;
 
             if (!title) {
                 alert(Lang.get('pleaseEnterTitle'));
                 return;
             }
 
-            if (!content) {
+            if (!content.trim()) {
                 alert(Lang.get('pleaseEnterContent'));
                 return;
             }
@@ -5123,14 +5144,14 @@ class KnowledgeBase {
 
         document.getElementById('save-entry').addEventListener('click', async () => {
             const title = document.getElementById('entry-title').value.trim();
-            const content = document.getElementById('entry-content').value.trim();
+            const content = document.getElementById('entry-content').value;
 
             if (!title) {
                 alert(Lang.get('pleaseEnterTitle'));
                 return;
             }
 
-            if (!content) {
+            if (!content.trim()) {
                 alert(Lang.get('pleaseEnterContent'));
                 return;
             }

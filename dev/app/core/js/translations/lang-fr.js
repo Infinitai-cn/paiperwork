@@ -435,6 +435,13 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         // Statistics Display
         databaseStats: "Statistiques de la base de données",
         databaseSize: "Taille de la base de données",
+        databaseBreakdown: "Répartition des bases de données",
+        databaseMain: "Principale",
+        databaseRag: "RAG",
+        databaseOpenStatus: "Ouverte",
+        databaseClosedStatus: "Fermée",
+        databaseCountLabel: "Nombre",
+        databaseCollectionsLabel: "Collections",
         documents: "Documents",
         totalChunks: "Total des blocs",
         orphanedChunks: "Blocs orphelins",

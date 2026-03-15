@@ -11,6 +11,7 @@ class PaiperworkDB {
     static normalizeDbRole(role = 'main') {
         if (role === 'rag') return 'rag';
         if (role === 'html') return 'html';
+        if (role === 'kb') return 'kb';
         return 'main';
     }
 
@@ -39,7 +40,8 @@ class PaiperworkDB {
         return {
             main: !!this.getTrackedOpenDatabase(hashedMasterKey, 'main'),
             rag: !!this.getTrackedOpenDatabase(hashedMasterKey, 'rag'),
-            html: !!this.getTrackedOpenDatabase(hashedMasterKey, 'html')
+            html: !!this.getTrackedOpenDatabase(hashedMasterKey, 'html'),
+            kb: !!this.getTrackedOpenDatabase(hashedMasterKey, 'kb')
         };
     }
 
@@ -51,6 +53,9 @@ class PaiperworkDB {
         if (normalizedRole === 'html') {
             return `${hashedMasterKey}.html.db`;
         }
+        if (normalizedRole === 'kb') {
+            return `${hashedMasterKey}.kb.db`;
+        }
         return `${hashedMasterKey}.db`;
     }
 
@@ -61,6 +66,9 @@ class PaiperworkDB {
         }
         if (normalizedRole === 'html') {
             return `${hashedMasterKey}::html`;
+        }
+        if (normalizedRole === 'kb') {
+            return `${hashedMasterKey}::kb`;
         }
         return hashedMasterKey;
     }
@@ -339,6 +347,10 @@ class PaiperworkDB {
         return this.getDatabase(hashedMasterKey, 'html', true);
     }
 
+    static async getKnowledgeDatabase(hashedMasterKey) {
+        return this.getDatabase(hashedMasterKey, 'kb', true);
+    }
+
     static async closeRoleDatabases(role = 'rag', hashedMasterKey = null) {
         const normalizedRole = this.normalizeDbRole(role);
         const remaining = [];
@@ -368,6 +380,10 @@ class PaiperworkDB {
 
     static async closeHtmlDatabases(hashedMasterKey = null) {
         return this.closeRoleDatabases('html', hashedMasterKey);
+    }
+
+    static async closeKnowledgeDatabases(hashedMasterKey = null) {
+        return this.closeRoleDatabases('kb', hashedMasterKey);
     }
 
     // Migrates a plaintext localStorage key to encrypted storage using secureLocalStorageSet.
@@ -948,11 +964,26 @@ class PaiperworkDB {
                 }
             }
 
-            // Update database version to 12
+            // Version 13: Migrate legacy embedded KB entries to dedicated kb database
+            if (currentVersion < 13) {
+                try {
+                    const migrationResult = await this.migrateLegacyKnowledgeCollectionsToDedicatedDb(db, hashedMasterKey);
+                    if (migrationResult?.migratedCollections > 0) {
+                        console.info(
+                            `DATABASE MIGRATION: Moved ${migrationResult.migratedEntries} KB entries ` +
+                            `from ${migrationResult.migratedCollections} collections to dedicated KB database.`
+                        );
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error migrating legacy KB entries', error);
+                }
+            }
+
+            // Update database version to 13
             if (currentVersion === 0) {
-                db.run('INSERT INTO db_version (version) VALUES (12)');
+                db.run('INSERT INTO db_version (version) VALUES (13)');
             } else {
-                db.run('UPDATE db_version SET version = 12');
+                db.run('UPDATE db_version SET version = 13');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
@@ -964,6 +995,86 @@ class PaiperworkDB {
         } catch (error) {
             console.error('Error during database migration:', error);
             return false;
+        }
+    }
+
+    static async migrateLegacyKnowledgeCollectionsToDedicatedDb(mainDb, hashedMasterKey) {
+        try {
+            if (!mainDb || !hashedMasterKey) {
+                return { migratedCollections: 0, migratedEntries: 0 };
+            }
+
+            const collectionsTable = `knowledge_collections_${hashedMasterKey}`;
+            const tableCheck = mainDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${collectionsTable}'`);
+            if (!tableCheck.length || !tableCheck[0].values.length) {
+                return { migratedCollections: 0, migratedEntries: 0 };
+            }
+
+            const rows = mainDb.exec(`SELECT collection_id, collection_data, updated_at FROM ${collectionsTable}`);
+            if (!rows.length || !rows[0].values.length) {
+                return { migratedCollections: 0, migratedEntries: 0 };
+            }
+
+            const kbDb = await this.getDatabase(hashedMasterKey, 'kb', true);
+            if (!kbDb) {
+                return { migratedCollections: 0, migratedEntries: 0 };
+            }
+
+            const entriesTable = `knowledge_entries_${hashedMasterKey}`;
+            kbDb.exec(`
+                CREATE TABLE IF NOT EXISTS ${entriesTable} (
+                    collection_id TEXT PRIMARY KEY,
+                    entries_data TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            let migratedCollections = 0;
+            let migratedEntries = 0;
+            let kbUpdated = false;
+
+            for (const [collectionId, encryptedData, updatedAt] of rows[0].values) {
+                try {
+                    const decryptedData = await this.decrypt(hashedMasterKey, JSON.parse(encryptedData));
+                    const collection = JSON.parse(decryptedData || '{}');
+                    const legacyEntries = Array.isArray(collection?.entries) ? collection.entries : [];
+
+                    if (!legacyEntries.length) {
+                        continue;
+                    }
+
+                    const encryptedEntries = await this.encrypt(hashedMasterKey, JSON.stringify(legacyEntries));
+                    kbDb.exec(
+                        `INSERT OR REPLACE INTO ${entriesTable} (collection_id, entries_data, updated_at) VALUES (?, ?, ?)`,
+                        [collectionId, JSON.stringify(encryptedEntries), updatedAt || new Date().toISOString()]
+                    );
+                    kbUpdated = true;
+
+                    collection.entries = [];
+                    collection.entryCount = legacyEntries.length;
+                    collection.updated = collection.updated || updatedAt || new Date().toISOString();
+
+                    const encryptedMetadataOnly = await this.encrypt(hashedMasterKey, JSON.stringify(collection));
+                    mainDb.exec(
+                        `UPDATE ${collectionsTable} SET collection_data = ?, updated_at = ? WHERE collection_id = ?`,
+                        [JSON.stringify(encryptedMetadataOnly), updatedAt || new Date().toISOString(), collectionId]
+                    );
+
+                    migratedCollections += 1;
+                    migratedEntries += legacyEntries.length;
+                } catch (error) {
+                    console.warn('Skipping legacy KB migration row due to parse/decrypt issue:', error);
+                }
+            }
+
+            if (kbUpdated) {
+                await this.saveToStorage(kbDb.export(), hashedMasterKey, 'kb');
+            }
+
+            return { migratedCollections, migratedEntries };
+        } catch (error) {
+            console.error('migrateLegacyKnowledgeCollectionsToDedicatedDb error:', error);
+            return { migratedCollections: 0, migratedEntries: 0 };
         }
     }
 
@@ -1658,6 +1769,15 @@ class PaiperworkDB {
                         opfsDeleted = false;
                     }
                 }
+
+                try {
+                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'kb'));
+                } catch (error) {
+                    if (error?.name !== 'NotFoundError') {
+                        console.warn('Error deleting kb database from OPFS:', error);
+                        opfsDeleted = false;
+                    }
+                }
             } catch (error) {
                 // If directory doesn't exist, that's fine
                //console.log('No PaiperworkDB directory in OPFS or other error:', error);
@@ -1675,13 +1795,21 @@ class PaiperworkDB {
                 const mainKey = this.getDbStorageKey(hashedMasterKey, 'main');
                 const ragKey = this.getDbStorageKey(hashedMasterKey, 'rag');
                 const htmlKey = this.getDbStorageKey(hashedMasterKey, 'html');
+                const kbKey = this.getDbStorageKey(hashedMasterKey, 'kb');
                 const deleteRequest = store.delete(mainKey);
 
                 deleteRequest.onsuccess = () => {
                     const deleteRagRequest = store.delete(ragKey);
                     deleteRagRequest.onsuccess = () => {
                         const deleteHtmlRequest = store.delete(htmlKey);
-                        deleteHtmlRequest.onsuccess = () => resolve(true);
+                        deleteHtmlRequest.onsuccess = () => {
+                            const deleteKbRequest = store.delete(kbKey);
+                            deleteKbRequest.onsuccess = () => resolve(true);
+                            deleteKbRequest.onerror = () => {
+                                console.error('Error deleting kb database from IndexedDB:', deleteKbRequest.error);
+                                resolve(false);
+                            };
+                        };
                         deleteHtmlRequest.onerror = () => {
                             console.error('Error deleting html database from IndexedDB:', deleteHtmlRequest.error);
                             resolve(false);
@@ -1714,6 +1842,7 @@ class PaiperworkDB {
 
         await this.closeRoleDatabases('rag');
         await this.closeRoleDatabases('html');
+        await this.closeRoleDatabases('kb');
         await this.closeRoleDatabases('main');
 
         // CRITICAL FIX: Ensure we know our current storage strategy
@@ -3915,6 +4044,9 @@ class PaiperworkDB {
                 try {
                     const decryptedData = await this.decrypt(hashedMasterKey, JSON.parse(encryptedData));
                     const collection = JSON.parse(decryptedData);
+                    const legacyEntries = Array.isArray(collection?.entries) ? collection.entries : [];
+                    const separatedEntries = await this.loadKnowledgeCollectionEntries(hashedMasterKey, collectionId);
+                    collection.entries = Array.isArray(separatedEntries) ? separatedEntries : legacyEntries;
 
 
                     collections.push(collection);
@@ -3960,7 +4092,15 @@ class PaiperworkDB {
                 `);
             }
 
-            const collectionStr = JSON.stringify(collection);
+            const entriesPayload = Array.isArray(collection?.entries) ? collection.entries : [];
+            const metadataOnlyCollection = {
+                ...collection,
+                entries: [],
+                entryCount: entriesPayload.length,
+                updated: collection?.updated || new Date().toISOString()
+            };
+
+            const collectionStr = JSON.stringify(metadataOnlyCollection);
             const encryptedData = await this.encrypt(hashedMasterKey, collectionStr);
             const timestamp = new Date().toISOString();
 
@@ -3986,6 +4126,12 @@ class PaiperworkDB {
                 (collection_id, collection_data, created_at, updated_at)
                 VALUES (?, ?, ?, ?)
                 `, [collection.id, JSON.stringify(encryptedData), timestamp, timestamp]);
+            }
+
+            const savedEntries = await this.saveKnowledgeCollectionEntries(hashedMasterKey, collection.id, entriesPayload);
+            if (!savedEntries) {
+                console.error('Failed to save knowledge collection entries payload');
+                return false;
             }
 
             // Save to either OPFS or IndexedDB based on browser support
@@ -4041,12 +4187,116 @@ class PaiperworkDB {
                 WHERE collection_id = ?
             `, [collectionId]);
 
+            await this.deleteKnowledgeCollectionEntries(hashedMasterKey, collectionId);
+
             // Save changes using our unified method (OPFS for Chrome, IndexedDB for all browsers)
             await this.saveToStorage(db.export(), hashedMasterKey);
            //console.log(`Knowledge collection ${collectionId} deleted successfully`);
             return true;
         } catch (error) {
             console.error('Error deleting knowledge collection:', error);
+            return false;
+        }
+    }
+
+    static async loadKnowledgeCollectionEntries(hashedMasterKey, collectionId) {
+        try {
+            if (!hashedMasterKey || !collectionId) {
+                return null;
+            }
+
+            const kbDb = await this.getDatabase(hashedMasterKey, 'kb');
+            if (!kbDb) {
+                return null;
+            }
+
+            const entriesTable = `knowledge_entries_${hashedMasterKey}`;
+            const tableCheck = kbDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${entriesTable}'`);
+            if (!tableCheck.length || !tableCheck[0].values.length) {
+                return null;
+            }
+
+            const result = kbDb.exec(
+                `SELECT entries_data FROM ${entriesTable} WHERE collection_id = ? LIMIT 1`,
+                [collectionId]
+            );
+
+            if (!result.length || !result[0].values.length) {
+                return null;
+            }
+
+            const encryptedEntries = result[0].values[0][0];
+            if (!encryptedEntries) {
+                return [];
+            }
+
+            const decryptedEntries = await this.decrypt(hashedMasterKey, JSON.parse(encryptedEntries));
+            const parsedEntries = JSON.parse(decryptedEntries || '[]');
+            return Array.isArray(parsedEntries) ? parsedEntries : [];
+        } catch (error) {
+            console.error('Error loading knowledge collection entries:', error);
+            return null;
+        }
+    }
+
+    static async saveKnowledgeCollectionEntries(hashedMasterKey, collectionId, entries) {
+        try {
+            if (!hashedMasterKey || !collectionId) {
+                return false;
+            }
+
+            const kbDb = await this.getDatabase(hashedMasterKey, 'kb', true);
+            if (!kbDb) {
+                return false;
+            }
+
+            const entriesTable = `knowledge_entries_${hashedMasterKey}`;
+            kbDb.exec(`
+                CREATE TABLE IF NOT EXISTS ${entriesTable} (
+                    collection_id TEXT PRIMARY KEY,
+                    entries_data TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            const safeEntries = Array.isArray(entries) ? entries : [];
+            const encryptedEntries = await this.encrypt(hashedMasterKey, JSON.stringify(safeEntries));
+
+            kbDb.exec(
+                `INSERT OR REPLACE INTO ${entriesTable} (collection_id, entries_data, updated_at) VALUES (?, ?, ?)`,
+                [collectionId, JSON.stringify(encryptedEntries), new Date().toISOString()]
+            );
+
+            await this.saveToStorage(kbDb.export(), hashedMasterKey, 'kb');
+            return true;
+        } catch (error) {
+            console.error('Error saving knowledge collection entries:', error);
+            return false;
+        }
+    }
+
+    static async deleteKnowledgeCollectionEntries(hashedMasterKey, collectionId) {
+        try {
+            if (!hashedMasterKey || !collectionId) {
+                return false;
+            }
+
+            const kbDb = await this.getDatabase(hashedMasterKey, 'kb');
+            if (!kbDb) {
+                return false;
+            }
+
+            const entriesTable = `knowledge_entries_${hashedMasterKey}`;
+            const tableCheck = kbDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${entriesTable}'`);
+            if (!tableCheck.length || !tableCheck[0].values.length) {
+                return false;
+            }
+
+            kbDb.exec(`DELETE FROM ${entriesTable} WHERE collection_id = ?`, [collectionId]);
+            await this.saveToStorage(kbDb.export(), hashedMasterKey, 'kb');
+            return true;
+        } catch (error) {
+            console.error('Error deleting knowledge collection entries:', error);
             return false;
         }
     }
@@ -4445,68 +4695,93 @@ class PaiperworkDB {
     // Retrieves statistics about the user's database (size, document count, etc.).
     static async getDatabaseStatistics(hashedMasterKey) {
         try {
-            const db = await PaiperworkDB.getDatabase(hashedMasterKey, 'main');
-            const ragDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'rag');
-            const htmlDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'html');
-            if (!db || !ragDb || !htmlDb) {
+            const db = await PaiperworkDB.getDatabase(hashedMasterKey, 'main', true);
+            const ragDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'rag', true);
+            const htmlDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'html', true);
+            const kbDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'kb', true);
+            if (!db || !ragDb || !htmlDb || !kbDb) {
                 throw new Error(Lang.get("databaseNotAvailable") || "Database not available");
             }
 
-            // Get total database size (main + rag + html payload db)
+            const tableExists = (sqlDb, tableName) => {
+                try {
+                    const check = sqlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+                    return !!(check && check.length > 0 && check[0]?.values.length > 0);
+                } catch (_error) {
+                    return false;
+                }
+            };
+
+            const countRows = (sqlDb, tableName) => {
+                try {
+                    if (!tableExists(sqlDb, tableName)) return 0;
+                    const result = sqlDb.exec(`SELECT COUNT(*) FROM ${tableName}`);
+                    return result?.[0]?.values?.[0]?.[0] || 0;
+                } catch (_error) {
+                    return 0;
+                }
+            };
+
+            const textColumnBytes = (sqlDb, tableName, columnName) => {
+                try {
+                    if (!tableExists(sqlDb, tableName)) return 0;
+                    const result = sqlDb.exec(`SELECT COALESCE(SUM(LENGTH(${columnName})), 0) FROM ${tableName}`);
+                    return Number(result?.[0]?.values?.[0]?.[0] || 0);
+                } catch (_error) {
+                    return 0;
+                }
+            };
+
+            // Get total database size (main + rag + html payload db + knowledge payload db)
             const exportedDb = db.export();
             const exportedRagDb = ragDb.export();
             const exportedHtmlDb = htmlDb.export();
-            const totalSizeInBytes = exportedDb.length + exportedRagDb.length + exportedHtmlDb.length;
+            const exportedKbDb = kbDb.export();
+            const mainSizeBytes = exportedDb.length;
+            const ragSizeBytes = exportedRagDb.length;
+            const htmlSizeBytes = exportedHtmlDb.length;
+            const kbSizeBytes = exportedKbDb.length;
+            const totalSizeInBytes = mainSizeBytes + ragSizeBytes + htmlSizeBytes + kbSizeBytes;
+
+            const documentsTable = `documents_${hashedMasterKey}`;
+            const chunksTable = `document_chunks_${hashedMasterKey}`;
+            const promptableTable = `promptable_presentations_${hashedMasterKey}`;
+            const promptableHtmlTable = `promptable_presentations_html_${hashedMasterKey}`;
+            const artifactsTable = `artifacts_${hashedMasterKey}`;
+            const artifactsHtmlTable = `artifacts_html_${hashedMasterKey}`;
+            const kbCollectionsTable = `knowledge_collections_${hashedMasterKey}`;
+            const kbEntriesTable = `knowledge_entries_${hashedMasterKey}`;
 
             // Get document count (guard if table doesn't exist yet)
-            let documentCount = 0;
-            try {
-                const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='documents_${hashedMasterKey}'`);
-                const docTableExists = tableCheck && tableCheck.length > 0 && tableCheck[0]?.values.length > 0;
-                if (docTableExists) {
-                    const docResult = db.exec(`SELECT COUNT(*) FROM documents_${hashedMasterKey}`);
-                    documentCount = docResult[0]?.values[0][0] || 0;
-                } else {
-                    documentCount = 0;
-                }
-            } catch (e) {
-                console.warn('Error checking documents table existence:', e);
-                documentCount = 0;
-            }
+            const documentCount = countRows(db, documentsTable);
 
             // Get chunk count (guard if table doesn't exist yet)
-            let chunkCount = 0;
-            try {
-                const chunkTableCheck = ragDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='document_chunks_${hashedMasterKey}'`);
-                const chunkTableExists = chunkTableCheck && chunkTableCheck.length > 0 && chunkTableCheck[0]?.values.length > 0;
-                if (chunkTableExists) {
-                    const chunkResult = ragDb.exec(`SELECT COUNT(*) FROM document_chunks_${hashedMasterKey}`);
-                    chunkCount = chunkResult[0]?.values[0][0] || 0;
-                } else {
-                    chunkCount = 0;
-                }
-            } catch (e) {
-                console.warn('Error checking document_chunks table existence:', e);
-                chunkCount = 0;
-            }
+            const chunkCount = countRows(ragDb, chunksTable);
+
+            const presentationsCount = countRows(db, promptableTable);
+            const presentationsPayloadBytes = textColumnBytes(htmlDb, promptableHtmlTable, 'html_content');
+
+            const artifactsCount = countRows(db, artifactsTable);
+            const artifactsPayloadBytes = textColumnBytes(htmlDb, artifactsHtmlTable, 'html_content');
+
+            const kbCollectionsCount = countRows(db, kbCollectionsTable);
+            const kbPayloadCollectionsCount = countRows(kbDb, kbEntriesTable);
 
             // Check for orphaned chunks (chunks with no parent document) - guard if either table is missing
             let orphanedCount = 0;
             try {
-                const chunkTable = ragDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='document_chunks_${hashedMasterKey}'`);
-                const docsTable = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='documents_${hashedMasterKey}'`);
-                const haveBoth = chunkTable && chunkTable.length > 0 && chunkTable[0]?.values.length > 0 && docsTable && docsTable.length > 0 && docsTable[0]?.values.length > 0;
+                const haveBoth = tableExists(ragDb, chunksTable) && tableExists(db, documentsTable);
                 if (haveBoth) {
-                    const docIdsResult = db.exec(`SELECT document_id FROM documents_${hashedMasterKey}`);
+                    const docIdsResult = db.exec(`SELECT document_id FROM ${documentsTable}`);
                     const docIds = (docIdsResult?.[0]?.values || []).map(row => row[0]).filter(Boolean);
 
                     if (!docIds.length) {
-                        const orphanedResult = ragDb.exec(`SELECT COUNT(*) FROM document_chunks_${hashedMasterKey}`);
+                        const orphanedResult = ragDb.exec(`SELECT COUNT(*) FROM ${chunksTable}`);
                         orphanedCount = orphanedResult?.[0]?.values?.[0]?.[0] || 0;
                     } else {
                         const placeholders = docIds.map(() => '?').join(',');
                         const orphanedResult = ragDb.exec(
-                            `SELECT COUNT(*) FROM document_chunks_${hashedMasterKey} WHERE document_id NOT IN (${placeholders})`,
+                            `SELECT COUNT(*) FROM ${chunksTable} WHERE document_id NOT IN (${placeholders})`,
                             docIds
                         );
                         orphanedCount = orphanedResult?.[0]?.values?.[0]?.[0] || 0;
@@ -4523,6 +4798,36 @@ class PaiperworkDB {
                 totalSize: {
                     bytes: totalSizeInBytes,
                     formatted: this.formatFileSize(totalSizeInBytes)
+                },
+                dbBreakdown: {
+                    main: {
+                        bytes: mainSizeBytes,
+                        formatted: this.formatFileSize(mainSizeBytes)
+                    },
+                    rag: {
+                        bytes: ragSizeBytes,
+                        formatted: this.formatFileSize(ragSizeBytes)
+                    },
+                    presentations: {
+                        count: presentationsCount,
+                        payloadBytes: presentationsPayloadBytes,
+                        payloadFormatted: this.formatFileSize(presentationsPayloadBytes)
+                    },
+                    artifacts: {
+                        count: artifactsCount,
+                        payloadBytes: artifactsPayloadBytes,
+                        payloadFormatted: this.formatFileSize(artifactsPayloadBytes)
+                    },
+                    knowledgeBase: {
+                        bytes: kbSizeBytes,
+                        formatted: this.formatFileSize(kbSizeBytes),
+                        collections: kbCollectionsCount,
+                        payloadCollections: kbPayloadCollectionsCount
+                    },
+                    htmlPayload: {
+                        bytes: htmlSizeBytes,
+                        formatted: this.formatFileSize(htmlSizeBytes)
+                    }
                 },
                 documents: {
                     count: documentCount

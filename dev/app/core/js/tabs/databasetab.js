@@ -19,7 +19,7 @@ class DatabaseTab {
         // Load statistics (will reuse open handles when available)
         await this.refreshDatabaseStats();
 
-        if (!openState.main || !openState.rag) {
+        if (!openState.main || !openState.rag || !openState.html || !openState.kb) {
             console.info('DatabaseTab: One or more DB roles were not open; opened on-demand for stats.');
         }
         
@@ -125,6 +125,9 @@ class DatabaseTab {
             document.querySelector('.database-actions')?.classList.remove('hidden');
             
             // Build the stats HTML
+            const openState = PaiperworkDB.getOpenDatabaseState(this.hashedMasterKey);
+            const breakdown = stats.dbBreakdown || {};
+
             let html = `
                 <div class="stats-header">
                     <h3>${Lang.get('databaseStats') || 'Database Statistics'}</h3>
@@ -170,6 +173,39 @@ class DatabaseTab {
                     </div>
                 </div>`;
             }
+
+            html += `
+                <div class="db-breakdown-section">
+                    <h4>${Lang.get('databaseBreakdown') || 'Database Breakdown'}</h4>
+                    <div class="db-breakdown-grid">
+                        <div class="db-breakdown-card">
+                            <div class="db-breakdown-title">${Lang.get('databaseMain') || 'Main'}</div>
+                            <div class="db-breakdown-size">${breakdown.main?.formatted || '-'}</div>
+                            <div class="db-breakdown-meta">${openState.main ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')}</div>
+                        </div>
+                        <div class="db-breakdown-card">
+                            <div class="db-breakdown-title">${Lang.get('databaseRag') || 'RAG'}</div>
+                            <div class="db-breakdown-size">${breakdown.rag?.formatted || '-'}</div>
+                            <div class="db-breakdown-meta">${openState.rag ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')}</div>
+                        </div>
+                        <div class="db-breakdown-card">
+                            <div class="db-breakdown-title">${Lang.get('presentationTab') || 'Presentations'}</div>
+                            <div class="db-breakdown-size">${breakdown.presentations?.payloadFormatted || '-'}</div>
+                            <div class="db-breakdown-meta">${Lang.get('databaseCountLabel') || 'Count'}: ${breakdown.presentations?.count || 0}</div>
+                        </div>
+                        <div class="db-breakdown-card">
+                            <div class="db-breakdown-title">${Lang.get('artifactsTab') || 'Artifacts'}</div>
+                            <div class="db-breakdown-size">${breakdown.artifacts?.payloadFormatted || '-'}</div>
+                            <div class="db-breakdown-meta">${Lang.get('databaseCountLabel') || 'Count'}: ${breakdown.artifacts?.count || 0}</div>
+                        </div>
+                        <div class="db-breakdown-card">
+                            <div class="db-breakdown-title">${Lang.get('knowledgeBaseTitle') || 'Knowledge Base'}</div>
+                            <div class="db-breakdown-size">${breakdown.knowledgeBase?.formatted || '-'}</div>
+                            <div class="db-breakdown-meta">${openState.kb ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseCollectionsLabel') || 'Collections'}: ${breakdown.knowledgeBase?.collections || 0}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
             
             // Update the panel content
             statsPanel.innerHTML = html;
@@ -310,7 +346,7 @@ class DatabaseTab {
         if (active && this.initialized) {
             // Check if DBs are already open before acting on them.
             const openState = PaiperworkDB.getOpenDatabaseState(this.hashedMasterKey);
-            if (!openState.main || !openState.rag) {
+            if (!openState.main || !openState.rag || !openState.html || !openState.kb) {
                 console.info('DatabaseTab: Refreshing stats with on-demand DB open.', openState);
             }
             // Refresh when tab becomes active
@@ -488,6 +524,49 @@ class DatabaseTab {
             animation: spin 1s linear infinite;
             margin-right: 8px;
             vertical-align: middle;
+        }
+
+        .db-breakdown-section {
+            margin-top: 18px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .db-breakdown-section h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: var(--text-color);
+        }
+
+        .db-breakdown-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 10px;
+        }
+
+        .db-breakdown-card {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
+            background: var(--bg-color);
+        }
+
+        .db-breakdown-title {
+            font-size: 12px;
+            color: var(--label-color);
+            margin-bottom: 4px;
+        }
+
+        .db-breakdown-size {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .db-breakdown-meta {
+            margin-top: 3px;
+            font-size: 12px;
+            color: var(--label-color);
         }
         
         .database-actions {

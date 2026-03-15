@@ -435,6 +435,13 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         // Statistics Display
         databaseStats: "Datenbankstatistiken",
         databaseSize: "Datenbankgröße",
+        databaseBreakdown: "Datenbankaufschlüsselung",
+        databaseMain: "Hauptdatenbank",
+        databaseRag: "RAG",
+        databaseOpenStatus: "Geöffnet",
+        databaseClosedStatus: "Geschlossen",
+        databaseCountLabel: "Anzahl",
+        databaseCollectionsLabel: "Sammlungen",
         documents: "Dokumente",
         totalChunks: "Gesamte Blöcke",
         orphanedChunks: "Verwaiste Blöcke",
