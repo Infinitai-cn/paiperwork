@@ -180,7 +180,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         Ollamaerror500: "Erreur 500 dans la réponse d'Ollama.",
         ollamaSelectModelPrompt: "Veuillez sélectionner un modèle avant d'envoyer un message.",
         ollamaConnectionError: "Connexion à Ollama échouée. Vérifiez qu'Ollama fonctionne et réessayez.",
-        ollamaRateLimitExceeded: "La limite d'utilisation d'Ollama Cloud est atteinte (429). Vous avez peut-être atteint une limite quotidienne ou hebdomadaire. Veuillez attendre la réinitialisation ou mettre à niveau votre forfait Ollama : https://ollama.com/upgrade",
+        ollamaRateLimitExceeded: "La limite d'utilisation d'Ollama Cloud est atteinte. Vous avez peut-être atteint une limite quotidienne ou hebdomadaire. Veuillez attendre la réinitialisation. Visitez : https://ollama.com/settings pour confirmer votre utilisation.",
         ollamaCloudApiKeyTitle: "Clé API Ollama Cloud requise",
         ollamaCloudApiKeyInfo: "Pour utiliser les modèles cloud, ajoutez votre clé API Ollama. Cette clé sera stockée de manière chiffrée dans votre base de données utilisateur.",
         ollamaApiKeyPlaceholder: "Collez votre clé API Ollama",
