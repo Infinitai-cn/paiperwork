@@ -43,6 +43,321 @@ class PromptedPresentationWorkflow {
 		}
 	}
 
+	static isDarkThemeActive() {
+		if (typeof document === 'undefined') {
+			return false;
+		}
+
+		const root = document.documentElement;
+		const body = document.body;
+
+		if (root && (root.classList.contains('dark-mode') || root.classList.contains('dark-theme'))) {
+			return true;
+		}
+
+		if (body && (body.classList.contains('dark-mode') || body.classList.contains('dark-theme'))) {
+			return true;
+		}
+
+		return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+	}
+
+	static ensureRequestProgressStyles() {
+		if (typeof document === 'undefined') {
+			return;
+		}
+
+		const styleId = 'promptable-request-progress-style';
+		if (document.getElementById(styleId)) {
+			return;
+		}
+
+		const style = document.createElement('style');
+		style.id = styleId;
+		style.textContent = `
+@keyframes promptableRequestProgressIndefinite {
+	0% { transform: translateX(-130%); }
+	50% { transform: translateX(60%); }
+	100% { transform: translateX(260%); }
+}
+`;
+		document.head.appendChild(style);
+	}
+
+	static setRequestProgressVisible(isVisible) {
+		if (!this.requestProgressTrack || !this.requestProgressBar) {
+			return;
+		}
+
+		if (isVisible) {
+			const isDark = this.isDarkThemeActive();
+			const trackColor = isDark ? 'rgba(34, 197, 94, 0.22)' : 'rgba(37, 99, 235, 0.18)';
+			const progressColor = isDark ? '#22c55e' : '#2563eb';
+
+			this.requestProgressTrack.style.background = trackColor;
+			this.requestProgressTrack.style.opacity = '1';
+			this.requestProgressTrack.style.boxShadow = 'inset 0 0 0 1px rgba(148, 163, 184, 0.2)';
+			this.requestProgressBar.style.background = progressColor;
+			this.requestProgressBar.style.animationPlayState = 'running';
+			return;
+		}
+
+		this.requestProgressTrack.style.opacity = '0';
+		this.requestProgressTrack.style.boxShadow = 'none';
+		this.requestProgressBar.style.animationPlayState = 'paused';
+	}
+
+	static showStreamingHtmlPreview(statusText = '') {
+		if (!this.renderArea) {
+			return;
+		}
+
+		this.renderArea.innerHTML = '';
+
+		const wrapper = document.createElement('div');
+		wrapper.style.width = '100%';
+		wrapper.style.height = '100%';
+		wrapper.style.display = 'flex';
+		wrapper.style.flexDirection = 'column';
+		wrapper.style.gap = '8px';
+		wrapper.style.minHeight = '0';
+
+		const status = document.createElement('div');
+		status.textContent = statusText || (window.Lang ? (Lang.get('generatingSlideForge') || 'Generating SlideForge...') : 'Generating SlideForge...');
+		status.style.fontSize = '12px';
+		status.style.opacity = '0.85';
+		status.style.color = 'var(--text-color, #ffffff)';
+
+		const codePreview = document.createElement('textarea');
+		codePreview.readOnly = true;
+		codePreview.spellcheck = false;
+		codePreview.wrap = 'off';
+		codePreview.style.flex = '1 1 auto';
+		codePreview.style.width = '100%';
+		codePreview.style.minHeight = '0';
+		codePreview.style.resize = 'none';
+		codePreview.style.border = '1px solid var(--border-color, #404040)';
+		codePreview.style.borderRadius = '10px';
+		codePreview.style.background = 'var(--background-color, #18181b)';
+		codePreview.style.color = 'var(--text-color, #ffffff)';
+		codePreview.style.padding = '12px';
+		codePreview.style.boxSizing = 'border-box';
+		codePreview.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+		codePreview.style.fontSize = '12px';
+		codePreview.style.lineHeight = '1.45';
+		codePreview.style.overflow = 'auto';
+
+		wrapper.appendChild(status);
+		wrapper.appendChild(codePreview);
+		this.renderArea.appendChild(wrapper);
+
+		this.streamingCodeWrapper = wrapper;
+		this.streamingCodeStatus = status;
+		this.streamingCodePreview = codePreview;
+	}
+
+	static appendStreamingHtmlCode(delta) {
+		if (!this.streamingCodePreview || !delta) {
+			return;
+		}
+
+		this.streamingCodePreview.value += String(delta);
+		this.streamingCodePreview.scrollTop = this.streamingCodePreview.scrollHeight;
+	}
+
+	static ensureStreamingCodeSmoothState() {
+		if (this.streamingCodeSmoothState) {
+			return;
+		}
+
+		this.streamingCodeSmoothState = {
+			pending: '',
+			queue: [],
+			enqueueTimer: null,
+			renderTimer: null,
+			enqueueDelayMs: 14,
+			renderCadenceMs: 14,
+			minBufferedChars: 24,
+			maxBufferedChars: 320,
+			lastRenderAt: 0,
+			hardLimitMs: 42,
+		};
+	}
+
+	static findNextStreamingMarker(buffer) {
+		const markers = ['```', '</think>', '<think>', '\n'];
+		let best = null;
+
+		for (const marker of markers) {
+			const idx = buffer.indexOf(marker);
+			if (idx === -1) {
+				continue;
+			}
+			if (!best || idx < best.index) {
+				best = { marker, index: idx };
+			}
+		}
+
+		return best;
+	}
+
+	static extractStreamingUnit(text, force) {
+		if (!text) {
+			return null;
+		}
+
+		const wsMatch = text.match(/^(\s+)/);
+		if (wsMatch) {
+			return wsMatch[1];
+		}
+
+		const wordWithSpace = text.match(/^([^\s]+)(\s+)/);
+		if (wordWithSpace) {
+			return wordWithSpace[1] + wordWithSpace[2];
+		}
+
+		if (/[\u3040-\u30ff\u3400-\u9fff]/.test(text)) {
+			return text[0];
+		}
+
+		if (/[.!?,;:]$/.test(text)) {
+			return text;
+		}
+
+		return force ? text : null;
+	}
+
+	static enqueueStreamingUnits(force = false) {
+		this.ensureStreamingCodeSmoothState();
+		const state = this.streamingCodeSmoothState;
+
+		let guard = 0;
+		while (state.pending && guard < 256) {
+			guard += 1;
+			const markerData = this.findNextStreamingMarker(state.pending);
+
+			if (markerData && markerData.index === 0) {
+				state.queue.push(markerData.marker);
+				state.pending = state.pending.slice(markerData.marker.length);
+				continue;
+			}
+
+			if (markerData && markerData.index > 0) {
+				const prefix = state.pending.slice(0, markerData.index);
+				const unit = this.extractStreamingUnit(prefix, force);
+				if (!unit) {
+					if (force) {
+						state.queue.push(prefix);
+						state.pending = state.pending.slice(prefix.length);
+					}
+					break;
+				}
+
+				state.queue.push(unit);
+				state.pending = state.pending.slice(unit.length);
+				continue;
+			}
+
+			const unit = this.extractStreamingUnit(state.pending, force);
+			if (!unit) {
+				break;
+			}
+
+			state.queue.push(unit);
+			state.pending = state.pending.slice(unit.length);
+		}
+	}
+
+	static startStreamingCodeRenderPump() {
+		this.ensureStreamingCodeSmoothState();
+		const state = this.streamingCodeSmoothState;
+
+		if (state.renderTimer) {
+			return;
+		}
+
+		state.renderTimer = setInterval(() => {
+			if (!state.queue.length) {
+				clearInterval(state.renderTimer);
+				state.renderTimer = null;
+				return;
+			}
+
+			const unit = state.queue.shift();
+			state.lastRenderAt = Date.now();
+			this.appendStreamingHtmlCode(unit);
+		}, state.renderCadenceMs);
+	}
+
+	static flushStreamingCodePending(force = false) {
+		this.ensureStreamingCodeSmoothState();
+		const state = this.streamingCodeSmoothState;
+
+		this.enqueueStreamingUnits(force);
+		if (force && state.pending) {
+			state.queue.push(state.pending);
+			state.pending = '';
+		}
+
+		this.startStreamingCodeRenderPump();
+	}
+
+	static queueStreamingHtmlCode(delta) {
+		if (!delta) {
+			return;
+		}
+
+		this.ensureStreamingCodeSmoothState();
+		const state = this.streamingCodeSmoothState;
+		state.pending += String(delta);
+
+		const shouldFlushBoundary =
+			state.pending.length >= state.maxBufferedChars ||
+			state.pending.includes('\n') ||
+			state.pending.includes('```') ||
+			state.pending.includes('<think>') ||
+			state.pending.includes('</think>');
+
+		const now = Date.now();
+		const sinceLastRender = state.lastRenderAt ? (now - state.lastRenderAt) : Number.MAX_SAFE_INTEGER;
+
+		if (shouldFlushBoundary) {
+			this.flushStreamingCodePending(true);
+			return;
+		}
+
+		if (state.pending.length >= state.minBufferedChars && sinceLastRender >= state.hardLimitMs) {
+			this.flushStreamingCodePending(false);
+			return;
+		}
+
+		if (!state.enqueueTimer) {
+			state.enqueueTimer = setTimeout(() => {
+				state.enqueueTimer = null;
+				this.flushStreamingCodePending(true);
+			}, state.enqueueDelayMs);
+		}
+	}
+
+	static clearStreamingHtmlPreviewRefs() {
+		if (this.streamingCodeSmoothState) {
+			if (this.streamingCodeSmoothState.enqueueTimer) {
+				clearTimeout(this.streamingCodeSmoothState.enqueueTimer);
+				this.streamingCodeSmoothState.enqueueTimer = null;
+			}
+			if (this.streamingCodeSmoothState.renderTimer) {
+				clearInterval(this.streamingCodeSmoothState.renderTimer);
+				this.streamingCodeSmoothState.renderTimer = null;
+			}
+			this.streamingCodeSmoothState.pending = '';
+			this.streamingCodeSmoothState.queue = [];
+		}
+
+		this.streamingCodeWrapper = null;
+		this.streamingCodeStatus = null;
+		this.streamingCodePreview = null;
+	}
+
 	static showToastMessage(message, type = 'success') {
 		if (!message) {
 			return;
@@ -2229,7 +2544,7 @@ class PromptedPresentationWorkflow {
 		this.textEditorOverlay = editorOverlay;
 	}
 
-	static async generatePresentationHtml(userText, abortSignal = null, mode = 'html') {
+	static async generatePresentationHtml(userText, abortSignal = null, mode = 'html', onDelta = null) {
 		const model = this.getSelectedModel();
 		if (!model) {
 			throw new Error(window.Lang ? (Lang.get('selectModelPrompt') || 'Please select a model first.') : 'Please select a model first.');
@@ -2243,7 +2558,7 @@ class PromptedPresentationWorkflow {
 				? this.buildPdfPresentationSystemPrompt()
 				: this.buildArtisticPresentationSystemPrompt(),
 			prompt: promptPayload,
-			stream: false,
+			stream: true,
 			options: {},
 		};
 		const { routing, options: requestOptions } = await this.buildPresentationRoutingAndOptions(model, {
@@ -2268,8 +2583,87 @@ class PromptedPresentationWorkflow {
 			throw new Error(`Ollama error (${response.status}): ${errorText}`);
 		}
 
-		const data = await response.json();
-		const htmlResponse = this.cleanHtmlResponse(data?.response || data?.message?.content || '');
+		if (!response.body || typeof response.body.getReader !== 'function') {
+			const data = await response.json();
+			const fallbackChunk = data?.response || data?.message?.content || '';
+			if (fallbackChunk && onDelta) {
+				onDelta(fallbackChunk);
+			}
+			const htmlResponse = this.cleanHtmlResponse(fallbackChunk);
+			if (!htmlResponse) {
+				throw new Error('Model returned an empty HTML response.');
+			}
+			return this.normalizePromptableNavigationHtml(htmlResponse);
+		}
+
+		const reader = response.body.getReader();
+		const decoder = new TextDecoder();
+		let streamBuffer = '';
+		let aggregated = '';
+
+		while (true) {
+			const { value, done } = await reader.read();
+			streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+			const lines = streamBuffer.split('\n');
+			streamBuffer = lines.pop() || '';
+
+			for (const line of lines) {
+				const trimmedLine = String(line || '').trim();
+				if (!trimmedLine || trimmedLine === '[DONE]' || trimmedLine === 'data: [DONE]') {
+					continue;
+				}
+
+				const normalizedLine = trimmedLine.startsWith('data:')
+					? trimmedLine.slice(5).trim()
+					: trimmedLine;
+				if (!normalizedLine || normalizedLine === '[DONE]') {
+					continue;
+				}
+
+				try {
+					const data = JSON.parse(normalizedLine);
+					const responseChunk = data.response || data.message?.content || '';
+					if (typeof responseChunk === 'string' && responseChunk.length > 0) {
+						aggregated += responseChunk;
+						if (onDelta) {
+							onDelta(responseChunk);
+						}
+					}
+				} catch (_error) {
+					aggregated += normalizedLine;
+					if (onDelta) {
+						onDelta(normalizedLine);
+					}
+				}
+			}
+
+			if (done) {
+				break;
+			}
+		}
+
+		if (streamBuffer.trim()) {
+			try {
+				const normalized = streamBuffer.trim().startsWith('data:')
+					? streamBuffer.trim().slice(5).trim()
+					: streamBuffer.trim();
+				const data = JSON.parse(normalized);
+				const responseChunk = data.response || data.message?.content || '';
+				if (typeof responseChunk === 'string' && responseChunk.length > 0) {
+					aggregated += responseChunk;
+					if (onDelta) {
+						onDelta(responseChunk);
+					}
+				}
+			} catch (_error) {
+				aggregated += streamBuffer.trim();
+				if (onDelta) {
+					onDelta(streamBuffer.trim());
+				}
+			}
+		}
+
+		const htmlResponse = this.cleanHtmlResponse(aggregated);
 
 		if (!htmlResponse) {
 			throw new Error('Model returned an empty HTML response.');
@@ -2282,6 +2676,8 @@ class PromptedPresentationWorkflow {
 		if (this.overlay && document.body.contains(this.overlay)) {
 			return;
 		}
+
+		this.ensureRequestProgressStyles();
 
 		const overlay = document.createElement('div');
 		overlay.className = 'promptable-presentation-overlay';
@@ -2300,13 +2696,40 @@ class PromptedPresentationWorkflow {
 
 		const topBar = document.createElement('div');
 		topBar.style.display = 'flex';
-		topBar.style.justifyContent = 'flex-end';
+		topBar.style.justifyContent = 'flex-start';
 		topBar.style.alignItems = 'center';
+		topBar.style.gap = '12px';
 		topBar.style.padding = '10px 12px';
 		topBar.style.background = 'var(--presentation-modal-bg, var(--panel-background, #222426))';
 		topBar.style.borderBottom = '1px solid var(--border-color, #404040)';
 		topBar.style.boxShadow = 'var(--presentation-modal-box-shadow, 0 2px 8px rgba(0,0,0,0.18))';
 		topBar.style.flex = '0 0 auto';
+
+		const requestProgressTrack = document.createElement('div');
+		requestProgressTrack.className = 'promptable-request-progress-track';
+		requestProgressTrack.style.position = 'relative';
+		requestProgressTrack.style.flex = '1 1 55vw';
+		requestProgressTrack.style.width = '100%';
+		requestProgressTrack.style.maxWidth = '860px';
+		requestProgressTrack.style.minWidth = '220px';
+		requestProgressTrack.style.height = '8px';
+		requestProgressTrack.style.borderRadius = '999px';
+		requestProgressTrack.style.overflow = 'hidden';
+		requestProgressTrack.style.opacity = '0';
+		requestProgressTrack.style.transition = 'opacity 160ms ease';
+
+		const requestProgressBar = document.createElement('div');
+		requestProgressBar.className = 'promptable-request-progress-bar';
+		requestProgressBar.style.position = 'absolute';
+		requestProgressBar.style.top = '0';
+		requestProgressBar.style.bottom = '0';
+		requestProgressBar.style.width = '34%';
+		requestProgressBar.style.borderRadius = '999px';
+		requestProgressBar.style.transform = 'translateX(-130%)';
+		requestProgressBar.style.animation = 'promptableRequestProgressIndefinite 1.25s ease-in-out infinite';
+		requestProgressBar.style.animationPlayState = 'paused';
+
+		requestProgressTrack.appendChild(requestProgressBar);
 
 		const workspace = document.createElement('div');
 		workspace.className = 'promptable-presentation-workspace';
@@ -2611,6 +3034,7 @@ class PromptedPresentationWorkflow {
 			const previousSendColor = sendBtn.style.color;
 			const abortController = new AbortController();
 			this.currentAbortController = abortController;
+			this.setRequestProgressVisible(true);
 
 			sendBtn.disabled = false;
 			sendBtn.textContent = window.Lang ? (Lang.get('cancelButton') || 'Cancel') : 'Cancel';
@@ -2622,13 +3046,14 @@ class PromptedPresentationWorkflow {
 			addTextBtn.disabled = true;
 			extraRequestBtn.disabled = true;
 			webSearchToggleBtn.disabled = true;
-			renderArea.innerHTML = `<div style="padding:12px;opacity:0.8;">${window.Lang ? (Lang.get('generatingSlideForge') || 'Generating SlideForge...') : 'Generating SlideForge...'}</div>`;
+			this.showStreamingHtmlPreview(window.Lang ? (Lang.get('generatingSlideForge') || 'Generating SlideForge...') : 'Generating SlideForge...');
 
 			try {
 				this.promptedContextChanged = true;
 				let effectiveUserPrompt = userPrompt;
 
 				if (this.isPromptableWebSearchEnabled) {
+					this.clearStreamingHtmlPreviewRefs();
 					renderArea.innerHTML = `<div style="padding:12px;opacity:0.8;">${window.Lang ? (Lang.get('webSearchPerformed') || 'Web search performed') : 'Web search performed'}...</div>`;
 					const webSearchSourceText = await this.buildWebSearchSourceText(sourceText, abortController.signal);
 					if (webSearchSourceText) {
@@ -2641,14 +3066,19 @@ class PromptedPresentationWorkflow {
 							'info'
 						);
 					}
-					renderArea.innerHTML = `<div style="padding:12px;opacity:0.8;">${window.Lang ? (Lang.get('generatingSlideForge') || 'Generating SlideForge...') : 'Generating SlideForge...'}</div>`;
+					this.showStreamingHtmlPreview(window.Lang ? (Lang.get('generatingSlideForge') || 'Generating SlideForge...') : 'Generating SlideForge...');
 				}
 
 				const selectedMode = this.selectedPresentationMode === 'pdf' ? 'pdf' : 'html';
-				const htmlContent = await this.generatePresentationHtml(effectiveUserPrompt, abortController.signal, selectedMode);
+				const htmlContent = await this.generatePresentationHtml(effectiveUserPrompt, abortController.signal, selectedMode, (delta) => {
+					this.queueStreamingHtmlCode(delta);
+				});
+				this.flushStreamingCodePending(true);
+				this.clearStreamingHtmlPreviewRefs();
 				this.setPresentationHtml(htmlContent);
 				await this.refreshSavedPresentations();
 			} catch (error) {
+				this.clearStreamingHtmlPreviewRefs();
 				if (error && error.name === 'AbortError') {
 					renderArea.innerHTML = `<div style="padding:12px;opacity:0.8;">${window.Lang ? (Lang.get('cancelButton') || 'Cancelled') : 'Cancelled'}</div>`;
 				} else {
@@ -2656,6 +3086,7 @@ class PromptedPresentationWorkflow {
 					renderArea.innerHTML = `<div style="padding:12px;color:#ef4444;white-space:pre-wrap;">${String(error.message || error)}</div>`;
 				}
 			} finally {
+				this.setRequestProgressVisible(false);
 				this.currentAbortController = null;
 				sendBtn.textContent = previousSendLabel;
 				sendBtn.style.background = previousSendBackground;
@@ -2828,6 +3259,7 @@ class PromptedPresentationWorkflow {
 		closeBtn.style.lineHeight = '1';
 		closeBtn.style.boxShadow = 'var(--presentation-modal-close-box-shadow, 0 2px 8px rgba(0,0,0,0.18))';
 		closeBtn.style.transition = 'background 0.2s, box-shadow 0.2s, color 0.2s';
+		closeBtn.style.marginLeft = 'auto';
 
 		closeBtn.addEventListener('mouseover', () => {
 			closeBtn.style.background = 'var(--presentation-modal-close-hover-bg, #b71c1c)';
@@ -2859,6 +3291,8 @@ class PromptedPresentationWorkflow {
 				this.currentAbortController.abort();
 				this.currentAbortController = null;
 			}
+			this.setRequestProgressVisible(false);
+			this.clearStreamingHtmlPreviewRefs();
 			this.teardownPromptableFrameImageClickHandler();
 			if (this.fullscreenChangeHandler) {
 				document.removeEventListener('fullscreenchange', this.fullscreenChangeHandler);
@@ -2872,6 +3306,8 @@ class PromptedPresentationWorkflow {
 			this.pdfModeBtn = null;
 			this.promptableWebSearchBtn = null;
 			this.webSearchStateLabel = null;
+			this.requestProgressTrack = null;
+			this.requestProgressBar = null;
 			this.ensureContinueButtonForChatAfterPromptedClose();
 			if (typeof onClose === 'function') {
 				onClose();
@@ -2890,6 +3326,7 @@ class PromptedPresentationWorkflow {
 		};
 		document.addEventListener('fullscreenchange', this.fullscreenChangeHandler);
 
+		topBar.appendChild(requestProgressTrack);
 		topBar.appendChild(closeBtn);
 		overlay.appendChild(topBar);
 		overlay.appendChild(workspace);
@@ -2906,6 +3343,9 @@ class PromptedPresentationWorkflow {
 		this.fullscreenBtn = fullscreenBtn;
 		this.sidebarList = sidebarList;
 		this.sidebarEmpty = sidebarPlaceholder;
+		this.requestProgressTrack = requestProgressTrack;
+		this.requestProgressBar = requestProgressBar;
+		this.setRequestProgressVisible(false);
 		this.updateTextActionButtons();
 		this.updateFullscreenButtonLabel();
 		this.refreshSavedPresentations();
@@ -2915,6 +3355,8 @@ class PromptedPresentationWorkflow {
 		if (!this.renderArea) {
 			return;
 		}
+
+		this.clearStreamingHtmlPreviewRefs();
 
 		const normalizedHtml = this.normalizePromptableNavigationHtml(htmlContent || '');
 		this.currentPresentationHtml = normalizedHtml;
