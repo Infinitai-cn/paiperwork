@@ -847,6 +847,10 @@ class PromptedPresentationWorkflow {
 			});
 
 			if (!response.ok) {
+				if (response.status === 429) {
+					const errorText = await response.text();
+					throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+				}
 				return fallbackQuery || originalText;
 			}
 
@@ -864,6 +868,10 @@ class PromptedPresentationWorkflow {
 			return optimized || fallbackQuery || originalText;
 		} catch (error) {
 			if (error && error.name === 'AbortError') {
+				throw error;
+			}
+			const message = String(error?.message || '').toLowerCase();
+			if (message.includes('429') || message.includes('too many requests') || message.includes('weekly usage') || message.includes('daily limit')) {
 				throw error;
 			}
 			return fallbackQuery || originalText;
@@ -2254,6 +2262,9 @@ class PromptedPresentationWorkflow {
 
 		if (!response.ok) {
 			const errorText = await response.text();
+			if (response.status === 429) {
+				throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+			}
 			throw new Error(`Ollama error (${response.status}): ${errorText}`);
 		}
 

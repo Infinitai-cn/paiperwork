@@ -323,6 +323,10 @@ class ChatTab {
             });
 
             if (!response.ok) {
+                if (response.status === 429) {
+                    console.warn('🔍 ChatTab: Local version check rate-limited (429).', (window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429).');
+                    return this._lastKnownOllamaVersion || null;
+                }
                 console.warn('🔍 ChatTab: Failed to fetch Ollama version, status:', response.status);
                 return null;
             }
@@ -4533,12 +4537,25 @@ class ChatTab {
                     });
 
                     const definitiveInvalid = response.status === 401 || response.status === 403;
+                    const isRateLimited = response.status === 429;
                     const result = {
                         isValid: response.ok,
                         definitiveInvalid,
                         status: response.status,
-                        reason: response.ok ? 'ok' : (definitiveInvalid ? 'unauthorized' : 'non-auth-status')
+                        reason: response.ok
+                            ? 'ok'
+                            : (definitiveInvalid
+                                ? 'unauthorized'
+                                : (isRateLimited ? 'rate-limit' : 'non-auth-status'))
                     };
+
+                    if (isRateLimited) {
+                        console.warn('[CloudAuth] validateCloudApiKey rate-limited (429)', {
+                            modelName: modelName || '<empty>',
+                            attempt: attemptNo,
+                            message: (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429).'
+                        });
+                    }
 
                     console.info('[CloudAuth] validateCloudApiKey result', {
                         status: response.status,
@@ -5391,6 +5408,10 @@ class ChatTab {
                         }); */
 
                         if (!unloadResponse.ok) {
+                            if (unloadResponse.status === 429) {
+                                console.warn(`ChatTab: Unload rate-limited (429) for ${modelName}.`, (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429).');
+                                return;
+                            }
                             console.warn(`ChatTab: Warning - failed to unload ${modelName}: ${unloadResponse.status} ${unloadResponse.statusText}`);
                         } else {
                            //console.log(`ChatTab: Successfully triggered unload for model: ${modelName}`);

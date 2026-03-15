@@ -877,6 +877,9 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
 
             if (!response.ok) {
                 const errorText = await response.text();
+                if (response.status === 429) {
+                    throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+                }
                 if (response.status === 500) {
                     throw new Error('Ollama server error. Please restart Ollama and try again.');
                 }
@@ -977,7 +980,12 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                         })
                     });
 
-                    const unloadData = await unloadResponse.json();
+                    let unloadData = null;
+                    try {
+                        unloadData = await unloadResponse.json();
+                    } catch (_jsonErr) {
+                        unloadData = null;
+                    }
                     /* console.log(`StyleDIY: Unload response for ${modelName}:`, {
                         status: unloadResponse.status,
                         ok: unloadResponse.ok,
@@ -985,6 +993,10 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                     }); */
 
                     if (!unloadResponse.ok) {
+                        if (unloadResponse.status === 429) {
+                            console.warn(`StyleDIY: Unload rate-limited (429) for ${modelName}.`, (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429).');
+                            return;
+                        }
                         console.warn(`StyleDIY: Warning - failed to unload ${modelName}: ${unloadResponse.status} ${unloadResponse.statusText}`);
                     } else {
                        //  //console.log(`StyleDIY: Successfully triggered unload for model: ${modelName}`);
@@ -2291,6 +2303,13 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
             const cloudModels = (cloudResult.status === 'fulfilled' && cloudResult.value.ok)
                 ? ((await cloudResult.value.json()).models || [])
                 : [];
+
+            if (cloudResult.status === 'fulfilled' && cloudResult.value.status === 429) {
+                console.warn('StyleDIY: Cloud model listing hit rate limit (429).', (window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429).');
+            }
+            if (localResult.status === 'fulfilled' && localResult.value.status === 429) {
+                console.warn('StyleDIY: Local model listing hit rate limit (429).', (window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429).');
+            }
 
             if (window.OllamaAPI) {
                 if (!(window.OllamaAPI.localModelNames instanceof Set)) window.OllamaAPI.localModelNames = new Set();

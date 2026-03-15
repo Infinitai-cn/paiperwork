@@ -50,6 +50,13 @@ class Artworks {
                 ? ((await cloudResult.value.json()).models || [])
                 : [];
 
+            if (cloudResult.status === 'fulfilled' && cloudResult.value.status === 429) {
+                console.warn('Artworks: Cloud model listing hit rate limit (429).', (window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429).');
+            }
+            if (localResult.status === 'fulfilled' && localResult.value.status === 429) {
+                console.warn('Artworks: Local model listing hit rate limit (429).', (window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429).');
+            }
+
             const normalizeModel = (model, provider) => {
                 const rawName = String(model?.name || model?.model || '').trim();
                 if (!rawName) return null;
