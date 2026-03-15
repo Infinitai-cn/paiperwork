@@ -2344,6 +2344,9 @@ class PromptedPresentationWorkflow {
 		sidebar.className = 'promptable-presentation-sidebar';
 		sidebar.style.width = '320px';
 		sidebar.style.flex = '0 0 320px';
+		sidebar.style.minHeight = '0';
+		sidebar.style.display = 'flex';
+		sidebar.style.flexDirection = 'column';
 		sidebar.style.background = 'var(--presentation-modal-bg, var(--panel-background, #222426))';
 		sidebar.style.border = '1px solid var(--border-color, #404040)';
 		sidebar.style.borderRadius = '12px';
@@ -2351,7 +2354,7 @@ class PromptedPresentationWorkflow {
 		sidebar.style.color = 'var(--presentation-modal-text, var(--text-color, #ffffff))';
 		sidebar.style.padding = '12px';
 		sidebar.style.boxSizing = 'border-box';
-		sidebar.style.overflow = 'auto';
+		sidebar.style.overflow = 'hidden';
 
 		const sidebarTitle = document.createElement('div');
 		sidebarTitle.textContent = window.Lang
@@ -2369,6 +2372,13 @@ class PromptedPresentationWorkflow {
 
 		const sidebarList = document.createElement('div');
 		sidebarList.style.marginTop = '10px';
+		sidebarList.style.flex = '1 1 auto';
+		sidebarList.style.minHeight = '0';
+		sidebarList.style.overflowY = 'auto';
+		sidebarList.style.overflowX = 'hidden';
+		sidebarList.style.boxSizing = 'border-box';
+		sidebarList.style.paddingRight = '12px';
+		sidebarList.style.scrollbarGutter = 'stable';
 
 		sidebar.appendChild(sidebarTitle);
 		sidebar.appendChild(sidebarPlaceholder);

@@ -1560,12 +1560,16 @@ class ArtifactsWindow {
 		const sidebar = document.createElement('aside');
 		sidebar.style.width = '300px';
 		sidebar.style.flex = '0 0 300px';
+		sidebar.style.minHeight = '0';
+		sidebar.style.display = 'flex';
+		sidebar.style.flexDirection = 'column';
 		sidebar.style.background = 'var(--presentation-modal-bg, var(--panel-background, #222426))';
 		sidebar.style.border = '1px solid var(--border-color, #404040)';
 		sidebar.style.borderRadius = '12px';
 		sidebar.style.padding = '12px';
 		sidebar.style.boxSizing = 'border-box';
 		sidebar.style.color = 'var(--text-color, #ffffff)';
+		sidebar.style.overflow = 'hidden';
 
 		const bodyFrame = document.createElement('iframe');
 		bodyFrame.className = 'artifacts-frame';
@@ -1587,6 +1591,13 @@ class ArtifactsWindow {
 
 		const sidebarList = document.createElement('div');
 		sidebarList.style.marginTop = '10px';
+		sidebarList.style.flex = '1 1 auto';
+		sidebarList.style.minHeight = '0';
+		sidebarList.style.overflowY = 'auto';
+		sidebarList.style.overflowX = 'hidden';
+		sidebarList.style.boxSizing = 'border-box';
+		sidebarList.style.paddingRight = '12px';
+		sidebarList.style.scrollbarGutter = 'stable';
 
 		sidebar.appendChild(sidebarEmpty);
 		sidebar.appendChild(sidebarList);
