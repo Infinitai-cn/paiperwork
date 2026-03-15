@@ -3369,6 +3369,21 @@ class Chat {
                 break;
         }
     }
+    localizeMessageActionButtons(rootElement = document) {
+        if (!rootElement || !rootElement.querySelectorAll) return;
+
+        rootElement.querySelectorAll('.regenerate-message').forEach((btn) => {
+            btn.textContent = Lang.get('regenerateMessage') || 'Regenerate';
+        });
+
+        rootElement.querySelectorAll('.delete-message-pair').forEach((btn) => {
+            btn.textContent = Lang.get('deleteMessagePair') || 'Delete';
+        });
+
+        rootElement.querySelectorAll('.copy-btn').forEach((btn) => {
+            btn.textContent = Lang.get('copy') || 'Copy';
+        });
+    }
     // Adds action buttons (regenerate, delete, copy) to an assistant message
     addMessageActionsToMessage(assistantMessage) {
        //console.log('Chat: Adding message actions to assistant message');
@@ -3449,57 +3464,52 @@ class Chat {
             cursor: pointer;
         `;
 
-        // Create a simple function to handle copying for the copy button
-        copyButton.setAttribute('onclick', `
+        copyButton.addEventListener('click', (event) => {
             event.preventDefault();
-            const responseDiv = this.closest('.assistant-message').querySelector('.ai-response-container');
-            
+            event.stopPropagation();
+
+            const responseDiv = copyButton.closest('.assistant-message')?.querySelector('.ai-response-container');
+
             if (!responseDiv) {
                 console.error('Cannot find response container for copying');
-                return false;
+                return;
             }
-            
+
             // Method 1: Try using streamProcessor if available
             if (responseDiv.streamProcessor && typeof responseDiv.streamProcessor.copyFullResponse === 'function') {
-                responseDiv.streamProcessor.copyFullResponse();
-            } 
-            // Method 2: Fallback if no streamProcessor - copy the HTML without action buttons
-            else {
-                // Create a clone of the content to avoid modifying the original
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = responseDiv.innerHTML;
-                
-                // Remove any action buttons from the copy
-                const actionButtons = tempDiv.querySelectorAll('.message-actions, .copy-response-container');
-                actionButtons.forEach(el => el.remove());
-                
-                // Also remove any cancel notes
-                const cancelNotes = tempDiv.querySelectorAll('.cancel-note');
-                cancelNotes.forEach(el => el.remove());
-                
-                // Get clean text content
-                const cleanText = tempDiv.textContent.trim();
-                
-                // Copy to clipboard
-                navigator.clipboard.writeText(cleanText)
-                    .then(() => {
-                        // Show copied confirmation
-                        this.textContent = '${Lang.get('copied') || 'Copied!'}';
-                        setTimeout(() => {
-                            this.textContent = '${Lang.get('copy') || 'Copy'}';
-                        }, 2000);
-                    })
-                    .catch(err => {
-                        console.error('Failed to copy text:', err);
-                        this.textContent = '${Lang.get('copyError') || 'Error'}';
-                        setTimeout(() => {
-                            this.textContent = '${Lang.get('copy') || 'Copy'}';
-                        }, 2000);
-                    });
+                responseDiv.streamProcessor.copyFullResponse(copyButton);
+                return;
             }
-            
-            return false;
-        `);
+
+            // Method 2: Fallback if no streamProcessor - copy the HTML without action buttons
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = responseDiv.innerHTML;
+
+            const actionButtons = tempDiv.querySelectorAll('.message-actions, .copy-response-container');
+            actionButtons.forEach(el => el.remove());
+
+            const cancelNotes = tempDiv.querySelectorAll('.cancel-note');
+            cancelNotes.forEach(el => el.remove());
+
+            const cleanText = (tempDiv.innerText || tempDiv.textContent || '').replace(/\r\n/g, '\n').trimEnd();
+
+            navigator.clipboard.writeText(cleanText)
+                .then(() => {
+                    const originalText = copyButton.textContent;
+                    copyButton.textContent = (Lang.get('copied') || 'Copied');
+                    setTimeout(() => {
+                        copyButton.textContent = originalText;
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy text:', err);
+                    const originalText = copyButton.textContent;
+                    copyButton.textContent = (Lang.get('copyError') || 'Error');
+                    setTimeout(() => {
+                        copyButton.textContent = originalText;
+                    }, 2000);
+                });
+        });
 
         // Add buttons to container
         actionsContainer.appendChild(regenerateButton);
@@ -3508,6 +3518,9 @@ class Chat {
 
         // Add container to response container
         responseContainer.appendChild(actionsContainer);
+
+        // Ensure labels always match current language.
+        this.localizeMessageActionButtons(responseContainer);
 
        //console.log('Message actions added successfully');
     }

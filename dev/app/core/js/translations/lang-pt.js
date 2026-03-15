@@ -593,6 +593,13 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         // Statistics Display
         databaseStats: "Estatísticas da Base de Dados",
         databaseSize: "Tamanho da Base de Dados",
+        databaseBreakdown: "Detalhe das Bases de Dados",
+        databaseMain: "Principal",
+        databaseRag: "RAG",
+        databaseOpenStatus: "Aberta",
+        databaseClosedStatus: "Fechada",
+        databaseCountLabel: "Contagem",
+        databaseCollectionsLabel: "Coleções",
         documents: "Documentos",
         totalChunks: "Total de Fragmentos",
         orphanedChunks: "Fragmentos Órfãos",

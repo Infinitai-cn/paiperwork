@@ -434,6 +434,13 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 // Statistics Display
                 databaseStats: "数据库统计",
                 databaseSize: "数据库大小",
+                databaseBreakdown: "数据库明细",
+                databaseMain: "主数据库",
+                databaseRag: "RAG",
+                databaseOpenStatus: "已打开",
+                databaseClosedStatus: "已关闭",
+                databaseCountLabel: "数量",
+                databaseCollectionsLabel: "集合",
                 documents: "文档",
                 totalChunks: "总块数",
                 orphanedChunks: "孤立块",

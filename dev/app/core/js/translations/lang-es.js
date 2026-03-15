@@ -431,6 +431,13 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         // Statistics Display
         databaseStats: "Estadísticas de la Base de Datos",
         databaseSize: "Tamaño de la Base de Datos",
+        databaseBreakdown: "Desglose de Bases de Datos",
+        databaseMain: "Principal",
+        databaseRag: "RAG",
+        databaseOpenStatus: "Abierta",
+        databaseClosedStatus: "Cerrada",
+        databaseCountLabel: "Cantidad",
+        databaseCollectionsLabel: "Colecciones",
         documents: "Documentos",
         totalChunks: "Fragmentos Totales",
         orphanedChunks: "Fragmentos Huérfanos",

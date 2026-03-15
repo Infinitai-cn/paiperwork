@@ -649,6 +649,8 @@ class ResearchTab {
 
     // Switches between the research and knowledge base sub-tabs
     switchSubTab(subtab) {
+        const previousSubTab = this.currentSubTab;
+
         // Update current tab
         this.currentSubTab = subtab;
 
@@ -674,7 +676,18 @@ class ResearchTab {
 
         // Special handling for specific tabs
         if (subtab === 'knowledge-base' && this.knowledgeBase) {
-            this.knowledgeBase.renderAllCollections();
+            this.knowledgeBase.reloadCollections()
+                .catch(error => {
+                    console.error('ResearchTab: Failed to reload knowledge collections:', error);
+                })
+                .finally(() => {
+                    this.knowledgeBase.renderAllCollections();
+                });
+        } else if (previousSubTab === 'knowledge-base' && window.PaiperworkDB && typeof window.PaiperworkDB.closeKnowledgeDatabases === 'function') {
+            window.PaiperworkDB.closeKnowledgeDatabases(sessionStorage.getItem('hashedMasterKey'))
+                .catch(error => {
+                    console.error('ResearchTab: Failed to close knowledge database handles:', error);
+                });
         }
     }
 
