@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Misterio de la Casa Antigua</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0d0a07;
+            --bg-wood: #1a1410;
+            --bg-card: #2d2318;
+            --accent-gold: #c9a227;
+            --accent-warm: #d4893a;
+            --accent-success: #4a9c5d;
+            --text-light: #e8dcc8;
+            --text-muted: #9a8b7a;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Crimson Text', Georgia, serif;
+            background: var(--bg-dark);
+            color: var(--text-light);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        .game-container { position: relative; width: 100%; height: 100%; overflow: hidden; }
+        
+        .floor-background {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+        }
+        
+        .floor-svg-bg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.15;
+        }
+        
+        .floor-gradient {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, #0d0a07 0%, #1a1410 50%, #0d0a07 100%);
+        }
+        
+        .ambient-glow {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 20% 30%, rgba(201,162,39,0.08) 0%, transparent 50%),
+                        radial-gradient(ellipse at 80% 70%, rgba(212,137,58,0.06) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        
+        .vignette {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 20%, rgba(13,10,7,0.85) 100%);
+            pointer-events: none;
+        }
+        
+        /* SVG Animation Keyframes */
+        @keyframes float { 0%, 100% { transform: translateY(0) translateX(0); } 50% { transform: translateY(-15px) translateX(8px); } }
+        @keyframes pulse { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes swing { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+        @keyframes flicker { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+        @keyframes drift { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(10px, -5px); } 50% { transform: translate(-5px, -10px); } 75% { transform: translate(-10px, 5px); } }
+        @keyframes sparkle { 0%, 100% { opacity: 0; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1); } }
+        
+        .svg-float { animation: float 4s ease-in-out infinite; }
+        .svg-pulse { animation: pulse 3s ease-in-out infinite; }
+        .svg-rotate { animation: rotate 20s linear infinite; transform-origin: center; }
+        .svg-swing { animation: swing 3s ease-in-out infinite; transform-origin: top center; }
+        .svg-flicker { animation: flicker 2s ease-in-out infinite; }
+        .svg-drift { animation: drift 8s ease-in-out infinite; }
+        .svg-sparkle { animation: sparkle 2s ease-in-out infinite; }
+        
+        .header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 18px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: linear-gradient(180deg, rgba(13,10,7,0.98) 0%, rgba(13,10,7,0.85) 70%, transparent 100%);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .game-title {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(0.95rem, 2.5vw, 1.4rem);
+            color: var(--accent-gold);
+            text-shadow: 0 2px 12px rgba(0,0,0,0.9), 0 0 40px rgba(201,162,39,0.25);
+            letter-spacing: 2px;
+        }
+        
+        .progress-bar { display: flex; align-items: center; gap: 12px; }
+        .progress-label { font-size: 0.85rem; color: var(--text-muted); }
+        .progress-steps { display: flex; gap: 8px; }
+        
+        .step {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: rgba(45,35,24,0.95);
+            border: 2px solid var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Cinzel', serif;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            transition: all 0.35s ease;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        .step.active { border-color: var(--accent-gold); color: var(--accent-gold); box-shadow: 0 0 20px rgba(201,162,39,0.5); }
+        .step.completed { background: linear-gradient(145deg, var(--accent-gold), #a88520); border-color: var(--accent-gold); color: var(--bg-dark); box-shadow: 0 0 25px rgba(201,162,39,0.6); }
+        
+        .floor-indicator { position: absolute; bottom: 28px; left: 28px; z-index: 100; }
+        .floor-name { font-family: 'Cinzel', serif; font-size: clamp(1.1rem, 3vw, 2rem); color: var(--text-light); text-shadow: 0 2px 25px rgba(0,0,0,0.95); margin-bottom: 6px; }
+        .floor-subtitle { font-size: 0.95rem; color: var(--text-muted); font-style: italic; }
+        
+        .clues-panel { position: absolute; bottom: 28px; right: 28px; display: flex; gap: 10px; z-index: 100; }
+        
+        .clue-slot {
+            width: 52px;
+            height: 52px;
+            border-radius: 10px;
+            background: rgba(45,35,24,0.95);
+            border: 2px dashed var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.35s ease;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.55);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .clue-slot.found { border-style: solid; border-color: var(--accent-gold); box-shadow: 0 0 30px rgba(201,162,39,0.45); }
+        .clue-slot svg.clue-icon { width: 28px; height: 28px; stroke: var(--text-muted); opacity: 0.45; transition: all 0.3s; }
+        .clue-slot.found svg.clue-icon { stroke: var(--accent-gold); opacity: 1; width: 36px; height: 36px; }
+        
+        .room-layer {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-content: center;
+            gap: 25px;
+            padding: 110px 35px 130px;
+        }
+        
+        .interactive-item {
+            pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.35s ease;
+            width: 270px;
+            max-width: calc(33% - 18px);
+        }
+        
+        .item-card {
+            background: linear-gradient(165deg, rgba(45,35,24,0.98) 0%, rgba(26,20,16,0.98) 100%);
+            border: 2px solid rgba(201,162,39,0.35);
+            border-radius: 14px;
+            overflow: hidden;
+            transition: all 0.35s ease;
+            box-shadow: 0 10px 35px rgba(0,0,0,0.55);
+        }
+        
+        .interactive-item:hover .item-card { border-color: var(--accent-gold); box-shadow: 0 0 50px rgba(201,162,39,0.25), 0 18px 45px rgba(0,0,0,0.65); transform: translateY(-6px) scale(1.01); }
+        
+        .item-image-container {
+            position: relative;
+            width: 100%;
+            height: 155px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #2d2318 0%, #1a1410 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .item-svg {
+            width: 80px;
+            height: 80px;
+            transition: transform 0.6s ease;
+        }
+        
+        .interactive-item:hover .item-svg { transform: scale(1.15); }
+        
+        .image-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(13,10,7,0.92) 100%); pointer-events: none; }
+        .glow-effect { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(201,162,39,0.15) 0%, transparent 65%); opacity: 0; transition: opacity 0.35s ease; pointer-events: none; }
+        .interactive-item:hover .glow-effect { opacity: 1; }
+        
+        .item-body { padding: 14px; text-align: center; }
+        .item-label { font-family: 'Cinzel', serif; font-size: 1.05rem; color: var(--text-light); transition: color 0.35s ease; }
+        .interactive-item:hover .item-label { color: var(--accent-gold); }
+        .item-status { font-size: 0.8rem; color: var(--accent-warm); margin-top: 5px; font-style: italic; }
+        
+        .found-badge { position: absolute; top: 10px; right: 10px; background: rgba(74,156,93,0.92); color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; opacity: 0; transition: opacity 0.35s ease; z-index: 5; }
+        .interactive-item.found .found-badge { opacity: 1; }
+        .interactive-item.found { opacity: 0.55; pointer-events: none; }
+        .interactive-item.found .item-card { border-color: rgba(74,156,93,0.55); }
+        
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5,4,3,0.98);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.45s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        
+        .modal-content {
+            background: linear-gradient(155deg, #3d3020 0%, #0d0a07 100%);
+            border: 2px solid var(--accent-gold);
+            border-radius: 18px;
+            padding: 0;
+            max-width: 540px;
+            width: 92%;
+            text-align: center;
+            transform: scale(0.88) translateY(25px);
+            transition: transform 0.45s ease;
+            box-shadow: 0 30px 90px rgba(0,0,0,0.85), 0 0 60px rgba(201,162,39,0.15);
+            overflow: hidden;
+        }
+        
+        .modal-overlay.active .modal-content { transform: scale(1) translateY(0); }
+        
+        .modal-image-container {
+            position: relative;
+            width: 100%;
+            height: 210px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #2d2318 0%, #1a1410 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-svg {
+            width: 100px;
+            height: 100px;
+            transition: transform 0.3s ease;
+        }
+        
+        .modal-image-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 25%, rgba(13,10,7,0.96) 100%); pointer-events: none; }
+        
+        .modal-icon-container {
+            position: absolute;
+            top: 175px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 65px;
+            height: 65px;
+            background: linear-gradient(145deg, var(--accent-gold), #a88520);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 25px rgba(201,162,39,0.55);
+        }
+        
+        .modal-icon-container svg { width: 32px; height: 32px; stroke: var(--bg-dark); }
+        .modal-body { padding: 48px 28px 28px; }
+        .modal-title { font-family: 'Cinzel', serif; font-size: 1.5rem; color: var(--accent-gold); margin-bottom: 10px; }
+        .modal-text { font-size: 1rem; color: var(--text-light); margin-bottom: 18px; line-height: 1.55; }
+        
+        .puzzle-container { margin: 18px 0; }
+        .puzzle-question { font-size: 1.15rem; color: var(--accent-warm); margin-bottom: 16px; line-height: 1.45; }
+        .puzzle-options { display: flex; flex-direction: column; gap: 9px; }
+        
+        .puzzle-option {
+            padding: 13px 18px;
+            background: rgba(45,35,24,0.75);
+            border: 2px solid var(--text-muted);
+            border-radius: 8px;
+            color: var(--text-light);
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-family: 'Crimson Text', serif;
+        }
+        
+        .puzzle-option:hover:not(:disabled) { border-color: var(--accent-gold); background: rgba(201,162,39,0.2); transform: translateX(6px); }
+        .puzzle-option.correct { border-color: var(--accent-success); background: rgba(74,156,93,0.22); color: #7dd890; }
+        .puzzle-option.incorrect { border-color: #9c4a4a; background: rgba(156,74,74,0.22); color: #e88a8a; animation: shake 0.4s ease; }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-7px); }
+            40%, 80% { transform: translateX(7px); }
+        }
+        
+        .modal-hint { font-size: 0.85rem; color: var(--text-muted); font-style: italic; margin-top: 14px; padding: 9px; background: rgba(201,162,39,0.08); border-radius: 8px; border: 1px dashed rgba(201,162,39,0.25); }
+        
+        .btn {
+            padding: 13px 32px;
+            font-family: 'Cinzel', serif;
+            font-size: 0.95rem;
+            border: 2px solid var(--accent-gold);
+            background: transparent;
+            color: var(--accent-gold);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            margin-top: 12px;
+        }
+        
+        .btn:hover { background: linear-gradient(145deg, var(--accent-gold), #a88520); color: var(--bg-dark); box-shadow: 0 0 35px rgba(201,162,39,0.45); }
+        .btn-secondary { border-color: var(--text-muted); color: var(--text-muted); font-size: 0.85rem; padding: 9px 18px; }
+        .btn-secondary:hover { background: rgba(154,139,122,0.25); color: var(--text-light); box-shadow: none; }
+        .btn-success { border-color: var(--accent-success); color: #7dd890; }
+        .btn-success:hover { background: linear-gradient(145deg, var(--accent-success), #3a7c4a); color: white; box-shadow: 0 0 35px rgba(74,156,93,0.45); }
+        
+        .start-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(150deg, #0d0a07 0%, #1a1410 50%, #0d0a07 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            transition: all 0.85s ease;
+            overflow-y: auto;
+            padding: 30px 20px;
+        }
+        
+        .start-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+        
+        .start-title { font-family: 'Cinzel', serif; font-size: clamp(1.5rem, 5vw, 2.8rem); color: var(--accent-gold); text-align: center; margin-bottom: 8px; text-shadow: 0 4px 35px rgba(201,162,39,0.55); letter-spacing: 4px; }
+        .start-subtitle { font-size: clamp(0.85rem, 2vw, 1.2rem); color: var(--text-muted); margin-bottom: 35px; font-style: italic; }
+        .start-description { max-width: 620px; text-align: center; color: var(--text-light); line-height: 1.85; margin-bottom: 40px; padding: 0 18px; font-size: 1.05rem; }
+        
+        .level-preview { display: flex; gap: 14px; margin-bottom: 45px; flex-wrap: wrap; justify-content: center; padding: 0 18px; }
+        
+        .level-card {
+            width: 95px;
+            height: 125px;
+            background: rgba(45,35,24,0.88);
+            border: 1px solid var(--text-muted);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            transition: all 0.35s ease;
+            box-shadow: 0 5px 18px rgba(0,0,0,0.45);
+            overflow: hidden;
+        }
+        
+        .level-card:hover { border-color: var(--accent-gold); transform: translateY(-7px); box-shadow: 0 18px 40px rgba(0,0,0,0.55), 0 0 25px rgba(201,162,39,0.18); }
+        .level-card svg { width: 38px; height: 38px; stroke: var(--accent-warm); }
+        .level-card span { font-size: 0.75rem; color: var(--text-muted); text-align: center; padding: 0 7px; }
+        
+        .start-buttons { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+        
+        .prompt-section { margin-top: 30px; padding-top: 25px; border-top: 1px solid rgba(201,162,39,0.25); max-width: 580px; width: 100%; }
+        .prompt-title { font-family: 'Cinzel', serif; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 12px; text-align: center; }
+        .prompt-text { background: rgba(13,10,7,0.85); border: 1px solid var(--text-muted); border-radius: 8px; padding: 14px; font-size: 0.65rem; color: var(--text-light); max-height: 120px; overflow-y: auto; line-height: 1.4; text-align: left; font-family: monospace; white-space: pre-wrap; word-break: break-word; }
+        
+        .win-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(150deg, #0d0a07 0%, #1a1410 50%, #0d0a07 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.85s ease;
+            overflow-y: auto;
+            padding: 35px 20px;
+        }
+        
+        .win-screen.active { opacity: 1; visibility: visible; }
+        
+        .win-title { font-family: 'Cinzel', serif; font-size: clamp(1.6rem, 6vw, 3.5rem); color: var(--accent-gold); text-align: center; margin-bottom: 22px; text-shadow: 0 4px 45px rgba(201,162,39,0.75); animation: glowPulse 2.2s infinite alternate ease-in-out; }
+        
+        @keyframes glowPulse {
+            from { text-shadow: 0 4px 45px rgba(201,162,39,0.55); }
+            to { text-shadow: 0 4px 70px rgba(201,162,39,0.9), 0 0 110px rgba(201,162,39,0.35); }
+        }
+        
+        .win-message { font-size: 1.15rem; color: var(--text-light); text-align: center; max-width: 520px; line-height: 1.85; margin-bottom: 32px; padding: 0 18px; }
+        .score-display { font-family: 'Cinzel', serif; font-size: 1.4rem; color: var(--accent-warm); margin-bottom: 28px; }
+        .win-buttons { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+        
+        .copy-notification {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(145deg, var(--accent-gold), #a88520);
+            color: var(--bg-dark);
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-family: 'Cinzel', serif;
+            font-weight: 600;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.35s ease;
+            z-index: 3500;
+            box-shadow: 0 5px 25px rgba(201,162,39,0.55);
+        }
+        
+        .copy-notification.show { opacity: 1; visibility: visible; }
+        
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
+        
+        @media (max-width: 900px) { .interactive-item { width: 250px; max-width: calc(50% - 14px); } }
+        
+        @media (max-width: 768px) {
+            .header { padding: 14px 18px; }
+            .floor-indicator { left: 18px; bottom: 95px; }
+            .clues-panel { right: 18px; bottom: 18px; }
+            .clue-slot { width: 44px; height: 44px; }
+            .room-layer { padding: 95px 18px 115px; gap: 18px; }
+            .interactive-item { width: 100%; max-width: 270px; }
+            .step { width: 26px; height: 26px; font-size: 0.65rem; }
+        }
+        
+        @media (max-width: 480px) {
+            .game-title { font-size: 0.8rem; letter-spacing: 1px; }
+            .floor-name { font-size: 1rem; }
+            .clue-slot { width: 40px; height: 40px; }
+            .level-card { width: 70px; height: 95px; }
+            .level-card svg { width: 26px; height: 26px; }
+            .modal-content { width: 96%; }
+            .modal-image-container { height: 150px; }
+            .modal-icon-container { top: 125px; width: 55px; height: 55px; }
+            .modal-icon-container svg { width: 28px; height: 28px; }
+            .modal-body { padding: 42px 18px 22px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="start-screen" id="startScreen">
+        <h1 class="start-title">El Misterio de la Casa Antigua</h1>
+        <p class="start-subtitle">Un juego para aprender espanol - Nivel A1 (CEFR)</p>
+        <p class="start-description">
+            Descubre los secretos de una mansion antigua resolviendo acertijos de vocabulario y gramatica en espanol.
+            Cada habitacion guarda pistas misteriosas. Completa los 5 niveles para resolver el enigma.
+        </p>
+        <div class="level-preview">
+            <div class="level-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg><span>Entrada</span></div>
+            <div class="level-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/></svg><span>Biblioteca</span></div>
+            <div class="level-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 21h18M9 21V9l3-3 3 3v12M12 3v3M9 12h6M9 16h6"/></svg><span>Dormitorio</span></div>
+            <div class="level-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3"/></svg><span>Cocina</span></div>
+            <div class="level-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3L2 21h20L12 3zM12 8v5M12 16h.01"/></svg><span>Atico</span></div>
+        </div>
+        <div class="start-buttons">
+            <button class="btn btn-success" onclick="startGame()">Comenzar Aventura</button>
+            <button class="btn btn-secondary" onclick="copyPrompt()">Copiar Prompt del Juego</button>
+        </div>
+        <div class="prompt-section">
+            <p class="prompt-title">Prompt utilizado para crear el juego:</p>
+            <div class="prompt-text" id="promptText"></div>
+        </div>
+    </div>
+    
+    <div class="game-container" id="gameContainer">
+        <div class="floor-background" id="floorBackground">
+            <div class="floor-gradient"></div>
+            <svg class="floor-svg-bg" id="floorSvgBg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"></svg>
+        </div>
+        <div class="ambient-glow"></div>
+        <div class="vignette"></div>
+        
+        <header class="header">
+            <h1 class="game-title">El Misterio de la Casa Antigua</h1>
+            <div class="progress-bar">
+                <span class="progress-label">Progreso:</span>
+                <div class="progress-steps" id="progressSteps"></div>
+            </div>
+        </header>
+        
+        <div class="floor-indicator">
+            <h2 class="floor-name" id="floorName">Entrada</h2>
+            <p class="floor-subtitle" id="floorSubtitle">La puerta principal</p>
+        </div>
+        
+        <div class="clues-panel" id="cluesPanel"></div>
+        <div class="room-layer" id="roomLayer"></div>
+    </div>
+    
+    <div class="modal-overlay" id="modalOverlay"><div class="modal-content" id="modalContent"></div></div>
+    
+    <div class="win-screen" id="winScreen">
+        <h1 class="win-title">Felicidades, Detective</h1>
+        <p class="win-message">Has resuelto todos los misterios de la casa antigua. Tu conocimiento del espanol nivel A1 ha demostrado ser excelente.</p>
+        <p class="score-display">Pistas resueltas: <span id="finalScore">15</span> de 15</p>
+        <div class="win-buttons">
+            <button class="btn btn-success" onclick="restartGame()">Jugar de Nuevo</button>
+        </div>
+    </div>
+    
+    <div class="copy-notification" id="copyNotification">Prompt copiado al portapapeles</div>
+
+    <script>
+        const gamePrompt = `Create a point and click game for students learning Spanish (Level A1), it should be a mystery game where following clues a mystery must be solved, game should have 5 different levels, each level must have 3 different clues to be solved. For backgrounds use an old wood building with several floors, use different themes for each floor, the game covers the full viewport.
+
+IMPORTANT REQUIREMENTS:
+1. Each clue card must display a custom SVG icon that is ALWAYS visible (no external images). Create unique SVG illustrations for each clue type (door, key, lamp, book, chair, window, bed, clock, closet, fridge, table, cup, treasure, photo, etc.).
+2. Each level must have a unique animated SVG background that matches the theme (Entrance: floating keys/doors, Library: floating books/scrolls, Bedroom: floating moons/stars, Kitchen: floating utensils/steam, Attic: floating dust/sparkles).
+3. SVG icons must be detailed and visually appealing with gold accent colors on dark backgrounds.
+4. Include smooth CSS animations for the background SVGs (floating, pulsing, rotating effects).
+5. At the start screen include a button labeled "Copiar Prompt del Juego" that copies the full prompt to clipboard.
+6. Display the full prompt text on the start screen so users can see what was used to create the game.
+7. Show a notification when the prompt is successfully copied.
+8. Do NOT use any external images - pure SVG graphics only.
+
+GAME FEATURES:
+- Make sure the game follows Spanish learning grammar for CEFR level 1 (A1).
+- 5 levels with different themed rooms (Ground Floor/Reception, Library, Bedroom, Kitchen, Attic).
+- 3 clues per level with Spanish vocabulary questions (CEFR A1 level)
+- Beautiful old wood aesthetic with animated SVG backgrounds
+- Progress indicator showing current level
+- Clue collection panel showing found clues with SVG thumbnails
+- Modal popup for answering questions
+- Win screen with score (no prompt on win screen)
+
+VISUAL STYLE:
+- Old wood building aesthetic
+- Gold accent colors on dark wood backgrounds
+- Elegant typography (Cinzel for titles, Crimson Text for body)
+- Subtle animations and glow effects
+- Responsive design for all screen sizes`;
+
+        // SVG Icons for each clue type
+        const clueSVGs = {
+            door: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="15" y="5" width="70" height="90" rx="5" fill="#3d3020" stroke="#c9a227" stroke-width="3"/><rect x="22" y="12" width="56" height="40" rx="3" fill="#2d2318" stroke="#9a8b7a" stroke-width="1"/><circle cx="72" cy="55" r="6" fill="#c9a227"/><rect x="40" y="65" width="20" height="25" rx="2" fill="#2d2318" stroke="#9a8b7a" stroke-width="1"/></svg>`,
+            key: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="28" cy="35" r="20" fill="none" stroke="#c9a227" stroke-width="4"/><circle cx="28" cy="35" r="10" fill="none" stroke="#c9a227" stroke-width="3"/><rect x="42" y="30" width="50" height="10" rx="2" fill="#c9a227"/><rect x="78" y="40" width="8" height="18" rx="1" fill="#c9a227"/><rect x="88" y="40" width="8" height="12" rx="1" fill="#c9a227"/></svg>`,
+            lamp: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><ellipse cx="50" cy="20" rx="30" ry="18" fill="#c9a227" opacity="0.3"/><path d="M35 25 Q50 35 65 25" fill="#c9a227" opacity="0.5"/><ellipse cx="50" cy="28" rx="22" ry="12" fill="none" stroke="#c9a227" stroke-width="2"/><rect x="47" y="40" width="6" height="45" fill="#9a8b7a"/><rect x="40" y="85" width="20" height="8" rx="2" fill="#3d3020" stroke="#c9a227" stroke-width="1"/></svg>`,
+            book: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M20 15 Q50 25 80 15 L80 85 Q50 75 20 85 Z" fill="#8b4513" stroke="#c9a227" stroke-width="2"/><path d="M20 15 Q50 25 80 15" fill="none" stroke="#c9a227" stroke-width="1"/><path d="M25 25 L25 75 Q50 65 75 75" fill="none" stroke="#9a8b7a" stroke-width="1"/><line x1="30" y1="35" x2="70" y2="35" stroke="#c9a227" stroke-width="1"/><line x1="30" y1="45" x2="65" y2="45" stroke="#c9a227" stroke-width="1"/></svg>`,
+            chair: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="25" y="50" width="50" height="10" rx="3" fill="#3d3020" stroke="#c9a227" stroke-width="2"/><rect x="30" y="60" width="40" height="20" fill="#2d2318"/><rect x="20" y="15" width="10" height="50" rx="2" fill="#3d3020" stroke="#c9a227" stroke-width="1"/><rect x="70" y="15" width="10" height="50" rx="2" fill="#3d3020" stroke="#c9a227" stroke-width="1"/><rect x="32" y="80" width="8" height="15" fill="#3d3020"/><rect x="60" y="80" width="8" height="15" fill="#3d3020"/></svg>`,
+            window: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="10" width="80" height="80" fill="#1a2540" stroke="#c9a227" stroke-width="3"/><line x1="10" y1="50" x2="90" y2="50" stroke="#c9a227" stroke-width="2"/><line x1="50" y1="10" x2="50" y2="90" stroke="#c9a227" stroke-width="2"/><circle cx="30" cy="30" r="5" fill="#fff" opacity="0.3"/><circle cx="70" cy="25" r="3" fill="#fff" opacity="0.2"/><circle cx="25" cy="70" r="4" fill="#fff" opacity="0.25"/></svg>`,
+            bed: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="55" width="80" height="30" rx="5" fill="#3d3020" stroke="#c9a227" stroke-width="2"/><rect x="10" y="25" width="18" height="60" rx="3" fill="#2d2318" stroke="#c9a227" stroke-width="1"/><rect x="72" y="25" width="18" height="60" rx="3" fill="#2d2318" stroke="#c9a227" stroke-width="1"/><rect x="15" y="58" width="70" height="24" rx="3" fill="#d4a574"/><ellipse cx="35" cy="50" rx="15" ry="10" fill="#c9a227" opacity="0.8"/></svg>`,
+            clock: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="42" fill="#2d2318" stroke="#c9a227" stroke-width="4"/><circle cx="50" cy="50" r="35" fill="#1a1410" stroke="#9a8b7a" stroke-width="1"/><circle cx="50" cy="50" r="3" fill="#c9a227"/><line x1="50" y1="20" x2="50" y2="50" stroke="#c9a227" stroke-width="3" stroke-linecap="round"/><line x1="50" y1="50" x2="70" y2="50" stroke="#d4893a" stroke-width="2" stroke-linecap="round"/><circle cx="50" cy="15" r="2" fill="#c9a227"/><circle cx="50" cy="85" r="2" fill="#c9a227"/><circle cx="15" cy="50" r="2" fill="#c9a227"/><circle cx="85" cy="50" r="2" fill="#c9a227"/></svg>`,
+            closet: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="5" width="80" height="90" rx="3" fill="#3d3020" stroke="#c9a227" stroke-width="2"/><line x1="50" y1="5" x2="50" y2="95" stroke="#c9a227" stroke-width="2"/><rect x="15" y="10" width="30" height="80" fill="#2d2318" rx="2"/><rect x="55" y="10" width="30" height="80" fill="#2d2318" rx="2"/><circle cx="38" cy="50" r="4" fill="#c9a227"/><circle cx="62" cy="50" r="4" fill="#c9a227"/></svg>`,
+            fridge: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="15" y="5" width="70" height="90" rx="5" fill="#9a8b7a" stroke="#c9a227" stroke-width="2"/><rect x="20" y="10" width="60" height="30" rx="3" fill="#e8dcc8"/><rect x="20" y="45" width="60" height="45" rx="3" fill="#d4d4d4"/><rect x="73" y="22" width="5" height="8" rx="1" fill="#c9a227"/><rect x="73" y="55" width="5" height="15" rx="1" fill="#c9a227"/></svg>`,
+            table: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><ellipse cx="50" cy="35" rx="40" ry="15" fill="#3d3020" stroke="#c9a227" stroke-width="2"/><rect x="20" y="40" width="8" height="55" fill="#3d3020"/><rect x="72" y="40" width="8" height="55" fill="#3d3020"/><ellipse cx="50" cy="32" rx="35" ry="10" fill="#c9a227" opacity="0.2"/></svg>`,
+            cup: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M22 25 L28 85 L72 85 L78 25 Z" fill="#9a8b7a" stroke="#c9a227" stroke-width="2"/><ellipse cx="50" cy="25" rx="28" ry="10" fill="#2d2318" stroke="#c9a227" stroke-width="2"/><path d="M78 35 Q95 35 95 50 Q95 65 78 65" fill="none" stroke="#c9a227" stroke-width="3"/><path d="M40 35 Q50 45 60 35" fill="none" stroke="#fff" stroke-width="2" opacity="0.5"/></svg>`,
+            treasure: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="12" y="40" width="76" height="50" rx="5" fill="#3d3020" stroke="#c9a227" stroke-width="3"/><path d="M12 40 Q50 20 88 40" fill="#2d2318" stroke="#c9a227" stroke-width="2"/><rect x="38" y="52" width="24" height="24" rx="3" fill="#c9a227"/><circle cx="50" cy="64" r="8" fill="#3d3020" stroke="#9a8b7a" stroke-width="1"/><path d="M20 48 L80 48" stroke="#9a8b7a" stroke-width="1"/></svg>`,
+            photo: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="10" width="80" height="80" fill="#2d2318" stroke="#c9a227" stroke-width="2"/><rect x="15" y="15" width="70" height="70" fill="#1a1410"/><circle cx="38" cy="38" r="12" fill="#c9a227"/><path d="M15 72 L38 52 L55 65 L75 45 L85 55" fill="none" stroke="#4a9c5d" stroke-width="2"/><rect x="58" y="25" width="22" height="28" fill="#3d3020" stroke="#9a8b7a" stroke-width="1"/></svg>`,
+            window_attic: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="10" width="80" height="80" fill="#0a0a15" stroke="#c9a227" stroke-width="3"/><line x1="50" y1="10" x2="50" y2="90" stroke="#c9a227" stroke-width="2"/><line x1="10" y1="50" x2="90" y2="50" stroke="#c9a227" stroke-width="2"/><circle cx="25" cy="30" r="2" fill="#fff"/><circle cx="35" cy="35" r="1.5" fill="#fff"/><circle cx="20" cy="40" r="1" fill="#fff"/><circle cx="65" cy="25" r="2" fill="#fff"/><circle cx="75" cy="35" r="1.5" fill="#fff"/><circle cx="30" cy="65" r="2" fill="#fff"/><circle cx="70" cy="70" r="1.5" fill="#fff"/><circle cx="80" cy="60" r="1" fill="#fff"/></svg>`
+        };
+
+        // Animated backgrounds for each level
+        const levelBackgrounds = {
+            entrada: `<g class="svg-float" style="animation-delay: 0s;">
+                <rect x="10" y="20" width="15" height="25" rx="2" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.4"/>
+                <circle cx="22" cy="30" r="2" fill="#c9a227" opacity="0.4"/>
+            </g>
+            <g class="svg-float" style="animation-delay: 1s;">
+                <circle cx="50" cy="30" r="4" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.3"/>
+                <rect x="46" y="35" width="8" height="15" rx="1" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.3"/>
+            </g>
+            <g class="svg-drift" style="animation-delay: 2s;">
+                <path d="M80 60 L85 65 L80 70 L75 65 Z" fill="none" stroke="#d4893a" stroke-width="0.5" opacity="0.35"/>
+            </g>
+            <g class="svg-pulse" style="animation-delay: 0.5s;">
+                <ellipse cx="30" cy="70" rx="8" ry="4" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.3"/>
+            </g>`,
+            biblioteca: `<g class="svg-float" style="animation-delay: 0s;">
+                <rect x="15" y="30" width="10" height="20" rx="1" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.4"/>
+                <line x1="15" y1="35" x2="25" y2="35" stroke="#9a8b7a" stroke-width="0.3" opacity="0.3"/>
+            </g>
+            <g class="svg-float" style="animation-delay: 1.5s;">
+                <rect x="70" y="25" width="12" height="18" rx="1" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.35"/>
+            </g>
+            <g class="svg-drift" style="animation-delay: 2s;">
+                <path d="M40 60 Q45 55 50 60 Q55 65 60 60" fill="none" stroke="#d4893a" stroke-width="0.5" opacity="0.3"/>
+            </g>
+            <g class="svg-rotate" style="transform-origin: 85px 80px;">
+                <circle cx="85" cy="80" r="5" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.25"/>
+            </g>`,
+            dormitorio: `<g class="svg-swing" style="animation-delay: 0s;">
+                <circle cx="25" cy="25" r="8" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.4"/>
+                <circle cx="25" cy="25" r="3" fill="#c9a227" opacity="0.2"/>
+            </g>
+            <g class="svg-sparkle" style="animation-delay: 1s;">
+                <circle cx="70" cy="35" r="2" fill="#fff" opacity="0.5"/>
+            </g>
+            <g class="svg-sparkle" style="animation-delay: 2s;">
+                <circle cx="45" cy="70" r="1.5" fill="#fff" opacity="0.4"/>
+            </g>
+            <g class="svg-float" style="animation-delay: 0.5s;">
+                <path d="M80 50 L85 55 L80 60 L75 55 Z" fill="none" stroke="#d4893a" stroke-width="0.5" opacity="0.3"/>
+            </g>`,
+            cocina: `<g class="svg-float" style="animation-delay: 0s;">
+                <ellipse cx="30" cy="40" rx="8" ry="4" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.35"/>
+                <path d="M25 42 Q30 50 35 42" fill="none" stroke="#9a8b7a" stroke-width="0.3" opacity="0.3"/>
+            </g>
+            <g class="svg-pulse" style="animation-delay: 1s;">
+                <rect x="65" y="30" width="8" height="15" rx="1" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.3"/>
+            </g>
+            <g class="svg-drift" style="animation-delay: 2s;">
+                <circle cx="50" cy="65" r="6" fill="none" stroke="#d4893a" stroke-width="0.5" opacity="0.35"/>
+            </g>
+            <g class="svg-rotate" style="transform-origin: 80px 75px; animation-duration: 30s;">
+                <path d="M75 75 L85 75 L80 68 Z" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.25"/>
+            </g>`,
+            atico: `<g class="svg-sparkle" style="animation-delay: 0s;">
+                <circle cx="25" cy="30" r="2" fill="#fff" opacity="0.5"/>
+            </g>
+            <g class="svg-sparkle" style="animation-delay: 0.5s;">
+                <circle cx="75" cy="25" r="1.5" fill="#fff" opacity="0.4"/>
+            </g>
+            <g class="svg-sparkle" style="animation-delay: 1s;">
+                <circle cx="50" cy="60" r="2" fill="#fff" opacity="0.45"/>
+            </g>
+            <g class="svg-sparkle" style="animation-delay: 1.5s;">
+                <circle cx="35" cy="75" r="1.5" fill="#fff" opacity="0.35"/>
+            </g>
+            <g class="svg-sparkle" style="animation-delay: 2s;">
+                <circle cx="65" cy="80" r="2" fill="#fff" opacity="0.4"/>
+            </g>
+            <g class="svg-float" style="animation-delay: 0.3s;">
+                <rect x="80" y="40" width="12" height="8" rx="1" fill="none" stroke="#c9a227" stroke-width="0.5" opacity="0.3"/>
+            </g>`
+        };
+
+        const gameData = {
+            levels: [
+                {
+                    name: "Entrada",
+                    subtitle: "La puerta principal de la mansion",
+                    bgKey: "entrada",
+                    items: [
+                        { id: "door", label: "Puerta de madera", svgKey: "door", puzzle: { question: "Como se dice 'door' en espanol?", options: ["Ventana", "Puerta", "Pared", "Techo"], correct: 1, hint: "Es por donde entramos a una casa." } },
+                        { id: "key", label: "Llave antigua", svgKey: "key", puzzle: { question: "Completa: 'Esta es la _____ de la puerta'", options: ["mesa", "silla", "llave", "cama"], correct: 2, hint: "Sirve para abrir puertas cerradas." } },
+                        { id: "lamp", label: "Lampara de pie", svgKey: "lamp", puzzle: { question: "Que color es la lampara? (La lampara es blanca)", options: ["Roja", "Blanca", "Negra", "Azul"], correct: 1, hint: "Es el color de la nieve." } }
+                    ]
+                },
+                {
+                    name: "Biblioteca",
+                    subtitle: "La sala de lectura",
+                    bgKey: "biblioteca",
+                    items: [
+                        { id: "book", label: "Libro abierto", svgKey: "book", puzzle: { question: "Completa: 'Yo _____ un libro' (leer)", options: ["leo", "lees", "lee", "leen"], correct: 0, hint: "Primera persona singular del verbo leer." } },
+                        { id: "chair", label: "Silla de lectura", svgKey: "chair", puzzle: { question: "Donde te sientas para leer?", options: ["En la mesa", "En la silla", "En el suelo", "En la cama"], correct: 1, hint: "Es un mueble para sentarse." } },
+                        { id: "window", label: "Ventana", svgKey: "window", puzzle: { question: "Que ves por la ventana cuando llueve?", options: ["El sol", "La nieve", "La lluvia", "Las nubes"], correct: 2, hint: "Agua que cae del cielo." } }
+                    ]
+                },
+                {
+                    name: "Dormitorio",
+                    subtitle: "La habitacion principal",
+                    bgKey: "dormitorio",
+                    items: [
+                        { id: "bed", label: "Cama", svgKey: "bed", puzzle: { question: "Donde duermes por la noche?", options: ["En la silla", "En la cama", "En la mesa", "En el sofa"], correct: 1, hint: "Mueble para descansar y dormir." } },
+                        { id: "clock", label: "Reloj", svgKey: "clock", puzzle: { question: "El reloj marca las 8. Como se dice 'eight' en espanol?", options: ["Seis", "Siete", "Ocho", "Nueve"], correct: 2, hint: "Viene despues de siete." } },
+                        { id: "closet", label: "Armario", svgKey: "closet", puzzle: { question: "Que guardas en el armario?", options: ["Comida", "Ropa", "Libros", "Zapatos"], correct: 1, hint: "Lo que usamos para vestirnos." } }
+                    ]
+                },
+                {
+                    name: "Cocina",
+                    subtitle: "El corazon de la casa",
+                    bgKey: "cocina",
+                    items: [
+                        { id: "fridge", label: "Nevera", svgKey: "fridge", puzzle: { question: "Completa: 'La fruta _____ en la nevera' (estar)", options: ["esta", "es", "ser", "estoy"], correct: 0, hint: "Tercera persona singular del verbo estar." } },
+                        { id: "table_kitchen", label: "Mesa de cocina", svgKey: "table", puzzle: { question: "Cuantas sillas hay alrededor de la mesa? (1, 2, 3, 4)", options: ["Una silla", "Dos sillas", "Tres sillas", "Cuatro sillas"], correct: 3, hint: "El numero despues de tres." } },
+                        { id: "cup", label: "Taza", svgKey: "cup", puzzle: { question: "De que color es la taza? (La taza es azul)", options: ["Roja", "Verde", "Azul", "Amarilla"], correct: 2, hint: "Es el color del cielo." } }
+                    ]
+                },
+                {
+                    name: "Atico",
+                    subtitle: "El secreto final",
+                    bgKey: "atico",
+                    items: [
+                        { id: "treasure", label: "Cofre del tesoro", svgKey: "treasure", puzzle: { question: "Completa: 'El tesoro _____ muy valioso' (ser)", options: ["soy", "eres", "es", "somos"], correct: 2, hint: "Tercera persona singular del verbo ser." } },
+                        { id: "photo", label: "Fotografia antigua", svgKey: "photo", puzzle: { question: "Quien esta en la foto? (padre, madre, hijo = familia)", options: ["Amigos", "Familia", "Companeros", "Vecinos"], correct: 1, hint: "Son personas relacionadas por sangre." } },
+                        { id: "window_attic", label: "Ventana del atico", svgKey: "window_attic", puzzle: { question: "Que hora es cuando el sol se pone?", options: ["Es de manana", "Es de tarde", "Es de noche", "Es mediodia"], correct: 1, hint: "Cuando el sol desaparece." } }
+                    ]
+                }
+            ]
+        };
+
+        let currentLevel = 0;
+        let cluesFound = [];
+        let totalCluesFound = 0;
+
+        document.getElementById('promptText').textContent = gamePrompt;
+
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            initLevel(0);
+        }
+
+        function copyPrompt() {
+            navigator.clipboard.writeText(gamePrompt).then(function() {
+                showCopyNotification();
+            }).catch(function() {
+                const textArea = document.createElement('textarea');
+                textArea.value = gamePrompt;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showCopyNotification();
+            });
+        }
+
+        function showCopyNotification() {
+            const notification = document.getElementById('copyNotification');
+            notification.classList.add('show');
+            setTimeout(function() { notification.classList.remove('show'); }, 2800);
+        }
+
+        function initLevel(levelIndex) {
+            currentLevel = levelIndex;
+            const level = gameData.levels[levelIndex];
+            cluesFound = [];
+            
+            document.getElementById('floorName').textContent = level.name;
+            document.getElementById('floorSubtitle').textContent = level.subtitle;
+            
+            // Update animated background
+            const svgBg = document.getElementById('floorSvgBg');
+            svgBg.innerHTML = levelBackgrounds[level.bgKey];
+            
+            renderProgress();
+            renderCluesPanel(level);
+            renderRoomItems(level);
+        }
+
+        function renderProgress() {
+            const container = document.getElementById('progressSteps');
+            container.innerHTML = '';
+            for (let i = 0; i < 5; i++) {
+                const step = document.createElement('div');
+                step.className = 'step';
+                if (i < currentLevel) step.classList.add('completed');
+                else if (i === currentLevel) step.classList.add('active');
+                step.innerHTML = '<span>' + (i + 1) + '</span>';
+                container.appendChild(step);
+            }
+        }
+
+        function renderCluesPanel(level) {
+            const container = document.getElementById('cluesPanel');
+            container.innerHTML = '';
+            level.items.forEach(function(item) {
+                const slot = document.createElement('div');
+                slot.className = 'clue-slot';
+                slot.id = 'clue-' + item.id;
+                slot.innerHTML = clueSVGs[item.svgKey];
+                container.appendChild(slot);
+            });
+        }
+
+        function renderRoomItems(level) {
+            const container = document.getElementById('roomLayer');
+            container.innerHTML = '';
+            level.items.forEach(function(item) {
+                const elem = document.createElement('div');
+                elem.className = 'interactive-item';
+                elem.id = 'item-' + item.id;
+                const isFound = cluesFound.includes(item.id);
+                if (isFound) elem.classList.add('found');
+                
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'item-image-container';
+                imgContainer.innerHTML = clueSVGs[item.svgKey];
+                const svg = imgContainer.querySelector('svg');
+                if (svg) { svg.classList.add('item-svg'); }
+                
+                const overlay = document.createElement('div');
+                overlay.className = 'image-overlay';
+                imgContainer.appendChild(overlay);
+                
+                const glow = document.createElement('div');
+                glow.className = 'glow-effect';
+                imgContainer.appendChild(glow);
+                
+                const badge = document.createElement('span');
+                badge.className = 'found-badge';
+                badge.textContent = 'Resuelto';
+                imgContainer.appendChild(badge);
+                
+                card.appendChild(imgContainer);
+                
+                const body = document.createElement('div');
+                body.className = 'item-body';
+                body.innerHTML = '<p class="item-label">' + item.label + '</p>' + (isFound ? '<p class="item-status">Pista encontrada</p>' : '<p class="item-status">Click para investigar</p>');
+                card.appendChild(body);
+                
+                elem.appendChild(card);
+                if (!isFound) elem.addEventListener('click', function() { openPuzzle(item); });
+                container.appendChild(elem);
+            });
+        }
+
+        function openPuzzle(item) {
+            const overlay = document.getElementById('modalOverlay');
+            const content = document.getElementById('modalContent');
+            let optionsHTML = '';
+            item.puzzle.options.forEach(function(opt, i) { optionsHTML += '<button class="puzzle-option" data-index="' + i + '">' + opt + '</button>'; });
+            
+            content.innerHTML = 
+                '<div class="modal-image-container">' + clueSVGs[item.svgKey].replace('viewBox="0 0 100 100"', 'viewBox="0 0 100 100" class="modal-svg"') + '<div class="modal-image-overlay"></div>' +
+                    '<div class="modal-icon-container"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>' +
+                '</div>' +
+                '<div class="modal-body">' +
+                    '<h3 class="modal-title">' + item.label + '</h3>' +
+                    '<p class="modal-text">Resuelve el acertijo para avanzar:</p>' +
+                    '<div class="puzzle-container"><p class="puzzle-question">' + item.puzzle.question + '</p><div class="puzzle-options" id="puzzleOptions">' + optionsHTML + '</div></div>' +
+                    '<p class="modal-hint">Pista: ' + item.puzzle.hint + '</p>' +
+                '</div>';
+            
+            overlay.classList.add('active');
+            const buttons = content.querySelectorAll('.puzzle-option');
+            buttons.forEach(function(btn) { btn.addEventListener('click', function(e) { handleAnswer(item, parseInt(e.target.dataset.index), buttons); }); });
+        }
+
+        function handleAnswer(item, selectedIndex, buttons) {
+            const isCorrect = selectedIndex === item.puzzle.correct;
+            buttons.forEach(function(btn, i) {
+                btn.disabled = true;
+                if (i === item.puzzle.correct) btn.classList.add('correct');
+                else if (i === selectedIndex && !isCorrect) btn.classList.add('incorrect');
+            });
+            
+            if (isCorrect) {
+                cluesFound.push(item.id);
+                totalCluesFound++;
+                const clueSlot = document.getElementById('clue-' + item.id);
+                if (clueSlot) { clueSlot.classList.add('found'); clueSlot.innerHTML = clueSVGs[item.svgKey]; }
+                const itemElem = document.getElementById('item-' + item.id);
+                if (itemElem) itemElem.classList.add('found');
+                setTimeout(function() {
+                    closeModal();
+                    if (cluesFound.length === 3) {
+                        if (currentLevel < 4) setTimeout(showLevelComplete, 450);
+                        else setTimeout(showWinScreen, 450);
+                    }
+                }, 1100);
+            } else {
+                setTimeout(function() {
+                    const optionsContainer = document.getElementById('puzzleOptions');
+                    if (optionsContainer) {
+                        const newButtons = optionsContainer.querySelectorAll('.puzzle-option');
+                        newButtons.forEach(function(btn) { btn.disabled = false; btn.classList.remove('correct', 'incorrect'); });
+                    }
+                }, 1600);
+            }
+        }
+
+        function closeModal() { document.getElementById('modalOverlay').classList.remove('active'); }
+
+        function showLevelComplete() {
+            const overlay = document.getElementById('modalOverlay');
+            const content = document.getElementById('modalContent');
+            const nextLevel = gameData.levels[currentLevel + 1];
+            const nextItem = nextLevel.items[0];
+            content.innerHTML = 
+                '<div class="modal-image-container">' + clueSVGs[nextItem.svgKey].replace('viewBox="0 0 100 100"', 'viewBox="0 0 100 100" class="modal-svg"') + '<div class="modal-image-overlay"></div>' +
+                    '<div class="modal-icon-container"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>' +
+                '</div>' +
+                '<div class="modal-body">' +
+                    '<h3 class="modal-title">Nivel Completado</h3>' +
+                    '<p class="modal-text">Has resuelto todas las pistas en ' + gameData.levels[currentLevel].name + '.<br>Siguiente destino: <strong>' + nextLevel.name + '</strong></p>' +
+                    '<button class="btn btn-success" onclick="nextLevel()">Continuar</button>' +
+                '</div>';
+            overlay.classList.add('active');
+        }
+
+        function nextLevel() { closeModal(); setTimeout(function() { initLevel(currentLevel + 1); }, 350); }
+
+        function showWinScreen() {
+            document.getElementById('finalScore').textContent = totalCluesFound;
+            document.getElementById('winScreen').classList.add('active');
+        }
+
+        function restartGame() {
+            currentLevel = 0;
+            cluesFound = [];
+            totalCluesFound = 0;
+            document.getElementById('winScreen').classList.remove('active');
+            document.getElementById('startScreen').classList.remove('hidden');
+        }
+
+        document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target === e.currentTarget) closeModal(); });
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+    </script>
+</body>
+</html>
