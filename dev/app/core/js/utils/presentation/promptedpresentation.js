@@ -958,6 +958,91 @@ class PromptedPresentationWorkflow {
 		return modelSelector ? modelSelector.value : '';
 	}
 
+	static switchToChatTabFromModelWarning() {
+		if (window.tabManager && typeof window.tabManager.switchTab === 'function') {
+			window.tabManager.switchTab('chat-tab');
+		} else {
+			const chatButton = document.querySelector('.tab-button[data-tab="chat"]');
+			if (chatButton) {
+				chatButton.click();
+			}
+		}
+
+		setTimeout(() => {
+			const modelSelector = document.getElementById('model-selector');
+			if (modelSelector) {
+				modelSelector.focus();
+			}
+		}, 120);
+	}
+
+	static showChatModelRequiredWindow() {
+		const existing = document.getElementById('prompted-presentation-model-warning');
+		if (existing) {
+			return;
+		}
+
+		const overlay = document.createElement('div');
+		overlay.id = 'prompted-presentation-model-warning';
+		overlay.style.cssText = `
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.6);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			z-index: 20000;
+		`;
+
+		const dialog = document.createElement('div');
+		dialog.style.cssText = `
+			width: min(440px, calc(100vw - 32px));
+			background: var(--card-bg, #1f2937);
+			color: var(--text-color, #ffffff);
+			border: 1px solid var(--border-color, #374151);
+			border-radius: 10px;
+			padding: 18px;
+			box-sizing: border-box;
+			text-align: center;
+		`;
+
+		const titleText = (window.Lang && Lang.get('modelSelectionRequired')) || 'Model selection required';
+		const messageText = (window.Lang && Lang.get('promptedPresentationModelRequired')) || 'Please select one model in the Chat tab model selector before generating prompted presentations.';
+		const okText = (window.Lang && Lang.get('ok')) || 'Okay';
+
+		dialog.innerHTML = `
+			<h3 style="margin: 0 0 10px 0; font-size: 18px;">${titleText}</h3>
+			<p style="margin: 0 0 14px 0; line-height: 1.45;">${messageText}</p>
+			<button id="prompted-presentation-model-warning-ok" style="padding: 9px 18px; border: none; border-radius: 8px; background: var(--accent-color, #4f46e5); color: #fff; cursor: pointer; font-weight: 600;">${okText}</button>
+		`;
+
+		overlay.appendChild(dialog);
+		document.body.appendChild(overlay);
+
+		const okButton = document.getElementById('prompted-presentation-model-warning-ok');
+		if (okButton) {
+			okButton.addEventListener('click', () => {
+				if (overlay.parentNode) {
+					overlay.parentNode.removeChild(overlay);
+				}
+				this.switchToChatTabFromModelWarning();
+			});
+		}
+	}
+
+	static ensureChatModelSelectedForGeneration() {
+		const model = this.getSelectedModel();
+		if (model) {
+			return model;
+		}
+
+		this.showChatModelRequiredWindow();
+		return '';
+	}
+
 	static getSelectedContextSize() {
 		const contextSelector = document.getElementById('context-selector');
 		const value = contextSelector ? parseInt(contextSelector.value, 10) : 8192;
@@ -2545,7 +2630,7 @@ class PromptedPresentationWorkflow {
 	}
 
 	static async generatePresentationHtml(userText, abortSignal = null, mode = 'html', onDelta = null) {
-		const model = this.getSelectedModel();
+		const model = this.ensureChatModelSelectedForGeneration();
 		if (!model) {
 			throw new Error(window.Lang ? (Lang.get('selectModelPrompt') || 'Please select a model first.') : 'Please select a model first.');
 		}
