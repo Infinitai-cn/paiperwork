@@ -852,7 +852,7 @@ window.helpContent = {
                 </div>
 
                 <div class="note">
-                    <p><strong>Note pour les modèles cloud :</strong> Lors de l'utilisation de modèles cloud sur des offres gratuites, les réponses en mode "Poser des Questions" peuvent être limitées ou tronquées en raison de la taille importante des prompts RAG. Pour obtenir de longues réponses complètes de manière constante, il est recommandé d'utiliser une offre cloud payante.</p>
+                    <p><strong>Note sur les modèles cloud :</strong> Avec des modèles cloud en offre gratuite, les réponses en mode "Poser des questions" peuvent être limitées ou tronquées car les prompts RAG sont volumineux. Si vous avez besoin de réponses longues et complètes de façon fiable, utilisez une offre cloud payante.</p>
                 </div>
             `,
                 image: "document_mode.png",
@@ -2793,6 +2793,45 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Astuce :</strong> Prenez l'habitude d'exécuter l'optimisation de base de données après avoir supprimé de gros documents ou plusieurs conversations pour maintenir des performances optimales. Contrairement à de nombreuses applications cloud, les applications de base de données locales comme Paiperwork nécessitent une maintenance occasionnelle pour continuer à fonctionner en douceur.</p>
+                </div>
+            `,
+            },
+            {
+                id: "database-backup",
+                title: "Exporter et importer des sauvegardes completes",
+                content: `
+                <p>L'onglet Base de donnees inclut deux boutons de sauvegarde pour transferer vos donnees entre navigateurs ou appareils en toute securite :</p>
+                <ul>
+                    <li><strong>Exporter la base de donnees</strong> - Cree un fichier de sauvegarde complet nomme <code>Paiperwork-Backup.pwdb</code></li>
+                    <li><strong>Importer la base de donnees</strong> - Restaure ce fichier dans votre stockage local actuel</li>
+                </ul>
+
+                <h4>Contenu de la sauvegarde</h4>
+                <p>La sauvegarde exportee inclut tous les roles de base de donnees Paiperwork :</p>
+                <ul>
+                    <li><strong>Main</strong> - Conversations et parametres principaux</li>
+                    <li><strong>RAG</strong> - Segments de documents et donnees de retrieval</li>
+                    <li><strong>HTML</strong> - Contenu HTML enregistre pour presentations et artifacts</li>
+                    <li><strong>Knowledge Base</strong> - Collections et entrees de connaissance</li>
+                </ul>
+
+                <h4>Comportement important a l'import</h4>
+                <ul>
+                    <li>L'import <strong>remplace</strong> vos bases locales actuelles</li>
+                    <li>L'import <strong>ne fusionne pas</strong> avec le contenu local existant</li>
+                    <li>Apres l'import, Paiperwork revient a l'ecran d'accueil pour ressaisir votre Cle Maitre</li>
+                </ul>
+
+                <h4>Procedure recommandee</h4>
+                <ol>
+                    <li>Dans le navigateur source, ouvrez l'onglet Base de donnees et cliquez sur "Exporter la base de donnees"</li>
+                    <li>Copiez le fichier <code>Paiperwork-Backup.pwdb</code> vers le navigateur ou l'appareil cible</li>
+                    <li>Dans le navigateur cible, ouvrez Base de donnees et cliquez sur "Importer la base de donnees"</li>
+                    <li>Confirmez le remplacement puis reconnectez-vous avec votre Cle Maitre</li>
+                </ol>
+
+                <div class="note">
+                    <p><strong>Note :</strong> Les imports legacy d'un seul fichier <code>.db</code> restent compatibles, mais ne restaurent que la base principale. Utilisez <code>Paiperwork-Backup.pwdb</code> pour une portabilite complete.</p>
                 </div>
             `,
             },

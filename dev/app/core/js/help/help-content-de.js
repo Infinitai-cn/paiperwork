@@ -2802,6 +2802,45 @@ window.helpContent = {
             `,
             },
             {
+                id: "database-backup",
+                title: "Vollstandige Datenbank-Backups exportieren und importieren",
+                content: `
+                <p>Im Datenbank-Tab gibt es zwei Backup-Schaltflachen, mit denen Sie Ihre Daten sicher zwischen Browsern oder Geraten ubertragen konnen:</p>
+                <ul>
+                    <li><strong>Datenbank exportieren</strong> - Erstellt eine vollstandige Sicherungsdatei namens <code>Paiperwork-Backup.pwdb</code></li>
+                    <li><strong>Datenbank importieren</strong> - Stellt diese Sicherung im aktuellen lokalen Speicher wieder her</li>
+                </ul>
+
+                <h4>Was im Backup enthalten ist</h4>
+                <p>Die exportierte Sicherung enthalt alle Datenbankrollen von Paiperwork:</p>
+                <ul>
+                    <li><strong>Main</strong> - Kern-Gesprache und Einstellungen</li>
+                    <li><strong>RAG</strong> - Dokument-Chunks und Retrieval-Daten</li>
+                    <li><strong>HTML</strong> - Gespeicherte HTML-Inhalte fur Prasentationen und Artifacts</li>
+                    <li><strong>Knowledge Base</strong> - Wissenssammlungen und Eintrage</li>
+                </ul>
+
+                <h4>Wichtiges Importverhalten</h4>
+                <ul>
+                    <li>Der Import <strong>ersetzt</strong> Ihre aktuellen lokalen Datenbanken</li>
+                    <li>Der Import <strong>fuhrt nicht zusammen</strong> mit bereits vorhandenen lokalen Daten</li>
+                    <li>Nach dem Import leitet Paiperwork zur Willkommensseite weiter, damit Sie den Master Key erneut eingeben</li>
+                </ul>
+
+                <h4>Empfohlener Ablauf</h4>
+                <ol>
+                    <li>Im Quell-Browser den Datenbank-Tab offnen und auf "Datenbank exportieren" klicken</li>
+                    <li>Die erzeugte Datei <code>Paiperwork-Backup.pwdb</code> auf den Ziel-Browser bzw. das Ziel-Gerat ubertragen</li>
+                    <li>Im Ziel-Browser den Datenbank-Tab offnen und auf "Datenbank importieren" klicken</li>
+                    <li>Ersetzen bestatigen und anschlieend mit dem Master Key erneut anmelden</li>
+                </ol>
+
+                <div class="note">
+                    <p><strong>Hinweis:</strong> Legacy-Importe einzelner <code>.db</code>-Dateien werden weiterhin unterstutzt, stellen aber nur die Hauptdatenbank wieder her. Verwenden Sie <code>Paiperwork-Backup.pwdb</code> fur vollstandige Portabilitat.</p>
+                </div>
+            `,
+            },
+            {
                 id: "database-maintenance",
                 title: "Best Practices für Datenbankwartung",
                 content: `

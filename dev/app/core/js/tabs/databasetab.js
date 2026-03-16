@@ -55,6 +55,15 @@ class DatabaseTab {
                             <i class="fas fa-compress-alt"></i> ${Lang.get('optimizeDatabase') || 'Optimize Database'}
                         </button>
                     </div>
+                    <div class="action-buttons secondary-actions">
+                        <button id="export-database" class="action-button">
+                            <i class="fas fa-file-export"></i> ${Lang.get('exportDatabase') || 'Export Database'}
+                        </button>
+                        <button id="import-database" class="action-button">
+                            <i class="fas fa-file-import"></i> ${Lang.get('importDatabase') || 'Import Database'}
+                        </button>
+                        <input id="import-database-file" type="file" accept=".pwdb,.json,.db,application/json,application/octet-stream" style="display:none" tabindex="-1" aria-hidden="true">
+                    </div>
                 </div>
                 
                 <div class="database-info-section">
@@ -78,6 +87,9 @@ class DatabaseTab {
         document.getElementById('refresh-db-stats')?.addEventListener('click', () => this.refreshDatabaseStats());
         document.getElementById('cleanup-database')?.addEventListener('click', () => this.cleanupOrphanedChunks());
         document.getElementById('vacuum-database')?.addEventListener('click', () => this.vacuumDatabase());
+        document.getElementById('export-database')?.addEventListener('click', () => this.exportDatabase());
+        document.getElementById('import-database')?.addEventListener('click', () => this.openImportDialog());
+        document.getElementById('import-database-file')?.addEventListener('change', (event) => this.importDatabase(event));
         
         // Add styles
         this.addStyles();
@@ -299,6 +311,95 @@ class DatabaseTab {
             vacuumButton.innerHTML = '<i class="fas fa-compress-alt"></i> ' + 
                 (Lang.get('optimizeDatabase') || 'Optimize Database');
             vacuumButton.disabled = false;
+        }
+    }
+
+    async exportDatabase() {
+        const exportButton = document.getElementById('export-database');
+        if (!exportButton) return;
+
+        exportButton.disabled = true;
+        exportButton.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Exporting...';
+
+        try {
+            const bundleText = await PaiperworkDB.exportDatabaseBundle(this.hashedMasterKey);
+            const blob = new Blob([bundleText], { type: 'application/json' });
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = 'Paiperwork-Backup.pwdb';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(downloadUrl);
+
+            this.showNotification('success', Lang.get('databaseExported') || 'Database backup exported successfully.');
+        } catch (error) {
+            console.error('Error exporting database:', error);
+            this.showNotification('error', Lang.get('databaseExportFailed') || 'Database export failed.');
+        } finally {
+            exportButton.innerHTML = '<i class="fas fa-file-export"></i> ' +
+                (Lang.get('exportDatabase') || 'Export Database');
+            exportButton.disabled = false;
+        }
+    }
+
+    openImportDialog() {
+        const fileInput = document.getElementById('import-database-file');
+        if (!fileInput) return;
+        fileInput.value = '';
+        fileInput.click();
+    }
+
+    async importDatabase(event) {
+        const importButton = document.getElementById('import-database');
+        const fileInput = event?.target;
+        const file = fileInput?.files?.[0];
+
+        if (!importButton || !file) {
+            return;
+        }
+
+        const confirmed = confirm(
+            Lang.get('importDatabaseConfirm') ||
+            'Importing a backup will replace your current local databases (main, rag, html, kb). Continue?'
+        );
+        if (!confirmed) {
+            return;
+        }
+
+        importButton.disabled = true;
+        importButton.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Importing...';
+
+        try {
+            const buffer = await file.arrayBuffer();
+            await PaiperworkDB.importDatabaseBundle(this.hashedMasterKey, new Uint8Array(buffer));
+
+            this.showNotification(
+                'success',
+                Lang.get('databaseImportedReloading') || 'Database imported. Reloading and returning to welcome screen...'
+            );
+
+            await PaiperworkDB.closeAllDatabases(this.hashedMasterKey);
+            try {
+                sessionStorage.removeItem('hashedMasterKey');
+            } catch (_error) {
+                // Ignore session storage cleanup errors.
+            }
+
+            setTimeout(() => {
+                window.location.href = '../welcome.html';
+            }, 800);
+        } catch (error) {
+            console.error('Error importing database:', error);
+            this.showNotification('error', Lang.get('databaseImportFailed') || 'Database import failed.');
+            importButton.innerHTML = '<i class="fas fa-file-import"></i> ' +
+                (Lang.get('importDatabase') || 'Import Database');
+            importButton.disabled = false;
+        } finally {
+            if (fileInput) {
+                fileInput.value = '';
+            }
         }
     }
     
@@ -578,13 +679,18 @@ class DatabaseTab {
         }
         
         .action-buttons {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
+        }
+
+        .secondary-actions {
+            margin-top: 10px;
         }
         
         .action-button {
             padding: 8px 16px;
+            width: 100%;
             border: none;
             border-radius: 4px;
             background-color: var(--accent-color);
@@ -593,6 +699,7 @@ class DatabaseTab {
             cursor: pointer;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 8px;
         }
         

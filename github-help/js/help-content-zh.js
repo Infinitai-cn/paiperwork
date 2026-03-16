@@ -857,7 +857,7 @@ window.helpContent = {
                 </div>
 
                 <div class="note">
-                    <p><strong>云模型说明：</strong>使用免费层云模型时，由于RAG提示词较大，在"提问"模式下的回答可能会受限或被截断。若希望稳定获得完整的长回答，建议使用付费云服务层级。</p>
+                    <p><strong>云模型说明：</strong>使用免费层级的云模型时，由于RAG提示内容较大，在"提问"模式下回复可能会受限或被截断。如果需要稳定且完整的长回复，建议使用付费云服务层级。</p>
                 </div>
             `,
                 image: "document_mode.png",
@@ -2802,6 +2802,45 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>提示：</strong>养成在删除大型文档或多个对话后运行数据库优化的习惯，以保持最佳性能。与许多云应用程序不同，像 Paiperwork 这样的本地数据库应用程序需要偶尔维护才能保持顺畅运行。</p>
+                </div>
+            `,
+            },
+            {
+                id: "database-backup",
+                title: "导出与导入完整数据库备份",
+                content: `
+                <p>数据库选项卡提供两个备份按钮，可在不同浏览器或设备之间安全迁移数据：</p>
+                <ul>
+                    <li><strong>导出数据库</strong> - 生成完整备份文件 <code>Paiperwork-Backup.pwdb</code></li>
+                    <li><strong>导入数据库</strong> - 将该备份恢复到当前本地存储</li>
+                </ul>
+
+                <h4>备份包含内容</h4>
+                <p>导出的备份包含 Paiperwork 的全部数据库角色：</p>
+                <ul>
+                    <li><strong>Main</strong> - 核心对话与设置</li>
+                    <li><strong>RAG</strong> - 文档分块与检索数据</li>
+                    <li><strong>HTML</strong> - 已保存的演示和 artifacts 的 HTML 内容</li>
+                    <li><strong>Knowledge Base</strong> - 知识库集合与条目</li>
+                </ul>
+
+                <h4>导入的重要行为</h4>
+                <ul>
+                    <li>导入会<strong>替换</strong>当前本地数据库</li>
+                    <li>导入<strong>不会合并</strong>现有本地数据</li>
+                    <li>导入完成后，Paiperwork 会返回欢迎页，您需要重新输入主密钥</li>
+                </ul>
+
+                <h4>推荐流程</h4>
+                <ol>
+                    <li>在源浏览器中打开数据库选项卡并点击"导出数据库"</li>
+                    <li>将生成的 <code>Paiperwork-Backup.pwdb</code> 复制到目标浏览器或设备</li>
+                    <li>在目标浏览器中打开数据库选项卡并点击"导入数据库"</li>
+                    <li>确认替换后，使用主密钥重新登录</li>
+                </ol>
+
+                <div class="note">
+                    <p><strong>注意：</strong>仍兼容旧版单个 <code>.db</code> 文件导入，但它只会恢复主数据库。要完整迁移，请使用 <code>Paiperwork-Backup.pwdb</code>。</p>
                 </div>
             `,
             },

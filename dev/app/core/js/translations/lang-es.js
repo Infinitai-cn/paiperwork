@@ -420,6 +420,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         refreshStats: "Actualizar Estadísticas",
         cleanupOrphaned: "Limpiar Datos Huérfanos",
         optimizeDatabase: "Limpiar Base de Datos",
+        exportDatabase: "Exportar Base de Datos",
+        importDatabase: "Importar Base de Datos",
 
         // Information Section
         aboutDatabaseTitle: "Acerca de Su Base de Datos",
@@ -450,6 +452,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         orphanedChunksRemoved: "Se eliminaron exitosamente {count} fragmentos huérfanos.",
         databaseSizeReduced: "Tamaño de la base de datos reducido en {size}.",
         databaseOptimized: "Base de datos optimizada exitosamente. Se ahorró {size}.",
+        databaseExported: "Copia de seguridad exportada como Paiperwork-Backup.pwdb",
+        databaseImportedReloading: "Base de datos importada. Recargando y volviendo a la pantalla de bienvenida...",
 
         // Error Messages
         databaseOptimizeFailed: "La optimización de la base de datos falló.",
@@ -457,6 +461,9 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         tryAgain: "Intentar de Nuevo",
         databaseError: "Ocurrió un error al optimizar la base de datos.",
         databaseNotAvailable: "Base de datos no disponible",
+        databaseExportFailed: "La exportación de la base de datos falló.",
+        importDatabaseConfirm: "Importar una copia de seguridad reemplazara sus bases de datos locales actuales (main, rag, html, kb). Continuar?",
+        databaseImportFailed: "La importación de la base de datos falló.",
 
         // ===== DOCUMENTS_TAB.JS =====
         // Document Search Info Banner

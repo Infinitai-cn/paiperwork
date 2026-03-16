@@ -2841,6 +2841,45 @@ window.helpContent = {
             `,
             },
             {
+                id: "database-backup",
+                title: "Exporting and Importing Full Database Backups",
+                content: `
+                <p>The Database tab includes two backup buttons that let you move your data safely across browsers or devices:</p>
+                <ul>
+                    <li><strong>Export Database</strong> - Creates a full backup file named <code>Paiperwork-Backup.pwdb</code></li>
+                    <li><strong>Import Database</strong> - Restores a backup file into your current local storage</li>
+                </ul>
+
+                <h4>What Is Included in the Backup</h4>
+                <p>The exported backup contains all Paiperwork database roles:</p>
+                <ul>
+                    <li><strong>Main</strong> - Core conversations and settings</li>
+                    <li><strong>RAG</strong> - Document chunks and retrieval data</li>
+                    <li><strong>HTML</strong> - Stored presentation/artifact HTML payloads</li>
+                    <li><strong>Knowledge Base</strong> - Knowledge collections and entries</li>
+                </ul>
+
+                <h4>Important Import Behavior</h4>
+                <ul>
+                    <li>Import <strong>replaces</strong> your current local databases</li>
+                    <li>Import does <strong>not merge</strong> data with existing local content</li>
+                    <li>After import, Paiperwork redirects to the welcome screen so you can re-enter your Master Key</li>
+                </ul>
+
+                <h4>Recommended Backup Workflow</h4>
+                <ol>
+                    <li>In the source browser, open the Database tab and click "Export Database"</li>
+                    <li>Copy the generated <code>Paiperwork-Backup.pwdb</code> file to the target browser/device</li>
+                    <li>In the target browser, open Database and click "Import Database"</li>
+                    <li>Confirm replacement, then log in again with your Master Key</li>
+                </ol>
+
+                <div class="note">
+                    <p><strong>Note:</strong> Legacy single <code>.db</code> imports are still accepted for compatibility, but they only restore the main database. Use <code>Paiperwork-Backup.pwdb</code> for complete portability.</p>
+                </div>
+            `,
+            },
+            {
                 id: "database-maintenance",
                 title: "Database Maintenance Best Practices",
                 content: `

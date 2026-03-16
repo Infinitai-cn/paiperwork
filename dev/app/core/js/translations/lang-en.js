@@ -428,6 +428,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         refreshStats: "Refresh Statistics",
         cleanupOrphaned: "Clean Up Orphaned Data",
         optimizeDatabase: "Clean Database",
+        exportDatabase: "Export Database",
+        importDatabase: "Import Database",
 
         // Information Section
         aboutDatabaseTitle: "About Your Database",
@@ -458,6 +460,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         orphanedChunksRemoved: "Successfully removed {count} orphaned chunks.",
         databaseSizeReduced: "Database size reduced by {size}.",
         databaseOptimized: "Database optimized successfully. Saved {size}.",
+        databaseExported: "Database backup exported as Paiperwork-Backup.pwdb",
+        databaseImportedReloading: "Database imported. Reloading and returning to welcome screen...",
 
         // Error Messages
         databaseOptimizeFailed: "Database optimization failed.",
@@ -465,6 +469,9 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         tryAgain: "Try Again",
         databaseError: "An error occurred while optimizing the database.",
         databaseNotAvailable: "Database not available",
+        databaseExportFailed: "Database export failed.",
+        importDatabaseConfirm: "Importing a backup will replace your current local databases (main, rag, html, kb). Continue?",
+        databaseImportFailed: "Database import failed.",
 
         // ===== DOCUMENTS_TAB.JS =====
 

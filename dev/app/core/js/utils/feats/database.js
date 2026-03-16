@@ -1,5 +1,7 @@
 class PaiperworkDB {
 
+    static DB_BUNDLE_FORMAT = 'paiperwork-db-bundle-v1';
+
     static dbInitialized = false;
     static initializationPromise = null;
     static SQL = null;
@@ -384,6 +386,210 @@ class PaiperworkDB {
 
     static async closeKnowledgeDatabases(hashedMasterKey = null) {
         return this.closeRoleDatabases('kb', hashedMasterKey);
+    }
+
+    static async closeAllDatabases(hashedMasterKey = null) {
+        const remaining = [];
+
+        for (const entry of this.openDbInstances) {
+            const shouldClose = entry && (hashedMasterKey ? entry.hashedMasterKey === hashedMasterKey : true);
+
+            if (!shouldClose) {
+                remaining.push(entry);
+                continue;
+            }
+
+            try {
+                entry.db?.close?.();
+            } catch (error) {
+                console.warn('Error closing tracked SQL.js database instance:', error);
+            }
+        }
+
+        this.openDbInstances = remaining;
+    }
+
+    static async exportDatabase(hashedMasterKey, role = 'main') {
+        try {
+            const normalizedRole = this.normalizeDbRole(role);
+            const db = await this.getDatabase(hashedMasterKey, normalizedRole, true);
+            if (!db) {
+                throw new Error(Lang.get('databaseNotAvailable') || 'Database not available');
+            }
+
+            const exportedDb = db.export();
+            // Return a copy so callers cannot mutate SQL.js internal buffers.
+            return new Uint8Array(exportedDb);
+        } catch (error) {
+            console.error('Error exporting database:', error);
+            throw error;
+        }
+    }
+
+    static validateSQLiteBytes(dbBytes) {
+        if (!(dbBytes instanceof Uint8Array) || dbBytes.length < 16) {
+            return false;
+        }
+
+        const sqliteHeader = [83, 81, 76, 105, 116, 101, 32, 102, 111, 114, 109, 97, 116, 32, 51, 0];
+        for (let i = 0; i < sqliteHeader.length; i++) {
+            if (dbBytes[i] !== sqliteHeader[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    static encodeUint8ArrayToBase64(bytes) {
+        if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
+            return '';
+        }
+
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            const slice = bytes.subarray(i, i + chunkSize);
+            binary += String.fromCharCode(...slice);
+        }
+
+        return btoa(binary);
+    }
+
+    static decodeBase64ToUint8Array(base64Value) {
+        if (!base64Value || typeof base64Value !== 'string') {
+            return new Uint8Array(0);
+        }
+
+        const binary = atob(base64Value);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+
+        return bytes;
+    }
+
+    static async exportDatabaseBundle(hashedMasterKey) {
+        try {
+            const mainDb = await this.exportDatabase(hashedMasterKey, 'main');
+            const ragDb = await this.exportDatabase(hashedMasterKey, 'rag');
+            const htmlDb = await this.exportDatabase(hashedMasterKey, 'html');
+            const kbDb = await this.exportDatabase(hashedMasterKey, 'kb');
+
+            const payload = {
+                format: this.DB_BUNDLE_FORMAT,
+                createdAt: new Date().toISOString(),
+                dbs: {
+                    main: this.encodeUint8ArrayToBase64(mainDb),
+                    rag: this.encodeUint8ArrayToBase64(ragDb),
+                    html: this.encodeUint8ArrayToBase64(htmlDb),
+                    kb: this.encodeUint8ArrayToBase64(kbDb)
+                }
+            };
+
+            return JSON.stringify(payload);
+        } catch (error) {
+            console.error('Error exporting database bundle:', error);
+            throw error;
+        }
+    }
+
+    static async importDatabaseBundle(hashedMasterKey, bundleInput) {
+        try {
+            let rawBytes = null;
+            let bundleText = '';
+
+            if (bundleInput instanceof Uint8Array) {
+                rawBytes = bundleInput;
+            } else if (typeof bundleInput === 'string') {
+                bundleText = bundleInput;
+            } else {
+                throw new Error('Unsupported backup format');
+            }
+
+            // Backward compatibility: single .db file imports only the main DB.
+            if (rawBytes && this.validateSQLiteBytes(rawBytes)) {
+                await this.importDatabase(hashedMasterKey, rawBytes, 'main');
+                return { success: true, legacyMainOnly: true, importedRoles: ['main'] };
+            }
+
+            if (!bundleText && rawBytes) {
+                bundleText = new TextDecoder().decode(rawBytes);
+            }
+
+            const parsed = JSON.parse(bundleText);
+            if (!parsed || parsed.format !== this.DB_BUNDLE_FORMAT || !parsed.dbs) {
+                throw new Error('Invalid Paiperwork backup bundle');
+            }
+
+            const requiredRoles = ['main', 'rag', 'html', 'kb'];
+            for (const role of requiredRoles) {
+                if (typeof parsed.dbs[role] !== 'string' || !parsed.dbs[role]) {
+                    throw new Error(`Backup is missing ${role} database data`);
+                }
+            }
+
+            const decoded = {
+                main: this.decodeBase64ToUint8Array(parsed.dbs.main),
+                rag: this.decodeBase64ToUint8Array(parsed.dbs.rag),
+                html: this.decodeBase64ToUint8Array(parsed.dbs.html),
+                kb: this.decodeBase64ToUint8Array(parsed.dbs.kb)
+            };
+
+            for (const role of requiredRoles) {
+                if (!this.validateSQLiteBytes(decoded[role])) {
+                    throw new Error(`Invalid SQLite payload for ${role} database`);
+                }
+            }
+
+            await this.closeAllDatabases(hashedMasterKey);
+
+            for (const role of requiredRoles) {
+                const saved = await this.saveToStorage(decoded[role], hashedMasterKey, role);
+                if (!saved) {
+                    throw new Error(`Could not import ${role} database`);
+                }
+            }
+
+            // Verify all imported databases can be opened.
+            for (const role of requiredRoles) {
+                const verifyDb = await this.getDatabase(hashedMasterKey, role, true);
+                verifyDb?.exec?.('SELECT 1');
+            }
+
+            return { success: true, legacyMainOnly: false, importedRoles: requiredRoles };
+        } catch (error) {
+            console.error('Error importing database bundle:', error);
+            throw error;
+        }
+    }
+
+    static async importDatabase(hashedMasterKey, dbBytes, role = 'main') {
+        try {
+            if (!this.validateSQLiteBytes(dbBytes)) {
+                throw new Error('Invalid database file');
+            }
+
+            const normalizedRole = this.normalizeDbRole(role);
+
+            // Close tracked instances for this role/key before replacing persisted bytes.
+            await this.closeRoleDatabases(normalizedRole, hashedMasterKey);
+
+            const saved = await this.saveToStorage(dbBytes, hashedMasterKey, normalizedRole);
+            if (!saved) {
+                throw new Error('Could not save imported database');
+            }
+
+            // Ensure the imported file can be opened.
+            const verifyDb = await this.getDatabase(hashedMasterKey, normalizedRole, true);
+            verifyDb?.exec?.('SELECT 1');
+
+            return true;
+        } catch (error) {
+            console.error('Error importing database:', error);
+            throw error;
+        }
     }
 
     // Migrates a plaintext localStorage key to encrypted storage using secureLocalStorageSet.
