@@ -96,13 +96,6 @@
             line-height: 1.7;
         }
 
-        .toolbar {
-            margin-top: 1.25rem;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.85rem;
-        }
-
         .lang-row {
             margin-top: 1rem;
             display: inline-flex;
@@ -128,30 +121,6 @@
         .lang-select:focus {
             outline: none;
             box-shadow: 0 0 0 3px var(--glow);
-        }
-
-        .btn {
-            display: inline-block;
-            text-decoration: none;
-            border-radius: 999px;
-            border: 1px solid var(--accent);
-            background: var(--accent);
-            color: white;
-            font-weight: 600;
-            padding: 0.68rem 1.1rem;
-            transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
-        }
-
-        .btn.secondary {
-            background: transparent;
-            color: var(--accent);
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px var(--glow);
-            background: var(--accent-dark);
-            color: #fff;
         }
 
         .grid {
@@ -263,10 +232,6 @@
                     <option value="pt">Português</option>
                 </select>
             </div>
-            <div class="toolbar">
-                <a id="open-landing-link" class="btn" href="/paiperwork/index.html" target="_blank" rel="noopener noreferrer">Open Landing Page</a>
-                <a id="open-folder-link" class="btn secondary" href="https://github.com/Infinitai-cn/paiperwork/tree/main/artifacts-demos" target="_blank" rel="noopener noreferrer">View Demo Folder on GitHub</a>
-            </div>
         </section>
 
         <section id="demo-grid" class="grid" aria-live="polite"></section>
@@ -286,8 +251,6 @@
                 heading: "Demos Showcase",
                 subtitle: "Demos showcase different creations using Paiperwork. Each card below represents one HTML file found in the artifacts-demos folder. Clicking a card opens that demo in a new tab.",
                 languageLabel: "Language:",
-                openLanding: "Open Landing Page",
-                viewFolder: "View Demo Folder on GitHub",
                 footerNote: "All demo links open in new tabs.",
                 empty: "No HTML demos found in artifacts-demos yet.",
                 fallbackError: "Using local fallback list because live folder listing is unavailable right now."
@@ -297,8 +260,6 @@
                 heading: "演示展示",
                 subtitle: "演示展示呈现使用 Paiperwork 创建的不同作品。下方每张卡片对应 artifacts-demos 文件夹中的一个 HTML 文件。点击卡片会在新标签页中打开该演示。",
                 languageLabel: "语言：",
-                openLanding: "打开主页",
-                viewFolder: "在 GitHub 查看演示文件夹",
                 footerNote: "所有演示链接都会在新标签页中打开。",
                 empty: "artifacts-demos 中尚未找到 HTML 演示文件。",
                 fallbackError: "当前无法获取在线文件夹列表，已使用本地后备列表。"
@@ -308,8 +269,6 @@
                 heading: "Vitrina de Demos",
                 subtitle: "Las demos muestran diferentes creaciones usando Paiperwork. Cada tarjeta representa un archivo HTML encontrado en la carpeta artifacts-demos. Al hacer clic, la demo se abre en una nueva pestaña.",
                 languageLabel: "Idioma:",
-                openLanding: "Abrir página principal",
-                viewFolder: "Ver carpeta de demos en GitHub",
                 footerNote: "Todos los enlaces de demo se abren en pestañas nuevas.",
                 empty: "Aún no se encontraron demos HTML en artifacts-demos.",
                 fallbackError: "Se está usando la lista local de respaldo porque la lista en vivo no está disponible ahora."
@@ -319,8 +278,6 @@
                 heading: "Vitrine de Démos",
                 subtitle: "Les démos présentent différentes créations réalisées avec Paiperwork. Chaque carte ci-dessous représente un fichier HTML présent dans le dossier artifacts-demos. Un clic ouvre la démo dans un nouvel onglet.",
                 languageLabel: "Langue :",
-                openLanding: "Ouvrir la page d'accueil",
-                viewFolder: "Voir le dossier des démos sur GitHub",
                 footerNote: "Tous les liens de démo s'ouvrent dans de nouveaux onglets.",
                 empty: "Aucune démo HTML trouvée dans artifacts-demos pour le moment.",
                 fallbackError: "Liste locale de secours utilisée car la liste en ligne est indisponible actuellement."
@@ -330,8 +287,6 @@
                 heading: "Demo-Showcase",
                 subtitle: "Demos zeigen verschiedene mit Paiperwork erstellte Inhalte. Jede Karte unten steht für eine HTML-Datei aus dem Ordner artifacts-demos. Ein Klick öffnet die Demo in einem neuen Tab.",
                 languageLabel: "Sprache:",
-                openLanding: "Startseite öffnen",
-                viewFolder: "Demo-Ordner auf GitHub anzeigen",
                 footerNote: "Alle Demo-Links werden in neuen Tabs geöffnet.",
                 empty: "Im Ordner artifacts-demos wurden noch keine HTML-Demos gefunden.",
                 fallbackError: "Lokale Ersatzliste wird verwendet, da die Live-Ordnerliste derzeit nicht verfügbar ist."
@@ -341,8 +296,6 @@
                 heading: "Vitrine de Demos",
                 subtitle: "As demos mostram diferentes criações usando Paiperwork. Cada cartão abaixo representa um arquivo HTML encontrado na pasta artifacts-demos. Ao clicar, a demo abre em uma nova aba.",
                 languageLabel: "Idioma:",
-                openLanding: "Abrir página inicial",
-                viewFolder: "Ver pasta de demos no GitHub",
                 footerNote: "Todos os links de demo abrem em novas abas.",
                 empty: "Nenhuma demo HTML encontrada em artifacts-demos ainda.",
                 fallbackError: "Usando lista local de fallback porque a listagem ao vivo da pasta não está disponível no momento."
@@ -362,8 +315,6 @@
             document.getElementById("heading").textContent = t.heading;
             document.getElementById("subtitle").textContent = t.subtitle;
             document.getElementById("language-label").textContent = t.languageLabel;
-            document.getElementById("open-landing-link").textContent = t.openLanding;
-            document.getElementById("open-folder-link").textContent = t.viewFolder;
             document.getElementById("footer-note").textContent = t.footerNote;
         }
 
