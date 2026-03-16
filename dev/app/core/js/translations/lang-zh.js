@@ -423,6 +423,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 refreshStats: "刷新统计",
                 cleanupOrphaned: "清理孤立数据",
                 optimizeDatabase: "清理数据库",
+                exportDatabase: "导出数据库",
+                importDatabase: "导入数据库",
 
                 // Information Section
                 aboutDatabaseTitle: "关于您的数据库",
@@ -453,6 +455,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 orphanedChunksRemoved: "成功删除{count}个孤立块。",
                 databaseSizeReduced: "数据库大小减少了{size}。",
                 databaseOptimized: "数据库优化成功。节省了{size}。",
+                databaseExported: "备份已导出为 Paiperwork-Backup.pwdb",
+                databaseImportedReloading: "数据库已导入。正在重新加载并返回欢迎页面...",
 
                 // Error Messages
                 databaseOptimizeFailed: "数据库优化失败。",
@@ -460,6 +464,9 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 tryAgain: "重试",
                 databaseError: "优化数据库时发生错误。",
                 databaseNotAvailable: "数据库不可用",
+                databaseExportFailed: "数据库导出失败。",
+                importDatabaseConfirm: "导入备份将替换您当前的本地数据库（main、rag、html、kb）。是否继续？",
+                databaseImportFailed: "数据库导入失败。",
 
                 // ===== DOCUMENTS_TAB.JS =====
 

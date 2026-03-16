@@ -424,6 +424,8 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         refreshStats: "Statistiken aktualisieren",
         cleanupOrphaned: "Verwaiste Daten bereinigen",
         optimizeDatabase: "Datenbank bereinigen",
+        exportDatabase: "Datenbank exportieren",
+        importDatabase: "Datenbank importieren",
 
         // Information Section
         aboutDatabaseTitle: "Über Ihre Datenbank",
@@ -454,6 +456,8 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         orphanedChunksRemoved: "Erfolgreich {count} verwaiste Blöcke entfernt.",
         databaseSizeReduced: "Datenbankgröße um {size} reduziert.",
         databaseOptimized: "Datenbank erfolgreich optimiert. {size} gespart.",
+        databaseExported: "Datenbanksicherung als Paiperwork-Backup.pwdb exportiert",
+        databaseImportedReloading: "Datenbank importiert. Neu laden und zur Willkommensseite zuruckkehren...",
 
         // Error Messages
         databaseOptimizeFailed: "Datenbankoptimierung fehlgeschlagen.",
@@ -461,6 +465,9 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         tryAgain: "Erneut versuchen",
         databaseError: "Ein Fehler ist beim Optimieren der Datenbank aufgetreten.",
         databaseNotAvailable: "Datenbank nicht verfügbar",
+        databaseExportFailed: "Datenbankexport fehlgeschlagen.",
+        importDatabaseConfirm: "Beim Importieren einer Sicherung werden Ihre aktuellen lokalen Datenbanken ersetzt (main, rag, html, kb). Fortfahren?",
+        databaseImportFailed: "Datenbankimport fehlgeschlagen.",
 
         // ===== DOCUMENTS_TAB.JS =====
 

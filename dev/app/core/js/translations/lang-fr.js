@@ -424,6 +424,8 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         refreshStats: "Actualiser les statistiques",
         cleanupOrphaned: "Nettoyer les données orphelines",
         optimizeDatabase: "Nettoyer la base de données",
+        exportDatabase: "Exporter la base de donnees",
+        importDatabase: "Importer la base de donnees",
 
         // Information Section
         aboutDatabaseTitle: "À propos de votre base de données",
@@ -454,6 +456,8 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         orphanedChunksRemoved: "Suppression réussie de {count} blocs orphelins.",
         databaseSizeReduced: "Taille de la base de données réduite de {size}.",
         databaseOptimized: "Base de données optimisée avec succès. {size} économisé.",
+        databaseExported: "Sauvegarde exportee sous Paiperwork-Backup.pwdb",
+        databaseImportedReloading: "Base de donnees importee. Rechargement et retour a l'ecran d'accueil...",
 
         // Error Messages
         databaseOptimizeFailed: "L'optimisation de la base de données a échoué.",
@@ -461,6 +465,9 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         tryAgain: "Réessayer",
         databaseError: "Une erreur s'est produite lors de l'optimisation de la base de données.",
         databaseNotAvailable: "Base de données non disponible",
+        databaseExportFailed: "Echec de l'export de la base de donnees.",
+        importDatabaseConfirm: "Importer une sauvegarde remplacera vos bases locales actuelles (main, rag, html, kb). Continuer ?",
+        databaseImportFailed: "Echec de l'import de la base de donnees.",
 
         // ===== DOCUMENTS_TAB.JS =====
 

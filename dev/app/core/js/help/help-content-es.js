@@ -2819,6 +2819,45 @@ window.helpContent = {
             `,
             },
             {
+                id: "database-backup",
+                title: "Exportar e Importar Copias de Seguridad Completas",
+                content: `
+                <p>La pestaña Base de Datos incluye dos botones para mover sus datos entre navegadores o dispositivos de forma segura:</p>
+                <ul>
+                    <li><strong>Exportar Base de Datos</strong> - Crea un archivo de copia completo llamado <code>Paiperwork-Backup.pwdb</code></li>
+                    <li><strong>Importar Base de Datos</strong> - Restaura ese archivo en su almacenamiento local actual</li>
+                </ul>
+
+                <h4>Que Incluye la Copia</h4>
+                <p>La copia exportada incluye todos los roles de base de datos de Paiperwork:</p>
+                <ul>
+                    <li><strong>Main</strong> - Conversaciones y ajustes principales</li>
+                    <li><strong>RAG</strong> - Fragmentos de documentos y datos de recuperacion</li>
+                    <li><strong>HTML</strong> - Contenido HTML guardado de presentaciones y artifacts</li>
+                    <li><strong>Knowledge Base</strong> - Colecciones y entradas de conocimiento</li>
+                </ul>
+
+                <h4>Comportamiento Importante al Importar</h4>
+                <ul>
+                    <li>La importacion <strong>reemplaza</strong> sus bases de datos locales actuales</li>
+                    <li>La importacion <strong>no fusiona</strong> datos con el contenido existente</li>
+                    <li>Despues de importar, Paiperwork vuelve a la pantalla de bienvenida para que introduzca de nuevo su Clave Maestra</li>
+                </ul>
+
+                <h4>Flujo Recomendado</h4>
+                <ol>
+                    <li>En el navegador de origen, abra Base de Datos y pulse "Exportar Base de Datos"</li>
+                    <li>Copie el archivo <code>Paiperwork-Backup.pwdb</code> al navegador o dispositivo de destino</li>
+                    <li>En el navegador de destino, abra Base de Datos y pulse "Importar Base de Datos"</li>
+                    <li>Confirme el reemplazo y vuelva a iniciar sesion con su Clave Maestra</li>
+                </ol>
+
+                <div class="note">
+                    <p><strong>Nota:</strong> Las importaciones heredadas de un solo <code>.db</code> siguen siendo compatibles, pero solo restauran la base principal. Use <code>Paiperwork-Backup.pwdb</code> para una portabilidad completa.</p>
+                </div>
+            `,
+            },
+            {
                 id: "database-maintenance",
                 title: "Mejores Prácticas de Mantenimiento de Base de Datos",
                 content: `
