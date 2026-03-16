@@ -744,7 +744,9 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>重要：</strong>在上传文档之前，请确保您已在聊天选项卡中选择了AI模型。所选模型将用于处理文档。</p>
+                    <p><strong>重要：</strong>上传和处理文件时，请使用文档选项卡中的<strong>Embedding模型</strong>选择器。该选择器会显示支持embedding的模型，并自动选择第一个可用模型。</p>
+                    <p>如果没有可用的Embedding模型，会弹出信息窗口，显示示例模型名称，并提供<strong>前往下载模型</strong>按钮以打开模型选项卡。</p>
+                    <p><strong>说明：</strong>全局文档搜索使用聊天选项卡模型选择器中当前选定的模型。</p>
                 </div>
             `,
                 image: "documents-upload.png",

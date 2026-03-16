@@ -756,7 +756,9 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Important:</strong> Make sure you have selected an AI model before uploading documents in the Chat tab. The selected model will be used for processing the documents.</p>
+                    <p><strong>Important:</strong> Use the <strong>Embedding model</strong> selector in the Documents tab when uploading and processing files. This selector shows embedding-capable models and auto-selects the first available one.</p>
+                    <p>If no embedding model is available, an information window appears with example model names and a <strong>Go download model</strong> button that opens the Models tab.</p>
+                    <p><strong>Note:</strong> Global document search uses the model selected in the Chat tab model selector.</p>
                 </div>
             `,
                 image: "documents-upload.png",

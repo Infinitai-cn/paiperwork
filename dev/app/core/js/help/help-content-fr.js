@@ -739,7 +739,9 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Important :</strong> Assurez-vous d'avoir sélectionné un modèle IA avant de télécharger des documents dans l'onglet Chat. Le modèle sélectionné sera utilisé pour traiter les documents.</p>
+                    <p><strong>Important :</strong> Utilisez le sélecteur de <strong>modèle d'embedding</strong> dans l'onglet Documents lors du téléchargement et du traitement des fichiers. Ce sélecteur affiche les modèles compatibles avec les embeddings et sélectionne automatiquement le premier disponible.</p>
+                    <p>Si aucun modèle d'embedding n'est disponible, une fenêtre d'information s'affiche avec des exemples de modèles et un bouton <strong>Télécharger un modèle</strong> qui ouvre l'onglet Modèles.</p>
+                    <p><strong>Note :</strong> La recherche globale de documents utilise le modèle sélectionné dans le sélecteur de modèle de l'onglet Chat.</p>
                 </div>
             `,
                 image: "documents-upload.png",
