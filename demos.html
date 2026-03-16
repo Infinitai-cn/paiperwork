@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paiperwork Demos Showcase</title>
+    <style>
+        :root {
+            --ink: #0d1b2a;
+            --ink-soft: #294162;
+            --bg: #f4f8fc;
+            --card: #ffffff;
+            --line: #d4e1ef;
+            --accent: #007bff;
+            --accent-dark: #005ec4;
+            --glow: rgba(0, 123, 255, 0.15);
+            --shadow: rgba(13, 27, 42, 0.1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --ink: #ecf5ff;
+                --ink-soft: #bdd6ef;
+                --bg: #08111d;
+                --card: #102238;
+                --line: #214267;
+                --accent: #4aa7ff;
+                --accent-dark: #2192ff;
+                --glow: rgba(74, 167, 255, 0.22);
+                --shadow: rgba(0, 0, 0, 0.35);
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Avenir Next", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background: radial-gradient(circle at 15% 20%, rgba(0, 123, 255, 0.14), transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(0, 123, 255, 0.1), transparent 45%),
+                var(--bg);
+            overflow-x: hidden;
+        }
+
+        .bg-layer {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            opacity: 0.75;
+        }
+
+        .container {
+            width: min(1100px, 94vw);
+            margin: 0 auto;
+            padding: 2.5rem 0 3.5rem;
+        }
+
+        .hero {
+            position: relative;
+            padding: 1.75rem;
+            border-radius: 18px;
+            border: 1px solid var(--line);
+            background: linear-gradient(140deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.35));
+            box-shadow: 0 15px 32px var(--shadow);
+            backdrop-filter: blur(4px);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .hero {
+                background: linear-gradient(140deg, rgba(16, 34, 56, 0.9), rgba(16, 34, 56, 0.6));
+            }
+        }
+
+        .hero-logo {
+            width: min(280px, 55vw);
+            max-width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(1.8rem, 3.4vw, 2.8rem);
+            letter-spacing: 0.01em;
+        }
+
+        .subtitle {
+            margin: 0.8rem 0 0;
+            max-width: 720px;
+            color: var(--ink-soft);
+            line-height: 1.7;
+        }
+
+        .toolbar {
+            margin-top: 1.25rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.85rem;
+        }
+
+        .lang-row {
+            margin-top: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .lang-label {
+            color: var(--ink-soft);
+            font-weight: 600;
+        }
+
+        .lang-select {
+            border: 1px solid var(--line);
+            background: var(--card);
+            color: var(--ink);
+            border-radius: 999px;
+            padding: 0.45rem 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .lang-select:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px var(--glow);
+        }
+
+        .btn {
+            display: inline-block;
+            text-decoration: none;
+            border-radius: 999px;
+            border: 1px solid var(--accent);
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+            padding: 0.68rem 1.1rem;
+            transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+        }
+
+        .btn.secondary {
+            background: transparent;
+            color: var(--accent);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px var(--glow);
+            background: var(--accent-dark);
+            color: #fff;
+        }
+
+        .grid {
+            margin-top: 1.8rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.1rem;
+        }
+
+        .demo-card {
+            position: relative;
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            background: var(--card);
+            box-shadow: 0 12px 22px var(--shadow);
+            overflow: hidden;
+            transition: transform 0.22s ease, box-shadow 0.22s ease;
+        }
+
+        .demo-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 18px 28px var(--shadow);
+        }
+
+        .demo-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0, 123, 255, 0.12), transparent 52%);
+            pointer-events: none;
+        }
+
+        .demo-link {
+            position: relative;
+            z-index: 1;
+            display: block;
+            padding: 1.1rem;
+            text-decoration: none;
+            color: inherit;
+            height: 100%;
+        }
+
+        .demo-title {
+            margin: 0;
+            font-size: 1.1rem;
+            line-height: 1.35;
+        }
+
+        .demo-meta {
+            margin: 0.45rem 0 0;
+            color: var(--ink-soft);
+            font-size: 0.95rem;
+        }
+
+        .empty,
+        .error {
+            margin-top: 1.3rem;
+            border-radius: 12px;
+            border: 1px dashed var(--line);
+            padding: 1rem;
+            color: var(--ink-soft);
+            background: rgba(255, 255, 255, 0.42);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .empty,
+            .error {
+                background: rgba(16, 34, 56, 0.38);
+            }
+        }
+
+        .footer-note {
+            margin-top: 1.4rem;
+            color: var(--ink-soft);
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+
+<body>
+    <svg class="bg-layer" viewBox="0 0 1400 900" preserveAspectRatio="none" aria-hidden="true">
+        <defs>
+            <linearGradient id="waveA" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#007bff" stop-opacity="0.18"></stop>
+                <stop offset="100%" stop-color="#00b2ff" stop-opacity="0.03"></stop>
+            </linearGradient>
+            <linearGradient id="waveB" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#007bff" stop-opacity="0.12"></stop>
+                <stop offset="100%" stop-color="#00b2ff" stop-opacity="0"></stop>
+            </linearGradient>
+        </defs>
+        <path d="M0,110 C260,30 430,170 680,120 C920,70 1130,10 1400,70 L1400,0 L0,0 Z" fill="url(#waveA)"></path>
+        <path d="M0,740 C240,680 420,840 680,780 C940,720 1140,820 1400,760 L1400,900 L0,900 Z" fill="url(#waveB)"></path>
+    </svg>
+
+    <main class="container">
+        <section class="hero">
+            <img id="main-logo" class="hero-logo" src="/paiperwork/github-help/images/Paiperwork-APP-light.png" alt="Paiperwork logo">
+            <h1 id="heading">Demos Showcase</h1>
+            <p id="subtitle" class="subtitle">Demos showcase different creations using Paiperwork. Each card below represents one HTML file found in the artifacts-demos folder. Clicking a card opens that demo in a new tab.</p>
+            <div class="lang-row">
+                <span id="language-label" class="lang-label">Language:</span>
+                <select id="language-select" class="lang-select">
+                    <option value="en">English</option>
+                    <option value="zh">中文</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="pt">Português</option>
+                </select>
+            </div>
+            <div class="toolbar">
+                <a id="open-landing-link" class="btn" href="/paiperwork/index.html" target="_blank" rel="noopener noreferrer">Open Landing Page</a>
+                <a id="open-folder-link" class="btn secondary" href="https://github.com/Infinitai-cn/paiperwork/tree/main/artifacts-demos" target="_blank" rel="noopener noreferrer">View Demo Folder on GitHub</a>
+            </div>
+        </section>
+
+        <section id="demo-grid" class="grid" aria-live="polite"></section>
+        <section id="status"></section>
+
+        <p id="footer-note" class="footer-note">All demo links open in new tabs.</p>
+    </main>
+
+    <script>
+        const FALLBACK_DEMOS = [
+            "El_Misterio_de_la_Casa_Antigua.html"
+        ];
+
+        const uiTranslations = {
+            en: {
+                pageTitle: "Paiperwork Demos Showcase",
+                heading: "Demos Showcase",
+                subtitle: "Demos showcase different creations using Paiperwork. Each card below represents one HTML file found in the artifacts-demos folder. Clicking a card opens that demo in a new tab.",
+                languageLabel: "Language:",
+                openLanding: "Open Landing Page",
+                viewFolder: "View Demo Folder on GitHub",
+                footerNote: "All demo links open in new tabs.",
+                empty: "No HTML demos found in artifacts-demos yet.",
+                fallbackError: "Using local fallback list because live folder listing is unavailable right now."
+            },
+            zh: {
+                pageTitle: "Paiperwork 演示展示",
+                heading: "演示展示",
+                subtitle: "演示展示呈现使用 Paiperwork 创建的不同作品。下方每张卡片对应 artifacts-demos 文件夹中的一个 HTML 文件。点击卡片会在新标签页中打开该演示。",
+                languageLabel: "语言：",
+                openLanding: "打开主页",
+                viewFolder: "在 GitHub 查看演示文件夹",
+                footerNote: "所有演示链接都会在新标签页中打开。",
+                empty: "artifacts-demos 中尚未找到 HTML 演示文件。",
+                fallbackError: "当前无法获取在线文件夹列表，已使用本地后备列表。"
+            },
+            es: {
+                pageTitle: "Vitrina de Demos de Paiperwork",
+                heading: "Vitrina de Demos",
+                subtitle: "Las demos muestran diferentes creaciones usando Paiperwork. Cada tarjeta representa un archivo HTML encontrado en la carpeta artifacts-demos. Al hacer clic, la demo se abre en una nueva pestaña.",
+                languageLabel: "Idioma:",
+                openLanding: "Abrir página principal",
+                viewFolder: "Ver carpeta de demos en GitHub",
+                footerNote: "Todos los enlaces de demo se abren en pestañas nuevas.",
+                empty: "Aún no se encontraron demos HTML en artifacts-demos.",
+                fallbackError: "Se está usando la lista local de respaldo porque la lista en vivo no está disponible ahora."
+            },
+            fr: {
+                pageTitle: "Vitrine de Démos Paiperwork",
+                heading: "Vitrine de Démos",
+                subtitle: "Les démos présentent différentes créations réalisées avec Paiperwork. Chaque carte ci-dessous représente un fichier HTML présent dans le dossier artifacts-demos. Un clic ouvre la démo dans un nouvel onglet.",
+                languageLabel: "Langue :",
+                openLanding: "Ouvrir la page d'accueil",
+                viewFolder: "Voir le dossier des démos sur GitHub",
+                footerNote: "Tous les liens de démo s'ouvrent dans de nouveaux onglets.",
+                empty: "Aucune démo HTML trouvée dans artifacts-demos pour le moment.",
+                fallbackError: "Liste locale de secours utilisée car la liste en ligne est indisponible actuellement."
+            },
+            de: {
+                pageTitle: "Paiperwork Demo-Showcase",
+                heading: "Demo-Showcase",
+                subtitle: "Demos zeigen verschiedene mit Paiperwork erstellte Inhalte. Jede Karte unten steht für eine HTML-Datei aus dem Ordner artifacts-demos. Ein Klick öffnet die Demo in einem neuen Tab.",
+                languageLabel: "Sprache:",
+                openLanding: "Startseite öffnen",
+                viewFolder: "Demo-Ordner auf GitHub anzeigen",
+                footerNote: "Alle Demo-Links werden in neuen Tabs geöffnet.",
+                empty: "Im Ordner artifacts-demos wurden noch keine HTML-Demos gefunden.",
+                fallbackError: "Lokale Ersatzliste wird verwendet, da die Live-Ordnerliste derzeit nicht verfügbar ist."
+            },
+            pt: {
+                pageTitle: "Vitrine de Demos do Paiperwork",
+                heading: "Vitrine de Demos",
+                subtitle: "As demos mostram diferentes criações usando Paiperwork. Cada cartão abaixo representa um arquivo HTML encontrado na pasta artifacts-demos. Ao clicar, a demo abre em uma nova aba.",
+                languageLabel: "Idioma:",
+                openLanding: "Abrir página inicial",
+                viewFolder: "Ver pasta de demos no GitHub",
+                footerNote: "Todos os links de demo abrem em novas abas.",
+                empty: "Nenhuma demo HTML encontrada em artifacts-demos ainda.",
+                fallbackError: "Usando lista local de fallback porque a listagem ao vivo da pasta não está disponível no momento."
+            }
+        };
+
+        let activeLang = "en";
+
+        function getUI(lang) {
+            return uiTranslations[lang] || uiTranslations.en;
+        }
+
+        function updateLanguageUI(lang) {
+            const t = getUI(lang);
+            document.documentElement.lang = lang;
+            document.title = t.pageTitle;
+            document.getElementById("heading").textContent = t.heading;
+            document.getElementById("subtitle").textContent = t.subtitle;
+            document.getElementById("language-label").textContent = t.languageLabel;
+            document.getElementById("open-landing-link").textContent = t.openLanding;
+            document.getElementById("open-folder-link").textContent = t.viewFolder;
+            document.getElementById("footer-note").textContent = t.footerNote;
+        }
+
+        function getBasePath() {
+            const path = window.location.pathname;
+            if (path === "/paiperwork" || path.startsWith("/paiperwork/")) {
+                return "/paiperwork";
+            }
+            return "";
+        }
+
+        function setAppropriateMainLogo() {
+            const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const logoImg = document.getElementById("main-logo");
+            if (logoImg) {
+                const basePath = getBasePath();
+                logoImg.src = isDarkMode
+                    ? `${basePath}/github-help/images/Paiperwork-APP-dark.png`
+                    : `${basePath}/github-help/images/Paiperwork-APP-light.png`;
+            }
+        }
+
+        function prettyTitle(fileName) {
+            return decodeURIComponent(fileName)
+                .replace(/\.html$/i, "")
+                .replace(/[_-]+/g, " ")
+                .replace(/\s+/g, " ")
+                .trim();
+        }
+
+        function createDemoCard(fileName) {
+            const basePath = getBasePath();
+            const link = `${basePath}/artifacts-demos/${encodeURIComponent(fileName)}`;
+
+            const article = document.createElement("article");
+            article.className = "demo-card";
+
+            const anchor = document.createElement("a");
+            anchor.className = "demo-link";
+            anchor.href = link;
+            anchor.target = "_blank";
+            anchor.rel = "noopener noreferrer";
+
+            const title = document.createElement("h2");
+            title.className = "demo-title";
+            title.textContent = prettyTitle(fileName);
+
+            const meta = document.createElement("p");
+            meta.className = "demo-meta";
+            meta.textContent = fileName;
+
+            anchor.appendChild(title);
+            anchor.appendChild(meta);
+            article.appendChild(anchor);
+            return article;
+        }
+
+        function renderDemoList(fileNames) {
+            const grid = document.getElementById("demo-grid");
+            const status = document.getElementById("status");
+            const t = getUI(activeLang);
+            grid.innerHTML = "";
+            status.innerHTML = "";
+
+            if (!fileNames.length) {
+                const empty = document.createElement("div");
+                empty.className = "empty";
+                empty.textContent = t.empty;
+                status.appendChild(empty);
+                return;
+            }
+
+            fileNames
+                .sort((a, b) => a.localeCompare(b))
+                .forEach((fileName) => {
+                    grid.appendChild(createDemoCard(fileName));
+                });
+        }
+
+        async function fetchDemosFromGitHub() {
+            const endpoint = "https://api.github.com/repos/Infinitai-cn/paiperwork/contents/artifacts-demos?ref=main";
+            const response = await fetch(endpoint);
+            if (!response.ok) {
+                throw new Error(`GitHub API request failed with ${response.status}`);
+            }
+
+            const items = await response.json();
+            return items
+                .filter((item) => item.type === "file" && /\.html$/i.test(item.name))
+                .map((item) => item.name);
+        }
+
+        async function loadDemoCards() {
+            const status = document.getElementById("status");
+            const t = getUI(activeLang);
+            try {
+                const demos = await fetchDemosFromGitHub();
+                renderDemoList(demos);
+            } catch (error) {
+                renderDemoList(FALLBACK_DEMOS);
+                const message = document.createElement("div");
+                message.className = "error";
+                message.textContent = t.fallbackError;
+                status.appendChild(message);
+                console.warn(error);
+            }
+        }
+
+        function initLanguage() {
+            const selector = document.getElementById("language-select");
+            const storedLang = localStorage.getItem("preferredLanguage") || "en";
+            activeLang = uiTranslations[storedLang] ? storedLang : "en";
+            selector.value = activeLang;
+            updateLanguageUI(activeLang);
+
+            selector.addEventListener("change", () => {
+                const selected = selector.value;
+                activeLang = uiTranslations[selected] ? selected : "en";
+                localStorage.setItem("preferredLanguage", activeLang);
+                updateLanguageUI(activeLang);
+                loadDemoCards();
+            });
+        }
+
+        setAppropriateMainLogo();
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", setAppropriateMainLogo);
+        initLanguage();
+        loadDemoCards();
+    </script>
+</body>
+
+</html>
