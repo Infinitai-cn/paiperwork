@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>广州天气监测中心 | Guangzhou Weather Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0f1a;
+      --bg-secondary: #111827;
+      --card: #1a2234;
+      --card-elevated: #232f46;
+      --border: #2d3a52;
+      --fg: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #f59e0b;
+      --accent-glow: rgba(245, 158, 11, 0.3);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .bg-atmosphere {
+      background: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(245, 158, 11, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+        linear-gradient(180deg, var(--bg) 0%, #0d1424 100%);
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(245, 158, 11, 0.3);
+      box-shadow: 0 0 30px rgba(245, 158, 11, 0.05);
+    }
+
+    .glass-card {
+      background: rgba(26, 34, 52, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(45, 58, 82, 0.5);
+    }
+
+    .aqi-gauge {
+      width: 180px;
+      height: 180px;
+      position: relative;
+    }
+
+    .aqi-ring {
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s ease-out;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 52px;
+      height: 28px;
+      background: var(--border);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    .toggle-switch.active {
+      background: var(--accent);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      background: var(--fg);
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.3s ease;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(24px);
+    }
+
+    .metric-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .forecast-item {
+      transition: all 0.3s ease;
+    }
+
+    .forecast-item:hover {
+      transform: translateY(-4px);
+      background: var(--card-elevated);
+    }
+
+    .pulse-ring {
+      animation: pulse-ring 2s infinite;
+    }
+
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.8; }
+      100% { transform: scale(0.95); opacity: 1; }
+    }
+
+    .voice-wave {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 20px;
+    }
+
+    .voice-wave span {
+      width: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+      animation: wave 1s ease-in-out infinite;
+    }
+
+    .voice-wave span:nth-child(1) { animation-delay: 0s; }
+    .voice-wave span:nth-child(2) { animation-delay: 0.1s; }
+    .voice-wave span:nth-child(3) { animation-delay: 0.2s; }
+    .voice-wave span:nth-child(4) { animation-delay: 0.3s; }
+    .voice-wave span:nth-child(5) { animation-delay: 0.4s; }
+
+    @keyframes wave {
+      0%, 100% { height: 4px; }
+      50% { height: 18px; }
+    }
+
+    .stagger-in {
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeInUp 0.6s ease forwards;
+    }
+
+    @keyframes fadeInUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .stagger-in:nth-child(1) { animation-delay: 0.1s; }
+    .stagger-in:nth-child(2) { animation-delay: 0.2s; }
+    .stagger-in:nth-child(3) { animation-delay: 0.3s; }
+    .stagger-in:nth-child(4) { animation-delay: 0.4s; }
+    .stagger-in:nth-child(5) { animation-delay: 0.5s; }
+    .stagger-in:nth-child(6) { animation-delay: 0.6s; }
+
+    .alert-badge {
+      animation: alert-pulse 2s infinite;
+    }
+
+    @keyframes alert-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    }
+
+    .sun-icon {
+      animation: rotate-slow 20s linear infinite;
+    }
+
+    @keyframes rotate-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .cloud-float {
+      animation: cloud-move 8s ease-in-out infinite;
+    }
+
+    @keyframes cloud-move {
+      0%, 100% { transform: translateX(0); }
+      50% { transform: translateX(10px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar-track {
+      background: var(--bg-secondary);
+    }
+
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="bg-atmosphere">
+  <div class="min-h-screen p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+    
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 stagger-in">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold tracking-tight">
+          <span class="text-[var(--muted)]">广州</span>天气监测中心
+        </h1>
+        <p class="text-[var(--muted)] text-sm mt-1">Guangzhou Weather Monitoring Center</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <div class="text-right">
+          <p class="text-sm text-[var(--muted)]">最后更新</p>
+          <p id="lastUpdate" class="font-display font-semibold"></p>
+        </div>
+        <button id="refreshBtn" class="p-3 rounded-xl bg-[var(--card)] border border-[var(--border)] hover:border-[var(--accent)] transition-all" aria-label="刷新数据">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Voice Alert Control Panel -->
+    <section class="card p-4 md:p-6 mb-6 stagger-in" aria-labelledby="voice-alerts-title">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-[var(--accent)] bg-opacity-20 flex items-center justify-center">
+            <svg class="w-6 h-6 text-[var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 id="voice-alerts-title" class="font-display font-semibold text-lg">语音警报系统</h2>
+            <p class="text-sm text-[var(--muted)]">Voice Alert System</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="voiceStatus" class="hidden voice-wave">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="flex flex-col items-end">
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-[var(--muted)]" id="toggleLabel">已关闭</span>
+              <button id="voiceToggle" class="toggle-switch" role="switch" aria-checked="false" aria-labelledby="toggleLabel"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Alert Settings -->
+      <div id="alertSettings" class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 opacity-50 pointer-events-none transition-opacity">
+        <label class="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-secondary)] cursor-pointer hover:bg-[var(--card-elevated)] transition-colors">
+          <input type="checkbox" id="alertWeather" checked class="w-4 h-4 accent-[var(--accent)]">
+          <span class="text-sm">天气变化</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-secondary)] cursor-pointer hover:bg-[var(--card-elevated)] transition-colors">
+          <input type="checkbox" id="alertAqi" checked class="w-4 h-4 accent-[var(--accent)]">
+          <span class="text-sm">空气质量</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-secondary)] cursor-pointer hover:bg-[var(--card-elevated)] transition-colors">
+          <input type="checkbox" id="alertRain" checked class="w-4 h-4 accent-[var(--accent)]">
+          <span class="text-sm">降雨提醒</span>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-secondary)] cursor-pointer hover:bg-[var(--card-elevated)] transition-colors">
+          <input type="checkbox" id="alertTemp" checked class="w-4 h-4 accent-[var(--accent)]">
+          <span class="text-sm">极端温度</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Current Weather -->
+      <div class="lg:col-span-2 stagger-in">
+        <div class="card p-6">
+          <div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
+            <div class="flex-1">
+              <p class="text-[var(--muted)] text-sm mb-2">当前天气 / Current Weather</p>
+              <div class="flex items-baseline gap-2">
+                <span id="currentTemp" class="metric-value font-display">--</span>
+                <span class="text-2xl text-[var(--muted)]">°C</span>
+              </div>
+              <p id="weatherDesc" class="text-lg mt-2">--</p>
+              <p id="feelsLike" class="text-sm text-[var(--muted)] mt-1">体感温度: --°C</p>
+              
+              <div class="grid grid-cols-2 gap-4 mt-6">
+                <div class="flex items-center gap-3">
+                  <svg class="w-5 h-5 text-[var(--info)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
+                  </svg>
+                  <div>
+                    <p class="text-xs text-[var(--muted)]">湿度</p>
+                    <p id="humidity" class="font-semibold">--%</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <svg class="w-5 h-5 text-[var(--success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                  </svg>
+                  <div>
+                    <p class="text-xs text-[var(--muted)]">风速</p>
+                    <p id="windSpeed" class="font-semibold">-- km/h</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <svg class="w-5 h-5 text-[var(--warning)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                  <div>
+                    <p class="text-xs text-[var(--muted)]">能见度</p>
+                    <p id="visibility" class="font-semibold">-- km</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <svg class="w-5 h-5 text-[var(--danger)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                  </svg>
+                  <div>
+                    <p class="text-xs text-[var(--muted)]">气压</p>
+                    <p id="pressure" class="font-semibold">-- hPa</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Weather Icon -->
+            <div class="relative">
+              <div id="weatherIcon" class="w-32 h-32 md:w-40 md:h-40">
+                <!-- Dynamic weather icon -->
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Hourly Forecast -->
+        <div class="card mt-6 p-4">
+          <h3 class="font-display font-semibold mb-4">24小时预报</h3>
+          <div id="hourlyForecast" class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+            <!-- Hourly items rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Air Quality Panel -->
+      <div class="stagger-in">
+        <div class="card p-6 h-full">
+          <h3 class="font-display font-semibold mb-4">空气质量指数 AQI</h3>
+          
+          <div class="flex justify-center mb-6">
+            <div class="aqi-gauge">
+              <svg viewBox="0 0 180 180" class="w-full h-full">
+                <circle cx="90" cy="90" r="70" fill="none" stroke="var(--border)" stroke-width="12"/>
+                <circle id="aqiRing" cx="90" cy="90" r="70" fill="none" stroke="var(--success)" stroke-width="12" class="aqi-ring" stroke-dasharray="439.8" stroke-dashoffset="439.8" transform="rotate(-90 90 90)"/>
+                <text x="90" y="80" text-anchor="middle" class="font-display" style="fill: var(--fg); font-size: 36px; font-weight: 700;">
+                  <tspan id="aqiValue">--</tspan>
+                </text>
+                <text x="90" y="105" text-anchor="middle" style="fill: var(--muted); font-size: 12px;">
+                  <tspan id="aqiLevel">--</tspan>
+                </text>
+              </svg>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex justify-between items-center p-3 rounded-lg bg-[var(--bg-secondary)]">
+              <span class="text-sm text-[var(--muted)]">PM2.5</span>
+              <span id="pm25" class="font-semibold">-- μg/m³</span>
+            </div>
+            <div class="flex justify-between items-center p-3 rounded-lg bg-[var(--bg-secondary)]">
+              <span class="text-sm text-[var(--muted)]">PM10</span>
+              <span id="pm10" class="font-semibold">-- μg/m³</span>
+            </div>
+            <div class="flex justify-between items-center p-3 rounded-lg bg-[var(--bg-secondary)]">
+              <span class="text-sm text-[var(--muted)]">O₃ 臭氧</span>
+              <span id="o3" class="font-semibold">-- μg/m³</span>
+            </div>
+            <div class="flex justify-between items-center p-3 rounded-lg bg-[var(--bg-secondary)]">
+              <span class="text-sm text-[var(--muted)]">NO₂ 二氧化氮</span>
+              <span id="no2" class="font-semibold">-- μg/m³</span>
+            </div>
+            <div class="flex justify-between items-center p-3 rounded-lg bg-[var(--bg-secondary)]">
+              <span class="text-sm text-[var(--muted)]">SO₂ 二氧化硫</span>
+              <span id="so2" class="font-semibold">-- μg/m³</span>
+            </div>
+            <div class="flex justify-between items-center p-3 rounded-lg bg-[var(--bg-secondary)]">
+              <span class="text-sm text-[var(--muted)]">CO 一氧化碳</span>
+              <span id="co" class="font-semibold">-- mg/m³</span>
+            </div>
+          </div>
+
+          <!-- Health Recommendation -->
+          <div id="healthRec" class="mt-4 p-4 rounded-xl bg-[var(--bg-secondary)] border-l-4 border-[var(--success)]">
+            <p class="text-sm font-semibold mb-1">健康建议</p>
+            <p id="healthText" class="text-xs text-[var(--muted)]">--</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weekly Forecast -->
+    <section class="card p-4 md:p-6 mt-6 stagger-in">
+      <h3 class="font-display font-semibold mb-4">七日预报 / 7-Day Forecast</h3>
+      <div id="weeklyForecast" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <!-- Weekly items rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Active Alerts -->
+    <section id="alertsSection" class="mt-6 stagger-in hidden">
+      <h3 class="font-display font-semibold mb-4">活动警报 / Active Alerts</h3>
+      <div id="alertsList" class="space-y-3">
+        <!-- Alerts rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="mt-8 text-center text-xs text-[var(--muted)]">
+      <p>数据仅供参考，请以官方气象部门发布为准</p>
+      <p class="mt-1">Data for reference only. Please refer to official meteorological sources.</p>
+    </footer>
+  </div>
+
+  <script>
+    // ==================== Data ====================
+    const weatherData = {
+      current: {
+        temp: 31,
+        feelsLike: 35,
+        humidity: 78,
+        windSpeed: 12,
+        visibility: 8,
+        pressure: 1012,
+        description: "多云转晴",
+        descriptionEn: "Partly Cloudy",
+        icon: "partly-cloudy"
+      },
+      hourly: [
+        { time: "现在", temp: 31, icon: "partly-cloudy" },
+        { time: "14:00", temp: 32, icon: "sunny" },
+        { time: "15:00", temp: 33, icon: "sunny" },
+        { time: "16:00", temp: 32, icon: "partly-cloudy" },
+        { time: "17:00", temp: 30, icon: "cloudy" },
+        { time: "18:00", temp: 28, icon: "cloudy" },
+        { time: "19:00", temp: 27, icon: "partly-cloudy" },
+        { time: "20:00", temp: 26, icon: "clear-night" },
+        { time: "21:00", temp: 25, icon: "clear-night" },
+        { time: "22:00", temp: 25, icon: "clear-night" },
+        { time: "23:00", temp: 24, icon: "clear-night" },
+        { time: "00:00", temp: 24, icon: "clear-night" }
+      ],
+      weekly: [
+        { day: "今天", high: 33, low: 24, icon: "partly-cloudy", rain: 10 },
+        { day: "周二", high: 32, low: 25, icon: "rainy", rain: 60 },
+        { day: "周三", high: 30, low: 24, icon: "rainy", rain: 80 },
+        { day: "周四", high: 31, low: 24, icon: "thunderstorm", rain: 70 },
+        { day: "周五", high: 33, low: 25, icon: "cloudy", rain: 30 },
+        { day: "周六", high: 34, low: 26, icon: "sunny", rain: 5 },
+        { day: "周日", high: 35, low: 27, icon: "sunny", rain: 0 }
+      ],
+      aqi: {
+        value: 68,
+        pm25: 45,
+        pm10: 78,
+        o3: 92,
+        no2: 38,
+        so2: 12,
+        co: 0.8
+      }
+    };
+
+    const alerts = [
+      { type: "rain", title: "暴雨预警", desc: "周三预计有大到暴雨", level: "warning" },
+      { type: "heat", title: "高温提醒", desc: "周末气温可能达到35°C以上", level: "info" }
+    ];
+
+    // ==================== DOM Elements ====================
+    const elements = {
+      lastUpdate: document.getElementById('lastUpdate'),
+      refreshBtn: document.getElementById('refreshBtn'),
+      voiceToggle: document.getElementById('voiceToggle'),
+      voiceStatus: document.getElementById('voiceStatus'),
+      alertSettings: document.getElementById('alertSettings'),
+      currentTemp: document.getElementById('currentTemp'),
+      weatherDesc: document.getElementById('weatherDesc'),
+      feelsLike: document.getElementById('feelsLike'),
+      humidity: document.getElementById('humidity'),
+      windSpeed: document.getElementById('windSpeed'),
+      visibility: document.getElementById('visibility'),
+      pressure: document.getElementById('pressure'),
+      weatherIcon: document.getElementById('weatherIcon'),
+      hourlyForecast: document.getElementById('hourlyForecast'),
+      weeklyForecast: document.getElementById('weeklyForecast'),
+      aqiValue: document.getElementById('aqiValue'),
+      aqiLevel: document.getElementById('aqiLevel'),
+      aqiRing: document.getElementById('aqiRing'),
+      pm25: document.getElementById('pm25'),
+      pm10: document.getElementById('pm10'),
+      o3: document.getElementById('o3'),
+      no2: document.getElementById('no2'),
+      so2: document.getElementById('so2'),
+      co: document.getElementById('co'),
+      healthRec: document.getElementById('healthRec'),
+      healthText: document.getElementById('healthText'),
+      alertsSection: document.getElementById('alertsSection'),
+      alertsList: document.getElementById('alertsList'),
+      toggleLabel: document.getElementById('toggleLabel')
+    };
+
+    // ==================== State ====================
+    let voiceEnabled = false;
+    let speechSynth = window.speechSynthesis;
+
+    // ==================== Weather Icons ====================
+    const weatherIcons = {
+      sunny: `<svg viewBox="0 0 100 100" class="w-full h-full">
+        <circle cx="50" cy="50" r="20" fill="#f59e0b" class="sun-icon"/>
+        <g stroke="#f59e0b" stroke-width="3" stroke-linecap="round">
+          <line x1="50" y1="15" x2="50" y2="25"/>
+          <line x1="50" y1="75" x2="50" y2="85"/>
+          <line x1="15" y1="50" x2="25" y2="50"/>
+          <line x1="75" y1="50" x2="85" y2="50"/>
+          <line x1="25.3" y1="25.3" x2="32.4" y2="32.4"/>
+          <line x1="67.6" y1="67.6" x2="74.7" y2="74.7"/>
+          <line x1="74.7" y1="25.3" x2="67.6" y2="32.4"/>
+          <line x1="25.3" y1="74.7" x2="32.4" y2="67.6"/>
+        </g>
+      </svg>`,
+      'partly-cloudy': `<svg viewBox="0 0 100 100" class="w-full h-full">
+        <circle cx="35" cy="35" r="15" fill="#f59e0b" class="sun-icon"/>
+        <g stroke="#f59e0b" stroke-width="2" stroke-linecap="round">
+          <line x1="35" y1="10" x2="35" y2="17"/>
+          <line x1="35" y1="53" x2="35" y2="60"/>
+          <line x1="10" y1="35" x2="17" y2="35"/>
+          <line x1="53" y1="35" x2="60" y2="35"/>
+        </g>
+        <path d="M75 75 C75 62 65 55 52 55 C48 45 38 42 28 47 C18 52 15 62 20 72 C20 74 22 75 25 75 Z" fill="#94a3b8" class="cloud-float"/>
+      </svg>`,
+      cloudy: `<svg viewBox="0 0 100 100" class="w-full h-full">
+        <path d="M80 70 C80 55 68 45 52 45 C48 32 35 28 22 36 C10 44 8 58 15 70 C15 73 18 75 22 75 L75 75 C78 75 80 73 80 70 Z" fill="#94a3b8" class="cloud-float"/>
+      </svg>`,
+      rainy: `<svg viewBox="0 0 100 100" class="w-full h-full">
+        <path d="M75 50 C75 37 65 30 52 30 C48 20 38 17 28 22 C18 27 15 37 20 47 C20 49 22 50 25 50 L70 50 C73 50 75 48 75 50 Z" fill="#64748b"/>
+        <g stroke="#3b82f6" stroke-width="2" stroke-linecap="round">
+          <line x1="30" y1="60" x2="25" y2="75"><animate attributeName="y1" values="60;65;60" dur="0.8s" repeatCount="indefinite"/></line>
+          <line x1="45" y1="60" x2="40" y2="80"><animate attributeName="y1" values="60;65;60" dur="0.8s" begin="0.2s" repeatCount="indefinite"/></line>
+          <line x1="60" y1="60" x2="55" y2="75"><animate attributeName="y1" values="60;65;60" dur="0.8s" begin="0.4s" repeatCount="indefinite"/></line>
+          <line x1="75" y1="60" x2="70" y2="80"><animate attributeName="y1" values="60;65;60" dur="0.8s" begin="0.6s" repeatCount="indefinite"/></line>
+        </g>
+      </svg>`,
+      thunderstorm: `<svg viewBox="0 0 100 100" class="w-full h-full">
+        <path d="M75 45 C75 32 65 25 52 25 C48 15 38 12 28 17 C18 22 15 32 20 42 C20 44 22 45 25 45 L70 45 C73 45 75 43 75 45 Z" fill="#475569"/>
+        <polygon points="45,50 38,65 48,65 40,85 55,60 45,60 52,50" fill="#f59e0b">
+          <animate attributeName="opacity" values="1;0.5;1" dur="0.3s" repeatCount="indefinite"/>
+        </polygon>
+      </svg>`,
+      'clear-night': `<svg viewBox="0 0 100 100" class="w-full h-full">
+        <path d="M60 25 C45 30 35 45 35 62 C35 80 50 90 70 85 C60 80 52 68 52 55 C52 42 60 30 75 28 C70 25 65 23 60 25 Z" fill="#fcd34d"/>
+        <circle cx="30" cy="30" r="2" fill="#fcd34d" opacity="0.6"/>
+        <circle cx="20" cy="50" r="1.5" fill="#fcd34d" opacity="0.5"/>
+        <circle cx="25" cy="70" r="1" fill="#fcd34d" opacity="0.4"/>
+        <circle cx="75" cy="25" r="1.5" fill="#fcd34d" opacity="0.5"/>
+        <circle cx="85" cy="40" r="1" fill="#fcd34d" opacity="0.4"/>
+      </svg>`
+    };
+
+    const miniIcons = {
+      sunny: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`,
+      'partly-cloudy': `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none"><circle cx="10" cy="8" r="4" stroke="#f59e0b" stroke-width="1.5"/><path d="M18 18c1.5 0 3-1 3-3s-1.5-3-3.5-3c-.5-2-2-3.5-4-3.5-2.5 0-4.5 2-4.5 4.5 0 .5.1 1 .2 1.5H7c-1.5 0-3 1-3 3s1.5 3 3 3h11z" stroke="#94a3b8" stroke-width="1.5"/></svg>`,
+      cloudy: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M18 18c1.5 0 3-1 3-3s-1.5-3-3.5-3c-.5-2-2-3.5-4-3.5-2.5 0-4.5 2-4.5 4.5 0 .5.1 1 .2 1.5H7c-1.5 0-3 1-3 3s1.5 3 3 3h11z"/></svg>`,
+      rainy: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none"><path d="M18 13c1.5 0 3-1 3-3s-1.5-3-3.5-3c-.5-2-2-3.5-4-3.5-2.5 0-4.5 2-4.5 4.5 0 .5.1 1 .2 1.5H7c-1.5 0-3 1-3 3s1.5 3 3 3h11z" stroke="#64748b" stroke-width="1.5"/><path d="M8 17v3M12 17v3M16 17v3" stroke="#3b82f6" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+      thunderstorm: `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none"><path d="M18 11c1.5 0 3-1 3-3s-1.5-3-3.5-3c-.5-2-2-3.5-4-3.5-2.5 0-4.5 2-4.5 4.5 0 .5.1 1 .2 1.5H7c-1.5 0-3 1-3 3s1.5 3 3 3h11z" stroke="#475569" stroke-width="1.5"/><path d="M13 14l-2 4h3l-2 4" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+      'clear-night': `<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="#fcd34d" stroke-width="1.5"><path d="M17 6c-5 1-8 5-8 10 0 3 1.5 5.5 4 7-5-1-8-5-8-10 0-5 4-9 9-9 2 0 4 .7 5.5 2h-2.5z"/></svg>`
+    };
+
+    // ==================== Utility Functions ====================
+    function updateTime() {
+      const now = new Date();
+      const options = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      elements.lastUpdate.textContent = now.toLocaleTimeString('zh-CN', options);
+    }
+
+    function getAqiInfo(value) {
+      if (value <= 50) return { level: '优 Excellent', color: '#10b981', health: '空气质量优秀，适合所有人群进行户外活动。' };
+      if (value <= 100) return { level: '良 Good', color: '#f59e0b', health: '空气质量良好，敏感人群应减少长时间户外运动。' };
+      if (value <= 150) return { level: '轻度污染 Light', color: '#f97316', health: '轻度污染，敏感人群症状会有轻度加剧，应减少户外活动。' };
+      if (value <= 200) return { level: '中度污染 Moderate', color: '#ef4444', health: '中度污染，进一步加剧易感人群症状，应避免户外活动。' };
+      if (value <= 300) return { level: '重度污染 Heavy', color: '#7c2d12', health: '重度污染，所有人群应减少户外活动，敏感人群应避免户外活动。' };
+      return { level: '严重污染 Severe', color: '#581c87', health: '严重污染，所有人群应避免户外活动，留在室内。' };
+    }
+
+    function speak(text) {
+      if (!voiceEnabled || !speechSynth) return;
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'zh-CN';
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+      speechSynth.speak(utterance);
+    }
+
+    // ==================== Render Functions ====================
+    function renderCurrentWeather() {
+      const data = weatherData.current;
+      elements.currentTemp.textContent = data.temp;
+      elements.weatherDesc.textContent = `${data.description} / ${data.descriptionEn}`;
+      elements.feelsLike.textContent = `体感温度: ${data.feelsLike}°C`;
+      elements.humidity.textContent = `${data.humidity}%`;
+      elements.windSpeed.textContent = `${data.windSpeed} km/h`;
+      elements.visibility.textContent = `${data.visibility} km`;
+      elements.pressure.textContent = `${data.pressure} hPa`;
+      elements.weatherIcon.innerHTML = weatherIcons[data.icon] || weatherIcons['partly-cloudy'];
+    }
+
+    function renderHourlyForecast() {
+      elements.hourlyForecast.innerHTML = weatherData.hourly.map((hour, i) => `
+        <div class="flex-shrink-0 text-center p-3 rounded-xl bg-[var(--bg-secondary)] min-w-[70px] transition-all hover:bg-[var(--card-elevated)]" style="animation-delay: ${i * 0.05}s">
+          <p class="text-xs text-[var(--muted)] mb-2">${hour.time}</p>
+          <div class="w-8 h-8 mx-auto mb-2">${miniIcons[hour.icon] || miniIcons['partly-cloudy']}</div>
+          <p class="font-semibold">${hour.temp}°</p>
+        </div>
+      `).join('');
+    }
+
+    function renderWeeklyForecast() {
+      elements.weeklyForecast.innerHTML = weatherData.weekly.map((day, i) => `
+        <div class="forecast-item p-4 rounded-xl bg-[var(--bg-secondary)] text-center transition-all cursor-default" style="animation-delay: ${i * 0.05}s">
+          <p class="text-sm font-medium mb-2">${day.day}</p>
+          <div class="w-10 h-10 mx-auto mb-2">${miniIcons[day.icon] || miniIcons['sunny']}</div>
+          <p class="font-semibold text-lg">${day.high}°</p>
+          <p class="text-sm text-[var(--muted)]">${day.low}°</p>
+          <div class="mt-2 flex items-center justify-center gap-1 text-xs text-[var(--info)]">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+            <span>${day.rain}%</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderAqi() {
+      const data = weatherData.aqi;
+      const info = getAqiInfo(data.value);
+      const circumference = 2 * Math.PI * 70;
+      const offset = circumference - (data.value / 300) * circumference;
+      
+      elements.aqiValue.textContent = data.value;
+      elements.aqiLevel.textContent = info.level;
+      elements.aqiRing.style.stroke = info.color;
+      elements.aqiRing.style.strokeDashoffset = Math.max(0, offset);
+      
+      elements.pm25.textContent = `${data.pm25} μg/m³`;
+      elements.pm10.textContent = `${data.pm10} μg/m³`;
+      elements.o3.textContent = `${data.o3} μg/m³`;
+      elements.no2.textContent = `${data.no2} μg/m³`;
+      elements.so2.textContent = `${data.so2} μg/m³`;
+      elements.co.textContent = `${data.co} mg/m³`;
+      
+      elements.healthRec.style.borderLeftColor = info.color;
+      elements.healthText.textContent = info.health;
+    }
+
+    function renderAlerts() {
+      if (alerts.length === 0) {
+        elements.alertsSection.classList.add('hidden');
+        return;
+      }
+      
+      elements.alertsSection.classList.remove('hidden');
+      elements.alertsList.innerHTML = alerts.map(alert => {
+        const colors = {
+          warning: 'bg-amber-500/20 border-amber-500',
+          danger: 'bg-red-500/20 border-red-500',
+          info: 'bg-blue-500/20 border-blue-500'
+        };
+        const icons = {
+          warning: `<svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>`,
+          danger: `<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+          info: `<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+        };
+        return `
+          <div class="flex items-start gap-3 p-4 rounded-xl ${colors[alert.level]} border-l-4">
+            <div class="mt-0.5">${icons[alert.level]}</div>
+            <div>
+              <p class="font-semibold">${alert.title}</p>
+              <p class="text-sm text-[var(--muted)]">${alert.desc}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ==================== Voice Alert System ====================
+    function toggleVoice() {
+      voiceEnabled = !voiceEnabled;
+      elements.voiceToggle.classList.toggle('active', voiceEnabled);
+      elements.voiceToggle.setAttribute('aria-checked', voiceEnabled);
+      elements.toggleLabel.textContent = voiceEnabled ? '已开启' : '已关闭';
+      elements.voiceStatus.classList.toggle('hidden', !voiceEnabled);
+      elements.alertSettings.classList.toggle('opacity-50', !voiceEnabled);
+      elements.alertSettings.classList.toggle('pointer-events-none', !voiceEnabled);
+      
+      if (voiceEnabled) {
+        speak('语音警报系统已开启。当前广州天气：' + weatherData.current.description + '，气温' + weatherData.current.temp + '度。空气质量指数：' + weatherData.aqi.value + '，等级：' + getAqiInfo(weatherData.aqi.value).level.split(' ')[0] + '。');
+      }
+    }
+
+    function triggerAlert(alertType) {
+      const alertMessages = {
+        weather: '注意：天气状况发生变化。',
+        aqi: '注意：空气质量发生变化。',
+        rain: '注意：即将有降雨，请携带雨具。',
+        temp: '注意：气温较高，请注意防暑降温。'
+      };
+      
+      if (voiceEnabled && alertMessages[alertType]) {
+        speak(alertMessages[alertType]);
+      }
+    }
+
+    // ==================== Event Listeners ====================
+    elements.voiceToggle.addEventListener('click', toggleVoice);
+    elements.voiceToggle.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleVoice();
+      }
+    });
+
+    elements.refreshBtn.addEventListener('click', () => {
+      elements.refreshBtn.querySelector('svg').style.animation = 'spin 0.5s linear';
+      setTimeout(() => {
+        elements.refreshBtn.querySelector('svg').style.animation = '';
+        updateTime();
+        if (voiceEnabled) {
+          speak('数据已刷新');
+        }
+      }, 500);
+    });
+
+    // ==================== Initialize ====================
+    function init() {
+      updateTime();
+      renderCurrentWeather();
+      renderHourlyForecast();
+      renderWeeklyForecast();
+      renderAqi();
+      renderAlerts();
+      
+      // Update time every second
+      setInterval(updateTime, 1000);
+      
+      // Simulate periodic data refresh
+      setInterval(() => {
+        // In real app, this would fetch new data
+        if (voiceEnabled && Math.random() > 0.95) {
+          const alertTypes = ['weather', 'aqi', 'rain', 'temp'];
+          const randomAlert = alertTypes[Math.floor(Math.random() * alertTypes.length)];
+          triggerAlert(randomAlert);
+        }
+      }, 30000);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

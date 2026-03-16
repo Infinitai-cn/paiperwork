@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chromatic Studio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #0a0a0f;
+      --bg-surface: #12121a;
+      --bg-elevated: #1a1a24;
+      --fg: #e8e8f0;
+      --fg-muted: #6a6a80;
+      --accent: #00d4aa;
+      --accent-glow: rgba(0, 212, 170, 0.3);
+      --danger: #ff4466;
+      --border: #2a2a38;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg-deep);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent), #00a8ff);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--fg-muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg-elevated);
+      color: var(--fg);
+      border-color: var(--fg-muted);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg-deep);
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    /* Main workspace */
+    .workspace {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 50;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .tool-btn {
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: transparent;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--fg-muted);
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .tool-btn:hover {
+      background: var(--bg-elevated);
+      color: var(--fg);
+    }
+
+    .tool-btn.active {
+      background: var(--accent);
+      color: var(--bg-deep);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .tool-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .toolbar-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+
+    /* Side panel */
+    .side-panel {
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      bottom: 16px;
+      width: 240px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 50;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      overflow-y: auto;
+    }
+
+    .panel-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--fg-muted);
+    }
+
+    /* Color picker */
+    .color-display {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .color-preview {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--border);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease;
+    }
+
+    .color-preview:hover {
+      transform: scale(1.05);
+    }
+
+    .color-preview input {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .color-hex {
+      flex: 1;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      color: var(--fg);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .color-hex:focus {
+      border-color: var(--accent);
+    }
+
+    /* Color palette */
+    .color-palette {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+    }
+
+    .palette-color {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .palette-color:hover {
+      transform: scale(1.15);
+      z-index: 1;
+    }
+
+    .palette-color.active {
+      border-color: var(--fg);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+    }
+
+    /* Slider */
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .slider-label {
+      font-size: 12px;
+      color: var(--fg-muted);
+    }
+
+    .slider-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--accent);
+      background: var(--bg-elevated);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: var(--bg-elevated);
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--accent-glow);
+      transition: transform 0.2s ease;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Brush preview */
+    .brush-preview-container {
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+      background: var(--bg-elevated);
+      border-radius: var(--radius-sm);
+    }
+
+    .brush-preview {
+      background: var(--fg);
+      border-radius: 50%;
+      transition: all 0.15s ease;
+    }
+
+    /* Toggle */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .toggle-label {
+      font-size: 13px;
+    }
+
+    .toggle {
+      width: 44px;
+      height: 24px;
+      background: var(--bg-elevated);
+      border-radius: 12px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .toggle.active {
+      background: var(--accent);
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      background: var(--fg);
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s ease;
+    }
+
+    .toggle.active::after {
+      transform: translateX(20px);
+    }
+
+    /* Canvas area */
+    .canvas-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: 
+        radial-gradient(ellipse at 30% 20%, rgba(0, 212, 170, 0.03) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 80%, rgba(0, 168, 255, 0.03) 0%, transparent 50%),
+        var(--bg-deep);
+      position: relative;
+    }
+
+    .canvas-container {
+      position: relative;
+      box-shadow: 
+        0 0 0 1px var(--border),
+        0 20px 60px rgba(0, 0, 0, 0.5),
+        0 0 100px rgba(0, 212, 170, 0.05);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    #drawingCanvas {
+      display: block;
+      background: white;
+      cursor: crosshair;
+    }
+
+    /* Cursor preview */
+    .cursor-preview {
+      position: fixed;
+      pointer-events: none;
+      border: 2px solid var(--accent);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .canvas-wrapper:hover .cursor-preview {
+      opacity: 1;
+    }
+
+    /* Undo stack indicator */
+    .undo-indicator {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: var(--fg-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 50;
+    }
+
+    .undo-indicator.visible {
+      opacity: 1;
+    }
+
+    /* Keyboard shortcuts modal */
+    .shortcuts-hint {
+      position: absolute;
+      bottom: 16px;
+      left: 80px;
+      font-size: 11px;
+      color: var(--fg-muted);
+      background: var(--bg-surface);
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .shortcuts-hint kbd {
+      background: var(--bg-elevated);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin: 0 2px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 768px) {
+      .side-panel {
+        width: 200px;
+        right: 8px;
+        top: 8px;
+        bottom: 8px;
+        padding: 12px;
+      }
+
+      .toolbar {
+        left: 8px;
+        padding: 6px;
+      }
+
+      .tool-btn {
+        width: 38px;
+        height: 38px;
+      }
+
+      .shortcuts-hint {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header {
+        padding: 10px 12px;
+      }
+
+      .logo-text {
+        display: none;
+      }
+
+      .side-panel {
+        position: fixed;
+        right: 0;
+        left: 0;
+        bottom: 0;
+        top: auto;
+        width: 100%;
+        height: auto;
+        max-height: 50vh;
+        border-radius: var(--radius) var(--radius) 0 0;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+      }
+
+      .side-panel.mobile-open {
+        transform: translateY(0);
+      }
+
+      .mobile-panel-toggle {
+        display: flex;
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        z-index: 60;
+      }
+    }
+
+    @media (min-width: 481px) {
+      .mobile-panel-toggle {
+        display: none;
+      }
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .toolbar, .side-panel {
+      animation: fadeIn 0.4s ease;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;color:#0a0a0f">
+            <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+            <path d="M2 2l7.586 7.586"></path>
+            <circle cx="11" cy="11" r="2"></circle>
+          </svg>
+        </div>
+        <span class="logo-text">Chromatic Studio</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-ghost" onclick="undo()" title="Undo (Ctrl+Z)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"></path></svg>
+          Undo
+        </button>
+        <button class="btn btn-ghost" onclick="redo()" title="Redo (Ctrl+Y)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"></path></svg>
+          Redo
+        </button>
+        <button class="btn btn-danger" onclick="clearCanvas()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+          Clear
+        </button>
+        <button class="btn btn-primary" onclick="saveCanvas()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Save
+        </button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <div class="toolbar" role="toolbar" aria-label="Drawing tools">
+        <button class="tool-btn active" data-tool="pen" title="Pen (P)" aria-label="Pen tool">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"></path><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path></svg>
+        </button>
+        <button class="tool-btn" data-tool="marker" title="Marker (M)" aria-label="Marker tool">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"></path><path d="M6 16V4a2 2 0 012-2h8a2 2 0 012 2v12"></path><path d="M6 16h12"></path></svg>
+        </button>
+        <button class="tool-btn" data-tool="airbrush" title="Airbrush (A)" aria-label="Airbrush tool">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><circle cx="12" cy="12" r="6" stroke-dasharray="2 2"></circle><circle cx="12" cy="12" r="9" stroke-dasharray="1 3"></circle></svg>
+        </button>
+        <button class="tool-btn" data-tool="neon" title="Neon (N)" aria-label="Neon brush">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"></path><path d="M10 22h4"></path><path d="M12 2v4"></path><path d="M12 18a6 6 0 006-6c0-3-2-6-6-6s-6 3-6 6a6 6 0 006 6z"></path></svg>
+        </button>
+        <button class="tool-btn" data-tool="watercolor" title="Watercolor (W)" aria-label="Watercolor brush">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"></path></svg>
+        </button>
+        <div class="toolbar-divider"></div>
+        <button class="tool-btn" data-tool="eraser" title="Eraser (E)" aria-label="Eraser tool">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16a1 1 0 010-1.4l9.9-9.9a1 1 0 011.4 0l5.3 5.3a1 1 0 010 1.4L11 20"></path><path d="M6 11L13 4"></path></svg>
+        </button>
+      </div>
+
+      <div class="side-panel">
+        <div class="panel-section">
+          <span class="panel-title">Color</span>
+          <div class="color-display">
+            <div class="color-preview" id="colorPreview" style="background: #00d4aa">
+              <input type="color" id="colorPicker" value="#00d4aa" aria-label="Pick color">
+            </div>
+            <input type="text" class="color-hex" id="colorHex" value="#00d4aa" maxlength="7" aria-label="Hex color code">
+          </div>
+          <div class="color-palette" id="colorPalette"></div>
+        </div>
+
+        <div class="panel-section">
+          <span class="panel-title">Brush Size</span>
+          <div class="slider-container">
+            <div class="slider-header">
+              <span class="slider-label">Diameter</span>
+              <span class="slider-value" id="sizeValue">16px</span>
+            </div>
+            <input type="range" class="slider" id="sizeSlider" min="1" max="100" value="16" aria-label="Brush size">
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <span class="panel-title">Opacity</span>
+          <div class="slider-container">
+            <div class="slider-header">
+              <span class="slider-label">Alpha</span>
+              <span class="slider-value" id="opacityValue">100%</span>
+            </div>
+            <input type="range" class="slider" id="opacitySlider" min="1" max="100" value="100" aria-label="Brush opacity">
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <span class="panel-title">Preview</span>
+          <div class="brush-preview-container">
+            <div class="brush-preview" id="brushPreview" style="width: 16px; height: 16px;"></div>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <span class="panel-title">Options</span>
+          <div class="toggle-row">
+            <span class="toggle-label">Mirror Mode</span>
+            <div class="toggle" id="mirrorToggle" role="switch" aria-label="Toggle mirror mode" tabindex="0"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="canvas-wrapper">
+        <div class="canvas-container">
+          <canvas id="drawingCanvas" width="900" height="600"></canvas>
+        </div>
+        <div class="undo-indicator" id="undoIndicator">
+          <span id="undoCount">0</span> actions stored
+        </div>
+        <div class="shortcuts-hint">
+          <kbd>B</kbd> Brush &nbsp; <kbd>E</kbd> Eraser &nbsp; <kbd>Ctrl+Z</kbd> Undo &nbsp; <kbd>[ ]</kbd> Size
+        </div>
+      </div>
+
+      <div class="cursor-preview" id="cursorPreview"></div>
+    </main>
+
+    <button class="btn btn-primary mobile-panel-toggle" onclick="toggleMobilePanel()" aria-label="Toggle settings panel">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"></path></svg>
+    </button>
+  </div>
+
+  <script>
+    // State initialization
+    const state = {
+      tool: 'pen',
+      color: '#00d4aa',
+      size: 16,
+      opacity: 100,
+      mirror: false,
+      isDrawing: false,
+      lastX: 0,
+      lastY: 0,
+      undoStack: [],
+      redoStack: [],
+      maxUndo: 30
+    };
+
+    // Palette colors
+    const paletteColors = [
+      '#000000', '#1a1a2e', '#16213e', '#0f3460',
+      '#e94560', '#ff6b6b', '#ffa502', '#ffc107',
+      '#7bed9f', '#2ed573', '#1e90ff', '#00d4aa',
+      '#a55eea', '#8854d0', '#ff6b81', '#ff4757',
+      '#ffffff', '#dfe6e9'
+    ];
+
+    // DOM elements
+    const canvas = document.getElementById('drawingCanvas');
+    const ctx = canvas.getContext('2d');
+    const colorPicker = document.getElementById('colorPicker');
+    const colorHex = document.getElementById('colorHex');
+    const colorPreview = document.getElementById('colorPreview');
+    const sizeSlider = document.getElementById('sizeSlider');
+    const sizeValue = document.getElementById('sizeValue');
+    const opacitySlider = document.getElementById('opacitySlider');
+    const opacityValue = document.getElementById('opacityValue');
+    const brushPreview = document.getElementById('brushPreview');
+    const cursorPreview = document.getElementById('cursorPreview');
+    const mirrorToggle = document.getElementById('mirrorToggle');
+    const undoIndicator = document.getElementById('undoIndicator');
+    const undoCount = document.getElementById('undoCount');
+    const colorPaletteEl = document.getElementById('colorPalette');
+
+    // Initialize palette
+    function initPalette() {
+      colorPaletteEl.innerHTML = '';
+      paletteColors.forEach(color => {
+        const btn = document.createElement('button');
+        btn.className = 'palette-color' + (color === state.color ? ' active' : '');
+        btn.style.background = color;
+        btn.setAttribute('aria-label', `Select color ${color}`);
+        btn.onclick = () => setColor(color);
+        colorPaletteEl.appendChild(btn);
+      });
+    }
+
+    // Set color
+    function setColor(color) {
+      state.color = color;
+      colorPicker.value = color;
+      colorHex.value = color;
+      colorPreview.style.background = color;
+      brushPreview.style.background = color;
+      document.querySelectorAll('.palette-color').forEach(btn => {
+        btn.classList.toggle('active', btn.style.background === color || 
+          btn.style.background.replace(/\s/g, '') === color);
+      });
+    }
+
+    // Update brush preview
+    function updateBrushPreview() {
+      const size = Math.min(state.size, 80);
+      brushPreview.style.width = `${size}px`;
+      brushPreview.style.height = `${size}px`;
+      brushPreview.style.background = state.tool === 'eraser' ? '#888' : state.color;
+      brushPreview.style.opacity = state.opacity / 100;
+    }
+
+    // Save state for undo
+    function saveState() {
+      state.undoStack.push(canvas.toDataURL());
+      state.redoStack = [];
+      if (state.undoStack.length > state.maxUndo) {
+        state.undoStack.shift();
+      }
+      updateUndoIndicator();
+    }
+
+    // Update undo indicator
+    function updateUndoIndicator() {
+      undoCount.textContent = state.undoStack.length;
+      undoIndicator.classList.add('visible');
+      clearTimeout(state.indicatorTimeout);
+      state.indicatorTimeout = setTimeout(() => {
+        undoIndicator.classList.remove('visible');
+      }, 2000);
+    }
+
+    // Undo
+    function undo() {
+      if (state.undoStack.length > 0) {
+        state.redoStack.push(canvas.toDataURL());
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = state.undoStack.pop();
+        updateUndoIndicator();
+      }
+    }
+
+    // Redo
+    function redo() {
+      if (state.redoStack.length > 0) {
+        state.undoStack.push(canvas.toDataURL());
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = state.redoStack.pop();
+        updateUndoIndicator();
+      }
+    }
+
+    // Clear canvas
+    function clearCanvas() {
+      if (confirm('Clear the entire canvas?')) {
+        saveState();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    // Save canvas
+    function saveCanvas() {
+      const link = document.createElement('a');
+      link.download = `chromatic-${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    // Get coordinates
+    function getCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      if (e.touches) {
+        return {
+          x: (e.touches[0].clientX - rect.left) * scaleX,
+          y: (e.touches[0].clientY - rect.top) * scaleY
+        };
+      }
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      };
+    }
+
+    // Drawing functions
+    function startDrawing(e) {
+      e.preventDefault();
+      state.isDrawing = true;
+      const coords = getCoords(e);
+      state.lastX = coords.x;
+      state.lastY = coords.y;
+      saveState();
+    }
+
+    function draw(e) {
+      if (!state.isDrawing) return;
+      e.preventDefault();
+      
+      const coords = getCoords(e);
+      const x = coords.x;
+      const y = coords.y;
+      
+      ctx.globalAlpha = state.opacity / 100;
+      
+      switch (state.tool) {
+        case 'pen':
+          drawPen(x, y);
+          break;
+        case 'marker':
+          drawMarker(x, y);
+          break;
+        case 'airbrush':
+          drawAirbrush(x, y);
+          break;
+        case 'neon':
+          drawNeon(x, y);
+          break;
+        case 'watercolor':
+          drawWatercolor(x, y);
+          break;
+        case 'eraser':
+          drawEraser(x, y);
+          break;
+      }
+      
+      state.lastX = x;
+      state.lastY = y;
+    }
+
+    function stopDrawing() {
+      state.isDrawing = false;
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Tool implementations
+    function drawPen(x, y) {
+      ctx.strokeStyle = state.color;
+      ctx.lineWidth = state.size;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalCompositeOperation = 'source-over';
+      
+      ctx.beginPath();
+      ctx.moveTo(state.lastX, state.lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      
+      if (state.mirror) {
+        ctx.beginPath();
+        ctx.moveTo(canvas.width - state.lastX, state.lastY);
+        ctx.lineTo(canvas.width - x, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawMarker(x, y) {
+      ctx.strokeStyle = state.color;
+      ctx.lineWidth = state.size * 1.5;
+      ctx.lineCap = 'square';
+      ctx.lineJoin = 'round';
+      ctx.globalCompositeOperation = 'multiply';
+      
+      ctx.beginPath();
+      ctx.moveTo(state.lastX, state.lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      
+      if (state.mirror) {
+        ctx.beginPath();
+        ctx.moveTo(canvas.width - state.lastX, state.lastY);
+        ctx.lineTo(canvas.width - x, y);
+        ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    function drawAirbrush(x, y) {
+      ctx.globalCompositeOperation = 'source-over';
+      const density = Math.max(10, state.size * 2);
+      const radius = state.size;
+      
+      for (let i = 0; i < density; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const r = Math.random() * radius;
+        const px = x + r * Math.cos(angle);
+        const py = y + r * Math.sin(angle);
+        
+        ctx.fillStyle = state.color;
+        ctx.globalAlpha = (state.opacity / 100) * 0.1;
+        ctx.beginPath();
+        ctx.arc(px, py, 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      if (state.mirror) {
+        for (let i = 0; i < density; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const r = Math.random() * radius;
+          const px = canvas.width - x + r * Math.cos(angle);
+          const py = y + r * Math.sin(angle);
+          
+          ctx.fillStyle = state.color;
+          ctx.globalAlpha = (state.opacity / 100) * 0.1;
+          ctx.beginPath();
+          ctx.arc(px, py, 1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawNeon(x, y) {
+      ctx.strokeStyle = state.color;
+      ctx.lineWidth = state.size / 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.shadowColor = state.color;
+      ctx.shadowBlur = state.size * 2;
+      ctx.globalCompositeOperation = 'source-over';
+      
+      ctx.beginPath();
+      ctx.moveTo(state.lastX, state.lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      
+      if (state.mirror) {
+        ctx.beginPath();
+        ctx.moveTo(canvas.width - state.lastX, state.lastY);
+        ctx.lineTo(canvas.width - x, y);
+        ctx.stroke();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    function drawWatercolor(x, y) {
+      ctx.globalCompositeOperation = 'source-over';
+      const radius = state.size;
+      const steps = 5;
+      
+      for (let i = steps; i > 0; i--) {
+        const r = radius * (i / steps);
+        const alpha = (state.opacity / 100) * (0.02 + (0.08 / i));
+        
+        ctx.fillStyle = state.color;
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        
+        if (state.mirror) {
+          ctx.beginPath();
+          ctx.arc(canvas.width - x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawEraser(x, y) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(255,255,255,1)';
+      ctx.lineWidth = state.size;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      
+      ctx.beginPath();
+      ctx.moveTo(state.lastX, state.lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      
+      if (state.mirror) {
+        ctx.beginPath();
+        ctx.moveTo(canvas.width - state.lastX, state.lastY);
+        ctx.lineTo(canvas.width - x, y);
+        ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    // Event listeners
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseleave', stopDrawing);
+    
+    canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDrawing);
+
+    // Cursor preview
+    const canvasWrapper = document.querySelector('.canvas-wrapper');
+    canvasWrapper.addEventListener('mousemove', (e) => {
+      cursorPreview.style.left = `${e.clientX}px`;
+      cursorPreview.style.top = `${e.clientY}px`;
+      cursorPreview.style.width = `${state.size}px`;
+      cursorPreview.style.height = `${state.size}px`;
+      cursorPreview.style.borderColor = state.tool === 'eraser' ? '#888' : state.color;
+    });
+
+    // Tool selection
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.tool = btn.dataset.tool;
+        updateBrushPreview();
+      });
+    });
+
+    // Color picker
+    colorPicker.addEventListener('input', (e) => setColor(e.target.value));
+    colorHex.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+        setColor(val);
+      }
+    });
+
+    // Sliders
+    sizeSlider.addEventListener('input', (e) => {
+      state.size = parseInt(e.target.value);
+      sizeValue.textContent = `${state.size}px`;
+      updateBrushPreview();
+    });
+
+    opacitySlider.addEventListener('input', (e) => {
+      state.opacity = parseInt(e.target.value);
+      opacityValue.textContent = `${state.opacity}%`;
+      updateBrushPreview();
+    });
+
+    // Mirror toggle
+    mirrorToggle.addEventListener('click', () => {
+      state.mirror = !state.mirror;
+      mirrorToggle.classList.toggle('active', state.mirror);
+    });
+    mirrorToggle.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        mirrorToggle.click();
+      }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      
+      const key = e.key.toLowerCase();
+      
+      if (e.ctrlKey || e.metaKey) {
+        if (key === 'z') {
+          e.preventDefault();
+          undo();
+        } else if (key === 'y') {
+          e.preventDefault();
+          redo();
+        } else if (key === 's') {
+          e.preventDefault();
+          saveCanvas();
+        }
+        return;
+      }
+      
+      const toolMap = {
+        'p': 'pen',
+        'm': 'marker',
+        'a': 'airbrush',
+        'n': 'neon',
+        'w': 'watercolor',
+        'e': 'eraser',
+        'b': 'pen'
+      };
+      
+      if (toolMap[key]) {
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.tool === toolMap[key]);
+        });
+        state.tool = toolMap[key];
+        updateBrushPreview();
+      }
+      
+      if (key === '[') {
+        state.size = Math.max(1, state.size - 5);
+        sizeSlider.value = state.size;
+        sizeValue.textContent = `${state.size}px`;
+        updateBrushPreview();
+      }
+      if (key === ']') {
+        state.size = Math.min(100, state.size + 5);
+        sizeSlider.value = state.size;
+        sizeValue.textContent = `${state.size}px`;
+        updateBrushPreview();
+      }
+    });
+
+    // Mobile panel toggle
+    function toggleMobilePanel() {
+      document.querySelector('.side-panel').classList.toggle('mobile-open');
+    }
+
+    // Initialize
+    function init() {
+      initPalette();
+      updateBrushPreview();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    init();
+  </script>
+</body>
+</html>

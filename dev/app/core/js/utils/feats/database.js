@@ -259,30 +259,7 @@ class PaiperworkDB {
             };
         });
     }
-    // Saves the exported database to OPFS or IndexedDB, depending on support.
-    static async saveToStorage(dbExport, hashedMasterKey, role = 'main') {
-        const normalizedRole = this.normalizeDbRole(role);
-        const storageKey = this.getDbStorageKey(hashedMasterKey, normalizedRole);
-       //console.log(`💾 Saving database for masterkey: ${hashedMasterKey}`);
-       //console.log(`📍 Storage strategy: ${this.opfsSupported ? 'OPFS' : 'IndexedDB'}`);
-
-        // Use OPFS if supported and enabled
-        if (this.opfsSupported && !this.useIndexedDBOnly) {
-           //console.log('💾 Saving to OPFS...');
-            const success = await this.saveToOPFS(dbExport, hashedMasterKey, normalizedRole);
-            if (success) {
-               //console.log('✅ Database saved successfully to OPFS');
-                return true;
-            } else {
-                console.error('❌ OPFS save failed, falling back to IndexedDB');
-                // If OPFS fails, mark it as unsupported and fall back to IndexedDB
-                this.opfsSupported = false;
-                this.useIndexedDBOnly = true;
-            }
-        }
-
-        // Use IndexedDB (either as primary choice or fallback)
-       //console.log('💾 Saving to IndexedDB...');
+    static async saveToIndexedDB(dbExport, storageKey) {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open('PaiperworkDB', 1);
 
@@ -319,6 +296,39 @@ class PaiperworkDB {
                 reject(error);
             };
         });
+    }
+
+    // Saves the exported database to OPFS or IndexedDB, depending on support.
+    static async saveToStorage(dbExport, hashedMasterKey, role = 'main') {
+        const normalizedRole = this.normalizeDbRole(role);
+        const storageKey = this.getDbStorageKey(hashedMasterKey, normalizedRole);
+       //console.log(`💾 Saving database for masterkey: ${hashedMasterKey}`);
+       //console.log(`📍 Storage strategy: ${this.opfsSupported ? 'OPFS' : 'IndexedDB'}`);
+
+        // Use OPFS if supported and enabled
+        if (this.opfsSupported && !this.useIndexedDBOnly) {
+           //console.log('💾 Saving to OPFS...');
+            const success = await this.saveToOPFS(dbExport, hashedMasterKey, normalizedRole);
+            if (success) {
+               //console.log('✅ Database saved successfully to OPFS');
+                // Keep IndexedDB in sync as fallback so stale legacy bytes cannot resurrect records.
+                try {
+                    await this.saveToIndexedDB(dbExport, storageKey);
+                } catch (mirrorError) {
+                    console.warn('IndexedDB mirror save failed after OPFS success:', mirrorError);
+                }
+                return true;
+            }
+
+            console.error('❌ OPFS save failed, falling back to IndexedDB');
+            // If OPFS fails, mark it as unsupported and fall back to IndexedDB
+            this.opfsSupported = false;
+            this.useIndexedDBOnly = true;
+        }
+
+        // Use IndexedDB (either as primary choice or fallback)
+       //console.log('💾 Saving to IndexedDB...');
+        return this.saveToIndexedDB(dbExport, storageKey);
     }
     // Saves the exported database to OPFS for a given master key hash.
     static async saveToOPFS(dbExport, hashedMasterKey, role = 'main') {
