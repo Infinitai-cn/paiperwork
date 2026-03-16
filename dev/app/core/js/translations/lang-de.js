@@ -468,6 +468,13 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         documentSearchEnabled: "Dokumentensuche aktiviert",
         documentSearchInfo: "In diesem Tab durchsucht die Haupteingabe alle Ihre Dokumente und stellt Informationen bereit.",
         documentSpecificInfo: "Wenn Sie ein bestimmtes Dokument für Fragen auswählen, hat dieses Vorrang.",
+        ragEmbeddingModelLabel: "Embedding-Modell",
+        ragEmbeddingModelDownloadHint: "Laden Sie im Modelle-Tab ein Embedding-Modell herunter.",
+        ragNoEmbeddingModelsFound: "Keine Embedding-Modelle gefunden",
+        ragEmbeddingModelNeededTitle: "Embedding-Modell erforderlich",
+        ragEmbeddingModelNeededMessage: "Es wurde kein Embedding-Modell gefunden. Laden Sie im Modelle-Tab eines herunter, um Dokumente zu verarbeiten.",
+        ragEmbeddingModelNeededExamples: "Beispiele: qwen3-embedding, nomic-embed-text, mxbai-embed-large, bge-m3.",
+        ragEmbeddingModelGoDownload: "Modell herunterladen",
 
         // File Processing & Validation
         ragPreprocessingFiles: "Überprüfung der Dateien auf Textinhalt...",
@@ -537,7 +544,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
 
         // RAG Utils messages
         ragModelSelect: "Bitte wählen Sie ein Modell aus, bevor Sie Dokumente hochladen.",
-        ragFileType: "Bitte laden Sie nur PDF- oder TXT-Dateien hoch.",
+        ragFileType: "Bitte laden Sie nur PDF-, TXT- oder MD-Dateien hoch.",
         ragProcessing: "Verarbeitung läuft...",
         ragDocumentsProcessed: "Dokumente erfolgreich verarbeitet!",
         ragProcessingError: "Fehler beim Verarbeiten der Dokumente. Bitte versuchen Sie es erneut.",

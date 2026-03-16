@@ -1,7 +1,7 @@
 {
-    "version": "1.0.9",
+    "version": "1.1.0",
     "releaseDate": "2025-03-12",
-    "notes": "<p>Cloud models rate limits warning message now appears when limits reached.</p> <p><strong>Bug fixes.</p>",
+    "notes": "<p>Improved Document RAG workflow</p> <p><strong>Bug fixes.</p>",
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
     "requiredUpdate": false
 }

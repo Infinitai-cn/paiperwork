@@ -20,9 +20,179 @@ let documentUIElements = {
     progressStatus: null,
     documentsList: null,
     documentSort: null,
+    embeddingModelSelector: null,
     hashedMasterKey: null,
     initialized: false
 };
+let embeddingModelObserver = null;
+let embeddingModelPromptShown = false;
+
+function hasAnyUsableModelOption(selector) {
+    if (!selector || !selector.options) return false;
+
+    return Array.from(selector.options).some((option) => {
+        const value = String(option?.value || '').trim();
+        if (!value) return false;
+        return value !== 'loading' && value !== 'none';
+    });
+}
+
+function isEmbeddingModelCandidate(name) {
+    const value = String(name || '').toLowerCase();
+    return /embed|embedding/.test(value);
+}
+
+function getEmbeddingModelCandidatesFromMainSelector() {
+    const modelSelector = document.getElementById('model-selector');
+    if (!modelSelector || !modelSelector.options) {
+        return { models: [], hasAnyModels: false };
+    }
+
+    const hasAnyModels = hasAnyUsableModelOption(modelSelector);
+    const models = [];
+
+    Array.from(modelSelector.options).forEach((option) => {
+        const value = String(option?.value || '').trim();
+        const label = String(option?.textContent || '').trim();
+        if (!value || value === 'loading' || value === 'none') {
+            return;
+        }
+
+        if (isEmbeddingModelCandidate(value) || isEmbeddingModelCandidate(label)) {
+            models.push({ value, label: label || value });
+        }
+    });
+
+    return { models, hasAnyModels };
+}
+
+function showEmbeddingModelRequiredWindow() {
+    const existing = document.getElementById('embedding-model-required-modal');
+    if (existing) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'embedding-model-required-modal';
+    overlay.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        box-sizing: border-box;
+    `;
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        width: 100%;
+        max-width: 520px;
+        background: var(--bg-color, #fff);
+        color: var(--text-color, #111);
+        border: 1px solid var(--border-color, #ddd);
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        padding: 18px;
+    `;
+
+    modal.innerHTML = `
+        <h3 style="margin: 0 0 10px 0; font-size: 18px;">${Lang.get('ragEmbeddingModelNeededTitle') || 'Embedding model required'}</h3>
+        <p style="margin: 0 0 8px 0; line-height: 1.45;">${Lang.get('ragEmbeddingModelNeededMessage') || 'No embedding model was found. Please download one from the Models tab to process documents.'}</p>
+        <p style="margin: 0 0 14px 0; font-size: 13px; color: var(--text-color-secondary, #666);">${Lang.get('ragEmbeddingModelNeededExamples') || 'Examples: qwen3-embedding, nomic-embed-text, mxbai-embed-large, bge-m3.'}</p>
+        <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+            <button id="embedding-model-go-download" class="kb-btn" style="padding: 8px 12px; border: none; border-radius: 6px; background: var(--accent-color, #4f46e5); color: #fff; cursor: pointer;">${Lang.get('ragEmbeddingModelGoDownload') || 'Go download model'}</button>
+            <button id="embedding-model-cancel" class="kb-btn" style="padding: 8px 12px; border: 1px solid var(--border-color, #ccc); border-radius: 6px; background: transparent; color: var(--text-color, #111); cursor: pointer;">${Lang.get('cancelButton') || 'Cancel'}</button>
+        </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const close = () => {
+        if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+        }
+    };
+
+    document.getElementById('embedding-model-cancel')?.addEventListener('click', close);
+    document.getElementById('embedding-model-go-download')?.addEventListener('click', () => {
+        close();
+        const modelsTabButton = document.querySelector('.tab-button[data-tab="models"]');
+        if (modelsTabButton && typeof modelsTabButton.click === 'function') {
+            modelsTabButton.click();
+        }
+    });
+
+    embeddingModelPromptShown = true;
+}
+
+function refreshDocumentEmbeddingModelSelector(showPromptIfEmpty = false) {
+    const selector = document.getElementById('documents-embedding-model-selector');
+    const emptyNote = document.getElementById('documents-embedding-empty-note');
+    if (!selector) {
+        return [];
+    }
+
+    const previousValue = selector.value;
+    const { models, hasAnyModels } = getEmbeddingModelCandidatesFromMainSelector();
+
+    selector.innerHTML = '';
+
+    if (models.length > 0) {
+        models.forEach((model) => {
+            const option = document.createElement('option');
+            option.value = model.value;
+            option.textContent = model.label;
+            selector.appendChild(option);
+        });
+
+        selector.disabled = false;
+        // Re-arm prompt so it can appear again if embedding models disappear later.
+        embeddingModelPromptShown = false;
+
+        const preserved = models.find((model) => model.value === previousValue);
+        selector.value = preserved ? preserved.value : models[0].value;
+
+        if (emptyNote) emptyNote.style.display = 'none';
+    } else {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = Lang.get('ragNoEmbeddingModelsFound') || 'No embedding models found';
+        selector.appendChild(option);
+        selector.value = '';
+        selector.disabled = true;
+        if (emptyNote) emptyNote.style.display = 'block';
+
+        if (showPromptIfEmpty && !embeddingModelPromptShown) {
+            showEmbeddingModelRequiredWindow();
+        }
+    }
+
+    return models;
+}
+
+function getSelectedDocumentEmbeddingModel(showPromptIfEmpty = false) {
+    const selector = document.getElementById('documents-embedding-model-selector');
+    if (selector && selector.value) {
+        return selector.value;
+    }
+
+    const models = refreshDocumentEmbeddingModelSelector(showPromptIfEmpty);
+    if (models.length > 0) {
+        return models[0].value;
+    }
+
+    if (showPromptIfEmpty) {
+        showEmbeddingModelRequiredWindow();
+    }
+
+    return '';
+}
+
+function refreshEmbeddingModelSelectorWithPrompt() {
+    refreshDocumentEmbeddingModelSelector(true);
+}
 
 async function modelSupportsSummaryGeneration(model) {
     if (!model) {
@@ -186,6 +356,7 @@ function initializeDocumentUI() {
     documentUIElements.progressBar = document.getElementById('progress-bar-fill');
     documentUIElements.progressStatus = document.getElementById('progress-status');
     documentUIElements.documentsList = document.getElementById('documents-list');
+    documentUIElements.embeddingModelSelector = document.getElementById('documents-embedding-model-selector');
 
     /*//console.log('RAG_Utils: UI elements found:', {
     uploadZone: !!documentUIElements.uploadZone,
@@ -197,6 +368,24 @@ function initializeDocumentUI() {
     if (!documentUIElements.uploadZone || !documentUIElements.fileInput) {
         console.error('RAG_Utils: Essential UI elements not found after setup');
         return;
+    }
+
+    refreshDocumentEmbeddingModelSelector(true);
+
+    const mainModelSelector = document.getElementById('model-selector');
+    if (mainModelSelector) {
+        mainModelSelector.addEventListener('change', () => {
+            refreshDocumentEmbeddingModelSelector(false);
+        });
+
+        if (embeddingModelObserver) {
+            embeddingModelObserver.disconnect();
+        }
+
+        embeddingModelObserver = new MutationObserver(() => {
+            refreshDocumentEmbeddingModelSelector(false);
+        });
+        embeddingModelObserver.observe(mainModelSelector, { childList: true, subtree: true });
     }
 
     // Set up drag and drop events
@@ -277,6 +466,15 @@ function setupDocumentUI(documentsTab) {
                 </div>
             </div>
         </div>
+        <div class="documents-embedding-selector" style="margin: 0 auto 16px auto; width: 320px; max-width: 320px;">
+            <label for="documents-embedding-model-selector" style="display: block; margin-bottom: 8px; font-size: 14px; font-weight: 700; color: var(--text-color, #111);">
+                ${Lang.get('ragEmbeddingModelLabel') || 'Embedding model'}
+            </label>
+            <select id="documents-embedding-model-selector" style="width: 100%; min-height: 44px; border: 4px solid var(--border-color, #bfc3cf); border-radius: 8px; padding: 10px 36px 10px 12px; font-size: 14px; font-weight: 600; background-color: var(--bg-color, #fff); background-image: url('data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e'); background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; color: var(--text-color, #111); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); appearance: none; -webkit-appearance: none; -moz-appearance: none;"></select>
+            <div id="documents-embedding-empty-note" style="display: none; margin-top: 6px; font-size: 12px; color: var(--text-color-secondary, #666);">
+                ${Lang.get('ragEmbeddingModelDownloadHint') || 'Download an embedding model in the Models tab.'}
+            </div>
+        </div>
     <div class="upload-zone" id="document-upload-zone" style="width: calc(100% - 80px); padding: 20px;">
             <div class="upload-icon">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -287,7 +485,7 @@ function setupDocumentUI(documentsTab) {
                 <p>${Lang.get('ragDragDropText')}</p>
                 <p><span class="browse-text" style="color: #4f46e5; text-decoration: underline; cursor: pointer;">${Lang.get('ragBrowseFiles')}</span></p>
             </div>
-            <input type="file" id="file-input" multiple accept=".pdf,.txt" style="display: none;">
+            <input type="file" id="file-input" multiple accept=".pdf,.txt,.md" style="display: none;">
         </div>
         
         <div class="upload-progress" id="upload-progress" style="display: none;">
@@ -377,17 +575,21 @@ async function handleFiles(files) {
     const { uploadZone, progressContainer, progressStatus, hashedMasterKey } = documentUIElements;
     if (!uploadZone || !progressContainer) return;
 
-    // Check if model is selected
-    const modelSelector = document.getElementById('model-selector');
-    if (!modelSelector?.value) {
-        alert(Lang.get('ragModelSelect'));
+    const embeddingModel = getSelectedDocumentEmbeddingModel(true);
+    if (!embeddingModel) {
         return;
     }
 
-    // Filter to only PDF and TXT files
-    const validFiles = Array.from(files).filter(file =>
-        file.type === 'application/pdf' || file.type === 'text/plain'
-    );
+    // Filter to PDF, TXT, and MD files.
+    // Some browsers provide markdown as text/markdown, while others leave type empty.
+    const validFiles = Array.from(files).filter(file => {
+        const lowerName = String(file.name || '').toLowerCase();
+        return file.type === 'application/pdf' ||
+            file.type === 'text/plain' ||
+            file.type === 'text/markdown' ||
+            lowerName.endsWith('.txt') ||
+            lowerName.endsWith('.md');
+    });
 
     if (validFiles.length === 0) {
         alert(Lang.get('ragFileType'));
@@ -507,7 +709,7 @@ async function handleFiles(files) {
         }
 
         // Get current model to use for embeddings
-        const currentModel = modelSelector.value;
+        const currentModel = embeddingModel;
        //console.log('Using model for document processing:', currentModel);
 
         // Process the files - pass the current model
@@ -3600,12 +3802,14 @@ async function handleDocumentGlobalSearch() {
         return;
     }
 
-    // Check if a model is selected
+    // Check if a generation/chat model is selected
     const modelSelector = document.getElementById('model-selector');
     if (!modelSelector.value) {
         alert(Lang.get('selectModelPrompt'));
         return;
     }
+
+    const searchModel = modelSelector.value;
 
     // Set generating flag FIRST before any async operations
     window.isGenerating = true;
@@ -3664,11 +3868,11 @@ async function handleDocumentGlobalSearch() {
         // Let the search know this is a global search (different from single document mode)
         searchParams.globalSearch = true;
 
-        const searchResults = await diverseDocumentSearch(prompt, hashedMasterKey, modelSelector.value, searchParams);
+        const searchResults = await diverseDocumentSearch(prompt, hashedMasterKey, searchModel, searchParams);
 
         // Check if it was an embedding capability issue
         if (!searchResults || searchResults.length === 0) {
-            const modelName = modelSelector.options[modelSelector.selectedIndex].text || modelSelector.value;
+            const modelName = searchModel;
 
             if (window.lastEmbeddingError) {
                 streamProcessor.processChunk(`<div class="no-results error-message">
@@ -6149,6 +6353,7 @@ window.RAG_Utils = {
     updateDocumentQuestioningUI,
     showNotification,
     handleDocumentGlobalSearch,
+    refreshEmbeddingModelSelectorWithPrompt,
     addDocumentSearchStyles,
     isDocumentProcessing: () => !!documentProcessingState.isProcessing
 };

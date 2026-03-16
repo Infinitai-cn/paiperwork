@@ -88,7 +88,12 @@ class RAG {
             },
             model
           );
-        } else if (file.type === "text/plain") {
+        } else if (
+          file.type === "text/plain" ||
+          file.type === "text/markdown" ||
+          String(file?.name || "").toLowerCase().endsWith(".md") ||
+          String(file?.name || "").toLowerCase().endsWith(".txt")
+        ) {
           // Use the class method instead of a global function
           await this.processTextDocument(
             file,

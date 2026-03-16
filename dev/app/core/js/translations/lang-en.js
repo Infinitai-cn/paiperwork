@@ -472,6 +472,13 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         documentSearchEnabled: "Document Search Enabled",
         documentSearchInfo: "While in this tab, the main prompt will search across all your documents and provide information.",
         documentSpecificInfo: "If you select a specific document for questioning, that will take priority.",
+        ragEmbeddingModelLabel: "Embedding model",
+        ragEmbeddingModelDownloadHint: "Download an embedding model in the Models tab.",
+        ragNoEmbeddingModelsFound: "No embedding models found",
+        ragEmbeddingModelNeededTitle: "Embedding model required",
+        ragEmbeddingModelNeededMessage: "No embedding model was found. Please download one from the Models tab to process documents.",
+        ragEmbeddingModelNeededExamples: "Examples: qwen3-embedding, nomic-embed-text, mxbai-embed-large, bge-m3.",
+        ragEmbeddingModelGoDownload: "Go download model",
 
         // File Processing & Validation
         ragPreprocessingFiles: "Checking files for text content...",
@@ -542,7 +549,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
 
         // RAG Utils messages
         ragModelSelect: "Please select a model before uploading documents.",
-        ragFileType: "Please upload PDF or TXT files only.",
+        ragFileType: "Please upload PDF, TXT, or MD files only.",
         ragProcessing: "Processing...",
         ragDocumentsProcessed: "Documents processed successfully!",
         ragProcessingError: "Error processing documents. Please try again.",
