@@ -739,7 +739,9 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Importante:</strong> Certifique-se de ter selecionado um modelo de IA antes de carregar documentos na aba Chat. O modelo selecionado será usado para processar os documentos.</p>
+                    <p><strong>Importante:</strong> Use o seletor de <strong>modelo de embedding</strong> na aba Documentos ao carregar e processar arquivos. Esse seletor mostra modelos compatíveis com embeddings e seleciona automaticamente o primeiro disponível.</p>
+                    <p>Se nenhum modelo de embedding estiver disponível, uma janela de informação será exibida com exemplos de modelos e um botão <strong>Ir para baixar modelo</strong> que abre a aba Modelos.</p>
+                    <p><strong>Nota:</strong> A busca global de documentos usa o modelo selecionado no seletor de modelo da aba Chat.</p>
                 </div>
             `,
                 image: "documents-upload.png",

@@ -746,7 +746,9 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Importante:</strong> Asegúrate de haber seleccionado un modelo de IA antes de subir documentos en la pestaña de Chat. El modelo seleccionado se usará para procesar los documentos.</p>
+                    <p><strong>Importante:</strong> Usa el selector de <strong>modelo de embedding</strong> en la pestaña Documentos al subir y procesar archivos. Este selector muestra modelos compatibles con embeddings y selecciona automáticamente el primero disponible.</p>
+                    <p>Si no hay un modelo de embedding disponible, aparecerá una ventana informativa con ejemplos de modelos y un botón <strong>Ir a descargar modelo</strong> que abre la pestaña Modelos.</p>
+                    <p><strong>Nota:</strong> La búsqueda global de documentos usa el modelo seleccionado en el selector de modelo de la pestaña Chat.</p>
                 </div>
             `,
                 image: "documents-upload.png",

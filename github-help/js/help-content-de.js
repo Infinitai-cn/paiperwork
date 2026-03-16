@@ -739,7 +739,9 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Wichtig:</strong> Stellen Sie sicher, dass Sie ein KI-Modell ausgewählt haben, bevor Sie Dokumente im Chat-Tab hochladen. Das ausgewählte Modell wird zur Verarbeitung der Dokumente verwendet.</p>
+                    <p><strong>Wichtig:</strong> Verwenden Sie beim Hochladen und Verarbeiten von Dateien den <strong>Embedding-Modell</strong>-Selektor im Dokumente-Tab. Dieser Selektor zeigt embedding-fähige Modelle an und wählt automatisch das erste verfügbare Modell aus.</p>
+                    <p>Wenn kein Embedding-Modell verfügbar ist, erscheint ein Hinweisfenster mit Beispiel-Modellnamen und einer Schaltfläche <strong>Modell herunterladen</strong>, die den Modelle-Tab öffnet.</p>
+                    <p><strong>Hinweis:</strong> Die globale Dokumentensuche verwendet das im Chat-Tab ausgewählte Modell.</p>
                 </div>
             `,
                 image: "documents-upload.png",
