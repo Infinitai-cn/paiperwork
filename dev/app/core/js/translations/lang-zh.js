@@ -467,6 +467,13 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 documentSearchEnabled: "文档搜索已启用",
                 documentSearchInfo: "在此选项卡中，主提示将搜索您的所有文档并提供信息。",
                 documentSpecificInfo: "如果您选择特定文档进行询问，该文档将优先处理。",
+                ragEmbeddingModelLabel: "Embedding模型",
+                ragEmbeddingModelDownloadHint: "请在模型选项卡中下载一个Embedding模型。",
+                ragNoEmbeddingModelsFound: "未找到Embedding模型",
+                ragEmbeddingModelNeededTitle: "需要Embedding模型",
+                ragEmbeddingModelNeededMessage: "未找到Embedding模型。请在模型选项卡中下载一个以处理文档。",
+                ragEmbeddingModelNeededExamples: "示例：qwen3-embedding、nomic-embed-text、mxbai-embed-large、bge-m3。",
+                ragEmbeddingModelGoDownload: "前往下载模型",
 
                 // File Processing & Validation
                 ragPreprocessingFiles: "正在检查文件的文本内容...",
@@ -536,7 +543,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
 
                 // RAG Utils messages
                 ragModelSelect: "请在上传文档之前选择模型。",
-                ragFileType: "请仅上传PDF或TXT文件。",
+                ragFileType: "请仅上传PDF、TXT或MD文件。",
                 ragProcessing: "处理中...",
                 ragDocumentsProcessed: "文档处理成功！",
                 ragProcessingError: "处理文档时出错。请重试。",

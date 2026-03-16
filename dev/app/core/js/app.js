@@ -363,6 +363,41 @@ async function handleChatTab() {
 async function handleDocumentsTab() {
    //console.log('App: Documents tab clicked');
 
+    // Keep model list in sync with current local/cloud state (same behavior intent as Chat tab).
+    const modelSelector = document.getElementById('model-selector');
+    if (modelSelector && window.OllamaAPI && typeof window.OllamaAPI.loadOllamaModels === 'function') {
+        try {
+            const previousOption = modelSelector.options[modelSelector.selectedIndex] || null;
+            const previousModel = modelSelector.value || '';
+            const previousProvider = (previousOption && previousOption.dataset && previousOption.dataset.provider)
+                ? previousOption.dataset.provider
+                : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+                    ? (window.OllamaAPI.getModelSource(previousModel) || 'local')
+                    : 'local');
+
+            const modelsLoaded = await window.OllamaAPI.loadOllamaModels();
+            if (modelsLoaded && previousModel) {
+                const exactProviderOption = Array.from(modelSelector.options).find(option =>
+                    option.value === previousModel &&
+                    option.dataset &&
+                    option.dataset.provider === previousProvider
+                );
+
+                const fallbackOption = Array.from(modelSelector.options).find(option =>
+                    option.value === previousModel
+                );
+
+                const optionToRestore = exactProviderOption || fallbackOption;
+                if (optionToRestore) {
+                    modelSelector.value = optionToRestore.value;
+                    modelSelector.selectedIndex = optionToRestore.index;
+                }
+            }
+        } catch (modelRefreshError) {
+            console.error('App: Error refreshing model list for Documents tab:', modelRefreshError);
+        }
+    }
+
     // Create a helper function to initialize or refresh documents
     const initOrRefreshDocuments = async (retry = false) => {
         if (window.RAG_Utils) {
@@ -388,17 +423,26 @@ async function handleDocumentsTab() {
 
     // First attempt to initialize or refresh documents
     let success = await initOrRefreshDocuments();
+    if (success && window.RAG_Utils && typeof window.RAG_Utils.refreshEmbeddingModelSelectorWithPrompt === 'function') {
+        window.RAG_Utils.refreshEmbeddingModelSelectorWithPrompt();
+    }
 
     // If RAG_Utils isn't available yet, wait and retry with increasing intervals
     if (!success) {
        //console.log('App: RAG_Utils not available, waiting 100ms...');
         await new Promise(resolve => setTimeout(resolve, 100));
         success = await initOrRefreshDocuments();
+        if (success && window.RAG_Utils && typeof window.RAG_Utils.refreshEmbeddingModelSelectorWithPrompt === 'function') {
+            window.RAG_Utils.refreshEmbeddingModelSelectorWithPrompt();
+        }
 
         if (!success) {
            //console.log('App: RAG_Utils still not available, waiting 300ms...');
             await new Promise(resolve => setTimeout(resolve, 300));
             success = await initOrRefreshDocuments(true);
+            if (success && window.RAG_Utils && typeof window.RAG_Utils.refreshEmbeddingModelSelectorWithPrompt === 'function') {
+                window.RAG_Utils.refreshEmbeddingModelSelectorWithPrompt();
+            }
 
             if (!success) {
                 console.error('App: RAG_Utils still not available after multiple attempts');

@@ -468,6 +468,13 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         documentSearchEnabled: "Recherche de documents activée",
         documentSearchInfo: "Dans cet onglet, l'invite principale recherchera dans tous vos documents et fournira des informations.",
         documentSpecificInfo: "Si vous sélectionnez un document spécifique pour poser des questions, celui-ci aura la priorité.",
+        ragEmbeddingModelLabel: "Modèle d'embedding",
+        ragEmbeddingModelDownloadHint: "Téléchargez un modèle d'embedding dans l'onglet Modèles.",
+        ragNoEmbeddingModelsFound: "Aucun modèle d'embedding trouvé",
+        ragEmbeddingModelNeededTitle: "Modèle d'embedding requis",
+        ragEmbeddingModelNeededMessage: "Aucun modèle d'embedding trouvé. Téléchargez-en un depuis l'onglet Modèles pour traiter les documents.",
+        ragEmbeddingModelNeededExamples: "Exemples : qwen3-embedding, nomic-embed-text, mxbai-embed-large, bge-m3.",
+        ragEmbeddingModelGoDownload: "Télécharger un modèle",
 
         // File Processing & Validation
         ragPreprocessingFiles: "Vérification du contenu textuel des fichiers...",
@@ -537,7 +544,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
 
         // RAG Utils messages
         ragModelSelect: "Veuillez sélectionner un modèle avant de télécharger des documents.",
-        ragFileType: "Veuillez télécharger uniquement des fichiers PDF ou TXT.",
+        ragFileType: "Veuillez télécharger uniquement des fichiers PDF, TXT ou MD.",
         ragProcessing: "Traitement en cours...",
         ragDocumentsProcessed: "Documents traités avec succès !",
         ragProcessingError: "Erreur lors du traitement des documents. Veuillez réessayer.",

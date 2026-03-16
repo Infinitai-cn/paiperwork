@@ -463,6 +463,13 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         documentSearchEnabled: "Búsqueda de Documentos Habilitada",
         documentSearchInfo: "Mientras esté en esta pestaña, el prompt principal buscará en todos sus documentos y proporcionará información.",
         documentSpecificInfo: "Si selecciona un documento específico para hacer preguntas, eso tendrá prioridad.",
+        ragEmbeddingModelLabel: "Modelo de embedding",
+        ragEmbeddingModelDownloadHint: "Descargue un modelo de embedding en la pestaña Modelos.",
+        ragNoEmbeddingModelsFound: "No se encontraron modelos de embedding",
+        ragEmbeddingModelNeededTitle: "Se requiere un modelo de embedding",
+        ragEmbeddingModelNeededMessage: "No se encontró ningún modelo de embedding. Descargue uno desde la pestaña Modelos para procesar documentos.",
+        ragEmbeddingModelNeededExamples: "Ejemplos: qwen3-embedding, nomic-embed-text, mxbai-embed-large, bge-m3.",
+        ragEmbeddingModelGoDownload: "Ir a descargar modelo",
 
         // File Processing & Validation
         ragPreprocessingFiles: "Verificando archivos en busca de contenido de texto...",
@@ -532,7 +539,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
 
         // RAG Utils messages
         ragModelSelect: "Por favor, seleccione un modelo antes de subir documentos.",
-        ragFileType: "Por favor, suba solo archivos PDF o TXT.",
+        ragFileType: "Por favor, suba solo archivos PDF, TXT o MD.",
         ragProcessing: "Procesando...",
         ragDocumentsProcessed: "¡Documentos procesados exitosamente!",
         ragProcessingError: "Error al procesar documentos. Por favor, inténtelo de nuevo.",
