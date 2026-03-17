@@ -4,6 +4,7 @@ class TabLoader {
         this.loadedModules = {};
         this.loadingPromises = {};
         this.loadedClasses = {};
+        this.pollIntervalMs = 100;
         this.tabConfigs = {
             'chat': {
                 required: true,
@@ -70,6 +71,22 @@ class TabLoader {
         };
 
         this.initializeTabs();
+    }
+
+    // Detect hosted/cloud mode so slow remote loads get a longer readiness timeout.
+    isOnlineMode() {
+        if (window.PAIPERWORK_CLOUD_ONLY === true) {
+            return true;
+        }
+
+        const host = String(window.location.hostname || '').toLowerCase();
+        const protocol = String(window.location.protocol || '').toLowerCase();
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' || protocol === 'file:';
+        return !isLocal;
+    }
+
+    getTabLoadMaxAttempts() {
+        return this.isOnlineMode() ? 180 : 50;
     }
 
     // Sets up click handlers for tab buttons and loads scripts for the active tab on page load.
@@ -243,7 +260,7 @@ class TabLoader {
             if (tabName === 'documents') {
                 await new Promise((resolve, reject) => {
                     let attempts = 0;
-                    const maxAttempts = 50;
+                    const maxAttempts = this.getTabLoadMaxAttempts();
 
                     const checkInterval = setInterval(() => {
                         attempts++;
@@ -256,14 +273,14 @@ class TabLoader {
                             console.error('TabLoader: Documents tab components not loaded');
                             reject(new Error('Timeout waiting for Documents tab components'));
                         }
-                    }, 100);
+                    }, this.pollIntervalMs);
                 });
             }
             // For Paperwork specifically, ensure global objects are available
             if (tabName === 'paperwork') {
                 await new Promise((resolve, reject) => {
                     let attempts = 0;
-                    const maxAttempts = 50;
+                    const maxAttempts = this.getTabLoadMaxAttempts();
 
                     const checkInterval = setInterval(() => {
                         attempts++;
@@ -283,13 +300,13 @@ class TabLoader {
                             });
                             reject(new Error('Timeout waiting for Paperwork components'));
                         }
-                    }, 100);
+                    }, this.pollIntervalMs);
                 });
             }
             if (tabName === 'research') {
                 await new Promise((resolve, reject) => {
                     let attempts = 0;
-                    const maxAttempts = 50;
+                    const maxAttempts = this.getTabLoadMaxAttempts();
 
                     const checkInterval = setInterval(() => {
                         attempts++;
@@ -308,14 +325,14 @@ class TabLoader {
                             });
                             reject(new Error('Timeout waiting for Research components'));
                         }
-                    }, 100);
+                    }, this.pollIntervalMs);
                 });
             }
             // Keep other tab component checks as is
             if (tabName === 'dataviz') {
                 await new Promise((resolve, reject) => {
                     let attempts = 0;
-                    const maxAttempts = 50;
+                    const maxAttempts = this.getTabLoadMaxAttempts();
 
                     const checkInterval = setInterval(() => {
                         attempts++;
@@ -334,13 +351,13 @@ class TabLoader {
                             });
                             reject(new Error('Timeout waiting for DataViz components'));
                         }
-                    }, 100);
+                    }, this.pollIntervalMs);
                 });
             }
             if (tabName === 'artwork') {
                 await new Promise((resolve, reject) => {
                     let attempts = 0;
-                    const maxAttempts = 50;
+                    const maxAttempts = this.getTabLoadMaxAttempts();
 
                     const checkInterval = setInterval(() => {
                         attempts++;
@@ -359,13 +376,13 @@ class TabLoader {
                             });
                             reject(new Error('Timeout waiting for Artwork components'));
                         }
-                    }, 100);
+                    }, this.pollIntervalMs);
                 });
             }
             if (tabName === 'presentation') {
                 await new Promise((resolve, reject) => {
                     let attempts = 0;
-                    const maxAttempts = 50;
+                    const maxAttempts = this.getTabLoadMaxAttempts();
 
                     const checkInterval = setInterval(() => {
                         attempts++;
@@ -381,13 +398,13 @@ class TabLoader {
                             });
                             reject(new Error('Timeout waiting for SlideForge components'));
                         }
-                    }, 100);
+                    }, this.pollIntervalMs);
                 });
             }
             if (tabName === 'models') {
                 await new Promise((resolve, reject) => {
                     let attempts = 0;
-                    const maxAttempts = 50;
+                    const maxAttempts = this.getTabLoadMaxAttempts();
 
                     const checkInterval = setInterval(() => {
                         attempts++;
@@ -400,7 +417,7 @@ class TabLoader {
                             console.error('TabLoader: ModelDownloader not available');
                             reject(new Error('Timeout waiting for ModelDownloader'));
                         }
-                    }, 100);
+                    }, this.pollIntervalMs);
                 });
             }
 

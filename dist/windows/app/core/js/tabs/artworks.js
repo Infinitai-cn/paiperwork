@@ -11,6 +11,14 @@ class Artworks {
         this.isGenerating = false;
     }
 
+    isOnlineDeploymentMode() {
+        if (window.PAIPERWORK_CLOUD_ONLY === true) return true;
+        const host = String(window.location.hostname || '').toLowerCase();
+        const protocol = String(window.location.protocol || '').toLowerCase();
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' || protocol === 'file:';
+        return !isLocal;
+    }
+
     // Initializes the Artworks class by loading visual models if not already initialized
     async initialize() {
         if (this.initialized) return true;
@@ -32,18 +40,23 @@ class Artworks {
     // Loads available visual models from the Ollama API and filters them for visual models
     async loadVisualModels() {
         try {
+            const onlineMode = this.isOnlineDeploymentMode();
             const cloudApiKey = (window.OllamaAPI && typeof window.OllamaAPI.getStoredCloudApiKey === 'function')
                 ? await window.OllamaAPI.getStoredCloudApiKey()
                 : '';
 
+            const localTagsPromise = onlineMode
+                ? Promise.resolve({ skipped: true })
+                : fetch('http://localhost:11434/api/tags');
+
             const [localResult, cloudResult] = await Promise.allSettled([
-                fetch('http://localhost:11434/api/tags'),
+                localTagsPromise,
                 fetch('/api/cloud/tags', {
                     headers: cloudApiKey ? { 'Authorization': `Bearer ${cloudApiKey}` } : undefined
                 })
             ]);
 
-            const localModels = (localResult.status === 'fulfilled' && localResult.value.ok)
+            const localModels = (!onlineMode && localResult.status === 'fulfilled' && localResult.value.ok)
                 ? ((await localResult.value.json()).models || [])
                 : [];
             const cloudModels = (cloudResult.status === 'fulfilled' && cloudResult.value.ok)
@@ -53,7 +66,7 @@ class Artworks {
             if (cloudResult.status === 'fulfilled' && cloudResult.value.status === 429) {
                 console.warn('Artworks: Cloud model listing hit rate limit (429).', (window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429).');
             }
-            if (localResult.status === 'fulfilled' && localResult.value.status === 429) {
+            if (!onlineMode && localResult.status === 'fulfilled' && localResult.value.status === 429) {
                 console.warn('Artworks: Local model listing hit rate limit (429).', (window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429).');
             }
 
@@ -86,7 +99,7 @@ class Artworks {
             }
 
             const allModels = [
-                ...localModels.map(model => normalizeModel(model, 'local')).filter(Boolean),
+                ...(onlineMode ? [] : localModels.map(model => normalizeModel(model, 'local')).filter(Boolean)),
                 ...cloudModels.map(model => normalizeModel(model, 'cloud')).filter(Boolean)
             ];
 
@@ -132,9 +145,11 @@ class Artworks {
                 return matchesByName || hasVisualCapabilityHint(model);
             });
 
-            this.localVisualModels = this.visualModels
-                .filter(model => model.provider === 'local')
-                .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+            this.localVisualModels = onlineMode
+                ? []
+                : this.visualModels
+                    .filter(model => model.provider === 'local')
+                    .sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
             this.cloudVisualModels = this.visualModels
                 .filter(model => model.provider === 'cloud')

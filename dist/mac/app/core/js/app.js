@@ -812,6 +812,17 @@ async function handleArtworksTab() {
 async function handlepresentationtab() {
    //console.log('App: SlideForge tab clicked');
 
+    const isOnlineMode = (() => {
+        if (window.PAIPERWORK_CLOUD_ONLY === true) return true;
+        const host = String(window.location.hostname || '').toLowerCase();
+        const protocol = String(window.location.protocol || '').toLowerCase();
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' || protocol === 'file:';
+        return !isLocal;
+    })();
+
+    const maxAttempts = isOnlineMode ? 90 : 10;
+    const intervalMs = 200;
+
     try {
         // Wait for scripts to load first
         if (!window.presentation) {
@@ -824,11 +835,11 @@ async function handlepresentationtab() {
                         clearInterval(checkInterval);
                         resolve();
                     }
-                    if (attempts > 10) { // 2 seconds timeout
+                    if (attempts > maxAttempts) {
                         clearInterval(checkInterval);
                         reject(new Error('Timeout waiting for SlideForge to load'));
                     }
-                }, 200);
+                }, intervalMs);
             });
         }
 
@@ -849,11 +860,11 @@ async function handlepresentationtab() {
                         clearInterval(checkInterval);
                         resolve();
                     }
-                    if (attempts > 10) {
+                    if (attempts > maxAttempts) {
                         clearInterval(checkInterval);
                         reject(new Error('Timeout waiting for presentationtab to load'));
                     }
-                }, 200);
+                }, intervalMs);
             });
         }
 

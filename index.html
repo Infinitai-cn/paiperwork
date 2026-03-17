@@ -190,6 +190,11 @@
         </div>
         
         <div class="features">
+            <a class="feature-card feature-card-anchor" href="https://huggingface.co/spaces/Infinitai/Paiperwork" target="_blank" rel="noopener noreferrer">
+                <h3 class="feature-title">Try online</h3>
+                <p>You can use Paiperwork for free in Huggingface using Ollama free cloud models (API Key required, read the documentation, start section to get an API key from Ollama).</p>
+            </a>
+
             <a class="feature-card feature-card-anchor" href="/paiperwork/demos.html" target="_blank" rel="noopener noreferrer">
                 <h3 class="feature-title">Demos</h3>
                 <p>Demos showcase different creations using Paiperwork. Click to open a dedicated demos page with one card per HTML demo file.</p>
@@ -295,6 +300,10 @@
                         title: "Presentations",
                         description: "Create presentations using document summaries and styled graphics."
                     },
+                    tryOnline: {
+                        title: "Try online",
+                        description: "You can use Paiperwork for free in Huggingface using Ollama free cloud models (API Key required, read the documentation, start section to get an API key from Ollama)."
+                    },
                     demos: {
                         title: "Demos",
                         description: "Demos showcase different creations using Paiperwork. Click to open a dedicated demos page with one card per HTML demo file."
@@ -347,6 +356,10 @@
                     presentations: {
                         title: "演示文稿",
                         description: "使用文档摘要和样式化图形创建演示文稿。"
+                    },
+                    tryOnline: {
+                        title: "在线试用",
+                        description: "您可以在 Huggingface 免费使用 Paiperwork，并通过 Ollama 免费云模型运行（需要 API Key，请阅读文档的 start 部分以获取 Ollama API key）。"
                     },
                     demos: {
                         title: "演示示例",
@@ -401,6 +414,10 @@
                         title: "Presentaciones",
                         description: "Crea presentaciones usando resúmenes de documentos y gráficos con estilo."
                     },
+                    tryOnline: {
+                        title: "Probar online",
+                        description: "Puedes usar Paiperwork gratis en Huggingface usando modelos cloud gratuitos de Ollama (se requiere API Key; lee la documentación, sección start, para obtener una API key de Ollama)."
+                    },
                     demos: {
                         title: "Demos",
                         description: "Las demos muestran diferentes creaciones con Paiperwork. Haz clic para abrir una página dedicada con una tarjeta por cada archivo HTML de demostración."
@@ -453,6 +470,10 @@
                     presentations: {
                         title: "Présentations",
                         description: "Créez des présentations en utilisant des résumés de documents et des graphiques stylisés."
+                    },
+                    tryOnline: {
+                        title: "Essayer en ligne",
+                        description: "Vous pouvez utiliser Paiperwork gratuitement sur Huggingface avec les modèles cloud gratuits d'Ollama (API Key requise, lisez la documentation, section start, pour obtenir une clé API Ollama)."
                     },
                     demos: {
                         title: "Démos",
@@ -507,6 +528,10 @@
                         title: "Präsentationen",
                         description: "Erstellen Sie Präsentationen mit Dokumentenzusammenfassungen und stilvollen Grafiken."
                     },
+                    tryOnline: {
+                        title: "Online ausprobieren",
+                        description: "Sie können Paiperwork kostenlos auf Huggingface mit kostenlosen Ollama-Cloud-Modellen nutzen (API Key erforderlich, lesen Sie die Dokumentation im Abschnitt start, um einen Ollama-API-Schlüssel zu erhalten)."
+                    },
                     demos: {
                         title: "Demos",
                         description: "Demos zeigen verschiedene mit Paiperwork erstellte Inhalte. Klicken Sie, um eine eigene Demoseite mit einer Karte pro HTML-Demodatei zu öffnen."
@@ -560,6 +585,10 @@
                         title: "Apresentações",
                         description: "Crie apresentações usando resumos de documentos e gráficos estilizados."
                     },
+                    tryOnline: {
+                        title: "Experimentar online",
+                        description: "Você pode usar o Paiperwork gratuitamente no Huggingface usando modelos cloud gratuitos da Ollama (API Key obrigatória; leia a documentação, seção start, para obter uma API key da Ollama)."
+                    },
                     demos: {
                         title: "Demos",
                         description: "As demos mostram diferentes criações com o Paiperwork. Clique para abrir uma página dedicada com um cartão para cada arquivo HTML de demonstração."
@@ -604,6 +633,7 @@
             // Update feature cards
             const featureCards = document.querySelectorAll('.feature-card');
             const featureKeys = [
+                'tryOnline',
                 'demos',
                 'smartDocAnalysis',
                 'dataVisualization',
@@ -640,7 +670,12 @@
             const documentationLink = document.getElementById('documentation-link');
             
             // Get stored language preference or default to English
-            const storedLanguage = localStorage.getItem('preferredLanguage') || 'en';
+            let storedLanguage = 'en';
+            try {
+                storedLanguage = localStorage.getItem('preferredLanguage') || 'en';
+            } catch (_err) {
+                storedLanguage = 'en';
+            }
             languageSelector.value = storedLanguage;
             
             // Update page with stored language
@@ -658,7 +693,11 @@
             // Handle language selector change
             languageSelector.addEventListener('change', function() {
                 const selectedLanguage = this.value;
-                localStorage.setItem('preferredLanguage', selectedLanguage);
+                try {
+                    localStorage.setItem('preferredLanguage', selectedLanguage);
+                } catch (_err) {
+                    // Storage can be blocked in some embedded/strict browser modes.
+                }
                 updateDocumentationLink(selectedLanguage);
                 updatePageLanguage(selectedLanguage);
                 

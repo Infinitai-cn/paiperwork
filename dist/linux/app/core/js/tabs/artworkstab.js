@@ -11,6 +11,14 @@ class ArtworksTab {
         this.elements = {};
     }
 
+    isOnlineDeploymentMode() {
+        if (window.PAIPERWORK_CLOUD_ONLY === true) return true;
+        const host = String(window.location.hostname || '').toLowerCase();
+        const protocol = String(window.location.protocol || '').toLowerCase();
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' || protocol === 'file:';
+        return !isLocal;
+    }
+
     getRateLimitMessage() {
         return (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded'))
             || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
@@ -237,6 +245,7 @@ class ArtworksTab {
     populateModelSelector() {
         const { modelSelector } = this.elements;
         if (!modelSelector) return;
+        const onlineMode = this.isOnlineDeploymentMode();
 
         // Clear existing options
         modelSelector.innerHTML = `<option value="">${Lang.get('artworkSelectVisualModelOption')}</option>`;
@@ -266,22 +275,54 @@ class ArtworksTab {
             modelSelector.appendChild(option);
         };
 
-        if (localVisualModels.length > 0) {
-            appendGroupHeader(Lang.get('artworkLocalVisualModelsHeader') || 'LOCAL VISUAL MODELS');
-            localVisualModels.forEach(appendModelOption);
+        let localVisualModelsForDisplay = localVisualModels;
+        let cloudVisualModelsForDisplay = cloudVisualModels;
+
+        if (onlineMode) {
+            localVisualModelsForDisplay = [];
+
+            // In hosted mode local /api/tags can be cloud-routed; display those as cloud entries.
+            const merged = [...cloudVisualModels, ...localVisualModels];
+            const seen = new Set();
+            cloudVisualModelsForDisplay = merged
+                .map(model => {
+                    const normalizedName = (window.OllamaAPI && typeof window.OllamaAPI.normalizeCloudModelName === 'function')
+                        ? window.OllamaAPI.normalizeCloudModelName(model?.name || '')
+                        : String(model?.name || '');
+                    return {
+                        ...model,
+                        name: normalizedName,
+                        provider: 'cloud'
+                    };
+                })
+                .filter(model => {
+                    const name = String(model?.name || '').trim();
+                    if (!name || seen.has(name)) return false;
+                    seen.add(name);
+                    return true;
+                })
+                .sort((a, b) => String(a.name).localeCompare(String(b.name)));
         }
 
-        if (cloudVisualModels.length > 0) {
+        if (localVisualModelsForDisplay.length > 0) {
+            appendGroupHeader(Lang.get('artworkLocalVisualModelsHeader') || 'LOCAL VISUAL MODELS');
+            localVisualModelsForDisplay.forEach(appendModelOption);
+        }
+
+        if (cloudVisualModelsForDisplay.length > 0) {
             appendGroupHeader(Lang.get('artworkCloudVisualModelsHeader') || 'CLOUD VISUAL MODELS');
-            cloudVisualModels.forEach(appendModelOption);
+            cloudVisualModelsForDisplay.forEach(appendModelOption);
         }
 
         // Fallback for unexpected data shapes.
-        if (localVisualModels.length === 0 && cloudVisualModels.length === 0) {
-            this.artworksInstance.visualModels.forEach(appendModelOption);
+        if (localVisualModelsForDisplay.length === 0 && cloudVisualModelsForDisplay.length === 0) {
+            const fallbackModels = onlineMode
+                ? this.artworksInstance.visualModels.map(model => ({ ...model, provider: 'cloud' }))
+                : this.artworksInstance.visualModels;
+            fallbackModels.forEach(appendModelOption);
         }
 
-        const availableModels = [...localVisualModels, ...cloudVisualModels];
+        const availableModels = [...localVisualModelsForDisplay, ...cloudVisualModelsForDisplay];
 
         if (availableModels.length === 1) {
             modelSelector.value = availableModels[0].name;

@@ -249,6 +249,14 @@ class OllamaAPI {
         return null;
     }
 
+    static isOnlineDeploymentMode() {
+        if (window.PAIPERWORK_CLOUD_ONLY === true) return true;
+        const host = String(window.location.hostname || '').toLowerCase();
+        const protocol = String(window.location.protocol || '').toLowerCase();
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' || protocol === 'file:';
+        return !isLocal;
+    }
+
     static normalizeCloudModelName(modelName) {
         const name = String(modelName || '').trim();
         if (!name) return '';
@@ -416,11 +424,15 @@ class OllamaAPI {
 
     static async loadOllamaModels() {
         const modelSelector = document.getElementById('model-selector');
+        const onlineMode = this.isOnlineDeploymentMode();
        //  //console.log('Loading Ollama models...');
 
         try {
            //  //console.log('Fetching local and cloud Ollama models...');
             const cloudApiKey = await this.getStoredCloudApiKey();
+            const localTagsPromise = onlineMode
+                ? Promise.resolve({ skipped: true })
+                : fetchLocalTagsWithRetry();
 
             const fetchLocalTagsWithRetry = async () => {
                 const timeouts = [7000, 12000];
@@ -447,7 +459,7 @@ class OllamaAPI {
             };
 
             const [localResponse, cloudResponse] = await Promise.allSettled([
-                fetchLocalTagsWithRetry(),
+                localTagsPromise,
                 fetch('/api/cloud/tags', {
                     // Cloud fetch should never block local model visibility.
                     signal: AbortSignal.timeout(2500),
@@ -462,7 +474,7 @@ class OllamaAPI {
             let localModels = [];
             let cloudModels = [];
 
-            if (localResponse.status === 'fulfilled' && localResponse.value.ok) {
+            if (!onlineMode && localResponse.status === 'fulfilled' && localResponse.value.ok) {
                 const localData = await localResponse.value.json();
                 localModels = Array.isArray(localData.models) ? localData.models : [];
 
@@ -475,7 +487,7 @@ class OllamaAPI {
                     .filter(model => model.name);
 
                 this._cachedLocalModels = localModels;
-            } else {
+            } else if (!onlineMode) {
                 console.warn('OllamaAPI: local /api/tags unavailable during loadOllamaModels', {
                     status: localResponse.status,
                     httpOk: localResponse.status === 'fulfilled' ? localResponse.value.ok : false
@@ -488,6 +500,8 @@ class OllamaAPI {
                         cachedCount: localModels.length
                     });
                 }
+            } else {
+                localModels = [];
             }
 
             if (cloudResponse.status === 'fulfilled' && cloudResponse.value.ok) {
@@ -511,10 +525,23 @@ class OllamaAPI {
             });
 
             this.localModelNames = new Set(localModels.map(model => model.name));
-            this.cloudModelNames = new Set(cloudModels.map(model => this.normalizeCloudModelName(model.name)));
+            const cloudModelsForDisplay = cloudModels;
+
+            const normalizedCloudDisplayNames = [];
+            const seenCloudNames = new Set();
+            cloudModelsForDisplay.forEach(model => {
+                const normalized = this.normalizeCloudModelName(model?.name || model?.model || '');
+                if (normalized && !seenCloudNames.has(normalized)) {
+                    seenCloudNames.add(normalized);
+                    normalizedCloudDisplayNames.push(normalized);
+                }
+            });
+
+            this.localModelNames = onlineMode ? new Set() : new Set(localModels.map(model => model.name));
+            this.cloudModelNames = new Set(normalizedCloudDisplayNames);
 
             // Keep old behavior: if nothing is available at all, show guidance.
-            if (localModels.length === 0 && cloudModels.length === 0) {
+            if (localModels.length === 0 && normalizedCloudDisplayNames.length === 0) {
                 console.warn('No local or cloud models found in Ollama');
 
                 setTimeout(() => {
@@ -537,7 +564,7 @@ class OllamaAPI {
             };
 
             // Add local models first.
-            if (localModels.length > 0) {
+            if (!onlineMode && localModels.length > 0) {
                 appendGroupHeader('LOCAL MODELS');
                 localModels.forEach(model => {
                     const option = document.createElement('option');
@@ -549,10 +576,9 @@ class OllamaAPI {
             }
 
             // Then add cloud models.
-            if (cloudModels.length > 0) {
+            if (normalizedCloudDisplayNames.length > 0) {
                 appendGroupHeader('CLOUD MODELS');
-                cloudModels.forEach(model => {
-                    const normalizedCloudName = this.normalizeCloudModelName(model.name);
+                normalizedCloudDisplayNames.forEach(normalizedCloudName => {
                     const option = document.createElement('option');
                     option.value = normalizedCloudName;
                     option.textContent = normalizedCloudName;

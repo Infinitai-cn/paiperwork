@@ -85,8 +85,26 @@
         const isLocalHost = host === 'localhost' || host === '127.0.0.1';
         const queryFlag = new URLSearchParams(window.location.search || '').get('cloudOnly');
         const cloudOnlyByQuery = queryFlag === '1' || queryFlag === 'true';
-        const cloudOnlyByStorage = localStorage.getItem('cloudOnlyMode') === 'true';
+        let cloudOnlyByStorage = false;
+        try {
+            cloudOnlyByStorage = localStorage.getItem('cloudOnlyMode') === 'true';
+        } catch (_err) {
+            cloudOnlyByStorage = false;
+        }
         return cloudOnlyByQuery || cloudOnlyByStorage || (!isLocalHost && protocol !== 'file:');
+    }
+
+    function getHostedRequirementsText(lang) {
+        const notices = {
+            en: 'Online Paiperwork version requires one API key from <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a> to operate free Ollama cloud models, create an Ollama account, create one API key in settings>keys and store in your computer, input the key when Paiperwork requires it.',
+            zh: '在线版 Paiperwork 需要一个来自 <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a> 的 API Key 才能使用免费的 Ollama 云模型。请创建 Ollama 账户，在 settings>keys 中创建一个 API Key 并保存在您的电脑上，在 Paiperwork 提示时输入该密钥。',
+            es: 'La versión online de Paiperwork requiere una clave API de <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a> para operar modelos cloud gratuitos de Ollama, crea una cuenta de Ollama, crea una clave API en settings>keys y guárdala en tu ordenador, introduce la clave cuando Paiperwork la solicite.',
+            fr: 'La version en ligne de Paiperwork nécessite une clé API depuis <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a> pour utiliser les modèles cloud gratuits d\'Ollama, créez un compte Ollama, créez une clé API dans settings>keys et stockez-la sur votre ordinateur, saisissez la clé lorsque Paiperwork la demande.',
+            de: 'Die Online-Version von Paiperwork benötigt einen API-Schlüssel von <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a>, um kostenlose Ollama-Cloud-Modelle zu nutzen, erstellen Sie ein Ollama-Konto, erstellen Sie einen API-Schlüssel in settings>keys und speichern Sie ihn auf Ihrem Computer, geben Sie den Schlüssel ein, wenn Paiperwork danach fragt.',
+            pt: 'A versão online do Paiperwork requer uma chave de API da <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a> para operar modelos cloud gratuitos da Ollama, crie uma conta Ollama, crie uma chave de API em settings>keys e guarde-a no seu computador, informe a chave quando o Paiperwork solicitar.'
+        };
+
+        return notices[lang] || notices.en;
     }
 
     function setAppropriateImage() {
@@ -117,13 +135,6 @@
         // Initial page text update - now happens AFTER language initialization
         updatePageText();
 
-        if (isHostedMode()) {
-            const requirementsSection = document.querySelector('.requirements');
-            if (requirementsSection) {
-                requirementsSection.style.display = 'none';
-            }
-        }
-
         setAppropriateImage();
     });
     
@@ -146,11 +157,13 @@
         // Update requirements text while preserving the Ollama link
         const requirementsText = document.querySelector('.requirements p');
         if (requirementsText) {
-            const translatedText = Lang.get('requirementsText') || 'must be installed and running locally on its (default) port 11434, make sure you have updated to the latest version.';
-            const ollamaLinkText = Lang.get('ollamaLinkText') || 'Ollama';
-            
-            // Create the full text with the link
-            requirementsText.innerHTML = `<a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">${ollamaLinkText}</a> ${translatedText}`;
+            if (isHostedMode()) {
+                requirementsText.innerHTML = getHostedRequirementsText(Lang.getCurrentLanguage());
+            } else {
+                const translatedText = Lang.get('requirementsText') || 'must be installed and running locally on its (default) port 11434, make sure you have updated to the latest version.';
+                const ollamaLinkText = Lang.get('ollamaLinkText') || 'Ollama';
+                requirementsText.innerHTML = `<a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">${ollamaLinkText}</a> ${translatedText}`;
+            }
         }
         
         // Update start button
