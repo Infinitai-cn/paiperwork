@@ -1,3 +1,72 @@
+// Hosted/cloud deployments can run without local Ollama by rewriting hardcoded localhost fetches.
+(function bootstrapHostedFetchCompatibility() {
+    if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
+
+    const host = String(window.location.hostname || '').toLowerCase();
+    const protocol = String(window.location.protocol || '').toLowerCase();
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+
+    const queryFlag = new URLSearchParams(window.location.search || '').get('cloudOnly');
+    const cloudOnlyByQuery = queryFlag === '1' || queryFlag === 'true';
+    const cloudOnlyByStorage = localStorage.getItem('cloudOnlyMode') === 'true';
+    const cloudOnlyByHost = !isLocalHost && protocol !== 'file:';
+    const cloudOnlyMode = cloudOnlyByQuery || cloudOnlyByStorage || cloudOnlyByHost;
+
+    window.PAIPERWORK_CLOUD_ONLY = cloudOnlyMode;
+    if (!cloudOnlyMode) return;
+
+    const originalFetch = window.fetch.bind(window);
+    const unsupportedCloudEndpoints = new Set(['ps', 'version', 'delete']);
+
+    function makeNotSupportedResponse(path) {
+        return new Response(
+            JSON.stringify({
+                error: 'This operation is unavailable in cloud-only mode.',
+                path
+            }),
+            {
+                status: 501,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+    }
+
+    function rewriteLocalhostTarget(resource) {
+        const raw = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
+        if (!raw) return null;
+
+        if (raw.startsWith('http://localhost:8182/api/library') || raw.startsWith('http://127.0.0.1:8182/api/library')) {
+            return { rewritten: raw.replace(/^http:\/\/(localhost|127\.0\.0\.1):8182/, '') };
+        }
+
+        const localPrefixMatch = raw.match(/^http:\/\/(localhost|127\.0\.0\.1):11434\/api\/(.+)$/i);
+        if (!localPrefixMatch) return null;
+
+        const endpointAndQuery = localPrefixMatch[2] || '';
+        const endpoint = endpointAndQuery.split('?')[0].toLowerCase();
+        if (unsupportedCloudEndpoints.has(endpoint)) {
+            return { response: makeNotSupportedResponse(endpoint) };
+        }
+
+        return { rewritten: '/api/cloud/' + endpointAndQuery };
+    }
+
+    window.fetch = function(resource, init) {
+        const rewriteResult = rewriteLocalhostTarget(resource);
+        if (!rewriteResult) {
+            return originalFetch(resource, init);
+        }
+
+        if (rewriteResult.response) {
+            return Promise.resolve(rewriteResult.response);
+        }
+
+        return originalFetch(rewriteResult.rewritten, init);
+    };
+})();
+
 document.addEventListener('DOMContentLoaded', async function () {
    //console.log('DOM Content Loaded');
     Lang.initialize();

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <title id="page-title">Paiperwork- Welcome</title>
+        <link rel="stylesheet" href="core/css/themes.css">
+        <link rel="stylesheet" href="core/css/styles.css">
+        <script src="core/js/libraries/SQLjs/sql-wasm.js"></script>
+        <script src="core/js/translations/lang.js"></script>
+        <script src="core/js/utils/feats/database.js"></script>
+        <script src="core/js/utils/selection.js"></script>
+        <script src="core/js/utils/version.js"></script>
+        <style>
+            .top-navigation {
+                position: absolute;
+                top: 15px;
+                left: 0;
+                right: 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0 15px;
+                z-index: 10;
+            }
+
+            .nav-left {
+                flex: 1;
+                display: flex;
+                justify-content: flex-start;
+            }
+
+            .nav-center {
+                flex: 1;
+                display: flex;
+                justify-content: center;
+            }
+
+            .nav-right {
+                flex: 1;
+                display: flex;
+                justify-content: flex-end;
+            }
+
+            .utility-button {
+                padding: 8px 14px !important;
+                border-radius: 4px !important;
+                border: 1px solid var(--border-color) !important;
+                background-color: var(--bg-color) !important;
+                color: var(--text-color) !important;
+                font-size: 13px !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                width: 180px !important;
+                /* Force consistent width */
+                min-width: 160px !important;
+                max-width: 180px !important;
+                white-space: nowrap !important;
+                text-align: center !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                box-sizing: border-box !important;
+            }
+
+            .utility-button:hover {
+                background-color: var(--chart-plot-bg) !important;
+            }
+
+            .top-navigation .utility-button.back-button {
+                background-color: var(--accent-color) !important;
+                color: var(--accent-text) !important;
+                border-color: var(--accent-color) !important;
+                width: 160px !important;
+            }
+
+            .top-navigation .utility-button.back-button:hover {
+                background-color: var(--accent-color-hover) !important;
+                border-color: var(--accent-color-hover) !important;
+            }
+
+
+            .main-content {
+                padding-top: 40px;
+                /* Add space for the top navigation */
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                width: 100%;
+            }
+
+            /* Center the button container horizontally */
+            .button-container {
+                display: flex;
+                justify-content: center;
+                gap: 10px;
+                width: 100%;
+                margin-top: 20px;
+            }
+
+            /* Ensure masterkey container is also centered */
+            .masterkey-container {
+                display: flex;
+                flex-direction: column;
+                width: 80%;
+                max-width: 400px;
+                position: relative;
+            }
+
+            .password-input-wrapper {
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+
+            .password-toggle {
+                position: absolute;
+                right: 10px;
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 5px;
+                color: var(--text-muted);
+                font-size: 14px;
+                z-index: 2;
+            }
+
+            .password-toggle:hover {
+                color: var(--text-color);
+            }
+
+            .masterkey-input {
+                padding-right: 40px;
+                /* Make room for the toggle button */
+            }
+        </style>
+        <script>
+            // Helper function for safer element text updates
+            function updateElementText(id, langKey) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = Lang.get(langKey);
+                } else {
+                    console.warn(`Element with id '${id}' not found`);
+                }
+            }
+
+            function setAppropriateImage() {
+                const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const logoImg = document.getElementById('logo');
+                if (logoImg) {
+                    logoImg.src = isDarkMode ? 'core/images/Paiperwork-APP-dark.png' : 'core/images/Paiperwork-APP-light.png';
+                }
+            }
+
+            // Function to toggle password visibility
+            function togglePasswordVisibility() {
+                const passwordInput = document.getElementById('masterkey-input');
+                const toggleButton = document.getElementById('password-toggle');
+
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    toggleButton.textContent = '👁️‍🗨️'; // Eye with speech bubble (hide)
+                    toggleButton.title = Lang.get('hideMasterKey');
+                } else {
+                    passwordInput.type = 'password';
+                    toggleButton.textContent = '👁️'; // Eye (show)
+                    toggleButton.title = Lang.get('showMasterKey');
+                }
+            }
+
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setAppropriateImage);
+
+            // Initialize language and setup page content
+            document.addEventListener('DOMContentLoaded', async function () {
+                try {
+                    // AWAIT the language initialization
+                    await Lang.initialize();
+
+                    // Now update all text content - translations should be available
+                    document.title = Lang.get('welcomePageTitle');
+
+                    const masterkeyLabel = document.querySelector('.masterkey-label');
+                    if (masterkeyLabel) {
+                        masterkeyLabel.textContent = Lang.get('masterkeyInputLabel');
+                    }
+
+                    const masterkeyInput = document.getElementById('masterkey-input');
+                    if (masterkeyInput) {
+                        masterkeyInput.placeholder = Lang.get('masterkeyInput');
+                        // Disable autocomplete and password saving
+                        masterkeyInput.setAttribute('autocomplete', 'new-password');
+                        masterkeyInput.setAttribute('data-lpignore', 'true');
+                    }
+
+                    // Set up password toggle functionality
+                    const passwordToggle = document.getElementById('password-toggle');
+                    if (passwordToggle) {
+                        passwordToggle.addEventListener('click', togglePasswordVisibility);
+                        passwordToggle.title = Lang.get('showMasterKey');
+                    }
+
+                    // Set up back button
+                    const backButton = document.getElementById('back-button');
+                    if (backButton) {
+                        backButton.addEventListener('click', function () {
+                            window.location.href = 'index.html';
+                        });
+                    }
+
+                    const helpButton = document.getElementById('help-button');
+                    if (helpButton) {
+                        helpButton.addEventListener('click', function () {
+                            // Open the help page in a new tab instead of a floating window
+                            window.open('core/js/help/help.html', '_blank');
+                        });
+                    }
+                    // Set up check for updates button
+                    const checkUpdatesButton = document.getElementById('check-updates');
+                    if (checkUpdatesButton) {
+                        checkUpdatesButton.addEventListener('click', function () {
+                            AppVersion.checkForUpdates();
+                        });
+                    }
+
+                    // Display current version
+                    const versionEl = document.getElementById('current-version');
+                    if (versionEl && AppVersion) {
+                        versionEl.textContent = `v${AppVersion.current}`;
+                    }
+
+                    updateElementText('Start-button', 'startButton');
+                    updateElementText('help-button', 'helpButton');
+                    updateElementText('back-button', 'backButton');
+                    updateElementText('check-updates', 'checkUpdatesButton');
+
+                    const logo = document.getElementById('logo');
+                    if (logo) {
+                        logo.alt = Lang.get('logoAltText');
+                    }
+
+                    // Set appropriate image
+                    setAppropriateImage();
+                } catch (error) {
+                    console.error('Error initializing page:', error);
+                }
+            });
+        </script>
+    </head>
+
+    <body class="selection-body">
+        <!-- Top navigation bar with utility buttons -->
+        <div class="top-navigation">
+            <div class="nav-left">
+                <button id="back-button" class="utility-button back-button">
+                    ← Back
+                </button>
+            </div>
+            <div class="nav-center">
+                <!-- center intentionally left empty to keep logo centered -->
+            </div>
+            <div class="nav-right">
+                <button id="check-updates" class="utility-button">
+                    Check for Updates
+                </button>
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <div class="main-content">
+            <img id="logo" class="logo" alt="PaiperworkLogo">
+            <div class="masterkey-container">
+                <label class="masterkey-label" for="masterkey-input">Master Key</label>
+                <div class="password-input-wrapper">
+                    <input type="password" class="masterkey-input" id="masterkey-input" placeholder="Enter masterkey..."
+                        autocomplete="new-password" data-lpignore="true">
+                    <button type="button" id="password-toggle" class="password-toggle" title="Show Master Key"
+                        tabindex="-1">👁️</button>
+                </div>
+            </div>
+            <div class="button-container">
+                <button id="Start-button" class="selection-button">Start</button>
+                <button id="help-button" class="selection-button">Help</button>
+            </div>
+
+            <!-- Keep version info centered below main content -->
+            <div id="update-status"
+                style="text-align: center; margin-top: 10px; display: none; font-size: 14px; color: var(--text-muted);">
+            </div>
+            <div id="current-version"
+                style="text-align: center; margin-top: 10px; font-size: 12px; color: var(--text-muted);">
+            </div>
+        </div>
+    </body>
+
+</html>

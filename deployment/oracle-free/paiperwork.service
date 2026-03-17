@@ -1,0 +1,22 @@
+[Unit]
+Description=Paiperwork Server
+After=network.target
+
+[Service]
+Type=simple
+User=paiperwork
+Group=paiperwork
+WorkingDirectory=/opt/paiperwork
+ExecStart=/opt/paiperwork/Paiperwork-server 8182
+Restart=always
+RestartSec=2
+Environment=PAIPERWORK_BIND_HOST=127.0.0.1
+Environment=PAIPERWORK_OPEN_BROWSER=false
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/paiperwork/app/core/js/utils/settings
+
+[Install]
+WantedBy=multi-user.target
