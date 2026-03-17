@@ -244,6 +244,27 @@ function loadSectionContent(sectionId) {
       });
     };
 
+    const parseInlineNumberedList = (rawText) => {
+      const text = String(rawText || "").trim();
+      const firstIndex = text.search(/1(?:\.\d+)?[\)）]\s*/);
+      if (firstIndex < 0) {
+        return null;
+      }
+
+      const heading = text.slice(0, firstIndex).trim().replace(/[:：]\s*$/, "");
+      const listBody = text.slice(firstIndex);
+      const matches = [...listBody.matchAll(/(\d+(?:\.\d+)?)[\)）]\s*([\s\S]*?)(?=(?:\s*\d+(?:\.\d+)?[\)）]\s*)|$)/g)];
+      const items = matches
+        .map((match) => (match[2] || "").trim())
+        .filter((item) => item.length > 0);
+
+      if (items.length < 2) {
+        return null;
+      }
+
+      return { heading, items };
+    };
+
     const introParagraphs = Array.isArray(sectionData.intro)
       ? sectionData.intro
       : [sectionData.intro];
@@ -252,9 +273,27 @@ function loadSectionContent(sectionId) {
       .map((text) => (typeof text === "string" ? text.trim() : ""))
       .filter((text) => text.length > 0)
       .forEach((text) => {
-        const introElement = document.createElement("p");
-        introElement.innerHTML = formatIntroTextWithLinks(text);
-        sectionElement.appendChild(introElement);
+        const parsedList = parseInlineNumberedList(text);
+        if (!parsedList) {
+          const introElement = document.createElement("p");
+          introElement.innerHTML = formatIntroTextWithLinks(text);
+          sectionElement.appendChild(introElement);
+          return;
+        }
+
+        if (parsedList.heading) {
+          const headingElement = document.createElement("p");
+          headingElement.innerHTML = formatIntroTextWithLinks(parsedList.heading);
+          sectionElement.appendChild(headingElement);
+        }
+
+        const listElement = document.createElement("ol");
+        parsedList.items.forEach((item) => {
+          const itemElement = document.createElement("li");
+          itemElement.innerHTML = formatIntroTextWithLinks(item);
+          listElement.appendChild(itemElement);
+        });
+        sectionElement.appendChild(listElement);
       });
   }
 
