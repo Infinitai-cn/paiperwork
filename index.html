@@ -190,6 +190,11 @@
         </div>
         
         <div class="features">
+            <a class="feature-card feature-card-anchor" href="/paiperwork/demos.html" target="_blank" rel="noopener noreferrer">
+                <h3 class="feature-title">Demos</h3>
+                <p>Demos showcase different creations using Paiperwork. Click to open a dedicated demos page with one card per HTML demo file.</p>
+            </a>
+
             <div class="feature-card">
                 <h3 class="feature-title">Smart Document Analysis</h3>
                 <p>Extract key information from documents automatically with advanced AI processing.</p>
@@ -234,11 +239,6 @@
                 <h3 class="feature-title">Presentations</h3>
                 <p>Create presentations using document summaries and styled graphics.</p>
             </div>
-
-            <a class="feature-card feature-card-anchor" href="/paiperwork/demos.html" target="_blank" rel="noopener noreferrer">
-                <h3 class="feature-title">Demos</h3>
-                <p>Demos showcase different creations using Paiperwork. Click to open a dedicated demos page with one card per HTML demo file.</p>
-            </a>
         </div>
         
         <footer>
@@ -603,7 +603,18 @@
             
             // Update feature cards
             const featureCards = document.querySelectorAll('.feature-card');
-            const featureKeys = Object.keys(t.features);
+            const featureKeys = [
+                'demos',
+                'smartDocAnalysis',
+                'dataVisualization',
+                'chatInterface',
+                'researchAssistant',
+                'visualMode',
+                'customAiModels',
+                'aiInsights',
+                'knowledgeBase',
+                'presentations'
+            ];
             
             featureCards.forEach((card, index) => {
                 if (featureKeys[index]) {
