@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmuVault - Console Emulator Downloads</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --bg-secondary: #12121a;
+            --card: #16161f;
+            --card-hover: #1c1c28;
+            --border: #2a2a3a;
+            --fg: #e8e8f0;
+            --muted: #6b6b80;
+            --accent: #00d4aa;
+            --accent-glow: rgba(0, 212, 170, 0.3);
+            --windows: #00a8ff;
+            --mac: #a855f7;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .bg-grid {
+            background-image: 
+                linear-gradient(rgba(0, 212, 170, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 170, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            background-position: -1px -1px;
+        }
+
+        .bg-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glow-1 {
+            background: var(--accent);
+            top: -200px;
+            right: -100px;
+        }
+
+        .glow-2 {
+            background: var(--mac);
+            bottom: -200px;
+            left: -100px;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            padding: 1px;
+            background: linear-gradient(135deg, transparent 40%, var(--accent) 100%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 60px var(--accent-glow);
+        }
+
+        .screenshot {
+            aspect-ratio: 16/9;
+            background: var(--bg-secondary);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screenshot canvas {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.5s ease;
+        }
+
+        .card:hover .screenshot canvas {
+            transform: scale(1.02);
+        }
+
+        .platform-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-windows {
+            background: rgba(0, 168, 255, 0.15);
+            color: var(--windows);
+            border: 1px solid rgba(0, 168, 255, 0.3);
+        }
+
+        .badge-mac {
+            background: rgba(168, 85, 247, 0.15);
+            color: var(--mac);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-weight: 500;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            position: relative;
+            z-index: 10;
+        }
+
+        .btn-windows {
+            background: rgba(0, 168, 255, 0.1);
+            color: var(--windows);
+            border: 1px solid rgba(0, 168, 255, 0.3);
+        }
+
+        .btn-windows:hover {
+            background: var(--windows);
+            color: var(--bg);
+            box-shadow: 0 4px 20px rgba(0, 168, 255, 0.4);
+        }
+
+        .btn-mac {
+            background: rgba(168, 85, 247, 0.1);
+            color: var(--mac);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .btn-mac:hover {
+            background: var(--mac);
+            color: white;
+            box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
+        }
+
+        .filter-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--bg);
+        }
+
+        .console-tag {
+            padding: 4px 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            font-size: 10px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .search-input {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px 12px 44px;
+            color: var(--fg);
+            font-family: inherit;
+            font-size: 14px;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .search-input::placeholder {
+            color: var(--muted);
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            max-width: 800px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.9) translateY(20px);
+            transition: transform 0.3s ease;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1) translateY(0);
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-in {
+            animation: fadeInUp 0.6s ease forwards;
+            opacity: 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--card) 0%, var(--bg-secondary) 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .card-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-grid">
+    <div class="bg-glow glow-1"></div>
+    <div class="bg-glow glow-2"></div>
+
+    <header class="relative z-10 border-b border-[var(--border)]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[var(--accent)] to-emerald-600 flex items-center justify-center">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--bg)]">
+                            <rect x="2" y="6" width="20" height="12" rx="2"/>
+                            <circle cx="8" cy="12" r="2"/>
+                            <path d="M15 9h.01"/>
+                            <path d="M18 12h.01"/>
+                            <path d="M15 15h.01"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-tight">EmuVault</h1>
+                        <p class="text-xs text-[var(--muted)] font-mono">Console Emulator Downloads</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-sm text-[var(--fg)]">Windows & macOS</p>
+                        <p class="text-xs text-[var(--muted)]" id="emulator-count">Loading emulators...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <section class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8 animate-in" style="animation-delay: 0.1s">
+            <div class="stat-card">
+                <p class="text-3xl font-bold text-[var(--accent)]" id="total-emulators">0</p>
+                <p class="text-xs text-[var(--muted)] mt-1">Emulators</p>
+            </div>
+            <div class="stat-card">
+                <p class="text-3xl font-bold text-[var(--windows)]" id="windows-count">0</p>
+                <p class="text-xs text-[var(--muted)] mt-1">Windows</p>
+            </div>
+            <div class="stat-card">
+                <p class="text-3xl font-bold text-[var(--mac)]" id="mac-count">0</p>
+                <p class="text-xs text-[var(--muted)] mt-1">macOS</p>
+            </div>
+            <div class="stat-card">
+                <p class="text-3xl font-bold text-[var(--fg)]" id="console-count">0</p>
+                <p class="text-xs text-[var(--muted)] mt-1">Consoles</p>
+            </div>
+        </section>
+
+        <section class="mb-8 animate-in" style="animation-delay: 0.2s">
+            <div class="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+                <div class="relative w-full lg:w-80">
+                    <svg class="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--muted)]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.3-4.3"/>
+                    </svg>
+                    <input type="text" id="search" class="search-input" placeholder="Search emulators...">
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="windows">Windows</button>
+                    <button class="filter-btn" data-filter="mac">macOS</button>
+                    <button class="filter-btn" data-filter="nintendo">Nintendo</button>
+                    <button class="filter-btn" data-filter="playstation">PlayStation</button>
+                    <button class="filter-btn" data-filter="xbox">Xbox</button>
+                    <button class="filter-btn" data-filter="sega">SEGA</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="emulator-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        </section>
+    </main>
+
+    <div class="modal-overlay" id="modal">
+        <div class="modal-content">
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        const emulators = [
+            {
+                id: 'dolphin',
+                name: 'Dolphin',
+                consoles: ['GameCube', 'Wii'],
+                company: 'Nintendo',
+                description: 'The premier emulator for Nintendo GameCube and Wii games. Features HD upscaling, turbo mode, networked multiplayer, and support for real Wii remotes.',
+                features: ['HD Upscaling', 'Wii Remote Support', 'Network Play', 'Save States', 'Cheat Codes'],
+                windowsUrl: 'https://dolphin-emu.org/download/',
+                macUrl: 'https://dolphin-emu.org/download/',
+                officialUrl: 'https://dolphin-emu.org/',
+                color: '#00c8ff',
+                rating: 4.9,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'pcsx2',
+                name: 'PCSX2',
+                consoles: ['PlayStation 2'],
+                company: 'Sony',
+                description: 'The most compatible PlayStation 2 emulator. Play your PS2 library in HD with improved graphics, save states, and cheat support. Supports 95%+ of PS2 games.',
+                features: ['HD Rendering', 'Save States', 'Cheat Support', 'Texture Replacement', 'Upscaling'],
+                windowsUrl: 'https://pcsx2.net/downloads/',
+                macUrl: 'https://pcsx2.net/downloads/',
+                officialUrl: 'https://pcsx2.net/',
+                color: '#2563eb',
+                rating: 4.8,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'rpcs3',
+                name: 'RPCS3',
+                consoles: ['PlayStation 3'],
+                company: 'Sony',
+                description: 'Open-source PlayStation 3 emulator. Play PS3 exclusives like The Last of Us, Uncharted, and Demon\'s Souls on your PC with improved performance.',
+                features: ['PS3 Emulation', 'High Compatibility', 'Vulkan Support', 'Resolution Scaling', 'Frame Limit'],
+                windowsUrl: 'https://rpcs3.net/download',
+                macUrl: 'https://rpcs3.net/download',
+                officialUrl: 'https://rpcs3.net/',
+                color: '#8b5cf6',
+                rating: 4.7,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'citra',
+                name: 'Citra',
+                consoles: ['Nintendo 3DS'],
+                company: 'Nintendo',
+                description: 'The best Nintendo 3DS emulator. Play 3DS games in 4K resolution with enhanced graphics, multiplayer support, and Amiibo functionality.',
+                features: ['4K Resolution', 'Multiplayer', 'Amiibo Support', 'Save States', 'Enhanced Graphics'],
+                windowsUrl: 'https://citra-emu.org/download/',
+                macUrl: 'https://citra-emu.org/download/',
+                officialUrl: 'https://citra-emu.org/',
+                color: '#f97316',
+                rating: 4.6,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'ppsspp',
+                name: 'PPSSPP',
+                consoles: ['PSP'],
+                company: 'Sony',
+                description: 'Fast and portable PSP emulator. Play your PSP games in HD on your computer. Supports upscaled textures, save states, and multiplayer via networking.',
+                features: ['HD Graphics', 'Texture Upscaling', 'Save States', 'Multiplayer', 'Touch Controls'],
+                windowsUrl: 'https://ppsspp.org/downloads.html',
+                macUrl: 'https://ppsspp.org/downloads.html',
+                officialUrl: 'https://ppsspp.org/',
+                color: '#10b981',
+                rating: 4.8,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'snes9x',
+                name: 'SNES9x',
+                consoles: ['SNES', 'Super Famicom'],
+                company: 'Nintendo',
+                description: 'The classic Super Nintendo emulator. Highly portable and accurate SNES emulation with support for all SNES games, special chips, and save states.',
+                features: ['High Accuracy', 'Save States', 'Cheat Codes', 'Turbo Mode', 'Netplay'],
+                windowsUrl: 'https://github.com/snes9xgit/snes9x/releases',
+                macUrl: 'https://github.com/snes9xgit/snes9x/releases',
+                officialUrl: 'https://github.com/snes9xgit/snes9x',
+                color: '#ef4444',
+                rating: 4.7,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'mgba',
+                name: 'mGBA',
+                consoles: ['Game Boy Advance', 'Game Boy', 'Game Boy Color'],
+                company: 'Nintendo',
+                description: 'Modern, accurate GBA emulator. Features excellent compatibility, local multiplayer, solar sensor support for Boktai, and rumble emulation.',
+                features: ['High Accuracy', 'Multiplayer', 'Solar Sensor', 'Rumble Emulation', 'Save States'],
+                windowsUrl: 'https://mgba.io/downloads.html',
+                macUrl: 'https://mgba.io/downloads.html',
+                officialUrl: 'https://mgba.io/',
+                color: '#22c55e',
+                rating: 4.8,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'cemu',
+                name: 'Cemu',
+                consoles: ['Wii U'],
+                company: 'Nintendo',
+                description: 'Highly experimental Wii U emulator. Play titles like Breath of the Wild, Mario Kart 8, and Splatoon with 4K resolution and graphics packs.',
+                features: ['4K Resolution', 'Graphics Packs', 'Motion Controls', 'GamePad Support', 'Online Play'],
+                windowsUrl: 'https://cemu.info/',
+                macUrl: null,
+                officialUrl: 'https://cemu.info/',
+                color: '#06b6d4',
+                rating: 4.5,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'ryujinx',
+                name: 'Ryujinx',
+                consoles: ['Nintendo Switch'],
+                company: 'Nintendo',
+                description: 'Open-source Nintendo Switch emulator. Play Switch games on your PC with high accuracy, HD resolution, and multiplayer support.',
+                features: ['HD Resolution', 'Save States', 'LDN Multiplayer', 'Amiibo', 'Motion Controls'],
+                windowsUrl: 'https://ryujinx.org/download',
+                macUrl: 'https://ryujinx.org/download',
+                officialUrl: 'https://ryujinx.org/',
+                color: '#ec4899',
+                rating: 4.6,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'flycast',
+                name: 'Flycast',
+                consoles: ['Dreamcast', 'NAOMI', 'Atomiswave'],
+                company: 'SEGA',
+                description: 'Multi-platform Dreamcast emulator. Play classic SEGA Dreamcast games with enhanced graphics, upscaling, and network play support.',
+                features: ['HD Upscaling', 'Network Play', 'VMU Display', 'Controller Support', 'Save States'],
+                windowsUrl: 'https://flyinghead.github.io/flycast/',
+                macUrl: 'https://flyinghead.github.io/flycast/',
+                officialUrl: 'https://flyinghead.github.io/flycast/',
+                color: '#f59e0b',
+                rating: 4.5,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'xenia',
+                name: 'Xenia',
+                consoles: ['Xbox 360'],
+                company: 'Microsoft',
+                description: 'Experimental Xbox 360 emulator. Play Xbox 360 exclusives on your PC. Active development with improving compatibility.',
+                features: ['Xbox 360 Games', 'HD Resolution', 'Save States', 'Controller Support', 'Active Dev'],
+                windowsUrl: 'https://xenia.jp/download/',
+                macUrl: null,
+                officialUrl: 'https://xenia.jp/',
+                color: '#84cc16',
+                rating: 4.2,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'openemu',
+                name: 'OpenEmu',
+                consoles: ['Multi-System'],
+                company: 'Various',
+                description: 'Beautiful, all-in-one emulator for macOS only. Supports multiple consoles including NES, SNES, Genesis, N64, PlayStation, and more in one unified interface.',
+                features: ['Multi-System', 'macOS Only', 'Beautiful UI', 'Controller Support', 'Library View'],
+                windowsUrl: null,
+                macUrl: 'https://openemu.org/',
+                officialUrl: 'https://openemu.org/',
+                color: '#a855f7',
+                rating: 4.9,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'retroarch',
+                name: 'RetroArch',
+                consoles: ['Multi-System'],
+                company: 'Various',
+                description: 'The ultimate all-in-one emulator frontend. Supports dozens of systems through cores, including NES, SNES, Genesis, PlayStation, N64, and many more.',
+                features: ['100+ Systems', 'Shaders', 'Netplay', 'Rewind', 'Achievements'],
+                windowsUrl: 'https://retroarch.com/?page=downloads',
+                macUrl: 'https://retroarch.com/?page=downloads',
+                officialUrl: 'https://retroarch.com/',
+                color: '#f43f5e',
+                rating: 4.7,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'project64',
+                name: 'Project64',
+                consoles: ['Nintendo 64'],
+                company: 'Nintendo',
+                description: 'Popular Nintendo 64 emulator with high compatibility. Play classic N64 games like Mario 64, Ocarina of Time, and GoldenEye with enhanced graphics.',
+                features: ['N64 Games', 'HD Support', 'Save States', 'Cheat Codes', 'Plugins'],
+                windowsUrl: 'https://www.pj64-emu.com/downloads/project64',
+                macUrl: null,
+                officialUrl: 'https://www.pj64-emu.com/',
+                color: '#14b8a6',
+                rating: 4.4,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'duckstation',
+                name: 'DuckStation',
+                consoles: ['PlayStation 1'],
+                company: 'Sony',
+                description: 'Fast and accurate PlayStation 1 emulator with modern features. Supports HD rendering, achievements, and has excellent compatibility.',
+                features: ['HD Rendering', 'High Accuracy', 'Achievements', 'Save States', 'Fast Forward'],
+                windowsUrl: 'https://www.duckstation.org/',
+                macUrl: 'https://www.duckstation.org/',
+                officialUrl: 'https://www.duckstation.org/',
+                color: '#fbbf24',
+                rating: 4.8,
+                lastUpdated: '2024'
+            },
+            {
+                id: 'mesen',
+                name: 'Mesen',
+                consoles: ['NES', 'Famicom', 'VS System'],
+                company: 'Nintendo',
+                description: 'High-accuracy NES/Famicom emulator with extensive features. Supports all licensed NES games with perfect audio and video.',
+                features: ['High Accuracy', 'HD Scaling', 'Cheat Codes', 'Movies', 'Debugging'],
+                windowsUrl: 'https://mesen.ca/',
+                macUrl: null,
+                officialUrl: 'https://mesen.ca/',
+                color: '#3b82f6',
+                rating: 4.9,
+                lastUpdated: '2024'
+            }
+        ];
+
+        let activeFilter = 'all';
+        let searchTerm = '';
+
+        function renderEmulators() {
+            const grid = document.getElementById('emulator-grid');
+            const filtered = emulators.filter(emu => {
+                const matchesSearch = emu.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    emu.consoles.some(c => c.toLowerCase().includes(searchTerm.toLowerCase()));
+                
+                let matchesFilter = true;
+                if (activeFilter === 'windows') matchesFilter = !!emu.windowsUrl;
+                else if (activeFilter === 'mac') matchesFilter = !!emu.macUrl;
+                else if (activeFilter === 'nintendo') matchesFilter = emu.company === 'Nintendo' || emu.id === 'citra' || emu.id === 'ryujinx';
+                else if (activeFilter === 'playstation') matchesFilter = emu.company === 'Sony';
+                else if (activeFilter === 'xbox') matchesFilter = emu.company === 'Microsoft';
+                else if (activeFilter === 'sega') matchesFilter = emu.company === 'SEGA';
+                
+                return matchesSearch && matchesFilter;
+            });
+
+            grid.innerHTML = '';
+            
+            filtered.forEach((emu, index) => {
+                const card = document.createElement('article');
+                card.className = 'card animate-in';
+                card.style.animationDelay = `${0.3 + index * 0.05}s`;
+                
+                card.innerHTML = `
+                    <div class="screenshot">
+                        <canvas class="console-canvas" data-consoles="${emu.consoles.join(',')}" data-color="${emu.color}" data-name="${emu.name}"></canvas>
+                    </div>
+                    <div class="p-5 card-content">
+                        <div class="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 class="text-lg font-semibold mb-1">${emu.name}</h3>
+                                <div class="flex flex-wrap gap-1">
+                                    ${emu.consoles.map(c => `<span class="console-tag">${c}</span>`).join('')}
+                                </div>
+                            </div>
+                            <div class="logo-icon" style="background: ${emu.color}20; color: ${emu.color};">
+                                ${emu.name.charAt(0)}
+                            </div>
+                        </div>
+                        <p class="text-sm text-[var(--muted)] mb-4 line-clamp-2">${emu.description.substring(0, 100)}...</p>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            ${emu.windowsUrl ? `<span class="platform-badge badge-windows">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+                                </svg>
+                                Windows
+                            </span>` : ''}
+                            ${emu.macUrl ? `<span class="platform-badge badge-mac">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M18.71 19.5c-.83 1.19-1.86 2.45-3.31 2.47-1.43.03-1.88-.91-3.49-.91-1.62 0-2.11.88-3.49.93-1.42.05-2.52-1.43-3.36-2.61-1.8-2.47-3.24-6.98-1.34-10.02.92-1.51 2.59-2.47 4.4-2.5 1.37-.03 2.68.93 3.53.93.84 0 2.43-1.15 4.1-.97 1.69.07 3.22.88 4.16 2.03-3.3 2.1-2.77 6.67.8 8.66zm-6.2-15.97c.72-.87 1.94-1.5 2.95-1.55.14 1.24-.36 2.47-1.12 3.34-.76.87-1.89 1.53-3.01 1.43-.17-1.22.47-2.5 1.18-3.22z"/>
+                                </svg>
+                                macOS
+                            </span>` : ''}
+                        </div>
+                        <div class="flex gap-2">
+                            ${emu.windowsUrl ? `<a href="${emu.windowsUrl}" target="_blank" rel="noopener noreferrer" class="btn-download btn-windows flex-1 justify-center">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7,10 12,15 17,10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                Windows
+                            </a>` : ''}
+                            ${emu.macUrl ? `<a href="${emu.macUrl}" target="_blank" rel="noopener noreferrer" class="btn-download btn-mac flex-1 justify-center">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="7,10 12,15 17,10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                macOS
+                            </a>` : ''}
+                        </div>
+                        <button class="w-full mt-3 text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors text-center" onclick="openModal('${emu.id}')">
+                            View Details
+                        </button>
+                    </div>
+                `;
+                
+                grid.appendChild(card);
+            });
+
+            requestAnimationFrame(() => {
+                document.querySelectorAll('.console-canvas').forEach(canvas => {
+                    drawConsoleNames(canvas);
+                });
+            });
+        }
+
+        function drawConsoleNames(canvas) {
+            const consoles = canvas.dataset.consoles.split(',');
+            const color = canvas.dataset.color;
+            const name = canvas.dataset.name;
+            
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            
+            const w = rect.width;
+            const h = rect.height;
+            
+            const bgGradient = ctx.createLinearGradient(0, 0, w, h);
+            bgGradient.addColorStop(0, '#12121a');
+            bgGradient.addColorStop(1, '#1a1a25');
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, w, h);
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+            ctx.lineWidth = 1;
+            const gridSize = 20;
+            for (let x = 0; x < w; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+            for (let y = 0; y < h; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+            
+            const glowGradient = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) / 2);
+            glowGradient.addColorStop(0, color + '25');
+            glowGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = glowGradient;
+            ctx.fillRect(0, 0, w, h);
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.font = '600 11px Space Grotesk';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(name.toUpperCase(), w / 2, 14);
+            
+            const totalHeight = consoles.length * 24 + (consoles.length - 1) * 8;
+            const startY = (h - totalHeight) / 2 + 8;
+            
+            consoles.forEach((console, idx) => {
+                const y = startY + idx * 32;
+                
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 20;
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 22px Space Grotesk';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(console, w / 2, y);
+                
+                ctx.shadowBlur = 0;
+            });
+            
+            const borderGradient = ctx.createLinearGradient(0, h - 40, 0, h);
+            borderGradient.addColorStop(0, 'transparent');
+            borderGradient.addColorStop(1, color + '10');
+            ctx.fillStyle = borderGradient;
+            ctx.fillRect(0, h - 40, w, 40);
+            
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(w * 0.3, h - 3);
+            ctx.lineTo(w * 0.7, h - 3);
+            ctx.stroke();
+        }
+
+        function updateStats() {
+            const total = emulators.length;
+            const windows = emulators.filter(e => e.windowsUrl).length;
+            const mac = emulators.filter(e => e.macUrl).length;
+            const consoles = new Set(emulators.flatMap(e => e.consoles)).size;
+            
+            animateNumber('total-emulators', total);
+            animateNumber('windows-count', windows);
+            animateNumber('mac-count', mac);
+            animateNumber('console-count', consoles);
+        }
+
+        function animateNumber(id, target) {
+            const el = document.getElementById(id);
+            let current = 0;
+            const increment = target / 30;
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    el.textContent = target;
+                    clearInterval(timer);
+                } else {
+                    el.textContent = Math.floor(current);
+                }
+            }, 30);
+        }
+
+        function openModal(id) {
+            const emu = emulators.find(e => e.id === id);
+            if (!emu) return;
+            
+            const modal = document.getElementById('modal');
+            const body = document.getElementById('modal-body');
+            
+            body.innerHTML = `
+                <div class="relative">
+                    <button onclick="closeModal()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center hover:bg-[var(--border)] transition-colors z-10" aria-label="Close modal">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                    <div class="p-6 border-b border-[var(--border)]">
+                        <div class="flex items-center gap-4">
+                            <div class="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold" style="background: ${emu.color}20; color: ${emu.color};">
+                                ${emu.name.charAt(0)}
+                            </div>
+                            <div>
+                                <h2 class="text-2xl font-bold">${emu.name}</h2>
+                                <div class="flex flex-wrap gap-2 mt-2">
+                                    ${emu.consoles.map(c => `<span class="console-tag">${c}</span>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-[var(--muted)] mb-6">${emu.description}</p>
+                        
+                        <div class="mb-6">
+                            <h3 class="text-sm font-semibold mb-3 text-[var(--fg)]">Key Features</h3>
+                            <div class="flex flex-wrap gap-2">
+                                ${emu.features.map(f => `<span class="px-3 py-1 rounded-full bg-[var(--bg-secondary)] text-sm text-[var(--muted)]">${f}</span>`).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="p-4 rounded-lg bg-[var(--bg-secondary)]">
+                                <p class="text-xs text-[var(--muted)] mb-1">Rating</p>
+                                <p class="text-xl font-bold" style="color: ${emu.color};">${emu.rating}/5.0</p>
+                            </div>
+                            <div class="p-4 rounded-lg bg-[var(--bg-secondary)]">
+                                <p class="text-xs text-[var(--muted)] mb-1">Last Updated</p>
+                                <p class="text-xl font-bold">${emu.lastUpdated}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <h3 class="text-sm font-semibold text-[var(--fg)]">Download</h3>
+                            <div class="flex flex-col sm:flex-row gap-3">
+                                ${emu.windowsUrl ? `<a href="${emu.windowsUrl}" target="_blank" rel="noopener noreferrer" class="btn-download btn-windows flex-1 justify-center">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
+                                    </svg>
+                                    Download for Windows
+                                </a>` : ''}
+                                ${emu.macUrl ? `<a href="${emu.macUrl}" target="_blank" rel="noopener noreferrer" class="btn-download btn-mac flex-1 justify-center">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M18.71 19.5c-.83 1.19-1.86 2.45-3.31 2.47-1.43.03-1.88-.91-3.49-.91-1.62 0-2.11.88-3.49.93-1.42.05-2.52-1.43-3.36-2.61-1.8-2.47-3.24-6.98-1.34-10.02.92-1.51 2.59-2.47 4.4-2.5 1.37-.03 2.68.93 3.53.93.84 0 2.43-1.15 4.1-.97 1.69.07 3.22.88 4.16 2.03-3.3 2.1-2.77 6.67.8 8.66zm-6.2-15.97c.72-.87 1.94-1.5 2.95-1.55.14 1.24-.36 2.47-1.12 3.34-.76.87-1.89 1.53-3.01 1.43-.17-1.22.47-2.5 1.18-3.22z"/>
+                                    </svg>
+                                    Download for macOS
+                                </a>` : ''}
+                            </div>
+                            <a href="${emu.officialUrl}" target="_blank" rel="noopener noreferrer" class="block text-center text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors mt-2">
+                                Visit Official Website
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeFilter = btn.dataset.filter;
+                renderEmulators();
+            });
+        });
+
+        document.getElementById('search').addEventListener('input', (e) => {
+            searchTerm = e.target.value;
+            renderEmulators();
+        });
+
+        window.addEventListener('resize', () => {
+            document.querySelectorAll('.console-canvas').forEach(canvas => {
+                drawConsoleNames(canvas);
+            });
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderEmulators();
+            updateStats();
+            
+            const countEl = document.getElementById('emulator-count');
+            countEl.textContent = `${emulators.length} emulators available`;
+        });
+    </script>
+</body>
+</html>
+```
+
+The key fix was adding `pointer-events: none;` and `z-index: 1;` to `.card::before`. This ensures the decorative pseudo-element doesn't intercept click events. I also added `z-index: 2;` to `.card-content` and `z-index: 10;` to `.btn-download` to ensure buttons are always above any other layers. Additionally, I added `position: relative;` to the `.btn-download` class to establish a stacking context.
