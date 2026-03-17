@@ -1693,13 +1693,25 @@ func serverInfoHandler(w http.ResponseWriter, r *http.Request) {
 		port = os.Args[1]
 	}
 
+	host := strings.TrimSpace(os.Getenv("PAIPERWORK_BIND_HOST"))
+	if host == "" {
+		host = "localhost"
+	}
+
+	securityMode := "localhost-only"
+	networkURL := interface{}(nil)
+	if host != "localhost" && host != "127.0.0.1" {
+		securityMode = "network-enabled"
+		networkURL = "http://" + host + ":" + port
+	}
+
 	info := map[string]interface{}{
-		"serverIP":   "localhost", // Only localhost now
+		"serverIP":   host,
 		"serverPort": port,
-		"networkURL": nil, // Remove network URL
+		"networkURL": networkURL,
 		"localURL":   "http://localhost:" + port,
 		"timestamp":  time.Now().Format(time.RFC3339),
-		"security":   "localhost-only",
+		"security":   securityMode,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1711,6 +1723,16 @@ func main() {
 	port := "8182"
 	if len(os.Args) > 1 {
 		port = os.Args[1]
+	}
+
+	bindHost := strings.TrimSpace(os.Getenv("PAIPERWORK_BIND_HOST"))
+	if bindHost == "" {
+		bindHost = "localhost"
+	}
+
+	launchBrowser := strings.TrimSpace(strings.ToLower(os.Getenv("PAIPERWORK_OPEN_BROWSER")))
+	if launchBrowser == "" {
+		launchBrowser = "true"
 	}
 
 	// Setup file server
@@ -1781,9 +1803,9 @@ func main() {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	})
 
-	// SECURITY: Create server that binds only to localhost
+	// SECURITY: Default bind host is localhost. Set PAIPERWORK_BIND_HOST=0.0.0.0 for cloud/server deployment.
 	server := &http.Server{
-		Addr:              fmt.Sprintf("localhost:%s", port), // Only localhost, no 0.0.0.0
+		Addr:              fmt.Sprintf("%s:%s", bindHost, port),
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
@@ -1793,22 +1815,22 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Security-focused startup messages
-	log.Printf("🔒 Secure Paiperwork server starting on:")
-	log.Printf("   http://localhost:%s", port)
-	log.Printf("   http://127.0.0.1:%s", port)
-	log.Printf("")
-	log.Printf("🛡️  SECURITY: Server restricted to localhost access only")
-	log.Printf("💡 This ensures your data remains encrypted and secure")
-	log.Printf("🚫 Network access disabled for enterprise security")
+	// Startup messages
+	log.Printf("Paiperwork server starting on %s", server.Addr)
+	log.Printf("Local access: http://localhost:%s", port)
+	if bindHost != "localhost" && bindHost != "127.0.0.1" {
+		log.Printf("Network access enabled: http://%s:%s", bindHost, port)
+	}
 
-	// Open browser to localhost
+	// Open browser locally by default. Disable in headless/cloud via PAIPERWORK_OPEN_BROWSER=false.
 	localURL := fmt.Sprintf("http://localhost:%s", port)
-	go func() {
-		// Small delay to ensure server is ready
-		time.Sleep(1 * time.Second)
-		openBrowser(localURL)
-	}()
+	if launchBrowser != "false" {
+		go func() {
+			// Small delay to ensure server is ready
+			time.Sleep(1 * time.Second)
+			openBrowser(localURL)
+		}()
+	}
 
 	// Start the secure server
 	log.Fatal(server.ListenAndServe())
