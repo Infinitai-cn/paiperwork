@@ -79,6 +79,16 @@
         }
     </style>
 <script>
+    function isHostedMode() {
+        const host = String(window.location.hostname || '').toLowerCase();
+        const protocol = String(window.location.protocol || '').toLowerCase();
+        const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+        const queryFlag = new URLSearchParams(window.location.search || '').get('cloudOnly');
+        const cloudOnlyByQuery = queryFlag === '1' || queryFlag === 'true';
+        const cloudOnlyByStorage = localStorage.getItem('cloudOnlyMode') === 'true';
+        return cloudOnlyByQuery || cloudOnlyByStorage || (!isLocalHost && protocol !== 'file:');
+    }
+
     function setAppropriateImage() {
         const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
         const logoImg = document.getElementById('logo');
@@ -106,6 +116,14 @@
         
         // Initial page text update - now happens AFTER language initialization
         updatePageText();
+
+        if (isHostedMode()) {
+            const requirementsSection = document.querySelector('.requirements');
+            if (requirementsSection) {
+                requirementsSection.style.display = 'none';
+            }
+        }
+
         setAppropriateImage();
     });
     

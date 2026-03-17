@@ -70,6 +70,11 @@
 document.addEventListener('DOMContentLoaded', async function () {
    //console.log('DOM Content Loaded');
     Lang.initialize();
+
+    if (window.PAIPERWORK_CLOUD_ONLY) {
+        hideLocalOnlyTabsForCloudOnly();
+    }
+
     OllamaAPI.currentContextSize = parseInt(document.getElementById('context-selector')?.value || 8192);
     setupTabSwitching();
 
@@ -126,6 +131,42 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     }
 });
+
+function hideLocalOnlyTabsForCloudOnly() {
+    const localOnlyTabs = ['models', 'documents', 'translate'];
+    let hiddenTabWasActive = false;
+
+    localOnlyTabs.forEach((tabName) => {
+        const tabButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+        const tabPane = document.getElementById(`${tabName}-tab`);
+
+        if ((tabButton && tabButton.classList.contains('active')) || (tabPane && tabPane.classList.contains('active'))) {
+            hiddenTabWasActive = true;
+        }
+
+        if (tabButton) {
+            tabButton.style.display = 'none';
+            tabButton.setAttribute('aria-hidden', 'true');
+            tabButton.setAttribute('tabindex', '-1');
+            tabButton.classList.remove('active');
+        }
+
+        if (tabPane) {
+            tabPane.classList.remove('active');
+            tabPane.style.display = 'none';
+            tabPane.setAttribute('aria-hidden', 'true');
+        }
+    });
+
+    if (hiddenTabWasActive) {
+        const fallbackTabButton = document.querySelector('.tab-button[data-tab="chat"]')
+            || document.querySelector('.tab-button[data-tab="research"]')
+            || document.querySelector('.tab-button:not([style*="display: none"])');
+        if (fallbackTabButton && typeof fallbackTabButton.click === 'function') {
+            fallbackTabButton.click();
+        }
+    }
+}
 
 
 // Sets up tab switching logic and handles tab activation/deactivation events
