@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ferry Guangzhou → Aeropuerto Hong Kong</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a1628;
+            --bg-secondary: #0f2137;
+            --fg: #e8f4f8;
+            --muted: #7a9bb8;
+            --accent: #00d4aa;
+            --accent-warm: #ff6b35;
+            --card: rgba(15, 33, 55, 0.8);
+            --border: rgba(0, 212, 170, 0.2);
+            --glass: rgba(255, 255, 255, 0.03);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .font-display { font-family: 'Playfair Display', serif; }
+        
+        .bg-pattern {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse 80% 50% at 20% 40%, rgba(0, 212, 170, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 80% 60%, rgba(255, 107, 53, 0.06) 0%, transparent 50%),
+                linear-gradient(180deg, var(--bg) 0%, var(--bg-secondary) 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .wave-bg {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 300px;
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .content { position: relative; z-index: 10; }
+        
+        .card {
+            background: var(--card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 212, 170, 0.1);
+        }
+        
+        .schedule-row { transition: background 0.2s ease; }
+        .schedule-row:hover { background: var(--glass); }
+        
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .tag-best {
+            background: rgba(0, 212, 170, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+        }
+        
+        .tag-direct {
+            background: rgba(255, 107, 53, 0.15);
+            color: var(--accent-warm);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg);
+        }
+        
+        .btn-primary:hover {
+            background: #00eebb;
+            transform: scale(1.02);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--fg);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .btn-external {
+            background: linear-gradient(135deg, var(--accent) 0%, #00a888 100%);
+            color: var(--bg);
+        }
+        
+        .btn-external:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0, 212, 170, 0.3);
+        }
+        
+        .stat-value {
+            background: linear-gradient(135deg, var(--accent) 0%, #00a888 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); }
+        
+        .route-indicator { display: flex; align-items: center; gap: 12px; }
+        .route-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 20px var(--accent); }
+        .route-line { flex: 1; height: 2px; background: linear-gradient(90deg, var(--accent), var(--accent-warm)); }
+        .route-end { width: 12px; height: 12px; border-radius: 50%; background: var(--accent-warm); box-shadow: 0 0 20px var(--accent-warm); }
+        
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .float-animation { animation: float 6s ease-in-out infinite; }
+        
+        @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+        .pulse-animation { animation: pulse 2s ease-in-out infinite; }
+        
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        
+        .scroll-reveal.visible { opacity: 1; transform: translateY(0); }
+        
+        .tab-btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: var(--muted);
+        }
+        
+        .tab-btn.active { background: var(--accent); color: var(--bg); }
+        .tab-btn:not(.active):hover { color: var(--fg); background: var(--glass); }
+        
+        .pricing-card { position: relative; transition: all 0.3s ease; }
+        .pricing-card:hover { transform: translateY(-8px); }
+        .pricing-card.popular { border-color: var(--accent); border-width: 2px; }
+        
+        .booking-link {
+            display: block;
+            padding: 16px;
+            border-radius: 12px;
+            background: rgba(0, 212, 170, 0.05);
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        
+        .booking-link:hover {
+            background: rgba(0, 212, 170, 0.1);
+            border-color: var(--accent);
+            transform: translateX(4px);
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        
+        @media (max-width: 768px) { .hide-mobile { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    
+    <svg class="wave-bg" viewBox="0 0 1440 300" preserveAspectRatio="none">
+        <path fill="rgba(0, 212, 170, 0.3)" d="M0,160L48,176C96,192,192,224,288,213.3C384,203,480,149,576,138.7C672,128,768,160,864,181.3C960,203,1056,213,1152,192C1248,171,1344,117,1392,90.7L1440,64L1440,320L1392,320C1348.3,320,1257,320,1166,320C1074.3,320,983,320,891,320C800,320,708,320,617,320C525.7,320,434,320,343,320C251.3,320,160,320,69,320L0,320Z"></path>
+        <path fill="rgba(0, 212, 170, 0.2)" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,224C672,245,768,267,864,250.7C960,235,1056,181,1152,165.3C1248,149,1344,171,1392,181.3L1440,192L1440,320L1392,320C1348.3,320,1257,320,1166,320C1074.3,320,983,320,891,320C800,320,708,320,617,320C525.7,320,434,320,343,320C251.3,320,160,320,69,320L0,320Z"></path>
+    </svg>
+
+    <div class="content">
+        <header class="px-4 py-6 md:px-8 md:py-8">
+            <nav class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <svg class="w-8 h-8 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 16.8A8 8 0 1 1 20 16.8"/>
+                        <path d="M6.5 18a5.5 5.5 0 1 1 11 0"/>
+                        <path d="M12 2v4"/>
+                        <circle cx="12" cy="10" r="2"/>
+                    </svg>
+                    <span class="font-display text-xl font-semibold">FerryFinder</span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-[var(--muted)]">Datos actualizados: Enero 2025</span>
+                </div>
+            </nav>
+        </header>
+
+        <section class="px-4 py-8 md:px-8 md:py-16">
+            <div class="max-w-7xl mx-auto">
+                <div class="grid md:grid-cols-2 gap-12 items-center">
+                    <div class="scroll-reveal">
+                        <p class="text-[var(--accent)] font-medium mb-4 tracking-wider uppercase text-sm">Ruta Directa Guangzhou → Hong Kong</p>
+                        <h1 class="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
+                            Ferry al Aeropuerto<br/>
+                            <span class="text-[var(--accent)]">Internacional de Hong Kong</span>
+                        </h1>
+                        <p class="text-[var(--muted)] text-lg mb-8 max-w-xl">
+                            La forma más rápida y cómoda de llegar al aeropuerto desde Guangzhou. Viaja en ferry directo desde el puerto de Pazhou o Nansha con check-in incluido.
+                        </p>
+                        <div class="flex flex-wrap gap-4">
+                            <button class="btn btn-primary" onclick="scrollToSchedules()">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12,6 12,12 16,14"/>
+                                </svg>
+                                Ver Horarios
+                            </button>
+                            <button class="btn btn-secondary" onclick="scrollToPricing()">
+                                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                                    <line x1="3" y1="6" x2="21" y2="6"/>
+                                    <path d="M16 10a4 4 0 0 1-8 0"/>
+                                </svg>
+                                Comprar Billetes
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="scroll-reveal float-animation">
+                        <div class="card p-8">
+                            <div class="text-center mb-8">
+                                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--glass)] border border-[var(--border)]">
+                                    <span class="w-2 h-2 rounded-full bg-[var(--accent)] pulse-animation"></span>
+                                    <span class="text-sm text-[var(--muted)]">Ruta Directa</span>
+                                </div>
+                            </div>
+                            
+                            <div class="route-indicator mb-6">
+                                <div>
+                                    <div class="route-dot"></div>
+                                    <p class="text-sm text-[var(--muted)] mt-2">Origen</p>
+                                </div>
+                                <div class="route-line"></div>
+                                <div class="text-right">
+                                    <div class="route-end"></div>
+                                    <p class="text-sm text-[var(--muted)] mt-2">Destino</p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-6">
+                                <div class="text-center">
+                                    <h3 class="font-display text-xl font-semibold mb-1">Guangzhou</h3>
+                                    <p class="text-sm text-[var(--muted)]">Puerto de Pazhou</p>
+                                    <p class="text-xs text-[var(--muted)] mt-1">Puerto de Nansha</p>
+                                </div>
+                                <div class="text-center">
+                                    <h3 class="font-display text-xl font-semibold mb-1">Hong Kong</h3>
+                                    <p class="text-sm text-[var(--muted)]">Aeropuerto Internacional</p>
+                                    <p class="text-xs text-[var(--muted)] mt-1">SkyPier</p>
+                                </div>
+                            </div>
+                            
+                            <div class="divider my-6"></div>
+                            
+                            <div class="grid grid-cols-3 gap-4 text-center">
+                                <div><p class="text-2xl font-bold stat-value">2h</p><p class="text-xs text-[var(--muted)]">Duración</p></div>
+                                <div><p class="text-2xl font-bold stat-value">8+</p><p class="text-xs text-[var(--muted)]">Salidas/día</p></div>
+                                <div><p class="text-2xl font-bold stat-value">23kg</p><p class="text-xs text-[var(--muted)]">Equipaje incluido</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="px-4 py-8 md:px-8">
+            <div class="max-w-7xl mx-auto">
+                <div class="card p-6 scroll-reveal">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div class="text-center"><p class="text-3xl md:text-4xl font-bold stat-value font-display">185 RMB</p><p class="text-sm text-[var(--muted)] mt-1">Precio desde</p></div>
+                        <div class="text-center"><p class="text-3xl md:text-4xl font-bold stat-value font-display">120 HKD</p><p class="text-sm text-[var(--muted)] mt-1">Reembolso impuesto</p></div>
+                        <div class="text-center"><p class="text-3xl md:text-4xl font-bold stat-value font-display">40 min</p><p class="text-sm text-[var(--muted)] mt-1">Llegada anticipada</p></div>
+                        <div class="text-center"><p class="text-3xl md:text-4xl font-bold stat-value font-display">100%</p><p class="text-sm text-[var(--muted)] mt-1">Check-in puerto</p></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="schedules" class="px-4 py-12 md:px-8">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-10 scroll-reveal">
+                    <h2 class="font-display text-3xl md:text-4xl font-bold mb-4">Horarios de Ferry</h2>
+                    <p class="text-[var(--muted)] max-w-2xl mx-auto">Selecciona el puerto de salida para ver los horarios disponibles</p>
+                </div>
+                
+                <div class="flex justify-center gap-2 mb-8 scroll-reveal">
+                    <button class="tab-btn active" data-tab="pazhou" onclick="switchTab('pazhou')">Puerto de Pazhou</button>
+                    <button class="tab-btn" data-tab="nansha" onclick="switchTab('nansha')">Puerto de Nansha</button>
+                </div>
+                
+                <div id="pazhou-content" class="tab-content">
+                    <div class="card overflow-hidden scroll-reveal">
+                        <div class="p-6 border-b border-[var(--border)]">
+                            <div class="flex flex-wrap items-center justify-between gap-4">
+                                <div>
+                                    <h3 class="font-display text-xl font-semibold">Puerto de Pazhou → Aeropuerto HK</h3>
+                                    <p class="text-sm text-[var(--muted)] mt-1">Dirección: Yuejiang Middle Road 499, distrito de Haizhu, Guangzhou</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="tag tag-best">Recomendado</span>
+                                    <span class="tag tag-direct">Directo</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-[var(--glass)]">
+                                    <tr class="text-left text-sm text-[var(--muted)]">
+                                        <th class="px-6 py-4 font-medium">Salida</th>
+                                        <th class="px-6 py-4 font-medium">Llegada</th>
+                                        <th class="px-6 py-4 font-medium">Duración</th>
+                                        <th class="px-6 py-4 font-medium">Precio</th>
+                                        <th class="px-6 py-4 font-medium">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pazhou-schedules"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="nansha-content" class="tab-content hidden">
+                    <div class="card overflow-hidden scroll-reveal">
+                        <div class="p-6 border-b border-[var(--border)]">
+                            <div class="flex flex-wrap items-center justify-between gap-4">
+                                <div>
+                                    <h3 class="font-display text-xl font-semibold">Puerto de Nansha → Aeropuerto HK</h3>
+                                    <p class="text-sm text-[var(--muted)] mt-1">Dirección: Puerto de pasajeros de Nansha, distrito de Nansha, Guangzhou</p>
+                                </div>
+                                <div class="flex gap-2"><span class="tag tag-direct">Directo</span></div>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-[var(--glass)]">
+                                    <tr class="text-left text-sm text-[var(--muted)]">
+                                        <th class="px-6 py-4 font-medium">Salida</th>
+                                        <th class="px-6 py-4 font-medium">Llegada</th>
+                                        <th class="px-6 py-4 font-medium">Duración</th>
+                                        <th class="px-6 py-4 font-medium">Precio</th>
+                                        <th class="px-6 py-4 font-medium">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="nansha-schedules"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="pricing" class="px-4 py-12 md:px-8">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-10 scroll-reveal">
+                    <h2 class="font-display text-3xl md:text-4xl font-bold mb-4">Comprar Billetes</h2>
+                    <p class="text-[var(--muted)] max-w-2xl mx-auto">Reserva tu billete a través de los canales oficiales disponibles</p>
+                </div>
+                
+                <div class="grid lg:grid-cols-2 gap-8">
+                    <div class="card p-6 scroll-reveal">
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="w-14 h-14 rounded-xl bg-[rgba(0,212,170,0.1)] flex items-center justify-center">
+                                <svg class="w-7 h-7 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-display text-xl font-semibold">Reserva Online</h3>
+                                <p class="text-sm text-[var(--muted)]">Compra directa en web oficial</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <a href="https://www.cksp.com.hk/" target="_blank" rel="noopener noreferrer" class="booking-link">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h4 class="font-semibold">CKS Ferry (珠江客运)</h4>
+                                        <p class="text-sm text-[var(--muted)]">Operador principal - Pazhou y Nansha</p>
+                                    </div>
+                                    <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="9 18 15 12 9 6"/>
+                                    </svg>
+                                </div>
+                            </a>
+                            
+                            <a href="https://www.hongkongairport.com/en/transport/to-from-airport/ferry-transfer.page" target="_blank" rel="noopener noreferrer" class="booking-link">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h4 class="font-semibold">Hong Kong Airport SkyPier</h4>
+                                        <p class="text-sm text-[var(--muted)]">Web oficial del aeropuerto</p>
+                                    </div>
+                                    <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="9 18 15 12 9 6"/>
+                                    </svg>
+                                </div>
+                            </a>
+                            
+                            <a href="https://www.trip.com/" target="_blank" rel="noopener noreferrer" class="booking-link">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h4 class="font-semibold">Trip.com</h4>
+                                        <p class="text-sm text-[var(--muted)]">Plataforma de viajes - Reserva anticipada</p>
+                                    </div>
+                                    <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="9 18 15 12 9 6"/>
+                                    </svg>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="card p-6 scroll-reveal">
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="w-14 h-14 rounded-xl bg-[rgba(255,107,53,0.1)] flex items-center justify-center">
+                                <svg class="w-7 h-7 text-[var(--accent-warm)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-display text-xl font-semibold">Reserva por Teléfono</h3>
+                                <p class="text-sm text-[var(--muted)]">Atención en español disponible</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div class="p-4 rounded-xl bg-[var(--glass)] border border-[var(--border)]">
+                                <h4 class="font-semibold mb-2">Puerto de Pazhou (琶洲港)</h4>
+                                <p class="text-lg stat-value font-display">+86 20 8928 0000</p>
+                                <p class="text-sm text-[var(--muted)] mt-1">Horario: 06:30 - 20:00</p>
+                            </div>
+                            
+                            <div class="p-4 rounded-xl bg-[var(--glass)] border border-[var(--border)]">
+                                <h4 class="font-semibold mb-2">Puerto de Nansha (南沙港)</h4>
+                                <p class="text-lg stat-value font-display">+86 20 8468 8800</p>
+                                <p class="text-sm text-[var(--muted)] mt-1">Horario: 08:00 - 18:00</p>
+                            </div>
+                            
+                            <div class="p-4 rounded-xl bg-[var(--glass)] border border-[var(--border)]">
+                                <h4 class="font-semibold mb-2">Línea de Atención HK</h4>
+                                <p class="text-lg stat-value font-display">+852 2859 3333</p>
+                                <p class="text-sm text-[var(--muted)] mt-1">Servicio internacional</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card p-6 mt-8 scroll-reveal">
+                    <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-xl bg-[rgba(0,212,170,0.1)] flex items-center justify-center">
+                                <svg class="w-6 h-6 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 class="font-display font-semibold">Reserva en Mostrador</h4>
+                                <p class="text-sm text-[var(--muted)]">Compra tu billete directamente en el puerto el día del viaje</p>
+                            </div>
+                        </div>
+                        <div class="text-left md:text-right">
+                            <p class="text-sm text-[var(--fg)]">Disponibilidad: <span class="text-[var(--accent)] font-medium">Alta</span></p>
+                            <p class="text-xs text-[var(--muted)]">Recomendado llegar 1 hora antes</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="px-4 py-12 md:px-8">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-10 scroll-reveal">
+                    <h2 class="font-display text-3xl md:text-4xl font-bold mb-4">Tarifas y Categorías</h2>
+                    <p class="text-[var(--muted)] max-w-2xl mx-auto">Opciones disponibles para tu viaje en ferry</p>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-6">
+                    <div class="card pricing-card p-6 scroll-reveal">
+                        <div class="text-center mb-6">
+                            <h3 class="font-display text-xl font-semibold mb-2">Económica</h3>
+                            <div class="text-3xl font-bold stat-value font-display">185 RMB</div>
+                            <p class="text-sm text-[var(--muted)]">aprox. 25 USD</p>
+                        </div>
+                        <ul class="space-y-3 mb-6">
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                Asiento estándar
+                            </li>
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                23kg equipaje facturado
+                            </li>
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                Check-in en puerto
+                            </li>
+                        </ul>
+                        <a href="https://www.cksp.com.hk/" target="_blank" rel="noopener noreferrer" class="btn btn-secondary w-full justify-center">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                <polyline points="15 3 21 3 21 9"/>
+                                <line x1="10" y1="14" x2="21" y2="3"/>
+                            </svg>
+                            Reservar Ahora
+                        </a>
+                    </div>
+                    
+                    <div class="card pricing-card popular p-6 relative scroll-reveal">
+                        <div class="absolute -top-3 left-1/2 -translate-x-1/2">
+                            <span class="bg-[var(--accent)] text-[var(--bg)] text-xs font-semibold px-3 py-1 rounded-full">Popular</span>
+                        </div>
+                        <div class="text-center mb-6">
+                            <h3 class="font-display text-xl font-semibold mb-2">Primera Clase</h3>
+                            <div class="text-3xl font-bold stat-value font-display">285 RMB</div>
+                            <p class="text-sm text-[var(--muted)]">aprox. 39 USD</p>
+                        </div>
+                        <ul class="space-y-3 mb-6">
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                Asiento amplio y cómodo
+                            </li>
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                30kg equipaje facturado
+                            </li>
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                Embarque prioritario
+                            </li>
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                Sala VIP en puerto
+                            </li>
+                        </ul>
+                        <a href="https://www.cksp.com.hk/" target="_blank" rel="noopener noreferrer" class="btn btn-external w-full justify-center">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                <polyline points="15 3 21 3 21 9"/>
+                                <line x1="10" y1="14" x2="21" y2="3"/>
+                            </svg>
+                            Reservar Ahora
+                        </a>
+                    </div>
+                    
+                    <div class="card pricing-card p-6 scroll-reveal">
+                        <div class="text-center mb-6">
+                            <h3 class="font-display text-xl font-semibold mb-2">Premium</h3>
+                            <div class="text-3xl font-bold stat-value font-display">385 RMB</div>
+                            <p class="text-sm text-[var(--muted)]">aprox. 53 USD</p>
+                        </div>
+                        <ul class="space-y-3 mb-6">
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                Cabina privada
+                            </li>
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                40kg equipaje facturado
+                            </li>
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                Comida y bebidas incluidas
+                            </li>
+                            <li class="flex items-center gap-3 text-sm">
+                                <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                Servicio personalizado
+                            </li>
+                        </ul>
+                        <a href="tel:+862089280000" class="btn btn-secondary w-full justify-center">
+                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                            </svg>
+                            Llamar para Reservar
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="px-4 py-12 md:px-8">
+            <div class="max-w-7xl mx-auto">
+                <div class="card p-8 scroll-reveal">
+                    <div class="flex items-start gap-4">
+                        <div class="w-10 h-10 rounded-xl bg-[rgba(0,212,170,0.1)] flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="16" x2="12" y2="12"/>
+                                <line x1="12" y1="8" x2="12.01" y2="8"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-display text-xl font-semibold mb-4">Información Importante</h3>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 class="font-medium mb-2 text-[var(--accent)]">Antes de Viajar</h4>
+                                    <ul class="space-y-2 text-sm text-[var(--muted)]">
+                                        <li class="flex items-start gap-2">
+                                            <svg class="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                            Llega al puerto 40 minutos antes de la salida
+                                        </li>
+                                        <li class="flex items-start gap-2">
+                                            <svg class="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                            El check-in cierra 15 minutos antes
+                                        </li>
+                                        <li class="flex items-start gap-2">
+                                            <svg class="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                                            Trae pasaporte y billete de avión
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-medium mb-2 text-[var(--accent-warm)]">Aerolíneas con Check-in</h4>
+                                    <ul class="space-y-2 text-sm text-[var(--muted)]">
+                                        <li class="flex items-start gap-2">
+                                            <svg class="w-4 h-4 text-[var(--accent-warm)] mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4z"/></svg>
+                                            Cathay Pacific, Dragonair
+                                        </li>
+                                        <li class="flex items-start gap-2">
+                                            <svg class="w-4 h-4 text-[var(--accent-warm)] mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4z"/></svg>
+                                            China Airlines, EVA Air
+                                        </li>
+                                        <li class="flex items-start gap-2">
+                                            <svg class="w-4 h-4 text-[var(--accent-warm)] mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4z"/></svg>
+                                            Y más de 20 aerolíneas internacionales
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="px-4 py-8 md:px-8 border-t border-[var(--border)]">
+            <div class="max-w-7xl mx-auto">
+                <div class="grid md:grid-cols-3 gap-8 mb-8">
+                    <div>
+                        <div class="flex items-center gap-3 mb-4">
+                            <svg class="w-6 h-6 text-[var(--accent)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 16.8A8 8 0 1 1 20 16.8"/>
+                                <path d="M6.5 18a5.5 5.5 0 1 1 11 0"/>
+                                <path d="M12 2v4"/>
+                                <circle cx="12" cy="10" r="2"/>
+                            </svg>
+                            <span class="font-display text-lg font-semibold">FerryFinder</span>
+                        </div>
+                        <p class="text-sm text-[var(--muted)]">Información actualizada sobre rutas de ferry desde Guangzhou al aeropuerto de Hong Kong.</p>
+                    </div>
+                    <div>
+                        <h4 class="font-medium mb-4">Enlaces de Reserva</h4>
+                        <ul class="space-y-2 text-sm text-[var(--muted)]">
+                            <li><a href="https://www.cksp.com.hk/" target="_blank" rel="noopener noreferrer" class="hover:text-[var(--accent)] transition-colors">CKS Ferry (Web Oficial)</a></li>
+                            <li><a href="https://www.hongkongairport.com/en/transport/to-from-airport/ferry-transfer.page" target="_blank" rel="noopener noreferrer" class="hover:text-[var(--accent)] transition-colors">HK Airport SkyPier</a></li>
+                            <li><a href="https://www.trip.com/" target="_blank" rel="noopener noreferrer" class="hover:text-[var(--accent)] transition-colors">Trip.com</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-medium mb-4">Teléfonos de Contacto</h4>
+                        <ul class="space-y-2 text-sm text-[var(--muted)]">
+                            <li>Pazhou: +86 20 8928 0000</li>
+                            <li>Nansha: +86 20 8468 8800</li>
+                            <li>HK Línea: +852 2859 3333</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="divider mb-6"></div>
+                <div class="flex flex-wrap items-center justify-between gap-4 text-sm text-[var(--muted)]">
+                    <p>Datos recopilados de fuentes oficiales - Enero 2025</p>
+                    <p>Los horarios pueden variar. Verifica antes de viajar.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const pazhouSchedules = [
+            { departure: '07:30', arrival: '09:30', duration: '2h', price: '185 RMB', status: 'active', note: 'Primera salida' },
+            { departure: '08:30', arrival: '10:30', duration: '2h', price: '185 RMB', status: 'active', note: '' },
+            { departure: '10:00', arrival: '12:00', duration: '2h', price: '185 RMB', status: 'active', note: '' },
+            { departure: '11:30', arrival: '13:30', duration: '2h', price: '185 RMB', status: 'active', note: '' },
+            { departure: '13:00', arrival: '15:00', duration: '2h', price: '185 RMB', status: 'active', note: '' },
+            { departure: '14:30', arrival: '16:30', duration: '2h', price: '185 RMB', status: 'active', note: '' },
+            { departure: '16:00', arrival: '18:00', duration: '2h', price: '185 RMB', status: 'active', note: '' },
+            { departure: '17:30', arrival: '19:30', duration: '2h', price: '185 RMB', status: 'active', note: '' },
+            { departure: '19:00', arrival: '21:00', duration: '2h', price: '185 RMB', status: 'active', note: 'Última salida' }
+        ];
+
+        const nanshaSchedules = [
+            { departure: '10:10', arrival: '12:10', duration: '2h', price: '175 RMB', status: 'active', note: '' },
+            { departure: '18:00', arrival: '20:00', duration: '2h', price: '175 RMB', status: 'active', note: '' }
+        ];
+
+        function renderSchedules(schedules, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            container.innerHTML = schedules.map(schedule => `
+                <tr class="schedule-row border-b border-[var(--border)]">
+                    <td class="px-6 py-4">
+                        <div class="font-semibold text-lg">${schedule.departure}</div>
+                        ${schedule.note ? `<span class="text-xs text-[var(--accent)]">${schedule.note}</span>` : ''}
+                    </td>
+                    <td class="px-6 py-4"><span class="font-semibold text-lg">${schedule.arrival}</span></td>
+                    <td class="px-6 py-4"><span class="text-[var(--muted)]">${schedule.duration}</span></td>
+                    <td class="px-6 py-4"><span class="font-medium stat-value">${schedule.price}</span></td>
+                    <td class="px-6 py-4">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[rgba(0,212,170,0.1)] text-[var(--accent)]">
+                            <span class="w-1.5 h-1.5 rounded-full bg-[var(--accent)]"></span>
+                            Disponible
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function switchTab(tabName) {
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            const pazhouContent = document.getElementById('pazhou-content');
+            const nanshaContent = document.getElementById('nansha-content');
+            
+            tabBtns.forEach(btn => { btn.classList.toggle('active', btn.dataset.tab === tabName); });
+            
+            if (tabName === 'pazhou') {
+                pazhouContent.classList.remove('hidden');
+                nanshaContent.classList.add('hidden');
+            } else {
+                pazhouContent.classList.add('hidden');
+                nanshaContent.classList.remove('hidden');
+            }
+        }
+
+        function scrollToSchedules() {
+            const element = document.getElementById('schedules');
+            if (element) { element.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        }
+
+        function scrollToPricing() {
+            const element = document.getElementById('pricing');
+            if (element) { element.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        }
+
+        function initScrollReveal() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry, index) => {
+                    if (entry.isIntersecting) {
+                        setTimeout(() => { entry.target.classList.add('visible'); }, index * 100);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+            document.querySelectorAll('.scroll-reveal').forEach(el => { observer.observe(el); });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSchedules(pazhouSchedules, 'pazhou-schedules');
+            renderSchedules(nanshaSchedules, 'nansha-schedules');
+            initScrollReveal();
+        });
+    </script>
+</body>
+</html>
