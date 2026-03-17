@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI News Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #08080c;
+      --bg-secondary: #0e0e14;
+      --fg: #f0f0f5;
+      --muted: #9a9ab0;
+      --accent: #00ff88;
+      --card: #141420;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 50px 50px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .bg-glow {
+      position: fixed;
+      width: 700px;
+      height: 700px;
+      border-radius: 50%;
+      filter: blur(150px);
+      opacity: 0.3;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .bg-glow-1 {
+      top: -250px;
+      left: -250px;
+      background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+      animation: pulse1 10s ease-in-out infinite;
+    }
+
+    .bg-glow-2 {
+      bottom: -250px;
+      right: -250px;
+      background: radial-gradient(circle, #0066ff 0%, transparent 70%);
+      animation: pulse2 12s ease-in-out infinite;
+    }
+
+    @keyframes pulse1 {
+      0%, 100% { transform: scale(1); opacity: 0.25; }
+      50% { transform: scale(1.15); opacity: 0.35; }
+    }
+
+    @keyframes pulse2 {
+      0%, 100% { transform: scale(1.1); opacity: 0.2; }
+      50% { transform: scale(0.95); opacity: 0.3; }
+    }
+
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: livePulse 1.5s ease-in-out infinite;
+      box-shadow: 0 0 12px var(--accent);
+    }
+
+    @keyframes livePulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.6; }
+    }
+
+    .carousel-container {
+      perspective: 1800px;
+      height: 460px;
+      position: relative;
+      margin: 40px 0;
+      overflow: visible;
+    }
+
+    .carousel {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+
+    .news-card {
+      position: absolute;
+      width: 360px;
+      height: 400px;
+      left: 50%;
+      top: 50%;
+      transform-style: preserve-3d;
+      backface-visibility: hidden;
+      transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+    }
+
+    .news-card-inner {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(145deg, #1e1e32 0%, #181828 50%, #12121c 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.3s ease;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+        0 1px 0 rgba(255, 255, 255, 0.08) inset;
+    }
+
+    .news-card-inner::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.4), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .news-card.active .news-card-inner {
+      border-color: rgba(0, 255, 136, 0.2);
+      box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.6),
+        0 0 80px rgba(0, 255, 136, 0.15),
+        0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+        0 1px 0 rgba(255, 255, 255, 0.12) inset;
+    }
+
+    .news-card.active .news-card-inner::before {
+      opacity: 1;
+    }
+
+    .news-card:hover .news-card-inner {
+      border-color: rgba(0, 255, 136, 0.25);
+    }
+
+    .category-tag {
+      display: inline-flex;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 18px;
+      width: fit-content;
+    }
+
+    .tag-breakthrough {
+      background: rgba(0, 255, 136, 0.15);
+      color: #00ff88;
+      border: 1px solid rgba(0, 255, 136, 0.3);
+    }
+
+    .tag-product {
+      background: rgba(0, 136, 255, 0.15);
+      color: #44aaff;
+      border: 1px solid rgba(0, 136, 255, 0.3);
+    }
+
+    .tag-research {
+      background: rgba(255, 170, 0, 0.15);
+      color: #ffbb44;
+      border: 1px solid rgba(255, 170, 0, 0.3);
+    }
+
+    .tag-policy {
+      background: rgba(255, 68, 136, 0.15);
+      color: #ff6699;
+      border: 1px solid rgba(255, 68, 136, 0.3);
+    }
+
+    .tag-funding {
+      background: rgba(136, 68, 255, 0.15);
+      color: #aa88ff;
+      border: 1px solid rgba(136, 68, 255, 0.3);
+    }
+
+    .news-title {
+      font-size: 20px;
+      font-weight: 600;
+      line-height: 1.4;
+      margin-bottom: 14px;
+      color: #ffffff;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .news-excerpt {
+      font-size: 14px;
+      color: #b0b0c0;
+      line-height: 1.65;
+      flex: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .news-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: auto;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .news-source {
+      font-size: 12px;
+      color: #8888a0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .source-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .news-time {
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 30px;
+    }
+
+    .filter-btn {
+      padding: 10px 22px;
+      border-radius: 30px;
+      background: rgba(20, 20, 32, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #9a9ab0;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: inherit;
+    }
+
+    .filter-btn:hover {
+      border-color: rgba(0, 255, 136, 0.4);
+      color: #ffffff;
+      background: rgba(20, 20, 32, 1);
+    }
+
+    .filter-btn.active {
+      background: rgba(0, 255, 136, 0.1);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .nav-controls {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 30px;
+    }
+
+    .nav-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: rgba(20, 20, 32, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--fg);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    .nav-btn:hover {
+      background: rgba(0, 255, 136, 0.1);
+      border-color: var(--accent);
+      transform: scale(1.1);
+    }
+
+    .nav-btn:active {
+      transform: scale(0.95);
+    }
+
+    .dots-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .dot.active {
+      background: var(--accent);
+      box-shadow: 0 0 16px var(--accent);
+      transform: scale(1.2);
+    }
+
+    .dot:hover:not(.active) {
+      background: rgba(0, 255, 136, 0.5);
+    }
+
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin-top: 40px;
+      padding: 24px;
+      background: linear-gradient(145deg, rgba(20, 20, 32, 0.95) 0%, rgba(16, 16, 24, 0.95) 100%);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #8888a0;
+      margin-top: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .update-toast {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: linear-gradient(145deg, #1a1a2e 0%, #141420 100%);
+      border: 1px solid rgba(0, 255, 136, 0.25);
+      border-radius: 12px;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      transform: translateY(120%);
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+    }
+
+    .update-toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(0, 255, 136, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .header-animate {
+      opacity: 0;
+      animation: slideIn 0.8s ease forwards;
+    }
+
+    .header-animate:nth-child(1) { animation-delay: 0.1s; }
+    .header-animate:nth-child(2) { animation-delay: 0.2s; }
+    .header-animate:nth-child(3) { animation-delay: 0.3s; }
+
+    @media (max-width: 768px) {
+      .news-card {
+        width: 300px;
+        height: 360px;
+      }
+
+      .news-card-inner {
+        padding: 22px;
+      }
+
+      .news-title {
+        font-size: 17px;
+      }
+
+      .stats-bar {
+        gap: 20px;
+        padding: 16px;
+        flex-wrap: wrap;
+      }
+
+      .stat-value {
+        font-size: 24px;
+      }
+
+      .carousel-container {
+        height: 420px;
+      }
+
+      .update-toast {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="relative z-10 min-h-screen p-6 md:p-10">
+    <header class="max-w-6xl mx-auto mb-8">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 class="text-3xl md:text-4xl font-bold header-animate" style="margin-bottom: 8px;">
+            AI News Dashboard
+          </h1>
+          <p class="text-[var(--muted)] header-animate" style="animation-delay: 0.2s;">
+            Real-time intelligence from the frontier of artificial intelligence
+          </p>
+        </div>
+        <div class="live-indicator header-animate" style="animation-delay: 0.3s;">
+          <span class="live-dot"></span>
+          <span class="text-sm font-medium">LIVE UPDATES</span>
+          <span class="mono text-xs text-[var(--muted)]" id="lastUpdate">Updated just now</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto">
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all">All News</button>
+        <button class="filter-btn" data-filter="breakthrough">Breakthroughs</button>
+        <button class="filter-btn" data-filter="product">Products</button>
+        <button class="filter-btn" data-filter="research">Research</button>
+        <button class="filter-btn" data-filter="policy">Policy</button>
+        <button class="filter-btn" data-filter="funding">Funding</button>
+      </div>
+
+      <div class="carousel-container">
+        <div class="carousel" id="carousel"></div>
+      </div>
+
+      <div class="nav-controls">
+        <button class="nav-btn" id="prevBtn" aria-label="Previous news">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 18l-6-6 6-6"/>
+          </svg>
+        </button>
+        <button class="nav-btn" id="nextBtn" aria-label="Next news">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18l6-6-6-6"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="dots-container" id="dotsContainer"></div>
+
+      <div class="stats-bar">
+        <div class="stat-item">
+          <div class="stat-value" id="totalNews">24</div>
+          <div class="stat-label">Stories Today</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="sources">12</div>
+          <div class="stat-label">Sources</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="updates">8</div>
+          <div class="stat-label">Updates/hr</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="trending">5</div>
+          <div class="stat-label">Trending</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="update-toast" id="updateToast">
+    <div class="toast-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+      </svg>
+    </div>
+    <div>
+      <div class="font-semibold text-sm" style="color: #ffffff;">New Story Added</div>
+      <div class="text-xs" style="color: #9a9ab0;" id="toastTitle">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    const newsData = [
+      {
+        id: 1,
+        category: 'breakthrough',
+        title: 'OpenAI Announces GPT-5 with Multimodal Reasoning Capabilities',
+        excerpt: 'The new model demonstrates unprecedented ability to reason across text, images, and code simultaneously, marking a significant leap in AI capability.',
+        source: 'TechCrunch',
+        time: '2 hours ago',
+        trending: true
+      },
+      {
+        id: 2,
+        category: 'funding',
+        title: 'Anthropic Raises $4B in Series D Funding Round',
+        excerpt: 'The AI safety startup secures massive investment to accelerate development of constitutional AI systems and compete with industry leaders.',
+        source: 'Bloomberg',
+        time: '3 hours ago',
+        trending: true
+      },
+      {
+        id: 3,
+        category: 'research',
+        title: 'Stanford Researchers Achieve New SOTA in Protein Folding',
+        excerpt: 'Novel approach combining transformer architectures with physical constraints achieves breakthrough accuracy in protein structure prediction.',
+        source: 'Nature',
+        time: '4 hours ago',
+        trending: false
+      },
+      {
+        id: 4,
+        category: 'product',
+        title: 'Google Gemini Ultra Now Available for Enterprise Customers',
+        excerpt: 'Enterprise-grade deployment includes enhanced security features, custom fine-tuning options, and dedicated support for business applications.',
+        source: 'Google Blog',
+        time: '5 hours ago',
+        trending: false
+      },
+      {
+        id: 5,
+        category: 'policy',
+        title: 'EU AI Act Enforcement Begins: First Compliance Deadlines',
+        excerpt: 'European regulators begin enforcing new AI governance rules, requiring transparency and risk assessment for high-impact AI systems.',
+        source: 'Reuters',
+        time: '6 hours ago',
+        trending: true
+      },
+      {
+        id: 6,
+        category: 'breakthrough',
+        title: 'DeepMind Solves New Class of Mathematical Problems',
+        excerpt: 'AlphaProof demonstrates ability to solve complex mathematical proofs that have challenged mathematicians for decades.',
+        source: 'MIT Tech Review',
+        time: '7 hours ago',
+        trending: false
+      },
+      {
+        id: 7,
+        category: 'product',
+        title: 'Claude 4 Released with Extended Context Window',
+        excerpt: 'Anthropic launches new model with 500K token context, enabling analysis of entire codebases and lengthy documents.',
+        source: 'VentureBeat',
+        time: '8 hours ago',
+        trending: false
+      },
+      {
+        id: 8,
+        category: 'funding',
+        title: 'Hugging Face Valuation Reaches $5.5B After Latest Round',
+        excerpt: 'Open-source AI platform continues rapid growth as enterprise adoption of open models accelerates across industries.',
+        source: 'Forbes',
+        time: '9 hours ago',
+        trending: false
+      },
+      {
+        id: 9,
+        category: 'research',
+        title: 'MIT Develops Efficient Training Method for Edge Devices',
+        excerpt: 'New technique reduces memory requirements by 90%, enabling training of sophisticated models on consumer hardware.',
+        source: 'ArXiv',
+        time: '10 hours ago',
+        trending: false
+      },
+      {
+        id: 10,
+        category: 'policy',
+        title: 'White House Issues Executive Order on AI Infrastructure',
+        excerpt: 'New policy mandates federal agencies assess AI readiness and invest in computing infrastructure for national security.',
+        source: 'Politico',
+        time: '11 hours ago',
+        trending: false
+      }
+    ];
+
+    const additionalNews = [
+      {
+        id: 11,
+        category: 'breakthrough',
+        title: 'Meta Achieves Real-Time Translation Across 100 Languages',
+        excerpt: 'New seamless translation system enables natural conversations between speakers of different languages with minimal latency.',
+        source: 'Meta AI',
+        time: 'Just now',
+        trending: true
+      },
+      {
+        id: 12,
+        category: 'product',
+        title: 'Microsoft Copilot Gets Agentic Capabilities for Automation',
+        excerpt: 'New agent mode allows Copilot to execute complex multi-step tasks autonomously while maintaining human oversight.',
+        source: 'Microsoft',
+        time: 'Just now',
+        trending: false
+      },
+      {
+        id: 13,
+        category: 'research',
+        title: 'Berkeley Lab Creates Self-Improving AI System',
+        excerpt: 'Novel architecture enables continuous learning without catastrophic forgetting, solving long-standing challenge in AI.',
+        source: 'Science',
+        time: 'Just now',
+        trending: true
+      }
+    ];
+
+    let currentFilter = 'all';
+    let currentIndex = 0;
+    let filteredNews = [...newsData];
+    let autoRotateInterval = null;
+
+    function getTagClass(category) {
+      const classes = {
+        breakthrough: 'tag-breakthrough',
+        product: 'tag-product',
+        research: 'tag-research',
+        policy: 'tag-policy',
+        funding: 'tag-funding'
+      };
+      return classes[category] || 'tag-breakthrough';
+    }
+
+    function getCategoryLabel(category) {
+      const labels = {
+        breakthrough: 'Breakthrough',
+        product: 'Product',
+        research: 'Research',
+        policy: 'Policy',
+        funding: 'Funding'
+      };
+      return labels[category] || category;
+    }
+
+    function createNewsCard(news, index) {
+      const card = document.createElement('div');
+      card.className = 'news-card';
+      card.dataset.index = index;
+      
+      card.innerHTML = `
+        <div class="news-card-inner">
+          <span class="category-tag ${getTagClass(news.category)}">${getCategoryLabel(news.category)}</span>
+          <h3 class="news-title">${news.trending ? '<span style="color: var(--accent);">● </span>' : ''}${news.title}</h3>
+          <p class="news-excerpt">${news.excerpt}</p>
+          <div class="news-meta">
+            <div class="news-source">
+              <div class="source-icon">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+              </div>
+              ${news.source}
+            </div>
+            <span class="news-time mono">${news.time}</span>
+          </div>
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        goToSlide(index);
+      });
+
+      return card;
+    }
+
+    function updateCarousel() {
+      const carousel = document.getElementById('carousel');
+      const dotsContainer = document.getElementById('dotsContainer');
+      
+      carousel.innerHTML = '';
+      dotsContainer.innerHTML = '';
+
+      filteredNews.forEach((news, index) => {
+        const card = createNewsCard(news, index);
+        carousel.appendChild(card);
+      });
+
+      const totalDots = Math.min(filteredNews.length, 10);
+      for (let i = 0; i < totalDots; i++) {
+        const dot = document.createElement('button');
+        dot.className = `dot ${i === currentIndex ? 'active' : ''}`;
+        dot.setAttribute('aria-label', `Go to story ${i + 1}`);
+        dot.addEventListener('click', () => goToSlide(i));
+        dotsContainer.appendChild(dot);
+      }
+
+      positionCards();
+    }
+
+    function positionCards() {
+      const cards = document.querySelectorAll('.news-card');
+      const totalCards = cards.length;
+      
+      if (totalCards === 0) return;
+
+      const radius = window.innerWidth < 768 ? 220 : 300;
+      const angleStep = 360 / totalCards;
+      const maxDepth = 200; // Maximum depth offset in pixels
+
+      cards.forEach((card, index) => {
+        // Calculate distance from current index
+        let diff = index - currentIndex;
+        
+        // Handle wrap-around for shortest distance
+        if (diff > totalCards / 2) diff -= totalCards;
+        if (diff < -totalCards / 2) diff += totalCards;
+
+        const absDiff = Math.abs(diff);
+        
+        // Horizontal position based on angle
+        const angle = diff * angleStep;
+        const radian = (angle - 90) * (Math.PI / 180);
+        const x = Math.cos(radian) * radius;
+        
+        // Z-depth: center card is closest (highest z), others progressively further
+        // In 3D space, positive translateZ = closer to viewer
+        // Center card: z = maxDepth, others: z decreases with distance
+        const z = maxDepth - absDiff * 50;
+        
+        // Scale based on distance from center
+        const scale = absDiff === 0 ? 1 : Math.max(0.65, 1 - absDiff * 0.12);
+        
+        // Opacity based on distance
+        const opacity = absDiff === 0 ? 1 : Math.max(0.35, 1 - absDiff * 0.2);
+        
+        // z-index: center card always on top
+        // Use a very high z-index for center, decreasing for others
+        const zIndex = absDiff === 0 ? 1000 : Math.max(1, 500 - absDiff * 100);
+
+        card.style.transform = `translate(-50%, -50%) translateX(${x}px) translateZ(${z}px) scale(${scale})`;
+        card.style.opacity = opacity;
+        card.style.zIndex = zIndex;
+        
+        if (diff === 0) {
+          card.classList.add('active');
+        } else {
+          card.classList.remove('active');
+        }
+      });
+    }
+
+    function goToSlide(index) {
+      if (index < 0) index = filteredNews.length - 1;
+      if (index >= filteredNews.length) index = 0;
+      
+      currentIndex = index;
+      positionCards();
+      updateDots();
+    }
+
+    function updateDots() {
+      const dots = document.querySelectorAll('.dot');
+      dots.forEach((dot, index) => {
+        dot.classList.toggle('active', index === currentIndex);
+      });
+    }
+
+    function nextSlide() {
+      goToSlide(currentIndex + 1);
+    }
+
+    function prevSlide() {
+      goToSlide(currentIndex - 1);
+    }
+
+    function filterNews(category) {
+      currentFilter = category;
+      currentIndex = 0;
+      
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === category);
+      });
+
+      if (category === 'all') {
+        filteredNews = [...newsData];
+      } else {
+        filteredNews = newsData.filter(news => news.category === category);
+      }
+
+      updateCarousel();
+    }
+
+    function showToast(news) {
+      const toast = document.getElementById('updateToast');
+      const toastTitle = document.getElementById('toastTitle');
+      
+      toastTitle.textContent = news.title.substring(0, 40) + '...';
+      toast.classList.add('show');
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 4000);
+    }
+
+    function addNewStory() {
+      const newStory = additionalNews[Math.floor(Math.random() * additionalNews.length)];
+      const uniqueId = Date.now();
+      const storyToAdd = {
+        ...newStory,
+        id: uniqueId,
+        time: 'Just now'
+      };
+
+      newsData.unshift(storyToAdd);
+      
+      if (currentFilter === 'all' || newStory.category === currentFilter) {
+        if (currentFilter === 'all') {
+          filteredNews = [...newsData];
+        } else {
+          filteredNews = newsData.filter(n => n.category === currentFilter);
+        }
+        updateCarousel();
+      }
+
+      showToast(storyToAdd);
+      updateLastUpdateTime();
+      updateStats();
+    }
+
+    function updateLastUpdateTime() {
+      document.getElementById('lastUpdate').textContent = 'Updated just now';
+    }
+
+    function updateStats() {
+      document.getElementById('totalNews').textContent = newsData.length;
+      document.getElementById('trending').textContent = newsData.filter(n => n.trending).length;
+    }
+
+    function startAutoRotate() {
+      autoRotateInterval = setInterval(nextSlide, 5000);
+    }
+
+    function stopAutoRotate() {
+      if (autoRotateInterval) {
+        clearInterval(autoRotateInterval);
+        autoRotateInterval = null;
+      }
+    }
+
+    function init() {
+      updateCarousel();
+      startAutoRotate();
+      updateStats();
+
+      document.getElementById('prevBtn').addEventListener('click', () => {
+        stopAutoRotate();
+        prevSlide();
+        startAutoRotate();
+      });
+
+      document.getElementById('nextBtn').addEventListener('click', () => {
+        stopAutoRotate();
+        nextSlide();
+        startAutoRotate();
+      });
+
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterNews(btn.dataset.filter);
+        });
+      });
+
+      setInterval(addNewStory, 15000);
+
+      let touchStartX = 0;
+      const carouselContainer = document.querySelector('.carousel-container');
+      
+      carouselContainer.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        stopAutoRotate();
+      }, { passive: true });
+
+      carouselContainer.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const diff = touchStartX - touchEndX;
+
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) {
+            nextSlide();
+          } else {
+            prevSlide();
+          }
+        }
+        startAutoRotate();
+      }, { passive: true });
+
+      let keyDownTime = 0;
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+          const now = Date.now();
+          if (now - keyDownTime > 200) {
+            keyDownTime = now;
+            stopAutoRotate();
+            if (e.key === 'ArrowLeft') {
+              prevSlide();
+            } else {
+              nextSlide();
+            }
+            startAutoRotate();
+          }
+        }
+      });
+
+      window.addEventListener('resize', () => {
+        positionCards();
+      });
+
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      if (prefersReducedMotion.matches) {
+        stopAutoRotate();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
