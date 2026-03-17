@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History Channel Streaming Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --accent-gold: #c9a227;
+            --accent-bronze: #8b6914;
+            --accent-amber: #f5a623;
+            --text-primary: #f5f5f7;
+            --text-muted: #8b8b9a;
+            --border: #2a2a35;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .font-display { font-family: 'Playfair Display', serif; }
+
+        .bg-pattern {
+            background-image: 
+                radial-gradient(ellipse at top, rgba(201, 162, 39, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at bottom, rgba(139, 105, 20, 0.05) 0%, transparent 50%);
+        }
+
+        .gradient-history {
+            background: linear-gradient(135deg, #c9a227 0%, #8b6914 50%, #5a4510 100%);
+        }
+
+        .card-hover {
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(201, 162, 39, 0.15);
+        }
+
+        .stream-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stream-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-amber), var(--accent-gold));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stream-card:hover::before {
+            opacity: 1;
+        }
+
+        .pulse-live {
+            animation: pulse-live 2s infinite;
+        }
+
+        @keyframes pulse-live {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in {
+            animation: fade-in-up 0.6s ease forwards;
+        }
+
+        .delay-1 { animation-delay: 0.1s; opacity: 0; }
+        .delay-2 { animation-delay: 0.2s; opacity: 0; }
+        .delay-3 { animation-delay: 0.3s; opacity: 0; }
+        .delay-4 { animation-delay: 0.4s; opacity: 0; }
+
+        .badge-free {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        }
+
+        .badge-trial {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        }
+
+        .badge-library {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        .shimmer-text {
+            background: linear-gradient(90deg, var(--accent-gold) 0%, var(--accent-amber) 50%, var(--accent-gold) 100%);
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer-text 3s infinite;
+        }
+
+        @keyframes shimmer-text {
+            0%, 100% { background-position: 0% center; }
+            50% { background-position: 200% center; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-pattern">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="sticky top-0 z-50 backdrop-blur-xl bg-[var(--bg-primary)]/80 border-b border-[var(--border)]">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl gradient-history flex items-center justify-center shadow-lg shadow-amber-500/20">
+                            <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                                <path d="M12 8l-6 4.5L12 17l6-4.5L12 8z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="font-display text-2xl font-bold shimmer-text">History Channel</h1>
+                            <p class="text-sm text-[var(--text-muted)]">Free Streaming Dashboard</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-2 bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full text-sm">
+                            <span class="w-2 h-2 rounded-full bg-green-500 pulse-live"></span>
+                            <span class="font-medium">FREE OPTIONS</span>
+                        </div>
+                        <div id="current-time" class="mono text-sm text-[var(--text-muted)] hidden sm:block"></div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
+            <!-- Hero Section -->
+            <section class="mb-10 animate-in">
+                <div class="bg-gradient-to-r from-[var(--bg-card)] via-[var(--bg-card)] to-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-8 relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-transparent to-amber-500/5"></div>
+                    <div class="relative z-10">
+                        <div class="flex items-start gap-4 mb-6">
+                            <div class="w-16 h-16 gradient-history rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/20">
+                                <span class="font-display text-2xl font-bold text-white">H</span>
+                            </div>
+                            <div>
+                                <h2 class="font-display text-3xl font-bold mb-2">Watch History Channel Free</h2>
+                                <p class="text-[var(--text-muted)] max-w-2xl">
+                                    Access historical documentaries, reality shows, and educational content through these legal streaming options. Some services offer free trials, while others are completely free with ads.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-3">
+                            <div class="flex items-center gap-2 bg-[var(--bg-secondary)] px-3 py-1.5 rounded-lg text-sm">
+                                <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                </svg>
+                                <span>100% Legal</span>
+                            </div>
+                            <div class="flex items-center gap-2 bg-[var(--bg-secondary)] px-3 py-1.5 rounded-lg text-sm">
+                                <svg class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                                </svg>
+                                <span>No Cable Required</span>
+                            </div>
+                            <div class="flex items-center gap-2 bg-[var(--bg-secondary)] px-3 py-1.5 rounded-lg text-sm">
+                                <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+                                </svg>
+                                <span>Multiple Options</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Free Streaming Options -->
+            <section class="mb-10">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 badge-free rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="font-display text-2xl font-bold">Completely Free</h2>
+                        <p class="text-sm text-[var(--text-muted)]">No subscription required - watch for free</p>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Pluto TV -->
+                    <article class="animate-in delay-1">
+                        <a href="https://pluto.tv" target="_blank" rel="noopener noreferrer" 
+                           class="stream-card block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover h-full">
+                            <div class="p-6">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="w-14 h-14 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                                        <span class="font-display text-xl font-bold text-purple-400">PTV</span>
+                                    </div>
+                                    <span class="badge-free text-white text-xs font-bold px-2 py-1 rounded-full">FREE</span>
+                                </div>
+                                <h3 class="font-display text-xl font-bold mb-2">Pluto TV</h3>
+                                <p class="text-[var(--text-muted)] text-sm mb-4">
+                                    Watch History Channel content free on Pluto TV's dedicated History channel. Ad-supported streaming with no sign-up required.
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Live Channel</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Ad-Supported</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">No Sign-up</span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+
+                    <!-- YouTube History -->
+                    <article class="animate-in delay-2">
+                        <a href="https://www.youtube.com/@HISTORY" target="_blank" rel="noopener noreferrer"
+                           class="stream-card block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover h-full">
+                            <div class="p-6">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="w-14 h-14 bg-red-500/20 rounded-xl flex items-center justify-center">
+                                        <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                        </svg>
+                                    </div>
+                                    <span class="badge-free text-white text-xs font-bold px-2 py-1 rounded-full">FREE</span>
+                                </div>
+                                <h3 class="font-display text-xl font-bold mb-2">YouTube - HISTORY</h3>
+                                <p class="text-[var(--text-muted)] text-sm mb-4">
+                                    Official History Channel YouTube with full episodes, clips, and exclusive content. Free to watch with ads.
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Full Episodes</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Official</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">On-Demand</span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+
+                    <!-- Hoopla -->
+                    <article class="animate-in delay-3">
+                        <a href="https://www.hoopladigital.com" target="_blank" rel="noopener noreferrer"
+                           class="stream-card block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover h-full">
+                            <div class="p-6">
+                                <div class="flex items-start justify-between mb-4">
+                                    <div class="w-14 h-14 bg-violet-500/20 rounded-xl flex items-center justify-center">
+                                        <svg class="w-8 h-8 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                                        </svg>
+                                    </div>
+                                    <span class="badge-library text-white text-xs font-bold px-2 py-1 rounded-full">LIBRARY</span>
+                                </div>
+                                <h3 class="font-display text-xl font-bold mb-2">Hoopla Digital</h3>
+                                <p class="text-[var(--text-muted)] text-sm mb-4">
+                                    Free with your library card! Access History Channel documentaries and shows through Hoopla's partnership with public libraries.
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Library Card</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">No Ads</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Documentaries</span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+                </div>
+            </section>
+
+            <!-- Free Trial Options -->
+            <section class="mb-10">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 badge-trial rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="font-display text-2xl font-bold">Free Trials</h2>
+                        <p class="text-sm text-[var(--text-muted)]">Watch with a free trial - cancel anytime</p>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Philo -->
+                    <a href="https://www.philo.com" target="_blank" rel="noopener noreferrer"
+                       class="stream-card bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5 card-hover block">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-10 h-10 bg-teal-500/20 rounded-lg flex items-center justify-center">
+                                <span class="font-bold text-teal-400">Ph</span>
+                            </div>
+                            <div>
+                                <h4 class="font-display font-bold">Philo</h4>
+                                <span class="text-xs text-[var(--text-muted)]">7-day trial</span>
+                            </div>
+                        </div>
+                        <p class="text-sm text-[var(--text-muted)] mb-3">25+ channels including History</p>
+                        <span class="badge-trial text-white text-xs px-2 py-1 rounded">FREE TRIAL</span>
+                    </a>
+
+                    <!-- FuboTV -->
+                    <a href="https://www.fubo.tv" target="_blank" rel="noopener noreferrer"
+                       class="stream-card bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5 card-hover block">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                                <span class="font-bold text-orange-400">Fb</span>
+                            </div>
+                            <div>
+                                <h4 class="font-display font-bold">FuboTV</h4>
+                                <span class="text-xs text-[var(--text-muted)]">7-day trial</span>
+                            </div>
+                        </div>
+                        <p class="text-sm text-[var(--text-muted)] mb-3">100+ channels, sports & entertainment</p>
+                        <span class="badge-trial text-white text-xs px-2 py-1 rounded">FREE TRIAL</span>
+                    </a>
+
+                    <!-- Sling TV -->
+                    <a href="https://www.sling.com" target="_blank" rel="noopener noreferrer"
+                       class="stream-card bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5 card-hover block">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                                <span class="font-bold text-yellow-400">Sl</span>
+                            </div>
+                            <div>
+                                <h4 class="font-display font-bold">Sling TV</h4>
+                                <span class="text-xs text-[var(--text-muted)]">7-day trial</span>
+                            </div>
+                        </div>
+                        <p class="text-sm text-[var(--text-muted)] mb-3">History in Sling Blue package</p>
+                        <span class="badge-trial text-white text-xs px-2 py-1 rounded">FREE TRIAL</span>
+                    </a>
+
+                    <!-- Hulu + Live TV -->
+                    <a href="https://www.hulu.com/live-tv" target="_blank" rel="noopener noreferrer"
+                       class="stream-card bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-5 card-hover block">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                                <span class="font-bold text-green-400">Hu</span>
+                            </div>
+                            <div>
+                                <h4 class="font-display font-bold">Hulu Live</h4>
+                                <span class="text-xs text-[var(--text-muted)]">3-day trial</span>
+                            </div>
+                        </div>
+                        <p class="text-sm text-[var(--text-muted)] mb-3">Live TV + on-demand library</p>
+                        <span class="badge-trial text-white text-xs px-2 py-1 rounded">FREE TRIAL</span>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Popular Shows -->
+            <section class="mb-10 animate-in delay-4">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 gradient-history rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM4 12a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM4 18a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="font-display text-2xl font-bold">Popular Shows</h2>
+                        <p class="text-sm text-[var(--text-muted)]">Watch these hit series on History Channel</p>
+                    </div>
+                </div>
+
+                <div class="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 card-hover">
+                        <div class="aspect-video bg-gradient-to-br from-amber-900/40 to-amber-700/20 rounded-lg mb-3 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-amber-400/60" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                            </svg>
+                        </div>
+                        <h4 class="font-display font-bold text-sm">Ancient Aliens</h4>
+                        <p class="text-xs text-[var(--text-muted)]">Documentary Series</p>
+                    </div>
+
+                    <div class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 card-hover">
+                        <div class="aspect-video bg-gradient-to-br from-blue-900/40 to-blue-700/20 rounded-lg mb-3 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-blue-400/60" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                            </svg>
+                        </div>
+                        <h4 class="font-display font-bold text-sm">Pawn Stars</h4>
+                        <p class="text-xs text-[var(--text-muted)]">Reality Series</p>
+                    </div>
+
+                    <div class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 card-hover">
+                        <div class="aspect-video bg-gradient-to-br from-green-900/40 to-green-700/20 rounded-lg mb-3 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-green-400/60" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                            </svg>
+                        </div>
+                        <h4 class="font-display font-bold text-sm">Vikings</h4>
+                        <p class="text-xs text-[var(--text-muted)]">Drama Series</p>
+                    </div>
+
+                    <div class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 card-hover">
+                        <div class="aspect-video bg-gradient-to-br from-red-900/40 to-red-700/20 rounded-lg mb-3 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-red-400/60" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4 6h-4v2h4v2h-4v2h4v2H9V7h6v2z"/>
+                            </svg>
+                        </div>
+                        <h4 class="font-display font-bold text-sm">The Curse of Oak Island</h4>
+                        <p class="text-xs text-[var(--text-muted)]">Reality Series</p>
+                    </div>
+
+                    <div class="bg-[var(--bg-card)] rounded-xl border border-[var(--border)] p-4 card-hover">
+                        <div class="aspect-video bg-gradient-to-br from-purple-900/40 to-purple-700/20 rounded-lg mb-3 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-purple-400/60" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/>
+                            </svg>
+                        </div>
+                        <h4 class="font-display font-bold text-sm">Mountain Men</h4>
+                        <p class="text-xs text-[var(--text-muted)]">Reality Series</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VPN Notice -->
+            <section class="mb-10 animate-in delay-4">
+                <div class="bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-2xl p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-display text-xl font-bold mb-2">Important Notice</h3>
+                            <p class="text-[var(--text-muted)] mb-4">
+                                Some streaming services may be geo-restricted to the United States. If you're outside the US, consider using a VPN with US servers to access History Channel content. Always use legitimate streaming services and respect copyright laws.
+                            </p>
+                            <div class="grid sm:grid-cols-3 gap-3">
+                                <div class="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border)]">
+                                    <p class="text-xs text-[var(--text-muted)] mb-1">Recommended</p>
+                                    <p class="font-medium text-sm">Use a reliable VPN</p>
+                                </div>
+                                <div class="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border)]">
+                                    <p class="text-xs text-[var(--text-muted)] mb-1">Location</p>
+                                    <p class="font-medium text-sm">Connect to US server</p>
+                                </div>
+                                <div class="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border)]">
+                                    <p class="text-xs text-[var(--text-muted)] mb-1">Legal</p>
+                                    <p class="font-medium text-sm">Use official platforms</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Links -->
+            <section class="animate-in delay-4">
+                <h3 class="font-display text-xl font-bold mb-4">Related Channels</h3>
+                <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <a href="https://www.aetv.com" target="_blank" rel="noopener noreferrer"
+                       class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 hover:border-blue-500/50 transition-all group">
+                        <h4 class="font-display font-bold mb-1">A&E</h4>
+                        <p class="text-sm text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors">Crime & Reality TV</p>
+                    </a>
+
+                    <a href="https://www.lifetime.com" target="_blank" rel="noopener noreferrer"
+                       class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 hover:border-pink-500/50 transition-all group">
+                        <h4 class="font-display font-bold mb-1">Lifetime</h4>
+                        <p class="text-sm text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors">Movies & Series</p>
+                    </a>
+
+                    <a href="https://www.history.com" target="_blank" rel="noopener noreferrer"
+                       class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 hover:border-amber-500/50 transition-all group">
+                        <h4 class="font-display font-bold mb-1">History.com</h4>
+                        <p class="text-sm text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors">Official Website</p>
+                    </a>
+
+                    <a href="https://play.history.com" target="_blank" rel="noopener noreferrer"
+                       class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 hover:border-purple-500/50 transition-all group">
+                        <h4 class="font-display font-bold mb-1">History App</h4>
+                        <p class="text-sm text-[var(--text-muted)] group-hover:text-[var(--text-primary)] transition-colors">Mobile Streaming</p>
+                    </a>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="border-t border-[var(--border)] bg-[var(--bg-secondary)]/50 py-6">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <p class="text-sm text-[var(--text-muted)]">
+                        History Channel Streaming Dashboard - Links to official streaming platforms
+                    </p>
+                    <div class="flex items-center gap-4 text-sm text-[var(--text-muted)]">
+                        <a href="https://www.history.com" target="_blank" rel="noopener noreferrer" class="hover:text-[var(--accent-gold)] transition-colors">History.com</a>
+                        <span>•</span>
+                        <a href="https://www.aenetworks.com" target="_blank" rel="noopener noreferrer" class="hover:text-[var(--accent-gold)] transition-colors">A&E Networks</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            const options = {
+                timeZone: 'America/New_York',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            };
+            const timeString = now.toLocaleTimeString('en-US', options);
+            const dateOptions = {
+                timeZone: 'America/New_York',
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            };
+            const dateString = now.toLocaleDateString('en-US', dateOptions);
+            const timeEl = document.getElementById('current-time');
+            if (timeEl) {
+                timeEl.textContent = `${dateString} · ${timeString} ET`;
+            }
+        }
+
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === '1') {
+                window.open('https://pluto.tv', '_blank');
+            } else if (e.key === '2') {
+                window.open('https://www.youtube.com/@HISTORY', '_blank');
+            } else if (e.key === '3') {
+                window.open('https://www.hoopladigital.com', '_blank');
+            }
+        });
+    </script>
+</body>
+</html>
