@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free TV Streaming Hub - Multiple Channels</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --text-primary: #f5f5f7;
+            --text-muted: #8b8b9a;
+            --border: #2a2a35;
+            --accent: #6366f1;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+
+        .bg-mesh {
+            background-image: 
+                radial-gradient(ellipse at 20% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(14, 165, 233, 0.05) 0%, transparent 70%);
+        }
+
+        .card-hover {
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.15);
+        }
+
+        .stream-btn {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stream-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+
+        .stream-btn:hover::after {
+            transform: translateX(100%);
+        }
+
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in { animation: fade-in-up 0.5s ease forwards; }
+        .delay-1 { animation-delay: 0.1s; opacity: 0; }
+        .delay-2 { animation-delay: 0.2s; opacity: 0; }
+        .delay-3 { animation-delay: 0.3s; opacity: 0; }
+        .delay-4 { animation-delay: 0.4s; opacity: 0; }
+
+        .pulse-dot {
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.1); }
+        }
+
+        .gradient-border {
+            background: linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+                        linear-gradient(135deg, #6366f1, #ec4899, #0ea5e9) border-box;
+            border: 2px solid transparent;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    </style>
+</head>
+<body class="bg-mesh">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="sticky top-0 z-50 backdrop-blur-xl bg-[var(--bg-primary)]/80 border-b border-[var(--border)]">
+            <div class="max-w-7xl mx-auto px-4 py-4">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                            <svg class="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3v2h1.46l1.5 10H6l.5-2H10v4h4v-4h3.5l.5 2h.04l1.5-10H21V6zm-8 10h-2v-4h-2v4H8l-.5-2h9l-.5 2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h1 class="font-display text-xl font-bold">Free TV Streaming Hub</h1>
+                            <p class="text-sm text-[var(--text-muted)]">Legal streaming sources for popular channels</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-2 bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full text-sm">
+                            <span class="w-2 h-2 rounded-full bg-green-500 pulse-dot"></span>
+                            <span class="font-medium">Free Access</span>
+                        </div>
+                        <div id="current-time" class="mono text-sm text-[var(--text-muted)] hidden sm:block"></div>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <div class="flex gap-2 mt-4 overflow-x-auto scrollbar-thin pb-2">
+                    <button class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 whitespace-nowrap" data-tab="all">
+                        All Channels
+                    </button>
+                    <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border)] hover:border-indigo-500/30 whitespace-nowrap" data-tab="documentary">
+                        Documentary
+                    </button>
+                    <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border)] hover:border-indigo-500/30 whitespace-nowrap" data-tab="news">
+                        News
+                    </button>
+                    <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border)] hover:border-indigo-500/30 whitespace-nowrap" data-tab="entertainment">
+                        Entertainment
+                    </button>
+                    <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border)] hover:border-indigo-500/30 whitespace-nowrap" data-tab="sports">
+                        Sports
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
+            <!-- Featured Section -->
+            <section class="mb-10 animate-in">
+                <div class="gradient-border rounded-2xl p-6 bg-[var(--bg-card)]">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h2 class="font-display text-xl font-bold">How to Watch for Free</h2>
+                            <p class="text-[var(--text-muted)] text-sm">These platforms offer free (ad-supported) or trial access to popular TV channels</p>
+                        </div>
+                    </div>
+                    <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="bg-[var(--bg-secondary)] rounded-xl p-4 border border-[var(--border)]">
+                            <div class="flex items-center gap-2 mb-2">
+                                <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                </svg>
+                                <span class="font-medium text-sm">100% Free</span>
+                            </div>
+                            <p class="text-xs text-[var(--text-muted)]">Pluto TV, Tubi, YouTube, Library apps</p>
+                        </div>
+                        <div class="bg-[var(--bg-secondary)] rounded-xl p-4 border border-[var(--border)]">
+                            <div class="flex items-center gap-2 mb-2">
+                                <svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                                </svg>
+                                <span class="font-medium text-sm">Free Trials</span>
+                            </div>
+                            <p class="text-xs text-[var(--text-muted)]">Philo, Fubo, Sling - cancel anytime</p>
+                        </div>
+                        <div class="bg-[var(--bg-secondary)] rounded-xl p-4 border border-[var(--border)]">
+                            <div class="flex items-center gap-2 mb-2">
+                                <svg class="w-5 h-5 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.103a1 1 0 00.293.707l2.063 2.063a.999.999 0 01.293.707v2.583a1 1 0 00.553.894l2 1a1 1 0 001.447-.894v-2.583c0-.263.106-.515.293-.707l2.063-2.063a1 1 0 00.293-.707V10.12l1.69-.723-4.056 1.735a1 1 0 01-.787 0L3.31 9.397z"/>
+                                </svg>
+                                <span class="font-medium text-sm">Library Access</span>
+                            </div>
+                            <p class="text-xs text-[var(--text-muted)]">Kanopy, Hoopla with library card</p>
+                        </div>
+                        <div class="bg-[var(--bg-secondary)] rounded-xl p-4 border border-[var(--border)]">
+                            <div class="flex items-center gap-2 mb-2">
+                                <svg class="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
+                                </svg>
+                                <span class="font-medium text-sm">Official Apps</span>
+                            </div>
+                            <p class="text-xs text-[var(--text-muted)]">Network apps with TV provider login</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Channel Grid -->
+            <section class="mb-10" id="channel-grid">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="font-display text-2xl font-bold">Available Channels</h2>
+                    <div class="text-sm text-[var(--text-muted)]">
+                        <span id="channel-count">12</span> sources available
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6" id="channels-container">
+                    <!-- History Channel -->
+                    <article class="animate-in delay-1 channel-card" data-category="documentary">
+                        <a href="https://pluto.tv" target="_blank" rel="noopener noreferrer" 
+                           class="block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover">
+                            <div class="bg-gradient-to-r from-amber-600 to-amber-800 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                            <span class="font-display text-xl font-bold text-white">H</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-display text-lg font-bold text-white">History Channel</h3>
+                                            <p class="text-white/70 text-sm">Documentary & Reality</p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">FREE</span>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-[var(--text-muted)] text-sm mb-3">
+                                    Watch via Pluto TV's History channel or official YouTube channel with full episodes.
+                                </p>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Ancient Aliens</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Pawn Stars</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Vikings</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="stream-btn flex-1 bg-indigo-500 hover:bg-indigo-600 text-white text-center py-2 rounded-lg text-sm font-medium transition-colors">
+                                        Pluto TV
+                                    </span>
+                                    <span class="stream-btn flex-1 bg-[var(--bg-secondary)] hover:bg-[var(--border)] text-center py-2 rounded-lg text-sm font-medium transition-colors border border-[var(--border)]">
+                                        YouTube
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+
+                    <!-- Discovery Channel -->
+                    <article class="animate-in delay-1 channel-card" data-category="documentary">
+                        <a href="https://www.discovery.com" target="_blank" rel="noopener noreferrer"
+                           class="block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover">
+                            <div class="bg-gradient-to-r from-blue-600 to-blue-800 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                            <span class="font-display text-xl font-bold text-white">D</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-display text-lg font-bold text-white">Discovery</h3>
+                                            <p class="text-white/70 text-sm">Science & Nature</p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">TRIAL</span>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-[var(--text-muted)] text-sm mb-3">
+                                    Discovery+ offers free trial. Also available on Pluto TV Discovery channel.
+                                </p>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Shark Week</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Deadliest Catch</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="stream-btn flex-1 bg-blue-500 hover:bg-blue-600 text-white text-center py-2 rounded-lg text-sm font-medium transition-colors">
+                                        Discovery+
+                                    </span>
+                                    <span class="stream-btn flex-1 bg-[var(--bg-secondary)] hover:bg-[var(--border)] text-center py-2 rounded-lg text-sm font-medium transition-colors border border-[var(--border)]">
+                                        Pluto TV
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+
+                    <!-- National Geographic -->
+                    <article class="animate-in delay-2 channel-card" data-category="documentary">
+                        <a href="https://www.nationalgeographic.com/tv" target="_blank" rel="noopener noreferrer"
+                           class="block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover">
+                            <div class="bg-gradient-to-r from-yellow-600 to-yellow-800 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                            <span class="font-display text-xl font-bold text-white">NG</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-display text-lg font-bold text-white">Nat Geo</h3>
+                                            <p class="text-white/70 text-sm">Nature & Science</p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">FREE</span>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-[var(--text-muted)] text-sm mb-3">
+                                    Available on Disney+ with bundle, YouTube clips, and Pluto TV National Geographic.
+                                </p>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Explorer</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Wild</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="stream-btn flex-1 bg-yellow-600 hover:bg-yellow-700 text-white text-center py-2 rounded-lg text-sm font-medium transition-colors">
+                                        YouTube
+                                    </span>
+                                    <span class="stream-btn flex-1 bg-[var(--bg-secondary)] hover:bg-[var(--border)] text-center py-2 rounded-lg text-sm font-medium transition-colors border border-[var(--border)]">
+                                        Pluto TV
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+
+                    <!-- CNN -->
+                    <article class="animate-in delay-2 channel-card" data-category="news">
+                        <a href="https://www.cnn.com" target="_blank" rel="noopener noreferrer"
+                           class="block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover">
+                            <div class="bg-gradient-to-r from-red-600 to-red-800 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                            <span class="font-display text-xl font-bold text-white">CNN</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-display text-lg font-bold text-white">CNN</h3>
+                                            <p class="text-white/70 text-sm">News & Politics</p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">FREE</span>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-[var(--text-muted)] text-sm mb-3">
+                                    Free live stream on CNN.com, Pluto TV CNN channel, and YouTube live coverage.
+                                </p>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Live News</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Breaking</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="stream-btn flex-1 bg-red-600 hover:bg-red-700 text-white text-center py-2 rounded-lg text-sm font-medium transition-colors">
+                                        CNN Live
+                                    </span>
+                                    <span class="stream-btn flex-1 bg-[var(--bg-secondary)] hover:bg-[var(--border)] text-center py-2 rounded-lg text-sm font-medium transition-colors border border-[var(--border)]">
+                                        YouTube
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+
+                    <!-- BBC News -->
+                    <article class="animate-in delay-3 channel-card" data-category="news">
+                        <a href="https://www.bbc.com/news" target="_blank" rel="noopener noreferrer"
+                           class="block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover">
+                            <div class="bg-gradient-to-r from-red-700 to-red-900 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                            <span class="font-display text-xl font-bold text-white">BBC</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-display text-lg font-bold text-white">BBC News</h3>
+                                            <p class="text-white/70 text-sm">World News</p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">FREE</span>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-[var(--text-muted)] text-sm mb-3">
+                                    BBC iPlayer (UK), BBC News YouTube, and Pluto TV BBC News channel.
+                                </p>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">World</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">24/7</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="stream-btn flex-1 bg-red-700 hover:bg-red-800 text-white text-center py-2 rounded-lg text-sm font-medium transition-colors">
+                                        BBC News
+                                    </span>
+                                    <span class="stream-btn flex-1 bg-[var(--bg-secondary)] hover:bg-[var(--border)] text-center py-2 rounded-lg text-sm font-medium transition-colors border border-[var(--border)]">
+                                        YouTube
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+
+                    <!-- ESPN -->
+                    <article class="animate-in delay-3 channel-card" data-category="sports">
+                        <a href="https://www.espn.com" target="_blank" rel="noopener noreferrer"
+                           class="block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover">
+                            <div class="bg-gradient-to-r from-red-500 to-red-700 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                            <span class="font-display text-xl font-bold text-white">ESPN</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-display text-lg font-bold text-white">ESPN</h3>
+                                            <p class="text-white/70 text-sm">Sports</p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full">TRIAL</span>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-[var(--text-muted)] text-sm mb-3">
+                                    ESPN+ free trial, or watch free sports highlights on YouTube.
+                                </p>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">NFL</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">NBA</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">MLB</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="stream-btn flex-1 bg-red-500 hover:bg-red-600 text-white text-center py-2 rounded-lg text-sm font-medium transition-colors">
+                                        ESPN+
+                                    </span>
+                                    <span class="stream-btn flex-1 bg-[var(--bg-secondary)] hover:bg-[var(--border)] text-center py-2 rounded-lg text-sm font-medium transition-colors border border-[var(--border)]">
+                                        YouTube
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+
+                    <!-- AMC -->
+                    <article class="animate-in delay-4 channel-card" data-category="entertainment">
+                        <a href="https://www.amc.com" target="_blank" rel="noopener noreferrer"
+                           class="block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover">
+                            <div class="bg-gradient-to-r from-gray-700 to-gray-900 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                            <span class="font-display text-xl font-bold text-white">AMC</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-display text-lg font-bold text-white">AMC</h3>
+                                            <p class="text-white/70 text-sm">Movies & Series</p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">FREE</span>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-[var(--text-muted)] text-sm mb-3">
+                                    Free movies and shows on AMC+ trial, Pluto TV AMC channel.
+                                </p>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Walking Dead</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Movies</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="stream-btn flex-1 bg-gray-700 hover:bg-gray-800 text-white text-center py-2 rounded-lg text-sm font-medium transition-colors">
+                                        AMC+
+                                    </span>
+                                    <span class="stream-btn flex-1 bg-[var(--bg-secondary)] hover:bg-[var(--border)] text-center py-2 rounded-lg text-sm font-medium transition-colors border border-[var(--border)]">
+                                        Pluto TV
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+
+                    <!-- Comedy Central -->
+                    <article class="animate-in delay-4 channel-card" data-category="entertainment">
+                        <a href="https://www.cc.com" target="_blank" rel="noopener noreferrer"
+                           class="block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover">
+                            <div class="bg-gradient-to-r from-orange-500 to-orange-700 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                            <span class="font-display text-xl font-bold text-white">CC</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-display text-lg font-bold text-white">Comedy Central</h3>
+                                            <p class="text-white/70 text-sm">Comedy & Entertainment</p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">FREE</span>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-[var(--text-muted)] text-sm mb-3">
+                                    Free clips on CC.com, full episodes with provider login, Pluto TV channel.
+                                </p>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">South Park</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Daily Show</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="stream-btn flex-1 bg-orange-500 hover:bg-orange-600 text-white text-center py-2 rounded-lg text-sm font-medium transition-colors">
+                                        CC.com
+                                    </span>
+                                    <span class="stream-btn flex-1 bg-[var(--bg-secondary)] hover:bg-[var(--border)] text-center py-2 rounded-lg text-sm font-medium transition-colors border border-[var(--border)]">
+                                        Pluto TV
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+
+                    <!-- PBS -->
+                    <article class="animate-in delay-4 channel-card" data-category="documentary">
+                        <a href="https://www.pbs.org" target="_blank" rel="noopener noreferrer"
+                           class="block bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] overflow-hidden card-hover">
+                            <div class="bg-gradient-to-r from-blue-700 to-blue-900 p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                                            <span class="font-display text-xl font-bold text-white">PBS</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-display text-lg font-bold text-white">PBS</h3>
+                                            <p class="text-white/70 text-sm">Public Broadcasting</p>
+                                        </div>
+                                    </div>
+                                    <span class="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">FREE</span>
+                                </div>
+                            </div>
+                            <div class="p-4">
+                                <p class="text-[var(--text-muted)] text-sm mb-3">
+                                    Completely free! PBS.org and PBS app offer full documentaries and shows.
+                                </p>
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Nova</span>
+                                    <span class="bg-[var(--bg-secondary)] text-xs px-2 py-1 rounded">Frontline</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="stream-btn flex-1 bg-blue-700 hover:bg-blue-800 text-white text-center py-2 rounded-lg text-sm font-medium transition-colors">
+                                        PBS.org
+                                    </span>
+                                    <span class="stream-btn flex-1 bg-[var(--bg-secondary)] hover:bg-[var(--border)] text-center py-2 rounded-lg text-sm font-medium transition-colors border border-[var(--border)]">
+                                        PBS App
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                    </article>
+                </div>
+            </section>
+
+            <!-- Quick Links Section -->
+            <section class="mb-10 animate-in delay-4">
+                <h3 class="font-display text-xl font-bold mb-4">Quick Links - 100% Free</h3>
+                <div class="grid sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    <a href="https://pluto.tv" target="_blank" rel="noopener noreferrer"
+                       class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 text-center hover:border-indigo-500/50 transition-all">
+                        <div class="w-10 h-10 bg-purple-500/20 rounded-lg mx-auto mb-2 flex items-center justify-center">
+                            <span class="font-bold text-purple-400">PTV</span>
+                        </div>
+                        <p class="font-medium text-sm">Pluto TV</p>
+                        <p class="text-xs text-[var(--text-muted)]">Free Live TV</p>
+                    </a>
+                    <a href="https://tubitv.com" target="_blank" rel="noopener noreferrer"
+                       class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 text-center hover:border-indigo-500/50 transition-all">
+                        <div class="w-10 h-10 bg-red-500/20 rounded-lg mx-auto mb-2 flex items-center justify-center">
+                            <span class="font-bold text-red-400">Tubi</span>
+                        </div>
+                        <p class="font-medium text-sm">Tubi</p>
+                        <p class="text-xs text-[var(--text-muted)]">Movies & Shows</p>
+                    </a>
+                    <a href="https://www.youtube.com" target="_blank" rel="noopener noreferrer"
+                       class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 text-center hover:border-indigo-500/50 transition-all">
+                        <div class="w-10 h-10 bg-red-600/20 rounded-lg mx-auto mb-2 flex items-center justify-center">
+                            <span class="font-bold text-red-500">YT</span>
+                        </div>
+                        <p class="font-medium text-sm">YouTube</p>
+                        <p class="text-xs text-[var(--text-muted)]">Free Content</p>
+                    </a>
+                    <a href="https://www.hoopladigital.com" target="_blank" rel="noopener noreferrer"
+                       class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 text-center hover:border-indigo-500/50 transition-all">
+                        <div class="w-10 h-10 bg-violet-500/20 rounded-lg mx-auto mb-2 flex items-center justify-center">
+                            <span class="font-bold text-violet-400">HP</span>
+                        </div>
+                        <p class="font-medium text-sm">Hoopla</p>
+                        <p class="text-xs text-[var(--text-muted)]">Library Card</p>
+                    </a>
+                    <a href="https://www.kanopy.com" target="_blank" rel="noopener noreferrer"
+                       class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 text-center hover:border-indigo-500/50 transition-all">
+                        <div class="w-10 h-10 bg-teal-500/20 rounded-lg mx-auto mb-2 flex items-center justify-center">
+                            <span class="font-bold text-teal-400">KP</span>
+                        </div>
+                        <p class="font-medium text-sm">Kanopy</p>
+                        <p class="text-xs text-[var(--text-muted)]">Library Card</p>
+                    </a>
+                    <a href="https://www.plex.tv" target="_blank" rel="noopener noreferrer"
+                       class="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-4 text-center hover:border-indigo-500/50 transition-all">
+                        <div class="w-10 h-10 bg-yellow-500/20 rounded-lg mx-auto mb-2 flex items-center justify-center">
+                            <span class="font-bold text-yellow-400">PX</span>
+                        </div>
+                        <p class="font-medium text-sm">Plex</p>
+                        <p class="text-xs text-[var(--text-muted)]">Free Live TV</p>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Important Notice -->
+            <section class="animate-in delay-4">
+                <div class="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/30 rounded-2xl p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                            <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-display text-xl font-bold mb-2">Legal Disclaimer</h3>
+                            <p class="text-[var(--text-muted)] mb-4">
+                                This dashboard provides links to official streaming platforms. All services listed are legitimate and legal. Some content may be geo-restricted based on your location. Always use official platforms and respect copyright laws.
+                            </p>
+                            <div class="grid sm:grid-cols-3 gap-3">
+                                <div class="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border)]">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <span class="font-medium text-sm">Legal</span>
+                                    </div>
+                                    <p class="text-xs text-[var(--text-muted)]">Official platforms only</p>
+                                </div>
+                                <div class="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border)]">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <svg class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 18.67 2 14.225 2 9c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <span class="font-medium text-sm">Safe</span>
+                                    </div>
+                                    <p class="text-xs text-[var(--text-muted)]">No piracy or malware</p>
+                                </div>
+                                <div class="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border)]">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+                                        </svg>
+                                        <span class="font-medium text-sm">Ad-Supported</span>
+                                    </div>
+                                    <p class="text-xs text-[var(--text-muted)]">Free = ads included</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="border-t border-[var(--border)] bg-[var(--bg-secondary)]/50 py-6">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <p class="text-sm text-[var(--text-muted)]">
+                        Free TV Streaming Hub - Links to official streaming platforms
+                    </p>
+                    <div class="flex items-center gap-4 text-sm text-[var(--text-muted)]">
+                        <span>Keyboard: 1-6 for quick links</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            const options = { hour: '2-digit', minute: '2-digit', hour12: true };
+            const timeString = now.toLocaleTimeString('en-US', options);
+            const dateOptions = { weekday: 'short', month: 'short', day: 'numeric' };
+            const dateString = now.toLocaleDateString('en-US', dateOptions);
+            const timeEl = document.getElementById('current-time');
+            if (timeEl) {
+                timeEl.textContent = `${dateString} · ${timeString}`;
+            }
+        }
+
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // Tab filtering
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const channelCards = document.querySelectorAll('.channel-card');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabBtns.forEach(b => {
+                    b.classList.remove('active', 'bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/30');
+                    b.classList.add('bg-[var(--bg-card)]', 'text-[var(--text-muted)]', 'border-[var(--border)]');
+                });
+                btn.classList.add('active', 'bg-indigo-500/20', 'text-indigo-400', 'border-indigo-500/30');
+                btn.classList.remove('bg-[var(--bg-card)]', 'text-[var(--text-muted)]', 'border-[var(--border)]');
+
+                const category = btn.dataset.tab;
+                let visibleCount = 0;
+
+                channelCards.forEach(card => {
+                    if (category === 'all' || card.dataset.category === category) {
+                        card.style.display = 'block';
+                        visibleCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                document.getElementById('channel-count').textContent = visibleCount;
+            });
+        });
+
+        // Keyboard shortcuts
+        const quickLinks = [
+            'https://pluto.tv',
+            'https://tubitv.com',
+            'https://www.youtube.com',
+            'https://www.hoopladigital.com',
+            'https://www.kanopy.com',
+            'https://www.plex.tv'
+        ];
+
+        document.addEventListener('keydown', (e) => {
+            const keyNum = parseInt(e.key);
+            if (keyNum >= 1 && keyNum <= 6) {
+                window.open(quickLinks[keyNum - 1], '_blank');
+            }
+        });
+    </script>
+</body>
+</html>
