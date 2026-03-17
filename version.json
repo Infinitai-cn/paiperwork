@@ -1,7 +1,7 @@
 {
-    "version": "1.1.0",
-    "releaseDate": "2025-03-12",
-    "notes": "<p>Improved Document RAG workflow</p> <p><strong>Bug fixes.</p>",
+    "version": "1.2.0",
+    "releaseDate": "2026-03-17",
+    "notes": "<p>Deployment to Huggingface enabled</p> <p><strong>Bug fixes.</p>",
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
     "requiredUpdate": false
 }
