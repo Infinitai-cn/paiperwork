@@ -25,10 +25,10 @@ The Space repository root must contain exactly these runtime files.
   mkdir -p ~/Paiperwork
   cd ~/Paiperwork
 - Copy files into the staging folder root:
-  cp /Users/infinitai/paiperwork-main/deployment/huggingface-space/Dockerfile .
-  cp /Users/infinitai/paiperwork-main/deployment/huggingface-space/README.md .
-  cp /Users/infinitai/paiperwork-main/dist/linux/Paiperwork-server .
-  cp -R /Users/infinitai/paiperwork-main/dist/linux/app ./app
+  cp /Users/your_user/paiperwork-main/deployment/huggingface-space/Dockerfile .
+  cp /Users/your_user/paiperwork-main/deployment/huggingface-space/README.md .
+  cp /Users/your_user/paiperwork-main/dist/linux/Paiperwork-server .
+  cp -R /Users/your_user/paiperwork-main/dist/linux/app ./app
 
 5. Install required upload tools
 - Required for this guide (hf upload):
@@ -59,8 +59,8 @@ The Space repository root must contain exactly these runtime files.
   - Hugging Face CLI installed and authenticated (`hf auth login`).
   - Local build already generated in dist/linux.
 - Command sequence:
-  cd /Users/infinitai/paiperwork-main
-  ./deployment/huggingface-space/deploy-mirror.sh Infinitai/Paiperwork "Mirror deploy"
+  cd /Users/your_user/paiperwork-main
+  ./deployment/huggingface-space/deploy-mirror.sh your_user/Paiperwork "Mirror deploy"
 - What it does:
   - Stages only Dockerfile, README.md, Paiperwork-server, and app/ from local build.
   - Runs a root upload with `--delete "*"` so removed/renamed files are also removed remotely.
