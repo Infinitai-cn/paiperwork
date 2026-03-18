@@ -2056,6 +2056,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
 
         // SlideForge Generator
 
+        loadingPresentation: "Loading presentation...",
         loadingPresentationTools: "Loading presentation tools...",
 
         // SlideForge Generator

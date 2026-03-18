@@ -1583,6 +1583,25 @@ class PromptedPresentationWorkflow {
 			return raw;
 		}
 
+		// Some generated decks output percentage tokens inside SVG path d attributes
+		// (e.g., "M50% 20 Q 100% 50 50% 80"), which is invalid path syntax in browsers.
+		// Normalize those tokens by stripping only the trailing percent sign.
+		try {
+			const svgPaths = documentRef.querySelectorAll('svg path[d]');
+			svgPaths.forEach((pathEl) => {
+				const d = pathEl.getAttribute('d');
+				if (!d || d.indexOf('%') === -1) {
+					return;
+				}
+				const normalizedD = d.replace(/(-?\d+(?:\.\d+)?)%/g, '$1');
+				if (normalizedD !== d) {
+					pathEl.setAttribute('d', normalizedD);
+				}
+			});
+		} catch (_svgNormalizeError) {
+			// Ignore sanitizer failures; downstream rendering should still proceed.
+		}
+
 		const hasPrevButton = !!documentRef.querySelector('[id*="prev" i], [class*="prev" i], [aria-label*="prev" i], [data-action*="prev" i], button[onclick*="prev" i], button[title*="prev" i]');
 		const hasNextButton = !!documentRef.querySelector('[id*="next" i], [class*="next" i], [aria-label*="next" i], [data-action*="next" i], button[onclick*="next" i], button[title*="next" i]');
 
