@@ -1,5 +1,5 @@
 {
-    "version": "1.2.1",
+    "version": "1.2.2",
     "releaseDate": "2026-03-17",
     "notes": "<p>Deployment to Huggingface enabled</p> <p><strong>Bug fixes.</p>",
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",

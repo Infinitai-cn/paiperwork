@@ -53,6 +53,18 @@ The Space repository root must contain exactly these runtime files.
   hf upload your_user/Paiperwork dist/linux/Paiperwork-server Paiperwork-server --repo-type space
   hf upload your_user/Paiperwork dist/linux/app app --repo-type space
 
+6.1 Total mirror deployment (deletes stale remote files)
+- Use this when you want the Space repo to exactly mirror your local runtime payload.
+- Prerequisites:
+  - Hugging Face CLI installed and authenticated (`hf auth login`).
+  - Local build already generated in dist/linux.
+- Command sequence:
+  cd /Users/infinitai/paiperwork-main
+  ./deployment/huggingface-space/deploy-mirror.sh Infinitai/Paiperwork "Mirror deploy"
+- What it does:
+  - Stages only Dockerfile, README.md, Paiperwork-server, and app/ from local build.
+  - Runs a root upload with `--delete "*"` so removed/renamed files are also removed remotely.
+
 7. Wait for build
 - Open the Space page and watch Build Logs.
 - First build can take a few minutes.
