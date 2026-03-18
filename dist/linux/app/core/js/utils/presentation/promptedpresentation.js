@@ -1747,7 +1747,7 @@ class PromptedPresentationWorkflow {
 			'    }',
 			'    try {',
 			'      var total = slides.length;',
-			'      var counter = document.getElementById("slide-counter") || document.querySelector("[id*=\"counter\" i], [class*=\"counter\" i]");',
+			'      var counter = document.getElementById("slide-counter") || document.querySelector(\'[id*="counter" i], [class*="counter" i]\');',
 			'      if (counter) counter.textContent = "1 / " + total;',
 			'      var progress = document.getElementById("progressBar") || document.getElementById("progress-bar") || document.querySelector(".progress-bar");',
 			'      if (progress && progress.style) progress.style.width = (100 / Math.max(total, 1)) + "%";',
