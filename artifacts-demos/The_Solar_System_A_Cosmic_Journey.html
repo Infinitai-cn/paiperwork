@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Solar System - A Cosmic Journey</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&amp;family=Exo+2:wght@300;400;600&amp;display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Exo 2', sans-serif;
+            overflow: hidden;
+            background: #0a0a1a;
+        }
+
+        .presentation-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slide {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.8s ease, visibility 0.8s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .slide-content {
+            position: relative;
+            z-index: 10;
+            max-width: 1200px;
+            width: 90%;
+            padding: 40px;
+        }
+
+        .svg-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            cursor: pointer;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-arrow:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .nav-arrow.prev { left: 20px; }
+        .nav-arrow.next { right: 20px; }
+
+        .nav-arrow svg {
+            width: 24px;
+            height: 24px;
+            fill: none;
+            stroke: white;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .slide-indicator {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .indicator-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .indicator-dot.active {
+            background: #ffd700;
+            box-shadow: 0 0 20px #ffd700;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        p {
+            font-weight: 300;
+            line-height: 1.6;
+        }
+
+        .title-slide h1 {
+            font-size: 5rem;
+            background: linear-gradient(135deg, #ffd700, #ff6b35, #ff1744);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 60px rgba(255, 215, 0, 0.5);
+        }
+
+        .title-slide .subtitle {
+            font-size: 1.8rem;
+            color: #b8c5d6;
+            margin-top: 20px;
+        }
+
+        .content-slide h2 {
+            font-size: 2.8rem;
+            color: #ffd700;
+        }
+
+        .content-slide h3 {
+            font-size: 1.6rem;
+            color: #64b5f6;
+        }
+
+        .content-slide p {
+            font-size: 1.2rem;
+            color: #e0e6ed;
+        }
+
+        .image-container {
+            width: 100%;
+            max-width: 500px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(100, 181, 246, 0.3);
+            margin: 20px auto;
+        }
+
+        .image-container img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .planet-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            margin-bottom: 15px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .stat-box {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            color: #ffd700;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #b8c5d6;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        @keyframes orbit {
+            from { transform: rotate(0deg) translateX(100px) rotate(0deg); }
+            to { transform: rotate(360deg) translateX(100px) rotate(-360deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
+
+        @keyframes meteor {
+            0% { transform: translateX(0) translateY(0); opacity: 1; }
+            100% { transform: translateX(-200px) translateY(200px); opacity: 0; }
+        }
+
+        .floating-element {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .rotating-element {
+            animation: rotate 20s linear infinite;
+        }
+
+        .twinkling-star {
+            animation: twinkle 2s ease-in-out infinite;
+        }
+
+        .orbiting-planet {
+            animation: orbit 15s linear infinite;
+        }
+
+        .pulsing-glow {
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        .meteor-shower {
+            animation: meteor 3s linear infinite;
+        }
+    </style>
+<style id="pw-promptable-image-edit-style">img { cursor: pointer !important; }</style><style id="pw-promptable-text-edit-style">[data-pw-editable-text="1"] { cursor: text !important; }
+[data-pw-editable-text="1"]:focus { outline: 2px dashed var(--accent-color, #4f46e5) !important; outline-offset: 2px !important; }</style></head>
+<body>
+    <div class="presentation-container">
+        <!-- Slide 1: Title -->
+        <section class="slide title-slide" data-slide="1">
+            <svg class="svg-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#ffd700" stop-opacity="0.8"></stop>
+                        <stop offset="50%" stop-color="#ff6b35" stop-opacity="0.4"></stop>
+                        <stop offset="100%" stop-color="#ff1744" stop-opacity="0"></stop>
+                    </radialGradient>
+                    <linearGradient id="spaceGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#0a0a2e"></stop>
+                        <stop offset="50%" stop-color="#161638"></stop>
+                        <stop offset="100%" stop-color="#0d0d1a"></stop>
+                    </linearGradient>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"></feGaussianBlur>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"></feMergeNode>
+                            <feMergeNode in="SourceGraphic"></feMergeNode>
+                        </feMerge>
+                    </filter>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#spaceGradient)"></rect>
+                <circle cx="960" cy="540" r="300" fill="url(#sunGlow)" class="pulsing-glow"></circle>
+                <circle cx="960" cy="540" r="80" fill="#ffd700" filter="url(#glow)"></circle>
+                <g class="rotating-element" style="transform-origin: 960px 540px;">
+                    <circle cx="1060" cy="540" r="15" fill="#a0a0a0" class="orbiting-planet"></circle>
+                    <circle cx="860" cy="540" r="20" fill="#ff6b35" class="orbiting-planet"></circle>
+                    <circle cx="960" cy="440" r="25" fill="#64b5f6" class="orbiting-planet"></circle>
+                    <circle cx="960" cy="640" r="22" fill="#ef5350" class="orbiting-planet"></circle>
+                </g>
+                <g class="stars">
+                    <circle cx="100" cy="100" r="2" fill="white" class="twinkling-star"></circle>
+                    <circle cx="300" cy="200" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 0.3s"></circle>
+                    <circle cx="500" cy="150" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 0.6s"></circle>
+                    <circle cx="700" cy="80" r="1" fill="white" class="twinkling-star" style="animation-delay: 0.9s"></circle>
+                    <circle cx="1200" cy="120" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.2s"></circle>
+                    <circle cx="1400" cy="200" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 1.5s"></circle>
+                    <circle cx="1600" cy="100" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.8s"></circle>
+                    <circle cx="1800" cy="180" r="1" fill="white" class="twinkling-star" style="animation-delay: 2.1s"></circle>
+                    <circle cx="200" cy="900" r="2" fill="white" class="twinkling-star" style="animation-delay: 2.4s"></circle>
+                    <circle cx="400" cy="850" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 2.7s"></circle>
+                    <circle cx="1500" cy="900" r="2" fill="white" class="twinkling-star" style="animation-delay: 3s"></circle>
+                    <circle cx="1700" cy="950" r="1" fill="white" class="twinkling-star" style="animation-delay: 3.3s"></circle>
+                </g>
+            </svg>
+            <div class="slide-content" style="text-align: center;">
+                <h1 data-pw-editable-text="1" contenteditable="true" spellcheck="false">THE SOLAR SYSTEM</h1>
+                <p class="subtitle" data-pw-editable-text="1" contenteditable="true" spellcheck="false">A Cosmic Journey Through Our Celestial Neighborhood</p>
+                <p style="color: #7a8a9a; margin-top: 30px; font-size: 1.1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Explore the wonders of planets, moons, asteroids, and the magnificent star that binds them all</p>
+            </div>
+        </section>
+
+        <!-- Slide 2: Overview -->
+        <section class="slide content-slide" data-slide="2">
+            <svg class="svg-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="deepSpace" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#0d1b2a"></stop>
+                        <stop offset="100%" stop-color="#1b263b"></stop>
+                    </linearGradient>
+                    <filter id="softGlow">
+                        <feGaussianBlur stdDeviation="2" result="coloredBlur"></feGaussianBlur>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"></feMergeNode>
+                            <feMergeNode in="SourceGraphic"></feMergeNode>
+                        </feMerge>
+                    </filter>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#deepSpace)"></rect>
+                <circle cx="300" cy="540" r="200" fill="rgba(255, 215, 0, 0.1)" class="pulsing-glow"></circle>
+                <circle cx="300" cy="540" r="60" fill="#ffd700" filter="url(#softGlow)"></circle>
+                <ellipse cx="300" cy="540" rx="180" ry="50" fill="none" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1" stroke-dasharray="5,5" class="rotating-element" style="transform-origin: 300px 540px;"></ellipse>
+                <ellipse cx="300" cy="540" rx="250" ry="70" fill="none" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1" stroke-dasharray="5,5" class="rotating-element" style="transform-origin: 300px 540px; animation-duration: 30s;"></ellipse>
+                <g class="stars">
+                    <circle cx="600" cy="200" r="2" fill="white" class="twinkling-star"></circle>
+                    <circle cx="800" cy="400" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 0.5s"></circle>
+                    <circle cx="1000" cy="300" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 1s"></circle>
+                    <circle cx="1200" cy="500" r="1" fill="white" class="twinkling-star" style="animation-delay: 1.5s"></circle>
+                    <circle cx="1400" cy="250" r="2" fill="white" class="twinkling-star" style="animation-delay: 2s"></circle>
+                    <circle cx="1600" cy="450" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 2.5s"></circle>
+                    <circle cx="700" cy="800" r="2" fill="white" class="twinkling-star" style="animation-delay: 3s"></circle>
+                    <circle cx="1100" cy="850" r="1" fill="white" class="twinkling-star" style="animation-delay: 3.5s"></circle>
+                </g>
+                <path d="M 1500 100 L 1450 200 L 1500 150 L 1480 250" stroke="rgba(255, 255, 255, 0.6)" stroke-width="2" fill="none" class="meteor-shower"></path>
+            </svg>
+            <div class="slide-content">
+                <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">What is the Solar System?</h2>
+                <div class="two-column">
+                    <div>
+                        <p style="margin-bottom: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The Solar System is our cosmic home, a vast celestial neighborhood centered around a single star—the Sun. Formed approximately 4.6 billion years ago from a giant cloud of gas and dust called a solar nebula, our Solar System spans an incredible distance of over 9 billion kilometers from the Sun to the outer reaches.</p>
+                        <p style="margin-bottom: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Everything in the Solar System orbits the Sun due to its immense gravitational pull. This cosmic family includes eight planets, hundreds of moons, millions of asteroids, and billions of comets and icy objects. The Sun contains 99.86% of all the mass in the Solar System, making it the undisputed center of our celestial neighborhood.</p>
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <div class="stat-value" data-pw-editable-text="1" contenteditable="true" spellcheck="false">8</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Planets</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" data-pw-editable-text="1" contenteditable="true" spellcheck="false">200+</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Known Moons</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" data-pw-editable-text="1" contenteditable="true" spellcheck="false">4.6B</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Years Old</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="image-container">
+                        <img src="https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=800" alt="Solar System Scale" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=800';">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 3: The Sun -->
+        <section class="slide content-slide" data-slide="3">
+            <svg class="svg-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="sunCenter" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#fff7e0"></stop>
+                        <stop offset="30%" stop-color="#ffd700"></stop>
+                        <stop offset="70%" stop-color="#ff8c00"></stop>
+                        <stop offset="100%" stop-color="#ff4500" stop-opacity="0"></stop>
+                    </radialGradient>
+                    <radialGradient id="corona" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#ffd700" stop-opacity="0.8"></stop>
+                        <stop offset="50%" stop-color="#ff6b35" stop-opacity="0.3"></stop>
+                        <stop offset="100%" stop-color="#ff1744" stop-opacity="0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#0a0a1a"></rect>
+                <circle cx="300" cy="540" r="400" fill="url(#corona)" class="pulsing-glow"></circle>
+                <circle cx="300" cy="540" r="200" fill="url(#corona)"></circle>
+                <circle cx="300" cy="540" r="120" fill="url(#sunCenter)" filter="url(#glow)"></circle>
+                <g class="rotating-element" style="transform-origin: 300px 540px; animation-duration: 60s;">
+                    <path d="M 300 420 Q 320 400 300 380 Q 280 400 300 420" fill="#ffd700" opacity="0.6"></path>
+                    <path d="M 300 660 Q 320 680 300 700 Q 280 680 300 660" fill="#ffd700" opacity="0.6"></path>
+                    <path d="M 420 540 Q 440 520 460 540 Q 440 560 420 540" fill="#ffd700" opacity="0.6"></path>
+                    <path d="M 180 540 Q 160 520 140 540 Q 160 560 180 540" fill="#ffd700" opacity="0.6"></path>
+                </g>
+                <g class="stars">
+                    <circle cx="800" cy="150" r="2" fill="white" class="twinkling-star"></circle>
+                    <circle cx="1000" cy="300" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 0.4s"></circle>
+                    <circle cx="1200" cy="200" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 0.8s"></circle>
+                    <circle cx="1400" cy="400" r="1" fill="white" class="twinkling-star" style="animation-delay: 1.2s"></circle>
+                    <circle cx="1600" cy="300" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.6s"></circle>
+                    <circle cx="1800" cy="250" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 2s"></circle>
+                    <circle cx="900" cy="800" r="2" fill="white" class="twinkling-star" style="animation-delay: 2.4s"></circle>
+                    <circle cx="1300" cy="850" r="1" fill="white" class="twinkling-star" style="animation-delay: 2.8s"></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <div class="two-column">
+                    <div>
+                        <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">The Sun: Our Star</h2>
+                        <p style="margin-bottom: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The Sun is a G-type main-sequence star, commonly referred to as a yellow dwarf. It is the heart of our Solar System, providing the light and heat that makes life on Earth possible. With a diameter of approximately 1.39 million kilometers, the Sun could fit about 1.3 million Earths inside it.</p>
+                        <p style="margin-bottom: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">At its core, temperatures reach an astonishing 15 million degrees Celsius, where nuclear fusion converts hydrogen into helium, releasing enormous amounts of energy. Every second, the Sun converts 600 million tons of hydrogen into helium, creating the energy that powers all life on our planet.</p>
+                        <div class="planet-card">
+                            <h3 style="color: #ffd700;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Key Facts</h3>
+                            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false"><strong>Surface Temperature:</strong> 5,500°C (9,932°F)</p>
+                            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false"><strong>Core Temperature:</strong> 15 million°C</p>
+                            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false"><strong>Age:</strong> 4.6 billion years</p>
+                            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false"><strong>Composition:</strong> 73% Hydrogen, 25% Helium</p>
+                        </div>
+                    </div>
+                    <div class="image-container floating-element">
+                        <img src="https://pixabay.com/get/g7ef3c70d35a44d056ac6dabdbf98eaacc36dea633c17fa52d8b17039d7c2829250761b72fa15ab8f85cbe4a631f35035_640.jpg" alt="The Sun" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1532693322456-984ab445c8c1?w=800';" data-pw-promptable-image-id="pwimg-1773803315177-q2khy28" style="">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 4: Mercury & Venus -->
+        <section class="slide content-slide" data-slide="4">
+            <svg class="svg-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="innerPlanetsBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#1a1a2e"></stop>
+                        <stop offset="50%" stop-color="#16213e"></stop>
+                        <stop offset="100%" stop-color="#0f0f23"></stop>
+                    </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#innerPlanetsBg)"></rect>
+                <circle cx="400" cy="540" r="80" fill="#b0b0b0" filter="url(#glow)"></circle>
+                <circle cx="400" cy="540" r="85" fill="none" stroke="rgba(176, 176, 176, 0.3)" stroke-width="2" class="rotating-element" style="transform-origin: 400px 540px; stroke-dasharray: 10,5;"></circle>
+                <circle cx="1200" cy="540" r="100" fill="#e6b800" filter="url(#glow)"></circle>
+                <circle cx="1200" cy="540" r="110" fill="none" stroke="rgba(230, 184, 0, 0.3)" stroke-width="2" class="rotating-element" style="transform-origin: 1200px 540px; stroke-dasharray: 15,5; animation-duration: 25s;"></circle>
+                <g class="stars">
+                    <circle cx="200" cy="200" r="1.5" fill="white" class="twinkling-star"></circle>
+                    <circle cx="600" cy="150" r="2" fill="white" class="twinkling-star" style="animation-delay: 0.3s"></circle>
+                    <circle cx="800" cy="300" r="1" fill="white" class="twinkling-star" style="animation-delay: 0.6s"></circle>
+                    <circle cx="1000" cy="200" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 0.9s"></circle>
+                    <circle cx="1400" cy="250" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 1.2s"></circle>
+                    <circle cx="1600" cy="150" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.5s"></circle>
+                    <circle cx="1800" cy="350" r="1" fill="white" class="twinkling-star" style="animation-delay: 1.8s"></circle>
+                    <circle cx="300" cy="850" r="2" fill="white" class="twinkling-star" style="animation-delay: 2.1s"></circle>
+                    <circle cx="700" cy="900" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 2.4s"></circle>
+                    <circle cx="1500" cy="800" r="2" fill="white" class="twinkling-star" style="animation-delay: 2.7s"></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <h2 style="text-align: center;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Inner Planets: Mercury &amp; Venus</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <div class="planet-card">
+                        <h3 style="color: #b0b0b0;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Mercury - The Swift Messenger</h3>
+                        <div class="image-container" style="max-width: 300px; margin: 15px auto;">
+                            <img src="https://pixabay.com/get/gd19cd4d78290753b60a9c3f59f184f8ff19cda3aab74eb854304ed48b7cb516d62f3a8e72812153636e68e1ff2b5be3f_640.png" alt="Mercury" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614732484003-ef9881f26a58?w=600';" data-pw-promptable-image-id="pwimg-1773803338356-enlcz20" style="">
+                        </div>
+                        <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Mercury is the smallest planet in our Solar System and the closest to the Sun. Despite its proximity to our star, Mercury is not the hottest planet—that title belongs to Venus. Mercury has virtually no atmosphere, meaning its surface experiences extreme temperature variations from scorching hot days to freezing cold nights. A single day on Mercury lasts 59 Earth days, while a year lasts just 88 Earth days.</p>
+                        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 15px;">
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">4,879 km</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Diameter</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">88 days</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Orbital Period</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="planet-card">
+                        <h3 style="color: #e6b800;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Venus - The Morning Star</h3>
+                        <div class="image-container" style="max-width: 300px; margin: 15px auto;">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Venus-real_color.jpg/600px-Venus-real_color.jpg" alt="Venus" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=600';">
+                        </div>
+                        <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Venus is Earth's "sister planet" due to its similar size and composition. However, its thick atmosphere of carbon dioxide creates a runaway greenhouse effect, making it the hottest planet in our Solar System with surface temperatures reaching 465°C. Venus rotates backwards compared to most planets, meaning the Sun rises in the west and sets in the east. A day on Venus is longer than its year—it takes 243 Earth days to rotate once but only 225 Earth days to orbit the Sun.</p>
+                        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 15px;">
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">12,104 km</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Diameter</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">225 days</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Orbital Period</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 5: Earth & Mars -->
+        <section class="slide content-slide" data-slide="5">
+            <svg class="svg-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="earthMarsBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#0d1b2a"></stop>
+                        <stop offset="50%" stop-color="#1b3a4b"></stop>
+                        <stop offset="100%" stop-color="#061a23"></stop>
+                    </linearGradient>
+                    <radialGradient id="earthGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#4fc3f7" stop-opacity="0.5"></stop>
+                        <stop offset="100%" stop-color="#4fc3f7" stop-opacity="0"></stop>
+                    </radialGradient>
+                    <radialGradient id="marsGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#ef5350" stop-opacity="0.5"></stop>
+                        <stop offset="100%" stop-color="#ef5350" stop-opacity="0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#earthMarsBg)"></rect>
+                <circle cx="400" cy="540" r="120" fill="url(#earthGlow)"></circle>
+                <circle cx="400" cy="540" r="80" fill="#4fc3f7" filter="url(#glow)"></circle>
+                <circle cx="400" cy="540" r="85" fill="none" stroke="rgba(79, 195, 247, 0.4)" stroke-width="2" class="rotating-element" style="transform-origin: 400px 540px;"></circle>
+                <circle cx="1200" cy="540" r="110" fill="url(#marsGlow)"></circle>
+                <circle cx="1200" cy="540" r="70" fill="#ef5350" filter="url(#glow)"></circle>
+                <circle cx="1200" cy="540" r="75" fill="none" stroke="rgba(239, 83, 80, 0.4)" stroke-width="2" class="rotating-element" style="transform-origin: 1200px 540px; animation-duration: 35s;"></circle>
+                <g class="stars">
+                    <circle cx="150" cy="150" r="2" fill="white" class="twinkling-star"></circle>
+                    <circle cx="350" cy="200" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 0.25s"></circle>
+                    <circle cx="550" cy="100" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 0.5s"></circle>
+                    <circle cx="750" cy="250" r="1" fill="white" class="twinkling-star" style="animation-delay: 0.75s"></circle>
+                    <circle cx="950" cy="150" r="2" fill="white" class="twinkling-star" style="animation-delay: 1s"></circle>
+                    <circle cx="1400" cy="200" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 1.25s"></circle>
+                    <circle cx="1600" cy="300" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.5s"></circle>
+                    <circle cx="1800" cy="200" r="1" fill="white" class="twinkling-star" style="animation-delay: 1.75s"></circle>
+                    <circle cx="250" cy="900" r="2" fill="white" class="twinkling-star" style="animation-delay: 2s"></circle>
+                    <circle cx="1450" cy="850" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 2.25s"></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <h2 style="text-align: center;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Inner Planets: Earth &amp; Mars</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <div class="planet-card">
+                        <h3 style="color: #4fc3f7;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Earth - Our Home</h3>
+                        <div class="image-container" style="max-width: 300px; margin: 15px auto;">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/The_Blue_Marble_%28remastered%29.jpg/600px-The_Blue_Marble_%28remastered%29.jpg" alt="Earth" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?w=600';">
+                        </div>
+                        <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Earth is the only known planet to harbor life. Our planet's unique combination of liquid water, a protective atmosphere, and a magnetic field creates the perfect conditions for life to flourish. About 71% of Earth's surface is covered by water, and our atmosphere is composed of 78% nitrogen, 21% oxygen, and trace amounts of other gases. Earth has one natural satellite—the Moon—which stabilizes our planet's axial tilt and creates the tides.</p>
+                        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 15px;">
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">12,742 km</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Diameter</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">365.25 days</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Orbital Period</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="planet-card">
+                        <h3 style="color: #ef5350;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Mars - The Red Planet</h3>
+                        <div class="image-container" style="max-width: 300px; margin: 15px auto;">
+                            <img src="https://pixabay.com/get/gb61c3964a420202dc63cb532fe9be2b49f92f384a82eacd10343de68587d81d30cf6ae6ebfcfb735fd431a85d76d38ba_640.jpg" alt="Mars" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614728263952-84ea25679f57?w=600';" data-pw-promptable-image-id="pwimg-1773803350340-qw6t48k" style="">
+                        </div>
+                        <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Mars, named after the Roman god of war, is known for its distinctive red color caused by iron oxide (rust) on its surface. The Red Planet has the largest volcano in the Solar System—Olympus Mons—and the largest canyon—Valles Marineris. Mars has two small moons, Phobos and Deimos, and is a prime target for future human exploration. A day on Mars is remarkably similar to Earth's at 24 hours and 37 minutes, making it an ideal candidate for future colonization efforts.</p>
+                        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 15px;">
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">6,779 km</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Diameter</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">687 days</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Orbital Period</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 6: Jupiter & Saturn -->
+        <section class="slide content-slide" data-slide="6">
+            <svg class="svg-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="gasGiantsBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#1a0a2e"></stop>
+                        <stop offset="50%" stop-color="#2d1b4e"></stop>
+                        <stop offset="100%" stop-color="#0f0a1a"></stop>
+                    </linearGradient>
+                    <linearGradient id="jupiterBands" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#d4a574"></stop>
+                        <stop offset="20%" stop-color="#c9956c"></stop>
+                        <stop offset="40%" stop-color="#a67c52"></stop>
+                        <stop offset="60%" stop-color="#d4a574"></stop>
+                        <stop offset="80%" stop-color="#c9956c"></stop>
+                        <stop offset="100%" stop-color="#a67c52"></stop>
+                    </linearGradient>
+                    <linearGradient id="saturnBands" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#e8d4a8"></stop>
+                        <stop offset="50%" stop-color="#d4b896"></stop>
+                        <stop offset="100%" stop-color="#c9a87a"></stop>
+                    </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#gasGiantsBg)"></rect>
+                <ellipse cx="400" cy="540" rx="150" ry="120" fill="url(#jupiterBands)" filter="url(#glow)"></ellipse>
+                <ellipse cx="400" cy="540" rx="140" ry="20" fill="rgba(139, 90, 43, 0.6)"></ellipse>
+                <ellipse cx="400" cy="500" rx="140" ry="15" fill="rgba(205, 133, 63, 0.5)"></ellipse>
+                <ellipse cx="400" cy="580" rx="140" ry="18" fill="rgba(160, 82, 45, 0.4)"></ellipse>
+                <circle cx="340" cy="560" r="25" fill="#cd5c5c" filter="url(#glow)"></circle>
+                <ellipse cx="1200" cy="540" rx="130" ry="100" fill="url(#saturnBands)" filter="url(#glow)"></ellipse>
+                <ellipse cx="1200" cy="540" rx="200" ry="30" fill="none" stroke="rgba(210, 180, 140, 0.6)" stroke-width="15" class="rotating-element" style="transform-origin: 1200px 540px; animation-duration: 45s;"></ellipse>
+                <ellipse cx="1200" cy="540" rx="220" ry="40" fill="none" stroke="rgba(210, 180, 140, 0.3)" stroke-width="8"></ellipse>
+                <g class="stars">
+                    <circle cx="100" cy="100" r="2" fill="white" class="twinkling-star"></circle>
+                    <circle cx="300" cy="200" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 0.35s"></circle>
+                    <circle cx="700" cy="150" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 0.7s"></circle>
+                    <circle cx="900" cy="250" r="1" fill="white" class="twinkling-star" style="animation-delay: 1.05s"></circle>
+                    <circle cx="1500" cy="200" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.4s"></circle>
+                    <circle cx="1700" cy="300" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 1.75s"></circle>
+                    <circle cx="1850" cy="150" r="2" fill="white" class="twinkling-star" style="animation-delay: 2.1s"></circle>
+                    <circle cx="200" cy="850" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 2.45s"></circle>
+                    <circle cx="800" cy="900" r="2" fill="white" class="twinkling-star" style="animation-delay: 2.8s"></circle>
+                    <circle cx="1600" cy="800" r="1" fill="white" class="twinkling-star" style="animation-delay: 3.15s"></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <h2 style="text-align: center;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Gas Giants: Jupiter &amp; Saturn</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <div class="planet-card">
+                        <h3 style="color: #d4a574;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Jupiter - King of Planets</h3>
+                        <div class="image-container" style="max-width: 300px; margin: 15px auto;">
+                            <img src="https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=600" alt="Jupiter" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=600';">
+                        </div>
+                        <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Jupiter is the largest planet in our Solar System, so massive that all other planets could fit inside it. Its iconic Great Red Spot is a storm larger than Earth that has been raging for at least 400 years. Jupiter has at least 95 known moons, including the four large Galilean moons: Io, Europa, Ganymede, and Callisto. Europa is particularly intriguing as scientists believe it may harbor a subsurface ocean that could potentially support life.</p>
+                        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 15px;">
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">139,820 km</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Diameter</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">11.86 years</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Orbital Period</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="planet-card">
+                        <h3 style="color: #d4b896;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Saturn - The Ringed Wonder</h3>
+                        <div class="image-container" style="max-width: 300px; margin: 15px auto;">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Saturn_during_Equinox.jpg/600px-Saturn_during_Equinox.jpg" alt="Saturn" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614313913007-51d5dda2a2b5?w=600';">
+                        </div>
+                        <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Saturn is renowned for its stunning ring system, composed of billions of particles of ice and rock ranging from tiny grains to house-sized chunks. Despite being the second-largest planet, Saturn is so light it would float in water if there were an ocean large enough to hold it—it's less dense than water! Saturn has at least 146 known moons, with Titan being larger than Mercury and the only moon with a thick atmosphere.</p>
+                        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 15px;">
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">116,460 km</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Diameter</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">29.46 years</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Orbital Period</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 7: Uranus & Neptune -->
+        <section class="slide content-slide active" data-slide="7">
+            <svg class="svg-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="iceGiantsBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#0a1628"></stop>
+                        <stop offset="50%" stop-color="#1a3a5c"></stop>
+                        <stop offset="100%" stop-color="#0d2137"></stop>
+                    </linearGradient>
+                    <radialGradient id="uranusGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#64b5f6" stop-opacity="0.6"></stop>
+                        <stop offset="100%" stop-color="#64b5f6" stop-opacity="0"></stop>
+                    </radialGradient>
+                    <radialGradient id="neptuneGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#3949ab" stop-opacity="0.6"></stop>
+                        <stop offset="100%" stop-color="#3949ab" stop-opacity="0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#iceGiantsBg)"></rect>
+                <circle cx="400" cy="540" r="100" fill="url(#uranusGlow)"></circle>
+                <circle cx="400" cy="540" r="70" fill="#64b5f6" filter="url(#glow)"></circle>
+                <ellipse cx="400" cy="540" rx="95" ry="20" fill="none" stroke="rgba(100, 181, 246, 0.4)" stroke-width="4" transform="rotate(98, 400, 540)"></ellipse>
+                <circle cx="1200" cy="540" r="110" fill="url(#neptuneGlow)"></circle>
+                <circle cx="1200" cy="540" r="65" fill="#3949ab" filter="url(#glow)"></circle>
+                <circle cx="1180" cy="520" r="15" fill="rgba(255, 255, 255, 0.3)"></circle>
+                <circle cx="1220" cy="560" r="10" fill="rgba(255, 255, 255, 0.2)"></circle>
+                <g class="stars">
+                    <circle cx="150" cy="200" r="2" fill="white" class="twinkling-star"></circle>
+                    <circle cx="250" cy="100" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 0.4s"></circle>
+                    <circle cx="600" cy="150" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 0.8s"></circle>
+                    <circle cx="800" cy="300" r="1" fill="white" class="twinkling-star" style="animation-delay: 1.2s"></circle>
+                    <circle cx="1000" cy="200" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.6s"></circle>
+                    <circle cx="1400" cy="250" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 2s"></circle>
+                    <circle cx="1600" cy="150" r="2" fill="white" class="twinkling-star" style="animation-delay: 2.4s"></circle>
+                    <circle cx="1800" cy="300" r="1" fill="white" class="twinkling-star" style="animation-delay: 2.8s"></circle>
+                    <circle cx="300" cy="900" r="2" fill="white" class="twinkling-star" style="animation-delay: 3.2s"></circle>
+                    <circle cx="1500" cy="850" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 3.6s"></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <h2 style="text-align: center;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Ice Giants: Uranus &amp; Neptune</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px;">
+                    <div class="planet-card">
+                        <h3 style="color: #64b5f6;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Uranus - The Tilted World</h3>
+                        <div class="image-container" style="max-width: 300px; margin: 15px auto;">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3d/Uranus2.jpg/600px-Uranus2.jpg" alt="Uranus" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?w=600';">
+                        </div>
+                        <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Uranus is unique in our Solar System—it rotates on its side with an axial tilt of 98 degrees! Scientists believe a massive collision billions of years ago knocked Uranus onto its side. This ice giant has a blue-green color due to methane in its atmosphere absorbing red light. Uranus has 27 known moons, all named after characters from the works of William Shakespeare and Alexander Pope, and a system of faint rings discovered in 1977.</p>
+                        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 15px;">
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">50,724 km</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Diameter</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">84 years</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Orbital Period</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="planet-card">
+                        <h3 style="color: #5c6bc0;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Neptune - The Windiest Planet</h3>
+                        <div class="image-container" style="max-width: 300px; margin: 15px auto;">
+                            <img src="https://pixabay.com/get/ge4999ed72dad4d5145e9d5e1d4a10b7af2e52ebd748c05e3f65e90030064b66e3855c3e8f74383fd0edf078232d1544b_640.jpg" alt="Neptune" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614313913007-51d5dda2a2b5?w=600';" data-pw-promptable-image-id="pwimg-1773803367607-fprctpg" data-pw-promptable-outline="" data-pw-promptable-outline-offset="" style="outline: 3px solid var(--accent-color, #4f46e5); outline-offset: 2px;">
+                        </div>
+                        <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Neptune is the most distant planet from the Sun and the windiest world in our Solar System, with storms reaching speeds of 2,100 km/h—supersonic speeds! Its striking blue color comes from methane in its atmosphere. Neptune was discovered through mathematical predictions before it was ever observed, making it the first planet located through mathematics rather than observation. It has 16 known moons, with Triton being the largest and one of the coldest objects in the Solar System.</p>
+                        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-top: 15px;">
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">49,244 km</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Diameter</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-value" style="font-size: 1.2rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">165 years</div>
+                                <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Orbital Period</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 8: Dwarf Planets -->
+        <section class="slide content-slide" data-slide="8">
+            <svg class="svg-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="dwarfBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#1a0a20"></stop>
+                        <stop offset="50%" stop-color="#2d1f3d"></stop>
+                        <stop offset="100%" stop-color="#0f0515"></stop>
+                    </linearGradient>
+                    <radialGradient id="plutoGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#deb887" stop-opacity="0.6"></stop>
+                        <stop offset="100%" stop-color="#deb887" stop-opacity="0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#dwarfBg)"></rect>
+                <circle cx="300" cy="400" r="60" fill="url(#plutoGlow)"></circle>
+                <circle cx="300" cy="400" r="35" fill="#deb887" filter="url(#glow)"></circle>
+                <circle cx="300" cy="400" r="15" fill="#c9a86c"></circle>
+                <circle cx="700" cy="300" r="30" fill="#a0a0a0" class="floating-element"></circle>
+                <circle cx="1100" cy="350" r="40" fill="#8b7355" class="floating-element" style="animation-delay: 1s;"></circle>
+                <circle cx="1500" cy="400" r="25" fill="#c0c0c0" class="floating-element" style="animation-delay: 2s;"></circle>
+                <circle cx="500" cy="700" r="20" fill="#808080" class="floating-element" style="animation-delay: 1.5s;"></circle>
+                <circle cx="900" cy="750" r="35" fill="#a0522d" class="floating-element" style="animation-delay: 0.5s;"></circle>
+                <circle cx="1300" cy="700" r="28" fill="#696969" class="floating-element" style="animation-delay: 2.5s;"></circle>
+                <ellipse cx="960" cy="540" rx="700" ry="200" fill="none" stroke="rgba(255, 255, 255, 0.1)" stroke-width="2" stroke-dasharray="10,5"></ellipse>
+                <ellipse cx="960" cy="540" rx="800" ry="250" fill="none" stroke="rgba(255, 255, 255, 0.05)" stroke-width="1" stroke-dasharray="5,10"></ellipse>
+                <g class="stars">
+                    <circle cx="100" cy="150" r="1.5" fill="white" class="twinkling-star"></circle>
+                    <circle cx="400" cy="200" r="2" fill="white" class="twinkling-star" style="animation-delay: 0.3s"></circle>
+                    <circle cx="600" cy="100" r="1" fill="white" class="twinkling-star" style="animation-delay: 0.6s"></circle>
+                    <circle cx="800" cy="250" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 0.9s"></circle>
+                    <circle cx="1000" cy="150" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 1.2s"></circle>
+                    <circle cx="1200" cy="200" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.5s"></circle>
+                    <circle cx="1400" cy="100" r="1" fill="white" class="twinkling-star" style="animation-delay: 1.8s"></circle>
+                    <circle cx="1600" cy="250" r="2" fill="white" class="twinkling-star" style="animation-delay: 2.1s"></circle>
+                    <circle cx="1800" cy="150" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 2.4s"></circle>
+                    <circle cx="200" cy="900" r="2" fill="white" class="twinkling-star" style="animation-delay: 2.7s"></circle>
+                    <circle cx="800" cy="850" r="1" fill="white" class="twinkling-star" style="animation-delay: 3s"></circle>
+                    <circle cx="1700" cy="800" r="2" fill="white" class="twinkling-star" style="animation-delay: 3.3s"></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <h2 style="text-align: center;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Dwarf Planets &amp; Small Bodies</h2>
+                <div class="two-column">
+                    <div>
+                        <p style="margin-bottom: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Beyond the eight major planets lies a realm of smaller but fascinating worlds. In 2006, the International Astronomical Union created the "dwarf planet" category, which includes Pluto, Eris, Makemake, Haumea, and Ceres. These celestial bodies orbit the Sun and have sufficient mass for their self-gravity to overcome rigid body forces, but they have not cleared their orbital neighborhood.</p>
+                        <div class="planet-card" style="margin-bottom: 15px;">
+                            <h3 style="color: #deb887;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Pluto - The Beloved Dwarf</h3>
+                            <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Once the ninth planet, Pluto was reclassified in 2006. Despite its small size, Pluto has a complex geology with mountains, valleys, and a famous heart-shaped glacier called Tombaugh Regio. It has five known moons, with Charon being the largest—so large that Pluto and Charon orbit a common center of gravity.</p>
+                        </div>
+                        <div class="planet-card">
+                            <h3 style="color: #a0a0a0;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Other Notable Dwarf Planets</h3>
+                            <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false"><strong>Eris:</strong> Slightly more massive than Pluto, its discovery led to Pluto's reclassification.<br>
+                            <strong>Ceres:</strong> The largest object in the asteroid belt, containing a third of its total mass.<br>
+                            <strong>Haumea:</strong> Uniquely elongated shape, possibly from a past collision.<br>
+                            <strong>Makemake:</strong> Second brightest Kuiper Belt object after Pluto.</p>
+                        </div>
+                    </div>
+                    <div class="image-container floating-element">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Pluto_in_True_Color_-_High-Res.jpg/600px-Pluto_in_True_Color_-_High-Res.jpg" alt="Pluto" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?w=600';">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 9: Moons and Rings -->
+        <section class="slide content-slide" data-slide="9">
+            <svg class="svg-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="moonsBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#0a1628"></stop>
+                        <stop offset="50%" stop-color="#152238"></stop>
+                        <stop offset="100%" stop-color="#0a0f1a"></stop>
+                    </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#moonsBg)"></rect>
+                <circle cx="200" cy="300" r="80" fill="#ffd700" filter="url(#glow)" opacity="0.3"></circle>
+                <circle cx="300" cy="350" r="20" fill="#a0a0a0" class="rotating-element" style="transform-origin: 200px 300px; animation-duration: 20s;"></circle>
+                <circle cx="180" cy="280" r="15" fill="#c0c0c0" class="rotating-element" style="transform-origin: 200px 300px; animation-duration: 15s; animation-direction: reverse;"></circle>
+                <circle cx="220" cy="320" r="10" fill="#808080" class="rotating-element" style="transform-origin: 200px 300px; animation-duration: 25s;"></circle>
+                <circle cx="1600" cy="700" r="100" fill="#d4a574" filter="url(#glow)" opacity="0.3"></circle>
+                <ellipse cx="1600" cy="700" rx="140" ry="30" fill="none" stroke="rgba(210, 180, 140, 0.5)" stroke-width="8"></ellipse>
+                <circle cx="1450" cy="700" r="8" fill="#ffd700" class="rotating-element" style="transform-origin: 1600px 700px; animation-duration: 30s;"></circle>
+                <circle cx="1750" cy="700" r="5" fill="#ffd700" class="rotating-element" style="transform-origin: 1600px 700px; animation-duration: 25s; animation-direction: reverse;"></circle>
+                <g class="stars">
+                    <circle cx="100" cy="100" r="2" fill="white" class="twinkling-star"></circle>
+                    <circle cx="500" cy="200" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 0.25s"></circle>
+                    <circle cx="700" cy="150" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 0.5s"></circle>
+                    <circle cx="900" cy="300" r="1" fill="white" class="twinkling-star" style="animation-delay: 0.75s"></circle>
+                    <circle cx="1100" cy="100" r="2" fill="white" class="twinkling-star" style="animation-delay: 1s"></circle>
+                    <circle cx="1300" cy="250" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 1.25s"></circle>
+                    <circle cx="1500" cy="150" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.5s"></circle>
+                    <circle cx="1800" cy="200" r="1" fill="white" class="twinkling-star" style="animation-delay: 1.75s"></circle>
+                    <circle cx="600" cy="800" r="2" fill="white" class="twinkling-star" style="animation-delay: 2s"></circle>
+                    <circle cx="1000" cy="900" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 2.25s"></circle>
+                    <circle cx="1400" cy="850" r="2" fill="white" class="twinkling-star" style="animation-delay: 2.5s"></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <h2 style="text-align: center;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Moons and Rings: Celestial Companions</h2>
+                <div class="two-column">
+                    <div>
+                        <p style="margin-bottom: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Our Solar System hosts over 200 moons orbiting planets and dwarf planets. These natural satellites range from tiny asteroids to world-sized bodies with their own atmospheres and geological activity. Jupiter alone has at least 95 confirmed moons, while Saturn boasts at least 146 moons and an impressive ring system visible from Earth through a telescope.</p>
+                        <div class="planet-card" style="margin-bottom: 15px;">
+                            <h3 style="color: #64b5f6;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Notable Moons</h3>
+                            <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false"><strong>Ganymede (Jupiter):</strong> The largest moon in our Solar System, larger than Mercury.<br>
+                            <strong>Titan (Saturn):</strong> The only moon with a thick atmosphere and liquid lakes of methane.<br>
+                            <strong>Europa (Jupiter):</strong> An icy world with a possible subsurface ocean—a candidate for life.<br>
+                            <strong>Our Moon:</strong> Earth's only natural satellite, stabilizing our planet's axial tilt.</p>
+                        </div>
+                        <div class="planet-card">
+                            <h3 style="color: #d4b896;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Ring Systems</h3>
+                            <p style="font-size: 1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Saturn's rings are the most spectacular, spanning up to 282,000 km but only about 10 meters thick. Jupiter, Uranus, and Neptune also have ring systems, though much fainter. These rings are made of ice particles, rocky debris, and dust, constantly shaped by the gravitational forces of moons and the planet itself.</p>
+                        </div>
+                    </div>
+                    <div class="image-container floating-element">
+                        <img src="https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?w=600" alt="Saturn's Rings" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?w=600';">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 10: Conclusion -->
+        <section class="slide content-slide" data-slide="10">
+            <svg class="svg-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="conclusionGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#ffd700" stop-opacity="0.4"></stop>
+                        <stop offset="50%" stop-color="#ff6b35" stop-opacity="0.2"></stop>
+                        <stop offset="100%" stop-color="#ff1744" stop-opacity="0"></stop>
+                    </radialGradient>
+                    <linearGradient id="conclusionBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#0a0a2e"></stop>
+                        <stop offset="50%" stop-color="#1a1a3e"></stop>
+                        <stop offset="100%" stop-color="#0d0d25"></stop>
+                    </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#conclusionBg)"></rect>
+                <circle cx="960" cy="540" r="500" fill="url(#conclusionGlow)" class="pulsing-glow"></circle>
+                <g class="rotating-element" style="transform-origin: 960px 540px; animation-duration: 120s;">
+                    <circle cx="960" cy="340" r="10" fill="#a0a0a0"></circle>
+                    <circle cx="960" cy="740" r="15" fill="#ff6b35"></circle>
+                    <circle cx="760" cy="540" r="12" fill="#4fc3f7"></circle>
+                    <circle cx="1160" cy="540" r="18" fill="#ef5350"></circle>
+                </g>
+                <g class="rotating-element" style="transform-origin: 960px 540px; animation-duration: 240s; animation-direction: reverse;">
+                    <circle cx="1060" cy="540" r="40" fill="#d4a574" opacity="0.8"></circle>
+                    <circle cx="860" cy="540" r="35" fill="#d4b896" opacity="0.8"></circle>
+                </g>
+                <g class="rotating-element" style="transform-origin: 960px 540px; animation-duration: 360s;">
+                    <circle cx="960" cy="240" r="25" fill="#64b5f6" opacity="0.8"></circle>
+                    <circle cx="960" cy="840" r="22" fill="#3949ab" opacity="0.8"></circle>
+                </g>
+                <g class="stars">
+                    <circle cx="50" cy="100" r="2" fill="white" class="twinkling-star"></circle>
+                    <circle cx="150" cy="250" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 0.15s"></circle>
+                    <circle cx="250" cy="150" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 0.3s"></circle>
+                    <circle cx="350" cy="300" r="1" fill="white" class="twinkling-star" style="animation-delay: 0.45s"></circle>
+                    <circle cx="450" cy="50" r="2" fill="white" class="twinkling-star" style="animation-delay: 0.6s"></circle>
+                    <circle cx="550" cy="200" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 0.75s"></circle>
+                    <circle cx="1650" cy="150" r="2" fill="white" class="twinkling-star" style="animation-delay: 0.9s"></circle>
+                    <circle cx="1750" cy="300" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 1.05s"></circle>
+                    <circle cx="1850" cy="100" r="2.5" fill="white" class="twinkling-star" style="animation-delay: 1.2s"></circle>
+                    <circle cx="100" cy="800" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.35s"></circle>
+                    <circle cx="300" cy="950" r="1.5" fill="white" class="twinkling-star" style="animation-delay: 1.5s"></circle>
+                    <circle cx="1600" cy="850" r="2" fill="white" class="twinkling-star" style="animation-delay: 1.65s"></circle>
+                    <circle cx="1800" cy="900" r="1" fill="white" class="twinkling-star" style="animation-delay: 1.8s"></circle>
+                </g>
+            </svg>
+            <div class="slide-content" style="text-align: center;">
+                <h2 style="font-size: 3.5rem; margin-bottom: 30px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Our Place in the Cosmos</h2>
+                <p style="font-size: 1.4rem; max-width: 900px; margin: 0 auto 30px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The Solar System is a remarkable neighborhood of diverse worlds, each with its own unique character and story. From the scorching surface of Mercury to the frozen plains of Pluto, from the violent storms of Jupiter to the serene beauty of Saturn's rings, our cosmic family continues to inspire wonder and drive exploration.</p>
+                <div class="stats-grid" style="max-width: 800px; margin: 30px auto;">
+                    <div class="stat-box">
+                        <div class="stat-value" data-pw-editable-text="1" contenteditable="true" spellcheck="false">8</div>
+                        <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Planets</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" data-pw-editable-text="1" contenteditable="true" spellcheck="false">200+</div>
+                        <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Known Moons</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" data-pw-editable-text="1" contenteditable="true" spellcheck="false">5</div>
+                        <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Dwarf Planets</div>
+                    </div>
+                </div>
+                <p style="font-size: 1.2rem; color: #b8c5d6; margin-top: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">As we continue to explore our Solar System through robotic missions and telescopes, we discover that every world—no matter how small—has a story to tell about our cosmic origins and the dynamic processes that shape planetary systems throughout the universe.</p>
+            </div>
+        </section>
+
+        <!-- Navigation Arrows -->
+        <button class="nav-arrow prev" onclick="changeSlide(-1)">
+            <svg viewBox="0 0 24 24">
+                <polyline points="15,18 9,12 15,6"></polyline>
+            </svg>
+        </button>
+        <button class="nav-arrow next" onclick="changeSlide(1)">
+            <svg viewBox="0 0 24 24">
+                <polyline points="9,6 15,12 9,18"></polyline>
+            </svg>
+        </button>
+
+        <!-- Slide Indicators -->
+        <div class="slide-indicator" id="slideIndicator"><div class="indicator-dot"></div><div class="indicator-dot"></div><div class="indicator-dot"></div><div class="indicator-dot"></div><div class="indicator-dot"></div><div class="indicator-dot"></div><div class="indicator-dot active"></div><div class="indicator-dot"></div><div class="indicator-dot"></div><div class="indicator-dot"></div></div>
+    </div>
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 10;
+
+        function initIndicators() {
+            const indicator = document.getElementById('slideIndicator');
+            for (let i = 1; i <= totalSlides; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'indicator-dot' + (i === 1 ? ' active' : '');
+                dot.onclick = () => goToSlide(i);
+                indicator.appendChild(dot);
+            }
+        }
+
+        function updateIndicators() {
+            const dots = document.querySelectorAll('.indicator-dot');
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === currentSlide - 1);
+            });
+        }
+
+        function goToSlide(slideNum) {
+            const slides = document.querySelectorAll('.slide');
+            slides.forEach(slide => slide.classList.remove('active'));
+            document.querySelector(`[data-slide="${slideNum}"]`).classList.add('active');
+            currentSlide = slideNum;
+            updateIndicators();
+        }
+
+        function changeSlide(direction) {
+            let newSlide = currentSlide + direction;
+            if (newSlide < 1) newSlide = totalSlides;
+            if (newSlide > totalSlides) newSlide = 1;
+            goToSlide(newSlide);
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') changeSlide(1);
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') changeSlide(-1);
+        });
+
+        // Touch navigation
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            if (touchStartX - touchEndX > 50) changeSlide(1);
+            if (touchEndX - touchStartX > 50) changeSlide(-1);
+        });
+
+        initIndicators();
+    </script>
+
+<script id="pw-remote-nav-normalizer">(function(){
+  if (window.__pwRemoteNavBound) return;
+  window.__pwRemoteNavBound = true;
+  var findVisible = function(list){
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i];
+      if (!el || el.disabled) continue;
+      var style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+      return el;
+    }
+    return null;
+  };
+  var getPrevButton = function(){
+    return findVisible(Array.prototype.slice.call(document.querySelectorAll([
+      '[data-action*=\"prev\" i]',
+      '[aria-label*=\"prev\" i]',
+      'button[title*=\"prev\" i]',
+      '[id*=\"prev\" i]',
+      '[class*=\"prev\" i]'
+    ].join(","))));
+  };
+  var getNextButton = function(){
+    return findVisible(Array.prototype.slice.call(document.querySelectorAll([
+      '[data-action*=\"next\" i]',
+      '[aria-label*=\"next\" i]',
+      'button[title*=\"next\" i]',
+      '[id*=\"next\" i]',
+      '[class*=\"next\" i]'
+    ].join(","))));
+  };
+  var triggerClick = function(btn){
+    if (!btn) return false;
+    try { btn.click(); return true; } catch(e) { return false; }
+  };
+  var handler = function(ev){
+    if (!ev) return;
+    var target = ev.target || null;
+    var tag = target && target.tagName ? String(target.tagName).toLowerCase() : "";
+    if (target && (target.isContentEditable || tag === "input" || tag === "textarea" || tag === "select")) return;
+    var key = String(ev.key || "").toLowerCase();
+    var code = String(ev.code || "").toLowerCase();
+    var isPrev = key === "arrowleft" || key === "pageup" || code === "arrowleft" || code === "pageup";
+    var isNext = key === "arrowright" || key === "pagedown" || key === " " || key === "spacebar" || key === "enter" || code === "arrowright" || code === "pagedown" || code === "space" || code === "enter";
+    if (!isPrev && !isNext) return;
+    var btn = isPrev ? getPrevButton() : getNextButton();
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    triggerClick(btn);
+  };
+  document.addEventListener("keydown", handler, true);
+})();</script></body></html>
