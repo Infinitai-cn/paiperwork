@@ -5,7 +5,8 @@ window.helpContent = {
         intro: [
             "欢迎使用 Paiperwork，这是一个专注于数据隐私和易用性的 Ollama 安全网页界面。这个面向专业人士的助手提供生产力功能，同时保持您的数据本地化和受保护。",
             "您可以在自己的电脑上下载并本地运行模型；如果设备无法承载本地模型，也可以使用云模型。使用云模型需要先在 ollama.com 登录并创建一个 API 密钥。首次使用云模型时，Paiperwork 会请求该密钥，并将其加密存储在您的本地数据库中。",
-            "使用 Ollama 云模型的详细步骤：1）从 https://infinitai-cn.github.io/paiperwork/ 下载 Paiperwork。2）解压文件。2.1）如果你无法打开 Paiperwork，请检查安全设置并允许其执行。在 Windows 上点击 More info 按钮；在 macOS 上到系统设置的隐私与安全中允许。3）访问 https://ollama.com 并创建账号。4）下载并安装 Ollama。5）在 Ollama 账号中打开 Settings。6）打开 Usage 查看剩余免费额度（很重要）。7）打开 Keys，点击 Add API key，再点击 Generate API key，并复制生成的密钥。8）将该密钥保存在电脑上的文本文件中。9）运行 Paiperwork（Mac、Windows 或 Linux）。10）输入主密钥后，在 Chat 选项卡点击 Manage Cloud API key，添加你的 Ollama API 密钥。11）现在你就可以使用 Ollama 的免费云模型。"
+            "使用 Ollama 云模型的详细步骤：1）从 https://infinitai-cn.github.io/paiperwork/ 下载 Paiperwork。2）解压文件。2.1）如果你无法打开 Paiperwork，请检查安全设置并允许其执行。在 Windows 上点击 More info 按钮；在 macOS 上到系统设置的隐私与安全中允许。3）访问 https://ollama.com 并创建账号。4）下载并安装 Ollama。5）在 Ollama 账号中打开 Settings。6）打开 Usage 查看剩余免费额度（很重要）。7）打开 Keys，点击 Add API key，再点击 Generate API key，并复制生成的密钥。8）将该密钥保存在电脑上的文本文件中。9）运行 Paiperwork（Mac、Windows 或 Linux）。10）输入主密钥后，在 Chat 选项卡点击 Manage Cloud API key，添加你的 Ollama API 密钥。11）现在你就可以使用 Ollama 的免费云模型。",
+            "在线模式提示：由于本地环境要求，Documents、Translate 和 Models 这三个选项卡在在线模式下会被禁用。仅当您在电脑上本地运行 Paiperwork 时，这些选项卡才会启用。"
         ],
         articles: [
             {
