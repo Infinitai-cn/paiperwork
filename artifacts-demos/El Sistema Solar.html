@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="es" class="pw-start-reset-cloak"><head><script id="pw-remote-nav-normalizer">(function(){
+  if (window.__pwRemoteNavBound) return;
+  window.__pwRemoteNavBound = true;
+  var __pwResetStarted = false;
+  var __pwResetDone = false;
+  var __pwResetAttempts = 0;
+  var __pwRevealDone = false;
+  var __pwRevealPatched = false;
+  var installStartCloak = function(){
+    try {
+      var styleId = "pw-start-reset-cloak-style";
+      if (!document.getElementById(styleId)) {
+        var css = "html.pw-start-reset-cloak,body.pw-start-reset-cloak{opacity:0!important;background:#000!important}html,body{transition:opacity .18s ease}";
+        var styleEl = document.createElement("style");
+        styleEl.id = styleId;
+        styleEl.textContent = css;
+        (document.head || document.documentElement || document.body).appendChild(styleEl);
+      }
+      if (document.documentElement) document.documentElement.classList.add("pw-start-reset-cloak");
+      if (document.body) document.body.classList.add("pw-start-reset-cloak");
+    } catch (e) {}
+  };
+  var revealPresentation = function(){
+    if (__pwRevealDone) return;
+    __pwRevealDone = true;
+    var doReveal = function(){
+      try {
+        if (document.documentElement) document.documentElement.classList.remove("pw-start-reset-cloak");
+        if (document.body) document.body.classList.remove("pw-start-reset-cloak");
+      } catch (e) {}
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(function(){ window.requestAnimationFrame(doReveal); });
+    } else {
+      setTimeout(doReveal, 0);
+    }
+  };
+  var findVisible = function(list){
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i];
+      if (!el || el.disabled) continue;
+      var style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+      return el;
+    }
+    return null;
+  };
+  var getPrevButton = function(){
+    return findVisible(Array.prototype.slice.call(document.querySelectorAll([
+      '[data-action*=\"prev\" i]',
+      '[aria-label*=\"prev\" i]',
+      'button[title*=\"prev\" i]',
+      '[id*=\"prev\" i]',
+      '[class*=\"prev\" i]'
+    ].join(","))));
+  };
+  var getNextButton = function(){
+    return findVisible(Array.prototype.slice.call(document.querySelectorAll([
+      '[data-action*=\"next\" i]',
+      '[aria-label*=\"next\" i]',
+      'button[title*=\"next\" i]',
+      '[id*=\"next\" i]',
+      '[class*=\"next\" i]'
+    ].join(","))));
+  };
+  var triggerClick = function(btn){
+    if (!btn) return false;
+    try { btn.click(); return true; } catch(e) { return false; }
+  };
+  var getExpectedSlideCount = function(){
+    try {
+      var parentDoc = window.parent && window.parent.document ? window.parent.document : null;
+      if (!parentDoc) return 0;
+      var selector = parentDoc.getElementById("promptable-slide-count-selector");
+      if (!selector) return 0;
+      var n = parseInt(String(selector.value || ""), 10);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    } catch (e) {
+      return 0;
+    }
+  };
+  var resetHash = function(){
+    try {
+      if (!window.location || !window.location.hash) return;
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      } else {
+        window.location.hash = "";
+      }
+    } catch (e) {}
+  };
+  var hasRevealApi = function(){
+    return !!(window.Reveal && typeof window.Reveal.slide === "function" && typeof window.Reveal.getIndices === "function");
+  };
+  var forceRevealStartOptions = function(){
+    try {
+      if (!window.Reveal || typeof window.Reveal.configure !== "function") return;
+      window.Reveal.configure({ hash: false, history: false, fragmentInURL: false });
+    } catch (e) {}
+  };
+  var patchRevealInitialize = function(){
+    try {
+      if (!window.Reveal || __pwRevealPatched || typeof window.Reveal.initialize !== "function") return;
+      var originalInitialize = window.Reveal.initialize.bind(window.Reveal);
+      window.Reveal.initialize = function(options){
+        var opts = Object.assign({}, options || {}, { hash: false, history: false, fragmentInURL: false });
+        var result = originalInitialize(opts);
+        var afterInit = function(){
+          forceRevealStartOptions();
+          resetHash();
+          try { window.Reveal.slide(0, 0, 0); } catch (e) {}
+        };
+        if (result && typeof result.then === "function") {
+          result.then(afterInit).catch(function(){ afterInit(); });
+        } else {
+          setTimeout(afterInit, 0);
+        }
+        return result;
+      };
+      __pwRevealPatched = true;
+    } catch (e) {}
+  };
+  var resetViaReveal = function(){
+    try {
+      if (!hasRevealApi()) return false;
+      forceRevealStartOptions();
+      window.Reveal.slide(0, 0, 0);
+      return true;
+    } catch (e) { return false; }
+  };
+  var isAtStart = function(){
+    try {
+      if (hasRevealApi()) {
+        var idx = window.Reveal.getIndices() || {};
+        return Number(idx.h || 0) === 0 && Number(idx.v || 0) === 0 && Number(idx.f || 0) === 0;
+      }
+    } catch (e) {}
+    return false;
+  };
+  var resetViaPrev = function(){
+    var prev = getPrevButton();
+    if (!prev) return false;
+    var expectedSlides = getExpectedSlideCount();
+    var maxClicks = expectedSlides > 0 ? Math.max(expectedSlides + 2, 12) : 48;
+    for (var i = 0; i < maxClicks; i++) {
+      var btn = getPrevButton();
+      if (!btn || btn.disabled) break;
+      if (!triggerClick(btn)) break;
+    }
+    return true;
+  };
+  var resetToStart = function(){
+    if (__pwResetDone) return;
+    patchRevealInitialize();
+    resetHash();
+    if (isAtStart()) { __pwResetDone = true; revealPresentation(); return; }
+    var revealReset = resetViaReveal();
+    if (!revealReset) resetViaPrev();
+    if (isAtStart()) { __pwResetDone = true; revealPresentation(); }
+  };
+  var scheduleResetLoop = function(){
+    if (__pwResetStarted) return;
+    __pwResetStarted = true;
+    var runAttempt = function(){
+      if (__pwResetDone) { revealPresentation(); return; }
+      __pwResetAttempts += 1;
+      resetToStart();
+      if (__pwResetDone) { revealPresentation(); return; }
+      if (__pwResetAttempts < 72) setTimeout(runAttempt, 50);
+      else { resetToStart(); revealPresentation(); }
+    };
+    setTimeout(runAttempt, 0);
+  };
+  installStartCloak();
+  patchRevealInitialize();
+  resetHash();
+  setTimeout(revealPresentation, 4500);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scheduleResetLoop, { once: true });
+  } else {
+    scheduleResetLoop();
+  }
+  window.addEventListener("load", scheduleResetLoop, { once: true });
+  var handler = function(ev){
+    if (!true) return;
+    if (!ev) return;
+    var target = ev.target || null;
+    var tag = target && target.tagName ? String(target.tagName).toLowerCase() : "";
+    if (target && (target.isContentEditable || tag === "input" || tag === "textarea" || tag === "select")) return;
+    var key = String(ev.key || "").toLowerCase();
+    var code = String(ev.code || "").toLowerCase();
+    var isPrev = key === "arrowleft" || key === "pageup" || code === "arrowleft" || code === "pageup";
+    var isNext = key === "arrowright" || key === "pagedown" || key === " " || key === "spacebar" || key === "enter" || code === "arrowright" || code === "pagedown" || code === "space" || code === "enter";
+    if (!isPrev && !isNext) return;
+    var btn = isPrev ? getPrevButton() : getNextButton();
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    triggerClick(btn);
+  };
+  document.addEventListener("keydown", handler, true);
+})();</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Sistema Solar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&amp;family=Exo+2:wght@300;400;600&amp;display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #0a0a12;
+            --bg-space: #12121f;
+            --accent-sun: #ff9d00;
+            --accent-glow: #ffcc66;
+            --text-light: #e8e8f0;
+            --text-muted: #8888aa;
+            --card-bg: rgba(20, 20, 35, 0.85);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Exo 2', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-light);
+            overflow: hidden;
+        }
+
+        .presentation-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .slide {
+            width: 100%;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.8s ease, visibility 0.8s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .slide-content {
+            position: relative;
+            z-index: 10;
+            max-width: 1400px;
+            width: 95%;
+            padding: 40px;
+        }
+
+        /* Title Slide */
+        .slide-title {
+            text-align: center;
+        }
+
+        .slide-title h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(3rem, 8vw, 7rem);
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--accent-sun), #ff6600, #ffaa00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            animation: titlePulse 3s ease-in-out infinite;
+        }
+
+        @keyframes titlePulse {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+        }
+
+        .slide-title .subtitle {
+            font-size: clamp(1.2rem, 3vw, 2rem);
+            color: var(--text-muted);
+            font-weight: 300;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        /* Planet Slides */
+        .planet-slide {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        @media (max-width: 900px) {
+            .planet-slide {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+        }
+
+        .planet-info h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: var(--accent-glow);
+        }
+
+        .planet-info .planet-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        .planet-info p {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: var(--text-light);
+            margin-bottom: 20px;
+        }
+
+        .planet-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .stat-item {
+            background: var(--card-bg);
+            padding: 15px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 157, 0, 0.2);
+        }
+
+        .stat-item .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-item .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.3rem;
+            color: var(--accent-glow);
+            margin-top: 5px;
+        }
+
+        .planet-image-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .planet-image {
+            width: 100%;
+            max-width: 450px;
+            height: auto;
+            border-radius: 50%;
+            box-shadow: 0 0 60px rgba(255, 157, 0, 0.3);
+            animation: floatPlanet 6s ease-in-out infinite;
+        }
+
+        @keyframes floatPlanet {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* Navigation */
+        .nav-arrows {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        .nav-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 157, 0, 0.5);
+            background: rgba(10, 10, 18, 0.8);
+            color: var(--accent-glow);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 157, 0, 0.2);
+            border-color: var(--accent-sun);
+            transform: scale(1.1);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Slide Counter */
+        .slide-counter {
+            position: fixed;
+            top: 30px;
+            right: 40px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem;
+            color: var(--text-muted);
+            z-index: 100;
+        }
+
+        .slide-counter span {
+            color: var(--accent-glow);
+            font-weight: 700;
+        }
+
+        /* SVG Backgrounds */
+        .bg-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Stars animation */
+        .stars {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 2s ease-in-out infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+    </style>
+<style id="pw-start-reset-cloak-style">html.pw-start-reset-cloak,body.pw-start-reset-cloak{opacity:0!important;background:#000!important}html,body{transition:opacity .18s ease}</style></head>
+<body class="pw-start-reset-cloak">
+    <div class="presentation-container">
+        <!-- Slide 1: Title -->
+        <section class="slide active" id="slide-1">
+            <svg class="bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#ff9d00;stop-opacity:0.4"></stop>
+                        <stop offset="50%" style="stop-color:#ff6600;stop-opacity:0.1"></stop>
+                        <stop offset="100%" style="stop-color:#0a0a12;stop-opacity:0"></stop>
+                    </radialGradient>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur>
+                        <feMerge>
+                            <feMergeNode in="blur"></feMergeNode>
+                            <feMergeNode in="SourceGraphic"></feMergeNode>
+                        </feMerge>
+                    </filter>
+                </defs>
+                <rect width="100%" height="100%" fill="#0a0a12"></rect>
+                <circle cx="960" cy="540" r="600" fill="url(#sunGlow)"></circle>
+                <g class="orbit-rings" stroke="rgba(255,157,0,0.1)" fill="none" stroke-width="1">
+                    <circle cx="960" cy="540" r="200" opacity="0.5"></circle>
+                    <circle cx="960" cy="540" r="280" opacity="0.4"></circle>
+                    <circle cx="960" cy="540" r="360" opacity="0.3"></circle>
+                    <circle cx="960" cy="540" r="440" opacity="0.2"></circle>
+                </g>
+                <g id="title-stars"></g>
+            </svg>
+            <div class="stars" id="stars-container-1"></div>
+            <div class="slide-content slide-title">
+                <h1>EL SISTEMA SOLAR</h1>
+                <p class="subtitle">Un viaje por los mundos de nuestro vecindario cosmico</p>
+            </div>
+        </section>
+
+        <!-- Slide 2: El Sol -->
+        <section class="slide" id="slide-2">
+            <svg class="bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="sunCenter" cx="30%" cy="50%" r="60%">
+                        <stop offset="0%" style="stop-color:#ffcc00;stop-opacity:0.3"></stop>
+                        <stop offset="40%" style="stop-color:#ff6600;stop-opacity:0.15"></stop>
+                        <stop offset="100%" style="stop-color:#0a0a12;stop-opacity:0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#0a0a12"></rect>
+                <circle cx="0" cy="540" r="800" fill="url(#sunCenter)"></circle>
+            </svg>
+            <div class="stars" id="stars-container-2"></div>
+            <div class="slide-content planet-slide">
+                <div class="planet-info">
+                    <h2>El Sol</h2>
+                    <p class="planet-subtitle">Nuestra estrella, el corazon del sistema</p>
+                    <p>El Sol es la estrella que sostiene la vida en la Tierra y representa el centro gravitacional de todo el sistema solar. Con una masa que equivale al 99.86% de toda la masa del sistema solar, ejerce una influencia dominante sobre todos los planetas y cuerpos celestes que orbitan a su alrededor.</p>
+                    <p>Es una esfera gigante de plasma incandescente con una temperatura superficial de aproximadamente 5,500 grados Celsius, mientras que en su nucleo alcanza los 15 millones de grados, donde ocurren las reacciones de fusion nuclear que generan su energia.</p>
+                    <div class="planet-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Diametro</div>
+                            <div class="stat-value">1.39M km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Temperatura</div>
+                            <div class="stat-value">5,500 C</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Edad</div>
+                            <div class="stat-value">4.6B anos</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Tipo</div>
+                            <div class="stat-value">Enana amarilla</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="planet-image-container">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b4/The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg" alt="El Sol" class="planet-image" style="border-radius: 20px;">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 3: Mercurio -->
+        <section class="slide" id="slide-3">
+            <svg class="bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="mercuryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#2a2a3a"></stop>
+                        <stop offset="100%" style="stop-color:#0a0a12"></stop>
+                    </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#mercuryGrad)"></rect>
+                <circle cx="1600" cy="200" r="150" fill="rgba(255,157,0,0.05)"></circle>
+            </svg>
+            <div class="stars" id="stars-container-3"></div>
+            <div class="slide-content planet-slide">
+                <div class="planet-info">
+                    <h2>Mercurio</h2>
+                    <p class="planet-subtitle">El planeta mas cercano al Sol</p>
+                    <p>Mercurio es el planeta mas pequeno del sistema solar y el mas cercano al Sol, completando una orbita en apenas 88 dias terrestres. A pesar de su proximidad solar, no es el mas caliente; esa distincion corresponde a Venus debido a su densa atmosfera.</p>
+                    <p>Es uno de los cuatro planetas rocosos o interiores, caracterizado por un nucleo metalico grande en relacion con su tamano. Su superficie esta cubierta de crateres, similar a nuestra Luna, evidenciando miles de millones de anos de impactos meteoriticos sin erosion atmosferica.</p>
+                    <div class="planet-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Distancia al Sol</div>
+                            <div class="stat-value">57.9M km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Diametro</div>
+                            <div class="stat-value">4,879 km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Periodo orbital</div>
+                            <div class="stat-value">88 dias</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Temperatura</div>
+                            <div class="stat-value">-180 a 430 C</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="planet-image-container">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg" alt="Mercurio" class="planet-image">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 4: Venus -->
+        <section class="slide" id="slide-4">
+            <svg class="bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="venusAtmo" cx="70%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#e8c866;stop-opacity:0.2"></stop>
+                        <stop offset="100%" style="stop-color:#0a0a12;stop-opacity:0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#0a0a12"></rect>
+                <circle cx="1400" cy="540" r="400" fill="url(#venusAtmo)"></circle>
+            </svg>
+            <div class="stars" id="stars-container-4"></div>
+            <div class="slide-content planet-slide">
+                <div class="planet-info">
+                    <h2>Venus</h2>
+                    <p class="planet-subtitle">El planeta mas caliente del sistema solar</p>
+                    <p>Venus es el segundo planeta desde el Sol y es considerado el "hermano gemelo" de la Tierra debido a su tamano similar, pero las similitudes terminan ahi. Posee la atmosfera mas densa de todos los planetas rocosos, compuesta principalmente por dioxido de carbono, creando un efecto invernadero extremo.</p>
+                    <p>Las temperaturas en su superficie alcanzan los 465 grados Celsius, suficientes para derretir plomo. La presion atmosferica es 90 veces mayor que la terrestre. Rota en direccion retrogradea, opuesta a la mayoria de los planetas, y un dia venusino dura mas que su ano.</p>
+                    <div class="planet-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Distancia al Sol</div>
+                            <div class="stat-value">108.2M km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Diametro</div>
+                            <div class="stat-value">12,104 km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Periodo orbital</div>
+                            <div class="stat-value">225 dias</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Temperatura</div>
+                            <div class="stat-value">465 C</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="planet-image-container">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/e/e5/Venus-real_color.jpg" alt="Venus" class="planet-image">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 5: La Tierra -->
+        <section class="slide" id="slide-5">
+            <svg class="bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="earthGlow" cx="70%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#4a90d9;stop-opacity:0.25"></stop>
+                        <stop offset="50%" style="stop-color:#2ecc71;stop-opacity:0.1"></stop>
+                        <stop offset="100%" style="stop-color:#0a0a12;stop-opacity:0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#0a0a12"></rect>
+                <circle cx="1400" cy="540" r="500" fill="url(#earthGlow)"></circle>
+            </svg>
+            <div class="stars" id="stars-container-5"></div>
+            <div class="slide-content planet-slide">
+                <div class="planet-info">
+                    <h2>La Tierra</h2>
+                    <p class="planet-subtitle">Nuestro hogar, el unico planeta con vida conocida</p>
+                    <p>Nuestro sistema solar es el unico sistema planetario de la galaxia Via Lactea que alberga vida, al menos que nosotros sepamos. La Tierra es el tercer planeta desde el Sol y el unico conocido que sostiene vida. Su posicion en la "zona habitable" permite la existencia de agua liquida en su superficie.</p>
+                    <p>La Tierra cuenta con una atmosfera protectora rica en nitrogeno y oxigeno, un campo magnetico que nos protege de la radiacion solar, y un sistema de tectonica de placas que recicla los materiales de la corteza. Aproximadamente el 71% de su superficie esta cubierta por oceanos.</p>
+                    <div class="planet-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Distancia al Sol</div>
+                            <div class="stat-value">149.6M km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Diametro</div>
+                            <div class="stat-value">12,742 km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Periodo orbital</div>
+                            <div class="stat-value">365.25 dias</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Satelites</div>
+                            <div class="stat-value">1 (Luna)</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="planet-image-container">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/cb/The_Blue_Marble_%28remastered%29.jpg" alt="La Tierra" class="planet-image">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 6: Marte -->
+        <section class="slide" id="slide-6">
+            <svg class="bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="marsDust" cx="70%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#c1440e;stop-opacity:0.2"></stop>
+                        <stop offset="100%" style="stop-color:#0a0a12;stop-opacity:0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#0a0a12"></rect>
+                <circle cx="1400" cy="540" r="450" fill="url(#marsDust)"></circle>
+            </svg>
+            <div class="stars" id="stars-container-6"></div>
+            <div class="slide-content planet-slide">
+                <div class="planet-info">
+                    <h2>Marte</h2>
+                    <p class="planet-subtitle">El planeta rojo, objetivo de exploracion</p>
+                    <p>Marte es el cuarto y ultimo de los planetas rocosos o interiores, completando el grupo de Mercurio, Venus, la Tierra y Marte. Su caracteristico color rojo se debe al oxido de hierro (herrumbre) presente en su superficie, lo que le valio el apodo de "Planeta Rojo".</p>
+                    <p>Possee el volcan mas grande del sistema solar, el Olympus Mons, con 21.9 km de altura, y el cañon mas grande, Valles Marineris, que se extiende por 4,000 km. Marte tiene dos pequenas lunas irregulares: Fobos y Deimos, probablemente asteroides capturados.</p>
+                    <div class="planet-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Distancia al Sol</div>
+                            <div class="stat-value">227.9M km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Diametro</div>
+                            <div class="stat-value">6,779 km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Periodo orbital</div>
+                            <div class="stat-value">687 dias</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Satelites</div>
+                            <div class="stat-value">2</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="planet-image-container">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg" alt="Marte" class="planet-image">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 7: Jupiter -->
+        <section class="slide" id="slide-7">
+            <svg class="bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="jupiterBands" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:#d4a574"></stop>
+                        <stop offset="25%" style="stop-color:#c9956c"></stop>
+                        <stop offset="50%" style="stop-color:#e8c39e"></stop>
+                        <stop offset="75%" style="stop-color:#c9956c"></stop>
+                        <stop offset="100%" style="stop-color:#a67c52"></stop>
+                    </linearGradient>
+                    <radialGradient id="jupiterGlow" cx="70%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#d4a574;stop-opacity:0.15"></stop>
+                        <stop offset="100%" style="stop-color:#0a0a12;stop-opacity:0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#0a0a12"></rect>
+                <circle cx="1400" cy="540" r="500" fill="url(#jupiterGlow)"></circle>
+            </svg>
+            <div class="stars" id="stars-container-7"></div>
+            <div class="slide-content planet-slide">
+                <div class="planet-info">
+                    <h2>Jupiter</h2>
+                    <p class="planet-subtitle">El gigante gaseoso, rey de los planetas</p>
+                    <p>Jupiter es el planeta mas grande del sistema solar, tan masivo que podria contener a todos los demas planetas combinados. Es uno de los dos verdaderos "gigantes gaseosos" del sistema, compuesto principalmente por hidrogeno y helio, similar a una estrella fallida.</p>
+                    <p>Su caracteristica mas notable es la Gran Mancha Roja, una tormenta gigante que ha durado al menos 400 anos y es mas grande que la Tierra. Jupiter posee el dia mas corto del sistema solar, rotando completamente en solo 10 horas. Tiene al menos 95 lunas conocidas, incluyendo las cuatro grandes lunas galileanas: Io, Europa, Ganimedes y Callisto.</p>
+                    <div class="planet-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Distancia al Sol</div>
+                            <div class="stat-value">778.5M km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Diametro</div>
+                            <div class="stat-value">139,820 km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Periodo orbital</div>
+                            <div class="stat-value">11.86 anos</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Lunas conocidas</div>
+                            <div class="stat-value">95+</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="planet-image-container">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Jupiter_New_Horizons.jpg" alt="Jupiter" class="planet-image">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 8: Saturno -->
+        <section class="slide" id="slide-8">
+            <svg class="bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="saturnRings" cx="70%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#c9b896;stop-opacity:0.2"></stop>
+                        <stop offset="100%" style="stop-color:#0a0a12;stop-opacity:0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#0a0a12"></rect>
+                <ellipse cx="1400" cy="540" rx="600" ry="200" fill="none" stroke="rgba(201,184,150,0.1)" stroke-width="40"></ellipse>
+                <circle cx="1400" cy="540" r="450" fill="url(#saturnRings)"></circle>
+            </svg>
+            <div class="stars" id="stars-container-8"></div>
+            <div class="slide-content planet-slide">
+                <div class="planet-info">
+                    <h2>Saturno</h2>
+                    <p class="planet-subtitle">El planeta de los anillos espectaculares</p>
+                    <p>Saturno es famoso por sus espectaculares anillos, compuestos por miles de millones de particulas de hielo y roca, que se extienden hasta 282,000 km desde el planeta pero tienen solo unos 10 metros de grosor. Es el segundo gigante gaseoso y el segundo planeta mas grande del sistema solar.</p>
+                    <p>A pesar de su enorme tamano, Saturno tiene la densidad mas baja de todos los planetas, tan baja que flotaria en agua si hubiera un oceano lo suficientemente grande. Sus anillos fueron observados por primera vez por Galileo Galilei en 1610, aunque no pudo identificarlos como anillos. Tiene al menos 146 lunas conocidas.</p>
+                    <div class="planet-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Distancia al Sol</div>
+                            <div class="stat-value">1.43B km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Diametro</div>
+                            <div class="stat-value">116,460 km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Periodo orbital</div>
+                            <div class="stat-value">29.46 anos</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Lunas conocidas</div>
+                            <div class="stat-value">146+</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="planet-image-container">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg" alt="Saturno" class="planet-image">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 9: Urano -->
+        <section class="slide" id="slide-9">
+            <svg class="bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="uranusIce" cx="70%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#7ec8e3;stop-opacity:0.2"></stop>
+                        <stop offset="100%" style="stop-color:#0a0a12;stop-opacity:0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#0a0a12"></rect>
+                <circle cx="1400" cy="540" r="450" fill="url(#uranusIce)"></circle>
+            </svg>
+            <div class="stars" id="stars-container-9"></div>
+            <div class="slide-content planet-slide">
+                <div class="planet-info">
+                    <h2>Urano</h2>
+                    <p class="planet-subtitle">El gigante helado que rueda de lado</p>
+                    <p>Urano es el primero de los dos "gigantes helados" del sistema solar exterior. A diferencia de Jupiter y Saturno, Urano esta compuesto principalmente por materiales volatiles "hielo" como agua, amoniaco y metano, sobre un nucleo rocoso. Su color azul verdoso se debe al metano atmosferico.</p>
+                    <p>Lo mas distintivo de Urano es su inclinacion axial extrema de 98 grados, lo que significa que rota de lado, casi "rodando" en su orbita. Esta inclinacion unica probablemente fue causada por una colision masiva en el pasado. Un ano en Urano equivale a 84 anos terrestres.</p>
+                    <div class="planet-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Distancia al Sol</div>
+                            <div class="stat-value">2.87B km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Diametro</div>
+                            <div class="stat-value">50,724 km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Periodo orbital</div>
+                            <div class="stat-value">84 anos</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Lunas conocidas</div>
+                            <div class="stat-value">27</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="planet-image-container">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg" alt="Urano" class="planet-image">
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 10: Neptuno -->
+        <section class="slide" id="slide-10">
+            <svg class="bg-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="neptuneDeep" cx="70%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#3498db;stop-opacity:0.25"></stop>
+                        <stop offset="100%" style="stop-color:#0a0a12;stop-opacity:0"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#0a0a12"></rect>
+                <circle cx="1400" cy="540" r="450" fill="url(#neptuneDeep)"></circle>
+            </svg>
+            <div class="stars" id="stars-container-10"></div>
+            <div class="slide-content planet-slide">
+                <div class="planet-info">
+                    <h2>Neptuno</h2>
+                    <p class="planet-subtitle">El ultimo planeta del sistema solar</p>
+                    <p>Neptuno es el segundo gigante helado y el octavo y ultimo planeta del sistema solar, marcando el limite externo del vecindario planetario conocido. Fue descubierto en 1846 mediante predicciones matematicas antes de ser observado, una hazana cientifica notable.</p>
+                    <p>Neptuno tiene los vientos mas fuertes del sistema solar, alcanzando velocidades de hasta 2,100 km/h. Su color azul intenso es aun mas profundo que el de Urano debido a mayor concentracion de metano y componentes atmosfericos desconocidos. Su luna mas grande, Triton, es geologicamente activa con geiseres de nitrogeno.</p>
+                    <div class="planet-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">Distancia al Sol</div>
+                            <div class="stat-value">4.5B km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Diametro</div>
+                            <div class="stat-value">49,244 km</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Periodo orbital</div>
+                            <div class="stat-value">165 anos</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">Lunas conocidas</div>
+                            <div class="stat-value">16</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="planet-image-container">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/63/Neptune_-_Voyager_2_%2829347980845%29_flatten_crop.jpg" alt="Neptuno" class="planet-image">
+                </div>
+            </div>
+        </section>
+
+        <!-- Navigation -->
+        <div class="slide-counter">
+            <span id="current-slide">1</span> / 10
+        </div>
+
+        <div class="nav-arrows">
+            <button class="nav-btn" id="prev-btn" disabled="">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 18l-6-6 6-6"></path>
+                </svg>
+            </button>
+            <button class="nav-btn" id="next-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18l6-6-6-6"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize variables first
+        let currentSlide = 1;
+        const totalSlides = 10;
+        const slides = document.querySelectorAll('.slide');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const counterEl = document.getElementById('current-slide');
+
+        // Create stars for each slide
+        function createStars(containerId, count) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            for (let i = 0; i < count; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                const size = Math.random() * 2 + 1;
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+                star.style.animationDelay = Math.random() * 2 + 's';
+                container.appendChild(star);
+            }
+        }
+
+        // Initialize stars for all slides
+        for (let i = 1; i <= 10; i++) {
+            createStars('stars-container-' + i, 50);
+        }
+
+        // Navigation functions
+        function updateSlide() {
+            slides.forEach((slide, index) => {
+                slide.classList.remove('active');
+                if (index === currentSlide - 1) {
+                    slide.classList.add('active');
+                }
+            });
+            
+            counterEl.textContent = currentSlide;
+            prevBtn.disabled = currentSlide === 1;
+            nextBtn.disabled = currentSlide === totalSlides;
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 1) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        // Event listeners
+        nextBtn.addEventListener('click', nextSlide);
+        prevBtn.addEventListener('click', prevSlide);
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ') {
+                e.preventDefault();
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                prevSlide();
+            }
+        });
+
+        // Touch swipe support
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            const swipeThreshold = 50;
+            const diff = touchStartX - touchEndX;
+            
+            if (Math.abs(diff) > swipeThreshold) {
+                if (diff > 0) {
+                    nextSlide();
+                } else {
+                    prevSlide();
+                }
+            }
+        }
+
+        // Respect reduced motion
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReducedMotion) {
+            document.querySelectorAll('.planet-image').forEach(img => {
+                img.style.animation = 'none';
+            });
+        }
+    </script>
+
+
+```
+
+He creado una presentación completa del sistema solar con 10 diapositivas que incluyen:
+
+**Contenido:**
+1. **Portada** - Título principal con efecto de resplandor solar
+2. **El Sol** - Nuestra estrella con datos de temperatura, tamaño y tipo
+3. **Mercurio** - El planeta más cercano al Sol
+4. **Venus** - El planeta más caliente con su efecto invernadero extremo
+5. **La Tierra** - Nuestro hogar y único planeta con vida conocida
+6. **Marte** - El planeta rojo con sus características únicas
+7. **Júpiter** - El rey de los planetas con la Gran Mancha Roja
+8. **Saturno** - Famoso por sus espectaculares anillos
+9. **Urano** - El gigante helado que rota de lado
+10. **Neptuno** - El último planeta con los vientos más fuertes
+
+**Características técnicas:**
+- Fondos SVG personalizados para cada planeta con gradientes temáticos
+- Imágenes reales de Wikipedia/NASA de cada cuerpo celeste
+- Estadísticas detalladas (distancia, diámetro, período orbital, temperatura/lunas)
+- Animaciones de estrellas titilantes y flotación de planetas
+- Navegación con flechas y soporte para teclado y gestos táctiles
+- Contador de diapositivas
+- Diseño responsivo
+- Respeto a preferencias de movimiento reducido</body></html>
