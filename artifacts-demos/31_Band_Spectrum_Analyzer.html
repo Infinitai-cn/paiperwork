@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>31-Band Spectrum Analyzer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --bg: #0a0e14;
+      --bg-secondary: #131920;
+      --fg: #e6edf3;
+      --muted: #6b7d8f;
+      --accent: #5c9ece;
+      --accent-glow: rgba(92, 158, 206, 0.4);
+      --card: #161d26;
+      --border: #2a3542;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Background atmosphere */
+    .bg-atmosphere {
+      position: fixed;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse 80% 50% at 50% 100%, rgba(92, 158, 206, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 20% 80%, rgba(92, 158, 206, 0.05) 0%, transparent 40%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(92, 158, 206, 0.05) 0%, transparent 40%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Grid pattern overlay */
+    .grid-pattern {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(92, 158, 206, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(92, 158, 206, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .analyzer-container {
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Bar styling */
+    .bar-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bar-container {
+      width: 100%;
+      height: 280px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      position: relative;
+    }
+
+    .bar {
+      width: 100%;
+      max-width: 28px;
+      background: linear-gradient(to top, 
+        rgba(92, 158, 206, 0.3) 0%, 
+        rgba(92, 158, 206, 0.6) 30%,
+        rgba(135, 195, 230, 0.9) 100%);
+      border-radius: 4px 4px 0 0;
+      position: relative;
+      transition: height 0.08s ease-out;
+      box-shadow: 
+        0 0 10px rgba(92, 158, 206, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .bar::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: rgba(200, 230, 255, 0.9);
+      border-radius: 4px 4px 0 0;
+    }
+
+    .bar::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 150%;
+      height: 8px;
+      background: rgba(92, 158, 206, 0.15);
+      filter: blur(6px);
+      border-radius: 50%;
+    }
+
+    .bar-label {
+      font-size: 9px;
+      color: var(--muted);
+      text-align: center;
+      white-space: nowrap;
+      transform: rotate(-45deg);
+      transform-origin: center;
+      margin-top: 12px;
+    }
+
+    /* Peak indicators */
+    .peak-marker {
+      position: absolute;
+      width: 100%;
+      max-width: 28px;
+      height: 3px;
+      background: rgba(200, 230, 255, 1);
+      border-radius: 2px;
+      transition: bottom 0.15s ease-out;
+      box-shadow: 0 0 8px rgba(135, 195, 230, 0.8);
+    }
+
+    /* Button styling */
+    .btn-start {
+      background: linear-gradient(135deg, var(--accent) 0%, #4a8fbe 100%);
+      border: none;
+      padding: 16px 40px;
+      border-radius: 12px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 
+        0 4px 20px rgba(92, 158, 206, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-start:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        0 6px 30px rgba(92, 158, 206, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-start:active {
+      transform: translateY(0);
+    }
+
+    .btn-start:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 4px;
+    }
+
+    .btn-start:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Status indicator */
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s ease;
+    }
+
+    .status-dot.active {
+      background: #4ade80;
+      box-shadow: 0 0 10px rgba(74, 222, 128, 0.6);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* Level meters */
+    .level-meter {
+      height: 4px;
+      background: var(--bg-secondary);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .level-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #87c3e6);
+      transition: width 0.1s ease-out;
+      border-radius: 2px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .bar-container {
+        height: 200px;
+      }
+      
+      .bar {
+        max-width: 16px;
+      }
+
+      .bar-label {
+        font-size: 7px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .bar-container {
+        height: 160px;
+      }
+      
+      .bar {
+        max-width: 10px;
+        border-radius: 2px 2px 0 0;
+      }
+    }
+
+    /* Entrance animation */
+    .fade-in {
+      animation: fadeIn 0.6s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .bar, .peak-marker, .level-fill {
+        transition: none;
+      }
+      
+      .status-dot.active {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-atmosphere"></div>
+  <div class="grid-pattern"></div>
+
+  <main class="analyzer-container min-h-screen flex flex-col items-center justify-center p-4 md:p-8">
+    <!-- Header -->
+    <header class="text-center mb-8 fade-in">
+      <h1 class="text-3xl md:text-4xl font-bold mb-2 tracking-tight">31-Band Spectrum Analyzer</h1>
+      <p class="text-sm md:text-base" style="color: var(--muted)">Real-time audio frequency analysis</p>
+    </header>
+
+    <!-- Status Panel -->
+    <div class="flex items-center gap-3 mb-6 fade-in" style="animation-delay: 0.1s;">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="mono text-sm" style="color: var(--muted)" id="statusText">Ready to start</span>
+    </div>
+
+    <!-- Start Button -->
+    <button class="btn-start mb-8 fade-in" style="animation-delay: 0.2s;" id="startBtn" aria-label="Start microphone capture">
+      Start Microphone
+    </button>
+
+    <!-- Spectrum Display -->
+    <div class="w-full max-w-6xl fade-in" style="animation-delay: 0.3s;">
+      <!-- Level meters -->
+      <div class="flex gap-8 mb-4 justify-center">
+        <div class="flex flex-col gap-1">
+          <span class="text-xs" style="color: var(--muted)">L</span>
+          <div class="level-meter w-24">
+            <div class="level-fill" id="leftLevel" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="flex flex-col gap-1">
+          <span class="text-xs" style="color: var(--muted)">R</span>
+          <div class="level-meter w-24">
+            <div class="level-fill" id="rightLevel" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main analyzer -->
+      <div class="rounded-2xl p-4 md:p-6" style="background: var(--card); border: 1px solid var(--border);">
+        <div class="flex gap-1 md:gap-2 justify-center" id="spectrumBars">
+          <!-- Bars generated by JS -->
+        </div>
+      </div>
+
+      <!-- Frequency labels -->
+      <div class="flex justify-center mt-4 overflow-x-auto">
+        <div class="flex gap-1 md:gap-2" id="frequencyLabels">
+          <!-- Labels generated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Info panel -->
+    <div class="mt-8 text-center fade-in" style="animation-delay: 0.4s;">
+      <p class="text-xs mono" style="color: var(--muted)">
+        31 ISO bands · 20Hz - 20kHz · FFT Analysis
+      </p>
+    </div>
+  </main>
+
+  <script>
+    // 31-band ISO standard frequencies
+    const BAND_FREQUENCIES = [
+      20, 25, 31.5, 40, 50, 63, 80, 100, 125, 160,
+      200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600,
+      2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000
+    ];
+
+    const BAND_LABELS = [
+      '20', '25', '32', '40', '50', '63', '80', '100', '125', '160',
+      '200', '250', '315', '400', '500', '630', '800', '1k', '1.3k', '1.6k',
+      '2k', '2.5k', '3.2k', '4k', '5k', '6.3k', '8k', '10k', '12.5k', '16k', '20k'
+    ];
+
+    // State
+    let audioContext = null;
+    let analyser = null;
+    let microphone = null;
+    let dataArray = null;
+    let isRunning = false;
+    let animationId = null;
+
+    // Smoothed values for each band
+    const smoothedValues = new Array(31).fill(0);
+    const peakValues = new Array(31).fill(0);
+    const peakHoldTime = new Array(31).fill(0);
+
+    // DOM elements
+    const startBtn = document.getElementById('startBtn');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const spectrumBars = document.getElementById('spectrumBars');
+    const frequencyLabels = document.getElementById('frequencyLabels');
+    const leftLevel = document.getElementById('leftLevel');
+    const rightLevel = document.getElementById('rightLevel');
+
+    // Initialize spectrum display
+    function initSpectrum() {
+      spectrumBars.innerHTML = '';
+      frequencyLabels.innerHTML = '';
+
+      BAND_LABELS.forEach((label, index) => {
+        // Bar wrapper
+        const barWrapper = document.createElement('div');
+        barWrapper.className = 'bar-wrapper';
+        barWrapper.style.flex = '1';
+        barWrapper.style.maxWidth = '40px';
+        barWrapper.style.minWidth = '8px';
+
+        // Bar container
+        const barContainer = document.createElement('div');
+        barContainer.className = 'bar-container';
+
+        // Peak marker
+        const peakMarker = document.createElement('div');
+        peakMarker.className = 'peak-marker';
+        peakMarker.id = `peak-${index}`;
+        peakMarker.style.bottom = '0';
+
+        // Bar
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        bar.id = `bar-${index}`;
+        bar.style.height = '2px';
+
+        barContainer.appendChild(peakMarker);
+        barContainer.appendChild(bar);
+        barWrapper.appendChild(barContainer);
+
+        spectrumBars.appendChild(barWrapper);
+
+        // Frequency label
+        const labelEl = document.createElement('span');
+        labelEl.className = 'bar-label';
+        labelEl.textContent = label;
+        labelEl.style.width = '30px';
+        frequencyLabels.appendChild(labelEl);
+      });
+    }
+
+    // Map FFT data to 31 bands
+    function getBandValue(frequencyData, sampleRate, fftSize, bandIndex) {
+      const freq = BAND_FREQUENCIES[bandIndex];
+      const binCount = fftSize / 2;
+      const binWidth = sampleRate / fftSize;
+      
+      // Calculate upper and lower frequencies for this band
+      let lowerFreq, upperFreq;
+      if (bandIndex === 0) {
+        lowerFreq = BAND_FREQUENCIES[0];
+        upperFreq = Math.sqrt(BAND_FREQUENCIES[0] * BAND_FREQUENCIES[1]);
+      } else if (bandIndex === BAND_FREQUENCIES.length - 1) {
+        lowerFreq = Math.sqrt(BAND_FREQUENCIES[bandIndex - 1] * BAND_FREQUENCIES[bandIndex]);
+        upperFreq = BAND_FREQUENCIES[bandIndex];
+      } else {
+        lowerFreq = Math.sqrt(BAND_FREQUENCIES[bandIndex - 1] * BAND_FREQUENCIES[bandIndex]);
+        upperFreq = Math.sqrt(BAND_FREQUENCIES[bandIndex] * BAND_FREQUENCIES[bandIndex + 1]);
+      }
+
+      const lowerBin = Math.max(0, Math.floor(lowerFreq / binWidth));
+      const upperBin = Math.min(binCount - 1, Math.ceil(upperFreq / binWidth));
+
+      // Average values in the band
+      let sum = 0;
+      let count = 0;
+      for (let i = lowerBin; i <= upperBin; i++) {
+        sum += frequencyData[i];
+        count++;
+      }
+
+      return count > 0 ? sum / count : 0;
+    }
+
+    // Smooth value transition
+    function smoothValue(current, target, smoothing) {
+      return current + (target - current) * smoothing;
+    }
+
+    // Analyze and render
+    function analyze() {
+      if (!isRunning || !analyser) return;
+
+      analyser.getByteFrequencyData(dataArray);
+
+      const sampleRate = audioContext.sampleRate;
+      const fftSize = analyser.fftSize;
+
+      // Process each band
+      for (let i = 0; i < 31; i++) {
+        const rawValue = getBandValue(dataArray, sampleRate, fftSize, i);
+        const normalizedValue = rawValue / 255;
+
+        // Apply smoothing
+        smoothedValues[i] = smoothValue(smoothedValues[i], normalizedValue, 0.3);
+
+        // Handle peaks
+        if (normalizedValue > peakValues[i]) {
+          peakValues[i] = normalizedValue;
+          peakHoldTime[i] = 30; // Hold for 30 frames
+        } else if (peakHoldTime[i] > 0) {
+          peakHoldTime[i]--;
+        } else {
+          peakValues[i] = smoothValue(peakValues[i], smoothedValues[i], 0.1);
+        }
+
+        // Update bar
+        const bar = document.getElementById(`bar-${i}`);
+        const peak = document.getElementById(`peak-${i}`);
+        
+        if (bar && peak) {
+          const minHeight = 2;
+          const maxHeight = 260;
+          const barHeight = Math.max(minHeight, smoothedValues[i] * maxHeight);
+          bar.style.height = `${barHeight}px`;
+
+          const peakHeight = Math.max(minHeight, peakValues[i] * maxHeight);
+          peak.style.bottom = `${peakHeight}px`;
+        }
+      }
+
+      // Update level meters (stereo simulation)
+      const bassLevel = (smoothedValues[2] + smoothedValues[3] + smoothedValues[4]) / 3;
+      const midLevel = (smoothedValues[14] + smoothedValues[15] + smoothedValues[16]) / 3;
+      const highLevel = (smoothedValues[27] + smoothedValues[28] + smoothedValues[29]) / 3;
+
+      leftLevel.style.width = `${Math.min(100, (bassLevel * 0.6 + midLevel * 0.3 + highLevel * 0.1) * 100)}%`;
+      rightLevel.style.width = `${Math.min(100, (bassLevel * 0.4 + midLevel * 0.4 + highLevel * 0.2) * 100)}%`;
+
+      animationId = requestAnimationFrame(analyze);
+    }
+
+    // Start microphone capture
+    async function startMicrophone() {
+      try {
+        startBtn.disabled = true;
+        statusText.textContent = 'Requesting microphone access...';
+
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          } 
+        });
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 8192;
+        analyser.smoothingTimeConstant = 0.5;
+
+        microphone = audioContext.createMediaStreamSource(stream);
+        microphone.connect(analyser);
+
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        isRunning = true;
+        statusDot.classList.add('active');
+        statusText.textContent = `Analyzing · ${audioContext.sampleRate}Hz`;
+        startBtn.textContent = 'Listening...';
+
+        // Start analysis loop
+        analyze();
+
+      } catch (error) {
+        console.error('Error accessing microphone:', error);
+        statusText.textContent = 'Microphone access denied';
+        startBtn.disabled = false;
+        startBtn.textContent = 'Try Again';
+      }
+    }
+
+    // Event listeners
+    startBtn.addEventListener('click', startMicrophone);
+
+    // Handle visibility change
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && isRunning) {
+        cancelAnimationFrame(animationId);
+      } else if (!document.hidden && isRunning) {
+        analyze();
+      }
+    });
+
+    // Initialize on load
+    initSpectrum();
+  </script>
+</body>
+</html>
