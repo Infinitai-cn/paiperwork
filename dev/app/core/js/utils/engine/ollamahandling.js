@@ -251,9 +251,19 @@ class OllamaAPI {
 
     static isOnlineDeploymentMode() {
         if (window.PAIPERWORK_CLOUD_ONLY === true) return true;
+        if (window.PAIPERWORK_IS_LOCAL_RUNTIME === true) return false;
         const host = String(window.location.hostname || '').toLowerCase();
         const protocol = String(window.location.protocol || '').toLowerCase();
-        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' || protocol === 'file:';
+        const isLocal = host === 'localhost'
+            || host === '127.0.0.1'
+            || host === '::1'
+            || host === '0.0.0.0'
+            || /^(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[0-1])\.)/.test(host)
+            || protocol === 'file:'
+            || protocol === 'app:'
+            || protocol === 'tauri:'
+            || protocol === 'capacitor:'
+            || protocol === 'electron:';
         return !isLocal;
     }
 
@@ -430,9 +440,6 @@ class OllamaAPI {
         try {
            //  //console.log('Fetching local and cloud Ollama models...');
             const cloudApiKey = await this.getStoredCloudApiKey();
-            const localTagsPromise = onlineMode
-                ? Promise.resolve({ skipped: true })
-                : fetchLocalTagsWithRetry();
 
             const fetchLocalTagsWithRetry = async () => {
                 const timeouts = [7000, 12000];
@@ -457,6 +464,10 @@ class OllamaAPI {
 
                 throw lastError || new Error('local /api/tags unavailable');
             };
+
+            const localTagsPromise = onlineMode
+                ? Promise.resolve({ skipped: true })
+                : fetchLocalTagsWithRetry();
 
             const [localResponse, cloudResponse] = await Promise.allSettled([
                 localTagsPromise,
