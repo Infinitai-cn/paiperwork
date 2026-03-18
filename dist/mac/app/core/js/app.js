@@ -4,13 +4,33 @@
 
     const host = String(window.location.hostname || '').toLowerCase();
     const protocol = String(window.location.protocol || '').toLowerCase();
-    const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+    const isLocalHost = host === 'localhost'
+        || host === '127.0.0.1'
+        || host === '::1'
+        || host === '0.0.0.0';
+    const isLocalProtocol = protocol === 'file:'
+        || protocol === 'app:'
+        || protocol === 'tauri:'
+        || protocol === 'capacitor:'
+        || protocol === 'electron:';
+    const isPrivateNetworkHost = /^(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[0-1])\.)/.test(host);
+    const isLikelyLocalRuntime = isLocalHost || isLocalProtocol || isPrivateNetworkHost || !host;
+    window.PAIPERWORK_IS_LOCAL_RUNTIME = isLikelyLocalRuntime;
 
     const queryFlag = new URLSearchParams(window.location.search || '').get('cloudOnly');
     const cloudOnlyByQuery = queryFlag === '1' || queryFlag === 'true';
-    const cloudOnlyByStorage = localStorage.getItem('cloudOnlyMode') === 'true';
-    const cloudOnlyByHost = !isLocalHost && protocol !== 'file:';
+    const cloudOnlyByStorage = !isLikelyLocalRuntime && localStorage.getItem('cloudOnlyMode') === 'true';
+    const cloudOnlyByHost = !isLikelyLocalRuntime;
     const cloudOnlyMode = cloudOnlyByQuery || cloudOnlyByStorage || cloudOnlyByHost;
+
+    // Avoid stale cloud-only preference leaking into local desktop runs.
+    if (isLikelyLocalRuntime) {
+        try {
+            localStorage.removeItem('cloudOnlyMode');
+        } catch (_err) {
+            // Ignore storage failures in restricted contexts.
+        }
+    }
 
     window.PAIPERWORK_CLOUD_ONLY = cloudOnlyMode;
     if (!cloudOnlyMode) return;
@@ -814,9 +834,19 @@ async function handlepresentationtab() {
 
     const isOnlineMode = (() => {
         if (window.PAIPERWORK_CLOUD_ONLY === true) return true;
+        if (window.PAIPERWORK_IS_LOCAL_RUNTIME === true) return false;
         const host = String(window.location.hostname || '').toLowerCase();
         const protocol = String(window.location.protocol || '').toLowerCase();
-        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' || protocol === 'file:';
+        const isLocal = host === 'localhost'
+            || host === '127.0.0.1'
+            || host === '::1'
+            || host === '0.0.0.0'
+            || /^(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[0-1])\.)/.test(host)
+            || protocol === 'file:'
+            || protocol === 'app:'
+            || protocol === 'tauri:'
+            || protocol === 'capacitor:'
+            || protocol === 'electron:';
         return !isLocal;
     })();
 

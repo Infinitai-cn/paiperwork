@@ -13,9 +13,19 @@ class ArtworksTab {
 
     isOnlineDeploymentMode() {
         if (window.PAIPERWORK_CLOUD_ONLY === true) return true;
+        if (window.PAIPERWORK_IS_LOCAL_RUNTIME === true) return false;
         const host = String(window.location.hostname || '').toLowerCase();
         const protocol = String(window.location.protocol || '').toLowerCase();
-        const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1' || protocol === 'file:';
+        const isLocal = host === 'localhost'
+            || host === '127.0.0.1'
+            || host === '::1'
+            || host === '0.0.0.0'
+            || /^(?:10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[0-1])\.)/.test(host)
+            || protocol === 'file:'
+            || protocol === 'app:'
+            || protocol === 'tauri:'
+            || protocol === 'capacitor:'
+            || protocol === 'electron:';
         return !isLocal;
     }
 

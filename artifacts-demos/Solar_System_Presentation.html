@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en" class="pw-start-reset-cloak"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar System Presentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&amp;family=Space+Grotesk:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: #0a0a0f;
+            color: #e8e8f0;
+            overflow: hidden;
+        }
+
+        .presentation-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .slide {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.8s ease, visibility 0.8s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .slide.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .slide-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+
+        .slide-content {
+            position: relative;
+            z-index: 10;
+            padding: 60px;
+            max-width: 1400px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Navigation */
+        .nav-arrows {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: scale(1.1);
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .nav-btn:disabled:hover {
+            transform: scale(1);
+        }
+
+        /* Slide Indicators */
+        .slide-indicators {
+            position: fixed;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 1000;
+        }
+
+        .indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .indicator.active {
+            background: #ff6b35;
+            border-color: #ff6b35;
+            transform: scale(1.3);
+        }
+
+        .indicator:hover {
+            background: rgba(255, 107, 53, 0.5);
+        }
+
+        /* Typography */
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 72px;
+            text-align: center;
+            margin-bottom: 20px;
+            letter-spacing: 4px;
+        }
+
+        h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 30px;
+            letter-spacing: 2px;
+        }
+
+        h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 600;
+            font-size: 28px;
+            margin-bottom: 15px;
+            letter-spacing: 1px;
+        }
+
+        p {
+            font-size: 18px;
+            line-height: 1.8;
+            text-align: center;
+            max-width: 900px;
+        }
+
+        .subtitle {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 24px;
+            font-weight: 300;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            letter-spacing: 3px;
+        }
+
+        /* Content Layouts */
+        .title-slide h1 {
+            font-size: 90px;
+            background: linear-gradient(135deg, #ff6b35, #ffb347, #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: titleGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% { filter: drop-shadow(0 0 20px rgba(255, 107, 53, 0.5)); }
+            50% { filter: drop-shadow(0 0 40px rgba(255, 179, 71, 0.8)); }
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            width: 100%;
+            align-items: center;
+        }
+
+        .two-column.reverse {
+            direction: rtl;
+        }
+
+        .two-column.reverse > * {
+            direction: ltr;
+        }
+
+        .text-content {
+            text-align: left;
+        }
+
+        .text-content h2 {
+            text-align: left;
+        }
+
+        .text-content p {
+            text-align: left;
+        }
+
+        .image-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .image-container img {
+            max-width: 100%;
+            max-height: 500px;
+            object-fit: contain;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Planet Cards */
+        .planet-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 30px;
+            width: 100%;
+            margin-top: 40px;
+        }
+
+        .planet-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .planet-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .planet-card h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .planet-card p {
+            font-size: 14px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .planet-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 15px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Feature List */
+        .feature-list {
+            text-align: left;
+            margin-top: 30px;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            border-left: 3px solid #ff6b35;
+            transition: all 0.3s ease;
+        }
+
+        .feature-item:hover {
+            background: rgba(255, 255, 255, 0.07);
+            transform: translateX(5px);
+        }
+
+        .feature-item h4 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            margin-bottom: 5px;
+            color: #ffb347;
+        }
+
+        .feature-item p {
+            font-size: 15px;
+            text-align: left;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* Stats Display */
+        .stats-container {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            min-width: 200px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-number {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 48px;
+            font-weight: 900;
+            color: #ff6b35;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+        }
+
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        /* Slide 1 - Title */
+        .slide-1 h1 {
+            font-size: 100px;
+        }
+
+        /* Slide 2 - The Sun */
+        .sun-visual {
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #fff 0%, #ffdd00 30%, #ff8800 60%, #ff4400 100%);
+            box-shadow: 0 0 100px 50px rgba(255, 136, 0, 0.4), 0 0 200px 100px rgba(255, 68, 0, 0.2);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        /* Slide 8 - Conclusion */
+        .conclusion-text {
+            font-size: 22px;
+            line-height: 2;
+        }
+
+        .highlight {
+            color: #ff6b35;
+            font-weight: 600;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            h1 { font-size: 56px; }
+            h2 { font-size: 36px; }
+            .two-column { grid-template-columns: 1fr; gap: 40px; }
+            .planet-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            h1 { font-size: 40px; }
+            h2 { font-size: 28px; }
+            .planet-grid { grid-template-columns: 1fr; }
+            .stats-container { flex-direction: column; align-items: center; }
+            .slide-content { padding: 30px; }
+        }
+    </style>
+<style id="pw-start-reset-cloak-style">html.pw-start-reset-cloak,body.pw-start-reset-cloak{opacity:0!important;background:#000!important}html,body{transition:opacity .18s ease}</style><style id="pw-promptable-image-edit-style">img { cursor: pointer !important; }</style><style id="pw-promptable-text-edit-style">[data-pw-editable-text="1"] { cursor: text !important; }
+[data-pw-editable-text="1"]:focus { outline: 2px dashed var(--accent-color, #4f46e5) !important; outline-offset: 2px !important; }</style></head>
+<body class="pw-start-reset-cloak">
+    <div class="presentation-container">
+        
+        <!-- Slide 1: Title -->
+        <section class="slide slide-1" data-slide="1">
+            <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="spaceGrad" cx="50%" cy="50%" r="70%">
+                        <stop offset="0%" stop-color="#1a1a2e"></stop>
+                        <stop offset="50%" stop-color="#0d0d1a"></stop>
+                        <stop offset="100%" stop-color="#000005"></stop>
+                    </radialGradient>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur>
+                        <feMerge>
+                            <feMergeNode in="blur"></feMergeNode>
+                            <feMergeNode in="SourceGraphic"></feMergeNode>
+                        </feMerge>
+                    </filter>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#spaceGrad)"></rect>
+                <g class="stars">
+                    <circle cx="10%" cy="20%" r="2" fill="#fff" opacity="0.8"><animate attributeName="opacity" values="0.3;1;0.3" dur="3s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="25%" cy="15%" r="1.5" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.2;0.8;0.2" dur="2.5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="40%" cy="30%" r="2" fill="#fff" opacity="0.9"><animate attributeName="opacity" values="0.4;1;0.4" dur="4s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="60%" cy="10%" r="1" fill="#fff" opacity="0.7"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="3.5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="75%" cy="25%" r="2.5" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="85%" cy="40%" r="1.5" fill="#fff" opacity="0.8"><animate attributeName="opacity" values="0.4;1;0.4" dur="2.8s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="15%" cy="60%" r="2" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.3;0.8;0.3" dur="4.2s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="30%" cy="75%" r="1" fill="#fff" opacity="0.9"><animate attributeName="opacity" values="0.5;1;0.5" dur="3.2s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="55%" cy="65%" r="2.5" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.2;0.6;0.2" dur="4.5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="70%" cy="80%" r="1.5" fill="#fff" opacity="0.7"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="3.8s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="90%" cy="70%" r="2" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.4;0.8;0.4" dur="4s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="5%" cy="85%" r="1" fill="#fff" opacity="0.8"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="3s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="45%" cy="90%" r="2" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="3.6s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="80%" cy="95%" r="1.5" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.4;1;0.4" dur="4.3s" repeatCount="indefinite"></animate></circle>
+                </g>
+                <ellipse cx="50%" cy="50%" rx="350" ry="350" fill="none" stroke="rgba(255,107,53,0.15)" stroke-width="1" stroke-dasharray="10,20">
+                    <animateTransform attributeName="transform" type="rotate" from="0 960 540" to="360 960 540" dur="120s" repeatCount="indefinite"></animateTransform>
+                </ellipse>
+                <ellipse cx="50%" cy="50%" rx="420" ry="420" fill="none" stroke="rgba(255,179,71,0.1)" stroke-width="1" stroke-dasharray="5,15">
+                    <animateTransform attributeName="transform" type="rotate" from="0 960 540" to="-360 960 540" dur="150s" repeatCount="indefinite"></animateTransform>
+                </ellipse>
+                <ellipse cx="50%" cy="50%" rx="500" ry="500" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="3,12">
+                    <animateTransform attributeName="transform" type="rotate" from="0 960 540" to="360 960 540" dur="180s" repeatCount="indefinite"></animateTransform>
+                </ellipse>
+            </svg>
+            <div class="slide-content title-slide">
+                <h1 data-pw-editable-text="1" contenteditable="true" spellcheck="false">THE SOLAR SYSTEM</h1>
+                <p class="subtitle" data-pw-editable-text="1" contenteditable="true" spellcheck="false">A JOURNEY THROUGH OUR COSMIC NEIGHBORHOOD</p>
+                <div class="stats-container">
+                    <div class="stat-item">
+                        <div class="stat-number" data-pw-editable-text="1" contenteditable="true" spellcheck="false">8</div>
+                        <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Planets</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" data-pw-editable-text="1" contenteditable="true" spellcheck="false">200+</div>
+                        <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Moons</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" data-pw-editable-text="1" contenteditable="true" spellcheck="false">4.6B</div>
+                        <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Years Old</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 2: The Sun -->
+        <section class="slide slide-2" data-slide="2">
+            <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="sunBg" cx="30%" cy="50%">
+                        <stop offset="0%" stop-color="#3d1a00"></stop>
+                        <stop offset="40%" stop-color="#1a0a00"></stop>
+                        <stop offset="100%" stop-color="#000005"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#sunBg)"></rect>
+                <circle cx="25%" cy="50%" r="200" fill="url(#sunGlow)">
+                    <animate attributeName="r" values="200;210;200" dur="3s" repeatCount="indefinite"></animate>
+                </circle>
+                <defs>
+                    <radialGradient id="sunGlow">
+                        <stop offset="0%" stop-color="#ffffff"></stop>
+                        <stop offset="20%" stop-color="#ffee00"></stop>
+                        <stop offset="50%" stop-color="#ff8800"></stop>
+                        <stop offset="100%" stop-color="#ff440000"></stop>
+                    </radialGradient>
+                </defs>
+                <g class="corona">
+                    <circle cx="25%" cy="50%" r="280" fill="none" stroke="#ff6600" stroke-width="2" opacity="0.3">
+                        <animate attributeName="r" values="280;300;280" dur="4s" repeatCount="indefinite"></animate>
+                    </circle>
+                    <circle cx="25%" cy="50%" r="350" fill="none" stroke="#ff4400" stroke-width="1" opacity="0.2">
+                        <animate attributeName="r" values="350;380;350" dur="5s" repeatCount="indefinite"></animate>
+                    </circle>
+                </g>
+                <g class="particles">
+                    <circle cx="60%" cy="30%" r="1" fill="#ffaa00" opacity="0.5"><animate attributeName="cx" values="60%;65%;60%" dur="8s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="70%" cy="50%" r="1.5" fill="#ff8800" opacity="0.4"><animate attributeName="cy" values="50%;45%;50%" dur="6s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="55%" cy="70%" r="1" fill="#ffcc00" opacity="0.6"><animate attributeName="cx" values="55%;50%;55%" dur="7s" repeatCount="indefinite"></animate></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <div class="two-column">
+                    <div class="text-content">
+                        <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">THE SUN</h2>
+                        <p style="margin-bottom: 25px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Our Sun is a G-type main-sequence star at the center of our solar system, containing 99.86% of the system's total mass. This massive ball of hot plasma generates energy through nuclear fusion, converting hydrogen into helium at its core.</p>
+                        <div class="feature-list">
+                            <div class="feature-item">
+                                <div>
+                                    <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Surface Temperature</h4>
+                                    <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Approximately 5,500 degrees Celsius on the surface, while the core reaches an astounding 15 million degrees Celsius.</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <div>
+                                    <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Diameter</h4>
+                                    <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">About 1.4 million kilometers, making it roughly 109 times wider than Earth and large enough to fit 1.3 million Earths inside.</p>
+                                </div>
+                            </div>
+                            <div class="feature-item">
+                                <div>
+                                    <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Age &amp; Lifespan</h4>
+                                    <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Estimated at 4.6 billion years old, with approximately 5 billion years remaining in its main sequence phase.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="image-container">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/b/b4/The_Sun_by_the_Atmospheric_Imaging_Assembly_of_NASA%27s_Solar_Dynamics_Observatory_-_20100819.jpg" alt="The Sun" style="border-radius: 50%; box-shadow: 0 0 80px rgba(255,136,0,0.5);">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 3: Inner Planets -->
+        <section class="slide slide-3" data-slide="3">
+            <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="innerBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#0d1a2d"></stop>
+                        <stop offset="50%" stop-color="#0a0f1a"></stop>
+                        <stop offset="100%" stop-color="#050508"></stop>
+                    </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#innerBg)"></rect>
+                <circle cx="10%" cy="90%" r="150" fill="#ff660020"></circle>
+                <g class="orbit-lines">
+                    <circle cx="10%" cy="90%" r="120" fill="none" stroke="#ffaa00" stroke-width="0.5" opacity="0.3" stroke-dasharray="5,10"></circle>
+                    <circle cx="10%" cy="90%" r="160" fill="none" stroke="#ffdd00" stroke-width="0.5" opacity="0.2" stroke-dasharray="3,15"></circle>
+                    <circle cx="10%" cy="90%" r="200" fill="none" stroke="#88ff00" stroke-width="0.5" opacity="0.2" stroke-dasharray="4,12"></circle>
+                    <circle cx="10%" cy="90%" r="240" fill="none" stroke="#ff4400" stroke-width="0.5" opacity="0.2" stroke-dasharray="2,18"></circle>
+                </g>
+                <circle cx="75%" cy="20%" r="2" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="3s" repeatCount="indefinite"></animate></circle>
+                <circle cx="85%" cy="35%" r="1.5" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="4s" repeatCount="indefinite"></animate></circle>
+                <circle cx="60%" cy="80%" r="2" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.3;0.8;0.3" dur="3.5s" repeatCount="indefinite"></animate></circle>
+            </svg>
+            <div class="slide-content">
+                <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">THE INNER PLANETS</h2>
+                <p style="margin-bottom: 30px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The four terrestrial planets closest to the Sun are characterized by solid, rocky surfaces composed primarily of silicate rocks and metals. These worlds represent the inner boundary of our solar system's planetary zone.</p>
+                <div class="planet-grid">
+                    <div class="planet-card">
+                        <div class="planet-icon" style="background: radial-gradient(circle, #8c8c8c, #4a4a4a);"></div>
+                        <h3 style="color: #b8b8b8;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">MERCURY</h3>
+                        <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">The smallest and fastest planet, completing an orbit in just 88 Earth days. Surface temperatures swing dramatically from -180°C to 430°C.</p>
+                    </div>
+                    <div class="planet-card">
+                        <div class="planet-icon" style="background: radial-gradient(circle, #e6c87a, #c4a35a);"></div>
+                        <h3 style="color: #e6c87a;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">VENUS</h3>
+                        <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Earth's "sister planet" with a thick toxic atmosphere creating the hottest surface temperature in our solar system at 465°C, hot enough to melt lead.</p>
+                    </div>
+                    <div class="planet-card">
+                        <div class="planet-icon" style="background: radial-gradient(circle, #4a90d9, #1e5a9e, #2d6a3d);"></div>
+                        <h3 style="color: #4a90d9;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">EARTH</h3>
+                        <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">The only known world harboring life, featuring vast oceans covering 71% of its surface and a protective magnetic field shielding its atmosphere.</p>
+                    </div>
+                    <div class="planet-card">
+                        <div class="planet-icon" style="background: radial-gradient(circle, #c1440e, #8b3a0e);"></div>
+                        <h3 style="color: #c1440e;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">MARS</h3>
+                        <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">The "Red Planet" features the solar system's largest volcano, Olympus Mons, and a canyon system, Valles Marineris, that dwarfs Earth's Grand Canyon.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 4: Gas Giants -->
+        <section class="slide slide-4" data-slide="4">
+            <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="gasGiantBg" x1="100%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#1a1520"></stop>
+                        <stop offset="50%" stop-color="#0f0815"></stop>
+                        <stop offset="100%" stop-color="#050308"></stop>
+                    </linearGradient>
+                    <linearGradient id="jupiterBands" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#d4a574"></stop>
+                        <stop offset="20%" stop-color="#c9956b"></stop>
+                        <stop offset="40%" stop-color="#e8c4a0"></stop>
+                        <stop offset="60%" stop-color="#c9956b"></stop>
+                        <stop offset="80%" stop-color="#d4a574"></stop>
+                        <stop offset="100%" stop-color="#b8845a"></stop>
+                    </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#gasGiantBg)"></rect>
+                <circle cx="75%" cy="50%" r="180" fill="#d4a57420"></circle>
+                <ellipse cx="75%" cy="50%" rx="220" ry="200" fill="none" stroke="#e8c4a040" stroke-width="8"></ellipse>
+                <circle cx="75%" cy="50%" r="15" fill="#c44" opacity="0.8">
+                    <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"></animate>
+                </circle>
+                <g class="saturn-rings">
+                    <ellipse cx="25%" cy="50%" rx="200" ry="40" fill="none" stroke="#d4aa78" stroke-width="15" opacity="0.4"></ellipse>
+                    <ellipse cx="25%" cy="50%" rx="170" ry="34" fill="none" stroke="#c49a68" stroke-width="8" opacity="0.5"></ellipse>
+                    <ellipse cx="25%" cy="50%" rx="140" ry="28" fill="none" stroke="#b48a58" stroke-width="5" opacity="0.3"></ellipse>
+                </g>
+                <circle cx="25%" cy="50%" r="100" fill="url(#saturnGrad)"></circle>
+                <defs>
+                    <radialGradient id="saturnGrad">
+                        <stop offset="0%" stop-color="#f4d9a0"></stop>
+                        <stop offset="50%" stop-color="#d4aa78"></stop>
+                        <stop offset="100%" stop-color="#a47a48"></stop>
+                    </radialGradient>
+                </defs>
+            </svg>
+            <div class="slide-content">
+                <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">THE GAS GIANTS</h2>
+                <p style="margin-bottom: 30px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Jupiter and Saturn dominate the outer solar system as massive worlds composed primarily of hydrogen and helium. These giants possess powerful magnetic fields, numerous moons, and complex atmospheric dynamics that continue to fascinate astronomers.</p>
+                <div class="two-column">
+                    <div class="text-content">
+                        <h3 style="color: #d4a574; margin-bottom: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">JUPITER - King of Planets</h3>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Massive Scale</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Jupiter contains more mass than all other planets combined, with a diameter 11 times larger than Earth and a mass 318 times greater.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Great Red Spot</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">A storm larger than Earth has raged for at least 400 years, with winds reaching 680 km/h in this iconic anticyclonic feature.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">95 Known Moons</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Four large Galilean moons—Io, Europa, Ganymede, and Callisto—each possess unique characteristics worthy of scientific exploration.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-content">
+                        <h3 style="color: #f4d9a0; margin-bottom: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">SATURN - The Ringed Wonder</h3>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Spectacular Ring System</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Saturn's rings span 282,000 km but are only 10 meters thick, composed of billions of ice and rock particles from microscopic to house-sized.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Lowest Density</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">With a density lower than water, Saturn would float if placed in an enormous cosmic bathtub—its specific gravity is just 0.69.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">146 Confirmed Moons</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Titan, Saturn's largest moon, possesses a thick nitrogen atmosphere and liquid methane lakes, making it a prime target for astrobiological research.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 5: Ice Giants -->
+        <section class="slide slide-5" data-slide="5">
+            <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <linearGradient id="iceBg" x1="0%" y1="100%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#0a1520"></stop>
+                        <stop offset="50%" stop-color="#051015"></stop>
+                        <stop offset="100%" stop-color="#020508"></stop>
+                    </linearGradient>
+                    <radialGradient id="uranusGrad">
+                        <stop offset="0%" stop-color="#a8e6e6"></stop>
+                        <stop offset="100%" stop-color="#5ab8b8"></stop>
+                    </radialGradient>
+                    <radialGradient id="neptuneGrad">
+                        <stop offset="0%" stop-color="#5b8dd9"></stop>
+                        <stop offset="100%" stop-color="#1a4a8c"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#iceBg)"></rect>
+                <circle cx="30%" cy="50%" r="100" fill="url(#uranusGrad)" opacity="0.9"></circle>
+                <circle cx="70%" cy="50%" r="95" fill="url(#neptuneGrad)" opacity="0.9"></circle>
+                <ellipse cx="30%" cy="50%" rx="130" ry="15" fill="none" stroke="#a8e6e6" stroke-width="2" opacity="0.4" transform="rotate(-8, 30%, 50%)"></ellipse>
+                <circle cx="50%" cy="15%" r="1.5" fill="#a8e6e6" opacity="0.6"><animate attributeName="opacity" values="0.3;0.8;0.3" dur="4s" repeatCount="indefinite"></animate></circle>
+                <circle cx="80%" cy="25%" r="2" fill="#5b8dd9" opacity="0.5"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="3.5s" repeatCount="indefinite"></animate></circle>
+                <circle cx="20%" cy="75%" r="1" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.2;0.6;0.2" dur="5s" repeatCount="indefinite"></animate></circle>
+                <circle cx="90%" cy="80%" r="1.5" fill="#a8e6e6" opacity="0.5"><animate attributeName="opacity" values="0.3;0.7;0.3" dur="4.5s" repeatCount="indefinite"></animate></circle>
+            </svg>
+            <div class="slide-content">
+                <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">THE ICE GIANTS</h2>
+                <p style="margin-bottom: 30px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Uranus and Neptune represent a distinct class of planets with compositions dominated by water, ammonia, and methane ices. These mysterious distant worlds exhibit extreme conditions that challenge our understanding of planetary science.</p>
+                <div class="two-column">
+                    <div class="image-container">
+                        <img src="https://pixabay.com/get/ga91433642c1bcf9e6c722acb6fda23d80a6d0c5c81d0203e95d479fae899930ff671e1dd8d8aab426cfda9440f6a8217_640.jpg" alt="Uranus" style="border-radius: 20px; box-shadow: rgba(168, 230, 230, 0.3) 0px 0px 60px;" data-pw-promptable-image-id="pwimg-1773807573109-qi5iwwk">
+                    </div>
+                    <div class="text-content">
+                        <h3 style="color: #a8e6e6;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">URANUS - The Tilted World</h3>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Extreme Axial Tilt</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Uranus rotates on its side with a 98-degree tilt, likely from a massive ancient collision. This unique orientation means its poles receive more sunlight than its equator during its 84-year orbit.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Coldest Atmosphere</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Despite being closer to the Sun than Neptune, Uranus holds the record for coldest planetary atmosphere at -224°C, with minimal internal heat to warm its outer layers.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">27 Known Moons</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Named after characters from Shakespeare and Alexander Pope's works, these moons and 13 faint rings orbit the pale blue-green planet discovered in 1781.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 6: Neptune -->
+        <section class="slide slide-6 active" data-slide="6">
+            <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="neptuneBg" cx="70%" cy="50%">
+                        <stop offset="0%" stop-color="#1a3a6a"></stop>
+                        <stop offset="50%" stop-color="#0a1520"></stop>
+                        <stop offset="100%" stop-color="#020508"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#neptuneBg)"></rect>
+                <circle cx="30%" cy="50%" r="140" fill="#1a4a8c" opacity="0.8"></circle>
+                <circle cx="30%" cy="50%" r="120" fill="#2a5a9c" opacity="0.6"></circle>
+                <circle cx="30%" cy="50%" r="100" fill="#3a6aac" opacity="0.4"></circle>
+                <ellipse cx="30%" cy="50%" rx="145" ry="8" fill="none" stroke="#5b8dd9" stroke-width="1" opacity="0.5"></ellipse>
+                <g class="distant-stars">
+                    <circle cx="80%" cy="20%" r="2" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="4s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="90%" cy="40%" r="1.5" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.3;0.8;0.3" dur="3s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="70%" cy="70%" r="2" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.2;0.6;0.2" dur="5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="85%" cy="85%" r="1" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="3.5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="60%" cy="30%" r="1.5" fill="#fff" opacity="0.3"><animate attributeName="opacity" values="0.2;0.5;0.2" dur="4.5s" repeatCount="indefinite"></animate></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <div class="two-column reverse">
+                    <div class="image-container">
+                        <img src="https://pixabay.com/get/gcabd5c8e227264450dd45ec1a885c17d3aceffcbdb7edeabe9793ae712eb8ed2ce53cd870ace85b613b855c5d673b5f7_640.jpg" alt="Neptune" style="border-radius: 20px; box-shadow: rgba(91, 141, 217, 0.4) 0px 0px 60px; outline: 3px solid var(--accent-color, #4f46e5); outline-offset: 2px;" data-pw-promptable-image-id="pwimg-1773807600888-15jrgwl" data-pw-promptable-outline="" data-pw-promptable-outline-offset="">
+                    </div>
+                    <div class="text-content">
+                        <h3 style="color: #5b8dd9;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">NEPTUNE - The Distant Giant</h3>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Windiest Planet</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Neptune boasts the strongest sustained winds in the solar system, reaching speeds of 2,100 km/h. Supersonic storm systems create dynamic weather patterns observed by Voyager 2.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Great Dark Spot</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">A massive storm system similar to Jupiter's Great Red Spot was discovered by Voyager 2 in 1989, though it has since dissipated, demonstrating Neptune's dynamic atmosphere.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Triton - A Captured Moon</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Neptune's largest moon orbits retrograde, indicating it was likely captured from the Kuiper Belt. Triton features active nitrogen geysers and a thin atmosphere.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Extreme Distance</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">At 4.5 billion kilometers from the Sun, Neptune takes 165 Earth years to complete one orbit. Sunlight takes over 4 hours to reach this distant world.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 7: Dwarf Planets & Small Bodies -->
+        <section class="slide slide-7" data-slide="7">
+            <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="dwarfBg" cx="50%" cy="50%">
+                        <stop offset="0%" stop-color="#1a1025"></stop>
+                        <stop offset="100%" stop-color="#050508"></stop>
+                    </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#dwarfBg)"></rect>
+                <circle cx="15%" cy="30%" r="40" fill="#b8a090" opacity="0.8">
+                    <animate attributeName="cy" values="30%;28%;30%" dur="8s" repeatCount="indefinite"></animate>
+                </circle>
+                <circle cx="35%" cy="60%" r="25" fill="#9a8070" opacity="0.7">
+                    <animate attributeName="cy" values="60%;62%;60%" dur="6s" repeatCount="indefinite"></animate>
+                </circle>
+                <circle cx="60%" cy="25%" r="30" fill="#c8b090" opacity="0.6">
+                    <animate attributeName="cx" values="60%;58%;60%" dur="7s" repeatCount="indefinite"></animate>
+                </circle>
+                <circle cx="80%" cy="70%" r="20" fill="#a09080" opacity="0.5">
+                    <animate attributeName="cy" values="70%;68%;70%" dur="5s" repeatCount="indefinite"></animate>
+                </circle>
+                <g class="asteroids">
+                    <circle cx="25%" cy="80%" r="3" fill="#888" opacity="0.6"></circle>
+                    <circle cx="28%" cy="82%" r="2" fill="#777" opacity="0.5"></circle>
+                    <circle cx="22%" cy="79%" r="2.5" fill="#999" opacity="0.4"></circle>
+                    <circle cx="30%" cy="85%" r="1.5" fill="#666" opacity="0.5"></circle>
+                    <circle cx="20%" cy="83%" r="2" fill="#888" opacity="0.4"></circle>
+                    <circle cx="75%" cy="40%" r="2" fill="#777" opacity="0.3"></circle>
+                    <circle cx="78%" cy="42%" r="1.5" fill="#888" opacity="0.4"></circle>
+                </g>
+                <g class="stars">
+                    <circle cx="10%" cy="15%" r="1.5" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.3;0.8;0.3" dur="3s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="50%" cy="10%" r="2" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="4s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="90%" cy="30%" r="1.5" fill="#fff" opacity="0.7"><animate attributeName="opacity" values="0.4;0.9;0.4" dur="3.5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="70%" cy="90%" r="2" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.2;0.6;0.2" dur="5s" repeatCount="indefinite"></animate></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">DWARF PLANETS &amp; SMALL BODIES</h2>
+                <p style="margin-bottom: 30px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Beyond the major planets lies a diverse population of smaller worlds that provide crucial insights into solar system formation and evolution. These objects include dwarf planets, asteroids, and comets scattered throughout the system.</p>
+                <div class="two-column">
+                    <div class="text-content">
+                        <h3 style="color: #b8a090;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Dwarf Planets</h3>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Pluto</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Once the ninth planet, now the archetype of dwarf planets. Features a heart-shaped nitrogen glacier called Tombaugh Regio and five known moons, including the large Charon.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Ceres</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">The largest object in the asteroid belt, containing nearly a third of the belt's total mass. Recent observations suggest a subsurface ocean of briny water.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Eris, Makemake &amp; Haumea</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Trans-Neptunian objects that challenged our definition of planets. Eris is slightly smaller than Pluto but more massive, while Haumea rotates so rapidly it's egg-shaped.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-content">
+                        <h3 style="color: #9a8070;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Asteroids &amp; Comets</h3>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Asteroid Belt</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Between Mars and Jupiter lies a ring of over 1.9 million asteroids larger than 1 km. These remnants from planetary formation offer clues to our solar system's origin.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Kuiper Belt</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">A vast donut-shaped region beyond Neptune containing millions of icy objects. Pluto, Eris, and other dwarf planets reside in this frozen frontier 30-55 AU from the Sun.</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div>
+                                <h4 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Oort Cloud</h4>
+                                <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">A theoretical spherical shell of icy bodies extending up to 100,000 AU. Long-period comets like Hale-Bopp originate from this distant reservoir at the edge of the Sun's influence.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Slide 8: Conclusion -->
+        <section class="slide slide-8" data-slide="8">
+            <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <radialGradient id="conclusionBg" cx="50%" cy="50%">
+                        <stop offset="0%" stop-color="#1a1030"></stop>
+                        <stop offset="40%" stop-color="#0d0815"></stop>
+                        <stop offset="100%" stop-color="#000005"></stop>
+                    </radialGradient>
+                    <linearGradient id="orbitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#ff6b3500"></stop>
+                        <stop offset="50%" stop-color="#ff6b3540"></stop>
+                        <stop offset="100%" stop-color="#ff6b3500"></stop>
+                    </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#conclusionBg)"></rect>
+                <circle cx="50%" cy="50%" r="50" fill="#ff6b3540"></circle>
+                <g class="orbits">
+                    <circle cx="50%" cy="50%" r="100" fill="none" stroke="#ffffff15" stroke-width="1" stroke-dasharray="5,10">
+                        <animateTransform attributeName="transform" type="rotate" from="0 960 540" to="360 960 540" dur="60s" repeatCount="indefinite"></animateTransform>
+                    </circle>
+                    <circle cx="50%" cy="50%" r="150" fill="none" stroke="#ffffff10" stroke-width="1" stroke-dasharray="5,15">
+                        <animateTransform attributeName="transform" type="rotate" from="0 960 540" to="360 960 540" dur="90s" repeatCount="indefinite"></animateTransform>
+                    </circle>
+                    <circle cx="50%" cy="50%" r="200" fill="none" stroke="#ffffff08" stroke-width="1" stroke-dasharray="8,20">
+                        <animateTransform attributeName="transform" type="rotate" from="0 960 540" to="360 960 540" dur="120s" repeatCount="indefinite"></animateTransform>
+                    </circle>
+                    <circle cx="50%" cy="50%" r="260" fill="none" stroke="#ffffff05" stroke-width="1" stroke-dasharray="10,25">
+                        <animateTransform attributeName="transform" type="rotate" from="0 960 540" to="360 960 540" dur="150s" repeatCount="indefinite"></animateTransform>
+                    </circle>
+                    <circle cx="50%" cy="50%" r="330" fill="none" stroke="#ffffff03" stroke-width="1" stroke-dasharray="5,30">
+                        <animateTransform attributeName="transform" type="rotate" from="0 960 540" to="360 960 540" dur="180s" repeatCount="indefinite"></animateTransform>
+                    </circle>
+                </g>
+                <g class="stars">
+                    <circle cx="15%" cy="20%" r="2" fill="#fff" opacity="0.7"><animate attributeName="opacity" values="0.4;1;0.4" dur="2.5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="30%" cy="15%" r="1.5" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.2;0.8;0.2" dur="3s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="80%" cy="25%" r="2" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="4s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="85%" cy="60%" r="1.5" fill="#fff" opacity="0.8"><animate attributeName="opacity" values="0.5;1;0.5" dur="3.5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="10%" cy="70%" r="2" fill="#fff" opacity="0.4"><animate attributeName="opacity" values="0.2;0.6;0.2" dur="5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="20%" cy="85%" r="1.5" fill="#fff" opacity="0.6"><animate attributeName="opacity" values="0.3;0.9;0.3" dur="4.5s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="70%" cy="80%" r="2" fill="#fff" opacity="0.5"><animate attributeName="opacity" values="0.2;0.7;0.2" dur="3.8s" repeatCount="indefinite"></animate></circle>
+                    <circle cx="90%" cy="90%" r="1.5" fill="#fff" opacity="0.7"><animate attributeName="opacity" values="0.4;1;0.4" dur="4.2s" repeatCount="indefinite"></animate></circle>
+                </g>
+            </svg>
+            <div class="slide-content">
+                <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">OUR COSMIC HOME</h2>
+                <p class="conclusion-text" style="margin-bottom: 40px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Our solar system represents just one small corner of the <span class="highlight" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Milky Way galaxy</span>, which contains an estimated <span class="highlight" data-pw-editable-text="1" contenteditable="true" spellcheck="false">100-400 billion stars</span>. As we continue to explore and understand our cosmic neighborhood, we discover new worlds, unravel mysteries of planetary formation, and search for signs of life beyond Earth.</p>
+                <div class="stats-container">
+                    <div class="stat-item">
+                        <div class="stat-number" data-pw-editable-text="1" contenteditable="true" spellcheck="false">1</div>
+                        <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Star</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" data-pw-editable-text="1" contenteditable="true" spellcheck="false">8</div>
+                        <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Planets</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" data-pw-editable-text="1" contenteditable="true" spellcheck="false">200+</div>
+                        <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Known Moons</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" data-pw-editable-text="1" contenteditable="true" spellcheck="false">5</div>
+                        <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Dwarf Planets</div>
+                    </div>
+                </div>
+                <p style="margin-top: 40px; font-size: 20px; color: rgba(255,255,255,0.7);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">From the scorching surface of Mercury to the frozen plains of Pluto, each world tells a story of cosmic evolution spanning billions of years. Our solar system continues to reveal its secrets through ongoing exploration and discovery.</p>
+            </div>
+        </section>
+
+        <!-- Navigation -->
+        <div class="nav-arrows">
+            <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 18l-6-6 6-6"></path>
+                </svg>
+            </button>
+            <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18l6-6-6-6"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Slide Indicators -->
+        <div class="slide-indicators" id="indicators">
+            <div class="indicator" data-slide="1" onclick="goToSlide(1)"></div>
+            <div class="indicator" data-slide="2" onclick="goToSlide(2)"></div>
+            <div class="indicator" data-slide="3" onclick="goToSlide(3)"></div>
+            <div class="indicator" data-slide="4" onclick="goToSlide(4)"></div>
+            <div class="indicator" data-slide="5" onclick="goToSlide(5)"></div>
+            <div class="indicator active" data-slide="6" onclick="goToSlide(6)"></div>
+            <div class="indicator" data-slide="7" onclick="goToSlide(7)"></div>
+            <div class="indicator" data-slide="8" onclick="goToSlide(8)"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = 8;
+
+        function updateSlide() {
+            document.querySelectorAll('.slide').forEach((slide, index) => {
+                slide.classList.remove('active');
+                if (index + 1 === currentSlide) {
+                    slide.classList.add('active');
+                }
+            });
+
+            document.querySelectorAll('.indicator').forEach((indicator, index) => {
+                indicator.classList.remove('active');
+                if (index + 1 === currentSlide) {
+                    indicator.classList.add('active');
+                }
+            });
+
+            document.getElementById('prevBtn').disabled = currentSlide === 1;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides;
+        }
+
+        function changeSlide(direction) {
+            const newSlide = currentSlide + direction;
+            if (newSlide >= 1 && newSlide <= totalSlides) {
+                currentSlide = newSlide;
+                updateSlide();
+            }
+        }
+
+        function goToSlide(slideNumber) {
+            currentSlide = slideNumber;
+            updateSlide();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                changeSlide(1);
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                changeSlide(-1);
+            }
+        });
+
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            if (touchStartX - touchEndX > 50) {
+                changeSlide(1);
+            } else if (touchEndX - touchStartX > 50) {
+                changeSlide(-1);
+            }
+        });
+
+        updateSlide();
+    </script>
+
+<script id="pw-remote-nav-normalizer">(function(){
+  if (window.__pwRemoteNavBound) return;
+  window.__pwRemoteNavBound = true;
+  var __pwResetStarted = false;
+  var __pwResetDone = false;
+  var __pwResetAttempts = 0;
+  var __pwRevealDone = false;
+  var installStartCloak = function(){
+    try {
+      var styleId = "pw-start-reset-cloak-style";
+      if (!document.getElementById(styleId)) {
+        var css = "html.pw-start-reset-cloak,body.pw-start-reset-cloak{opacity:0!important}html,body{transition:opacity .18s ease}";
+        var styleEl = document.createElement("style");
+        styleEl.id = styleId;
+        styleEl.textContent = css;
+        (document.head || document.documentElement || document.body).appendChild(styleEl);
+      }
+      if (document.documentElement) document.documentElement.classList.add("pw-start-reset-cloak");
+      if (document.body) document.body.classList.add("pw-start-reset-cloak");
+    } catch (e) {}
+  };
+  var revealPresentation = function(){
+    if (__pwRevealDone) return;
+    __pwRevealDone = true;
+    var doReveal = function(){
+      try {
+        if (document.documentElement) document.documentElement.classList.remove("pw-start-reset-cloak");
+        if (document.body) document.body.classList.remove("pw-start-reset-cloak");
+      } catch (e) {}
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(function(){ window.requestAnimationFrame(doReveal); });
+    } else {
+      setTimeout(doReveal, 0);
+    }
+  };
+  var findVisible = function(list){
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i];
+      if (!el || el.disabled) continue;
+      var style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+      return el;
+    }
+    return null;
+  };
+  var getPrevButton = function(){
+    return findVisible(Array.prototype.slice.call(document.querySelectorAll([
+      '[data-action*=\"prev\" i]',
+      '[aria-label*=\"prev\" i]',
+      'button[title*=\"prev\" i]',
+      '[id*=\"prev\" i]',
+      '[class*=\"prev\" i]'
+    ].join(","))));
+  };
+  var getNextButton = function(){
+    return findVisible(Array.prototype.slice.call(document.querySelectorAll([
+      '[data-action*=\"next\" i]',
+      '[aria-label*=\"next\" i]',
+      'button[title*=\"next\" i]',
+      '[id*=\"next\" i]',
+      '[class*=\"next\" i]'
+    ].join(","))));
+  };
+  var triggerClick = function(btn){
+    if (!btn) return false;
+    try { btn.click(); return true; } catch(e) { return false; }
+  };
+  var getExpectedSlideCount = function(){
+    try {
+      var parentDoc = window.parent && window.parent.document ? window.parent.document : null;
+      if (!parentDoc) return 0;
+      var selector = parentDoc.getElementById("promptable-slide-count-selector");
+      if (!selector) return 0;
+      var n = parseInt(String(selector.value || ""), 10);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    } catch (e) {
+      return 0;
+    }
+  };
+  var resetHash = function(){
+    try {
+      if (!window.location || !window.location.hash) return;
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      } else {
+        window.location.hash = "";
+      }
+    } catch (e) {}
+  };
+  var resetViaReveal = function(){
+    try {
+      if (!window.Reveal || typeof window.Reveal.slide !== "function") return false;
+      if (typeof window.Reveal.getIndices === "function") {
+        var idx = window.Reveal.getIndices() || {};
+        if ((idx.h || 0) === 0 && (idx.v || 0) === 0) return true;
+      }
+      window.Reveal.slide(0, 0, 0);
+      return true;
+    } catch (e) { return false; }
+  };
+  var isAtStart = function(){
+    try {
+      if (window.Reveal && typeof window.Reveal.getIndices === "function") {
+        var idx = window.Reveal.getIndices() || {};
+        return (idx.h || 0) === 0 && (idx.v || 0) === 0;
+      }
+    } catch (e) {}
+    var prev = getPrevButton();
+    return !!(prev && prev.disabled);
+  };
+  var resetViaPrev = function(){
+    var prev = getPrevButton();
+    if (!prev) return false;
+    var expectedSlides = getExpectedSlideCount();
+    var maxClicks = expectedSlides > 0 ? Math.max(expectedSlides + 2, 12) : 48;
+    for (var i = 0; i < maxClicks; i++) {
+      var btn = getPrevButton();
+      if (!btn || btn.disabled) break;
+      if (!triggerClick(btn)) break;
+    }
+    return true;
+  };
+  var resetToStart = function(){
+    if (__pwResetDone) return;
+    resetHash();
+    if (isAtStart()) { __pwResetDone = true; revealPresentation(); return; }
+    var revealReset = resetViaReveal();
+    if (!revealReset) resetViaPrev();
+    if (isAtStart()) { __pwResetDone = true; revealPresentation(); }
+  };
+  var scheduleResetLoop = function(){
+    if (__pwResetStarted) return;
+    __pwResetStarted = true;
+    var runAttempt = function(){
+      if (__pwResetDone) { revealPresentation(); return; }
+      __pwResetAttempts += 1;
+      resetToStart();
+      if (__pwResetDone) { revealPresentation(); return; }
+      if (__pwResetAttempts < 24) setTimeout(runAttempt, 70);
+      else revealPresentation();
+    };
+    setTimeout(runAttempt, 0);
+  };
+  installStartCloak();
+  setTimeout(revealPresentation, 2000);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scheduleResetLoop, { once: true });
+  } else {
+    scheduleResetLoop();
+  }
+  window.addEventListener("load", scheduleResetLoop, { once: true });
+  var handler = function(ev){
+    if (!true) return;
+    if (!ev) return;
+    var target = ev.target || null;
+    var tag = target && target.tagName ? String(target.tagName).toLowerCase() : "";
+    if (target && (target.isContentEditable || tag === "input" || tag === "textarea" || tag === "select")) return;
+    var key = String(ev.key || "").toLowerCase();
+    var code = String(ev.code || "").toLowerCase();
+    var isPrev = key === "arrowleft" || key === "pageup" || code === "arrowleft" || code === "pageup";
+    var isNext = key === "arrowright" || key === "pagedown" || key === " " || key === "spacebar" || key === "enter" || code === "arrowright" || code === "pagedown" || code === "space" || code === "enter";
+    if (!isPrev && !isNext) return;
+    var btn = isPrev ? getPrevButton() : getNextButton();
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    triggerClick(btn);
+  };
+  document.addEventListener("keydown", handler, true);
+})();</script></body></html>

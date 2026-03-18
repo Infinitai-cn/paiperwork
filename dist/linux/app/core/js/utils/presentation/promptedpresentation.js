@@ -1586,6 +1586,35 @@ class PromptedPresentationWorkflow {
 		const hasPrevButton = !!documentRef.querySelector('[id*="prev" i], [class*="prev" i], [aria-label*="prev" i], [data-action*="prev" i], button[onclick*="prev" i], button[title*="prev" i]');
 		const hasNextButton = !!documentRef.querySelector('[id*="next" i], [class*="next" i], [aria-label*="next" i], [data-action*="next" i], button[onclick*="next" i], button[title*="next" i]');
 
+		const cloakClassName = 'pw-start-reset-cloak';
+		const cloakStyleId = 'pw-start-reset-cloak-style';
+		const cloakCss = `html.${cloakClassName},body.${cloakClassName}{opacity:0!important;background:#000!important}html,body{transition:opacity .18s ease}`;
+
+		if (documentRef.documentElement) {
+			documentRef.documentElement.classList.add(cloakClassName);
+		}
+		if (documentRef.body) {
+			documentRef.body.classList.add(cloakClassName);
+		}
+
+		let head = documentRef.head;
+		if (!head && documentRef.documentElement) {
+			head = documentRef.createElement('head');
+			documentRef.documentElement.insertBefore(head, documentRef.body || documentRef.documentElement.firstChild);
+		}
+
+		if (head) {
+			const existingCloakStyle = head.querySelector(`#${cloakStyleId}`);
+			if (existingCloakStyle) {
+				existingCloakStyle.textContent = cloakCss;
+			} else {
+				const cloakStyle = documentRef.createElement('style');
+				cloakStyle.id = cloakStyleId;
+				cloakStyle.textContent = cloakCss;
+				head.appendChild(cloakStyle);
+			}
+		}
+
 		const scriptId = 'pw-remote-nav-normalizer';
 		const existingScript = documentRef.getElementById(scriptId);
 		if (existingScript) {
@@ -1598,6 +1627,39 @@ class PromptedPresentationWorkflow {
 			'(function(){',
 			'  if (window.__pwRemoteNavBound) return;',
 			'  window.__pwRemoteNavBound = true;',
+			'  var __pwResetStarted = false;',
+			'  var __pwResetDone = false;',
+			'  var __pwResetAttempts = 0;',
+			'  var __pwRevealDone = false;',
+			'  var installStartCloak = function(){',
+			'    try {',
+			'      var styleId = "pw-start-reset-cloak-style";',
+			'      if (!document.getElementById(styleId)) {',
+			'        var css = "html.pw-start-reset-cloak,body.pw-start-reset-cloak{opacity:0!important}html,body{transition:opacity .18s ease}";',
+			'        var styleEl = document.createElement("style");',
+			'        styleEl.id = styleId;',
+			'        styleEl.textContent = css;',
+			'        (document.head || document.documentElement || document.body).appendChild(styleEl);',
+			'      }',
+			'      if (document.documentElement) document.documentElement.classList.add("pw-start-reset-cloak");',
+			'      if (document.body) document.body.classList.add("pw-start-reset-cloak");',
+			'    } catch (e) {}',
+			'  };',
+			'  var revealPresentation = function(){',
+			'    if (__pwRevealDone) return;',
+			'    __pwRevealDone = true;',
+			'    var doReveal = function(){',
+			'      try {',
+			'        if (document.documentElement) document.documentElement.classList.remove("pw-start-reset-cloak");',
+			'        if (document.body) document.body.classList.remove("pw-start-reset-cloak");',
+			'      } catch (e) {}',
+			'    };',
+			'    if (typeof window.requestAnimationFrame === "function") {',
+			'      window.requestAnimationFrame(function(){ window.requestAnimationFrame(doReveal); });',
+			'    } else {',
+			'      setTimeout(doReveal, 0);',
+			'    }',
+			'  };',
 			'  var findVisible = function(list){',
 			'    for (var i = 0; i < list.length; i++) {',
 			'      var el = list[i];',
@@ -1630,6 +1692,18 @@ class PromptedPresentationWorkflow {
 			'    if (!btn) return false;',
 			'    try { btn.click(); return true; } catch(e) { return false; }',
 			'  };',
+			'  var getExpectedSlideCount = function(){',
+			'    try {',
+			'      var parentDoc = window.parent && window.parent.document ? window.parent.document : null;',
+			'      if (!parentDoc) return 0;',
+			'      var selector = parentDoc.getElementById("promptable-slide-count-selector");',
+			'      if (!selector) return 0;',
+			'      var n = parseInt(String(selector.value || ""), 10);',
+			'      return Number.isFinite(n) && n > 0 ? n : 0;',
+			'    } catch (e) {',
+			'      return 0;',
+			'    }',
+			'  };',
 			'  var resetHash = function(){',
 			'    try {',
 			'      if (!window.location || !window.location.hash) return;',
@@ -1643,14 +1717,30 @@ class PromptedPresentationWorkflow {
 			'  var resetViaReveal = function(){',
 			'    try {',
 			'      if (!window.Reveal || typeof window.Reveal.slide !== "function") return false;',
+			'      if (typeof window.Reveal.getIndices === "function") {',
+			'        var idx = window.Reveal.getIndices() || {};',
+			'        if ((idx.h || 0) === 0 && (idx.v || 0) === 0) return true;',
+			'      }',
 			'      window.Reveal.slide(0, 0, 0);',
 			'      return true;',
 			'    } catch (e) { return false; }',
 			'  };',
+			'  var isAtStart = function(){',
+			'    try {',
+			'      if (window.Reveal && typeof window.Reveal.getIndices === "function") {',
+			'        var idx = window.Reveal.getIndices() || {};',
+			'        return (idx.h || 0) === 0 && (idx.v || 0) === 0;',
+			'      }',
+			'    } catch (e) {}',
+			'    var prev = getPrevButton();',
+			'    return !!(prev && prev.disabled);',
+			'  };',
 			'  var resetViaPrev = function(){',
 			'    var prev = getPrevButton();',
 			'    if (!prev) return false;',
-			'    for (var i = 0; i < 160; i++) {',
+			'    var expectedSlides = getExpectedSlideCount();',
+			'    var maxClicks = expectedSlides > 0 ? Math.max(expectedSlides + 2, 12) : 48;',
+			'    for (var i = 0; i < maxClicks; i++) {',
 			'      var btn = getPrevButton();',
 			'      if (!btn || btn.disabled) break;',
 			'      if (!triggerClick(btn)) break;',
@@ -1658,24 +1748,34 @@ class PromptedPresentationWorkflow {
 			'    return true;',
 			'  };',
 			'  var resetToStart = function(){',
+			'    if (__pwResetDone) return;',
 			'    resetHash();',
+			'    if (isAtStart()) { __pwResetDone = true; revealPresentation(); return; }',
 			'    var revealReset = resetViaReveal();',
 			'    if (!revealReset) resetViaPrev();',
+			'    if (isAtStart()) { __pwResetDone = true; revealPresentation(); }',
 			'  };',
-			'  var scheduleResets = function(){',
-			'    resetToStart();',
-			'    setTimeout(resetToStart, 80);',
-			'    setTimeout(resetToStart, 240);',
-			'    setTimeout(resetToStart, 700);',
+			'  var scheduleResetLoop = function(){',
+			'    if (__pwResetStarted) return;',
+			'    __pwResetStarted = true;',
+			'    var runAttempt = function(){',
+			'      if (__pwResetDone) { revealPresentation(); return; }',
+			'      __pwResetAttempts += 1;',
+			'      resetToStart();',
+			'      if (__pwResetDone) { revealPresentation(); return; }',
+			'      if (__pwResetAttempts < 24) setTimeout(runAttempt, 70);',
+			'      else revealPresentation();',
+			'    };',
+			'    setTimeout(runAttempt, 0);',
 			'  };',
+			'  installStartCloak();',
+			'  setTimeout(revealPresentation, 2000);',
 			'  if (document.readyState === "loading") {',
-			'    document.addEventListener("DOMContentLoaded", scheduleResets, { once: true });',
+			'    document.addEventListener("DOMContentLoaded", scheduleResetLoop, { once: true });',
 			'  } else {',
-			'    scheduleResets();',
+			'    scheduleResetLoop();',
 			'  }',
-			'  window.addEventListener("load", scheduleResets, { once: true });',
-			'  document.addEventListener("reveal-ready", resetToStart, true);',
-			'  document.addEventListener("ready", function(){ if (window.Reveal) resetToStart(); }, true);',
+			'  window.addEventListener("load", scheduleResetLoop, { once: true });',
 			'  var handler = function(ev){',
 			`    if (!${hasPrevButton && hasNextButton}) return;`,
 			'    if (!ev) return;',
@@ -2960,6 +3060,7 @@ class PromptedPresentationWorkflow {
 		slidesLabel.style.fontWeight = '600';
 
 		const slideCountSelector = document.createElement('select');
+		slideCountSelector.id = 'promptable-slide-count-selector';
 		slideCountSelector.style.height = '40px';
 		slideCountSelector.style.padding = '0 12px';
 		slideCountSelector.style.borderRadius = '8px';
@@ -3492,8 +3593,10 @@ class PromptedPresentationWorkflow {
 		this.currentPresentationHtml = normalizedHtml;
 		this.teardownPromptableFrameImageClickHandler();
 		this.promptableImageOriginalSrcById = {};
+		const previousRenderAreaBackground = this.renderArea.style.background;
 
 		this.renderArea.innerHTML = '';
+		this.renderArea.style.background = '#000';
 
 		const frame = document.createElement('iframe');
 		frame.className = 'promptable-presentation-frame';
@@ -3501,8 +3604,11 @@ class PromptedPresentationWorkflow {
 		frame.style.height = '100%';
 		frame.style.border = '0';
 		frame.style.borderRadius = '10px';
-		frame.style.background = 'transparent';
+		frame.style.background = '#000';
 		frame.setAttribute('allowfullscreen', 'true');
+		frame.addEventListener('load', () => {
+			this.renderArea.style.background = previousRenderAreaBackground;
+		}, { once: true });
 		frame.srcdoc = normalizedHtml;
 
 		this.renderArea.appendChild(frame);
