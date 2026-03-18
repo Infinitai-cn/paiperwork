@@ -859,7 +859,8 @@ class PromptedPresentationWorkflow {
 						return;
 					}
 
-					const saveResult = await this.saveHtmlToDisk(item.title || 'presentation', html);
+					const normalizedHtml = this.normalizePromptableNavigationHtml(html);
+					const saveResult = await this.saveHtmlToDisk(item.title || 'presentation', normalizedHtml);
 					if (saveResult === 'saved') {
 						const successKey = 'saveToDiskSuccessHtml';
 						const successFallback = 'HTML presentation saved to disk.';
@@ -1584,9 +1585,6 @@ class PromptedPresentationWorkflow {
 
 		const hasPrevButton = !!documentRef.querySelector('[id*="prev" i], [class*="prev" i], [aria-label*="prev" i], [data-action*="prev" i], button[onclick*="prev" i], button[title*="prev" i]');
 		const hasNextButton = !!documentRef.querySelector('[id*="next" i], [class*="next" i], [aria-label*="next" i], [data-action*="next" i], button[onclick*="next" i], button[title*="next" i]');
-		if (!hasPrevButton || !hasNextButton) {
-			return raw;
-		}
 
 		const scriptId = 'pw-remote-nav-normalizer';
 		const existingScript = documentRef.getElementById(scriptId);
@@ -1632,7 +1630,54 @@ class PromptedPresentationWorkflow {
 			'    if (!btn) return false;',
 			'    try { btn.click(); return true; } catch(e) { return false; }',
 			'  };',
+			'  var resetHash = function(){',
+			'    try {',
+			'      if (!window.location || !window.location.hash) return;',
+			'      if (window.history && typeof window.history.replaceState === "function") {',
+			'        window.history.replaceState(null, "", window.location.pathname + window.location.search);',
+			'      } else {',
+			'        window.location.hash = "";',
+			'      }',
+			'    } catch (e) {}',
+			'  };',
+			'  var resetViaReveal = function(){',
+			'    try {',
+			'      if (!window.Reveal || typeof window.Reveal.slide !== "function") return false;',
+			'      window.Reveal.slide(0, 0, 0);',
+			'      return true;',
+			'    } catch (e) { return false; }',
+			'  };',
+			'  var resetViaPrev = function(){',
+			'    var prev = getPrevButton();',
+			'    if (!prev) return false;',
+			'    for (var i = 0; i < 160; i++) {',
+			'      var btn = getPrevButton();',
+			'      if (!btn || btn.disabled) break;',
+			'      if (!triggerClick(btn)) break;',
+			'    }',
+			'    return true;',
+			'  };',
+			'  var resetToStart = function(){',
+			'    resetHash();',
+			'    var revealReset = resetViaReveal();',
+			'    if (!revealReset) resetViaPrev();',
+			'  };',
+			'  var scheduleResets = function(){',
+			'    resetToStart();',
+			'    setTimeout(resetToStart, 80);',
+			'    setTimeout(resetToStart, 240);',
+			'    setTimeout(resetToStart, 700);',
+			'  };',
+			'  if (document.readyState === "loading") {',
+			'    document.addEventListener("DOMContentLoaded", scheduleResets, { once: true });',
+			'  } else {',
+			'    scheduleResets();',
+			'  }',
+			'  window.addEventListener("load", scheduleResets, { once: true });',
+			'  document.addEventListener("reveal-ready", resetToStart, true);',
+			'  document.addEventListener("ready", function(){ if (window.Reveal) resetToStart(); }, true);',
 			'  var handler = function(ev){',
+			`    if (!${hasPrevButton && hasNextButton}) return;`,
 			'    if (!ev) return;',
 			'    var target = ev.target || null;',
 			'    var tag = target && target.tagName ? String(target.tagName).toLowerCase() : "";',
@@ -3217,7 +3262,7 @@ class PromptedPresentationWorkflow {
 				return;
 			}
 
-			const htmlToSave = (this.currentPresentationHtml || '').trim();
+			const htmlToSave = this.normalizePromptableNavigationHtml((this.currentPresentationHtml || '').trim());
 			if (!htmlToSave) {
 				console.error('[PromptablePresentation] Save blocked: no current presentation HTML available', {
 					hasCurrentPresentationHtml: !!this.currentPresentationHtml,
