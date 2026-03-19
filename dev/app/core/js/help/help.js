@@ -204,15 +204,40 @@ function loadSectionContent(sectionId) {
   // Add section intro if available
   if (sectionData.intro) {
     const formatIntroTextWithLinks = (rawText) => {
-      const escaped = String(rawText || "")
+      const anchorTokens = [];
+      const source = String(rawText || "").replace(
+        /<a\s+[^>]*href\s*=\s*(["'])(https?:\/\/[^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi,
+        (_match, _quote, href, label) => {
+          const token = `__HELP_ANCHOR_${anchorTokens.length}__`;
+          const safeHref = String(href || "").replace(/"/g, "&quot;");
+          const safeLabel = String(label || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+
+          anchorTokens.push(
+            `<a class="article-index-link" href="${safeHref}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`,
+          );
+
+          return token;
+        },
+      );
+
+      const escaped = source
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/\"/g, "&quot;")
         .replace(/'/g, "&#39;");
 
-      return escaped.replace(/(https?:\/\/[\w.-]+(?:\/[\w\-./?%&=+#:]*)?)/g, (url) => {
+      const withUrlLinks = escaped.replace(/(https?:\/\/[\w.-]+(?:\/[\w\-./?%&=+#:]*)?)/g, (url) => {
         return `<a class="article-index-link" href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+      });
+
+      return withUrlLinks.replace(/__HELP_ANCHOR_(\d+)__/g, (_token, index) => {
+        return anchorTokens[Number(index)] || "";
       });
     };
 
