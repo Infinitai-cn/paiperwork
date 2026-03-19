@@ -3,6 +3,7 @@ class OllamaAPI {
     static localModelNames = new Set();
     static cloudModelNames = new Set();
     static pulledCloudModels = new Set();
+    static taggedVisualModelNames = new Set();
 
     static _cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
         ? window.ThinkingState.getEffectiveThinkingEnabled()
@@ -39,6 +40,7 @@ class OllamaAPI {
         OllamaAPI.maxImagesUsed = 0;
     }
     static visualModels = null;
+    static visualModelsSource = null;
     static maxImagesUsed = 0; // Track the maximum number of images used in this conversation
     static lastUsedImages = []; // Store the last real images used in the conversation
     static systemPromptCache = new Map();
@@ -243,9 +245,30 @@ class OllamaAPI {
 
     static getModelSource(modelName) {
         if (!modelName) return null;
-        if (String(modelName).toLowerCase().endsWith('-cloud')) return 'cloud';
-        if (this.cloudModelNames.has(modelName)) return 'cloud';
-        if (this.localModelNames.has(modelName)) return 'local';
+        const rawName = String(modelName || '').trim();
+        if (rawName.toLowerCase().endsWith('-cloud')) return 'cloud';
+
+        const candidates = this.getModelMatchCandidates(rawName);
+        const setMatches = (modelSet) => {
+            if (!(modelSet instanceof Set) || modelSet.size === 0) return false;
+
+            for (const candidate of candidates) {
+                if (modelSet.has(candidate)) return true;
+            }
+
+            for (const entry of modelSet) {
+                const normalizedEntry = this.normalizeModelMatchName(entry);
+                if (!normalizedEntry) continue;
+                for (const candidate of candidates) {
+                    if (candidate === normalizedEntry) return true;
+                }
+            }
+
+            return false;
+        };
+
+        if (setMatches(this.cloudModelNames)) return 'cloud';
+        if (setMatches(this.localModelNames)) return 'local';
         return null;
     }
 
@@ -273,11 +296,57 @@ class OllamaAPI {
         return this.getCloudApiModelName(name);
     }
 
+    static normalizeModelMatchName(modelName) {
+        let name = String(modelName || '').trim().toLowerCase();
+        if (!name) return '';
+
+        name = name
+            .replace(/\u00a0/g, ' ')
+            .replace(/[：]/g, ':')
+            .replace(/\((?:cloud|local)(?:\s+models?)?\)/gi, '')
+            .replace(/\[(?:cloud|local)(?:\s+models?)?\]/gi, '')
+            .replace(/\b(?:cloud|local)(?:\s+models?)\b/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return this.getCloudApiModelName(name).toLowerCase();
+    }
+
+    static getModelMatchCandidates(modelName) {
+        const normalized = this.normalizeModelMatchName(modelName);
+        if (!normalized) return [];
+
+        const candidates = new Set();
+        candidates.add(normalized);
+
+        const firstToken = normalized.split(' ')[0];
+        if (firstToken) candidates.add(firstToken);
+
+        // Add family base before size/variant suffix (e.g. qwen3.5:397b -> qwen3.5)
+        // so minor cloud renames in numeric size tags do not break capability matching.
+        if (firstToken && firstToken.includes(':')) {
+            const familyBase = firstToken.split(':')[0].trim();
+            if (familyBase) candidates.add(familyBase);
+        }
+
+        if (firstToken && firstToken.includes('/')) {
+            const unscoped = firstToken.split('/').pop();
+            if (unscoped) candidates.add(unscoped);
+        }
+
+        return Array.from(candidates).filter(candidate => candidate && candidate.length >= 3);
+    }
+
     // Direct ollama.com API expects model names without the -cloud suffix.
     static getCloudApiModelName(modelName) {
         const name = String(modelName || '').trim();
         if (!name) return '';
-        return name.replace(/(?:-cloud)+$/i, '').trim();
+        return name
+            .replace(/\((?:cloud|local)(?:\s+models?)?\)\s*$/i, '')
+            .replace(/\[(?:cloud|local)(?:\s+models?)?\]\s*$/i, '')
+            .replace(/\s+(?:cloud|local)(?:\s+models?)?\s*$/i, '')
+            .replace(/(?:-cloud)+$/i, '')
+            .trim();
     }
 
     // Local Ollama signed-in cloud mode expects cloud model calls through localhost with -cloud suffix.
@@ -550,6 +619,54 @@ class OllamaAPI {
 
             this.localModelNames = onlineMode ? new Set() : new Set(localModels.map(model => model.name));
             this.cloudModelNames = new Set(normalizedCloudDisplayNames);
+
+            // Build capability/tag-derived visual model cache from /api/tags and /api/cloud/tags data.
+            // This is a hint layer only; isVisualModel() still falls back to VISUAL_MODELS list.
+            const hasVisualCapabilityHint = (model) => {
+                if (!model || typeof model !== 'object') return false;
+
+                const valuesToScan = [
+                    model.name,
+                    model.model,
+                    model.template,
+                    model.modelfile,
+                    model?.details?.family,
+                    model?.details?.format,
+                    model?.details?.parent_model,
+                    model?.details?.architecture,
+                    ...(Array.isArray(model?.details?.families) ? model.details.families : []),
+                    ...(Array.isArray(model?.capabilities) ? model.capabilities : []),
+                    ...(Array.isArray(model?.details?.capabilities) ? model.details.capabilities : [])
+                ];
+
+                return valuesToScan.some(value => {
+                    const text = String(value || '').toLowerCase();
+                    if (!text) return false;
+                    return text.includes('vision')
+                        || text.includes('vl')
+                        || text.includes('multimodal')
+                        || text.includes('image')
+                        || text.includes('llava')
+                        || text.includes('minicpm-v');
+                });
+            };
+
+            this.taggedVisualModelNames = new Set();
+            const registerTaggedVisual = (modelName) => {
+                const candidates = this.getModelMatchCandidates(modelName);
+                candidates.forEach(candidate => this.taggedVisualModelNames.add(candidate));
+            };
+
+            localModels.forEach(model => {
+                if (hasVisualCapabilityHint(model)) {
+                    registerTaggedVisual(model?.name || model?.model || '');
+                }
+            });
+            cloudModelsForDisplay.forEach(model => {
+                if (hasVisualCapabilityHint(model)) {
+                    registerTaggedVisual(model?.name || model?.model || '');
+                }
+            });
 
             // Keep old behavior: if nothing is available at all, show guidance.
             if (localModels.length === 0 && normalizedCloudDisplayNames.length === 0) {
@@ -3332,24 +3449,41 @@ class OllamaAPI {
         }, 1000);
     }
     static async loadVisualModels() {
-        // If already loaded, return the cached list
-        if (this.visualModels) return this.visualModels;
-
         try {
-            // Check if window.VISUAL_MODELS is available (from visualmodels.js)
-            if (window.VISUAL_MODELS && Array.isArray(window.VISUAL_MODELS)) {
-                this.visualModels = window.VISUAL_MODELS;
-               //  //console.log('OllamaAPI: Loaded visual models from global array:', this.visualModels);
+            // Always prefer runtime global list when available.
+            // This avoids getting stuck with fallback defaults if this file initialized first.
+            if (window.VISUAL_MODELS && Array.isArray(window.VISUAL_MODELS) && window.VISUAL_MODELS.length > 0) {
+                const normalizedGlobal = window.VISUAL_MODELS
+                    .map(model => String(model || '').trim())
+                    .filter(Boolean);
+
+                const shouldRefreshFromGlobal = !Array.isArray(this.visualModels)
+                    || this.visualModelsSource !== 'global'
+                    || this.visualModels.length !== normalizedGlobal.length
+                    || this.visualModels.some((model, index) => model !== normalizedGlobal[index]);
+
+                if (shouldRefreshFromGlobal) {
+                    this.visualModels = normalizedGlobal;
+                    this.visualModelsSource = 'global';
+                }
+
+                return this.visualModels;
+            }
+
+            // If we already have a list (from a previous global load), keep it.
+            if (Array.isArray(this.visualModels) && this.visualModels.length > 0) {
                 return this.visualModels;
             }
 
             // Fallback to default list if not available
             console.warn('OllamaAPI: VISUAL_MODELS not found, using default list');
             this.visualModels = ['gemma3', 'llava', 'llama-vision', 'phi3-vision', 'bakllava'];
+            this.visualModelsSource = 'fallback';
             return this.visualModels;
         } catch (error) {
             console.error('OllamaAPI: Error loading visual models list:', error);
             this.visualModels = ['gemma3', 'llava', 'llama-vision', 'phi3-vision', 'bakllava'];
+            this.visualModelsSource = 'fallback';
             return this.visualModels;
         }
     }
@@ -3365,18 +3499,28 @@ class OllamaAPI {
             return false;
         }
 
-        // Normalize model name for comparison (lowercase, remove version numbers)
-        const normalizedName = modelName.toLowerCase();
-       //  //console.log(`OllamaAPI: Checking if '${normalizedName}' is a visual model`);
+        const modelCandidates = this.getModelMatchCandidates(modelName);
+        if (!modelCandidates.length) return false;
 
-        // Log all models we're checking against
-       //  //console.log('OllamaAPI: Available visual models:', this.visualModels);
+        // 1) Prefer capability/tag-derived hints when available.
+        // 2) Always fall back to VISUAL_MODELS identifier list for cloud models that may be untagged.
+        const matchedByTags = modelCandidates.some(candidate => this.taggedVisualModelNames.has(candidate));
+        if (matchedByTags) {
+            return true;
+        }
 
-        // Check if any visual model name is contained in the selected model
+        // Check if any visual model identifier is contained in the selected model.
         const isVisual = this.visualModels.some(visualModel => {
-            const isMatch = normalizedName.includes(visualModel.toLowerCase());
+            const visualCandidates = this.getModelMatchCandidates(visualModel);
+            if (!visualCandidates.length) return false;
+
+            const isMatch = visualCandidates.some(visualCandidate =>
+                modelCandidates.some(modelCandidate =>
+                    modelCandidate.includes(visualCandidate) || visualCandidate.includes(modelCandidate)
+                )
+            );
             if (isMatch) {
-               //  //console.log(`OllamaAPI: Match found! '${visualModel}' is in '${normalizedName}'`);
+               //  //console.log(`OllamaAPI: Match found! '${visualModel}' matched model '${modelName}'`);
             }
             return isMatch;
         });
