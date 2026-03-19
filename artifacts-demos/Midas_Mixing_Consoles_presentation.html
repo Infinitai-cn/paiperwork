@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en" class="pw-start-reset-cloak"><head><script id="pw-remote-nav-normalizer">(function(){
+  if (window.__pwRemoteNavBound) return;
+  window.__pwRemoteNavBound = true;
+  var __pwResetStarted = false;
+  var __pwResetDone = false;
+  var __pwResetAttempts = 0;
+  var __pwRevealDone = false;
+  var __pwRevealPatched = false;
+  var installStartCloak = function(){
+    try {
+      var styleId = "pw-start-reset-cloak-style";
+      if (!document.getElementById(styleId)) {
+        var css = "html.pw-start-reset-cloak,body.pw-start-reset-cloak{opacity:0!important;background:#000!important}html,body{transition:opacity .18s ease}";
+        var styleEl = document.createElement("style");
+        styleEl.id = styleId;
+        styleEl.textContent = css;
+        (document.head || document.documentElement || document.body).appendChild(styleEl);
+      }
+      if (document.documentElement) document.documentElement.classList.add("pw-start-reset-cloak");
+      if (document.body) document.body.classList.add("pw-start-reset-cloak");
+    } catch (e) {}
+  };
+  var revealPresentation = function(){
+    if (__pwRevealDone) return;
+    __pwRevealDone = true;
+    var doReveal = function(){
+      try {
+        if (document.documentElement) document.documentElement.classList.remove("pw-start-reset-cloak");
+        if (document.body) document.body.classList.remove("pw-start-reset-cloak");
+      } catch (e) {}
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(function(){ window.requestAnimationFrame(doReveal); });
+    } else {
+      setTimeout(doReveal, 0);
+    }
+  };
+  var findVisible = function(list){
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i];
+      if (!el || el.disabled) continue;
+      var style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+      return el;
+    }
+    return null;
+  };
+  var getPrevButton = function(){
+    return findVisible(Array.prototype.slice.call(document.querySelectorAll([
+      '[data-action*=\"prev\" i]',
+      '[aria-label*=\"prev\" i]',
+      'button[title*=\"prev\" i]',
+      '[id*=\"prev\" i]',
+      '[class*=\"prev\" i]'
+    ].join(","))));
+  };
+  var getNextButton = function(){
+    return findVisible(Array.prototype.slice.call(document.querySelectorAll([
+      '[data-action*=\"next\" i]',
+      '[aria-label*=\"next\" i]',
+      'button[title*=\"next\" i]',
+      '[id*=\"next\" i]',
+      '[class*=\"next\" i]'
+    ].join(","))));
+  };
+  var triggerClick = function(btn){
+    if (!btn) return false;
+    try { btn.click(); return true; } catch(e) { return false; }
+  };
+  var getExpectedSlideCount = function(){
+    try {
+      var parentDoc = window.parent && window.parent.document ? window.parent.document : null;
+      if (!parentDoc) return 0;
+      var selector = parentDoc.getElementById("promptable-slide-count-selector");
+      if (!selector) return 0;
+      var n = parseInt(String(selector.value || ""), 10);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    } catch (e) {
+      return 0;
+    }
+  };
+  var resetHash = function(){
+    try {
+      if (!window.location || !window.location.hash) return;
+      if (window.history && typeof window.history.replaceState === "function") {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      } else {
+        window.location.hash = "";
+      }
+    } catch (e) {}
+  };
+  var hasRevealApi = function(){
+    return !!(window.Reveal && typeof window.Reveal.slide === "function" && typeof window.Reveal.getIndices === "function");
+  };
+  var getPlainSlides = function(){
+    try {
+      return Array.prototype.slice.call(document.querySelectorAll(".slide"));
+    } catch (e) {
+      return [];
+    }
+  };
+  var isPlainDeckAtStart = function(){
+    var slides = getPlainSlides();
+    if (!slides.length) return false;
+    var activeIdx = -1;
+    for (var i = 0; i < slides.length; i++) {
+      if (slides[i] && slides[i].classList && slides[i].classList.contains("active")) {
+        activeIdx = i;
+        break;
+      }
+    }
+    return activeIdx <= 0;
+  };
+  var resetPlainDeckToStart = function(){
+    var slides = getPlainSlides();
+    if (!slides.length) return false;
+    for (var i = 0; i < slides.length; i++) {
+      if (!slides[i] || !slides[i].classList) continue;
+      if (i === 0) slides[i].classList.add("active");
+      else slides[i].classList.remove("active");
+    }
+    try {
+      var total = slides.length;
+      var counter = document.getElementById("slide-counter") || document.querySelector('[id*="counter" i], [class*="counter" i]');
+      if (counter) counter.textContent = "1 / " + total;
+      var progress = document.getElementById("progressBar") || document.getElementById("progress-bar") || document.querySelector(".progress-bar");
+      if (progress && progress.style) progress.style.width = (100 / Math.max(total, 1)) + "%";
+    } catch (e) {}
+    return true;
+  };
+  var forceRevealStartOptions = function(){
+    try {
+      if (!window.Reveal || typeof window.Reveal.configure !== "function") return;
+      window.Reveal.configure({ hash: false, history: false, fragmentInURL: false });
+    } catch (e) {}
+  };
+  var patchRevealInitialize = function(){
+    try {
+      if (!window.Reveal || __pwRevealPatched || typeof window.Reveal.initialize !== "function") return;
+      var originalInitialize = window.Reveal.initialize.bind(window.Reveal);
+      window.Reveal.initialize = function(options){
+        var opts = Object.assign({}, options || {}, { hash: false, history: false, fragmentInURL: false });
+        var result = originalInitialize(opts);
+        var afterInit = function(){
+          forceRevealStartOptions();
+          resetHash();
+          try { window.Reveal.slide(0, 0, 0); } catch (e) {}
+        };
+        if (result && typeof result.then === "function") {
+          result.then(afterInit).catch(function(){ afterInit(); });
+        } else {
+          setTimeout(afterInit, 0);
+        }
+        return result;
+      };
+      __pwRevealPatched = true;
+    } catch (e) {}
+  };
+  var resetViaReveal = function(){
+    try {
+      if (!hasRevealApi()) return false;
+      forceRevealStartOptions();
+      window.Reveal.slide(0, 0, 0);
+      return true;
+    } catch (e) { return false; }
+  };
+  var isAtStart = function(){
+    try {
+      if (hasRevealApi()) {
+        var idx = window.Reveal.getIndices() || {};
+        return Number(idx.h || 0) === 0 && Number(idx.v || 0) === 0 && Number(idx.f || 0) === 0;
+      }
+    } catch (e) {}
+    return isPlainDeckAtStart();
+  };
+  var resetViaPrev = function(){
+    var prev = getPrevButton();
+    if (!prev) return false;
+    var expectedSlides = getExpectedSlideCount();
+    var maxClicks = expectedSlides > 0 ? Math.max(expectedSlides + 2, 12) : 48;
+    for (var i = 0; i < maxClicks; i++) {
+      var btn = getPrevButton();
+      if (!btn || btn.disabled) break;
+      if (!triggerClick(btn)) break;
+    }
+    return true;
+  };
+  var resetToStart = function(){
+    if (__pwResetDone) return;
+    patchRevealInitialize();
+    resetHash();
+    if (isAtStart()) { __pwResetDone = true; revealPresentation(); return; }
+    var revealReset = resetViaReveal();
+    if (!revealReset) {
+      var plainReset = resetPlainDeckToStart();
+      if (!plainReset) resetViaPrev();
+    }
+    if (isAtStart()) { __pwResetDone = true; revealPresentation(); }
+  };
+  var scheduleResetLoop = function(){
+    if (__pwResetStarted) return;
+    __pwResetStarted = true;
+    var runAttempt = function(){
+      if (__pwResetDone) { revealPresentation(); return; }
+      __pwResetAttempts += 1;
+      resetToStart();
+      if (__pwResetDone) { revealPresentation(); return; }
+      if (__pwResetAttempts < 72) setTimeout(runAttempt, 50);
+      else { resetToStart(); revealPresentation(); }
+    };
+    setTimeout(runAttempt, 0);
+  };
+  installStartCloak();
+  patchRevealInitialize();
+  resetHash();
+  setTimeout(revealPresentation, 4500);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", scheduleResetLoop, { once: true });
+  } else {
+    scheduleResetLoop();
+  }
+  window.addEventListener("load", scheduleResetLoop, { once: true });
+  var handler = function(ev){
+    if (!true) return;
+    if (!ev) return;
+    var target = ev.target || null;
+    var tag = target && target.tagName ? String(target.tagName).toLowerCase() : "";
+    if (target && (target.isContentEditable || tag === "input" || tag === "textarea" || tag === "select")) return;
+    var key = String(ev.key || "").toLowerCase();
+    var code = String(ev.code || "").toLowerCase();
+    var isPrev = key === "arrowleft" || key === "pageup" || code === "arrowleft" || code === "pageup";
+    var isNext = key === "arrowright" || key === "pagedown" || key === " " || key === "spacebar" || key === "enter" || code === "arrowright" || code === "pagedown" || code === "space" || code === "enter";
+    if (!isPrev && !isNext) return;
+    var btn = isPrev ? getPrevButton() : getNextButton();
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    triggerClick(btn);
+  };
+  document.addEventListener("keydown", handler, true);
+})();</script><style id="pw-start-reset-cloak-style">html.pw-start-reset-cloak,body.pw-start-reset-cloak{opacity:0!important;background:#000!important}html,body{transition:opacity .18s ease}</style><style id="pw-start-reset-cloak-style">html.pw-start-reset-cloak,body.pw-start-reset-cloak{opacity:0!important;background:#000!important}html,body{transition:opacity .18s ease}</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Midas Mixing Consoles - Professional Audio Excellence</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&amp;family=Source+Sans+Pro:wght@300;400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --midas-blue: #003366;
+      --midas-gold: #D4A853;
+      --warm-cream: #F5F0E6;
+      --warm-tan: #C9A66B;
+      --deep-brown: #3D2914;
+      --soft-white: #FFFEF9;
+      --accent-copper: #B87333;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Source Sans Pro', sans-serif;
+      background: var(--deep-brown);
+      overflow: hidden;
+    }
+
+    .presentation-container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slide {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+      overflow: hidden;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .slide-content {
+      position: relative;
+      z-index: 2;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px 80px;
+    }
+
+    .slide-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    h1, h2, h3 {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+    }
+
+    .title-slide h1 {
+      font-size: 4.5rem;
+      color: var(--soft-white);
+      text-shadow: 2px 4px 20px rgba(0,0,0,0.5);
+      margin-bottom: 20px;
+      letter-spacing: 2px;
+    }
+
+    .title-slide .subtitle {
+      font-size: 1.8rem;
+      color: var(--midas-gold);
+      font-weight: 300;
+      text-shadow: 1px 2px 10px rgba(0,0,0,0.4);
+    }
+
+    .title-slide .tagline {
+      margin-top: 40px;
+      font-size: 1.2rem;
+      color: var(--warm-cream);
+      opacity: 0.9;
+      font-style: italic;
+    }
+
+    .content-slide h2 {
+      font-size: 2.8rem;
+      color: var(--midas-blue);
+      margin-bottom: 30px;
+      position: relative;
+      display: inline-block;
+    }
+
+    .content-slide h2::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 0;
+      width: 80px;
+      height: 4px;
+      background: linear-gradient(90deg, var(--midas-gold), var(--warm-tan));
+      border-radius: 2px;
+    }
+
+    .content-slide p {
+      font-size: 1.25rem;
+      line-height: 1.9;
+      color: var(--deep-brown);
+      margin-bottom: 20px;
+      max-width: 900px;
+    }
+
+    .content-slide ul {
+      list-style: none;
+      margin-top: 25px;
+    }
+
+    .content-slide li {
+      font-size: 1.15rem;
+      line-height: 1.8;
+      color: var(--deep-brown);
+      margin-bottom: 15px;
+      padding-left: 35px;
+      position: relative;
+    }
+
+    .content-slide li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 8px;
+      width: 12px;
+      height: 12px;
+      background: linear-gradient(135deg, var(--midas-gold), var(--accent-copper));
+      border-radius: 50%;
+    }
+
+    .highlight-box {
+      background: linear-gradient(135deg, rgba(0,51,102,0.08), rgba(212,168,83,0.08));
+      border-left: 4px solid var(--midas-gold);
+      padding: 25px 30px;
+      margin: 25px 0;
+      border-radius: 0 12px 12px 0;
+    }
+
+    .highlight-box p {
+      margin-bottom: 0;
+      font-weight: 600;
+      color: var(--midas-blue);
+    }
+
+    .two-column {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 50px;
+      align-items: center;
+    }
+
+    .image-container {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    .image-container img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .image-caption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(transparent, rgba(0,51,102,0.9));
+      padding: 30px 20px 15px;
+      color: var(--soft-white);
+      font-size: 0.95rem;
+    }
+
+    .navigation {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .nav-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--midas-blue), #004080);
+      border: 2px solid var(--midas-gold);
+      color: var(--midas-gold);
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-btn:hover {
+      background: linear-gradient(135deg, var(--midas-gold), var(--warm-tan));
+      color: var(--midas-blue);
+      transform: scale(1.1);
+      box-shadow: 0 5px 25px rgba(212,168,83,0.4);
+    }
+
+    .slide-counter {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      color: var(--midas-gold);
+      background: rgba(0,51,102,0.9);
+      padding: 10px 25px;
+      border-radius: 25px;
+      border: 1px solid var(--midas-gold);
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 25px;
+      margin-top: 30px;
+    }
+
+    .feature-card {
+      background: linear-gradient(145deg, var(--soft-white), var(--warm-cream));
+      padding: 30px 25px;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      border: 1px solid rgba(212,168,83,0.3);
+      transition: transform 0.3s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .feature-card h3 {
+      color: var(--midas-blue);
+      font-size: 1.3rem;
+      margin-bottom: 12px;
+    }
+
+    .feature-card p {
+      font-size: 1rem;
+      color: #555;
+      margin-bottom: 0;
+    }
+
+    .timeline {
+      position: relative;
+      padding-left: 40px;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: linear-gradient(180deg, var(--midas-gold), var(--midas-blue));
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 35px;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -36px;
+      top: 5px;
+      width: 18px;
+      height: 18px;
+      background: var(--midas-gold);
+      border: 3px solid var(--soft-white);
+      border-radius: 50%;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+
+    .timeline-year {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--midas-blue);
+      margin-bottom: 5px;
+    }
+
+    .timeline-text {
+      font-size: 1.1rem;
+      color: var(--deep-brown);
+    }
+
+    .quote-block {
+      background: linear-gradient(135deg, var(--midas-blue), #004080);
+      padding: 40px 50px;
+      border-radius: 20px;
+      margin: 30px 0;
+      position: relative;
+    }
+
+    .quote-block::before {
+      content: '"';
+      position: absolute;
+      top: 10px;
+      left: 25px;
+      font-size: 6rem;
+      color: var(--midas-gold);
+      opacity: 0.3;
+      font-family: 'Playfair Display', serif;
+      line-height: 1;
+    }
+
+    .quote-block p {
+      color: var(--soft-white);
+      font-size: 1.4rem;
+      font-style: italic;
+      margin-bottom: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 40px;
+      margin-top: 30px;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 25px 35px;
+      background: linear-gradient(145deg, var(--midas-blue), #004080);
+      border-radius: 16px;
+      min-width: 160px;
+    }
+
+    .stat-number {
+      font-family: 'Playfair Display', serif;
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--midas-gold);
+    }
+
+    .stat-label {
+      font-size: 0.95rem;
+      color: var(--warm-cream);
+      margin-top: 5px;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-15px); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.7; }
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+  </style>
+<style id="pw-start-reset-cloak-style">html.pw-start-reset-cloak,body.pw-start-reset-cloak{opacity:0!important;background:#000!important}html,body{transition:opacity .18s ease}</style><style id="pw-promptable-image-edit-style">img { cursor: pointer !important; }</style><style id="pw-promptable-text-edit-style">[data-pw-editable-text="1"] { cursor: text !important; }
+[data-pw-editable-text="1"]:focus { outline: 2px dashed var(--accent-color, #4f46e5) !important; outline-offset: 2px !important; }</style></head>
+<body class="pw-start-reset-cloak">
+  <div class="presentation-container">
+    
+    <!-- Slide 1: Title -->
+    <section class="slide" id="slide1">
+      <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#003366"></stop>
+            <stop offset="50%" style="stop-color:#002244"></stop>
+            <stop offset="100%" style="stop-color:#001122"></stop>
+          </linearGradient>
+          <linearGradient id="goldAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#D4A853"></stop>
+            <stop offset="50%" style="stop-color:#F0C674"></stop>
+            <stop offset="100%" style="stop-color:#B87333"></stop>
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"></feGaussianBlur>
+            <feMerge><feMergeNode in="coloredBlur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
+          </filter>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#titleGrad)"></rect>
+        <!-- Dynamic wave patterns -->
+        <g opacity="0.15">
+          <path d="M0,400 Q480,300 960,400 T1920,400" stroke="#D4A853" stroke-width="2" fill="none"></path>
+          <path d="M0,450 Q480,350 960,450 T1920,450" stroke="#D4A853" stroke-width="1.5" fill="none"></path>
+          <path d="M0,500 Q480,400 960,500 T1920,500" stroke="#D4A853" stroke-width="1" fill="none"></path>
+        </g>
+        <!-- Sound wave visualization -->
+        <g opacity="0.3" filter="url(#glow)">
+          <rect x="200" y="540" width="8" height="120" rx="4" fill="url(#goldAccent)"></rect>
+          <rect x="220" y="500" width="8" height="200" rx="4" fill="url(#goldAccent)"></rect>
+          <rect x="240" y="460" width="8" height="280" rx="4" fill="url(#goldAccent)"></rect>
+          <rect x="260" y="520" width="8" height="160" rx="4" fill="url(#goldAccent)"></rect>
+          <rect x="280" y="480" width="8" height="240" rx="4" fill="url(#goldAccent)"></rect>
+        </g>
+        <!-- Floating circles -->
+        <circle cx="1500" cy="200" r="80" fill="#D4A853" opacity="0.1"></circle>
+        <circle cx="1600" cy="800" r="120" fill="#D4A853" opacity="0.08"></circle>
+        <circle cx="200" cy="900" r="60" fill="#C9A66B" opacity="0.12"></circle>
+        <!-- Grid pattern -->
+        <g opacity="0.05">
+          <line x1="0" y1="200" x2="1920" y2="200" stroke="#D4A853" stroke-width="1"></line>
+          <line x1="0" y1="400" x2="1920" y2="400" stroke="#D4A853" stroke-width="1"></line>
+          <line x1="0" y1="600" x2="1920" y2="600" stroke="#D4A853" stroke-width="1"></line>
+          <line x1="0" y1="800" x2="1920" y2="800" stroke="#D4A853" stroke-width="1"></line>
+        </g>
+        <!-- Console silhouette suggestion -->
+        <rect x="500" y="700" width="920" height="200" rx="10" fill="#D4A853" opacity="0.05"></rect>
+        <g opacity="0.08">
+          <rect x="520" y="720" width="60" height="80" rx="3" fill="#D4A853"></rect>
+          <rect x="590" y="720" width="60" height="80" rx="3" fill="#D4A853"></rect>
+          <rect x="660" y="720" width="60" height="80" rx="3" fill="#D4A853"></rect>
+          <rect x="730" y="720" width="60" height="80" rx="3" fill="#D4A853"></rect>
+        </g>
+      </svg>
+      <div class="slide-content title-slide">
+        <h1 data-pw-editable-text="1" contenteditable="true" spellcheck="false">MIDAS</h1>
+        <p class="subtitle" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Professional Mixing Consoles</p>
+        <p class="tagline" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Engineering Excellence for Live Sound and Studio Applications Since 1970</p>
+      </div>
+    </section>
+
+    <!-- Slide 2: Company History -->
+    <section class="slide" id="slide2">
+      <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#F5F0E6"></stop>
+            <stop offset="100%" style="stop-color:#E8DFD0"></stop>
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg2)"></rect>
+        <!-- Decorative corner elements -->
+        <path d="M0,0 L300,0 L0,300 Z" fill="#003366" opacity="0.1"></path>
+        <path d="M1920,1080 L1620,1080 L1920,780 Z" fill="#003366" opacity="0.1"></path>
+        <!-- Timeline suggestion lines -->
+        <line x1="100" y1="300" x2="100" y2="900" stroke="#D4A853" stroke-width="3" opacity="0.3"></line>
+        <circle cx="100" cy="400" r="15" fill="#003366" opacity="0.4"></circle>
+        <circle cx="100" cy="600" r="15" fill="#003366" opacity="0.4"></circle>
+        <circle cx="100" cy="800" r="15" fill="#003361" opacity="0.4"></circle>
+        <!-- Decorative sound waves -->
+        <g opacity="0.1">
+          <circle cx="1600" cy="300" r="200" stroke="#003366" stroke-width="2" fill="none"></circle>
+          <circle cx="1600" cy="300" r="250" stroke="#003366" stroke-width="1.5" fill="none"></circle>
+          <circle cx="1600" cy="300" r="300" stroke="#003366" stroke-width="1" fill="none"></circle>
+        </g>
+      </svg>
+      <div class="slide-content content-slide">
+        <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">The Birth of an Audio Legacy</h2>
+        <div class="two-column">
+          <div>
+            <div class="timeline">
+              <div class="timeline-item">
+                <div class="timeline-year" data-pw-editable-text="1" contenteditable="true" spellcheck="false">1970 - The Foundation</div>
+                <p class="timeline-text" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Midas was founded in London by visionaries Jeff Byers and Charles Brooke, establishing what would become one of the most respected names in professional audio console manufacturing. Their commitment to uncompromising audio quality set the standard for the industry.</p>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-year" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The London Legacy</div>
+                <p class="timeline-text" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Operating from the heart of London's thriving music scene, Midas quickly gained recognition among audio engineers and sound professionals who demanded equipment capable of delivering exceptional performance in demanding live environments.</p>
+              </div>
+              <div class="timeline-item">
+                <div class="timeline-year" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Music Tribe Era</div>
+                <p class="timeline-text" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Today, Midas operates as part of the Music Tribe group of brands, continuing the tradition of excellence while embracing modern technological innovations that have expanded the possibilities for sound professionals worldwide.</p>
+              </div>
+            </div>
+          </div>
+          <div class="image-container">
+            <img src="https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=800&amp;q=80" alt="Professional audio mixing console">
+            <div class="image-caption" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Professional mixing consoles have been Midas's core expertise for over five decades</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 3: Philosophy and Values -->
+    <section class="slide" id="slide3">
+      <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="bg3" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#002244"></stop>
+            <stop offset="50%" style="stop-color:#003366"></stop>
+            <stop offset="100%" style="stop-color:#001a33"></stop>
+          </linearGradient>
+          <radialGradient id="spotlight" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" style="stop-color:#D4A853;stop-opacity:0.2"></stop>
+            <stop offset="100%" style="stop-color:#003366;stop-opacity:0"></stop>
+          </radialGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg3)"></rect>
+        <ellipse cx="960" cy="540" rx="800" ry="600" fill="url(#spotlight)"></ellipse>
+        <!-- Flowing curves representing audio waves -->
+        <path d="M0,540 Q320,440 640,540 T1280,540 T1920,540" stroke="#D4A853" stroke-width="2" fill="none" opacity="0.3"></path>
+        <path d="M0,560 Q320,460 640,560 T1280,560 T1920,560" stroke="#D4A853" stroke-width="1.5" fill="none" opacity="0.2"></path>
+        <!-- Abstract fader representations -->
+        <g opacity="0.15">
+          <rect x="300" y="300" width="15" height="200" rx="5" fill="#D4A853"></rect>
+          <rect x="340" y="350" width="15" height="150" rx="5" fill="#D4A853"></rect>
+          <rect x="380" y="280" width="15" height="220" rx="5" fill="#D4A853"></rect>
+          <rect x="420" y="320" width="15" height="180" rx="5" fill="#D4A853"></rect>
+        </g>
+        <!-- Corner accents -->
+        <polygon points="0,0 200,0 0,200" fill="#D4A853" opacity="0.1"></polygon>
+        <polygon points="1920,1080 1720,1080 1920,880" fill="#D4A853" opacity="0.1"></polygon>
+      </svg>
+      <div class="slide-content content-slide">
+        <h2 style="color: var(--soft-white);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Philosophy: The Midas Touch</h2>
+        <div class="quote-block">
+          <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Midas fuses our legendary "Midas Blue" analog legacy with AI-First engineering to eliminate technical friction. By empowering creators to reach a "Flow State," we ensure the artist's soul reaches every fan with total sonic clarity and emotional impact.</p>
+        </div>
+        <div class="feature-grid" style="max-width: 1000px;">
+          <div class="feature-card">
+            <h3 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Analog Heritage</h3>
+            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">The renowned "Midas Blue" sound quality that has defined professional audio for generations, delivering warmth and clarity that engineers trust.</p>
+          </div>
+          <div class="feature-card">
+            <h3 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Flow State Focus</h3>
+            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Design philosophy centered on removing barriers between the engineer and their creative vision, enabling intuitive control and artistic expression.</p>
+          </div>
+          <div class="feature-card">
+            <h3 data-pw-editable-text="1" contenteditable="true" spellcheck="false">AI-First Innovation</h3>
+            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Cutting-edge engineering that leverages artificial intelligence to streamline workflows while preserving the tactile experience professionals demand.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 4: Applications -->
+    <section class="slide" id="slide4">
+      <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="bg4" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#F5F0E6"></stop>
+            <stop offset="50%" style="stop-color:#EDE5D8"></stop>
+            <stop offset="100%" style="stop-color:#E5DCC8"></stop>
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg4)"></rect>
+        <!-- Concert hall visualization -->
+        <g opacity="0.08">
+          <rect x="200" y="400" width="600" height="400" rx="10" fill="#003366"></rect>
+          <rect x="850" y="450" width="400" height="350" rx="10" fill="#003366"></rect>
+          <rect x="1320" y="500" width="300" height="300" rx="10" fill="#003366"></rect>
+        </g>
+        <!-- Stage lights representation -->
+        <circle cx="500" cy="200" r="80" fill="#D4A853" opacity="0.15"></circle>
+        <circle cx="1000" cy="150" r="60" fill="#D4A853" opacity="0.12"></circle>
+        <circle cx="1400" cy="220" r="70" fill="#D4A853" opacity="0.1"></circle>
+        <!-- Sound propagation arcs -->
+        <g opacity="0.1">
+          <path d="M960,600 Q700,400 440,600" stroke="#003366" stroke-width="3" fill="none"></path>
+          <path d="M960,600 Q1200,400 1440,600" stroke="#003366" stroke-width="3" fill="none"></path>
+        </g>
+        <!-- Geometric decorations -->
+        <rect x="100" y="100" width="100" height="100" fill="#D4A853" opacity="0.1" transform="rotate(45 150 150)"></rect>
+        <rect x="1750" y="900" width="80" height="80" fill="#003366" opacity="0.1" transform="rotate(45 1790 940)"></rect>
+      </svg>
+      <div class="slide-content content-slide">
+        <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Professional Applications</h2>
+        <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Midas consoles are trusted by audio engineers worldwide for live sound mixing in the most demanding environments. From intimate venues to massive stadium concerts, these consoles deliver the reliability and sonic excellence that professionals demand when every performance matters.</p>
+        
+        <div class="two-column" style="margin-top: 40px;">
+          <div>
+            <div class="highlight-box">
+              <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Front of House (FOH) Mixing</p>
+            </div>
+            <p style="margin-top: 15px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The primary position for live sound reinforcement, where engineers control what the audience hears. Midas FOH consoles provide comprehensive control over every aspect of the mix, from channel EQ and dynamics to complex effects processing and spatial imaging.</p>
+            <ul>
+              <li data-pw-editable-text="1" contenteditable="true" spellcheck="false">Complete mix control for audience experience</li>
+              <li data-pw-editable-text="1" contenteditable="true" spellcheck="false">Advanced EQ and dynamics processing</li>
+              <li data-pw-editable-text="1" contenteditable="true" spellcheck="false">Real-time adjustments during performances</li>
+            </ul>
+          </div>
+          <div>
+            <div class="highlight-box">
+              <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Monitor Console Positions</p>
+            </div>
+            <p style="margin-top: 15px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Dedicated systems for creating personalized monitor mixes for each performer on stage. Monitor engineers use Midas consoles to craft individual mixes that help artists deliver their best performance while protecting their hearing.</p>
+            <ul>
+              <li data-pw-editable-text="1" contenteditable="true" spellcheck="false">Individual performer monitor mixes</li>
+              <li data-pw-editable-text="1" contenteditable="true" spellcheck="false">In-ear and wedge monitor support</li>
+              <li data-pw-editable-text="1" contenteditable="true" spellcheck="false">Real-time artist communication</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 5: Legend 3000 -->
+    <section class="slide" id="slide5">
+      <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="bg5" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#3D2914"></stop>
+            <stop offset="50%" style="stop-color:#4A3420"></stop>
+            <stop offset="100%" style="stop-color:#2E1F0F"></stop>
+          </linearGradient>
+          <linearGradient id="goldLine" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#D4A853"></stop>
+            <stop offset="50%" style="stop-color:#F0C674"></stop>
+            <stop offset="100%" style="stop-color:#D4A853"></stop>
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg5)"></rect>
+        <!-- Console channel strips visualization -->
+        <g opacity="0.2">
+          <rect x="400" y="200" width="1120" height="600" rx="20" fill="#003366"></rect>
+          <!-- Channel strips -->
+          <g fill="#D4A853">
+            <rect x="430" y="230" width="80" height="340" rx="5" opacity="0.3"></rect>
+            <rect x="520" y="230" width="80" height="340" rx="5" opacity="0.25"></rect>
+            <rect x="610" y="230" width="80" height="340" rx="5" opacity="0.35"></rect>
+            <rect x="700" y="230" width="80" height="340" rx="5" opacity="0.28"></rect>
+            <rect x="790" y="230" width="80" height="340" rx="5" opacity="0.32"></rect>
+            <rect x="880" y="230" width="80" height="340" rx="5" opacity="0.22"></rect>
+            <rect x="970" y="230" width="80" height="340" rx="5" opacity="0.38"></rect>
+            <rect x="1060" y="230" width="80" height="340" rx="5" opacity="0.26"></rect>
+            <rect x="1150" y="230" width="80" height="340" rx="5" opacity="0.30"></rect>
+            <rect x="1240" y="230" width="80" height="340" rx="5" opacity="0.24"></rect>
+            <rect x="1330" y="230" width="80" height="340" rx="5" opacity="0.34"></rect>
+            <rect x="1420" y="230" width="80" height="340" rx="5" opacity="0.29"></rect>
+          </g>
+          <!-- Faders -->
+          <g fill="#F5F0E6" opacity="0.5">
+            <rect x="450" y="450" width="40" height="100" rx="3"></rect>
+            <rect x="540" y="420" width="40" height="130" rx="3"></rect>
+            <rect x="630" y="380" width="40" height="170" rx="3"></rect>
+            <rect x="720" y="400" width="40" height="150" rx="3"></rect>
+            <rect x="810" y="350" width="40" height="200" rx="3"></rect>
+          </g>
+        </g>
+        <!-- Decorative elements -->
+        <circle cx="200" cy="800" r="150" fill="#D4A853" opacity="0.05"></circle>
+        <circle cx="1700" cy="200" r="200" fill="#D4A853" opacity="0.05"></circle>
+        <!-- Highlight line -->
+        <rect x="200" y="100" width="400" height="3" fill="url(#goldLine)"></rect>
+      </svg>
+      <div class="slide-content content-slide">
+        <h2 style="color: var(--warm-cream);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The Legend 3000: A Revolutionary Console</h2>
+        <p style="color: var(--warm-cream);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Introduced in 2002, the Legend 3000 represented a groundbreaking achievement in console design, establishing new paradigms that would influence the entire industry for years to come.</p>
+        
+        <div style="margin-top: 50px;">
+          <div class="stats-row">
+            <div class="stat-item">
+              <div class="stat-number" data-pw-editable-text="1" contenteditable="true" spellcheck="false">2002</div>
+              <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Year Introduced</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number" data-pw-editable-text="1" contenteditable="true" spellcheck="false">2x</div>
+              <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Dual Faders Per Channel</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number" data-pw-editable-text="1" contenteditable="true" spellcheck="false">1st</div>
+              <div class="stat-label" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Tri-Purpose Console</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="two-column" style="margin-top: 50px;">
+          <div>
+            <div class="highlight-box" style="background: linear-gradient(135deg, rgba(212,168,83,0.2), rgba(184,115,51,0.2)); border-color: var(--warm-cream);">
+              <p style="color: var(--warm-cream);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">World's First "Tri-Purpose" Console</p>
+            </div>
+            <p style="color: var(--warm-cream); opacity: 0.9;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The Legend 3000 introduced the revolutionary concept of a console that could seamlessly handle Front of House, monitor mixing, and recording applications all from a single platform, fundamentally changing how venues and engineers approached system design.</p>
+          </div>
+          <div>
+            <div class="highlight-box" style="background: linear-gradient(135deg, rgba(212,168,83,0.2), rgba(184,115,51,0.2)); border-color: var(--warm-cream);">
+              <p style="color: var(--warm-cream);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Modular Flat PCB Design</p>
+            </div>
+            <p style="color: var(--warm-cream); opacity: 0.9;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The innovative modular design improved reliability and serviceability, allowing engineers to easily swap modules and maintain consistent performance across demanding touring schedules without extended downtime.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 6: Digital Revolution -->
+    <section class="slide" id="slide6">
+      <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="bg6" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#003366"></stop>
+            <stop offset="100%" style="stop-color:#001a33"></stop>
+          </linearGradient>
+          <filter id="digitalGlow">
+            <feGaussianBlur stdDeviation="4" result="blur"></feGaussianBlur>
+            <feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
+          </filter>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg6)"></rect>
+        <!-- Digital circuit pattern -->
+        <g opacity="0.1" stroke="#D4A853" stroke-width="1" fill="none">
+          <path d="M100,200 L300,200 L300,400 L500,400"></path>
+          <path d="M200,300 L400,300 L400,500 L600,500"></path>
+          <path d="M1420,200 L1620,200 L1620,400 L1820,400"></path>
+          <path d="M1320,600 L1520,600 L1520,800 L1720,800"></path>
+          <circle cx="300" cy="200" r="5" fill="#D4A853"></circle>
+          <circle cx="300" cy="400" r="5" fill="#D4A853"></circle>
+          <circle cx="1620" cy="200" r="5" fill="#D4A853"></circle>
+          <circle cx="1620" cy="400" r="5" fill="#D4A853"></circle>
+        </g>
+        <!-- Digital data visualization -->
+        <g opacity="0.15" filter="url(#digitalGlow)">
+          <rect x="400" y="250" width="3" height="40" fill="#D4A853"></rect>
+          <rect x="420" y="270" width="3" height="60" fill="#D4A853"></rect>
+          <rect x="440" y="240" width="3" height="50" fill="#D4A853"></rect>
+          <rect x="460" y="260" width="3" height="80" fill="#D4A853"></rect>
+          <rect x="480" y="250" width="3" height="45" fill="#D4A853"></rect>
+          <rect x="500" y="280" width="3" height="55" fill="#D4A853"></rect>
+        </g>
+        <!-- Network visualization -->
+        <g opacity="0.2">
+          <circle cx="300" cy="800" r="8" fill="#D4A853"></circle>
+          <circle cx="500" cy="700" r="8" fill="#D4A853"></circle>
+          <circle cx="700" cy="850" r="8" fill="#D4A853"></circle>
+          <line x1="300" y1="800" x2="500" y2="700" stroke="#D4A853" stroke-width="1"></line>
+          <line x1="500" y1="700" x2="700" y2="850" stroke="#D4A853" stroke-width="1"></line>
+        </g>
+        <!-- PLASA show reference -->
+        <text x="1550" y="150" fill="#D4A853" font-family="monospace" font-size="14" opacity="0.3">PLASA SHOW 2008</text>
+      </svg>
+      <div class="slide-content content-slide">
+        <h2 style="color: var(--soft-white);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The Digital Revolution: PRO6</h2>
+        <p style="color: var(--warm-cream);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">In September 2008 at the annual PLASA tradeshow, Midas introduced the PRO6 Live Audio System, marking a significant milestone as their second networked digital audio system. This launch represented the culmination of technologies developed from years of research and real-world feedback from professional engineers.</p>
+        
+        <div class="two-column" style="margin-top: 40px;">
+          <div>
+            <div class="highlight-box" style="background: linear-gradient(135deg, rgba(212,168,83,0.15), rgba(0,51,102,0.15)); border-color: var(--midas-gold);">
+              <p style="color: var(--soft-white);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Networked Digital Architecture</p>
+            </div>
+            <p style="color: var(--warm-cream); opacity: 0.9;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The PRO6 brought networked digital audio distribution to the forefront, allowing engineers to manage complex signal routing with unprecedented flexibility while maintaining the legendary Midas audio quality that professionals expected.</p>
+            
+            <h3 style="color: var(--midas-gold); margin-top: 30px; font-size: 1.4rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Key Innovations</h3>
+            <ul style="color: var(--warm-cream);">
+              <li style="color: var(--warm-cream);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Advanced digital snake connectivity</li>
+              <li style="color: var(--warm-cream);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Comprehensive network integration</li>
+              <li style="color: var(--warm-cream);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Real-time system monitoring</li>
+              <li style="color: var(--warm-cream);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Seamless analog-to-digital workflow</li>
+            </ul>
+          </div>
+          <div class="image-container">
+            <img src="https://pixabay.com/get/g8854d983861de576449ab07b60303123388893c8b674730523b1cacd9bb6452a2169d8f4ba8c3eafdf88318837f44a9e_640.jpg" alt="Digital audio mixing console" data-pw-promptable-image-id="pwimg-1773835944658-sqnegvw" style="">
+            <div class="image-caption" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Digital consoles brought unprecedented control to live sound environments</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 7: Digital Audio Distribution -->
+    <section class="slide active" id="slide7">
+      <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="bg7" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#E8DFD0"></stop>
+            <stop offset="100%" style="stop-color:#D9CDB8"></stop>
+          </linearGradient>
+          <pattern id="gridPattern" width="60" height="60" patternUnits="userSpaceOnUse">
+            <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#003366" stroke-width="0.5" opacity="0.1"></path>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg7)"></rect>
+        <rect width="100%" height="100%" fill="url(#gridPattern)"></rect>
+        <!-- Network nodes -->
+        <g opacity="0.6">
+          <circle cx="300" cy="300" r="40" fill="none" stroke="#003366" stroke-width="2"></circle>
+          <circle cx="600" cy="200" r="40" fill="none" stroke="#003366" stroke-width="2"></circle>
+          <circle cx="900" cy="350" r="40" fill="none" stroke="#003366" stroke-width="2"></circle>
+          <circle cx="1200" cy="250" r="40" fill="none" stroke="#003366" stroke-width="2"></circle>
+          <circle cx="1500" cy="400" r="40" fill="none" stroke="#003366" stroke-width="2"></circle>
+          <!-- Connections -->
+          <line x1="340" y1="300" x2="560" y2="200" stroke="#D4A853" stroke-width="2" opacity="0.5"></line>
+          <line x1="640" y1="200" x2="860" y2="350" stroke="#D4A853" stroke-width="2" opacity="0.5"></line>
+          <line x1="940" y1="350" x2="1160" y2="250" stroke="#D4A853" stroke-width="2" opacity="0.5"></line>
+          <line x1="1240" y1="250" x2="1460" y2="400" stroke="#D4A853" stroke-width="2" opacity="0.5"></line>
+        </g>
+        <!-- Data flow representation -->
+        <g opacity="0.3">
+          <path d="M200,700 Q400,600 600,700 T1000,700 T1400,700 T1800,700" stroke="#003366" stroke-width="3" fill="none" stroke-dasharray="10,5"></path>
+        </g>
+        <!-- Decorative elements -->
+        <rect x="1600" y="800" width="200" height="200" fill="#003366" opacity="0.05" transform="rotate(30 1700 900)"></rect>
+      </svg>
+      <div class="slide-content content-slide">
+        <h2 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Digital Audio Distribution Systems</h2>
+        <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Beyond mixing consoles, Midas markets comprehensive digital audio distribution components that serve as the backbone of modern live sound installations. These systems are commonly used with their digital consoles as stand-alone digital snakes, providing the connectivity infrastructure that complex productions demand.</p>
+        
+        <div class="two-column" style="margin-top: 40px;">
+          <div class="image-container">
+            <img src="https://pixabay.com/get/g340d26ea012d11725f70579d8330acdda86f642d5008998788f8ec88f3bbc287d3b5fb1945ced703ca341b634964e5c1_640.jpg" alt="Audio networking and connectivity" data-pw-promptable-image-id="pwimg-1773836138339-rukjj8m" data-pw-promptable-outline="" data-pw-promptable-outline-offset="" style="outline: 3px solid var(--accent-color, #4f46e5); outline-offset: 2px;">
+            <div class="image-caption" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Digital snake systems enable flexible signal routing across venues</div>
+          </div>
+          <div>
+            <div class="highlight-box">
+              <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Stand-Alone Digital Snake Capability</p>
+            </div>
+            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Midas digital audio distribution components can function independently as sophisticated digital snake systems, allowing venues to route audio signals across vast distances with pristine quality and minimal latency, transforming how productions are designed and executed.</p>
+            
+            <h3 style="margin-top: 30px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">System Advantages</h3>
+            <ul>
+              <li data-pw-editable-text="1" contenteditable="true" spellcheck="false"><strong>Reduced Cable Infrastructure:</strong> Single network cables replace massive analog snake bundles</li>
+              <li data-pw-editable-text="1" contenteditable="true" spellcheck="false"><strong>Flexible Routing:</strong> Instant reconfiguration for different events and venues</li>
+              <li data-pw-editable-text="1" contenteditable="true" spellcheck="false"><strong>Signal Integrity:</strong> Digital transmission maintains audio quality over long distances</li>
+              <li data-pw-editable-text="1" contenteditable="true" spellcheck="false"><strong>Scalable Architecture:</strong> Systems grow with production requirements</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 8: Professional Features -->
+    <section class="slide" id="slide8">
+      <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="bg8" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#003366"></stop>
+            <stop offset="50%" style="stop-color:#002855"></stop>
+            <stop offset="100%" style="stop-color:#001a33"></stop>
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg8)"></rect>
+        <!-- Feature icons background -->
+        <g opacity="0.1">
+          <!-- EQ visualization -->
+          <rect x="200" y="300" width="30" height="150" rx="5" fill="#D4A853"></rect>
+          <rect x="240" y="350" width="30" height="100" rx="5" fill="#D4A853"></rect>
+          <rect x="280" y="320" width="30" height="130" rx="5" fill="#D4A853"></rect>
+          <rect x="320" y="380" width="30" height="70" rx="5" fill="#D4A853"></rect>
+          <rect x="360" y="340" width="30" height="110" rx="5" fill="#D4A853"></rect>
+          <!-- Meter bridge -->
+          <rect x="1400" y="200" width="15" height="200" rx="3" fill="#D4A853"></rect>
+          <rect x="1430" y="180" width="15" height="220" rx="3" fill="#D4A853"></rect>
+          <rect x="1460" y="220" width="15" height="180" rx="3" fill="#D4A853"></rect>
+          <rect x="1490" y="200" width="15" height="200" rx="3" fill="#D4A853"></rect>
+          <rect x="1520" y="240" width="15" height="160" rx="3" fill="#D4A853"></rect>
+          <rect x="1550" y="190" width="15" height="210" rx="3" fill="#D4A853"></rect>
+        </g>
+        <!-- Decorative circles -->
+        <circle cx="1700" cy="700" r="200" fill="#D4A853" opacity="0.03"></circle>
+        <circle cx="200" cy="900" r="150" fill="#D4A853" opacity="0.04"></circle>
+        <!-- Connection lines -->
+        <g opacity="0.1" stroke="#D4A853" stroke-width="1">
+          <line x1="500" y1="150" x2="700" y2="150"></line>
+          <line x1="700" y1="150" x2="900" y2="150"></line>
+          <line x1="900" y1="150" x2="1100" y2="150"></line>
+          <line x1="1100" y1="150" x2="1300" y2="150"></line>
+        </g>
+      </svg>
+      <div class="slide-content content-slide">
+        <h2 style="color: var(--soft-white);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Engineering Excellence: Key Features</h2>
+        <p style="color: var(--warm-cream); margin-bottom: 40px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Every Midas console incorporates decades of engineering expertise, delivering features that professional audio engineers rely upon for critical applications in live performance and studio environments.</p>
+        
+        <div class="feature-grid" style="grid-template-columns: repeat(2, 1fr); gap: 30px;">
+          <div class="feature-card" style="background: linear-gradient(145deg, rgba(245,240,230,0.95), rgba(232,223,208,0.95));">
+            <h3 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Superior Preamp Design</h3>
+            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Midas microphone preamplifiers are renowned throughout the industry for their pristine audio quality, exceptional headroom, and the warm, natural sound character that engineers describe as the "Midas Blue" signature. These preamps faithfully capture every nuance of the source material.</p>
+          </div>
+          <div class="feature-card" style="background: linear-gradient(145deg, rgba(245,240,230,0.95), rgba(232,223,208,0.95));">
+            <h3 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Comprehensive Dynamics</h3>
+            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Each channel features professional-grade dynamics processing including compression, limiting, and gating. The musical nature of Midas dynamics allows for transparent control that enhances rather than colors the audio, maintaining the integrity of the original performance.</p>
+          </div>
+          <div class="feature-card" style="background: linear-gradient(145deg, rgba(245,240,230,0.95), rgba(232,223,208,0.95));">
+            <h3 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Precise Equalization</h3>
+            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">The legendary Midas EQ sections provide surgical precision for shaping sound. With carefully selected frequency bands and Q characteristics, engineers can make subtle tonal corrections or dramatic creative decisions with equal confidence and control.</p>
+          </div>
+          <div class="feature-card" style="background: linear-gradient(145deg, rgba(245,240,230,0.95), rgba(232,223,208,0.95));">
+            <h3 data-pw-editable-text="1" contenteditable="true" spellcheck="false">Robust Build Quality</h3>
+            <p data-pw-editable-text="1" contenteditable="true" spellcheck="false">Designed for the demands of touring and permanent installation, Midas consoles feature industrial-grade components, sealed faders, and protective circuitry that ensure reliable operation night after night, venue after venue, in every conceivable environment.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 9: Modern Era -->
+    <section class="slide" id="slide9">
+      <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="bg9" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#2E1F0F"></stop>
+            <stop offset="50%" style="stop-color:#3D2914"></stop>
+            <stop offset="100%" style="stop-color:#1F1508"></stop>
+          </linearGradient>
+          <linearGradient id="techGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#D4A853"></stop>
+            <stop offset="100%" style="stop-color:#F0C674"></stop>
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg9)"></rect>
+        <!-- Modern interface suggestion -->
+        <g opacity="0.15">
+          <!-- Touch screen representation -->
+          <rect x="500" y="250" width="920" height="500" rx="15" fill="none" stroke="#D4A853" stroke-width="2"></rect>
+          <rect x="520" y="270" width="880" height="460" rx="10" fill="#003366"></rect>
+          <!-- Interface elements -->
+          <circle cx="580" cy="340" r="25" fill="url(#techGlow)" opacity="0.5"></circle>
+          <circle cx="650" cy="340" r="25" fill="url(#techGlow)" opacity="0.4"></circle>
+          <circle cx="720" cy="340" r="25" fill="url(#techGlow)" opacity="0.6"></circle>
+          <!-- Meter -->
+          <rect x="1300" y="300" width="80" height="300" rx="5" fill="none" stroke="#D4A853" stroke-width="1"></rect>
+          <rect x="1310" y="450" width="60" height="140" rx="3" fill="url(#techGlow)" opacity="0.4"></rect>
+        </g>
+        <!-- AI visualization -->
+        <g opacity="0.2">
+          <circle cx="150" cy="300" r="3" fill="#D4A853"></circle>
+          <circle cx="180" cy="320" r="3" fill="#D4A853"></circle>
+          <circle cx="140" cy="340" r="3" fill="#D4A853"></circle>
+          <circle cx="170" cy="360" r="3" fill="#D4A853"></circle>
+          <circle cx="200" cy="340" r="3" fill="#D4A853"></circle>
+          <line x1="150" y1="300" x2="180" y2="320" stroke="#D4A853" stroke-width="0.5"></line>
+          <line x1="180" y1="320" x2="140" y2="340" stroke="#D4A853" stroke-width="0.5"></line>
+          <line x1="140" y1="340" x2="170" y2="360" stroke="#D4A853" stroke-width="0.5"></line>
+          <line x1="170" y1="360" x2="200" y2="340" stroke="#D4A853" stroke-width="0.5"></line>
+        </g>
+        <!-- Flowing data streams -->
+        <path d="M0,700 Q250,650 500,700 T1000,700 T1500,700 T2000,700" stroke="#D4A853" stroke-width="1" fill="none" opacity="0.2"></path>
+        <path d="M0,720 Q250,670 500,720 T1000,720 T1500,720 T2000,720" stroke="#D4A853" stroke-width="0.5" fill="none" opacity="0.15"></path>
+      </svg>
+      <div class="slide-content content-slide">
+        <h2 style="color: var(--warm-cream);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The Modern Era: AI-First Engineering</h2>
+        <p style="color: var(--warm-cream); opacity: 0.9;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Midas continues to push the boundaries of what's possible in professional audio by embracing cutting-edge technology while preserving the legendary sound quality that made the brand famous. The integration of AI-First engineering represents a bold step into the future of live sound.</p>
+        
+        <div style="margin-top: 40px;">
+          <div class="quote-block" style="background: linear-gradient(135deg, rgba(0,51,102,0.9), rgba(0,40,85,0.9));">
+            <p style="font-size: 1.3rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">By empowering creators to reach a "Flow State," Midas ensures the artist's soul reaches every fan with total fidelity, bridging the gap between technical excellence and artistic vision.</p>
+          </div>
+        </div>
+
+        <div class="two-column" style="margin-top: 50px;">
+          <div>
+            <h3 style="color: var(--midas-gold); font-size: 1.4rem; margin-bottom: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Intelligent Assistance</h3>
+            <p style="color: var(--warm-cream); opacity: 0.85;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Modern Midas consoles leverage artificial intelligence to assist engineers with complex tasks, from automatic feedback suppression to intelligent channel optimization, allowing professionals to focus on the creative aspects of their craft rather than technical friction.</p>
+          </div>
+          <div>
+            <h3 style="color: var(--midas-gold); font-size: 1.4rem; margin-bottom: 20px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Legacy Integration</h3>
+            <p style="color: var(--warm-cream); opacity: 0.85;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">The "Midas Blue" analog heritage remains at the core of every product, ensuring that the warmth, musicality, and professional-grade audio quality that engineers expect is never compromised in pursuit of technological innovation.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slide 10: Conclusion -->
+    <section class="slide" id="slide10">
+      <svg class="slide-background" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="bg10" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#003366"></stop>
+            <stop offset="30%" style="stop-color:#002855"></stop>
+            <stop offset="70%" style="stop-color:#001a33"></stop>
+            <stop offset="100%" style="stop-color:#000d1a"></stop>
+          </linearGradient>
+          <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" style="stop-color:#D4A853;stop-opacity:0.15"></stop>
+            <stop offset="100%" style="stop-color:#003366;stop-opacity:0"></stop>
+          </radialGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg10)"></rect>
+        <ellipse cx="960" cy="540" rx="800" ry="600" fill="url(#centerGlow)"></ellipse>
+        <!-- Celebratory elements -->
+        <g opacity="0.2">
+          <circle cx="200" cy="200" r="100" stroke="#D4A853" stroke-width="1" fill="none"></circle>
+          <circle cx="200" cy="200" r="120" stroke="#D4A853" stroke-width="0.5" fill="none"></circle>
+          <circle cx="1720" cy="880" r="80" stroke="#D4A853" stroke-width="1" fill="none"></circle>
+          <circle cx="1720" cy="880" r="100" stroke="#D4A853" stroke-width="0.5" fill="none"></circle>
+        </g>
+        <!-- Sound wave celebration -->
+        <g opacity="0.25">
+          <rect x="600" y="600" width="10" height="100" rx="5" fill="#D4A853"></rect>
+          <rect x="630" y="550" width="10" height="200" rx="5" fill="#D4A853"></rect>
+          <rect x="660" y="500" width="10" height="300" rx="5" fill="#D4A853"></rect>
+          <rect x="690" y="520" width="10" height="260" rx="5" fill="#D4A853"></rect>
+          <rect x="720" y="480" width="10" height="340" rx="5" fill="#D4A853"></rect>
+          <rect x="750" y="530" width="10" height="240" rx="5" fill="#D4A853"></rect>
+          <rect x="780" y="560" width="10" height="180" rx="5" fill="#D4A853"></rect>
+        </g>
+        <g opacity="0.25" transform="translate(480, 0)">
+          <rect x="600" y="600" width="10" height="100" rx="5" fill="#D4A853"></rect>
+          <rect x="630" y="550" width="10" height="200" rx="5" fill="#D4A853"></rect>
+          <rect x="660" y="500" width="10" height="300" rx="5" fill="#D4A853"></rect>
+          <rect x="690" y="520" width="10" height="260" rx="5" fill="#D4A853"></rect>
+          <rect x="720" y="480" width="10" height="340" rx="5" fill="#D4A853"></rect>
+          <rect x="750" y="530" width="10" height="240" rx="5" fill="#D4A853"></rect>
+          <rect x="780" y="560" width="10" height="180" rx="5" fill="#D4A853"></rect>
+        </g>
+        <!-- Decorative lines -->
+        <line x1="300" y1="100" x2="600" y2="100" stroke="#D4A853" stroke-width="2" opacity="0.3"></line>
+        <line x1="1320" y1="980" x2="1620" y2="980" stroke="#D4A853" stroke-width="2" opacity="0.3"></line>
+      </svg>
+      <div class="slide-content" style="text-align: center; align-items: center; justify-content: center;">
+        <h2 style="color: var(--soft-white); font-size: 3.5rem; margin-bottom: 30px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">A Legacy of Excellence</h2>
+        <p style="color: var(--midas-gold); font-size: 1.8rem; font-family: 'Playfair Display', serif; font-style: italic; margin-bottom: 50px; max-width: 900px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">From London 1970 to the World Stage</p>
+        
+        <div style="display: flex; justify-content: center; gap: 60px; margin-bottom: 50px;">
+          <div style="text-align: center;">
+            <div style="font-family: 'Playfair Display', serif; font-size: 4rem; font-weight: 700; color: var(--midas-gold);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">50+</div>
+            <div style="color: var(--warm-cream); font-size: 1.1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Years of Innovation</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-family: 'Playfair Display', serif; font-size: 4rem; font-weight: 700; color: var(--midas-gold);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">World</div>
+            <div style="color: var(--warm-cream); font-size: 1.1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Wide Recognition</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="font-family: 'Playfair Display', serif; font-size: 4rem; font-weight: 700; color: var(--midas-gold);" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Trusted</div>
+            <div style="color: var(--warm-cream); font-size: 1.1rem;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">By Professionals</div>
+          </div>
+        </div>
+
+        <p style="color: var(--warm-cream); font-size: 1.3rem; max-width: 800px; line-height: 1.8; opacity: 0.9;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">Midas continues to define the gold standard in professional audio mixing, blending five decades of analog heritage with cutting-edge digital innovation to serve audio engineers in live sound and studio applications around the globe.</p>
+        
+        <div style="margin-top: 60px;">
+          <p style="color: var(--midas-gold); font-size: 1.2rem; font-weight: 600; letter-spacing: 3px;" data-pw-editable-text="1" contenteditable="true" spellcheck="false">THE GOLD STANDARD IN PROFESSIONAL AUDIO</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Navigation -->
+    <nav class="navigation">
+      <button class="nav-btn" id="prevBtn" aria-label="Previous slide">‹</button>
+      <div class="slide-counter" data-pw-editable-text="1" contenteditable="true" spellcheck="false">1 / 10</div>
+      <button class="nav-btn" id="nextBtn" aria-label="Next slide">›</button>
+    </nav>
+  </div>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const currentSlideEl = document.getElementById('currentSlide');
+    let currentIndex = 0;
+    const totalSlides = slides.length;
+
+    function showSlide(index) {
+      slides.forEach((slide, i) => {
+        slide.classList.remove('active');
+        if (i === index) {
+          slide.classList.add('active');
+        }
+      });
+      currentSlideEl.textContent = index + 1;
+    }
+
+    function nextSlide() {
+      currentIndex = (currentIndex + 1) % totalSlides;
+      showSlide(currentIndex);
+    }
+
+    function prevSlide() {
+      currentIndex = (currentIndex - 1 + totalSlides) % totalSlides;
+      showSlide(currentIndex);
+    }
+
+    nextBtn.addEventListener('click', nextSlide);
+    prevBtn.addEventListener('click', prevSlide);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        prevSlide();
+      }
+    });
+
+    // Touch/swipe support
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    document.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    });
+
+    document.addEventListener('touchend', (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      if (touchStartX - touchEndX > 50) {
+        nextSlide();
+      } else if (touchEndX - touchStartX > 50) {
+        prevSlide();
+      }
+    });
+  </script>
+
+</body></html>
