@@ -580,6 +580,9 @@ class ChatTab {
         const contextSelector = document.getElementById('context-selector');
         const contextSizePanel = contextSelector ? contextSelector.closest('.panel') : null;
         const contextRemainingPanel = document.getElementById('context-remaining-panel');
+        const isOnlineDeployment = (window.OllamaAPI && typeof window.OllamaAPI.isOnlineDeploymentMode === 'function')
+            ? window.OllamaAPI.isOnlineDeploymentMode()
+            : false;
 
         let provider = 'local';
         try {
@@ -598,7 +601,7 @@ class ChatTab {
             provider = 'local';
         }
 
-        const showContextCards = provider !== 'cloud';
+        const showContextCards = !isOnlineDeployment && provider !== 'cloud';
         [contextSizePanel, contextRemainingPanel].forEach(panel => {
             if (!panel) return;
             panel.style.display = showContextCards ? '' : 'none';
