@@ -200,6 +200,23 @@
       box-shadow: 0 0 15px rgba(0, 204, 102, 0.4);
     }
 
+    .btn-shuffle {
+      background: linear-gradient(145deg, #252525, #1a1a1a);
+      border: 1px solid #333;
+      transition: all 0.15s ease;
+    }
+
+    .btn-shuffle:hover {
+      background: linear-gradient(145deg, #303030, #252525);
+      border-color: var(--accent-amber);
+    }
+
+    .btn-shuffle.active {
+      background: linear-gradient(145deg, #ff6a00, #cc5500);
+      border-color: var(--accent-amber);
+      box-shadow: 0 0 15px rgba(255, 106, 0, 0.4);
+    }
+
     .eq-band {
       background: var(--bg-knob);
       border-radius: 8px;
@@ -280,6 +297,22 @@
       animation: pulse 1s ease-in-out infinite;
     }
 
+    .shuffle-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: #333;
+      transition: all 0.3s ease;
+    }
+
+    .shuffle-indicator.active {
+      background: var(--accent-amber);
+      box-shadow: 0 0 8px var(--accent-amber);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
     .next-track-info {
       font-size: 10px;
       padding: 4px 8px;
@@ -293,6 +326,76 @@
       animation: pulse 0.5s ease-in-out infinite;
     }
 
+    .emulation-card {
+      border: 1px solid #333;
+      background: #111;
+      margin-top: 1rem;
+    }
+
+    .emu-btn {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #666;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.65rem;
+      padding: 6px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+    }
+
+    .emu-btn:hover {
+      background: #252525;
+      border-color: #555;
+      color: #aaa;
+    }
+
+    .emu-btn.active {
+      background: rgba(255, 106, 0, 0.2);
+      border-color: var(--accent-orange);
+      color: var(--accent-orange);
+      box-shadow: 0 0 10px rgba(255, 106, 0, 0.2);
+      font-weight: bold;
+    }
+
+    .emu-btn.active-blue {
+      background: rgba(0, 160, 220, 0.2);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+      box-shadow: 0 0 10px rgba(0, 160, 220, 0.2);
+      font-weight: bold;
+    }
+
+    .emu-btn.active-off {
+      background: rgba(100, 100, 100, 0.2);
+      border-color: #888;
+      color: #aaa;
+      box-shadow: 0 0 10px rgba(100, 100, 100, 0.2);
+      font-weight: bold;
+    }
+
+    .remaining-time {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 900;
+      text-align: center;
+      padding: 8px 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 100%);
+      border-radius: 8px;
+      border: 1px solid #333;
+      margin-bottom: 8px;
+    }
+
+    .remaining-time.playing {
+      color: var(--accent-green);
+      text-shadow: 0 0 20px rgba(0, 204, 102, 0.5);
+    }
+
+    .remaining-time.paused {
+      color: #666;
+    }
+
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -303,7 +406,6 @@
 </head>
 <body class="bg-noise min-h-screen">
   <div class="container mx-auto px-4 py-6 max-w-7xl">
-    
     <header class="text-center mb-6">
       <h1 class="font-display text-4xl md:text-5xl font-black tracking-wider brand-logo">
         <span class="text-orange-500">MP3</span> <span class="text-white"></span> <span class="text-gray-400">MIXER</span>
@@ -322,14 +424,13 @@
     </div>
 
     <div class="grid lg:grid-cols-[1fr_280px_1fr] gap-4">
-      
       <div class="deck-a glow-border rounded-xl p-4 metal-surface">
         <div class="flex items-center gap-3 mb-4">
           <div class="led-indicator led-orange dim" id="ledA"></div>
           <span class="font-display font-bold text-orange-500 tracking-widest text-sm">DECK A</span>
           <div class="flex-1 h-px bg-gradient-to-r from-orange-500/50 to-transparent"></div>
         </div>
-        
+
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-4">
             <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
@@ -337,12 +438,10 @@
               <div id="trackNameA" class="text-orange-400 text-sm truncate font-display">No Track Loaded</div>
               <div id="trackIndexA" class="text-xs text-gray-600 mt-1">-</div>
             </div>
-            
+
             <div class="flex gap-2 justify-center">
               <button onclick="togglePlay('A')" id="playBtnA" class="btn-control btn-play w-14 h-14 rounded-full flex items-center justify-center" aria-label="Play Deck A">
-                <svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z"/>
-                </svg>
+                <svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
               </button>
               <button onclick="cueTrack('A')" class="btn-control w-14 h-14 rounded-full flex items-center justify-center border-orange-500/50" aria-label="Cue Deck A">
                 <span class="font-display text-xs font-bold text-orange-400">CUE</span>
@@ -396,17 +495,28 @@
             </div>
           </div>
         </div>
+
+        <div class="emulation-card rounded-lg p-3 mt-2 flex flex-col items-center">
+          <div class="text-[10px] text-gray-500 mb-2 uppercase tracking-widest">Console Emulation</div>
+          <div class="flex gap-1 flex-wrap justify-center">
+            <button type="button" data-deck="A" data-mode="Off" class="emu-btn active-off" id="btn-off-a">Off</button>
+            <button type="button" data-deck="A" data-mode="Neve" class="emu-btn" id="btn-neve-a">Neve</button>
+            <button type="button" data-deck="A" data-mode="SSL" class="emu-btn" id="btn-ssl-a">SSL</button>
+            <button type="button" data-deck="A" data-mode="Tube" class="emu-btn" id="btn-tube-a">Tube</button>
+            <button type="button" data-deck="A" data-mode="Tape" class="emu-btn" id="btn-tape-a">Tape</button>
+          </div>
+          <div id="active-emulation-a" class="text-[10px] font-bold text-gray-400 mt-2 h-4">OFF</div>
+        </div>
       </div>
 
       <div class="space-y-4">
         <div class="glow-border rounded-xl p-4 metal-surface">
           <div class="text-xs text-gray-500 mb-3 text-center font-display tracking-widest">CROSSFADER</div>
-          
           <div class="flex justify-between text-xs mb-2 px-1">
             <span class="text-orange-400 font-display">A: <span id="crossfadeDisplayA">50%</span></span>
             <span class="text-blue-400 font-display">B: <span id="crossfadeDisplayB">50%</span></span>
           </div>
-          
+
           <div class="relative">
             <div class="crossfader-track mb-4 relative rounded-full">
               <div id="crossfaderTrack" class="h-5 bg-black rounded-full relative cursor-pointer border border-gray-700">
@@ -421,11 +531,9 @@
               <span class="text-blue-400 font-display">B</span>
             </div>
           </div>
-          
+
           <div class="mt-4 space-y-2">
-            <button onclick="autoCrossfade()" id="autoXfadeBtn" class="btn-control w-full py-2 rounded text-sm font-display tracking-wider hover:bg-orange-900/30 transition-all border-orange-500/30">
-              AUTO CROSSFADE
-            </button>
+            <button onclick="autoCrossfade()" id="autoXfadeBtn" class="btn-control w-full py-2 rounded text-sm font-display tracking-wider hover:bg-orange-900/30 transition-all border-orange-500/30">AUTO CROSSFADE</button>
             <div class="flex gap-2">
               <button onclick="snapCrossfade('A')" class="btn-control flex-1 py-2 rounded text-xs text-orange-400 font-display">SNAP A</button>
               <button onclick="snapCrossfade('B')" class="btn-control flex-1 py-2 rounded text-xs text-blue-400 font-display">SNAP B</button>
@@ -434,6 +542,9 @@
         </div>
 
         <div class="glow-border rounded-xl p-4 metal-surface">
+          <div class="remaining-time paused" id="remainingTime">--:--</div>
+          <div class="text-[10px] text-gray-500 text-center mb-3 uppercase tracking-widest">Remaining Time</div>
+          
           <button onclick="toggleAutoplay()" id="autoplayBtn" class="btn-autoplay w-full py-3 rounded-lg text-sm font-display tracking-wider flex items-center justify-center gap-2 transition-all">
             <span class="autoplay-indicator" id="autoplayIndicator"></span>
             <span id="autoplayText">AUTOPLAY OFF</span>
@@ -441,6 +552,11 @@
           <div id="autoplayStatus" class="text-xs text-gray-500 mt-2 text-center hidden">
             <div id="nextTrackInfo" class="next-track-info"></div>
           </div>
+          
+          <button onclick="toggleShuffle()" id="shuffleBtn" class="btn-shuffle w-full py-3 rounded-lg text-sm font-display tracking-wider flex items-center justify-center gap-2 transition-all mt-2">
+            <span class="shuffle-indicator" id="shuffleIndicator"></span>
+            <span id="shuffleText">SHUFFLE OFF</span>
+          </button>
         </div>
 
         <div class="glow-border rounded-xl p-4 metal-surface max-h-80">
@@ -463,7 +579,7 @@
           <span class="font-display font-bold text-blue-400 tracking-widest text-sm">DECK B</span>
           <div class="flex-1 h-px bg-gradient-to-r from-blue-400/50 to-transparent"></div>
         </div>
-        
+
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-4">
             <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
@@ -471,12 +587,10 @@
               <div id="trackNameB" class="text-blue-400 text-sm truncate font-display">No Track Loaded</div>
               <div id="trackIndexB" class="text-xs text-gray-600 mt-1">-</div>
             </div>
-            
+
             <div class="flex gap-2 justify-center">
               <button onclick="togglePlay('B')" id="playBtnB" class="btn-control btn-play w-14 h-14 rounded-full flex items-center justify-center" aria-label="Play Deck B">
-                <svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z"/>
-                </svg>
+                <svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
               </button>
               <button onclick="cueTrack('B')" class="btn-control w-14 h-14 rounded-full flex items-center justify-center border-blue-400/50" aria-label="Cue Deck B">
                 <span class="font-display text-xs font-bold text-blue-400">CUE</span>
@@ -530,6 +644,18 @@
             </div>
           </div>
         </div>
+
+        <div class="emulation-card rounded-lg p-3 mt-2 flex flex-col items-center">
+          <div class="text-[10px] text-gray-500 mb-2 uppercase tracking-widest">Console Emulation</div>
+          <div class="flex gap-1 flex-wrap justify-center">
+            <button type="button" data-deck="B" data-mode="Off" class="emu-btn active-off" id="btn-off-b">Off</button>
+            <button type="button" data-deck="B" data-mode="Neve" class="emu-btn" id="btn-neve-b">Neve</button>
+            <button type="button" data-deck="B" data-mode="SSL" class="emu-btn" id="btn-ssl-b">SSL</button>
+            <button type="button" data-deck="B" data-mode="Tube" class="emu-btn" id="btn-tube-b">Tube</button>
+            <button type="button" data-deck="B" data-mode="Tape" class="emu-btn" id="btn-tape-b">Tape</button>
+          </div>
+          <div id="active-emulation-b" class="text-[10px] font-bold text-gray-400 mt-2 h-4">OFF</div>
+        </div>
       </div>
     </div>
 
@@ -552,35 +678,49 @@
     let gainNodeB = null;
     let eqA = { high: null, mid: null, low: null };
     let eqB = { high: null, mid: null, low: null };
+    let distortionNodeA = null;
+    let distortionNodeB = null;
 
     const state = {
       tracks: [],
       autoplay: false,
+      shuffle: false,
       currentDeck: 'A',
       nextTrackIndex: 0,
       transitioning: false,
-      deckA: { loaded: false, playing: false, volume: 0.75, pitch: 0, trackIndex: -1 },
-      deckB: { loaded: false, playing: false, volume: 0.75, pitch: 0, trackIndex: -1 },
+      deckA: { loaded: false, playing: false, volume: 0.75, pitch: 0, trackIndex: -1, emulation: 'Off' },
+      deckB: { loaded: false, playing: false, volume: 0.75, pitch: 0, trackIndex: -1, emulation: 'Off' },
       crossfader: 0.5,
-      autoCrossfading: false
+      autoCrossfading: false,
+      playedIndices: []
     };
+
+    function makeDistortionCurve(amount) {
+      const samples = 44100;
+      const curve = new Float32Array(samples);
+      const deg = Math.PI / 180;
+      for (let i = 0; i < samples; i++) {
+        const x = (i * 2) / samples - 1;
+        curve[i] = ((3 + amount) * x * 20 * deg) / (Math.PI + amount * Math.abs(x));
+      }
+      return curve;
+    }
 
     function initAudioContext() {
       if (audioContext) return;
-      
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      
+
       const sourceA = audioContext.createMediaElementSource(audioA);
       const sourceB = audioContext.createMediaElementSource(audioB);
-      
+
       gainNodeA = audioContext.createGain();
       gainNodeB = audioContext.createGain();
-      
+
       analyserA = audioContext.createAnalyser();
       analyserB = audioContext.createAnalyser();
       analyserA.fftSize = 256;
       analyserB.fftSize = 256;
-      
+
       eqA.high = audioContext.createBiquadFilter();
       eqA.mid = audioContext.createBiquadFilter();
       eqA.low = audioContext.createBiquadFilter();
@@ -591,7 +731,7 @@
       eqA.mid.frequency.value = 1000;
       eqA.mid.Q.value = 0.5;
       eqA.low.frequency.value = 320;
-      
+
       eqB.high = audioContext.createBiquadFilter();
       eqB.mid = audioContext.createBiquadFilter();
       eqB.low = audioContext.createBiquadFilter();
@@ -602,100 +742,216 @@
       eqB.mid.frequency.value = 1000;
       eqB.mid.Q.value = 0.5;
       eqB.low.frequency.value = 320;
-      
+
+      distortionNodeA = audioContext.createWaveShaper();
+      distortionNodeB = audioContext.createWaveShaper();
+      distortionNodeA.oversample = '4x';
+      distortionNodeB.oversample = '4x';
+
       sourceA.connect(eqA.low);
       eqA.low.connect(eqA.mid);
       eqA.mid.connect(eqA.high);
-      eqA.high.connect(gainNodeA);
+      eqA.high.connect(distortionNodeA);
+      distortionNodeA.connect(gainNodeA);
       gainNodeA.connect(analyserA);
       analyserA.connect(audioContext.destination);
-      
+
       sourceB.connect(eqB.low);
       eqB.low.connect(eqB.mid);
       eqB.mid.connect(eqB.high);
-      eqB.high.connect(gainNodeB);
+      eqB.high.connect(distortionNodeB);
+      distortionNodeB.connect(gainNodeB);
       gainNodeB.connect(analyserB);
       analyserB.connect(audioContext.destination);
-      
+
+      applyEmulationSettings('A', state.deckA.emulation);
+      applyEmulationSettings('B', state.deckB.emulation);
       updateVolumes();
     }
 
+    function applyEmulationSettings(deck, mode) {
+      const eq = deck === 'A' ? eqA : eqB;
+      const dist = deck === 'A' ? distortionNodeA : distortionNodeB;
+
+      // Reset EQ to flat before applying emulation
+      eq.low.frequency.value = 320;
+      eq.mid.frequency.value = 1000;
+      eq.mid.Q.value = 0.5;
+      eq.high.frequency.value = 3200;
+
+      if (mode === 'Off') {
+        eq.low.gain.value = 0;
+        eq.mid.gain.value = 0;
+        eq.high.gain.value = 0;
+        dist.curve = makeDistortionCurve(0);
+      } else if (mode === 'Neve') {
+        eq.low.gain.value = -2;
+        eq.mid.gain.value = 6;
+        eq.mid.Q.value = 0.8;
+        eq.high.gain.value = -5;
+        eq.high.frequency.value = 3000;
+        dist.curve = makeDistortionCurve(0);
+      } else if (mode === 'SSL') {
+        eq.low.gain.value = 4;
+        eq.low.frequency.value = 80;
+        eq.mid.gain.value = -2;
+        eq.mid.Q.value = 0.5;
+        eq.high.gain.value = 8;
+        eq.high.frequency.value = 6000;
+        dist.curve = makeDistortionCurve(0);
+      } else if (mode === 'Tube') {
+        // Reduced by ~1dB to match Neve/SSL output level
+        eq.low.gain.value = -1;
+        eq.mid.gain.value = 3;
+        eq.high.gain.value = -1;
+        dist.curve = makeDistortionCurve(4);
+      } else if (mode === 'Tape') {
+        // Reduced by ~1dB to match Neve/SSL output level
+        eq.low.gain.value = 0;
+        eq.mid.gain.value = 1;
+        eq.high.gain.value = -4;
+        dist.curve = makeDistortionCurve(2);
+      }
+    }
+
+    function setEmulation(deck, mode) {
+      if (!audioContext) initAudioContext();
+      const deckLower = deck.toLowerCase();
+
+      ['off', 'neve', 'ssl', 'tube', 'tape'].forEach(function(type) {
+        const btn = document.getElementById('btn-' + type + '-' + deckLower);
+        if (btn) btn.classList.remove('active', 'active-blue', 'active-off');
+      });
+
+      const activeBtn = document.getElementById('btn-' + mode.toLowerCase() + '-' + deckLower);
+      if (activeBtn) {
+        if (mode === 'Off') {
+          activeBtn.classList.add('active-off');
+        } else if (deck === 'A') {
+          activeBtn.classList.add('active');
+        } else {
+          activeBtn.classList.add('active-blue');
+        }
+      }
+
+      const emulationDisplay = document.getElementById('active-emulation-' + deckLower);
+      if (emulationDisplay) {
+        emulationDisplay.textContent = mode.toUpperCase();
+        if (mode === 'Off') {
+          emulationDisplay.className = 'text-[10px] font-bold text-gray-400 mt-2 h-4';
+        } else if (deck === 'A') {
+          emulationDisplay.className = 'text-[10px] font-bold text-orange-400 mt-2 h-4';
+        } else {
+          emulationDisplay.className = 'text-[10px] font-bold text-blue-400 mt-2 h-4';
+        }
+      }
+
+      applyEmulationSettings(deck, mode);
+      state['deck' + deck].emulation = mode;
+    }
+
+    document.querySelectorAll('.emu-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        setEmulation(this.dataset.deck, this.dataset.mode);
+      });
+    });
+
     function updateVolumes() {
       if (!gainNodeA || !gainNodeB) return;
-      
       const cf = state.crossfader;
       const crossfadeA = 1 - cf;
       const crossfadeB = cf;
-      
       const finalVolA = state.deckA.volume * crossfadeA;
       const finalVolB = state.deckB.volume * crossfadeB;
-      
       gainNodeA.gain.value = Math.max(0, Math.min(1, finalVolA));
       gainNodeB.gain.value = Math.max(0, Math.min(1, finalVolB));
-      
+
       document.getElementById('crossfadeDisplayA').textContent = Math.round(crossfadeA * 100) + '%';
       document.getElementById('crossfadeDisplayB').textContent = Math.round(crossfadeB * 100) + '%';
-      
+
       const ledA = document.getElementById('ledA');
       const ledB = document.getElementById('ledB');
-      
-      if (crossfadeA > 0.1 && state.deckA.playing) {
-        ledA.classList.remove('dim');
-      } else {
-        ledA.classList.add('dim');
-      }
-      
-      if (crossfadeB > 0.1 && state.deckB.playing) {
-        ledB.classList.remove('dim');
-      } else {
-        ledB.classList.add('dim');
-      }
+      if (crossfadeA > 0.1 && state.deckA.playing) ledA.classList.remove('dim');
+      else ledA.classList.add('dim');
+      if (crossfadeB > 0.1 && state.deckB.playing) ledB.classList.remove('dim');
+      else ledB.classList.add('dim');
     }
 
     function updateVUMeters() {
       if (!analyserA || !analyserB) return;
-      
       const dataArrayA = new Uint8Array(analyserA.frequencyBinCount);
       const dataArrayB = new Uint8Array(analyserB.frequencyBinCount);
-      
       analyserA.getByteFrequencyData(dataArrayA);
       analyserB.getByteFrequencyData(dataArrayB);
-      
       let sumA = 0, sumB = 0;
       for (let i = 0; i < dataArrayA.length; i++) {
         sumA += dataArrayA[i];
         sumB += dataArrayB[i];
       }
-      
       const avgA = sumA / dataArrayA.length;
       const avgB = sumB / dataArrayB.length;
-      
       const vuA = document.getElementById('vuMeterA');
       const vuB = document.getElementById('vuMeterB');
-      
       if (vuA) vuA.style.height = Math.min(100, (avgA / 255) * 100 * state.deckA.volume) + '%';
       if (vuB) vuB.style.height = Math.min(100, (avgB / 255) * 100 * state.deckB.volume) + '%';
-      
       requestAnimationFrame(updateVUMeters);
     }
 
+    function formatTime(seconds) {
+      if (isNaN(seconds) || !isFinite(seconds)) return '--:--';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
+    }
+
+    function updateRemainingTime() {
+      const remainingTimeEl = document.getElementById('remainingTime');
+      const currentDeck = state.currentDeck;
+      const audio = currentDeck === 'A' ? audioA : audioB;
+      const isPlaying = state['deck' + currentDeck].playing;
+
+      if (!audio.duration || !state['deck' + currentDeck].loaded) {
+        remainingTimeEl.textContent = '--:--';
+        remainingTimeEl.className = 'remaining-time paused';
+        return;
+      }
+
+      const remaining = audio.duration - audio.currentTime;
+      remainingTimeEl.textContent = formatTime(remaining);
+      remainingTimeEl.className = isPlaying ? 'remaining-time playing' : 'remaining-time paused';
+    }
+
+    setInterval(updateRemainingTime, 500);
+
     function getNextTrackIndex(currentIndex) {
       if (state.tracks.length === 0) return -1;
+
+      if (state.shuffle) {
+        if (state.playedIndices.length >= state.tracks.length) {
+          state.playedIndices = [];
+        }
+        let availableIndices = [];
+        for (let i = 0; i < state.tracks.length; i++) {
+          if (!state.playedIndices.includes(i) && i !== currentIndex) {
+            availableIndices.push(i);
+          }
+        }
+        if (availableIndices.length === 0) {
+          return (currentIndex + 1) % state.tracks.length;
+        }
+        const randomIndex = Math.floor(Math.random() * availableIndices.length);
+        return availableIndices[randomIndex];
+      }
       return (currentIndex + 1) % state.tracks.length;
     }
 
     function updateTrackListUI() {
       const trackList = document.getElementById('trackList');
       const items = trackList.querySelectorAll('.track-item');
-      
-      items.forEach((item, index) => {
+      items.forEach(function(item, index) {
         item.classList.remove('active', 'preloaded-a', 'preloaded-b');
-        if (index === state.deckA.trackIndex) {
-          item.classList.add('active');
-        }
-        if (index === state.deckB.trackIndex) {
-          item.classList.add('active');
-        }
+        if (index === state.deckA.trackIndex) item.classList.add('active');
+        if (index === state.deckB.trackIndex) item.classList.add('active');
         if (state.autoplay) {
           const nextDeck = state.currentDeck === 'A' ? 'B' : 'A';
           if (index === state.nextTrackIndex) {
@@ -708,14 +964,15 @@
     function updateAutoplayStatus() {
       const statusEl = document.getElementById('autoplayStatus');
       const infoEl = document.getElementById('nextTrackInfo');
-      
+
       if (state.autoplay && state.tracks.length > 0) {
         statusEl.classList.remove('hidden');
         const nextDeck = state.currentDeck === 'A' ? 'B' : 'A';
         const nextTrack = state.tracks[state.nextTrackIndex];
         if (nextTrack) {
           const deckColor = nextDeck === 'A' ? 'text-orange-400' : 'text-blue-400';
-          infoEl.innerHTML = `Next: <span class="${deckColor}">${nextTrack.name.replace('.mp3', '')}</span> <span class="text-gray-500">→ Deck ${nextDeck}</span>`;
+          const modeLabel = state.shuffle ? ' (Shuffle)' : '';
+          infoEl.innerHTML = 'Next' + modeLabel + ': <span class="' + deckColor + '">' + nextTrack.name.replace('.mp3', '') + '</span> <span class="text-gray-500">→ Deck ' + nextDeck + '</span>';
         }
       } else {
         statusEl.classList.add('hidden');
@@ -725,62 +982,58 @@
     function loadToDeckDirect(deck, trackIndex, track) {
       const audio = deck === 'A' ? audioA : audioB;
       const url = URL.createObjectURL(track.file);
-      
       audio.src = url;
       audio.load();
-      
-      document.getElementById(`trackName${deck}`).textContent = track.name.replace('.mp3', '');
-      document.getElementById(`trackIndex${deck}`).textContent = `Track ${trackIndex + 1} of ${state.tracks.length}`;
-      
-      state[`deck${deck}`].loaded = true;
-      state[`deck${deck}`].playing = false;
-      state[`deck${deck}`].trackIndex = trackIndex;
-      
+
+      document.getElementById('trackName' + deck).textContent = track.name.replace('.mp3', '');
+      document.getElementById('trackIndex' + deck).textContent = 'Track ' + (trackIndex + 1) + ' of ' + state.tracks.length;
+
+      state['deck' + deck].loaded = true;
+      state['deck' + deck].playing = false;
+      state['deck' + deck].trackIndex = trackIndex;
+
       updatePlayButton(deck);
       updateTrackListUI();
       drawWaveform(deck, track.file);
-      
       initAudioContext();
     }
 
     async function performAutoplayTransition(fromDeck) {
       if (state.transitioning || !state.autoplay) return;
       state.transitioning = true;
-      
+
       const toDeck = fromDeck === 'A' ? 'B' : 'A';
       const toAudio = toDeck === 'A' ? audioA : audioB;
-      
-      // Load next track to opposite deck if not already loaded
-      if (state.nextTrackIndex >= 0 && state[`deck${toDeck}`].trackIndex !== state.nextTrackIndex) {
+
+      if (state.shuffle) {
+        state.playedIndices.push(state['deck' + fromDeck].trackIndex);
+      }
+
+      if (state.nextTrackIndex >= 0 && state['deck' + toDeck].trackIndex !== state.nextTrackIndex) {
         const nextTrack = state.tracks[state.nextTrackIndex];
         loadToDeckDirect(toDeck, state.nextTrackIndex, nextTrack);
       }
-      
-      // Start playback on the target deck
+
       if (audioContext && audioContext.state === 'suspended') {
         await audioContext.resume();
       }
-      
+
       await toAudio.play();
-      state[`deck${toDeck}`].playing = true;
+      state['deck' + toDeck].playing = true;
       updatePlayButton(toDeck);
-      
-      // Perform crossfade transition
+
       await smoothCrossfade(fromDeck, toDeck);
-      
-      // Update current deck
+
       state.currentDeck = toDeck;
-      
-      // Stop the previous deck
+
       const fromAudio = fromDeck === 'A' ? audioA : audioB;
       fromAudio.pause();
       fromAudio.currentTime = 0;
-      state[`deck${fromDeck}`].playing = false;
+      state['deck' + fromDeck].playing = false;
       updatePlayButton(fromDeck);
-      
-      // Set up next track for future transition
-      state.nextTrackIndex = getNextTrackIndex(state[`deck${toDeck}`].trackIndex);
-      
+
+      state.nextTrackIndex = getNextTrackIndex(state['deck' + toDeck].trackIndex);
+
       updateTrackListUI();
       updateAutoplayStatus();
       state.transitioning = false;
@@ -791,93 +1044,76 @@
       const startTime = performance.now();
       const startValue = fromDeck === 'A' ? 0 : 1;
       const endValue = toDeck === 'A' ? 0 : 1;
-      
+      const crossfaderHandle = document.getElementById('crossfaderHandle');
+
       await new Promise(resolve => {
         function animate(currentTime) {
           const elapsed = currentTime - startTime;
           const progress = Math.min(elapsed / duration, 1);
-          const eased = progress < 0.5 
-            ? 2 * progress * progress 
-            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-          
+          const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
           state.crossfader = startValue + (endValue - startValue) * eased;
-          crossfaderHandle.style.left = `calc(${state.crossfader * 100}% - 20px)`;
+          crossfaderHandle.style.left = 'calc(' + (state.crossfader * 100) + '% - 20px)';
           updateVolumes();
-          
-          if (progress < 1) {
-            requestAnimationFrame(animate);
-          } else {
-            resolve();
-          }
+          if (progress < 1) requestAnimationFrame(animate);
+          else resolve();
         }
         requestAnimationFrame(animate);
       });
     }
 
-    document.getElementById('folderInput').addEventListener('change', async function(e) {
+    document.getElementById('folderInput').addEventListener('change', function(e) {
       const files = Array.from(e.target.files).filter(f => f.type === 'audio/mpeg' || f.name.toLowerCase().endsWith('.mp3'));
       state.tracks = [];
-      
+      state.playedIndices = [];
+
       const trackList = document.getElementById('trackList');
       trackList.innerHTML = '';
-      
-      files.forEach((file) => {
+
+      files.forEach(function(file) {
         const pathParts = file.webkitRelativePath.split('/');
         const fileName = pathParts[pathParts.length - 1];
-        state.tracks.push({ file, name: fileName, path: file.webkitRelativePath });
+        state.tracks.push({ file: file, name: fileName, path: file.webkitRelativePath });
       });
-      
-      state.tracks.sort((a, b) => a.name.localeCompare(b.name));
-      
-      state.tracks.forEach((track, index) => {
+
+      state.tracks.sort(function(a, b) { return a.name.localeCompare(b.name); });
+
+      state.tracks.forEach(function(track, index) {
         const item = document.createElement('div');
         item.className = 'track-item p-2 cursor-pointer text-sm animate-in';
-        item.style.animationDelay = `${index * 30}ms`;
-        item.innerHTML = `
-          <div class="text-orange-400 truncate">${track.name.replace('.mp3', '')}</div>
-          <div class="text-xs text-gray-600 truncate">${track.path}</div>
-        `;
-        item.addEventListener('click', () => showDeckSelector(track, item));
+        item.style.animationDelay = (index * 30) + 'ms';
+        item.innerHTML = '<div class="text-orange-400 truncate">' + track.name.replace('.mp3', '') + '</div><div class="text-xs text-gray-600 truncate">' + track.path + '</div>';
+        item.addEventListener('click', function() { showDeckSelector(track, item); });
         trackList.appendChild(item);
       });
-      
-      document.getElementById('trackCount').textContent = `${state.tracks.length} tracks loaded`;
-      
-      // Reset state
+
+      document.getElementById('trackCount').textContent = state.tracks.length + ' tracks loaded';
       state.deckA.trackIndex = -1;
       state.deckB.trackIndex = -1;
       state.currentDeck = 'A';
       state.nextTrackIndex = 0;
-      
       updateTrackListUI();
       updateAutoplayStatus();
     });
 
     let selectedTrackItem = null;
-    
+
     function showDeckSelector(track, item) {
       if (selectedTrackItem) selectedTrackItem.classList.remove('active');
       selectedTrackItem = item;
       item.classList.add('active');
-      
+
       const existing = document.querySelector('.deck-selector');
       if (existing) existing.remove();
-      
+
       const selector = document.createElement('div');
       selector.className = 'deck-selector fixed bg-gray-900/95 border border-orange-500/30 rounded-lg p-3 shadow-xl z-50';
       selector.style.left = '50%';
       selector.style.top = '50%';
       selector.style.transform = 'translate(-50%, -50%)';
-      selector.innerHTML = `
-        <div class="text-xs text-gray-400 mb-2 text-center">Load to:</div>
-        <div class="flex gap-2">
-          <button class="btn-control px-4 py-2 rounded text-orange-400 font-display text-sm border-orange-500/50" onclick="loadToDeck('A', ${state.tracks.indexOf(track)})">DECK A</button>
-          <button class="btn-control px-4 py-2 rounded text-blue-400 font-display text-sm border-blue-400/50" onclick="loadToDeck('B', ${state.tracks.indexOf(track)})">DECK B</button>
-        </div>
-      `;
+      selector.innerHTML = '<div class="text-xs text-gray-400 mb-2 text-center">Load to:</div><div class="flex gap-2"><button class="btn-control px-4 py-2 rounded text-orange-400 font-display text-sm border-orange-500/50" onclick="loadToDeck(\'A\', ' + state.tracks.indexOf(track) + ')">DECK A</button><button class="btn-control px-4 py-2 rounded text-blue-400 font-display text-sm border-blue-400/50" onclick="loadToDeck(\'B\', ' + state.tracks.indexOf(track) + ')">DECK B</button></div>';
       document.body.appendChild(selector);
-      
-      setTimeout(() => {
+
+      setTimeout(function() {
         document.addEventListener('click', function close(e) {
           if (!selector.contains(e.target)) {
             selector.remove();
@@ -890,23 +1126,20 @@
     function loadToDeck(deck, trackIndex) {
       const track = state.tracks[trackIndex];
       loadToDeckDirect(deck, trackIndex, track);
-      document.querySelector('.deck-selector')?.remove();
-      
-      // Set current deck and next track for autoplay
+      const selector = document.querySelector('.deck-selector');
+      if (selector) selector.remove();
       state.currentDeck = deck;
       state.nextTrackIndex = getNextTrackIndex(trackIndex);
       updateAutoplayStatus();
     }
 
     function drawWaveform(deck, file) {
-      const canvas = document.getElementById(`waveform${deck}`);
+      const canvas = document.getElementById('waveform' + deck);
       const ctx = canvas.getContext('2d');
-      
       canvas.width = canvas.offsetWidth * 2;
       canvas.height = canvas.offsetHeight * 2;
-      
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
+
       const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
       if (deck === 'A') {
         gradient.addColorStop(0, 'rgba(255, 106, 0, 0.8)');
@@ -915,19 +1148,16 @@
         gradient.addColorStop(0, 'rgba(0, 160, 220, 0.8)');
         gradient.addColorStop(1, 'rgba(0, 160, 220, 0.2)');
       }
-      
+
       const fileReader = new FileReader();
       fileReader.onload = function() {
         const arrayBuffer = this.result;
         const audioContextWave = new (window.AudioContext || window.webkitAudioContext)();
-        
         audioContextWave.decodeAudioData(arrayBuffer, function(buffer) {
           const data = buffer.getChannelData(0);
           const step = Math.ceil(data.length / canvas.width);
           const amp = canvas.height / 2;
-          
           ctx.fillStyle = gradient;
-          
           for (let i = 0; i < canvas.width; i++) {
             let min = 1.0, max = -1.0;
             for (let j = 0; j < step; j++) {
@@ -938,7 +1168,6 @@
                 if (datum > max) max = datum;
               }
             }
-            
             const height = Math.max(2, (max - min) * amp);
             ctx.fillRect(i, amp - height / 2, 1, height);
           }
@@ -950,17 +1179,17 @@
     function togglePlay(deck) {
       initAudioContext();
       const audio = deck === 'A' ? audioA : audioB;
-      const deckState = state[`deck${deck}`];
-      
+      const deckState = state['deck' + deck];
+
       if (!deckState.loaded) {
-        alert(`Please load a track to Deck ${deck} first`);
+        alert('Please load a track to Deck ' + deck + ' first');
         return;
       }
-      
+
       if (audioContext.state === 'suspended') {
         audioContext.resume();
       }
-      
+
       if (deckState.playing) {
         audio.pause();
         deckState.playing = false;
@@ -969,92 +1198,108 @@
         deckState.playing = true;
         updateVUMeters();
       }
-      
-      // Update current deck when manually playing
+
       state.currentDeck = deck;
       state.nextTrackIndex = getNextTrackIndex(deckState.trackIndex);
-      
       updatePlayButton(deck);
       updateVolumes();
       updateAutoplayStatus();
     }
 
     function updatePlayButton(deck) {
-      const btn = document.getElementById(`playBtn${deck}`);
-      const isPlaying = state[`deck${deck}`].playing;
-      
+      const btn = document.getElementById('playBtn' + deck);
+      const isPlaying = state['deck' + deck].playing;
       if (isPlaying) {
         btn.classList.add('playing');
-        btn.innerHTML = `<svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+        btn.innerHTML = '<svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
       } else {
         btn.classList.remove('playing');
-        btn.innerHTML = `<svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+        btn.innerHTML = '<svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
       }
     }
 
     function cueTrack(deck) {
       const audio = deck === 'A' ? audioA : audioB;
       audio.currentTime = 0;
-      if (!state[`deck${deck}`].playing) {
+      if (!state['deck' + deck].playing) {
         togglePlay(deck);
-        setTimeout(() => togglePlay(deck), 100);
+        setTimeout(function() { togglePlay(deck); }, 100);
       }
     }
 
     function toggleAutoplay() {
       state.autoplay = !state.autoplay;
-      
+
       const btn = document.getElementById('autoplayBtn');
       const indicator = document.getElementById('autoplayIndicator');
       const text = document.getElementById('autoplayText');
-      
+
       if (state.autoplay) {
         btn.classList.add('active');
         indicator.classList.add('active');
         text.textContent = 'AUTOPLAY ON';
-        
-        // Determine next track based on current playing deck
         const currentPlayingDeck = state.deckA.playing ? 'A' : (state.deckB.playing ? 'B' : state.currentDeck);
         state.currentDeck = currentPlayingDeck;
-        
-        const currentIndex = state[`deck${currentPlayingDeck}`].trackIndex;
+        const currentIndex = state['deck' + currentPlayingDeck].trackIndex;
         state.nextTrackIndex = currentIndex >= 0 ? getNextTrackIndex(currentIndex) : 0;
-        
       } else {
         btn.classList.remove('active');
         indicator.classList.remove('active');
         text.textContent = 'AUTOPLAY OFF';
       }
-      
+
       updateTrackListUI();
       updateAutoplayStatus();
     }
 
-    document.querySelectorAll('[id^="volumeSlider"]').forEach(slider => {
+    function toggleShuffle() {
+      state.shuffle = !state.shuffle;
+
+      const btn = document.getElementById('shuffleBtn');
+      const indicator = document.getElementById('shuffleIndicator');
+      const text = document.getElementById('shuffleText');
+
+      if (state.shuffle) {
+        btn.classList.add('active');
+        indicator.classList.add('active');
+        text.textContent = 'SHUFFLE ON';
+        state.playedIndices = [];
+      } else {
+        btn.classList.remove('active');
+        indicator.classList.remove('active');
+        text.textContent = 'SHUFFLE OFF';
+      }
+
+      if (state.autoplay) {
+        const currentIndex = state['deck' + state.currentDeck].trackIndex;
+        state.nextTrackIndex = getNextTrackIndex(currentIndex);
+        updateAutoplayStatus();
+      }
+    }
+
+    document.querySelectorAll('[id^="volumeSlider"]').forEach(function(slider) {
       let isDragging = false;
       const deck = slider.id.replace('volumeSlider', '');
-      
-      slider.addEventListener('mousedown', (e) => {
+
+      slider.addEventListener('mousedown', function(e) {
         isDragging = true;
         updateVolumeFromMouse(e, deck, slider);
       });
-      
-      document.addEventListener('mousemove', (e) => {
+
+      document.addEventListener('mousemove', function(e) {
         if (isDragging) updateVolumeFromMouse(e, deck, slider);
       });
-      
-      document.addEventListener('mouseup', () => isDragging = false);
-      
+
+      document.addEventListener('mouseup', function() { isDragging = false; });
+
       function updateVolumeFromMouse(e, deck, slider) {
         const rect = slider.getBoundingClientRect();
         const y = e.clientY - rect.top;
         const percent = 1 - (y / rect.height);
         const volume = Math.max(0, Math.min(1, percent));
-        
-        state[`deck${deck}`].volume = volume;
-        slider.querySelector('.fader-handle').style.bottom = `${volume * 100}%`;
-        document.getElementById(`volumeDisplay${deck}`).textContent = `${Math.round(volume * 100)}%`;
-        
+        state['deck' + deck].volume = volume;
+        slider.querySelector('.fader-handle').style.bottom = (volume * 100) + '%';
+        document.getElementById('volumeDisplay' + deck).textContent = Math.round(volume * 100) + '%';
         updateVolumes();
       }
     });
@@ -1063,25 +1308,23 @@
     const crossfaderTrack = document.getElementById('crossfaderTrack');
     let isDraggingCrossfader = false;
 
-    crossfaderTrack.addEventListener('mousedown', (e) => {
+    crossfaderTrack.addEventListener('mousedown', function(e) {
       isDraggingCrossfader = true;
       updateCrossfader(e);
     });
 
-    document.addEventListener('mousemove', (e) => {
+    document.addEventListener('mousemove', function(e) {
       if (isDraggingCrossfader) updateCrossfader(e);
     });
 
-    document.addEventListener('mouseup', () => isDraggingCrossfader = false);
+    document.addEventListener('mouseup', function() { isDraggingCrossfader = false; });
 
     function updateCrossfader(e) {
       const rect = crossfaderTrack.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const percent = Math.max(0, Math.min(1, x / rect.width));
-      
       state.crossfader = percent;
-      crossfaderHandle.style.left = `calc(${percent * 100}% - 20px)`;
-      
+      crossfaderHandle.style.left = 'calc(' + (percent * 100) + '% - 20px)';
       updateVolumes();
     }
 
@@ -1093,161 +1336,132 @@
 
     async function autoCrossfade() {
       const btn = document.getElementById('autoXfadeBtn');
-      
       if (state.autoCrossfading) return;
       state.autoCrossfading = true;
       btn.classList.add('pulse');
       btn.style.background = 'linear-gradient(145deg, rgba(255,106,0,0.4), rgba(0,160,220,0.4))';
-      
+
       const startValue = state.crossfader;
       const endValue = state.crossfader < 0.5 ? 1 : 0;
       const duration = 3000;
       const startTime = performance.now();
-      
+
       await new Promise(resolve => {
         function animate(currentTime) {
           const elapsed = currentTime - startTime;
           const progress = Math.min(elapsed / duration, 1);
-          const eased = progress < 0.5 
-            ? 2 * progress * progress 
-            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
-          
+          const eased = progress < 0.5 ? 2 * progress * progress : 1 - Math.pow(-2 * progress + 2, 2) / 2;
           state.crossfader = startValue + (endValue - startValue) * eased;
-          crossfaderHandle.style.left = `calc(${state.crossfader * 100}% - 20px)`;
+          crossfaderHandle.style.left = 'calc(' + (state.crossfader * 100) + '% - 20px)';
           updateVolumes();
-          
-          if (progress < 1) {
-            requestAnimationFrame(animate);
-          } else {
-            resolve();
-          }
+          if (progress < 1) requestAnimationFrame(animate);
+          else resolve();
         }
         requestAnimationFrame(animate);
       });
-      
+
       btn.classList.remove('pulse');
       btn.style.background = '';
       state.autoCrossfading = false;
     }
 
-    document.querySelectorAll('.knob[data-eq]').forEach(knob => {
+    document.querySelectorAll('.knob[data-eq]').forEach(function(knob) {
       let isDragging = false;
       let startY = 0;
       let startRotation = 0;
-      
-      knob.addEventListener('mousedown', (e) => {
+
+      knob.addEventListener('mousedown', function(e) {
         isDragging = true;
         startY = e.clientY;
         startRotation = parseInt(knob.dataset.rotation || 0);
         e.preventDefault();
       });
-      
-      document.addEventListener('mousemove', (e) => {
+
+      document.addEventListener('mousemove', function(e) {
         if (!isDragging) return;
-        
         const delta = startY - e.clientY;
         let newRotation = Math.max(-135, Math.min(135, startRotation + delta));
-        
-        knob.style.transform = `rotate(${newRotation}deg)`;
+        knob.style.transform = 'rotate(' + newRotation + 'deg)';
         knob.dataset.rotation = newRotation;
-        
         const dbValue = (newRotation / 135) * 12;
         const display = knob.parentElement.querySelector('.eq-val');
-        display.textContent = `${dbValue >= 0 ? '+' : ''}${dbValue.toFixed(0)}dB`;
-        
+        display.textContent = (dbValue >= 0 ? '+' : '') + dbValue.toFixed(0) + 'dB';
         const deck = knob.dataset.deck;
         const eqType = knob.dataset.eq;
-        
         if (audioContext && eqA[eqType] && eqB[eqType]) {
           const targetEQ = deck === 'A' ? eqA : eqB;
           targetEQ[eqType].gain.value = dbValue;
         }
       });
-      
-      document.addEventListener('mouseup', () => isDragging = false);
+
+      document.addEventListener('mouseup', function() { isDragging = false; });
     });
 
-    document.querySelectorAll('.knob[id^="pitchKnob"]').forEach(knob => {
+    document.querySelectorAll('.knob[id^="pitchKnob"]').forEach(function(knob) {
       let isDragging = false;
       let startY = 0;
       let startRotation = 0;
-      
-      knob.addEventListener('mousedown', (e) => {
+
+      knob.addEventListener('mousedown', function(e) {
         isDragging = true;
         startY = e.clientY;
         startRotation = parseInt(knob.dataset.rotation || 0);
         e.preventDefault();
       });
-      
-      document.addEventListener('mousemove', (e) => {
+
+      document.addEventListener('mousemove', function(e) {
         if (!isDragging) return;
-        
         const delta = startY - e.clientY;
         let newRotation = Math.max(-90, Math.min(90, startRotation + delta));
-        
-        knob.style.transform = `rotate(${newRotation}deg)`;
+        knob.style.transform = 'rotate(' + newRotation + 'deg)';
         knob.dataset.rotation = newRotation;
-        
         const pitchValue = (newRotation / 90) * 16;
         const deck = knob.id.replace('pitchKnob', '');
-        
-        document.getElementById(`pitchDisplay${deck}`).textContent = 
-          `${pitchValue >= 0 ? '+' : ''}${pitchValue.toFixed(1)}%`;
-        
+        document.getElementById('pitchDisplay' + deck).textContent = (pitchValue >= 0 ? '+' : '') + pitchValue.toFixed(1) + '%';
         const audio = deck === 'A' ? audioA : audioB;
         audio.playbackRate = 1 + pitchValue / 100;
       });
-      
-      document.addEventListener('mouseup', () => isDragging = false);
+
+      document.addEventListener('mouseup', function() { isDragging = false; });
     });
 
-    // Handle track end with autoplay - crossfade to opposite deck
-    audioA.addEventListener('ended', () => {
+    audioA.addEventListener('ended', function() {
       state.deckA.playing = false;
       updatePlayButton('A');
       updateVolumes();
-      
       if (state.autoplay && state.tracks.length > 0 && !state.transitioning) {
         performAutoplayTransition('A');
       }
     });
 
-    audioB.addEventListener('ended', () => {
+    audioB.addEventListener('ended', function() {
       state.deckB.playing = false;
       updatePlayButton('B');
       updateVolumes();
-      
       if (state.autoplay && state.tracks.length > 0 && !state.transitioning) {
         performAutoplayTransition('B');
       }
     });
 
-    // Preload warning when approaching end of track
-    audioA.addEventListener('timeupdate', () => {
+    audioA.addEventListener('timeupdate', function() {
       if (!state.autoplay || !audioA.duration || state.currentDeck !== 'A') return;
       const remaining = audioA.duration - audioA.currentTime;
-      // Set next track info when 10 seconds remaining
-      if (remaining < 10 && remaining > 5) {
-        updateAutoplayStatus();
-      }
+      if (remaining < 10 && remaining > 5) updateAutoplayStatus();
     });
 
-    audioB.addEventListener('timeupdate', () => {
+    audioB.addEventListener('timeupdate', function() {
       if (!state.autoplay || !audioB.duration || state.currentDeck !== 'B') return;
       const remaining = audioB.duration - audioB.currentTime;
-      if (remaining < 10 && remaining > 5) {
-        updateAutoplayStatus();
-      }
+      if (remaining < 10 && remaining > 5) updateAutoplayStatus();
     });
 
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', function(e) {
       if (e.key === ' ' && e.target.tagName !== 'INPUT') {
         e.preventDefault();
         togglePlay('A');
       }
     });
 
-    // Initialize
     updateVolumes();
   </script>
 </body>
