@@ -2021,6 +2021,14 @@ class ChatTab {
         const existingImageButton = document.getElementById('image-button');
         const webSearchButton = document.getElementById('web-search');
 
+        // Guard against startup/model-switch races where VISUAL_MODELS has not been loaded yet.
+        if (!OllamaAPI.visualModels && typeof OllamaAPI.loadVisualModels === 'function') {
+            OllamaAPI.loadVisualModels()
+                .then(() => this.updateVisualModelUI(modelName))
+                .catch((error) => console.warn('ChatTab: Failed to load visual models before UI update', error));
+            return;
+        }
+
         // Check if the selected model is a visual model
         const isVisual = OllamaAPI.isVisualModel(modelName);
        //console.log('ChatTab: Model is visual:', isVisual, modelName);
@@ -4141,8 +4149,8 @@ class ChatTab {
 
                                 // IMPORTANT: Check if this is a visual model after loading
                                 await OllamaAPI.loadVisualModels(); // Ensure visual models are loaded
-                               //console.log('ChatTab: Checking if saved model is visual:', settings.model);
-                                this.updateVisualModelUI(settings.model);
+                               //console.log('ChatTab: Checking if saved model is visual:', modelSelector.value || settings.model);
+                                this.updateVisualModelUI(modelSelector.value || settings.model);
 
                                 //  NEW: Load model-specific context after setting the model
                                //console.log('🚀 ChatTab: App startup - loading context for model:', settings.model);
