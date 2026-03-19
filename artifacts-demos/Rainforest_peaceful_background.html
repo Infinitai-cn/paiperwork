@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rainforest Screensaver</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Raleway:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #0a0f0a;
+            font-family: 'Raleway', sans-serif;
+        }
+
+        #background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: #0a0f0a;
+        }
+
+        .procedural-forest {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 15% 85%, rgba(20, 60, 30, 0.9) 0%, transparent 45%),
+                radial-gradient(ellipse at 85% 75%, rgba(25, 70, 35, 0.85) 0%, transparent 40%),
+                radial-gradient(ellipse at 50% 95%, rgba(15, 50, 25, 0.95) 0%, transparent 50%),
+                radial-gradient(ellipse at 25% 60%, rgba(30, 80, 40, 0.7) 0%, transparent 35%),
+                radial-gradient(ellipse at 75% 40%, rgba(35, 90, 45, 0.75) 0%, transparent 38%),
+                radial-gradient(ellipse at 10% 30%, rgba(40, 100, 50, 0.6) 0%, transparent 30%),
+                radial-gradient(ellipse at 90% 20%, rgba(28, 75, 38, 0.65) 0%, transparent 32%),
+                radial-gradient(ellipse at 40% 70%, rgba(22, 65, 32, 0.8) 0%, transparent 42%),
+                radial-gradient(ellipse at 60% 10%, rgba(45, 110, 55, 0.5) 0%, transparent 28%),
+                linear-gradient(180deg, 
+                    #0d1f15 0%, 
+                    #132920 20%,
+                    #1a3528 40%,
+                    #152920 60%,
+                    #0f1a14 100%
+                );
+        }
+
+        .procedural-forest::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
+            opacity: 0.3;
+            mix-blend-mode: overlay;
+        }
+
+        .procedural-forest::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.6;
+            mix-blend-mode: soft-light;
+            background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cdefs%3E%3Cpattern id='trees' patternUnits='userSpaceOnUse' width='200' height='200'%3E%3Cpath d='M30 200 L30 140 M20 145 Q30 120 40 145 M10 155 Q30 100 50 155 M0 165 Q30 80 60 165' stroke='%23234a2a' stroke-width='3' fill='none' opacity='0.35'/%3E%3Cpath d='M100 200 L100 120 M85 130 Q100 95 115 130 M70 145 Q100 70 130 145' stroke='%231d3d22' stroke-width='3' fill='none' opacity='0.4'/%3E%3Cpath d='M170 200 L170 160 M160 165 Q170 145 180 165 M150 175 Q170 130 190 175' stroke='%232a5c32' stroke-width='2.5' fill='none' opacity='0.3'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='200' height='200' fill='url(%23trees)'/%3E%3C/svg%3E");
+        }
+
+        .light-rays {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                linear-gradient(170deg, rgba(255, 255, 200, 0.08) 0%, transparent 30%),
+                linear-gradient(160deg, rgba(200, 255, 180, 0.05) 10%, transparent 40%),
+                linear-gradient(175deg, rgba(180, 230, 150, 0.04) 5%, transparent 25%);
+            pointer-events: none;
+            animation: lightPulse 8s ease-in-out infinite;
+        }
+
+        @keyframes lightPulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .forest-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, 
+                rgba(10, 30, 20, 0.4) 0%,
+                rgba(8, 20, 12, 0.15) 30%,
+                rgba(10, 25, 15, 0.5) 100%
+            );
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        #currentBgImage {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+            filter: brightness(0.55) saturate(1.3);
+            z-index: 1;
+        }
+
+        #currentBgImage.loaded {
+            opacity: 1;
+        }
+
+        #nextBgImage {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            filter: brightness(0.55) saturate(1.3);
+            z-index: 0;
+        }
+
+        #fogLayer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        #rainCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 4;
+            pointer-events: none;
+        }
+
+        #lightningCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        #controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        body:hover #controls {
+            opacity: 1;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            background: rgba(10, 20, 15, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 15px 30px;
+            border-radius: 50px;
+            border: 1px solid rgba(100, 150, 100, 0.3);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .control-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(150, 200, 150, 0.7);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 120px;
+            height: 4px;
+            background: rgba(100, 150, 100, 0.3);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #4a7c4a, #2d5a2d);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid rgba(150, 200, 150, 0.6);
+            transition: transform 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .btn {
+            padding: 12px 28px;
+            font-family: 'Raleway', sans-serif;
+            font-size: 12px;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            background: linear-gradient(135deg, rgba(60, 100, 60, 0.8), rgba(40, 80, 40, 0.9));
+            color: rgba(200, 230, 200, 0.9);
+            border: 1px solid rgba(100, 150, 100, 0.4);
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, rgba(80, 130, 80, 0.9), rgba(60, 110, 60, 1));
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(60, 100, 60, 0.4);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, rgba(100, 160, 100, 0.9), rgba(80, 140, 80, 1));
+            box-shadow: 0 0 20px rgba(100, 160, 100, 0.5);
+        }
+
+        #infoPanel {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            z-index: 100;
+            color: rgba(180, 220, 180, 0.8);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        body:hover #infoPanel {
+            opacity: 1;
+        }
+
+        .title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 32px;
+            font-weight: 300;
+            letter-spacing: 4px;
+            margin-bottom: 5px;
+            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .subtitle {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            opacity: 0.6;
+        }
+
+        #ambientInfo {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            z-index: 100;
+            text-align: right;
+            color: rgba(180, 220, 180, 0.6);
+            font-size: 11px;
+            letter-spacing: 1px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        body:hover #ambientInfo {
+            opacity: 1;
+        }
+
+        .stat {
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            color: rgba(150, 220, 150, 0.9);
+            font-weight: 400;
+        }
+
+        #imageProgress {
+            position: fixed;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        body:hover #imageProgress {
+            opacity: 1;
+        }
+
+        .progress-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .progress-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(100, 150, 100, 0.3);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .progress-dot.active {
+            background: rgba(150, 200, 150, 0.9);
+            box-shadow: 0 0 10px rgba(100, 160, 100, 0.5);
+        }
+
+        .progress-dot:hover {
+            background: rgba(130, 180, 130, 0.7);
+            transform: scale(1.2);
+        }
+
+        .progress-dot.loaded {
+            border: 1px solid rgba(150, 200, 150, 0.5);
+        }
+
+        .progress-bar {
+            width: 60px;
+            height: 3px;
+            background: rgba(100, 150, 100, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, rgba(100, 160, 100, 0.8), rgba(150, 200, 150, 0.9));
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .image-name {
+            font-size: 10px;
+            color: rgba(150, 180, 150, 0.6);
+            letter-spacing: 1px;
+            min-width: 120px;
+            max-width: 150px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #splashScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a1a0f, #152015, #0a1510);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 1s ease;
+        }
+
+        #splashScreen.fade {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .splash-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 72px;
+            font-weight: 300;
+            color: rgba(150, 200, 150, 0.9);
+            letter-spacing: 12px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 60px rgba(100, 160, 100, 0.5);
+        }
+
+        .splash-subtitle {
+            font-size: 14px;
+            color: rgba(150, 180, 150, 0.6);
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            margin-bottom: 30px;
+        }
+
+        .splash-btn {
+            padding: 18px 50px;
+            font-family: 'Raleway', sans-serif;
+            font-size: 14px;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            background: transparent;
+            color: rgba(150, 200, 150, 0.8);
+            border: 1px solid rgba(100, 150, 100, 0.5);
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.4s ease;
+        }
+
+        .splash-btn:hover {
+            background: rgba(60, 100, 60, 0.3);
+            border-color: rgba(100, 150, 100, 0.8);
+            box-shadow: 0 0 40px rgba(60, 100, 60, 0.3);
+        }
+
+        .splash-hint {
+            margin-top: 40px;
+            font-size: 11px;
+            color: rgba(100, 130, 100, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .loading-status {
+            margin-top: 20px;
+            font-size: 11px;
+            color: rgba(100, 130, 100, 0.6);
+            letter-spacing: 1px;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .splash-title { font-size: 42px; letter-spacing: 6px; }
+            .title { font-size: 24px; }
+            .control-row { padding: 10px 15px; gap: 15px; flex-wrap: wrap; justify-content: center; }
+            input[type="range"] { width: 80px; }
+            .image-name { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="splashScreen">
+        <div class="splash-title">RAINFOREST</div>
+        <div class="splash-subtitle">Immersive Nature Experience</div>
+        <button class="splash-btn" id="enterBtn">Enter the Forest</button>
+        <div class="splash-hint">Click to begin - Audio available</div>
+        <div class="loading-status" id="loadingStatus">Preparing images...</div>
+    </div>
+
+    <div id="background">
+        <div class="procedural-forest"></div>
+        <div class="light-rays"></div>
+        <img id="currentBgImage" alt="Rainforest Background">
+        <img id="nextBgImage" alt="Next Rainforest Background" style="display: none;">
+        <div class="forest-overlay"></div>
+    </div>
+    
+    <canvas id="fogLayer"></canvas>
+    <canvas id="rainCanvas"></canvas>
+    <canvas id="lightningCanvas"></canvas>
+
+    <div id="infoPanel">
+        <div class="title">Rainforest Sanctuary</div>
+        <div class="subtitle">Tropical Rain Ambience</div>
+    </div>
+
+    <div id="ambientInfo">
+        <div class="stat">Rainfall: <span class="stat-value" id="rainIntensityDisplay">Moderate</span></div>
+        <div class="stat">Wind: <span class="stat-value" id="windDisplay">Gentle</span></div>
+        <div class="stat">Audio: <span class="stat-value" id="audioStatus">Off</span></div>
+    </div>
+
+    <div id="imageProgress">
+        <div class="progress-dots" id="progressDots"></div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="image-name" id="imageName">Procedural Forest</div>
+    </div>
+
+    <div id="controls">
+        <div class="control-row">
+            <div class="control-group">
+                <span class="control-label">Rain</span>
+                <input type="range" id="rainIntensity" min="50" max="400" value="150">
+            </div>
+            <div class="control-group">
+                <span class="control-label">Wind</span>
+                <input type="range" id="windStrength" min="0" max="100" value="30">
+            </div>
+            <div class="control-group">
+                <span class="control-label">Volume</span>
+                <input type="range" id="volume" min="0" max="100" value="60">
+            </div>
+            <button class="btn" id="soundToggle">Enable Sound</button>
+        </div>
+    </div>
+
+    <script>
+        const splashScreen = document.getElementById('splashScreen');
+        const enterBtn = document.getElementById('enterBtn');
+        const loadingStatus = document.getElementById('loadingStatus');
+        const rainCanvas = document.getElementById('rainCanvas');
+        const fogCanvas = document.getElementById('fogLayer');
+        const lightningCanvas = document.getElementById('lightningCanvas');
+        const rainCtx = rainCanvas.getContext('2d');
+        const fogCtx = fogCanvas.getContext('2d');
+        const lightningCtx = lightningCanvas.getContext('2d');
+        const currentBgImage = document.getElementById('currentBgImage');
+        const nextBgImage = document.getElementById('nextBgImage');
+        const progressDots = document.getElementById('progressDots');
+        const progressFill = document.getElementById('progressFill');
+        const imageName = document.getElementById('imageName');
+
+        // Multiple image sources from different providers
+        const IMAGE_SOURCES = [
+            // Unsplash sources
+            { url: 'https://images.unsplash.com/photo-1518173946687-a4c036bc9036?w=1920&auto=format&fit=crop', name: 'Misty Rainforest', source: 'unsplash' },
+            { url: 'https://images.unsplash.com/photo-1441974231531-c6d7d6cdfd1a?w=1920&auto=format&fit=crop', name: 'Forest Path', source: 'unsplash' },
+            { url: 'https://images.unsplash.com/photo-1542273917363-3b1816f1b4e0?w=1920&auto=format&fit=crop', name: 'Tropical Jungle', source: 'unsplash' },
+            { url: 'https://images.unsplash.com/photo-1502082553046-f0e3d45b36c3?w=1920&auto=format&fit=crop', name: 'Bamboo Forest', source: 'unsplash' },
+            { url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&auto=format&fit=crop', name: 'Deep Woods', source: 'unsplash' },
+            { url: 'https://images.unsplash.com/photo-1476231682828-37e571bc172f?w=1920&auto=format&fit=crop', name: 'Waterfall Paradise', source: 'unsplash' },
+            // Pexels sources
+            { url: 'https://images.pexels.com/photos/1450353/pexels-photo-1450353.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Green Valley', source: 'pexels' },
+            { url: 'https://images.pexels.com/photos/1761279/pexels-photo-1761279.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Forest Light', source: 'pexels' },
+            { url: 'https://images.pexels.com/photos/957024/forest-trees-perspective-bright-957024.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Sunlit Forest', source: 'pexels' },
+            { url: 'https://images.pexels.com/photos/1287145/pexels-photo-1287145.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Tropical Leaves', source: 'pexels' },
+            // Pixabay sources
+            { url: 'https://pixabay.com/get/g88d2f7e7e3d4f3d8c8e3f3e8e7d8c8e3f3e8e7d8c8_640.jpg', name: 'Pixabay Forest', source: 'pixabay' },
+            { url: 'https://cdn.pixabay.com/photo/2016/10/20/18/35/forest-1756282_1280.jpg', name: 'Pine Woods', source: 'pixabay' },
+            { url: 'https://cdn.pixabay.com/photo/2017/02/07/21/39/forest-2047083_1280.jpg', name: 'Autumn Forest', source: 'pixabay' },
+            { url: 'https://cdn.pixabay.com/photo/2018/08/14/13/23/jungle-3605759_1280.jpg', name: 'Jungle River', source: 'pixabay' },
+            // Lorem Flickr (reliable fallback)
+            { url: 'https://loremflickr.com/1920/1080/rainforest,forest', name: 'Random Rainforest', source: 'loremflickr' },
+            { url: 'https://loremflickr.com/1920/1080/jungle,trees', name: 'Random Jungle', source: 'loremflickr' }
+        ];
+
+        const ROTATION_INTERVAL = 5 * 60 * 1000;
+        const loadedImages = [];
+        const imageLoadStatus = [];
+        let currentImageIndex = -1;
+        let loadedCount = 0;
+        let rotationTimer = null;
+        let progressTimer = null;
+        let progressStartTime = 0;
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        let rainIntensity = 150;
+        let windStrength = 30;
+        let volume = 0.6;
+        let soundEnabled = false;
+        let audioContext = null;
+        let rainNoiseNode = null;
+        let gainNode = null;
+        let isRunning = false;
+
+        const raindrops = [];
+        const splashes = [];
+        const fogParticles = [];
+
+        function initImageElements() {
+            progressDots.innerHTML = '';
+            IMAGE_SOURCES.forEach((source, index) => {
+                const dot = document.createElement('div');
+                dot.className = 'progress-dot';
+                dot.dataset.index = index;
+                dot.title = source.name;
+                dot.addEventListener('click', () => {
+                    if (loadedImages[index]) {
+                        switchToImage(index);
+                    }
+                });
+                progressDots.appendChild(dot);
+            });
+        }
+
+        function tryLoadImage(index) {
+            return new Promise((resolve) => {
+                const source = IMAGE_SOURCES[index];
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                const timeout = setTimeout(() => {
+                    imageLoadStatus[index] = false;
+                    resolve(false);
+                }, 8000);
+
+                img.onload = function() {
+                    clearTimeout(timeout);
+                    if (img.naturalWidth > 100 && img.naturalHeight > 100) {
+                        loadedImages[index] = {
+                            src: img.src,
+                            name: source.name
+                        };
+                        imageLoadStatus[index] = true;
+                        resolve(true);
+                    } else {
+                        imageLoadStatus[index] = false;
+                        resolve(false);
+                    }
+                };
+                
+                img.onerror = function() {
+                    clearTimeout(timeout);
+                    imageLoadStatus[index] = false;
+                    resolve(false);
+                };
+                
+                img.src = source.url + '&t=' + Date.now();
+            });
+        }
+
+        async function preloadAllImages() {
+            loadingStatus.textContent = 'Loading rainforest images...';
+            
+            for (let i = 0; i < IMAGE_SOURCES.length; i++) {
+                const dot = progressDots.children[i];
+                loadingStatus.textContent = `Loading image ${i + 1}/${IMAGE_SOURCES.length}...`;
+                
+                const success = await tryLoadImage(i);
+                loadedCount++;
+                
+                if (success && currentImageIndex === -1) {
+                    currentImageIndex = i;
+                    showImage(i);
+                    dot.classList.add('loaded');
+                } else if (success) {
+                    dot.classList.add('loaded');
+                }
+            }
+            
+            loadingStatus.textContent = 'Ready';
+            
+            if (currentImageIndex === -1) {
+                imageName.textContent = 'Procedural Forest';
+            }
+            
+            startRotation();
+        }
+
+        function showImage(index) {
+            if (!loadedImages[index]) return;
+            
+            currentBgImage.src = loadedImages[index].src;
+            currentBgImage.classList.add('loaded');
+            currentImageIndex = index;
+            updateProgressDots();
+            imageName.textContent = loadedImages[index].name;
+        }
+
+        function switchToImage(index) {
+            if (!loadedImages[index] || index === currentImageIndex) return;
+            
+            // Fade out current image
+            currentBgImage.classList.remove('loaded');
+            
+            setTimeout(() => {
+                currentBgImage.src = loadedImages[index].src;
+                currentBgImage.classList.add('loaded');
+                currentImageIndex = index;
+                updateProgressDots();
+                imageName.textContent = loadedImages[index].name;
+                resetProgressBar();
+            }, 500);
+        }
+
+        function updateProgressDots() {
+            const dots = progressDots.querySelectorAll('.progress-dot');
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === currentImageIndex);
+            });
+        }
+
+        function resetProgressBar() {
+            progressStartTime = Date.now();
+        }
+
+        function updateProgressBar() {
+            if (!isRunning) return;
+            
+            const elapsed = Date.now() - progressStartTime;
+            const progress = (elapsed / ROTATION_INTERVAL) * 100;
+            progressFill.style.width = Math.min(progress, 100) + '%';
+        }
+
+        function nextImage() {
+            if (loadedImages.filter(Boolean).length === 0) return;
+            
+            let nextIndex = (currentImageIndex + 1) % IMAGE_SOURCES.length;
+            let attempts = 0;
+            
+            while (!loadedImages[nextIndex] && attempts < IMAGE_SOURCES.length) {
+                nextIndex = (nextIndex + 1) % IMAGE_SOURCES.length;
+                attempts++;
+            }
+            
+            if (loadedImages[nextIndex]) {
+                switchToImage(nextIndex);
+            }
+        }
+
+        function startRotation() {
+            if (rotationTimer) clearInterval(rotationTimer);
+            if (progressTimer) clearInterval(progressTimer);
+            
+            resetProgressBar();
+            rotationTimer = setInterval(nextImage, ROTATION_INTERVAL);
+            progressTimer = setInterval(updateProgressBar, 100);
+        }
+
+        initImageElements();
+
+        function resizeCanvases() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            rainCanvas.width = width;
+            rainCanvas.height = height;
+            fogCanvas.width = width;
+            fogCanvas.height = height;
+            lightningCanvas.width = width;
+            lightningCanvas.height = height;
+        }
+
+        resizeCanvases();
+        window.addEventListener('resize', resizeCanvases);
+
+        class Raindrop {
+            constructor() { this.reset(); }
+
+            reset() {
+                this.x = Math.random() * (width + 200) - 100;
+                this.y = Math.random() * -500 - 50;
+                this.speed = Math.random() * 15 + 10;
+                this.length = Math.random() * 20 + 15;
+                this.thickness = Math.random() * 1.5 + 0.5;
+                this.opacity = Math.random() * 0.4 + 0.2;
+                this.windOffset = 0;
+            }
+
+            update() {
+                const windFactor = windStrength / 30;
+                this.y += this.speed;
+                this.x += windFactor * 2;
+                this.windOffset = windFactor * 3;
+                if (this.y > height) {
+                    if (Math.random() < 0.3) splashes.push(new Splash(this.x, height));
+                    this.reset();
+                }
+            }
+
+            draw() {
+                const gradient = rainCtx.createLinearGradient(this.x, this.y, this.x + this.windOffset, this.y + this.length);
+                gradient.addColorStop(0, `rgba(200, 220, 255, ${this.opacity * 0.3})`);
+                gradient.addColorStop(0.5, `rgba(180, 210, 240, ${this.opacity})`);
+                gradient.addColorStop(1, `rgba(220, 240, 255, ${this.opacity * 0.1})`);
+                rainCtx.beginPath();
+                rainCtx.strokeStyle = gradient;
+                rainCtx.lineWidth = this.thickness;
+                rainCtx.lineCap = 'round';
+                rainCtx.moveTo(this.x, this.y);
+                rainCtx.lineTo(this.x + this.windOffset * 2, this.y + this.length);
+                rainCtx.stroke();
+            }
+        }
+
+        class Splash {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.particles = [];
+                for (let i = 0; i < 3 + Math.floor(Math.random() * 3); i++) {
+                    this.particles.push({ x: this.x, y: this.y, vx: (Math.random() - 0.5) * 4, vy: -Math.random() * 4 - 1, life: 1, size: Math.random() * 2 + 1 });
+                }
+            }
+
+            update() {
+                this.particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.05; });
+                this.particles = this.particles.filter(p => p.life > 0);
+            }
+
+            draw() {
+                this.particles.forEach(p => {
+                    rainCtx.beginPath();
+                    rainCtx.fillStyle = `rgba(180, 210, 240, ${p.life * 0.6})`;
+                    rainCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    rainCtx.fill();
+                });
+            }
+
+            isDead() { return this.particles.length === 0; }
+        }
+
+        class FogParticle {
+            constructor() { this.reset(); }
+
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.size = Math.random() * 300 + 200;
+                this.speed = Math.random() * 0.3 + 0.1;
+                this.opacity = Math.random() * 0.08 + 0.02;
+                this.wobble = Math.random() * Math.PI * 2;
+            }
+
+            update() {
+                this.x += this.speed + Math.sin(this.wobble) * 0.2;
+                this.wobble += 0.01;
+                if (this.x > width + this.size) this.x = -this.size;
+            }
+
+            draw() {
+                const gradient = fogCtx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+                gradient.addColorStop(0, `rgba(200, 220, 200, ${this.opacity})`);
+                gradient.addColorStop(0.5, `rgba(180, 200, 180, ${this.opacity * 0.5})`);
+                gradient.addColorStop(1, 'rgba(180, 200, 180, 0)');
+                fogCtx.fillStyle = gradient;
+                fogCtx.beginPath();
+                fogCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                fogCtx.fill();
+            }
+        }
+
+        function initRain() {
+            raindrops.length = 0;
+            for (let i = 0; i < rainIntensity; i++) raindrops.push(new Raindrop());
+        }
+
+        function initFog() {
+            fogParticles.length = 0;
+            for (let i = 0; i < 15; i++) fogParticles.push(new FogParticle());
+        }
+
+        let lightningFlash = 0;
+
+        function updateLightning() {
+            if (Math.random() < 0.0005 && lightningFlash === 0) lightningFlash = 1;
+            if (lightningFlash > 0) {
+                lightningFlash -= 0.02;
+                if (lightningFlash < 0) lightningFlash = 0;
+            }
+        }
+
+        function drawLightning() {
+            lightningCtx.clearRect(0, 0, width, height);
+            if (lightningFlash > 0) {
+                lightningCtx.fillStyle = `rgba(255, 255, 255, ${lightningFlash * 0.1})`;
+                lightningCtx.fillRect(0, 0, width, height);
+            }
+        }
+
+        function createRainNoise(context) {
+            const bufferSize = 2 * context.sampleRate;
+            const buffer = context.createBuffer(2, bufferSize, context.sampleRate);
+            for (let channel = 0; channel < 2; channel++) {
+                const data = buffer.getChannelData(channel);
+                let lastOut = 0;
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    const brown = (lastOut + (0.02 * white)) / 1.02;
+                    lastOut = brown;
+                    data[i] = (brown * 0.5 + white * 0.1 * 0.3 + white * 0.2) * 0.4;
+                }
+            }
+            const source = context.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true;
+            return source;
+        }
+
+        function startAudio() {
+            if (audioContext) return;
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            gainNode = audioContext.createGain();
+            gainNode.gain.value = volume;
+            rainNoiseNode = createRainNoise(audioContext);
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 4000;
+            filter.Q.value = 0.5;
+            const filter2 = audioContext.createBiquadFilter();
+            filter2.type = 'highpass';
+            filter2.frequency.value = 200;
+            rainNoiseNode.connect(filter);
+            filter.connect(filter2);
+            filter2.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            rainNoiseNode.start();
+        }
+
+        function stopAudio() {
+            if (rainNoiseNode) { rainNoiseNode.stop(); rainNoiseNode = null; }
+            if (audioContext) { audioContext.close(); audioContext = null; }
+            gainNode = null;
+        }
+
+        function updateRainCount() {
+            const targetCount = rainIntensity;
+            while (raindrops.length < targetCount) raindrops.push(new Raindrop());
+            while (raindrops.length > targetCount) raindrops.pop();
+        }
+
+        function getIntensityLabel(value) {
+            if (value < 100) return 'Light';
+            if (value < 200) return 'Moderate';
+            if (value < 300) return 'Heavy';
+            return 'Torrential';
+        }
+
+        function getWindLabel(value) {
+            if (value < 20) return 'Calm';
+            if (value < 50) return 'Gentle';
+            if (value < 80) return 'Breezy';
+            return 'Strong';
+        }
+
+        function animate() {
+            if (!isRunning) return;
+            rainCtx.clearRect(0, 0, width, height);
+            fogCtx.clearRect(0, 0, width, height);
+            fogParticles.forEach(f => { f.update(); f.draw(); });
+            raindrops.forEach(drop => { drop.update(); drop.draw(); });
+            splashes.forEach(s => { s.update(); s.draw(); });
+            for (let i = splashes.length - 1; i >= 0; i--) { if (splashes[i].isDead()) splashes.splice(i, 1); }
+            updateLightning();
+            drawLightning();
+            requestAnimationFrame(animate);
+        }
+
+        enterBtn.addEventListener('click', () => {
+            splashScreen.classList.add('fade');
+            isRunning = true;
+            initRain();
+            initFog();
+            preloadAllImages();
+            animate();
+        });
+
+        document.getElementById('soundToggle').addEventListener('click', function() {
+            if (soundEnabled) {
+                stopAudio();
+                soundEnabled = false;
+                this.textContent = 'Enable Sound';
+                this.classList.remove('active');
+                document.getElementById('audioStatus').textContent = 'Off';
+            } else {
+                startAudio();
+                soundEnabled = true;
+                this.textContent = 'Disable Sound';
+                this.classList.add('active');
+                document.getElementById('audioStatus').textContent = 'Playing';
+            }
+        });
+
+        document.getElementById('rainIntensity').addEventListener('input', function() {
+            rainIntensity = parseInt(this.value);
+            updateRainCount();
+            document.getElementById('rainIntensityDisplay').textContent = getIntensityLabel(rainIntensity);
+        });
+
+        document.getElementById('windStrength').addEventListener('input', function() {
+            windStrength = parseInt(this.value);
+            document.getElementById('windDisplay').textContent = getWindLabel(windStrength);
+        });
+
+        document.getElementById('volume').addEventListener('input', function() {
+            volume = parseInt(this.value) / 100;
+            if (gainNode) gainNode.gain.setTargetAtTime(volume, audioContext.currentTime, 0.1);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') { e.preventDefault(); document.getElementById('soundToggle').click(); }
+        });
+    </script>
+</body>
+</html>
