@@ -1,5 +1,0 @@
-Paiperwork Server
-Built: 2026-03-19 13:23:57
-Commit: 3647a5f
-Platform: linux
-Go Version: go version go1.22.3 darwin/arm64
