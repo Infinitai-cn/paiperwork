@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MP3 Mixer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0d0d0d;
+      --bg-panel: #1a1a1a;
+      --bg-knob: #252525;
+      --accent-orange: #ff6a00;
+      --accent-amber: #ffaa00;
+      --accent-blue: #00a0dc;
+      --accent-green: #00cc66;
+      --accent-red: #ff3333;
+      --text-bright: #f0f0f0;
+      --text-dim: #707070;
+      --border-glow: rgba(255, 106, 0, 0.4);
+      --surface-metal: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background: var(--bg-dark);
+      color: var(--text-bright);
+      overflow-x: hidden;
+    }
+
+    .font-display { font-family: 'Orbitron', sans-serif; }
+
+    .bg-noise {
+      background-image: 
+        radial-gradient(ellipse at 30% 20%, rgba(255, 106, 0, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 80%, rgba(255, 170, 0, 0.04) 0%, transparent 50%),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    }
+
+    .glow-border {
+      box-shadow: 
+        0 0 0 1px rgba(255, 106, 0, 0.3),
+        0 0 30px rgba(255, 106, 0, 0.1),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+      border: 1px solid #333;
+      background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
+    }
+
+    .knob {
+      background: linear-gradient(145deg, #2d2d2d, #1a1a1a);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.2s ease;
+      box-shadow: 
+        0 2px 8px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+
+    .knob:hover {
+      transform: scale(1.05);
+      box-shadow: 
+        0 2px 12px rgba(0,0,0,0.8),
+        0 0 20px rgba(255, 106, 0, 0.2);
+    }
+
+    .knob::after {
+      content: '';
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 3px;
+      height: 10px;
+      background: var(--accent-orange);
+      border-radius: 2px;
+      box-shadow: 0 0 6px var(--accent-orange);
+    }
+
+    .fader-track {
+      background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+      border-radius: 4px;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.9);
+      border: 1px solid #333;
+    }
+
+    .fader-handle {
+      background: linear-gradient(180deg, #404040, #2a2a2a);
+      border-radius: 4px;
+      cursor: grab;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.6), 0 0 1px var(--accent-orange);
+      border: 1px solid #555;
+    }
+
+    .fader-handle:active { cursor: grabbing; }
+
+    .fader-handle::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-orange), transparent);
+    }
+
+    .vu-meter {
+      background: linear-gradient(180deg, 
+        #00cc66 0%, 
+        #00cc66 55%, 
+        #ffaa00 70%, 
+        #ff6600 85%, 
+        #ff3333 100%
+      );
+      box-shadow: 0 0 10px rgba(0, 204, 102, 0.3);
+    }
+
+    .track-list {
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent-orange) #1a1a1a;
+    }
+
+    .track-list::-webkit-scrollbar { width: 6px; }
+    .track-list::-webkit-scrollbar-track { background: #1a1a1a; }
+    .track-list::-webkit-scrollbar-thumb { 
+      background: var(--accent-orange); 
+      border-radius: 3px; 
+    }
+
+    .track-item {
+      transition: all 0.2s ease;
+      border-left: 3px solid transparent;
+    }
+
+    .track-item:hover {
+      background: rgba(255, 106, 0, 0.1);
+      border-left-color: var(--accent-orange);
+      padding-left: 1rem;
+    }
+
+    .track-item.active {
+      background: rgba(255, 106, 0, 0.15);
+      border-left-color: var(--accent-amber);
+    }
+
+    .deck-a .accent { color: var(--accent-orange); }
+    .deck-b .accent { color: var(--accent-blue); }
+
+    .btn-control {
+      background: linear-gradient(145deg, #252525, #1a1a1a);
+      border: 1px solid #333;
+      transition: all 0.15s ease;
+    }
+
+    .btn-control:hover {
+      background: linear-gradient(145deg, #303030, #252525);
+      border-color: var(--accent-orange);
+    }
+
+    .btn-control:active { transform: scale(0.95); }
+
+    .btn-play {
+      background: linear-gradient(145deg, #ff6a00, #cc5500);
+      box-shadow: 0 0 20px rgba(255, 106, 0, 0.4);
+      border-color: var(--accent-amber);
+    }
+
+    .btn-play.playing {
+      background: linear-gradient(145deg, #00cc66, #009944);
+      box-shadow: 0 0 20px rgba(0, 204, 102, 0.4);
+    }
+
+    .eq-band {
+      background: var(--bg-knob);
+      border-radius: 8px;
+      border: 1px solid #333;
+    }
+
+    .crossfader-track {
+      background: linear-gradient(90deg, var(--accent-orange), #252525 50%, var(--accent-blue));
+      height: 4px;
+      border-radius: 2px;
+    }
+
+    .led-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+    }
+
+    .led-orange { 
+      background: var(--accent-orange); 
+      box-shadow: 0 0 12px var(--accent-orange);
+    }
+    .led-orange.dim {
+      background: #333;
+      box-shadow: none;
+    }
+    .led-blue { 
+      background: var(--accent-blue); 
+      box-shadow: 0 0 12px var(--accent-blue);
+    }
+    .led-blue.dim {
+      background: #333;
+      box-shadow: none;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .pulse { animation: pulse 1s ease-in-out infinite; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .animate-in { animation: slideIn 0.3s ease forwards; }
+
+    .waveform {
+      background: linear-gradient(180deg, rgba(255, 106, 0, 0.3), transparent);
+    }
+
+    .metal-surface {
+      background: linear-gradient(180deg, #282828 0%, #1a1a1a 50%, #222222 100%);
+      border-top: 1px solid #3a3a3a;
+      border-bottom: 1px solid #111;
+    }
+
+    .brand-logo {
+      text-shadow: 0 0 20px rgba(255, 106, 0, 0.5);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-noise min-h-screen">
+  <div class="container mx-auto px-4 py-6 max-w-7xl">
+    
+    <header class="text-center mb-6">
+      <h1 class="font-display text-4xl md:text-5xl font-black tracking-wider brand-logo">
+        <span class="text-orange-500">MP3</span> <span class="text-white"></span> <span class="text-gray-400">MIXER</span>
+      </h1>
+      <p class="text-gray-500 mt-1 text-xs tracking-widest">PROFESSIONAL DUAL DECK MIXING CONSOLE</p>
+    </header>
+
+    <div class="mb-6 flex justify-center">
+      <label class="btn-control px-6 py-3 rounded-lg cursor-pointer flex items-center gap-3 hover:border-orange-500 transition-all">
+        <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+        </svg>
+        <span class="font-display text-sm tracking-wider text-gray-300">LOAD MUSIC FOLDER</span>
+        <input type="file" id="folderInput" webkitdirectory directory multiple accept="audio/mp3,audio/mpeg" class="hidden">
+      </label>
+    </div>
+
+    <div class="grid lg:grid-cols-[1fr_280px_1fr] gap-4">
+      
+      <div class="deck-a glow-border rounded-xl p-4 metal-surface">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="led-indicator led-orange dim" id="ledA"></div>
+          <span class="font-display font-bold text-orange-500 tracking-widest text-sm">DECK A</span>
+          <div class="flex-1 h-px bg-gradient-to-r from-orange-500/50 to-transparent"></div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-4">
+            <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
+              <div class="text-xs text-gray-500 mb-1">TRACK</div>
+              <div id="trackNameA" class="text-orange-400 text-sm truncate font-display">No Track Loaded</div>
+            </div>
+            
+            <div class="flex gap-2 justify-center">
+              <button onclick="togglePlay('A')" id="playBtnA" class="btn-control btn-play w-14 h-14 rounded-full flex items-center justify-center" aria-label="Play Deck A">
+                <svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </button>
+              <button onclick="cueTrack('A')" class="btn-control w-14 h-14 rounded-full flex items-center justify-center border-orange-500/50" aria-label="Cue Deck A">
+                <span class="font-display text-xs font-bold text-orange-400">CUE</span>
+              </button>
+            </div>
+
+            <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
+              <div class="text-xs text-gray-500 mb-2 text-center">VOLUME</div>
+              <div class="flex justify-center gap-3">
+                <div class="h-32 w-6 fader-track relative rounded overflow-hidden">
+                  <div id="vuMeterA" class="absolute bottom-0 left-0 right-0 vu-meter transition-all duration-100" style="height: 0%"></div>
+                </div>
+                <div class="h-32 w-8 fader-track relative rounded cursor-pointer" id="volumeSliderA">
+                  <div class="fader-handle w-full h-8 absolute left-0" style="bottom: 75%"></div>
+                </div>
+              </div>
+              <div id="volumeDisplayA" class="text-center text-orange-400 font-display mt-2 text-sm">75%</div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="text-xs text-gray-500 mb-1 text-center tracking-wider">EQUALIZER</div>
+            <div class="flex justify-center gap-3">
+              <div class="eq-band p-2 text-center">
+                <div class="text-xs text-orange-400 mb-2">HI</div>
+                <div class="knob w-12 h-12 relative mx-auto" data-eq="high" data-deck="A" style="transform: rotate(0deg)"></div>
+                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
+              </div>
+              <div class="eq-band p-2 text-center">
+                <div class="text-xs text-orange-400 mb-2">MID</div>
+                <div class="knob w-12 h-12 relative mx-auto" data-eq="mid" data-deck="A" style="transform: rotate(0deg)"></div>
+                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
+              </div>
+              <div class="eq-band p-2 text-center">
+                <div class="text-xs text-orange-400 mb-2">LO</div>
+                <div class="knob w-12 h-12 relative mx-auto" data-eq="low" data-deck="A" style="transform: rotate(0deg)"></div>
+                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
+              </div>
+            </div>
+
+            <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
+              <div class="text-xs text-gray-500 mb-2 text-center">PITCH</div>
+              <div class="flex justify-center">
+                <div class="knob w-16 h-16 relative" data-deck="A" id="pitchKnobA" style="transform: rotate(0deg)"></div>
+              </div>
+              <div id="pitchDisplayA" class="text-center text-orange-400 font-display mt-2 text-sm">0.0%</div>
+            </div>
+
+            <div class="waveform h-16 rounded-lg overflow-hidden bg-black border border-gray-800">
+              <canvas id="waveformA" class="w-full h-full"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="glow-border rounded-xl p-4 metal-surface">
+          <div class="text-xs text-gray-500 mb-3 text-center font-display tracking-widest">CROSSFADER</div>
+          
+          <div class="flex justify-between text-xs mb-2 px-1">
+            <span class="text-orange-400 font-display">A: <span id="crossfadeDisplayA">50%</span></span>
+            <span class="text-blue-400 font-display">B: <span id="crossfadeDisplayB">50%</span></span>
+          </div>
+          
+          <div class="relative">
+            <div class="crossfader-track mb-4 relative rounded-full">
+              <div id="crossfaderTrack" class="h-5 bg-black rounded-full relative cursor-pointer border border-gray-700">
+                <div id="crossfaderHandle" class="absolute top-1/2 -translate-y-1/2 w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full shadow-lg cursor-grab border border-gray-500" style="left: calc(50% - 20px)">
+                  <div class="absolute inset-2 rounded-full bg-gradient-to-br from-gray-200 to-gray-400"></div>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-orange-500 font-display">A</span>
+              <span class="text-gray-400 text-[10px]">CENTER</span>
+              <span class="text-blue-400 font-display">B</span>
+            </div>
+          </div>
+          
+          <div class="mt-4 space-y-2">
+            <button onclick="autoCrossfade()" id="autoXfadeBtn" class="btn-control w-full py-2 rounded text-sm font-display tracking-wider hover:bg-orange-900/30 transition-all border-orange-500/30">
+              AUTO CROSSFADE
+            </button>
+            <div class="flex gap-2">
+              <button onclick="snapCrossfade('A')" class="btn-control flex-1 py-2 rounded text-xs text-orange-400 font-display">SNAP A</button>
+              <button onclick="snapCrossfade('B')" class="btn-control flex-1 py-2 rounded text-xs text-blue-400 font-display">SNAP B</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="glow-border rounded-xl p-4 metal-surface max-h-80">
+          <div class="text-xs text-gray-500 mb-3 text-center font-display tracking-widest">TRACK LIBRARY</div>
+          <div id="trackList" class="track-list h-52 overflow-y-auto rounded-lg bg-black/50 border border-gray-800">
+            <div class="p-4 text-center text-gray-600 text-sm">
+              <svg class="w-8 h-8 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+              </svg>
+              Load folder to view tracks
+            </div>
+          </div>
+          <div id="trackCount" class="text-xs text-gray-500 mt-2 text-center">0 tracks loaded</div>
+        </div>
+      </div>
+
+      <div class="deck-b glow-border rounded-xl p-4 metal-surface">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="led-indicator led-blue dim" id="ledB"></div>
+          <span class="font-display font-bold text-blue-400 tracking-widest text-sm">DECK B</span>
+          <div class="flex-1 h-px bg-gradient-to-r from-blue-400/50 to-transparent"></div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-4">
+            <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
+              <div class="text-xs text-gray-500 mb-1">TRACK</div>
+              <div id="trackNameB" class="text-blue-400 text-sm truncate font-display">No Track Loaded</div>
+            </div>
+            
+            <div class="flex gap-2 justify-center">
+              <button onclick="togglePlay('B')" id="playBtnB" class="btn-control btn-play w-14 h-14 rounded-full flex items-center justify-center" aria-label="Play Deck B">
+                <svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+              </button>
+              <button onclick="cueTrack('B')" class="btn-control w-14 h-14 rounded-full flex items-center justify-center border-blue-400/50" aria-label="Cue Deck B">
+                <span class="font-display text-xs font-bold text-blue-400">CUE</span>
+              </button>
+            </div>
+
+            <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
+              <div class="text-xs text-gray-500 mb-2 text-center">VOLUME</div>
+              <div class="flex justify-center gap-3">
+                <div class="h-32 w-6 fader-track relative rounded overflow-hidden">
+                  <div id="vuMeterB" class="absolute bottom-0 left-0 right-0 vu-meter transition-all duration-100" style="height: 0%"></div>
+                </div>
+                <div class="h-32 w-8 fader-track relative rounded cursor-pointer" id="volumeSliderB">
+                  <div class="fader-handle w-full h-8 absolute left-0" style="bottom: 75%"></div>
+                </div>
+              </div>
+              <div id="volumeDisplayB" class="text-center text-blue-400 font-display mt-2 text-sm">75%</div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="text-xs text-gray-500 mb-1 text-center tracking-wider">EQUALIZER</div>
+            <div class="flex justify-center gap-3">
+              <div class="eq-band p-2 text-center">
+                <div class="text-xs text-blue-400 mb-2">HI</div>
+                <div class="knob w-12 h-12 relative mx-auto" data-eq="high" data-deck="B" style="transform: rotate(0deg)"></div>
+                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
+              </div>
+              <div class="eq-band p-2 text-center">
+                <div class="text-xs text-blue-400 mb-2">MID</div>
+                <div class="knob w-12 h-12 relative mx-auto" data-eq="mid" data-deck="B" style="transform: rotate(0deg)"></div>
+                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
+              </div>
+              <div class="eq-band p-2 text-center">
+                <div class="text-xs text-blue-400 mb-2">LO</div>
+                <div class="knob w-12 h-12 relative mx-auto" data-eq="low" data-deck="B" style="transform: rotate(0deg)"></div>
+                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
+              </div>
+            </div>
+
+            <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
+              <div class="text-xs text-gray-500 mb-2 text-center">PITCH</div>
+              <div class="flex justify-center">
+                <div class="knob w-16 h-16 relative" data-deck="B" id="pitchKnobB" style="transform: rotate(0deg)"></div>
+              </div>
+              <div id="pitchDisplayB" class="text-center text-blue-400 font-display mt-2 text-sm">0.0%</div>
+            </div>
+
+            <div class="waveform h-16 rounded-lg overflow-hidden bg-black border border-gray-800">
+              <canvas id="waveformB" class="w-full h-full"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 text-center text-gray-600 text-xs">
+      <p>Crossfader at center: both decks audible. Move left for A, right for B. MP3 Professional Audio.</p>
+    </div>
+  </div>
+
+  <audio id="audioA" preload="auto"></audio>
+  <audio id="audioB" preload="auto"></audio>
+
+  <script>
+    const audioA = document.getElementById('audioA');
+    const audioB = document.getElementById('audioB');
+    
+    let audioContext = null;
+    let analyserA = null;
+    let analyserB = null;
+    let gainNodeA = null;
+    let gainNodeB = null;
+    let eqA = { high: null, mid: null, low: null };
+    let eqB = { high: null, mid: null, low: null };
+    
+    const state = {
+      tracks: [],
+      deckA: { loaded: false, playing: false, volume: 0.75, pitch: 0 },
+      deckB: { loaded: false, playing: false, volume: 0.75, pitch: 0 },
+      crossfader: 0.5,
+      autoCrossfading: false
+    };
+
+    function initAudioContext() {
+      if (audioContext) return;
+      
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      const sourceA = audioContext.createMediaElementSource(audioA);
+      const sourceB = audioContext.createMediaElementSource(audioB);
+      
+      gainNodeA = audioContext.createGain();
+      gainNodeB = audioContext.createGain();
+      
+      analyserA = audioContext.createAnalyser();
+      analyserB = audioContext.createAnalyser();
+      analyserA.fftSize = 256;
+      analyserB.fftSize = 256;
+      
+      eqA.high = audioContext.createBiquadFilter();
+      eqA.mid = audioContext.createBiquadFilter();
+      eqA.low = audioContext.createBiquadFilter();
+      eqA.high.type = 'highshelf';
+      eqA.mid.type = 'peaking';
+      eqA.low.type = 'lowshelf';
+      eqA.high.frequency.value = 3200;
+      eqA.mid.frequency.value = 1000;
+      eqA.mid.Q.value = 0.5;
+      eqA.low.frequency.value = 320;
+      
+      eqB.high = audioContext.createBiquadFilter();
+      eqB.mid = audioContext.createBiquadFilter();
+      eqB.low = audioContext.createBiquadFilter();
+      eqB.high.type = 'highshelf';
+      eqB.mid.type = 'peaking';
+      eqB.low.type = 'lowshelf';
+      eqB.high.frequency.value = 3200;
+      eqB.mid.frequency.value = 1000;
+      eqB.mid.Q.value = 0.5;
+      eqB.low.frequency.value = 320;
+      
+      sourceA.connect(eqA.low);
+      eqA.low.connect(eqA.mid);
+      eqA.mid.connect(eqA.high);
+      eqA.high.connect(gainNodeA);
+      gainNodeA.connect(analyserA);
+      analyserA.connect(audioContext.destination);
+      
+      sourceB.connect(eqB.low);
+      eqB.low.connect(eqB.mid);
+      eqB.mid.connect(eqB.high);
+      eqB.high.connect(gainNodeB);
+      gainNodeB.connect(analyserB);
+      analyserB.connect(audioContext.destination);
+      
+      updateVolumes();
+    }
+
+    // Fixed crossfade calculation - standard DJ crossfader behavior
+    // At center (0.5): both decks at equal volume (50% each)
+    // At left (0): Deck A at 100%, Deck B at 0%
+    // At right (1): Deck A at 0%, Deck B at 100%
+    function updateVolumes() {
+      if (!gainNodeA || !gainNodeB) return;
+      
+      const cf = state.crossfader;
+      
+      // Linear crossfade: each deck's volume is directly proportional to position
+      // Deck A: 100% at left (cf=0), 0% at right (cf=1)
+      // Deck B: 0% at left (cf=0), 100% at right (cf=1)
+      // Center (cf=0.5): both at 50%
+      const crossfadeA = 1 - cf;
+      const crossfadeB = cf;
+      
+      // Final volume = deck volume * crossfade multiplier
+      const finalVolA = state.deckA.volume * crossfadeA;
+      const finalVolB = state.deckB.volume * crossfadeB;
+      
+      gainNodeA.gain.value = Math.max(0, Math.min(1, finalVolA));
+      gainNodeB.gain.value = Math.max(0, Math.min(1, finalVolB));
+      
+      // Update crossfade percentage displays
+      document.getElementById('crossfadeDisplayA').textContent = Math.round(crossfadeA * 100) + '%';
+      document.getElementById('crossfadeDisplayB').textContent = Math.round(crossfadeB * 100) + '%';
+      
+      // Update LED indicators based on crossfade position
+      const ledA = document.getElementById('ledA');
+      const ledB = document.getElementById('ledB');
+      
+      // LED A: bright when crossfade favors A (left side)
+      if (crossfadeA > 0.1 && state.deckA.playing) {
+        ledA.classList.remove('dim');
+      } else {
+        ledA.classList.add('dim');
+      }
+      
+      // LED B: bright when crossfade favors B (right side)
+      if (crossfadeB > 0.1 && state.deckB.playing) {
+        ledB.classList.remove('dim');
+      } else {
+        ledB.classList.add('dim');
+      }
+    }
+
+    function updateVUMeters() {
+      if (!analyserA || !analyserB) return;
+      
+      const dataArrayA = new Uint8Array(analyserA.frequencyBinCount);
+      const dataArrayB = new Uint8Array(analyserB.frequencyBinCount);
+      
+      analyserA.getByteFrequencyData(dataArrayA);
+      analyserB.getByteFrequencyData(dataArrayB);
+      
+      let sumA = 0, sumB = 0;
+      for (let i = 0; i < dataArrayA.length; i++) {
+        sumA += dataArrayA[i];
+        sumB += dataArrayB[i];
+      }
+      
+      const avgA = sumA / dataArrayA.length;
+      const avgB = sumB / dataArrayB.length;
+      
+      const vuA = document.getElementById('vuMeterA');
+      const vuB = document.getElementById('vuMeterB');
+      
+      // VU meters show the actual signal level after crossfade
+      const cf = state.crossfader;
+      const crossfadeA = 1 - cf;
+      const crossfadeB = cf;
+      
+      if (vuA) vuA.style.height = Math.min(100, (avgA / 255) * 100 * state.deckA.volume) + '%';
+      if (vuB) vuB.style.height = Math.min(100, (avgB / 255) * 100 * state.deckB.volume) + '%';
+      
+      requestAnimationFrame(updateVUMeters);
+    }
+
+    document.getElementById('folderInput').addEventListener('change', async function(e) {
+      const files = Array.from(e.target.files).filter(f => f.type === 'audio/mpeg' || f.name.toLowerCase().endsWith('.mp3'));
+      state.tracks = [];
+      
+      const trackList = document.getElementById('trackList');
+      trackList.innerHTML = '';
+      
+      files.forEach((file) => {
+        const pathParts = file.webkitRelativePath.split('/');
+        const fileName = pathParts[pathParts.length - 1];
+        state.tracks.push({ file, name: fileName, path: file.webkitRelativePath });
+      });
+      
+      state.tracks.sort((a, b) => a.name.localeCompare(b.name));
+      
+      state.tracks.forEach((track, index) => {
+        const item = document.createElement('div');
+        item.className = 'track-item p-2 cursor-pointer text-sm animate-in';
+        item.style.animationDelay = `${index * 30}ms`;
+        item.innerHTML = `
+          <div class="text-orange-400 truncate">${track.name.replace('.mp3', '')}</div>
+          <div class="text-xs text-gray-600 truncate">${track.path}</div>
+        `;
+        item.addEventListener('click', () => showDeckSelector(track, item));
+        item.draggable = true;
+        trackList.appendChild(item);
+      });
+      
+      document.getElementById('trackCount').textContent = `${state.tracks.length} tracks loaded`;
+    });
+
+    let selectedTrackItem = null;
+    
+    function showDeckSelector(track, item) {
+      if (selectedTrackItem) selectedTrackItem.classList.remove('active');
+      selectedTrackItem = item;
+      item.classList.add('active');
+      
+      const existing = document.querySelector('.deck-selector');
+      if (existing) existing.remove();
+      
+      const selector = document.createElement('div');
+      selector.className = 'deck-selector fixed bg-gray-900/95 border border-orange-500/30 rounded-lg p-3 shadow-xl z-50';
+      selector.style.left = '50%';
+      selector.style.top = '50%';
+      selector.style.transform = 'translate(-50%, -50%)';
+      selector.innerHTML = `
+        <div class="text-xs text-gray-400 mb-2 text-center">Load to:</div>
+        <div class="flex gap-2">
+          <button class="btn-control px-4 py-2 rounded text-orange-400 font-display text-sm border-orange-500/50" onclick="loadToDeck('A', ${state.tracks.indexOf(track)})">DECK A</button>
+          <button class="btn-control px-4 py-2 rounded text-blue-400 font-display text-sm border-blue-400/50" onclick="loadToDeck('B', ${state.tracks.indexOf(track)})">DECK B</button>
+        </div>
+      `;
+      document.body.appendChild(selector);
+      
+      setTimeout(() => {
+        document.addEventListener('click', function close(e) {
+          if (!selector.contains(e.target)) {
+            selector.remove();
+            document.removeEventListener('click', close);
+          }
+        });
+      }, 10);
+    }
+
+    function loadToDeck(deck, trackIndex) {
+      const track = state.tracks[trackIndex];
+      const audio = deck === 'A' ? audioA : audioB;
+      const url = URL.createObjectURL(track.file);
+      
+      audio.src = url;
+      
+      document.getElementById(`trackName${deck}`).textContent = track.name.replace('.mp3', '');
+      state[`deck${deck}`].loaded = true;
+      state[`deck${deck}`].playing = false;
+      
+      document.querySelector('.deck-selector')?.remove();
+      
+      updatePlayButton(deck);
+      drawWaveform(deck, track.file);
+      
+      initAudioContext();
+    }
+
+    function drawWaveform(deck, file) {
+      const canvas = document.getElementById(`waveform${deck}`);
+      const ctx = canvas.getContext('2d');
+      
+      canvas.width = canvas.offsetWidth * 2;
+      canvas.height = canvas.offsetHeight * 2;
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      if (deck === 'A') {
+        gradient.addColorStop(0, 'rgba(255, 106, 0, 0.8)');
+        gradient.addColorStop(1, 'rgba(255, 106, 0, 0.2)');
+      } else {
+        gradient.addColorStop(0, 'rgba(0, 160, 220, 0.8)');
+        gradient.addColorStop(1, 'rgba(0, 160, 220, 0.2)');
+      }
+      
+      const fileReader = new FileReader();
+      fileReader.onload = function() {
+        const arrayBuffer = this.result;
+        const audioContextWave = new (window.AudioContext || window.webkitAudioContext)();
+        
+        audioContextWave.decodeAudioData(arrayBuffer, function(buffer) {
+          const data = buffer.getChannelData(0);
+          const step = Math.ceil(data.length / canvas.width);
+          const amp = canvas.height / 2;
+          
+          ctx.fillStyle = gradient;
+          
+          for (let i = 0; i < canvas.width; i++) {
+            let min = 1.0, max = -1.0;
+            for (let j = 0; j < step; j++) {
+              const idx = i * step + j;
+              if (idx < data.length) {
+                const datum = data[idx];
+                if (datum < min) min = datum;
+                if (datum > max) max = datum;
+              }
+            }
+            
+            const height = Math.max(2, (max - min) * amp);
+            ctx.fillRect(i, amp - height / 2, 1, height);
+          }
+        });
+      };
+      fileReader.readAsArrayBuffer(file);
+    }
+
+    function togglePlay(deck) {
+      initAudioContext();
+      const audio = deck === 'A' ? audioA : audioB;
+      const deckState = state[`deck${deck}`];
+      
+      if (!deckState.loaded) {
+        alert(`Please load a track to Deck ${deck} first`);
+        return;
+      }
+      
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+      
+      if (deckState.playing) {
+        audio.pause();
+        deckState.playing = false;
+      } else {
+        audio.play();
+        deckState.playing = true;
+        updateVUMeters();
+      }
+      
+      updatePlayButton(deck);
+      updateVolumes();
+    }
+
+    function updatePlayButton(deck) {
+      const btn = document.getElementById(`playBtn${deck}`);
+      const isPlaying = state[`deck${deck}`].playing;
+      
+      if (isPlaying) {
+        btn.classList.add('playing');
+        btn.innerHTML = `<svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`;
+      } else {
+        btn.classList.remove('playing');
+        btn.innerHTML = `<svg class="w-6 h-6 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+      }
+    }
+
+    function cueTrack(deck) {
+      const audio = deck === 'A' ? audioA : audioB;
+      audio.currentTime = 0;
+      if (!state[`deck${deck}`].playing) {
+        togglePlay(deck);
+        setTimeout(() => togglePlay(deck), 100);
+      }
+    }
+
+    document.querySelectorAll('[id^="volumeSlider"]').forEach(slider => {
+      let isDragging = false;
+      const deck = slider.id.replace('volumeSlider', '');
+      
+      slider.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        updateVolumeFromMouse(e, deck, slider);
+      });
+      
+      document.addEventListener('mousemove', (e) => {
+        if (isDragging) updateVolumeFromMouse(e, deck, slider);
+      });
+      
+      document.addEventListener('mouseup', () => isDragging = false);
+      
+      function updateVolumeFromMouse(e, deck, slider) {
+        const rect = slider.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const percent = 1 - (y / rect.height);
+        const volume = Math.max(0, Math.min(1, percent));
+        
+        state[`deck${deck}`].volume = volume;
+        slider.querySelector('.fader-handle').style.bottom = `${volume * 100}%`;
+        document.getElementById(`volumeDisplay${deck}`).textContent = `${Math.round(volume * 100)}%`;
+        
+        updateVolumes();
+      }
+    });
+
+    const crossfaderHandle = document.getElementById('crossfaderHandle');
+    const crossfaderTrack = document.getElementById('crossfaderTrack');
+    let isDraggingCrossfader = false;
+
+    crossfaderTrack.addEventListener('mousedown', (e) => {
+      isDraggingCrossfader = true;
+      updateCrossfader(e);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDraggingCrossfader) updateCrossfader(e);
+    });
+
+    document.addEventListener('mouseup', () => isDraggingCrossfader = false);
+
+    function updateCrossfader(e) {
+      const rect = crossfaderTrack.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percent = Math.max(0, Math.min(1, x / rect.width));
+      
+      state.crossfader = percent;
+      crossfaderHandle.style.left = `calc(${percent * 100}% - 20px)`;
+      
+      updateVolumes();
+    }
+
+    function snapCrossfade(deck) {
+      state.crossfader = deck === 'A' ? 0 : 1;
+      crossfaderHandle.style.left = deck === 'A' ? 'calc(0% - 20px)' : 'calc(100% - 20px)';
+      updateVolumes();
+    }
+
+    async function autoCrossfade() {
+      const btn = document.getElementById('autoXfadeBtn');
+      
+      if (state.autoCrossfading) return;
+      state.autoCrossfading = true;
+      btn.classList.add('pulse');
+      btn.style.background = 'linear-gradient(145deg, rgba(255,106,0,0.4), rgba(0,160,220,0.4))';
+      
+      const startValue = state.crossfader;
+      const endValue = state.crossfader < 0.5 ? 1 : 0;
+      const duration = 3000;
+      const startTime = performance.now();
+      
+      await new Promise(resolve => {
+        function animate(currentTime) {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = progress < 0.5 
+            ? 2 * progress * progress 
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+          
+          state.crossfader = startValue + (endValue - startValue) * eased;
+          crossfaderHandle.style.left = `calc(${state.crossfader * 100}% - 20px)`;
+          updateVolumes();
+          
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            resolve();
+          }
+        }
+        requestAnimationFrame(animate);
+      });
+      
+      btn.classList.remove('pulse');
+      btn.style.background = '';
+      state.autoCrossfading = false;
+    }
+
+    document.querySelectorAll('.knob[data-eq]').forEach(knob => {
+      let isDragging = false;
+      let startY = 0;
+      let startRotation = 0;
+      
+      knob.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startY = e.clientY;
+        startRotation = parseInt(knob.dataset.rotation || 0);
+        e.preventDefault();
+      });
+      
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        const delta = startY - e.clientY;
+        let newRotation = Math.max(-135, Math.min(135, startRotation + delta));
+        
+        knob.style.transform = `rotate(${newRotation}deg)`;
+        knob.dataset.rotation = newRotation;
+        
+        const dbValue = (newRotation / 135) * 12;
+        const display = knob.parentElement.querySelector('.eq-val');
+        display.textContent = `${dbValue >= 0 ? '+' : ''}${dbValue.toFixed(0)}dB`;
+        
+        const deck = knob.dataset.deck;
+        const eqType = knob.dataset.eq;
+        
+        if (audioContext && eqA[eqType] && eqB[eqType]) {
+          const targetEQ = deck === 'A' ? eqA : eqB;
+          targetEQ[eqType].gain.value = dbValue;
+        }
+      });
+      
+      document.addEventListener('mouseup', () => isDragging = false);
+    });
+
+    document.querySelectorAll('.knob[id^="pitchKnob"]').forEach(knob => {
+      let isDragging = false;
+      let startY = 0;
+      let startRotation = 0;
+      
+      knob.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        startY = e.clientY;
+        startRotation = parseInt(knob.dataset.rotation || 0);
+        e.preventDefault();
+      });
+      
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        const delta = startY - e.clientY;
+        let newRotation = Math.max(-90, Math.min(90, startRotation + delta));
+        
+        knob.style.transform = `rotate(${newRotation}deg)`;
+        knob.dataset.rotation = newRotation;
+        
+        const pitchValue = (newRotation / 90) * 16;
+        const deck = knob.id.replace('pitchKnob', '');
+        
+        document.getElementById(`pitchDisplay${deck}`).textContent = 
+          `${pitchValue >= 0 ? '+' : ''}${pitchValue.toFixed(1)}%`;
+        
+        const audio = deck === 'A' ? audioA : audioB;
+        audio.playbackRate = 1 + pitchValue / 100;
+      });
+      
+      document.addEventListener('mouseup', () => isDragging = false);
+    });
+
+    audioA.addEventListener('ended', () => {
+      state.deckA.playing = false;
+      updatePlayButton('A');
+      updateVolumes();
+    });
+
+    audioB.addEventListener('ended', () => {
+      state.deckB.playing = false;
+      updatePlayButton('B');
+      updateVolumes();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === ' ' && e.target.tagName !== 'INPUT') {
+        e.preventDefault();
+        togglePlay('A');
+      }
+    });
+
+    // Initialize crossfade display
+    updateVolumes();
+  </script>
+</body>
+</html>
