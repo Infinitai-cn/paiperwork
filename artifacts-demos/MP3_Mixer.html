@@ -146,6 +146,16 @@
       border-left-color: var(--accent-amber);
     }
 
+    .track-item.preloaded-a {
+      background: rgba(255, 106, 0, 0.08);
+      border-left-color: var(--accent-orange);
+    }
+
+    .track-item.preloaded-b {
+      background: rgba(0, 160, 220, 0.08);
+      border-left-color: var(--accent-blue);
+    }
+
     .deck-a .accent { color: var(--accent-orange); }
     .deck-b .accent { color: var(--accent-blue); }
 
@@ -173,6 +183,23 @@
       box-shadow: 0 0 20px rgba(0, 204, 102, 0.4);
     }
 
+    .btn-autoplay {
+      background: linear-gradient(145deg, #252525, #1a1a1a);
+      border: 1px solid #333;
+      transition: all 0.15s ease;
+    }
+
+    .btn-autoplay:hover {
+      background: linear-gradient(145deg, #303030, #252525);
+      border-color: var(--accent-green);
+    }
+
+    .btn-autoplay.active {
+      background: linear-gradient(145deg, #00cc66, #009944);
+      border-color: var(--accent-green);
+      box-shadow: 0 0 15px rgba(0, 204, 102, 0.4);
+    }
+
     .eq-band {
       background: var(--bg-knob);
       border-radius: 8px;
@@ -194,7 +221,7 @@
 
     .led-orange { 
       background: var(--accent-orange); 
-      box-shadow: 0 0 12px var(--accent-orange);
+      box-shadow: 0 0 12px var(--accent-orange); 
     }
     .led-orange.dim {
       background: #333;
@@ -202,7 +229,7 @@
     }
     .led-blue { 
       background: var(--accent-blue); 
-      box-shadow: 0 0 12px var(--accent-blue);
+      box-shadow: 0 0 12px var(--accent-blue); 
     }
     .led-blue.dim {
       background: #333;
@@ -235,6 +262,35 @@
 
     .brand-logo {
       text-shadow: 0 0 20px rgba(255, 106, 0, 0.5);
+    }
+
+    .autoplay-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: #333;
+      transition: all 0.3s ease;
+    }
+
+    .autoplay-indicator.active {
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .next-track-info {
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-top: 6px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid #333;
+    }
+
+    .transitioning {
+      animation: pulse 0.5s ease-in-out infinite;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -279,6 +335,7 @@
             <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
               <div class="text-xs text-gray-500 mb-1">TRACK</div>
               <div id="trackNameA" class="text-orange-400 text-sm truncate font-display">No Track Loaded</div>
+              <div id="trackIndexA" class="text-xs text-gray-600 mt-1">-</div>
             </div>
             
             <div class="flex gap-2 justify-center">
@@ -376,6 +433,16 @@
           </div>
         </div>
 
+        <div class="glow-border rounded-xl p-4 metal-surface">
+          <button onclick="toggleAutoplay()" id="autoplayBtn" class="btn-autoplay w-full py-3 rounded-lg text-sm font-display tracking-wider flex items-center justify-center gap-2 transition-all">
+            <span class="autoplay-indicator" id="autoplayIndicator"></span>
+            <span id="autoplayText">AUTOPLAY OFF</span>
+          </button>
+          <div id="autoplayStatus" class="text-xs text-gray-500 mt-2 text-center hidden">
+            <div id="nextTrackInfo" class="next-track-info"></div>
+          </div>
+        </div>
+
         <div class="glow-border rounded-xl p-4 metal-surface max-h-80">
           <div class="text-xs text-gray-500 mb-3 text-center font-display tracking-widest">TRACK LIBRARY</div>
           <div id="trackList" class="track-list h-52 overflow-y-auto rounded-lg bg-black/50 border border-gray-800">
@@ -402,6 +469,7 @@
             <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
               <div class="text-xs text-gray-500 mb-1">TRACK</div>
               <div id="trackNameB" class="text-blue-400 text-sm truncate font-display">No Track Loaded</div>
+              <div id="trackIndexB" class="text-xs text-gray-600 mt-1">-</div>
             </div>
             
             <div class="flex gap-2 justify-center">
@@ -476,7 +544,7 @@
   <script>
     const audioA = document.getElementById('audioA');
     const audioB = document.getElementById('audioB');
-    
+
     let audioContext = null;
     let analyserA = null;
     let analyserB = null;
@@ -484,11 +552,15 @@
     let gainNodeB = null;
     let eqA = { high: null, mid: null, low: null };
     let eqB = { high: null, mid: null, low: null };
-    
+
     const state = {
       tracks: [],
-      deckA: { loaded: false, playing: false, volume: 0.75, pitch: 0 },
-      deckB: { loaded: false, playing: false, volume: 0.75, pitch: 0 },
+      autoplay: false,
+      currentDeck: 'A',
+      nextTrackIndex: 0,
+      transitioning: false,
+      deckA: { loaded: false, playing: false, volume: 0.75, pitch: 0, trackIndex: -1 },
+      deckB: { loaded: false, playing: false, volume: 0.75, pitch: 0, trackIndex: -1 },
       crossfader: 0.5,
       autoCrossfading: false
     };
@@ -548,45 +620,31 @@
       updateVolumes();
     }
 
-    // Fixed crossfade calculation - standard DJ crossfader behavior
-    // At center (0.5): both decks at equal volume (50% each)
-    // At left (0): Deck A at 100%, Deck B at 0%
-    // At right (1): Deck A at 0%, Deck B at 100%
     function updateVolumes() {
       if (!gainNodeA || !gainNodeB) return;
       
       const cf = state.crossfader;
-      
-      // Linear crossfade: each deck's volume is directly proportional to position
-      // Deck A: 100% at left (cf=0), 0% at right (cf=1)
-      // Deck B: 0% at left (cf=0), 100% at right (cf=1)
-      // Center (cf=0.5): both at 50%
       const crossfadeA = 1 - cf;
       const crossfadeB = cf;
       
-      // Final volume = deck volume * crossfade multiplier
       const finalVolA = state.deckA.volume * crossfadeA;
       const finalVolB = state.deckB.volume * crossfadeB;
       
       gainNodeA.gain.value = Math.max(0, Math.min(1, finalVolA));
       gainNodeB.gain.value = Math.max(0, Math.min(1, finalVolB));
       
-      // Update crossfade percentage displays
       document.getElementById('crossfadeDisplayA').textContent = Math.round(crossfadeA * 100) + '%';
       document.getElementById('crossfadeDisplayB').textContent = Math.round(crossfadeB * 100) + '%';
       
-      // Update LED indicators based on crossfade position
       const ledA = document.getElementById('ledA');
       const ledB = document.getElementById('ledB');
       
-      // LED A: bright when crossfade favors A (left side)
       if (crossfadeA > 0.1 && state.deckA.playing) {
         ledA.classList.remove('dim');
       } else {
         ledA.classList.add('dim');
       }
       
-      // LED B: bright when crossfade favors B (right side)
       if (crossfadeB > 0.1 && state.deckB.playing) {
         ledB.classList.remove('dim');
       } else {
@@ -615,15 +673,145 @@
       const vuA = document.getElementById('vuMeterA');
       const vuB = document.getElementById('vuMeterB');
       
-      // VU meters show the actual signal level after crossfade
-      const cf = state.crossfader;
-      const crossfadeA = 1 - cf;
-      const crossfadeB = cf;
-      
       if (vuA) vuA.style.height = Math.min(100, (avgA / 255) * 100 * state.deckA.volume) + '%';
       if (vuB) vuB.style.height = Math.min(100, (avgB / 255) * 100 * state.deckB.volume) + '%';
       
       requestAnimationFrame(updateVUMeters);
+    }
+
+    function getNextTrackIndex(currentIndex) {
+      if (state.tracks.length === 0) return -1;
+      return (currentIndex + 1) % state.tracks.length;
+    }
+
+    function updateTrackListUI() {
+      const trackList = document.getElementById('trackList');
+      const items = trackList.querySelectorAll('.track-item');
+      
+      items.forEach((item, index) => {
+        item.classList.remove('active', 'preloaded-a', 'preloaded-b');
+        if (index === state.deckA.trackIndex) {
+          item.classList.add('active');
+        }
+        if (index === state.deckB.trackIndex) {
+          item.classList.add('active');
+        }
+        if (state.autoplay) {
+          const nextDeck = state.currentDeck === 'A' ? 'B' : 'A';
+          if (index === state.nextTrackIndex) {
+            item.classList.add(nextDeck === 'A' ? 'preloaded-a' : 'preloaded-b');
+          }
+        }
+      });
+    }
+
+    function updateAutoplayStatus() {
+      const statusEl = document.getElementById('autoplayStatus');
+      const infoEl = document.getElementById('nextTrackInfo');
+      
+      if (state.autoplay && state.tracks.length > 0) {
+        statusEl.classList.remove('hidden');
+        const nextDeck = state.currentDeck === 'A' ? 'B' : 'A';
+        const nextTrack = state.tracks[state.nextTrackIndex];
+        if (nextTrack) {
+          const deckColor = nextDeck === 'A' ? 'text-orange-400' : 'text-blue-400';
+          infoEl.innerHTML = `Next: <span class="${deckColor}">${nextTrack.name.replace('.mp3', '')}</span> <span class="text-gray-500">→ Deck ${nextDeck}</span>`;
+        }
+      } else {
+        statusEl.classList.add('hidden');
+      }
+    }
+
+    function loadToDeckDirect(deck, trackIndex, track) {
+      const audio = deck === 'A' ? audioA : audioB;
+      const url = URL.createObjectURL(track.file);
+      
+      audio.src = url;
+      audio.load();
+      
+      document.getElementById(`trackName${deck}`).textContent = track.name.replace('.mp3', '');
+      document.getElementById(`trackIndex${deck}`).textContent = `Track ${trackIndex + 1} of ${state.tracks.length}`;
+      
+      state[`deck${deck}`].loaded = true;
+      state[`deck${deck}`].playing = false;
+      state[`deck${deck}`].trackIndex = trackIndex;
+      
+      updatePlayButton(deck);
+      updateTrackListUI();
+      drawWaveform(deck, track.file);
+      
+      initAudioContext();
+    }
+
+    async function performAutoplayTransition(fromDeck) {
+      if (state.transitioning || !state.autoplay) return;
+      state.transitioning = true;
+      
+      const toDeck = fromDeck === 'A' ? 'B' : 'A';
+      const toAudio = toDeck === 'A' ? audioA : audioB;
+      
+      // Load next track to opposite deck if not already loaded
+      if (state.nextTrackIndex >= 0 && state[`deck${toDeck}`].trackIndex !== state.nextTrackIndex) {
+        const nextTrack = state.tracks[state.nextTrackIndex];
+        loadToDeckDirect(toDeck, state.nextTrackIndex, nextTrack);
+      }
+      
+      // Start playback on the target deck
+      if (audioContext && audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+      
+      await toAudio.play();
+      state[`deck${toDeck}`].playing = true;
+      updatePlayButton(toDeck);
+      
+      // Perform crossfade transition
+      await smoothCrossfade(fromDeck, toDeck);
+      
+      // Update current deck
+      state.currentDeck = toDeck;
+      
+      // Stop the previous deck
+      const fromAudio = fromDeck === 'A' ? audioA : audioB;
+      fromAudio.pause();
+      fromAudio.currentTime = 0;
+      state[`deck${fromDeck}`].playing = false;
+      updatePlayButton(fromDeck);
+      
+      // Set up next track for future transition
+      state.nextTrackIndex = getNextTrackIndex(state[`deck${toDeck}`].trackIndex);
+      
+      updateTrackListUI();
+      updateAutoplayStatus();
+      state.transitioning = false;
+    }
+
+    async function smoothCrossfade(fromDeck, toDeck) {
+      const duration = 3000;
+      const startTime = performance.now();
+      const startValue = fromDeck === 'A' ? 0 : 1;
+      const endValue = toDeck === 'A' ? 0 : 1;
+      
+      await new Promise(resolve => {
+        function animate(currentTime) {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const eased = progress < 0.5 
+            ? 2 * progress * progress 
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+          
+          state.crossfader = startValue + (endValue - startValue) * eased;
+          crossfaderHandle.style.left = `calc(${state.crossfader * 100}% - 20px)`;
+          updateVolumes();
+          
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            resolve();
+          }
+        }
+        requestAnimationFrame(animate);
+      });
     }
 
     document.getElementById('folderInput').addEventListener('change', async function(e) {
@@ -650,11 +838,19 @@
           <div class="text-xs text-gray-600 truncate">${track.path}</div>
         `;
         item.addEventListener('click', () => showDeckSelector(track, item));
-        item.draggable = true;
         trackList.appendChild(item);
       });
       
       document.getElementById('trackCount').textContent = `${state.tracks.length} tracks loaded`;
+      
+      // Reset state
+      state.deckA.trackIndex = -1;
+      state.deckB.trackIndex = -1;
+      state.currentDeck = 'A';
+      state.nextTrackIndex = 0;
+      
+      updateTrackListUI();
+      updateAutoplayStatus();
     });
 
     let selectedTrackItem = null;
@@ -693,21 +889,13 @@
 
     function loadToDeck(deck, trackIndex) {
       const track = state.tracks[trackIndex];
-      const audio = deck === 'A' ? audioA : audioB;
-      const url = URL.createObjectURL(track.file);
-      
-      audio.src = url;
-      
-      document.getElementById(`trackName${deck}`).textContent = track.name.replace('.mp3', '');
-      state[`deck${deck}`].loaded = true;
-      state[`deck${deck}`].playing = false;
-      
+      loadToDeckDirect(deck, trackIndex, track);
       document.querySelector('.deck-selector')?.remove();
       
-      updatePlayButton(deck);
-      drawWaveform(deck, track.file);
-      
-      initAudioContext();
+      // Set current deck and next track for autoplay
+      state.currentDeck = deck;
+      state.nextTrackIndex = getNextTrackIndex(trackIndex);
+      updateAutoplayStatus();
     }
 
     function drawWaveform(deck, file) {
@@ -782,8 +970,13 @@
         updateVUMeters();
       }
       
+      // Update current deck when manually playing
+      state.currentDeck = deck;
+      state.nextTrackIndex = getNextTrackIndex(deckState.trackIndex);
+      
       updatePlayButton(deck);
       updateVolumes();
+      updateAutoplayStatus();
     }
 
     function updatePlayButton(deck) {
@@ -806,6 +999,35 @@
         togglePlay(deck);
         setTimeout(() => togglePlay(deck), 100);
       }
+    }
+
+    function toggleAutoplay() {
+      state.autoplay = !state.autoplay;
+      
+      const btn = document.getElementById('autoplayBtn');
+      const indicator = document.getElementById('autoplayIndicator');
+      const text = document.getElementById('autoplayText');
+      
+      if (state.autoplay) {
+        btn.classList.add('active');
+        indicator.classList.add('active');
+        text.textContent = 'AUTOPLAY ON';
+        
+        // Determine next track based on current playing deck
+        const currentPlayingDeck = state.deckA.playing ? 'A' : (state.deckB.playing ? 'B' : state.currentDeck);
+        state.currentDeck = currentPlayingDeck;
+        
+        const currentIndex = state[`deck${currentPlayingDeck}`].trackIndex;
+        state.nextTrackIndex = currentIndex >= 0 ? getNextTrackIndex(currentIndex) : 0;
+        
+      } else {
+        btn.classList.remove('active');
+        indicator.classList.remove('active');
+        text.textContent = 'AUTOPLAY OFF';
+      }
+      
+      updateTrackListUI();
+      updateAutoplayStatus();
     }
 
     document.querySelectorAll('[id^="volumeSlider"]').forEach(slider => {
@@ -979,16 +1201,43 @@
       document.addEventListener('mouseup', () => isDragging = false);
     });
 
+    // Handle track end with autoplay - crossfade to opposite deck
     audioA.addEventListener('ended', () => {
       state.deckA.playing = false;
       updatePlayButton('A');
       updateVolumes();
+      
+      if (state.autoplay && state.tracks.length > 0 && !state.transitioning) {
+        performAutoplayTransition('A');
+      }
     });
 
     audioB.addEventListener('ended', () => {
       state.deckB.playing = false;
       updatePlayButton('B');
       updateVolumes();
+      
+      if (state.autoplay && state.tracks.length > 0 && !state.transitioning) {
+        performAutoplayTransition('B');
+      }
+    });
+
+    // Preload warning when approaching end of track
+    audioA.addEventListener('timeupdate', () => {
+      if (!state.autoplay || !audioA.duration || state.currentDeck !== 'A') return;
+      const remaining = audioA.duration - audioA.currentTime;
+      // Set next track info when 10 seconds remaining
+      if (remaining < 10 && remaining > 5) {
+        updateAutoplayStatus();
+      }
+    });
+
+    audioB.addEventListener('timeupdate', () => {
+      if (!state.autoplay || !audioB.duration || state.currentDeck !== 'B') return;
+      const remaining = audioB.duration - audioB.currentTime;
+      if (remaining < 10 && remaining > 5) {
+        updateAutoplayStatus();
+      }
     });
 
     document.addEventListener('keydown', (e) => {
@@ -998,7 +1247,7 @@
       }
     });
 
-    // Initialize crossfade display
+    // Initialize
     updateVolumes();
   </script>
 </body>
