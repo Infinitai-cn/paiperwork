@@ -15,6 +15,7 @@
       --accent-amber: #ffaa00;
       --accent-blue: #00a0dc;
       --accent-green: #00cc66;
+      --accent-purple: #a855f7;
       --accent-red: #ff3333;
       --text-bright: #f0f0f0;
       --text-dim: #707070;
@@ -69,14 +70,20 @@
     .knob::after {
       content: '';
       position: absolute;
-      top: 6px;
+      top: 4px;
       left: 50%;
       transform: translateX(-50%);
-      width: 3px;
-      height: 10px;
+      width: 2px;
+      height: 6px;
       background: var(--accent-orange);
       border-radius: 2px;
-      box-shadow: 0 0 6px var(--accent-orange);
+      box-shadow: 0 0 4px var(--accent-orange);
+    }
+
+    .knob-small::after {
+      top: 2px;
+      width: 2px;
+      height: 4px;
     }
 
     .fader-track {
@@ -200,10 +207,33 @@
       box-shadow: 0 0 15px rgba(0, 204, 102, 0.4);
     }
 
-    .eq-band {
+    .btn-shuffle {
+      background: linear-gradient(145deg, #252525, #1a1a1a);
+      border: 1px solid #333;
+      transition: all 0.15s ease;
+    }
+
+    .btn-shuffle:hover {
+      background: linear-gradient(145deg, #303030, #252525);
+      border-color: var(--accent-purple);
+    }
+
+    .btn-shuffle.active {
+      background: linear-gradient(145deg, #7c3aed, #5b21b6);
+      border-color: var(--accent-purple);
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+    }
+
+    .eq-panel {
       background: var(--bg-knob);
       border-radius: 8px;
       border: 1px solid #333;
+    }
+
+    .eq-band-panel {
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      padding: 8px;
     }
 
     .crossfader-track {
@@ -280,6 +310,22 @@
       animation: pulse 1s ease-in-out infinite;
     }
 
+    .shuffle-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background: #333;
+      transition: all 0.3s ease;
+    }
+
+    .shuffle-indicator.active {
+      background: var(--accent-purple);
+      box-shadow: 0 0 8px var(--accent-purple);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
     .next-track-info {
       font-size: 10px;
       padding: 4px 8px;
@@ -289,8 +335,78 @@
       border: 1px solid #333;
     }
 
-    .transitioning {
+    .mode-label {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid #444;
+      color: #888;
+      margin-left: 4px;
+    }
+
+    .mode-label.shuffle-active {
+      background: rgba(168, 85, 247, 0.2);
+      border-color: var(--accent-purple);
+      color: var(--accent-purple);
+    }
+
+    .mode-label.sequential-active {
+      background: rgba(0, 204, 102, 0.2);
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    .remaining-time {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2rem;
+      font-weight: 900;
+      text-align: center;
+      padding: 8px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid #333;
+      margin-bottom: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .remaining-time.warning {
+      color: #ffaa00;
+      border-color: #ffaa00;
+      background: rgba(255, 170, 0, 0.1);
+    }
+
+    .remaining-time.critical {
+      color: #ff3333;
+      border-color: #ff3333;
+      background: rgba(255, 51, 51, 0.1);
       animation: pulse 0.5s ease-in-out infinite;
+    }
+
+    .remaining-time.transitioning {
+      color: #00cc66;
+      border-color: #00cc66;
+      background: rgba(0, 204, 102, 0.1);
+    }
+
+    .time-label {
+      font-size: 9px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+    }
+
+    .mixing-status {
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(0, 204, 102, 0.15);
+      border: 1px solid rgba(0, 204, 102, 0.3);
+      color: #00cc66;
+      text-align: center;
+      margin-top: 4px;
+      animation: pulse 1s ease-in-out infinite;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -364,23 +480,77 @@
           </div>
 
           <div class="space-y-3">
-            <div class="text-xs text-gray-500 mb-1 text-center tracking-wider">EQUALIZER</div>
-            <div class="flex justify-center gap-3">
-              <div class="eq-band p-2 text-center">
-                <div class="text-xs text-orange-400 mb-2">HI</div>
-                <div class="knob w-12 h-12 relative mx-auto" data-eq="high" data-deck="A" style="transform: rotate(0deg)"></div>
-                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
+            <div class="text-xs text-gray-500 mb-1 text-center tracking-wider">PARAMETRIC EQ</div>
+            
+            <div class="eq-panel p-3">
+              <div class="grid grid-cols-3 gap-2">
+                <div class="eq-band-panel text-center">
+                  <div class="text-xs text-orange-400 font-display mb-2">LOW</div>
+                  <div class="space-y-2">
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="low" data-param="freq" data-deck="A" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">FREQ</div>
+                      <div class="text-[10px] text-orange-400 eq-freq">80Hz</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="low" data-param="q" data-deck="A" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">Q</div>
+                      <div class="text-[10px] text-orange-400 eq-q">1.0</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="low" data-param="gain" data-deck="A" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">GAIN</div>
+                      <div class="text-[10px] text-orange-400 eq-gain">0dB</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="eq-band-panel text-center">
+                  <div class="text-xs text-orange-400 font-display mb-2">MID</div>
+                  <div class="space-y-2">
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="mid" data-param="freq" data-deck="A" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">FREQ</div>
+                      <div class="text-[10px] text-orange-400 eq-freq">1kHz</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="mid" data-param="q" data-deck="A" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">Q</div>
+                      <div class="text-[10px] text-orange-400 eq-q">1.0</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="mid" data-param="gain" data-deck="A" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">GAIN</div>
+                      <div class="text-[10px] text-orange-400 eq-gain">0dB</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="eq-band-panel text-center">
+                  <div class="text-xs text-orange-400 font-display mb-2">HIGH</div>
+                  <div class="space-y-2">
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="high" data-param="freq" data-deck="A" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">FREQ</div>
+                      <div class="text-[10px] text-orange-400 eq-freq">8kHz</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="high" data-param="q" data-deck="A" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">Q</div>
+                      <div class="text-[10px] text-orange-400 eq-q">1.0</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="high" data-param="gain" data-deck="A" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">GAIN</div>
+                      <div class="text-[10px] text-orange-400 eq-gain">0dB</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="eq-band p-2 text-center">
-                <div class="text-xs text-orange-400 mb-2">MID</div>
-                <div class="knob w-12 h-12 relative mx-auto" data-eq="mid" data-deck="A" style="transform: rotate(0deg)"></div>
-                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
-              </div>
-              <div class="eq-band p-2 text-center">
-                <div class="text-xs text-orange-400 mb-2">LO</div>
-                <div class="knob w-12 h-12 relative mx-auto" data-eq="low" data-deck="A" style="transform: rotate(0deg)"></div>
-                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
-              </div>
+              
+              <button onclick="resetEQ('A')" class="w-full mt-3 py-1.5 text-[10px] font-display text-gray-400 hover:text-orange-400 border border-gray-700 hover:border-orange-500 rounded transition-all">
+                RESET EQ
+              </button>
             </div>
 
             <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
@@ -434,12 +604,28 @@
         </div>
 
         <div class="glow-border rounded-xl p-4 metal-surface">
-          <button onclick="toggleAutoplay()" id="autoplayBtn" class="btn-autoplay w-full py-3 rounded-lg text-sm font-display tracking-wider flex items-center justify-center gap-2 transition-all">
+          <div class="time-label">REMAINING TIME</div>
+          <div id="remainingTime" class="remaining-time text-gray-600">--:--</div>
+          <div id="mixingStatus" class="mixing-status hidden">MIXING IN PROGRESS</div>
+          
+          <button onclick="toggleAutoplay()" id="autoplayBtn" class="btn-autoplay w-full py-3 rounded-lg text-sm font-display tracking-wider flex items-center justify-center gap-2 transition-all mt-3">
             <span class="autoplay-indicator" id="autoplayIndicator"></span>
             <span id="autoplayText">AUTOPLAY OFF</span>
           </button>
           <div id="autoplayStatus" class="text-xs text-gray-500 mt-2 text-center hidden">
             <div id="nextTrackInfo" class="next-track-info"></div>
+          </div>
+        </div>
+
+        <div class="glow-border rounded-xl p-4 metal-surface">
+          <button onclick="toggleShuffle()" id="shuffleBtn" class="btn-shuffle w-full py-3 rounded-lg text-sm font-display tracking-wider flex items-center justify-center gap-2 transition-all">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span id="shuffleText">SEQUENTIAL</span>
+          </button>
+          <div class="flex justify-center mt-2">
+            <span id="modeLabel" class="mode-label">List Order</span>
           </div>
         </div>
 
@@ -498,23 +684,77 @@
           </div>
 
           <div class="space-y-3">
-            <div class="text-xs text-gray-500 mb-1 text-center tracking-wider">EQUALIZER</div>
-            <div class="flex justify-center gap-3">
-              <div class="eq-band p-2 text-center">
-                <div class="text-xs text-blue-400 mb-2">HI</div>
-                <div class="knob w-12 h-12 relative mx-auto" data-eq="high" data-deck="B" style="transform: rotate(0deg)"></div>
-                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
+            <div class="text-xs text-gray-500 mb-1 text-center tracking-wider">PARAMETRIC EQ</div>
+            
+            <div class="eq-panel p-3">
+              <div class="grid grid-cols-3 gap-2">
+                <div class="eq-band-panel text-center">
+                  <div class="text-xs text-blue-400 font-display mb-2">LOW</div>
+                  <div class="space-y-2">
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="low" data-param="freq" data-deck="B" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">FREQ</div>
+                      <div class="text-[10px] text-blue-400 eq-freq">80Hz</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="low" data-param="q" data-deck="B" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">Q</div>
+                      <div class="text-[10px] text-blue-400 eq-q">1.0</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="low" data-param="gain" data-deck="B" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">GAIN</div>
+                      <div class="text-[10px] text-blue-400 eq-gain">0dB</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="eq-band-panel text-center">
+                  <div class="text-xs text-blue-400 font-display mb-2">MID</div>
+                  <div class="space-y-2">
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="mid" data-param="freq" data-deck="B" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">FREQ</div>
+                      <div class="text-[10px] text-blue-400 eq-freq">1kHz</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="mid" data-param="q" data-deck="B" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">Q</div>
+                      <div class="text-[10px] text-blue-400 eq-q">1.0</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="mid" data-param="gain" data-deck="B" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">GAIN</div>
+                      <div class="text-[10px] text-blue-400 eq-gain">0dB</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="eq-band-panel text-center">
+                  <div class="text-xs text-blue-400 font-display mb-2">HIGH</div>
+                  <div class="space-y-2">
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="high" data-param="freq" data-deck="B" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">FREQ</div>
+                      <div class="text-[10px] text-blue-400 eq-freq">8kHz</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="high" data-param="q" data-deck="B" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">Q</div>
+                      <div class="text-[10px] text-blue-400 eq-q">1.0</div>
+                    </div>
+                    <div class="flex flex-col items-center">
+                      <div class="knob knob-small w-10 h-10 relative mx-auto" data-eq-param="high" data-param="gain" data-deck="B" style="transform: rotate(0deg)"></div>
+                      <div class="text-[9px] text-gray-500 mt-1">GAIN</div>
+                      <div class="text-[10px] text-blue-400 eq-gain">0dB</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="eq-band p-2 text-center">
-                <div class="text-xs text-blue-400 mb-2">MID</div>
-                <div class="knob w-12 h-12 relative mx-auto" data-eq="mid" data-deck="B" style="transform: rotate(0deg)"></div>
-                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
-              </div>
-              <div class="eq-band p-2 text-center">
-                <div class="text-xs text-blue-400 mb-2">LO</div>
-                <div class="knob w-12 h-12 relative mx-auto" data-eq="low" data-deck="B" style="transform: rotate(0deg)"></div>
-                <div class="text-xs text-gray-500 mt-2 eq-val">0dB</div>
-              </div>
+              
+              <button onclick="resetEQ('B')" class="w-full mt-3 py-1.5 text-[10px] font-display text-gray-400 hover:text-blue-400 border border-gray-700 hover:border-blue-400 rounded transition-all">
+                RESET EQ
+              </button>
             </div>
 
             <div class="bg-black/50 rounded-lg p-3 border border-gray-800">
@@ -550,15 +790,36 @@
     let analyserB = null;
     let gainNodeA = null;
     let gainNodeB = null;
-    let eqA = { high: null, mid: null, low: null };
-    let eqB = { high: null, mid: null, low: null };
+
+    const eqState = {
+      A: {
+        low: { freq: 80, q: 1.0, gain: 0, filter: null },
+        mid: { freq: 1000, q: 1.0, gain: 0, filter: null },
+        high: { freq: 8000, q: 1.0, gain: 0, filter: null }
+      },
+      B: {
+        low: { freq: 80, q: 1.0, gain: 0, filter: null },
+        mid: { freq: 1000, q: 1.0, gain: 0, filter: null },
+        high: { freq: 8000, q: 1.0, gain: 0, filter: null }
+      }
+    };
+
+    const eqRanges = {
+      low: { freqMin: 20, freqMax: 500, freqDefault: 80 },
+      mid: { freqMin: 200, freqMax: 8000, freqDefault: 1000 },
+      high: { freqMin: 2000, freqMax: 20000, freqDefault: 8000 }
+    };
 
     const state = {
       tracks: [],
       autoplay: false,
+      shuffleMode: false,
+      playedTracks: new Set(),
       currentDeck: 'A',
       nextTrackIndex: 0,
       transitioning: false,
+      preloadedDeck: null,
+      mixingStarted: false,
       deckA: { loaded: false, playing: false, volume: 0.75, pitch: 0, trackIndex: -1 },
       deckB: { loaded: false, playing: false, volume: 0.75, pitch: 0, trackIndex: -1 },
       crossfader: 0.5,
@@ -581,43 +842,105 @@
       analyserA.fftSize = 256;
       analyserB.fftSize = 256;
       
-      eqA.high = audioContext.createBiquadFilter();
-      eqA.mid = audioContext.createBiquadFilter();
-      eqA.low = audioContext.createBiquadFilter();
-      eqA.high.type = 'highshelf';
-      eqA.mid.type = 'peaking';
-      eqA.low.type = 'lowshelf';
-      eqA.high.frequency.value = 3200;
-      eqA.mid.frequency.value = 1000;
-      eqA.mid.Q.value = 0.5;
-      eqA.low.frequency.value = 320;
+      eqState.A.low.filter = audioContext.createBiquadFilter();
+      eqState.A.low.filter.type = 'lowshelf';
+      eqState.A.low.filter.frequency.value = eqState.A.low.freq;
+      eqState.A.low.filter.Q.value = eqState.A.low.q;
+      eqState.A.low.filter.gain.value = eqState.A.low.gain;
       
-      eqB.high = audioContext.createBiquadFilter();
-      eqB.mid = audioContext.createBiquadFilter();
-      eqB.low = audioContext.createBiquadFilter();
-      eqB.high.type = 'highshelf';
-      eqB.mid.type = 'peaking';
-      eqB.low.type = 'lowshelf';
-      eqB.high.frequency.value = 3200;
-      eqB.mid.frequency.value = 1000;
-      eqB.mid.Q.value = 0.5;
-      eqB.low.frequency.value = 320;
+      eqState.A.mid.filter = audioContext.createBiquadFilter();
+      eqState.A.mid.filter.type = 'peaking';
+      eqState.A.mid.filter.frequency.value = eqState.A.mid.freq;
+      eqState.A.mid.filter.Q.value = eqState.A.mid.q;
+      eqState.A.mid.filter.gain.value = eqState.A.mid.gain;
       
-      sourceA.connect(eqA.low);
-      eqA.low.connect(eqA.mid);
-      eqA.mid.connect(eqA.high);
-      eqA.high.connect(gainNodeA);
+      eqState.A.high.filter = audioContext.createBiquadFilter();
+      eqState.A.high.filter.type = 'highshelf';
+      eqState.A.high.filter.frequency.value = eqState.A.high.freq;
+      eqState.A.high.filter.Q.value = eqState.A.high.q;
+      eqState.A.high.filter.gain.value = eqState.A.high.gain;
+      
+      eqState.B.low.filter = audioContext.createBiquadFilter();
+      eqState.B.low.filter.type = 'lowshelf';
+      eqState.B.low.filter.frequency.value = eqState.B.low.freq;
+      eqState.B.low.filter.Q.value = eqState.B.low.q;
+      eqState.B.low.filter.gain.value = eqState.B.low.gain;
+      
+      eqState.B.mid.filter = audioContext.createBiquadFilter();
+      eqState.B.mid.filter.type = 'peaking';
+      eqState.B.mid.filter.frequency.value = eqState.B.mid.freq;
+      eqState.B.mid.filter.Q.value = eqState.B.mid.q;
+      eqState.B.mid.filter.gain.value = eqState.B.mid.gain;
+      
+      eqState.B.high.filter = audioContext.createBiquadFilter();
+      eqState.B.high.filter.type = 'highshelf';
+      eqState.B.high.filter.frequency.value = eqState.B.high.freq;
+      eqState.B.high.filter.Q.value = eqState.B.high.q;
+      eqState.B.high.filter.gain.value = eqState.B.high.gain;
+      
+      sourceA.connect(eqState.A.low.filter);
+      eqState.A.low.filter.connect(eqState.A.mid.filter);
+      eqState.A.mid.filter.connect(eqState.A.high.filter);
+      eqState.A.high.filter.connect(gainNodeA);
       gainNodeA.connect(analyserA);
       analyserA.connect(audioContext.destination);
       
-      sourceB.connect(eqB.low);
-      eqB.low.connect(eqB.mid);
-      eqB.mid.connect(eqB.high);
-      eqB.high.connect(gainNodeB);
+      sourceB.connect(eqState.B.low.filter);
+      eqState.B.low.filter.connect(eqState.B.mid.filter);
+      eqState.B.mid.filter.connect(eqState.B.high.filter);
+      eqState.B.high.filter.connect(gainNodeB);
       gainNodeB.connect(analyserB);
       analyserB.connect(audioContext.destination);
       
       updateVolumes();
+    }
+
+    function updateEQFilter(deck, band) {
+      if (!audioContext) return;
+      const filter = eqState[deck][band].filter;
+      if (!filter) return;
+      
+      filter.frequency.value = eqState[deck][band].freq;
+      filter.Q.value = eqState[deck][band].q;
+      filter.gain.value = eqState[deck][band].gain;
+    }
+
+    function resetEQ(deck) {
+      const defaults = {
+        low: { freq: 80, q: 1.0, gain: 0 },
+        mid: { freq: 1000, q: 1.0, gain: 0 },
+        high: { freq: 8000, q: 1.0, gain: 0 }
+      };
+      
+      ['low', 'mid', 'high'].forEach(band => {
+        eqState[deck][band].freq = defaults[band].freq;
+        eqState[deck][band].q = defaults[band].q;
+        eqState[deck][band].gain = defaults[band].gain;
+        updateEQFilter(deck, band);
+      });
+      
+      document.querySelectorAll(`[data-eq-param="${band}"][data-deck="${deck}"]`).forEach(knob => {
+        knob.style.transform = 'rotate(0deg)';
+        knob.dataset.rotation = '0';
+      });
+      
+      updateEQDisplays(deck);
+    }
+
+    function updateEQDisplays(deck) {
+      ['low', 'mid', 'high'].forEach(band => {
+        const panel = document.querySelector(`[data-eq-param="${band}"][data-param="freq"][data-deck="${deck}"]`).closest('.eq-band-panel');
+        
+        const freqDisplay = panel.querySelector('.eq-freq');
+        const qDisplay = panel.querySelector('.eq-q');
+        const gainDisplay = panel.querySelector('.eq-gain');
+        
+        const freq = eqState[deck][band].freq;
+        freqDisplay.textContent = freq >= 1000 ? `${(freq/1000).toFixed(freq >= 10000 ? 0 : 1)}kHz` : `${freq}Hz`;
+        qDisplay.textContent = eqState[deck][band].q.toFixed(1);
+        const gain = eqState[deck][band].gain;
+        gainDisplay.textContent = `${gain >= 0 ? '+' : ''}${gain.toFixed(0)}dB`;
+      });
     }
 
     function updateVolumes() {
@@ -679,9 +1002,82 @@
       requestAnimationFrame(updateVUMeters);
     }
 
+    function formatTime(seconds) {
+      if (!isFinite(seconds) || seconds < 0) return '--:--';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function updateRemainingTimeDisplay() {
+      const remainingEl = document.getElementById('remainingTime');
+      const mixingStatusEl = document.getElementById('mixingStatus');
+      
+      let currentAudio = null;
+      let isPlaying = false;
+      
+      if (state.deckA.playing && state.crossfader < 0.5) {
+        currentAudio = audioA;
+        isPlaying = true;
+      } else if (state.deckB.playing && state.crossfader > 0.5) {
+        currentAudio = audioB;
+        isPlaying = true;
+      } else if (state.deckA.playing) {
+        currentAudio = audioA;
+        isPlaying = true;
+      } else if (state.deckB.playing) {
+        currentAudio = audioB;
+        isPlaying = true;
+      }
+      
+      if (!currentAudio || !currentAudio.duration || !isPlaying) {
+        remainingEl.textContent = '--:--';
+        remainingEl.className = 'remaining-time text-gray-600';
+        mixingStatusEl.classList.add('hidden');
+        return;
+      }
+      
+      const remaining = currentAudio.duration - currentAudio.currentTime;
+      remainingEl.textContent = formatTime(remaining);
+      
+      if (state.mixingStarted) {
+        remainingEl.className = 'remaining-time transitioning';
+        mixingStatusEl.classList.remove('hidden');
+      } else if (remaining <= 5) {
+        remainingEl.className = 'remaining-time critical';
+        mixingStatusEl.classList.add('hidden');
+      } else if (remaining <= 10) {
+        remainingEl.className = 'remaining-time warning';
+        mixingStatusEl.classList.add('hidden');
+      } else {
+        remainingEl.className = 'remaining-time';
+        mixingStatusEl.classList.add('hidden');
+      }
+    }
+
     function getNextTrackIndex(currentIndex) {
       if (state.tracks.length === 0) return -1;
-      return (currentIndex + 1) % state.tracks.length;
+      
+      if (state.shuffleMode) {
+        const available = [];
+        for (let i = 0; i < state.tracks.length; i++) {
+          if (!state.playedTracks.has(i)) {
+            available.push(i);
+          }
+        }
+        
+        if (available.length === 0) {
+          state.playedTracks.clear();
+          for (let i = 0; i < state.tracks.length; i++) {
+            if (i !== currentIndex) available.push(i);
+          }
+        }
+        
+        if (available.length === 0) return -1;
+        return available[Math.floor(Math.random() * available.length)];
+      } else {
+        return (currentIndex + 1) % state.tracks.length;
+      }
     }
 
     function updateTrackListUI() {
@@ -697,7 +1093,7 @@
           item.classList.add('active');
         }
         if (state.autoplay) {
-          const nextDeck = state.currentDeck === 'A' ? 'B' : 'A';
+          const nextDeck = state.preloadedDeck || (state.currentDeck === 'A' ? 'B' : 'A');
           if (index === state.nextTrackIndex) {
             item.classList.add(nextDeck === 'A' ? 'preloaded-a' : 'preloaded-b');
           }
@@ -711,15 +1107,51 @@
       
       if (state.autoplay && state.tracks.length > 0) {
         statusEl.classList.remove('hidden');
-        const nextDeck = state.currentDeck === 'A' ? 'B' : 'A';
+        const nextDeck = state.preloadedDeck || (state.currentDeck === 'A' ? 'B' : 'A');
         const nextTrack = state.tracks[state.nextTrackIndex];
         if (nextTrack) {
           const deckColor = nextDeck === 'A' ? 'text-orange-400' : 'text-blue-400';
-          infoEl.innerHTML = `Next: <span class="${deckColor}">${nextTrack.name.replace('.mp3', '')}</span> <span class="text-gray-500">→ Deck ${nextDeck}</span>`;
+          const modeText = state.shuffleMode ? ' (random)' : '';
+          infoEl.innerHTML = `Next${modeText}: <span class="${deckColor}">${nextTrack.name.replace('.mp3', '')}</span> <span class="text-gray-500">→ Deck ${nextDeck}</span>`;
         }
       } else {
         statusEl.classList.add('hidden');
       }
+    }
+
+    function toggleShuffle() {
+      state.shuffleMode = !state.shuffleMode;
+      
+      const btn = document.getElementById('shuffleBtn');
+      const text = document.getElementById('shuffleText');
+      const modeLabel = document.getElementById('modeLabel');
+      
+      if (state.shuffleMode) {
+        btn.classList.add('active');
+        text.textContent = 'SHUFFLE';
+        modeLabel.textContent = 'Random';
+        modeLabel.classList.add('shuffle-active');
+        modeLabel.classList.remove('sequential-active');
+        
+        state.playedTracks.clear();
+        if (state.deckA.trackIndex >= 0) state.playedTracks.add(state.deckA.trackIndex);
+        if (state.deckB.trackIndex >= 0) state.playedTracks.add(state.deckB.trackIndex);
+      } else {
+        btn.classList.remove('active');
+        text.textContent = 'SEQUENTIAL';
+        modeLabel.textContent = 'List Order';
+        modeLabel.classList.remove('shuffle-active');
+        modeLabel.classList.add('sequential-active');
+      }
+      
+      if (state.autoplay && state.tracks.length > 0) {
+        const currentDeck = state.deckA.playing ? 'A' : (state.deckB.playing ? 'B' : state.currentDeck);
+        const currentIndex = state[`deck${currentDeck}`].trackIndex;
+        state.nextTrackIndex = getNextTrackIndex(currentIndex);
+      }
+      
+      updateTrackListUI();
+      updateAutoplayStatus();
     }
 
     function loadToDeckDirect(deck, trackIndex, track) {
@@ -743,20 +1175,30 @@
       initAudioContext();
     }
 
-    async function performAutoplayTransition(fromDeck) {
-      if (state.transitioning || !state.autoplay) return;
+    function preloadNextTrack() {
+      if (!state.autoplay || state.transitioning || state.nextTrackIndex < 0) return;
+      
+      const nextDeck = state.currentDeck === 'A' ? 'B' : 'A';
+      const nextAudio = nextDeck === 'A' ? audioA : audioB;
+      const nextTrack = state.tracks[state.nextTrackIndex];
+      
+      if (state[`deck${nextDeck}`].trackIndex !== state.nextTrackIndex) {
+        loadToDeckDirect(nextDeck, state.nextTrackIndex, nextTrack);
+        state.preloadedDeck = nextDeck;
+        updateTrackListUI();
+        updateAutoplayStatus();
+      }
+    }
+
+    async function startMixingTransition(fromDeck) {
+      if (state.mixingStarted || !state.autoplay) return;
+      
+      state.mixingStarted = true;
       state.transitioning = true;
       
       const toDeck = fromDeck === 'A' ? 'B' : 'A';
       const toAudio = toDeck === 'A' ? audioA : audioB;
       
-      // Load next track to opposite deck if not already loaded
-      if (state.nextTrackIndex >= 0 && state[`deck${toDeck}`].trackIndex !== state.nextTrackIndex) {
-        const nextTrack = state.tracks[state.nextTrackIndex];
-        loadToDeckDirect(toDeck, state.nextTrackIndex, nextTrack);
-      }
-      
-      // Start playback on the target deck
       if (audioContext && audioContext.state === 'suspended') {
         await audioContext.resume();
       }
@@ -765,32 +1207,37 @@
       state[`deck${toDeck}`].playing = true;
       updatePlayButton(toDeck);
       
-      // Perform crossfade transition
       await smoothCrossfade(fromDeck, toDeck);
       
-      // Update current deck
       state.currentDeck = toDeck;
+      state.preloadedDeck = null;
+      state.mixingStarted = false;
       
-      // Stop the previous deck
       const fromAudio = fromDeck === 'A' ? audioA : audioB;
       fromAudio.pause();
       fromAudio.currentTime = 0;
       state[`deck${fromDeck}`].playing = false;
       updatePlayButton(fromDeck);
       
-      // Set up next track for future transition
+      if (state.shuffleMode) {
+        state.playedTracks.add(state[`deck${fromDeck}`].trackIndex);
+      }
+      
       state.nextTrackIndex = getNextTrackIndex(state[`deck${toDeck}`].trackIndex);
       
       updateTrackListUI();
       updateAutoplayStatus();
+      updateRemainingTimeDisplay();
       state.transitioning = false;
     }
 
     async function smoothCrossfade(fromDeck, toDeck) {
-      const duration = 3000;
+      const duration = 5000;
       const startTime = performance.now();
       const startValue = fromDeck === 'A' ? 0 : 1;
       const endValue = toDeck === 'A' ? 0 : 1;
+      
+      const handle = document.getElementById('crossfaderHandle');
       
       await new Promise(resolve => {
         function animate(currentTime) {
@@ -801,7 +1248,7 @@
             : 1 - Math.pow(-2 * progress + 2, 2) / 2;
           
           state.crossfader = startValue + (endValue - startValue) * eased;
-          crossfaderHandle.style.left = `calc(${state.crossfader * 100}% - 20px)`;
+          handle.style.left = `calc(${state.crossfader * 100}% - 20px)`;
           updateVolumes();
           
           if (progress < 1) {
@@ -817,6 +1264,7 @@
     document.getElementById('folderInput').addEventListener('change', async function(e) {
       const files = Array.from(e.target.files).filter(f => f.type === 'audio/mpeg' || f.name.toLowerCase().endsWith('.mp3'));
       state.tracks = [];
+      state.playedTracks.clear();
       
       const trackList = document.getElementById('trackList');
       trackList.innerHTML = '';
@@ -843,7 +1291,6 @@
       
       document.getElementById('trackCount').textContent = `${state.tracks.length} tracks loaded`;
       
-      // Reset state
       state.deckA.trackIndex = -1;
       state.deckB.trackIndex = -1;
       state.currentDeck = 'A';
@@ -892,9 +1339,12 @@
       loadToDeckDirect(deck, trackIndex, track);
       document.querySelector('.deck-selector')?.remove();
       
-      // Set current deck and next track for autoplay
       state.currentDeck = deck;
+      state.playedTracks.clear();
+      state.playedTracks.add(trackIndex);
       state.nextTrackIndex = getNextTrackIndex(trackIndex);
+      state.mixingStarted = false;
+      state.preloadedDeck = null;
       updateAutoplayStatus();
     }
 
@@ -970,9 +1420,9 @@
         updateVUMeters();
       }
       
-      // Update current deck when manually playing
       state.currentDeck = deck;
       state.nextTrackIndex = getNextTrackIndex(deckState.trackIndex);
+      state.mixingStarted = false;
       
       updatePlayButton(deck);
       updateVolumes();
@@ -1013,12 +1463,14 @@
         indicator.classList.add('active');
         text.textContent = 'AUTOPLAY ON';
         
-        // Determine next track based on current playing deck
         const currentPlayingDeck = state.deckA.playing ? 'A' : (state.deckB.playing ? 'B' : state.currentDeck);
         state.currentDeck = currentPlayingDeck;
         
         const currentIndex = state[`deck${currentPlayingDeck}`].trackIndex;
         state.nextTrackIndex = currentIndex >= 0 ? getNextTrackIndex(currentIndex) : 0;
+        
+        state.playedTracks.clear();
+        if (currentIndex >= 0) state.playedTracks.add(currentIndex);
         
       } else {
         btn.classList.remove('active');
@@ -1030,6 +1482,7 @@
       updateAutoplayStatus();
     }
 
+    // Volume sliders
     document.querySelectorAll('[id^="volumeSlider"]').forEach(slider => {
       let isDragging = false;
       const deck = slider.id.replace('volumeSlider', '');
@@ -1059,6 +1512,7 @@
       }
     });
 
+    // Crossfader
     const crossfaderHandle = document.getElementById('crossfaderHandle');
     const crossfaderTrack = document.getElementById('crossfaderTrack');
     let isDraggingCrossfader = false;
@@ -1130,7 +1584,8 @@
       state.autoCrossfading = false;
     }
 
-    document.querySelectorAll('.knob[data-eq]').forEach(knob => {
+    // EQ knobs
+    document.querySelectorAll('[data-eq-param]').forEach(knob => {
       let isDragging = false;
       let startY = 0;
       let startRotation = 0;
@@ -1138,7 +1593,7 @@
       knob.addEventListener('mousedown', (e) => {
         isDragging = true;
         startY = e.clientY;
-        startRotation = parseInt(knob.dataset.rotation || 0);
+        startRotation = parseFloat(knob.dataset.rotation || 0);
         e.preventDefault();
       });
       
@@ -1151,22 +1606,36 @@
         knob.style.transform = `rotate(${newRotation}deg)`;
         knob.dataset.rotation = newRotation;
         
-        const dbValue = (newRotation / 135) * 12;
-        const display = knob.parentElement.querySelector('.eq-val');
-        display.textContent = `${dbValue >= 0 ? '+' : ''}${dbValue.toFixed(0)}dB`;
-        
         const deck = knob.dataset.deck;
-        const eqType = knob.dataset.eq;
+        const band = knob.dataset.eqParam;
+        const param = knob.dataset.param;
         
-        if (audioContext && eqA[eqType] && eqB[eqType]) {
-          const targetEQ = deck === 'A' ? eqA : eqB;
-          targetEQ[eqType].gain.value = dbValue;
+        let value;
+        if (param === 'freq') {
+          const range = eqRanges[band];
+          const normalized = (newRotation + 135) / 270;
+          value = range.freqMin * Math.pow(range.freqMax / range.freqMin, normalized);
+          value = Math.round(value);
+          eqState[deck][band].freq = value;
+        } else if (param === 'q') {
+          const normalized = (newRotation + 135) / 270;
+          value = 0.1 + normalized * 9.9;
+          value = Math.round(value * 10) / 10;
+          eqState[deck][band].q = value;
+        } else if (param === 'gain') {
+          value = (newRotation / 135) * 12;
+          value = Math.round(value);
+          eqState[deck][band].gain = value;
         }
+        
+        updateEQFilter(deck, band);
+        updateEQDisplays(deck);
       });
       
       document.addEventListener('mouseup', () => isDragging = false);
     });
 
+    // Pitch knobs
     document.querySelectorAll('.knob[id^="pitchKnob"]').forEach(knob => {
       let isDragging = false;
       let startY = 0;
@@ -1201,43 +1670,51 @@
       document.addEventListener('mouseup', () => isDragging = false);
     });
 
-    // Handle track end with autoplay - crossfade to opposite deck
+    // Main timeupdate handler for mixing
+    function handleTimeUpdate(deck) {
+      const audio = deck === 'A' ? audioA : audioB;
+      
+      if (!state.autoplay || !audio.duration || state.currentDeck !== deck || state.transitioning) {
+        return;
+      }
+      
+      const remaining = audio.duration - audio.currentTime;
+      
+      // Preload at 10 seconds remaining
+      if (remaining <= 10 && remaining > 5 && !state.preloadedDeck) {
+        preloadNextTrack();
+      }
+      
+      // Start mixing at 5 seconds remaining
+      if (remaining <= 5 && remaining > 0.1 && !state.mixingStarted && state.preloadedDeck) {
+        startMixingTransition(deck);
+      }
+      
+      updateAutoplayStatus();
+    }
+
+    audioA.addEventListener('timeupdate', () => {
+      updateRemainingTimeDisplay();
+      handleTimeUpdate('A');
+    });
+
+    audioB.addEventListener('timeupdate', () => {
+      updateRemainingTimeDisplay();
+      handleTimeUpdate('B');
+    });
+
     audioA.addEventListener('ended', () => {
       state.deckA.playing = false;
       updatePlayButton('A');
       updateVolumes();
-      
-      if (state.autoplay && state.tracks.length > 0 && !state.transitioning) {
-        performAutoplayTransition('A');
-      }
+      updateRemainingTimeDisplay();
     });
 
     audioB.addEventListener('ended', () => {
       state.deckB.playing = false;
       updatePlayButton('B');
       updateVolumes();
-      
-      if (state.autoplay && state.tracks.length > 0 && !state.transitioning) {
-        performAutoplayTransition('B');
-      }
-    });
-
-    // Preload warning when approaching end of track
-    audioA.addEventListener('timeupdate', () => {
-      if (!state.autoplay || !audioA.duration || state.currentDeck !== 'A') return;
-      const remaining = audioA.duration - audioA.currentTime;
-      // Set next track info when 10 seconds remaining
-      if (remaining < 10 && remaining > 5) {
-        updateAutoplayStatus();
-      }
-    });
-
-    audioB.addEventListener('timeupdate', () => {
-      if (!state.autoplay || !audioB.duration || state.currentDeck !== 'B') return;
-      const remaining = audioB.duration - audioB.currentTime;
-      if (remaining < 10 && remaining > 5) {
-        updateAutoplayStatus();
-      }
+      updateRemainingTimeDisplay();
     });
 
     document.addEventListener('keydown', (e) => {
@@ -1249,6 +1726,10 @@
 
     // Initialize
     updateVolumes();
+    updateEQDisplays('A');
+    updateEQDisplays('B');
+    updateRemainingTimeDisplay();
+    document.getElementById('modeLabel').classList.add('sequential-active');
   </script>
 </body>
 </html>
