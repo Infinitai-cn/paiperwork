@@ -559,26 +559,23 @@
 
         // Multiple image sources from different providers
         const IMAGE_SOURCES = [
-            // Unsplash sources
-            { url: 'https://images.unsplash.com/photo-1518173946687-a4c036bc9036?w=1920&auto=format&fit=crop', name: 'Misty Rainforest', source: 'unsplash' },
-            { url: 'https://images.unsplash.com/photo-1441974231531-c6d7d6cdfd1a?w=1920&auto=format&fit=crop', name: 'Forest Path', source: 'unsplash' },
-            { url: 'https://images.unsplash.com/photo-1542273917363-3b1816f1b4e0?w=1920&auto=format&fit=crop', name: 'Tropical Jungle', source: 'unsplash' },
-            { url: 'https://images.unsplash.com/photo-1502082553046-f0e3d45b36c3?w=1920&auto=format&fit=crop', name: 'Bamboo Forest', source: 'unsplash' },
-            { url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1920&auto=format&fit=crop', name: 'Deep Woods', source: 'unsplash' },
-            { url: 'https://images.unsplash.com/photo-1476231682828-37e571bc172f?w=1920&auto=format&fit=crop', name: 'Waterfall Paradise', source: 'unsplash' },
+            // sources
+            { url: 'https://plus.unsplash.com/premium_photo-1687525933572-e5d144fea470?q=80&w=1920&auto==format&fit=crop', name: 'Misty Rainforest', source: 'unsplash' },
+            { url: 'https://plus.unsplash.com/premium_photo-1687428554453-357a0bfcd46f?q=80&w=1920&auto=format&fit=crop', name: 'Forest Path', source: 'unsplash' },
+            { url: 'https://images.unsplash.com/photo-1639618649096-7e5bf3d3435f?q=80&w=1920&auto=format&fit=crop', name: 'Tropical Jungle', source: 'unsplash' },
+            { url: 'https://plus.unsplash.com/premium_photo-1687428554753-2ba702e2684f?q=80&w=1920&auto=format&fit=crop', name: 'Bamboo Forest', source: 'unsplash' },
+            { url: 'https://images.unsplash.com/photo-1587587004741-ea9a81b70bf9?q=80&w=1920&auto=format&fit=crop', name: 'Deep Woods', source: 'unsplash' },
+            { url: 'https://images.unsplash.com/photo-1685583507892-c607bd674cfb?q=80&w=1920&auto=format&fit=crop', name: 'Waterfall Paradise', source: 'unsplash' },
             // Pexels sources
-            { url: 'https://images.pexels.com/photos/1450353/pexels-photo-1450353.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Green Valley', source: 'pexels' },
-            { url: 'https://images.pexels.com/photos/1761279/pexels-photo-1761279.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Forest Light', source: 'pexels' },
-            { url: 'https://images.pexels.com/photos/957024/forest-trees-perspective-bright-957024.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Sunlit Forest', source: 'pexels' },
-            { url: 'https://images.pexels.com/photos/1287145/pexels-photo-1287145.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Tropical Leaves', source: 'pexels' },
+            { url: 'https://images.pexels.com/photos/4239623/pexels-photo-4239623.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Green Valley', source: 'pexels' },
+            { url: 'https://images.pexels.com/photos/6005031/pexels-photo-6005031.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Forest Light', source: 'pexels' },
+            { url: 'https://images.pexels.com/photos/6741740/pexels-photo-6741740.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Sunlit Forest', source: 'pexels' },
+            { url: 'https://images.pexels.com/photos/36232942/pexels-photo-36232942.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Tropical Leaves', source: 'pexels' },
             // Pixabay sources
-            { url: 'https://pixabay.com/get/g88d2f7e7e3d4f3d8c8e3f3e8e7d8c8e3f3e8e7d8c8_640.jpg', name: 'Pixabay Forest', source: 'pixabay' },
-            { url: 'https://cdn.pixabay.com/photo/2016/10/20/18/35/forest-1756282_1280.jpg', name: 'Pine Woods', source: 'pixabay' },
-            { url: 'https://cdn.pixabay.com/photo/2017/02/07/21/39/forest-2047083_1280.jpg', name: 'Autumn Forest', source: 'pixabay' },
-            { url: 'https://cdn.pixabay.com/photo/2018/08/14/13/23/jungle-3605759_1280.jpg', name: 'Jungle River', source: 'pixabay' },
-            // Lorem Flickr (reliable fallback)
-            { url: 'https://loremflickr.com/1920/1080/rainforest,forest', name: 'Random Rainforest', source: 'loremflickr' },
-            { url: 'https://loremflickr.com/1920/1080/jungle,trees', name: 'Random Jungle', source: 'loremflickr' }
+            { url: 'https://pixabay.com/images/download/alan_frijns-jungle-7459819_1920.jpg', name: 'Pixabay Forest', source: 'pixabay' },
+            { url: 'https://pixabay.com/images/download/republica-lake-792814_1920.jpg', name: 'Pine Woods', source: 'pixabay' },
+            { url: 'https://pixabay.com/images/download/vilkasss-forest-10129694_1920.jpg', name: 'Autumn Forest', source: 'pixabay' },
+            { url: 'https://pixabay.com/images/download/jplenio-forest-8684668_1920.jpg', name: 'Jungle River', source: 'pixabay' },
         ];
 
         const ROTATION_INTERVAL = 5 * 60 * 1000;
