@@ -1815,12 +1815,11 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Startup messages
-	log.Printf("Paiperwork server starting on %s", server.Addr)
-	log.Printf("Local access: http://localhost:%s", port)
-	if bindHost != "localhost" && bindHost != "127.0.0.1" {
-		log.Printf("Network access enabled: http://%s:%s", bindHost, port)
-	}
+	// Security-focused startup messages
+	log.Printf("🔒 Secure Paiperwork server starting on:")
+	log.Printf("🛡️  SECURITY: Server restricted to localhost access only")
+	log.Printf("💡 This ensures your data remains encrypted and secure")
+	log.Printf("🚫 Network access disabled for enterprise security")
 
 	// Open browser locally by default. Disable in headless/cloud via PAIPERWORK_OPEN_BROWSER=false.
 	localURL := fmt.Sprintf("http://localhost:%s", port)
