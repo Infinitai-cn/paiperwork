@@ -95,7 +95,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         hideLocalOnlyTabsForCloudOnly();
     }
 
-    OllamaAPI.currentContextSize = parseInt(document.getElementById('context-selector')?.value || 8192);
+    OllamaAPI.currentContextSize = parseInt(document.getElementById('context-selector')?.value || 16384);
     setupTabSwitching();
 
     // Initialize app with database and UI elements

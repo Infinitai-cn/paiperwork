@@ -373,11 +373,15 @@ class DatabaseTab {
 
         try {
             const buffer = await file.arrayBuffer();
-            await PaiperworkDB.importDatabaseBundle(this.hashedMasterKey, new Uint8Array(buffer));
+            const importResult = await PaiperworkDB.importDatabaseBundle(this.hashedMasterKey, new Uint8Array(buffer));
+            const importedRoles = Array.isArray(importResult?.importedRoles) && importResult.importedRoles.length
+                ? importResult.importedRoles
+                : ['main'];
+            const importedRolesText = importedRoles.join(', ');
 
             this.showNotification(
                 'success',
-                Lang.get('databaseImportedReloading') || 'Database imported. Reloading and returning to welcome screen...'
+                `${Lang.get('databaseImportedReloading') || 'Database imported. Reloading and returning to welcome screen...'} (${importedRolesText})`
             );
 
             await PaiperworkDB.closeAllDatabases(this.hashedMasterKey);
