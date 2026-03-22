@@ -2587,12 +2587,6 @@ class PaiperworkDB {
 
                     sqlDb.close(); // Close the database connection
 
-                    // Store model in localStorage for faster access (especially for startup)
-                    if (model) {
-                        // Try to store securely; fallback to plaintext if unavailable
-                        try { await this.secureLocalStorageSet('selectedModel', model); } catch (e) { localStorage.setItem('selectedModel', model); }
-                    }
-
                     return {
                         systemPrompt,
                         model,
@@ -2645,18 +2639,6 @@ class PaiperworkDB {
 
             const normalizedModel = await this.normalizeStoredStringValue(model, hashedMasterKey);
             const normalizedProvider = String(await this.normalizeStoredStringValue(modelProvider, hashedMasterKey) || 'local').trim().toLowerCase() || 'local';
-
-            // Synchronous persistence first: protects against immediate page refresh interruption.
-            try {
-                localStorage.setItem('selectedModel', normalizedModel);
-                localStorage.setItem('selectedModelProvider', normalizedProvider);
-            } catch (_err) {
-                // ignore
-            }
-
-            // Always store selected model in localStorage for fast access during startup
-            try { await this.secureLocalStorageSet('selectedModel', normalizedModel); } catch (e) { localStorage.setItem('selectedModel', normalizedModel); }
-            try { await this.secureLocalStorageSet('selectedModelProvider', normalizedProvider); } catch (e) { localStorage.setItem('selectedModelProvider', normalizedProvider); }
 
             // Get SQL.js if not already loaded
             if (!this.SQL) {
