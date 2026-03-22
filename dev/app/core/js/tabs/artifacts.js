@@ -682,7 +682,7 @@ class ArtifactsWindow {
 			if (!response.ok) {
 				if (response.status === 429) {
 					const errorText = await response.text();
-					throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+					throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.'}${errorText ? `\n${errorText}` : ''}`);
 				}
 				return fallbackQuery || originalText;
 			}
@@ -1099,7 +1099,7 @@ class ArtifactsWindow {
 		if (!response.ok) {
 			const errorText = await response.text();
 			if (response.status === 429) {
-				throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+				throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.'}${errorText ? `\n${errorText}` : ''}`);
 			}
 			throw new Error(`Ollama error (${response.status}): ${errorText}`);
 		}
@@ -2014,6 +2014,10 @@ class ArtifactsWindow {
 				} else {
 					console.error('[ArtifactsWindow] Send failed:', error);
 					this.setGenerationStatus(this.t('artifactStatusFailed', 'Generation failed'), 'error');
+					if (this.isCloudUsageLimitError(error)) {
+						this.showCloudUsageLimitPreviewNotice(error);
+						this.setViewMode('artifact');
+					}
 				}
 			} finally {
 				this.currentAbortController = null;
@@ -2127,6 +2131,109 @@ class ArtifactsWindow {
 			}
 		}
 		this.applyViewModeStyles();
+	}
+
+	static isCloudUsageLimitError(error) {
+		const rawMessage = String((error && (error.message || error)) || '').toLowerCase();
+		if (!rawMessage) {
+			return false;
+		}
+
+		return rawMessage.includes('ollama cloud usage limit')
+			|| rawMessage.includes('weekly usage limit')
+			|| rawMessage.includes('daily or weekly limit')
+			|| (rawMessage.includes('usage limit') && rawMessage.includes('ollama.com/upgrade'));
+	}
+
+	static showCloudUsageLimitPreviewNotice(error) {
+		if (!this.renderFrame) {
+			return;
+		}
+
+		const title = this.t('artifactCloudLimitTitle', 'Cloud usage limit reached');
+		const body = this.t(
+			'artifactCloudLimitBody',
+			'Your Ollama Cloud usage limit was reached. Please wait for reset or upgrade your Ollama plan.',
+		);
+		const detail = String((error && (error.message || error)) || '').trim();
+		const safeDetail = this.escapeHtml(detail);
+
+		const noticeHtml = `<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>${this.escapeHtml(title)}</title>
+	<style>
+		:root {
+			color-scheme: light dark;
+			--bg: #0f172a;
+			--panel: #111827;
+			--text: #e5e7eb;
+			--muted: #cbd5e1;
+			--warning: #f59e0b;
+			--line: #374151;
+			--link: #60a5fa;
+		}
+		body {
+			margin: 0;
+			min-height: 100vh;
+			background: radial-gradient(circle at top right, rgba(245, 158, 11, 0.15), transparent 40%), var(--bg);
+			color: var(--text);
+			font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 24px;
+			box-sizing: border-box;
+		}
+		.card {
+			width: min(760px, 100%);
+			border: 1px solid var(--line);
+			border-radius: 14px;
+			background: var(--panel);
+			box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+			padding: 20px;
+			box-sizing: border-box;
+		}
+		h1 {
+			margin: 0 0 10px;
+			font-size: 22px;
+			color: var(--warning);
+		}
+		p {
+			margin: 0 0 12px;
+			color: var(--muted);
+			line-height: 1.5;
+		}
+		pre {
+			margin: 12px 0 0;
+			padding: 12px;
+			border: 1px solid var(--line);
+			border-radius: 10px;
+			background: rgba(15, 23, 42, 0.7);
+			white-space: pre-wrap;
+			word-break: break-word;
+			font-size: 12px;
+			line-height: 1.4;
+			color: var(--text);
+		}
+		a {
+			color: var(--link);
+		}
+	</style>
+</head>
+<body>
+	<main class="card">
+		<h1>${this.escapeHtml(title)}</h1>
+		<p>${this.escapeHtml(body)}</p>
+		<p><a href="https://ollama.com/settings" target="_blank" rel="noopener noreferrer">https://ollama.com/settings</a></p>
+		${safeDetail ? `<pre>${safeDetail}</pre>` : ''}
+	</main>
+</body>
+</html>`;
+
+		this.renderFrame.srcdoc = noticeHtml;
 	}
 
 	static getDefaultArtifactHtml() {

@@ -104,7 +104,7 @@ class OllamaAPI {
 
     static getOllamaRateLimitMessage() {
         return (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded'))
-            || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
+            || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.';
     }
 
     static isOllamaRateLimitStatus(status, responseText = '') {
@@ -119,6 +119,21 @@ class OllamaAPI {
             || text.includes('statuscode":429')
             || text.includes('status": "429')
             || text.includes('status":429');
+    }
+
+    static isOllamaRateLimitError(error) {
+        const message = String(error && error.message ? error.message : error || '').toLowerCase();
+        if (!message) {
+            return false;
+        }
+
+        return message.includes('429')
+            || message.includes('too many requests')
+            || message.includes('weekly usage')
+            || message.includes('daily limit')
+            || message.includes('usage limit')
+            || message.includes('ollama.com/upgrade')
+            || message.includes('ollama.com/settings');
     }
     
     static normalizeConversationText(text, maxChars = 1200) {
@@ -1492,7 +1507,11 @@ class OllamaAPI {
                 throw error;
             }
 
-            alert(Lang.get('ollamaConnectionError'));
+            if (this.isOllamaRateLimitError(error)) {
+                alert(this.getOllamaRateLimitMessage());
+            } else {
+                alert(Lang.get('ollamaConnectionError'));
+            }
             return null;
         }
     }
@@ -2370,7 +2389,11 @@ class OllamaAPI {
                 throw error; // Rethrow so the caller knows it was aborted
             }
 
-            alert(Lang.get('ollamaConnectionError') + ': ' + error.message);
+            if (this.isOllamaRateLimitError(error)) {
+                alert(this.getOllamaRateLimitMessage());
+            } else {
+                alert(Lang.get('ollamaConnectionError') + ': ' + error.message);
+            }
             return null;
         }
     }

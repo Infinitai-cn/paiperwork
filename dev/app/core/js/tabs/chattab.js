@@ -721,14 +721,15 @@ class ChatTab {
         const contextSelector = document.getElementById('context-selector');
         const contextSizePanel = contextSelector ? contextSelector.closest('.panel') : null;
         const contextRemainingPanel = document.getElementById('context-remaining-panel');
-        const showContextCards = true;
         [contextSizePanel, contextRemainingPanel].forEach(panel => {
             if (!panel) return;
-            panel.style.display = showContextCards ? '' : 'none';
-            panel.setAttribute('aria-hidden', showContextCards ? 'false' : 'true');
+            panel.style.display = '';
+            panel.style.visibility = 'visible';
+            panel.classList.remove('hidden');
+            panel.removeAttribute('hidden');
+            panel.setAttribute('aria-hidden', 'false');
         });
     }
-
 
     // Sets up all UI elements, event handlers, and model/context selectors for the chat tab.
     setupUIElements() {
