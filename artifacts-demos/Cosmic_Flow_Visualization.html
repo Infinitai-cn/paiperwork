@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Flow Visualization</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #0a0a0f;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        .ui-overlay {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.85);
+            padding: 10px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+        }
+
+        .control-btn.active {
+            background: linear-gradient(135deg, #00d4aa 0%, #00a8cc 100%);
+            border-color: transparent;
+            color: #000;
+        }
+
+        .title {
+            position: fixed;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 28px;
+            font-weight: 300;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            z-index: 10;
+            text-shadow: 0 0 40px rgba(0, 212, 170, 0.5);
+        }
+
+        .stats {
+            position: fixed;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
+            letter-spacing: 2px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="title">Cosmic Flow</div>
+    <div class="stats" id="stats">Particles: 0</div>
+    <canvas id="canvas"></canvas>
+    <div class="ui-overlay">
+        <button class="control-btn active" data-mode="flow">Flow</button>
+        <button class="control-btn" data-mode="vortex">Vortex</button>
+        <button class="control-btn" data-mode="orbit">Orbit</button>
+        <button class="control-btn" data-mode="burst">Burst</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statsEl = document.getElementById('stats');
+        
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        let mouseX = width / 2;
+        let mouseY = height / 2;
+        let currentMode = 'flow';
+        let time = 0;
+        
+        const particles = [];
+        const PARTICLE_COUNT = 400;
+        const CONNECTION_DISTANCE = 100;
+        
+        const colorPalettes = {
+            flow: { primary: '#00d4aa', secondary: '#00a8cc', accent: '#7b68ee' },
+            vortex: { primary: '#ff6b6b', secondary: '#ffa502', accent: '#ff4757' },
+            orbit: { primary: '#a29bfe', secondary: '#74b9ff', accent: '#fd79a8' },
+            burst: { primary: '#00cec9', secondary: '#81ecec', accent: '#55efc4' }
+        };
+
+        class Particle {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.radius = Math.random() * 2 + 1;
+                this.life = 1;
+                this.angle = Math.random() * Math.PI * 2;
+                this.speed = Math.random() * 0.5 + 0.5;
+                this.orbitRadius = Math.random() * 200 + 50;
+                this.orbitSpeed = (Math.random() - 0.5) * 0.02;
+            }
+
+            update(mode, centerX, centerY, globalTime) {
+                const palette = colorPalettes[mode];
+                
+                switch(mode) {
+                    case 'flow':
+                        this.updateFlow(globalTime);
+                        break;
+                    case 'vortex':
+                        this.updateVortex(centerX, centerY);
+                        break;
+                    case 'orbit':
+                        this.updateOrbit(centerX, centerY, globalTime);
+                        break;
+                    case 'burst':
+                        this.updateBurst(centerX, centerY);
+                        break;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+            }
+
+            updateFlow(t) {
+                const noise = Math.sin(this.x * 0.01 + t) * Math.cos(this.y * 0.01 + t);
+                this.vx += noise * 0.1;
+                this.vy += Math.cos(t + this.x * 0.005) * 0.1;
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+            }
+
+            updateVortex(cx, cy) {
+                const dx = this.x - cx;
+                const dy = this.y - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy) + 1;
+                const angle = Math.atan2(dy, dx);
+                
+                const pullStrength = 0.5;
+                const tangStrength = 2;
+                
+                this.vx += -dx / dist * pullStrength + Math.cos(angle + Math.PI/2) * tangStrength;
+                this.vy += -dy / dist * pullStrength + Math.sin(angle + Math.PI/2) * tangStrength;
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+            }
+
+            updateOrbit(cx, cy, t) {
+                this.angle += this.orbitSpeed;
+                const targetX = cx + Math.cos(this.angle + t * 0.5) * this.orbitRadius;
+                const targetY = cy + Math.sin(this.angle + t * 0.5) * this.orbitRadius;
+                
+                this.vx += (targetX - this.x) * 0.02;
+                this.vy += (targetY - this.y) * 0.02;
+                this.vx *= 0.92;
+                this.vy *= 0.92;
+            }
+
+            updateBurst(cx, cy) {
+                const dx = this.x - cx;
+                const dy = this.y - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy) + 1;
+                
+                if (dist < 300) {
+                    const force = (300 - dist) / 300 * 0.5;
+                    this.vx += dx / dist * force;
+                    this.vy += dy / dist * force;
+                }
+                
+                this.vx *= 0.99;
+                this.vy *= 0.99;
+            }
+
+            draw(palette) {
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                const hue = (speed * 20 + time * 50) % 360;
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, Math.max(0.5, this.radius), 0, Math.PI * 2);
+                ctx.fillStyle = palette.primary;
+                ctx.fill();
+            }
+        }
+
+        function init() {
+            canvas.width = width;
+            canvas.height = height;
+            
+            particles.length = 0;
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function drawConnections(palette) {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < CONNECTION_DISTANCE) {
+                        const opacity = (1 - dist / CONNECTION_DISTANCE) * 0.3;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function drawCenterOrb(centerX, centerY) {
+            const palette = colorPalettes[currentMode];
+            const orbRadius = 60 + Math.sin(time * 2) * 10;
+            
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, orbRadius);
+            gradient.addColorStop(0, palette.primary);
+            gradient.addColorStop(0.5, palette.secondary + '80');
+            gradient.addColorStop(1, 'transparent');
+            
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, Math.max(1, orbRadius), 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            for (let i = 0; i < 3; i++) {
+                const ringRadius = orbRadius + 20 + i * 15;
+                const opacity = 0.2 - i * 0.05;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, Math.max(1, ringRadius), 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+
+        function animate() {
+            time += 0.01;
+            
+            ctx.fillStyle = 'rgba(10, 10, 15, 0.15)';
+            ctx.fillRect(0, 0, width, height);
+
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const palette = colorPalettes[currentMode];
+
+            drawConnections(palette);
+            
+            particles.forEach(p => {
+                p.update(currentMode, mouseX, mouseY, time);
+                p.draw(palette);
+            });
+
+            drawCenterOrb(mouseX, mouseY);
+
+            statsEl.textContent = `Particles: ${PARTICLE_COUNT} | Mode: ${currentMode}`;
+
+            requestAnimationFrame(animate);
+        }
+
+        function handleResize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        function handleMouseMove(e) {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        }
+
+        function handleTouchMove(e) {
+            e.preventDefault();
+            mouseX = e.touches[0].clientX;
+            mouseY = e.touches[0].clientY;
+        }
+
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.control-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.mode;
+            });
+        });
+
+        window.addEventListener('resize', handleResize);
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+        init();
+        animate();
+    </script>
+</body>
+</html>
