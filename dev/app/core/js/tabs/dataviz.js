@@ -250,18 +250,19 @@ class DataViz {
                 `);
             } else {
                 const isRateLimited = this.isRateLimitError(error);
-                const rateLimitMessage = (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded'))
-                    || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
-                // For all other types of errors, show the detailed error message
                 console.error('Error creating visualization:', error);
-                this.showFloatingWindow(`
+                if (isRateLimited) {
+                    this.showCloudUsageLimitNotice(error);
+                } else {
+                    this.showFloatingWindow(`
     <div class="dataviz-error" style="color: #000000;">
         <h3>${Lang.get('datavizErrorCreating')}</h3>
-        <p>${isRateLimited ? rateLimitMessage : error.message}</p>
+        <p>${error.message}</p>
         <p>${Lang.get('datavizErrorMessage')}</p>
         <p>${Lang.get('datavizErrorSuggestion')}</p>
     </div>
-                `);
+                    `);
+                }
             }
         } finally {
             // Always clean up the global abort controller
@@ -277,6 +278,31 @@ class DataViz {
             || message.includes('weekly usage')
             || message.includes('daily limit')
             || message.includes('rate limit');
+    }
+
+    showCloudUsageLimitNotice(error) {
+        const safeMessage = this.escapeHtml(String(error?.message || error || ''));
+        const title = (window.Lang && typeof Lang.get === 'function' && Lang.get('artifactCloudLimitTitle')) || 'Cloud usage limit reached';
+        const rateLimitMessage = (window.Lang && typeof Lang.get === 'function' && Lang.get('artifactCloudLimitBody'))
+            || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.';
+
+        this.showFloatingWindow(`
+    <div class="dataviz-error" style="text-align: center; padding: 20px; color: #000000;">
+        <h3 style="color:#b91c1c; margin-bottom: 10px;">${this.escapeHtml(title)}</h3>
+        <p style="margin-bottom:10px; line-height:1.45;">${this.escapeHtml(rateLimitMessage)}</p>
+        <p style="margin-bottom:12px; white-space:pre-wrap; line-height:1.4;">${safeMessage}</p>
+        <p style="margin:0;"><a href="https://ollama.com/settings" target="_blank" rel="noopener noreferrer">https://ollama.com/settings</a></p>
+    </div>
+        `);
+    }
+
+    escapeHtml(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     // Returns the appropriate system prompt string for the specified visualization type

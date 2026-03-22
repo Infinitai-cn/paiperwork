@@ -20,7 +20,7 @@ class ModelDownloader {
 
     static getOllamaRateLimitMessage() {
         return (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaRateLimitExceeded'))
-            || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade';
+            || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.';
     }
 
     static isRateLimitedResponse(response, responseText = '') {

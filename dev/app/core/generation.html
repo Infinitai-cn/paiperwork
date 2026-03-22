@@ -329,19 +329,12 @@
                         return;
                     }
 
-                    const selectedOption = modelSelector.options[modelSelector.selectedIndex];
-                    const selectedModel = modelSelector.value || '';
-
-                    const provider = (selectedOption && selectedOption.dataset && selectedOption.dataset.provider)
-                        ? selectedOption.dataset.provider
-                        : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
-                            ? (window.OllamaAPI.getModelSource(selectedModel) || window.OllamaAPI.getSelectedModelSource?.() || 'local')
-                            : 'local');
-
-                    const showContextCards = provider !== 'cloud';
                     [contextSizePanel, contextRemainingPanel].forEach(panel => {
-                        panel.style.display = showContextCards ? '' : 'none';
-                        panel.setAttribute('aria-hidden', showContextCards ? 'false' : 'true');
+                        panel.style.display = '';
+                        panel.style.visibility = 'visible';
+                        panel.classList.remove('hidden');
+                        panel.removeAttribute('hidden');
+                        panel.setAttribute('aria-hidden', 'false');
                     });
                 };
 

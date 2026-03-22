@@ -142,6 +142,16 @@
             z-index: 0;
         }
 
+        #cloudLayer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
         #fogLayer {
             position: fixed;
             top: 0;
@@ -150,7 +160,6 @@
             height: 100%;
             z-index: 3;
             pointer-events: none;
-            opacity: 0.5;
         }
 
         #rainCanvas {
@@ -187,7 +196,7 @@
             transition: opacity 0.5s ease;
         }
 
-        body:hover #controls {
+        body.ui-visible #controls {
             opacity: 1;
         }
 
@@ -277,7 +286,7 @@
             transition: opacity 0.5s ease;
         }
 
-        body:hover #infoPanel {
+        body.ui-visible #infoPanel {
             opacity: 1;
         }
 
@@ -310,7 +319,7 @@
             transition: opacity 0.5s ease;
         }
 
-        body:hover #ambientInfo {
+        body.ui-visible #ambientInfo {
             opacity: 1;
         }
 
@@ -336,7 +345,7 @@
             transition: opacity 0.5s ease;
         }
 
-        body:hover #imageProgress {
+        body.ui-visible #imageProgress {
             opacity: 1;
         }
 
@@ -392,6 +401,68 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        #fullscreenBtn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 100;
+            width: 50px;
+            height: 50px;
+            background: rgba(10, 20, 15, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 150, 100, 0.3);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.5s ease, background 0.3s ease, transform 0.2s ease;
+        }
+
+        body.ui-visible #fullscreenBtn {
+            opacity: 1;
+        }
+
+        #fullscreenBtn:hover {
+            background: rgba(60, 100, 60, 0.9);
+            transform: scale(1.1);
+            box-shadow: 0 5px 20px rgba(60, 100, 60, 0.4);
+        }
+
+        #fullscreenBtn:active {
+            transform: scale(0.95);
+        }
+
+        #fullscreenBtn svg {
+            width: 22px;
+            height: 22px;
+            stroke: rgba(150, 200, 150, 0.9);
+            stroke-width: 2;
+            fill: none;
+            transition: stroke 0.3s ease;
+        }
+
+        #fullscreenBtn:hover svg {
+            stroke: rgba(200, 230, 200, 1);
+        }
+
+        #fullscreenBtn .icon-fullscreen {
+            display: block;
+        }
+
+        #fullscreenBtn .icon-minimize {
+            display: none;
+        }
+
+        body.fullscreen-mode #fullscreenBtn .icon-fullscreen {
+            display: none;
+        }
+
+        body.fullscreen-mode #fullscreenBtn .icon-minimize {
+            display: block;
         }
 
         #splashScreen {
@@ -480,6 +551,8 @@
             .control-row { padding: 10px 15px; gap: 15px; flex-wrap: wrap; justify-content: center; }
             input[type="range"] { width: 80px; }
             .image-name { display: none; }
+            #fullscreenBtn { bottom: 20px; right: 20px; width: 44px; height: 44px; }
+            #fullscreenBtn svg { width: 18px; height: 18px; }
         }
     </style>
 </head>
@@ -500,6 +573,7 @@
         <div class="forest-overlay"></div>
     </div>
     
+    <canvas id="cloudLayer"></canvas>
     <canvas id="fogLayer"></canvas>
     <canvas id="rainCanvas"></canvas>
     <canvas id="lightningCanvas"></canvas>
@@ -541,37 +615,46 @@
         </div>
     </div>
 
+    <button id="fullscreenBtn" aria-label="Toggle fullscreen">
+        <svg class="icon-fullscreen" viewBox="0 0 24 24">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+        <svg class="icon-minimize" viewBox="0 0 24 24">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+        </svg>
+    </button>
+
     <script>
         const splashScreen = document.getElementById('splashScreen');
         const enterBtn = document.getElementById('enterBtn');
         const loadingStatus = document.getElementById('loadingStatus');
         const rainCanvas = document.getElementById('rainCanvas');
         const fogCanvas = document.getElementById('fogLayer');
+        const cloudCanvas = document.getElementById('cloudLayer');
         const lightningCanvas = document.getElementById('lightningCanvas');
         const rainCtx = rainCanvas.getContext('2d');
         const fogCtx = fogCanvas.getContext('2d');
+        const cloudCtx = cloudCanvas.getContext('2d');
         const lightningCtx = lightningCanvas.getContext('2d');
         const currentBgImage = document.getElementById('currentBgImage');
         const nextBgImage = document.getElementById('nextBgImage');
         const progressDots = document.getElementById('progressDots');
         const progressFill = document.getElementById('progressFill');
         const imageName = document.getElementById('imageName');
+        const controls = document.getElementById('controls');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
 
-        // Multiple image sources from different providers
         const IMAGE_SOURCES = [
-            // sources
             { url: 'https://plus.unsplash.com/premium_photo-1687525933572-e5d144fea470?q=80&w=1920&auto==format&fit=crop', name: 'Misty Rainforest', source: 'unsplash' },
             { url: 'https://plus.unsplash.com/premium_photo-1687428554453-357a0bfcd46f?q=80&w=1920&auto=format&fit=crop', name: 'Forest Path', source: 'unsplash' },
             { url: 'https://images.unsplash.com/photo-1639618649096-7e5bf3d3435f?q=80&w=1920&auto=format&fit=crop', name: 'Tropical Jungle', source: 'unsplash' },
             { url: 'https://plus.unsplash.com/premium_photo-1687428554753-2ba702e2684f?q=80&w=1920&auto=format&fit=crop', name: 'Bamboo Forest', source: 'unsplash' },
             { url: 'https://images.unsplash.com/photo-1587587004741-ea9a81b70bf9?q=80&w=1920&auto=format&fit=crop', name: 'Deep Woods', source: 'unsplash' },
             { url: 'https://images.unsplash.com/photo-1685583507892-c607bd674cfb?q=80&w=1920&auto=format&fit=crop', name: 'Waterfall Paradise', source: 'unsplash' },
-            // Pexels sources
             { url: 'https://images.pexels.com/photos/4239623/pexels-photo-4239623.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Green Valley', source: 'pexels' },
             { url: 'https://images.pexels.com/photos/6005031/pexels-photo-6005031.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Forest Light', source: 'pexels' },
             { url: 'https://images.pexels.com/photos/6741740/pexels-photo-6741740.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Sunlit Forest', source: 'pexels' },
             { url: 'https://images.pexels.com/photos/36232942/pexels-photo-36232942.jpeg?auto=compress&cs=tinysrgb&w=1920', name: 'Tropical Leaves', source: 'pexels' },
-            // Pixabay sources
             { url: 'https://pixabay.com/images/download/alan_frijns-jungle-7459819_1920.jpg', name: 'Pixabay Forest', source: 'pixabay' },
             { url: 'https://pixabay.com/images/download/republica-lake-792814_1920.jpg', name: 'Pine Woods', source: 'pixabay' },
             { url: 'https://pixabay.com/images/download/vilkasss-forest-10129694_1920.jpg', name: 'Autumn Forest', source: 'pixabay' },
@@ -600,6 +683,76 @@
         const raindrops = [];
         const splashes = [];
         const fogParticles = [];
+        const clouds = [];
+
+        let uiHideTimeout = null;
+        let isInteracting = false;
+        const UI_VISIBLE_DURATION = 15000;
+        let hasEnteredForest = false;
+
+        function showUI() {
+            document.body.classList.add('ui-visible');
+        }
+
+        function hideUI() {
+            if (!isInteracting && hasEnteredForest) {
+                document.body.classList.remove('ui-visible');
+            }
+        }
+
+        function resetUITimer() {
+            if (uiHideTimeout) clearTimeout(uiHideTimeout);
+            if (hasEnteredForest) uiHideTimeout = setTimeout(hideUI, UI_VISIBLE_DURATION);
+        }
+
+        function handleUserInteraction() {
+            if (!hasEnteredForest) return;
+            showUI();
+            resetUITimer();
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+                else if (document.documentElement.webkitRequestFullscreen) document.documentElement.webkitRequestFullscreen();
+                document.body.classList.add('fullscreen-mode');
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                document.body.classList.remove('fullscreen-mode');
+            }
+        }
+
+        function updateFullscreenState() {
+            if (document.fullscreenElement || document.webkitFullscreenElement) {
+                document.body.classList.add('fullscreen-mode');
+            } else {
+                document.body.classList.remove('fullscreen-mode');
+            }
+        }
+
+        document.addEventListener('fullscreenchange', updateFullscreenState);
+        document.addEventListener('webkitfullscreenchange', updateFullscreenState);
+
+        fullscreenBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleFullscreen();
+            showUI();
+            resetUITimer();
+        });
+
+        fullscreenBtn.addEventListener('mouseenter', () => { isInteracting = true; });
+        fullscreenBtn.addEventListener('mouseleave', () => { 
+            isInteracting = false; 
+            if (hasEnteredForest) { showUI(); resetUITimer(); }
+        });
+
+        fullscreenBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isInteracting = true; }, { passive: false });
+        fullscreenBtn.addEventListener('touchend', () => { 
+            isInteracting = false;
+            toggleFullscreen();
+            if (hasEnteredForest) { showUI(); resetUITimer(); }
+        });
 
         function initImageElements() {
             progressDots.innerHTML = '';
@@ -608,11 +761,7 @@
                 dot.className = 'progress-dot';
                 dot.dataset.index = index;
                 dot.title = source.name;
-                dot.addEventListener('click', () => {
-                    if (loadedImages[index]) {
-                        switchToImage(index);
-                    }
-                });
+                dot.addEventListener('click', () => { if (loadedImages[index]) switchToImage(index); });
                 progressDots.appendChild(dot);
             });
         }
@@ -622,68 +771,37 @@
                 const source = IMAGE_SOURCES[index];
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
-                
-                const timeout = setTimeout(() => {
-                    imageLoadStatus[index] = false;
-                    resolve(false);
-                }, 8000);
-
+                const timeout = setTimeout(() => { imageLoadStatus[index] = false; resolve(false); }, 8000);
                 img.onload = function() {
                     clearTimeout(timeout);
                     if (img.naturalWidth > 100 && img.naturalHeight > 100) {
-                        loadedImages[index] = {
-                            src: img.src,
-                            name: source.name
-                        };
+                        loadedImages[index] = { src: img.src, name: source.name };
                         imageLoadStatus[index] = true;
                         resolve(true);
-                    } else {
-                        imageLoadStatus[index] = false;
-                        resolve(false);
-                    }
+                    } else { imageLoadStatus[index] = false; resolve(false); }
                 };
-                
-                img.onerror = function() {
-                    clearTimeout(timeout);
-                    imageLoadStatus[index] = false;
-                    resolve(false);
-                };
-                
+                img.onerror = function() { clearTimeout(timeout); imageLoadStatus[index] = false; resolve(false); };
                 img.src = source.url + '&t=' + Date.now();
             });
         }
 
         async function preloadAllImages() {
             loadingStatus.textContent = 'Loading rainforest images...';
-            
             for (let i = 0; i < IMAGE_SOURCES.length; i++) {
                 const dot = progressDots.children[i];
                 loadingStatus.textContent = `Loading image ${i + 1}/${IMAGE_SOURCES.length}...`;
-                
                 const success = await tryLoadImage(i);
                 loadedCount++;
-                
-                if (success && currentImageIndex === -1) {
-                    currentImageIndex = i;
-                    showImage(i);
-                    dot.classList.add('loaded');
-                } else if (success) {
-                    dot.classList.add('loaded');
-                }
+                if (success && currentImageIndex === -1) { currentImageIndex = i; showImage(i); dot.classList.add('loaded'); }
+                else if (success) dot.classList.add('loaded');
             }
-            
             loadingStatus.textContent = 'Ready';
-            
-            if (currentImageIndex === -1) {
-                imageName.textContent = 'Procedural Forest';
-            }
-            
+            if (currentImageIndex === -1) imageName.textContent = 'Procedural Forest';
             startRotation();
         }
 
         function showImage(index) {
             if (!loadedImages[index]) return;
-            
             currentBgImage.src = loadedImages[index].src;
             currentBgImage.classList.add('loaded');
             currentImageIndex = index;
@@ -693,10 +811,7 @@
 
         function switchToImage(index) {
             if (!loadedImages[index] || index === currentImageIndex) return;
-            
-            // Fade out current image
             currentBgImage.classList.remove('loaded');
-            
             setTimeout(() => {
                 currentBgImage.src = loadedImages[index].src;
                 currentBgImage.classList.add('loaded');
@@ -709,18 +824,13 @@
 
         function updateProgressDots() {
             const dots = progressDots.querySelectorAll('.progress-dot');
-            dots.forEach((dot, index) => {
-                dot.classList.toggle('active', index === currentImageIndex);
-            });
+            dots.forEach((dot, index) => { dot.classList.toggle('active', index === currentImageIndex); });
         }
 
-        function resetProgressBar() {
-            progressStartTime = Date.now();
-        }
+        function resetProgressBar() { progressStartTime = Date.now(); }
 
         function updateProgressBar() {
             if (!isRunning) return;
-            
             const elapsed = Date.now() - progressStartTime;
             const progress = (elapsed / ROTATION_INTERVAL) * 100;
             progressFill.style.width = Math.min(progress, 100) + '%';
@@ -728,24 +838,18 @@
 
         function nextImage() {
             if (loadedImages.filter(Boolean).length === 0) return;
-            
             let nextIndex = (currentImageIndex + 1) % IMAGE_SOURCES.length;
             let attempts = 0;
-            
             while (!loadedImages[nextIndex] && attempts < IMAGE_SOURCES.length) {
                 nextIndex = (nextIndex + 1) % IMAGE_SOURCES.length;
                 attempts++;
             }
-            
-            if (loadedImages[nextIndex]) {
-                switchToImage(nextIndex);
-            }
+            if (loadedImages[nextIndex]) switchToImage(nextIndex);
         }
 
         function startRotation() {
             if (rotationTimer) clearInterval(rotationTimer);
             if (progressTimer) clearInterval(progressTimer);
-            
             resetProgressBar();
             rotationTimer = setInterval(nextImage, ROTATION_INTERVAL);
             progressTimer = setInterval(updateProgressBar, 100);
@@ -760,12 +864,286 @@
             rainCanvas.height = height;
             fogCanvas.width = width;
             fogCanvas.height = height;
+            cloudCanvas.width = width;
+            cloudCanvas.height = height;
             lightningCanvas.width = width;
             lightningCanvas.height = height;
         }
 
         resizeCanvases();
         window.addEventListener('resize', resizeCanvases);
+
+        // Perlin-like noise for realistic cloud generation
+        class PerlinNoise {
+            constructor(seed = Math.random() * 10000) {
+                this.permutation = [];
+                const random = this.seededRandom(seed);
+                for (let i = 0; i < 256; i++) this.permutation[i] = i;
+                for (let i = 255; i > 0; i--) {
+                    const j = Math.floor(random() * (i + 1));
+                    [this.permutation[i], this.permutation[j]] = [this.permutation[j], this.permutation[i]];
+                }
+                this.permutation = [...this.permutation, ...this.permutation];
+            }
+
+            seededRandom(seed) {
+                return function() {
+                    seed = (seed * 9301 + 49297) % 233280;
+                    return seed / 233280;
+                };
+            }
+
+            fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+            lerp(a, b, t) { return a + t * (b - a); }
+            grad(hash, x, y) {
+                const h = hash & 3;
+                const u = h < 2 ? x : y;
+                const v = h < 2 ? y : x;
+                return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+            }
+
+            noise(x, y) {
+                const X = Math.floor(x) & 255;
+                const Y = Math.floor(y) & 255;
+                x -= Math.floor(x);
+                y -= Math.floor(y);
+                const u = this.fade(x);
+                const v = this.fade(y);
+                const A = this.permutation[X] + Y;
+                const B = this.permutation[X + 1] + Y;
+                return this.lerp(
+                    this.lerp(this.grad(this.permutation[A], x, y), this.grad(this.permutation[B], x - 1, y), u),
+                    this.lerp(this.grad(this.permutation[A + 1], x, y - 1), this.grad(this.permutation[B + 1], x - 1, y - 1), u),
+                    v
+                );
+            }
+
+            fbm(x, y, octaves = 6, lacunarity = 2, persistence = 0.5) {
+                let value = 0, amplitude = 1, frequency = 1, maxValue = 0;
+                for (let i = 0; i < octaves; i++) {
+                    value += amplitude * this.noise(x * frequency, y * frequency);
+                    maxValue += amplitude;
+                    amplitude *= persistence;
+                    frequency *= lacunarity;
+                }
+                return value / maxValue;
+            }
+        }
+
+        // Realistic procedural cloud/fog
+        class RealisticCloud {
+            constructor(initialSpawn = false, canvasWidth, canvasHeight) {
+                this.perlin = new PerlinNoise(Math.random() * 100000);
+                this.canvasWidth = canvasWidth;
+                this.canvasHeight = canvasHeight;
+                this.reset(initialSpawn);
+            }
+
+            reset(initialSpawn = false) {
+                // Size determines depth layer - larger = farther/slower
+                this.depthLayer = Math.random();
+                this.width = 400 + Math.random() * 800 + (1 - this.depthLayer) * 400;
+                this.height = this.width * (0.25 + Math.random() * 0.2);
+
+                // Spawn position - enter from right, spread across screen on initial
+                if (initialSpawn) {
+                    this.x = Math.random() * (this.canvasWidth + this.width) - this.width * 0.5;
+                    this.y = Math.random() * this.canvasHeight * 0.85;
+                } else {
+                    this.x = this.canvasWidth + this.width * 0.5 + Math.random() * 300;
+                    this.y = Math.random() * this.canvasHeight * 0.85;
+                }
+
+                // Speed inversely related to depth (farther = slower)
+                this.baseSpeed = 0.15 + this.depthLayer * 0.25;
+                this.speed = this.baseSpeed;
+
+                // Generate cloud puffs/blobs
+                this.puffs = this.generatePuffs();
+
+                // Color palette: white to grey with subtle variation
+                const greyLevel = 160 + Math.random() * 95;
+                const tint = Math.random();
+                this.color = {
+                    r: greyLevel + (tint > 0.7 ? 10 : 0),
+                    g: greyLevel + (tint > 0.5 ? -5 : 5),
+                    b: greyLevel + (tint < 0.3 ? 15 : 0)
+                };
+
+                // Base opacity based on depth
+                this.baseOpacity = 0.02 + (1 - this.depthLayer) * 0.06;
+
+                // Animation properties
+                this.phase = Math.random() * Math.PI * 2;
+                this.phaseSpeed = 0.0003 + Math.random() * 0.0004;
+                this.driftPhase = Math.random() * Math.PI * 2;
+                this.driftSpeed = 0.001 + Math.random() * 0.002;
+            }
+
+            generatePuffs() {
+                const puffs = [];
+                const numPuffs = 15 + Math.floor(Math.random() * 25);
+                
+                for (let i = 0; i < numPuffs; i++) {
+                    // Cluster puffs toward center with some spread
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = Math.pow(Math.random(), 0.6);
+                    const sizeVariation = 0.3 + Math.random() * 0.7;
+                    
+                    puffs.push({
+                        offsetX: Math.cos(angle) * dist * this.width * 0.45,
+                        offsetY: Math.sin(angle) * dist * this.height * 0.35,
+                        scaleX: sizeVariation * (0.15 + Math.random() * 0.35),
+                        scaleY: sizeVariation * (0.08 + Math.random() * 0.15),
+                        phase: Math.random() * Math.PI * 2,
+                        freq: 0.5 + Math.random() * 1.5,
+                        noiseScale: 0.3 + Math.random() * 0.7
+                    });
+                }
+                return puffs;
+            }
+
+            update(time, windFactor) {
+                // Drift from right to left
+                this.x -= this.speed + windFactor * 0.3;
+                
+                // Gentle vertical drift
+                this.phase += this.phaseSpeed;
+                this.driftPhase += this.driftSpeed;
+                
+                // Reset when fully off-screen left
+                if (this.x < -this.width) {
+                    this.reset(false);
+                }
+            }
+
+            draw(ctx, time) {
+                const colorStr = `${Math.floor(this.color.r)}, ${Math.floor(this.color.g)}, ${Math.floor(this.color.b)}`;
+                const verticalDrift = Math.sin(this.driftPhase) * 2;
+                const pulseFactor = 1 + Math.sin(time * 0.0003) * 0.02;
+                
+                ctx.save();
+                
+                // Sort puffs by size for depth effect
+                const sortedPuffs = [...this.puffs].sort((a, b) => a.scaleX - b.scaleX);
+                
+                sortedPuffs.forEach((puff, i) => {
+                    const cx = this.x + puff.offsetX;
+                    const cy = this.y + puff.offsetY + verticalDrift;
+                    
+                    // Animated size with breathing effect
+                    const breathe = 1 + Math.sin(time * 0.0005 * puff.freq + puff.phase) * 0.05;
+                    const rx = puff.scaleX * this.width * 0.5 * breathe * pulseFactor;
+                    const ry = puff.scaleY * this.height * 0.5 * breathe * pulseFactor;
+                    
+                    // Perlin noise for organic shape variation
+                    const noiseVal = this.perlin.fbm(
+                        cx * 0.002 * puff.noiseScale + time * 0.00005,
+                        cy * 0.002 * puff.noiseScale,
+                        3
+                    );
+                    
+                    // Density based on noise and position
+                    const densityMod = 0.5 + noiseVal * 0.5;
+                    const edgeFade = 1 - Math.min(1, Math.sqrt(puff.offsetX * puff.offsetX / (this.width * this.width * 0.25) + puff.offsetY * puff.offsetY / (this.height * this.height * 0.25)));
+                    
+                    const finalOpacity = this.baseOpacity * densityMod * (0.3 + edgeFade * 0.7);
+                    
+                    // Multi-layer gradient for volumetric look
+                    const maxR = Math.max(rx, ry) * 2.5;
+                    
+                    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+                    gradient.addColorStop(0, `rgba(${colorStr}, ${finalOpacity * 1.2})`);
+                    gradient.addColorStop(0.2, `rgba(${colorStr}, ${finalOpacity * 0.9})`);
+                    gradient.addColorStop(0.5, `rgba(${colorStr}, ${finalOpacity * 0.5})`);
+                    gradient.addColorStop(0.8, `rgba(${colorStr}, ${finalOpacity * 0.15})`);
+                    gradient.addColorStop(1, `rgba(${colorStr}, 0)`);
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, rx * 1.8, ry * 1.8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                
+                ctx.restore();
+            }
+        }
+
+        // Volumetric fog layer
+        class VolumetricFog {
+            constructor(canvasWidth, canvasHeight) {
+                this.perlin = new PerlinNoise(Math.random() * 100000);
+                this.canvasWidth = canvasWidth;
+                this.canvasHeight = canvasHeight;
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * this.canvasWidth;
+                this.y = this.randomY();
+                this.size = 200 + Math.random() * 400;
+                this.speed = 0.1 + Math.random() * 0.2;
+                this.opacity = 0.015 + Math.random() * 0.04;
+                this.phase = Math.random() * Math.PI * 2;
+                this.phaseSpeed = 0.005 + Math.random() * 0.01;
+                
+                // Color variation
+                const base = 180 + Math.random() * 55;
+                this.color = { r: base, g: base + Math.random() * 10, b: base - Math.random() * 5 };
+            }
+
+            randomY() {
+                // Bias fog toward lower portions of screen
+                const t = Math.random();
+                return this.canvasHeight * (0.4 + t * t * 0.6);
+            }
+
+            update(windFactor) {
+                this.x -= this.speed + windFactor * 0.2;
+                this.phase += this.phaseSpeed;
+                
+                // Morphing via phase
+                this.morphPhase = (this.phase * 0.5) % (Math.PI * 2);
+                
+                if (this.x < -this.size * 2) {
+                    this.x = this.canvasWidth + this.size;
+                    this.y = this.randomY();
+                }
+            }
+
+            draw(ctx, time) {
+                const colorStr = `${Math.floor(this.color.r)}, ${Math.floor(this.color.g)}, ${Math.floor(this.color.b)}`;
+                const wobbleX = Math.sin(this.phase) * 5;
+                const wobbleY = Math.cos(this.phase * 0.7) * 3;
+                
+                // Multiple overlapping ellipses for volume
+                for (let layer = 0; layer < 3; layer++) {
+                    const layerSize = this.size * (1 + layer * 0.3);
+                    const layerOpacity = this.opacity * (1 - layer * 0.25);
+                    
+                    const gradient = ctx.createRadialGradient(
+                        this.x + wobbleX, this.y + wobbleY, 0,
+                        this.x + wobbleX, this.y + wobbleY, layerSize
+                    );
+                    
+                    gradient.addColorStop(0, `rgba(${colorStr}, ${layerOpacity})`);
+                    gradient.addColorStop(0.4, `rgba(${colorStr}, ${layerOpacity * 0.6})`);
+                    gradient.addColorStop(0.7, `rgba(${colorStr}, ${layerOpacity * 0.2})`);
+                    gradient.addColorStop(1, `rgba(${colorStr}, 0)`);
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.ellipse(
+                        this.x + wobbleX, 
+                        this.y + wobbleY, 
+                        layerSize * (1 + Math.sin(this.phase + layer) * 0.1), 
+                        layerSize * 0.5 * (1 + Math.cos(this.phase * 0.8 + layer) * 0.1), 
+                        0, 0, Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+            }
+        }
 
         class Raindrop {
             constructor() { this.reset(); }
@@ -833,36 +1211,6 @@
             isDead() { return this.particles.length === 0; }
         }
 
-        class FogParticle {
-            constructor() { this.reset(); }
-
-            reset() {
-                this.x = Math.random() * width;
-                this.y = Math.random() * height;
-                this.size = Math.random() * 300 + 200;
-                this.speed = Math.random() * 0.3 + 0.1;
-                this.opacity = Math.random() * 0.08 + 0.02;
-                this.wobble = Math.random() * Math.PI * 2;
-            }
-
-            update() {
-                this.x += this.speed + Math.sin(this.wobble) * 0.2;
-                this.wobble += 0.01;
-                if (this.x > width + this.size) this.x = -this.size;
-            }
-
-            draw() {
-                const gradient = fogCtx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
-                gradient.addColorStop(0, `rgba(200, 220, 200, ${this.opacity})`);
-                gradient.addColorStop(0.5, `rgba(180, 200, 180, ${this.opacity * 0.5})`);
-                gradient.addColorStop(1, 'rgba(180, 200, 180, 0)');
-                fogCtx.fillStyle = gradient;
-                fogCtx.beginPath();
-                fogCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                fogCtx.fill();
-            }
-        }
-
         function initRain() {
             raindrops.length = 0;
             for (let i = 0; i < rainIntensity; i++) raindrops.push(new Raindrop());
@@ -870,7 +1218,19 @@
 
         function initFog() {
             fogParticles.length = 0;
-            for (let i = 0; i < 15; i++) fogParticles.push(new FogParticle());
+            for (let i = 0; i < 20; i++) {
+                fogParticles.push(new VolumetricFog(width, height));
+            }
+        }
+
+        function initClouds() {
+            clouds.length = 0;
+            const numClouds = 18 + Math.floor(Math.random() * 8);
+            for (let i = 0; i < numClouds; i++) {
+                clouds.push(new RealisticCloud(true, width, height));
+            }
+            // Sort by depth for proper layering
+            clouds.sort((a, b) => a.depthLayer - b.depthLayer);
         }
 
         let lightningFlash = 0;
@@ -956,29 +1316,82 @@
             return 'Strong';
         }
 
+        let animationTime = 0;
+
         function animate() {
             if (!isRunning) return;
+            animationTime = Date.now();
+            const windFactor = windStrength / 50;
+            
             rainCtx.clearRect(0, 0, width, height);
             fogCtx.clearRect(0, 0, width, height);
-            fogParticles.forEach(f => { f.update(); f.draw(); });
+            cloudCtx.clearRect(0, 0, width, height);
+            
+            // Draw clouds (behind rain layer)
+            clouds.forEach(cloud => {
+                cloud.update(animationTime, windFactor);
+                cloud.draw(cloudCtx, animationTime);
+            });
+            
+            // Draw fog
+            fogParticles.forEach(f => {
+                f.update(windFactor);
+                f.draw(fogCtx, animationTime);
+            });
+            
+            // Draw rain
             raindrops.forEach(drop => { drop.update(); drop.draw(); });
             splashes.forEach(s => { s.update(); s.draw(); });
             for (let i = splashes.length - 1; i >= 0; i--) { if (splashes[i].isDead()) splashes.splice(i, 1); }
+            
             updateLightning();
             drawLightning();
             requestAnimationFrame(animate);
         }
 
+        controls.addEventListener('mouseenter', () => { isInteracting = true; });
+        controls.addEventListener('mouseleave', () => { 
+            isInteracting = false; 
+            if (hasEnteredForest) { showUI(); resetUITimer(); }
+        });
+
+        controls.addEventListener('touchstart', () => { isInteracting = true; }, { passive: true });
+        controls.addEventListener('touchend', () => { 
+            isInteracting = false;
+            if (hasEnteredForest) { showUI(); resetUITimer(); }
+        }, { passive: true });
+
+        document.addEventListener('click', (e) => {
+            if (!hasEnteredForest) return;
+            if (splashScreen.classList.contains('fade')) handleUserInteraction();
+        });
+
+        document.addEventListener('touchstart', (e) => {
+            if (!hasEnteredForest) return;
+            if (splashScreen.classList.contains('fade')) handleUserInteraction();
+        }, { passive: true });
+
+        const allSliders = document.querySelectorAll('input[type="range"]');
+        allSliders.forEach(slider => {
+            slider.addEventListener('input', () => { showUI(); resetUITimer(); });
+        });
+
         enterBtn.addEventListener('click', () => {
             splashScreen.classList.add('fade');
             isRunning = true;
+            hasEnteredForest = true;
             initRain();
             initFog();
+            initClouds();
             preloadAllImages();
             animate();
+            showUI();
+            resetUITimer();
         });
 
         document.getElementById('soundToggle').addEventListener('click', function() {
+            showUI();
+            resetUITimer();
             if (soundEnabled) {
                 stopAudio();
                 soundEnabled = false;
@@ -1011,7 +1424,16 @@
         });
 
         document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') { e.preventDefault(); document.getElementById('soundToggle').click(); }
+            if (e.code === 'Space') { 
+                e.preventDefault(); 
+                document.getElementById('soundToggle').click(); 
+            }
+            if (e.code === 'KeyF') {
+                e.preventDefault();
+                toggleFullscreen();
+                showUI();
+                resetUITimer();
+            }
         });
     </script>
 </body>

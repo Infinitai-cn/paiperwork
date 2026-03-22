@@ -422,9 +422,19 @@ class PaiperworkDB {
     static async exportDatabase(hashedMasterKey, role = 'main') {
         try {
             const normalizedRole = this.normalizeDbRole(role);
+            // Export from persisted bytes first so we don't depend on potentially stale tracked SQL.js handles.
+            const persistedDb = await this.getExistingDatabase(hashedMasterKey, normalizedRole);
+            if (persistedDb && persistedDb.byteLength > 0) {
+                return new Uint8Array(persistedDb);
+            }
+
+            // Fallback for first-run scenarios where a role DB has not been created yet.
             const db = await this.getDatabase(hashedMasterKey, normalizedRole, true);
             if (!db) {
-                throw new Error(Lang.get('databaseNotAvailable') || 'Database not available');
+                if (normalizedRole === 'main') {
+                    throw new Error(Lang.get('databaseNotAvailable') || 'Database not available');
+                }
+                return new Uint8Array(0);
             }
 
             const exportedDb = db.export();
@@ -486,6 +496,14 @@ class PaiperworkDB {
             const ragDb = await this.exportDatabase(hashedMasterKey, 'rag');
             const htmlDb = await this.exportDatabase(hashedMasterKey, 'html');
             const kbDb = await this.exportDatabase(hashedMasterKey, 'kb');
+
+            const roleSizes = {
+                main: mainDb?.length || 0,
+                rag: ragDb?.length || 0,
+                html: htmlDb?.length || 0,
+                kb: kbDb?.length || 0
+            };
+            console.info('PaiperworkDB: Export bundle role sizes (bytes):', roleSizes);
 
             const payload = {
                 format: this.DB_BUNDLE_FORMAT,

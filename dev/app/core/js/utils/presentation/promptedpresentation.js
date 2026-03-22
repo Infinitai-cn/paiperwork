@@ -416,6 +416,98 @@ class PromptedPresentationWorkflow {
 		}, 2600);
 	}
 
+	static escapeNoticeHtml(text) {
+		return String(text || '')
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#39;');
+	}
+
+	static isCloudUsageLimitError(error) {
+		const message = String(error && error.message ? error.message : error || '').toLowerCase();
+		return message.includes('429')
+			|| message.includes('too many requests')
+			|| message.includes('weekly usage')
+			|| message.includes('daily limit')
+			|| message.includes('usage limit')
+			|| message.includes('ollama.com/upgrade');
+	}
+
+	static showCloudUsageLimitNotice(error, renderArea) {
+		if (!this.isCloudUsageLimitError(error)) {
+			return false;
+		}
+
+		const rawMessage = String(error && error.message ? error.message : error || '');
+		const safeMessage = this.escapeNoticeHtml(rawMessage);
+		const title = (window.Lang && Lang.get('artifactCloudLimitTitle')) || 'Cloud usage limit reached';
+		const body = (window.Lang && Lang.get('artifactCloudLimitBody')) || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.';
+
+		if (renderArea) {
+			renderArea.innerHTML = `
+				<div style="padding:16px;border:1px solid rgba(239,68,68,0.35);border-radius:12px;background:rgba(239,68,68,0.08);color:var(--text-color,#f5f5f5);max-width:900px;margin:16px auto;">
+					<div style="font-weight:700;margin-bottom:8px;color:#ef4444;">${this.escapeNoticeHtml(title)}</div>
+					<div style="white-space:pre-wrap;line-height:1.5;margin-bottom:10px;">${this.escapeNoticeHtml(body)}</div>
+					<div style="white-space:pre-wrap;line-height:1.45;opacity:0.95;margin-bottom:10px;">${safeMessage}</div>
+					<a href="https://ollama.com/settings" target="_blank" rel="noopener noreferrer" style="color:#f87171;text-decoration:underline;">https://ollama.com/settings</a>
+				</div>
+			`;
+			return true;
+		}
+
+		const overlay = document.createElement('div');
+		overlay.className = 'promptable-usage-limit-overlay';
+		overlay.style.position = 'fixed';
+		overlay.style.inset = '0';
+		overlay.style.zIndex = '10070';
+		overlay.style.background = 'rgba(0,0,0,0.45)';
+		overlay.style.backdropFilter = 'blur(2px)';
+		overlay.style.display = 'flex';
+		overlay.style.alignItems = 'center';
+		overlay.style.justifyContent = 'center';
+
+		const card = document.createElement('div');
+		card.style.width = 'min(680px, 92vw)';
+		card.style.maxHeight = '80vh';
+		card.style.overflowY = 'auto';
+		card.style.background = 'var(--panel-background, #1f2937)';
+		card.style.color = 'var(--text-color, #f9fafb)';
+		card.style.border = '1px solid rgba(239,68,68,0.35)';
+		card.style.borderRadius = '12px';
+		card.style.padding = '16px';
+		card.style.boxShadow = '0 12px 36px rgba(0,0,0,0.35)';
+		card.innerHTML = `
+			<div style="font-weight:700;margin-bottom:8px;color:#ef4444;">${this.escapeNoticeHtml(title)}</div>
+			<div style="line-height:1.5;margin-bottom:10px;">${this.escapeNoticeHtml(body)}</div>
+			<div style="white-space:pre-wrap;line-height:1.45;opacity:0.95;margin-bottom:10px;">${safeMessage}</div>
+			<a href="https://ollama.com/settings" target="_blank" rel="noopener noreferrer" style="color:#f87171;text-decoration:underline;">https://ollama.com/settings</a>
+			<div style="display:flex;justify-content:flex-end;margin-top:14px;">
+				<button type="button" class="promptable-usage-limit-close" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border-color,#374151);background:var(--button-bg,#111827);color:var(--text-color,#f9fafb);cursor:pointer;">OK</button>
+			</div>
+		`;
+
+		overlay.appendChild(card);
+		document.body.appendChild(overlay);
+		const closeOverlay = () => {
+			if (overlay.parentNode) {
+				overlay.parentNode.removeChild(overlay);
+			}
+		};
+		overlay.addEventListener('click', (event) => {
+			if (event.target === overlay) {
+				closeOverlay();
+			}
+		});
+		const closeBtn = card.querySelector('.promptable-usage-limit-close');
+		if (closeBtn) {
+			closeBtn.addEventListener('click', closeOverlay);
+		}
+
+		return true;
+	}
+
 	static sanitizeHtmlFilename(rawTitle) {
 		const base = (rawTitle || 'presentation')
 			.toString()
@@ -1250,7 +1342,7 @@ class PromptedPresentationWorkflow {
 			if (!response.ok) {
 				if (response.status === 429) {
 					const errorText = await response.text();
-					throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+					throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.'}${errorText ? `\n${errorText}` : ''}`);
 				}
 				return fallbackQuery || originalText;
 			}
@@ -2899,7 +2991,7 @@ class PromptedPresentationWorkflow {
 		if (!response.ok) {
 			const errorText = await response.text();
 			if (response.status === 429) {
-				throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+				throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.'}${errorText ? `\n${errorText}` : ''}`);
 			}
 			throw new Error(`Ollama error (${response.status}): ${errorText}`);
 		}
@@ -3405,7 +3497,9 @@ class PromptedPresentationWorkflow {
 					renderArea.innerHTML = `<div style="padding:12px;opacity:0.8;">${window.Lang ? (Lang.get('cancelButton') || 'Cancelled') : 'Cancelled'}</div>`;
 				} else {
 					console.error('Promptable presentation generation failed:', error);
-					renderArea.innerHTML = `<div style="padding:12px;color:#ef4444;white-space:pre-wrap;">${String(error.message || error)}</div>`;
+					if (!this.showCloudUsageLimitNotice(error, renderArea)) {
+						renderArea.innerHTML = `<div style="padding:12px;color:#ef4444;white-space:pre-wrap;">${String(error.message || error)}</div>`;
+					}
 				}
 			} finally {
 				this.setRequestProgressVisible(false);

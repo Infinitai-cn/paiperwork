@@ -117,7 +117,7 @@ class SubjectiveInteractions {
             if (!response.ok) {
                 const errorText = await response.text();
                 if (response.status === 429) {
-                    throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached (429). You may have hit a daily or weekly limit. Please wait for reset or upgrade your Ollama plan: https://ollama.com/upgrade'}${errorText ? `\n${errorText}` : ''}`);
+                    throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.'}${errorText ? `\n${errorText}` : ''}`);
                 }
                 throw new Error(`Ollama API error (${response.status}): ${errorText || response.statusText}`);
             }
