@@ -554,7 +554,9 @@ class ChatTab {
             }
             const nativeContext = await this.refreshModelMaximumContextLabel(modelNameStr);
             if (Number.isFinite(nativeContext) && nativeContext > 0) {
-                await this.applyModelContextSize(modelNameStr, nativeContext, true, true);
+                // For cloud models, persist per-model context but do not overwrite
+                // the general/local context size defaults or global cache.
+                await this.applyModelContextSize(modelNameStr, nativeContext, true, false, false);
                 if (options && options.showAppliedNotice === true) {
                     const formatted = Math.round(nativeContext).toLocaleString();
                     this.showTransientInfoToast(`Applied native cloud context: ${formatted} tokens`);
@@ -650,7 +652,7 @@ class ChatTab {
         return contextSelector;
     }
 
-    async applyModelContextSize(modelName, contextSize, persistForModel = false, persistGeneral = false) {
+    async applyModelContextSize(modelName, contextSize, persistForModel = false, persistGeneral = false, updateGlobalCache = true) {
         const normalized = Math.max(1, Math.round(Number(contextSize)));
         if (!Number.isFinite(normalized)) {
             return false;
@@ -664,10 +666,12 @@ class ChatTab {
             contextSelector._previousValue = contextValue;
         }
 
-        try {
-            localStorage.setItem('contextSize', contextValue);
-        } catch (_storageErr) {
-            // Non-fatal.
+        if (updateGlobalCache) {
+            try {
+                localStorage.setItem('contextSize', contextValue);
+            } catch (_storageErr) {
+                // Non-fatal.
+            }
         }
 
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
@@ -709,7 +713,24 @@ class ChatTab {
                 return false;
             }
 
-            await this.applyModelContextSize(normalizedModel, storedContext, false, true);
+            // Apply stored context differently for local vs cloud models.
+            // Local models: update both per-model and general/local defaults.
+            // Cloud models: apply only to the selector without overwriting local defaults.
+            let provider = 'local';
+            try {
+                if (window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function') {
+                    provider = window.OllamaAPI.getModelSource(normalizedModel) || 'local';
+                }
+            } catch (_providerErr) {
+                provider = 'local';
+            }
+            const isCloudModel = provider === 'cloud';
+
+            if (isCloudModel) {
+                await this.applyModelContextSize(normalizedModel, storedContext, false, false, false);
+            } else {
+                await this.applyModelContextSize(normalizedModel, storedContext, false, true, true);
+            }
             return true;
         } catch (error) {
             console.warn('ChatTab: Failed to load model-specific context size', error);
@@ -1001,14 +1022,6 @@ class ChatTab {
                 });
 
                 this.updateContextCardsVisibility(selectedModel);
-
-                // Persist immediately in plaintext to survive hard-refresh before async DB writes complete.
-                try {
-                    localStorage.setItem('selectedModel', String(selectedModel || ''));
-                    localStorage.setItem('selectedModelProvider', String(selectedProvider || 'local'));
-                } catch (_storageErr) {
-                    // Non-fatal: DB persistence still runs below.
-                }
                //console.log('🔄 ChatTab: Model changed to:', selectedModel);
                 try {
                     const base = (window.getBaseModelName && window.getBaseModelName(selectedModel)) || selectedModel;
@@ -3990,6 +4003,19 @@ class ChatTab {
             const modelSelector = document.getElementById('model-selector');
             const aiReplies = document.querySelector('.ai-replies');
 
+            // Determine provider for the currently selected model so we can
+            // keep separate defaults for local vs cloud.
+            let selectedProvider = 'local';
+            if (modelSelector && modelSelector.value) {
+                const selectedOption = modelSelector.options[modelSelector.selectedIndex];
+                selectedProvider = (selectedOption && selectedOption.dataset && selectedOption.dataset.provider)
+                    ? selectedOption.dataset.provider
+                    : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+                        ? (window.OllamaAPI.getModelSource(modelSelector.value) || 'local')
+                        : 'local');
+            }
+            const isCloudProvider = selectedProvider === 'cloud';
+
             // Save manual context selection for the current model using the new class
             if (modelSelector && modelSelector.value && hashedMasterKey) {
                 const selectedModel = modelSelector.value;
@@ -4032,8 +4058,11 @@ class ChatTab {
 
                 // Proceed with saving and reset context
                 contextSelector._previousValue = newContextSize;
-                localStorage.setItem('contextSize', newContextSize);
-                await PaiperworkDB.saveContextSize(hashedMasterKey, newContextSize);
+                if (!isCloudProvider) {
+                    // Only update the general/local context default for local models.
+                    localStorage.setItem('contextSize', newContextSize);
+                    await PaiperworkDB.saveContextSize(hashedMasterKey, newContextSize);
+                }
 
                 // Reset the context
                 OllamaAPI.previousContext = null;
@@ -4090,8 +4119,11 @@ class ChatTab {
             } else {
                 // No active conversation yet, just save without warning
                 contextSelector._previousValue = newContextSize;
-                localStorage.setItem('contextSize', newContextSize);
-                await PaiperworkDB.saveContextSize(hashedMasterKey, newContextSize);
+                if (!isCloudProvider) {
+                    // Only update the general/local context default for local models.
+                    localStorage.setItem('contextSize', newContextSize);
+                    await PaiperworkDB.saveContextSize(hashedMasterKey, newContextSize);
+                }
 
                 // Reset context for next message
                 OllamaAPI.previousContext = null;
@@ -4260,15 +4292,11 @@ class ChatTab {
                                 return;
                             }
 
-                            const persistedProvider = await PaiperworkDB.readNormalizedLocalStorageValue('selectedModelProvider', hashedMasterKey);
-
                             const desiredProvider = (settings.modelProvider && String(settings.modelProvider).trim())
                                 ? String(settings.modelProvider).trim().toLowerCase()
-                                : (persistedProvider
-                                    ? String(persistedProvider).trim().toLowerCase()
-                                    : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
-                                        ? (window.OllamaAPI.getModelSource(settings.model) || 'local')
-                                        : 'local'));
+                                : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+                                    ? (window.OllamaAPI.getModelSource(settings.model) || 'local')
+                                    : 'local');
 
                             const exactProviderOption = Array.from(modelSelector.options).find(option =>
                                 option.value === settings.model &&

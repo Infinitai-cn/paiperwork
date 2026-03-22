@@ -108,20 +108,16 @@ document.addEventListener('DOMContentLoaded', async function () {
                 return false;
             }
 
-            const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
+            await PaiperworkDB.loadSettings(hashedMasterKey);
 
-            // Reconcile latest local selection into DB on startup when they diverge.
-            // This protects against stale persisted DB state after rapid tab/model changes.
+            // Ensure any legacy localStorage entries for selected model/provider do not override
+            // database-backed settings; database is now the single source of truth.
             try {
-                const localModel = await PaiperworkDB.readNormalizedLocalStorageValue('selectedModel', hashedMasterKey);
-                const localProvider = String(await PaiperworkDB.readNormalizedLocalStorageValue('selectedModelProvider', hashedMasterKey) || 'local').trim().toLowerCase() || 'local';
-                const dbModel = String(settings?.model || '').trim();
-                const dbProvider = String(settings?.modelProvider || 'local').trim().toLowerCase() || 'local';
-
-                if (localModel && (localModel !== dbModel || localProvider !== dbProvider)) {
-                    await PaiperworkDB.saveModel(hashedMasterKey, localModel, localProvider);
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.removeItem('selectedModel');
+                    localStorage.removeItem('selectedModelProvider');
                 }
-            } catch (_reconcileErr) {
+            } catch (_cleanupErr) {
                 // Non-fatal; app should still continue startup.
             }
 
@@ -408,8 +404,6 @@ async function handleChatTab() {
     // Give the DOM time to update after tab switch
     setTimeout(async () => {
         const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-        const persistedModel = await PaiperworkDB.readNormalizedLocalStorageValue('selectedModel', hashedMasterKey);
-        const persistedProvider = String(await PaiperworkDB.readNormalizedLocalStorageValue('selectedModelProvider', hashedMasterKey) || '').trim();
                        
         const modelSelector = document.getElementById('model-selector');
        //console.log('Model selector present:', !!modelSelector);
@@ -436,15 +430,13 @@ async function handleChatTab() {
                 }
 
                 // IMPORTANT: Prefer the model that is currently selected in UI memory.
-                // On quick tab switches, DB settings can still be stale for a brief moment.
-                const targetModel = previousModel || persistedModel || ((settings && settings.model) ? settings.model : '');
+                // Database-backed settings are now the single source of truth for persisted selection.
+                const targetModel = previousModel || ((settings && settings.model) ? settings.model : '');
                 const targetProvider = previousModel
                     ? previousProvider
-                    : (persistedModel
-                        ? (String(persistedProvider || '').trim().toLowerCase() || previousProvider)
-                        : ((settings && settings.modelProvider && String(settings.modelProvider).trim())
-                            ? String(settings.modelProvider).trim().toLowerCase()
-                            : previousProvider));
+                    : ((settings && settings.modelProvider && String(settings.modelProvider).trim())
+                        ? String(settings.modelProvider).trim().toLowerCase()
+                        : previousProvider);
 
                 // Check if previously selected model still exists
                 if (targetModel) {
