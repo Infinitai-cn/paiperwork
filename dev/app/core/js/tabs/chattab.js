@@ -6,6 +6,10 @@ class ChatTab {
         window.chatInstance = window.chat;
     }
 
+    getDefaultContextSize() {
+        return '16384';
+    }
+
     closeAllOllamaApiKeyModals() {
         const overlays = document.querySelectorAll('.ollama-api-key-overlay');
         overlays.forEach((overlay) => {
@@ -461,6 +465,46 @@ class ChatTab {
         };
     }
 
+    showTransientInfoToast(message, durationMs = 2600) {
+        const text = String(message || '').trim();
+        if (!text) return;
+
+        const toast = document.createElement('div');
+        toast.className = 'chat-transient-info-toast';
+        toast.textContent = text;
+        toast.style.position = 'fixed';
+        toast.style.right = '16px';
+        toast.style.bottom = '16px';
+        toast.style.zIndex = '11050';
+        toast.style.maxWidth = '420px';
+        toast.style.padding = '10px 12px';
+        toast.style.borderRadius = '8px';
+        toast.style.background = 'rgba(22, 163, 74, 0.95)';
+        toast.style.color = '#fff';
+        toast.style.fontSize = '13px';
+        toast.style.lineHeight = '1.35';
+        toast.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.25)';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(6px)';
+        toast.style.transition = 'opacity 160ms ease, transform 160ms ease';
+
+        document.body.appendChild(toast);
+        requestAnimationFrame(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+        });
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(6px)';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 180);
+        }, Math.max(1200, Number(durationMs) || 2600));
+    }
+
     async prepareSelectedCloudModel(modelName, options = {}) {
         const modelNameStr = String(modelName || '').trim();
         console.info('[CloudPrep] prepareSelectedCloudModel called', {
@@ -508,7 +552,14 @@ class ChatTab {
                 await OllamaAPI.ensureCloudModelPulled(routing.modelName || modelName, routing.headers);
                 console.info('[CloudPrep] pull success', { model: routing.modelName || modelName });
             }
-            await this.refreshModelMaximumContextLabel(modelNameStr);
+            const nativeContext = await this.refreshModelMaximumContextLabel(modelNameStr);
+            if (Number.isFinite(nativeContext) && nativeContext > 0) {
+                await this.applyModelContextSize(modelNameStr, nativeContext, true, true);
+                if (options && options.showAppliedNotice === true) {
+                    const formatted = Math.round(nativeContext).toLocaleString();
+                    this.showTransientInfoToast(`Applied native cloud context: ${formatted} tokens`);
+                }
+            }
             return true;
         } catch (error) {
             console.error('[CloudPrep] pull failed', error);
@@ -545,14 +596,14 @@ class ChatTab {
                     nativeCtxEl.removeAttribute('title');
                 }
             }
-            return displayVal;
+            return Number.isFinite(nativeContext) ? Math.max(1, Math.round(nativeContext)) : null;
         } catch (metaErr) {
             console.warn('ChatTab: Error fetching model metadata', metaErr);
             if (nativeCtxEl) {
                 nativeCtxEl.textContent = 'n/a';
                 nativeCtxEl.removeAttribute('title');
             }
-            return 'n/a';
+            return null;
         }
     }
 
@@ -576,32 +627,101 @@ class ChatTab {
         return String(rounded);
     }
 
+    ensureContextSelectorOption(contextSize) {
+        const contextSelector = document.getElementById('context-selector');
+        if (!contextSelector) return null;
+
+        const normalized = Math.max(1, Math.round(Number(contextSize)));
+        if (!Number.isFinite(normalized)) return null;
+
+        const valueStr = String(normalized);
+        const hasOption = Array.from(contextSelector.options).some(option => option.value === valueStr);
+        if (!hasOption) {
+            const option = document.createElement('option');
+            option.value = valueStr;
+            option.textContent = normalized >= 1048576
+                ? `${normalized / 1048576}M`
+                : normalized >= 1024
+                    ? `${normalized / 1024}K`
+                    : valueStr;
+            contextSelector.appendChild(option);
+        }
+
+        return contextSelector;
+    }
+
+    async applyModelContextSize(modelName, contextSize, persistForModel = false, persistGeneral = false) {
+        const normalized = Math.max(1, Math.round(Number(contextSize)));
+        if (!Number.isFinite(normalized)) {
+            return false;
+        }
+
+        const contextSelector = this.ensureContextSelectorOption(normalized);
+        const contextValue = String(normalized);
+
+        if (contextSelector) {
+            contextSelector.value = contextValue;
+            contextSelector._previousValue = contextValue;
+        }
+
+        try {
+            localStorage.setItem('contextSize', contextValue);
+        } catch (_storageErr) {
+            // Non-fatal.
+        }
+
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+        if (!hashedMasterKey) {
+            return true;
+        }
+
+        if (persistGeneral) {
+            await PaiperworkDB.saveContextSize(hashedMasterKey, contextValue);
+        }
+
+        if (persistForModel && modelName) {
+            const kvcacheCheckbox = document.getElementById('kvcache-q8-checkbox');
+            const isKvcacheQ8 = kvcacheCheckbox ? kvcacheCheckbox.checked : false;
+            await PaiperworkDB.saveModelContextSize(
+                hashedMasterKey,
+                modelName,
+                normalized,
+                isKvcacheQ8,
+                true,
+            );
+        }
+
+        return true;
+    }
+
+    async loadModelSpecificContextSize(hashedMasterKey, modelName) {
+        const normalizedModel = String(modelName || '').trim();
+        if (!hashedMasterKey || !normalizedModel) {
+            return false;
+        }
+
+        try {
+            const modelContext = await PaiperworkDB.loadModelContextSize(hashedMasterKey, normalizedModel);
+            const storedContext = modelContext && Number.isFinite(Number(modelContext.contextSize))
+                ? Number(modelContext.contextSize)
+                : null;
+            if (!storedContext || storedContext <= 0) {
+                return false;
+            }
+
+            await this.applyModelContextSize(normalizedModel, storedContext, false, true);
+            return true;
+        } catch (error) {
+            console.warn('ChatTab: Failed to load model-specific context size', error);
+            return false;
+        }
+    }
+
     updateContextCardsVisibility(modelName = null) {
         const contextSelector = document.getElementById('context-selector');
         const contextSizePanel = contextSelector ? contextSelector.closest('.panel') : null;
         const contextRemainingPanel = document.getElementById('context-remaining-panel');
-        const isOnlineDeployment = (window.OllamaAPI && typeof window.OllamaAPI.isOnlineDeploymentMode === 'function')
-            ? window.OllamaAPI.isOnlineDeploymentMode()
-            : false;
-
-        let provider = 'local';
-        try {
-            const modelSelector = document.getElementById('model-selector');
-            const selectedOption = modelSelector && modelSelector.selectedIndex >= 0
-                ? modelSelector.options[modelSelector.selectedIndex]
-                : null;
-            const targetModel = modelName || modelSelector?.value || '';
-
-            provider = (selectedOption && selectedOption.dataset && selectedOption.dataset.provider)
-                ? selectedOption.dataset.provider
-                : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
-                    ? (window.OllamaAPI.getModelSource(targetModel) || window.OllamaAPI.getSelectedModelSource?.() || 'local')
-                    : 'local');
-        } catch (_error) {
-            provider = 'local';
-        }
-
-        const showContextCards = !isOnlineDeployment && provider !== 'cloud';
+        const showContextCards = true;
         [contextSizePanel, contextRemainingPanel].forEach(panel => {
             if (!panel) return;
             panel.style.display = showContextCards ? '' : 'none';
@@ -831,12 +951,12 @@ class ChatTab {
 
                     if (!hasModelSpecificContext) {
                         // No model-specific context found, use default
-                        const savedSize = localStorage.getItem('contextSize') || '8192';
+                        const savedSize = localStorage.getItem('contextSize') || this.getDefaultContextSize();
                         contextSelector.value = savedSize;
                     }
                 } else {
                     // No model selected, use default context
-                    const savedSize = localStorage.getItem('contextSize') || '8192';
+                    const savedSize = localStorage.getItem('contextSize') || this.getDefaultContextSize();
                     contextSelector.value = savedSize;
                 }
 
@@ -968,7 +1088,9 @@ class ChatTab {
                         }
                         if (canPrepare) {
                             try {
-                                const prepOptions = closePrepToast ? { closeToast: closePrepToast } : undefined;
+                                const prepOptions = closePrepToast
+                                    ? { closeToast: closePrepToast, showAppliedNotice: true }
+                                    : { showAppliedNotice: true };
                                 await this.prepareSelectedCloudModel(selectedModel, prepOptions);
                             } catch (prepError) {
                                 console.error('[CloudPrep] prepare on selector change failed', prepError);
@@ -989,12 +1111,13 @@ class ChatTab {
 
                 // Load model-specific context size (legacy vramramcalculator removed)
                 if (selectedModel) {
-                    // Previously used vramramcalculator to fetch model-specific context.
-                    // That logic has been removed; fall back to saved context size if present.
-                    const savedSize = localStorage.getItem('contextSize') || '8192';
-                    contextSelector.value = savedSize;
+                    const loadedSpecificContext = await this.loadModelSpecificContextSize(liveMasterKey, selectedModel);
+                    if (!loadedSpecificContext) {
+                        const savedSize = localStorage.getItem('contextSize') || this.getDefaultContextSize();
+                        contextSelector.value = savedSize;
+                    }
                 } else {
-                    const savedSize = localStorage.getItem('contextSize') || '8192';
+                    const savedSize = localStorage.getItem('contextSize') || this.getDefaultContextSize();
                     contextSelector.value = savedSize;
                 }
 
@@ -3179,8 +3302,10 @@ class ChatTab {
         if (deleteButton) {
             deleteButton.addEventListener('click', async () => {
                 if (confirm(Lang.get('deleteConversationConfirm'))) {
-                    const success = await PaiperworkDB.deleteDatabase(hashedMasterKey);
+                    const liveMasterKey = sessionStorage.getItem('hashedMasterKey') || hashedMasterKey;
+                    const success = await PaiperworkDB.deleteDatabase(liveMasterKey);
                     if (success) {
+                        await PaiperworkDB.clearUserSpecificClientTraces(liveMasterKey);
                         alert(Lang.get('conversationDeleted'));
                         window.location.href = '../welcome.html';
                     }
@@ -3889,7 +4014,7 @@ class ChatTab {
             // Only show warning and add continue button if there's an active conversation
             if (assistantMessages.length > 0 && window.chat && hasActiveContext) {
                 // Store the previous value to revert if user cancels
-                const previousValue = contextSelector._previousValue || '8192';
+                const previousValue = contextSelector._previousValue || this.getDefaultContextSize();
 
                 // Show warning with improved message about continue button
                 const confirmed = confirm(
@@ -4079,6 +4204,19 @@ class ChatTab {
             // Load settings from database
             const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
 
+            const hasStoredContextSize = !!(settings
+                && settings.contextSizeStored === true
+                && String(settings.contextSize || '').trim());
+            const startupContextSize = hasStoredContextSize
+                ? String(settings.contextSize).trim()
+                : this.getDefaultContextSize();
+
+            localStorage.setItem('contextSize', startupContextSize);
+            const startupContextSelector = document.getElementById('context-selector');
+            if (startupContextSelector) {
+                startupContextSelector.value = startupContextSize;
+            }
+
             if (settings) {
                 // Load system prompt
                 const systemPrompt = document.getElementById('system-prompt');
@@ -4195,14 +4333,14 @@ class ChatTab {
                 }
 
                 // Set context size - but only if we didn't load model-specific context above
-                if (settings.contextSize && !settings.model) {
+                if (settings.contextSizeStored === true && settings.contextSize && !settings.model) {
                     // Only set general context size if no model was loaded (which would have set its own context)
                     localStorage.setItem('contextSize', settings.contextSize);
                     const contextSelector = document.getElementById('context-selector');
                     if (contextSelector) {
                         contextSelector.value = settings.contextSize;
                     }
-                } else if (settings.contextSize && settings.model) {
+                } else if (settings.contextSizeStored === true && settings.contextSize && settings.model) {
                     // If we have both a model and context size, but model-specific loading didn't work,
                     // fall back to the saved context size
                     const contextSelector = document.getElementById('context-selector');
@@ -4290,9 +4428,11 @@ class ChatTab {
         }
 
         try {
-            // vramramcalculator removed: use saved context size as fallback
-            const savedSize = localStorage.getItem('contextSize') || '8192';
-            contextSelector.value = savedSize;
+            const loadedSpecificContext = await this.loadModelSpecificContextSize(hashedMasterKey, modelName);
+            if (!loadedSpecificContext) {
+                const savedSize = localStorage.getItem('contextSize') || this.getDefaultContextSize();
+                contextSelector.value = savedSize;
+            }
             // Also fetch and display native model context if available
             try {
                 if (modelName) {
@@ -4303,7 +4443,7 @@ class ChatTab {
             }
         } catch (error) {
             console.error('❌ ChatTab: Error in loadAndSetModelContext:', error);
-            const savedSize = localStorage.getItem('contextSize') || '8192';
+            const savedSize = localStorage.getItem('contextSize') || this.getDefaultContextSize();
             contextSelector.value = savedSize;
         }
     }

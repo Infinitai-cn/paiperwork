@@ -533,46 +533,101 @@ class PaiperworkDB {
                 throw new Error('Invalid Paiperwork backup bundle');
             }
 
-            const requiredRoles = ['main', 'rag', 'html', 'kb'];
-            for (const role of requiredRoles) {
-                if (typeof parsed.dbs[role] !== 'string' || !parsed.dbs[role]) {
-                    throw new Error(`Backup is missing ${role} database data`);
-                }
+            const allRoles = ['main', 'rag', 'html', 'kb'];
+            if (typeof parsed.dbs.main !== 'string' || !parsed.dbs.main) {
+                throw new Error('Backup is missing main database data');
             }
 
-            const decoded = {
-                main: this.decodeBase64ToUint8Array(parsed.dbs.main),
-                rag: this.decodeBase64ToUint8Array(parsed.dbs.rag),
-                html: this.decodeBase64ToUint8Array(parsed.dbs.html),
-                kb: this.decodeBase64ToUint8Array(parsed.dbs.kb)
-            };
+            const decoded = {};
+            const importedRoles = [];
+            for (const role of allRoles) {
+                const encodedPayload = parsed.dbs[role];
+                if (typeof encodedPayload !== 'string' || !encodedPayload) {
+                    continue;
+                }
 
-            for (const role of requiredRoles) {
-                if (!this.validateSQLiteBytes(decoded[role])) {
+                const bytes = this.decodeBase64ToUint8Array(encodedPayload);
+                if (!this.validateSQLiteBytes(bytes)) {
                     throw new Error(`Invalid SQLite payload for ${role} database`);
                 }
+
+                decoded[role] = bytes;
+                importedRoles.push(role);
+            }
+
+            if (!decoded.main) {
+                throw new Error('Backup is missing main database data');
             }
 
             await this.closeAllDatabases(hashedMasterKey);
 
-            for (const role of requiredRoles) {
-                const saved = await this.saveToStorage(decoded[role], hashedMasterKey, role);
-                if (!saved) {
-                    throw new Error(`Could not import ${role} database`);
+            for (const role of allRoles) {
+                if (decoded[role]) {
+                    const saved = await this.saveToStorage(decoded[role], hashedMasterKey, role);
+                    if (!saved) {
+                        throw new Error(`Could not import ${role} database`);
+                    }
+                } else if (role !== 'main') {
+                    // Optional roles may not exist in older/online backups; remove stale local role DBs.
+                    await this.deleteStoredDatabaseRole(hashedMasterKey, role);
                 }
             }
 
-            // Verify all imported databases can be opened.
-            for (const role of requiredRoles) {
+            // Verify imported databases can be opened.
+            for (const role of importedRoles) {
                 const verifyDb = await this.getDatabase(hashedMasterKey, role, true);
                 verifyDb?.exec?.('SELECT 1');
             }
 
-            return { success: true, legacyMainOnly: false, importedRoles: requiredRoles };
+            return { success: true, legacyMainOnly: false, importedRoles };
         } catch (error) {
             console.error('Error importing database bundle:', error);
             throw error;
         }
+    }
+
+    static async deleteStoredDatabaseRole(hashedMasterKey, role = 'main') {
+        const normalizedRole = this.normalizeDbRole(role);
+
+        await this.closeRoleDatabases(normalizedRole, hashedMasterKey);
+
+        let opfsDeleted = true;
+        if (this.opfsSupported) {
+            try {
+                const root = await navigator.storage.getDirectory();
+                const dbDir = await root.getDirectoryHandle('PaiperworkDB', { create: false });
+                await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, normalizedRole));
+            } catch (error) {
+                if (error?.name !== 'NotFoundError') {
+                    console.warn(`Error deleting ${normalizedRole} database from OPFS:`, error);
+                    opfsDeleted = false;
+                }
+            }
+        }
+
+        const indexedDbDeleted = await new Promise((resolve) => {
+            const request = indexedDB.open('PaiperworkDB', 1);
+
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                const transaction = db.transaction(['databases'], 'readwrite');
+                const store = transaction.objectStore('databases');
+                const storageKey = this.getDbStorageKey(hashedMasterKey, normalizedRole);
+                const deleteRequest = store.delete(storageKey);
+                deleteRequest.onsuccess = () => resolve(true);
+                deleteRequest.onerror = () => {
+                    console.error(`Error deleting ${normalizedRole} database from IndexedDB:`, deleteRequest.error);
+                    resolve(false);
+                };
+            };
+
+            request.onerror = () => {
+                console.error('Error opening database:', request.error);
+                resolve(false);
+            };
+        });
+
+        return opfsDeleted && indexedDbDeleted;
     }
 
     static async importDatabase(hashedMasterKey, dbBytes, role = 'main') {
@@ -1948,6 +2003,12 @@ class PaiperworkDB {
     static async deleteDatabase(hashedMasterKey) {
        //console.log('Starting deletion of database for hashedMasterKey:', hashedMasterKey);
 
+        // Close any open DB handles for this profile to avoid blocked deletes.
+        await this.closeRoleDatabases('rag', hashedMasterKey);
+        await this.closeRoleDatabases('html', hashedMasterKey);
+        await this.closeRoleDatabases('kb', hashedMasterKey);
+        await this.closeRoleDatabases('main', hashedMasterKey);
+
         let opfsDeleted = true;
         let indexedDBDeleted = false;
 
@@ -2050,8 +2111,66 @@ class PaiperworkDB {
         });
 
        //console.log(`Database deletion results - OPFS: ${opfsDeleted}, IndexedDB: ${indexedDBDeleted}`);
-        return opfsDeleted && indexedDBDeleted;
+        const deleteSuccess = opfsDeleted && indexedDBDeleted;
+
+        // Remove profile-specific traces from browser storage/session when profile deletion succeeds.
+        if (deleteSuccess) {
+            await this.clearUserSpecificClientTraces(hashedMasterKey);
+        }
+
+        return deleteSuccess;
     }
+
+    static async clearUserSpecificClientTraces(hashedMasterKey) {
+        try {
+            const activeSessionHash = (typeof sessionStorage !== 'undefined')
+                ? (sessionStorage.getItem('hashedMasterKey') || '')
+                : '';
+            const shouldClearLocalProfileKeys = !hashedMasterKey || !activeSessionHash || activeSessionHash === hashedMasterKey;
+
+            if (shouldClearLocalProfileKeys && typeof localStorage !== 'undefined') {
+                [
+                    'selectedModel',
+                    'selectedModelProvider',
+                    'selectedVisualModel',
+                    'selectedContextSize',
+                    'contextSize',
+                    'insightsEnabled'
+                ].forEach((key) => {
+                    try {
+                        localStorage.removeItem(key);
+                    } catch (_err) {
+                        // Ignore storage cleanup issues.
+                    }
+                });
+            }
+
+            if (typeof sessionStorage !== 'undefined' && shouldClearLocalProfileKeys) {
+                try { sessionStorage.removeItem('hashedMasterKey'); } catch (_err) { }
+                try { sessionStorage.removeItem('encryptedMasterKey'); } catch (_err) { }
+            }
+
+            if (this.ollamaApiKeyCache && hashedMasterKey) {
+                this.ollamaApiKeyCache.delete(hashedMasterKey);
+            }
+
+            if (typeof window !== 'undefined' && shouldClearLocalProfileKeys) {
+                window.currentConversationGroup = null;
+                if (window.OllamaAPI) {
+                    window.OllamaAPI.previousContext = null;
+                    if (typeof window.OllamaAPI.resetContext === 'function') {
+                        window.OllamaAPI.resetContext();
+                    }
+                }
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error clearing user-specific client traces:', error);
+            return false;
+        }
+    }
+
     // Deletes all databases and clears localStorage.
     static async deleteAllDatabases() {
        //console.log('🗑️ Starting deletion of all data');
@@ -2333,6 +2452,7 @@ class PaiperworkDB {
                     systemPrompt: '',
                     model: '',
                     contextSize: '8192',
+                    contextSizeStored: false,
                     insights_enabled: 'false',
                     visualModel: '',
                     modelProvider: 'local',
@@ -2354,6 +2474,7 @@ class PaiperworkDB {
                         systemPrompt: '',
                         model: '',
                         contextSize: '8192',
+                        contextSizeStored: false,
                         insights_enabled: 'false',
                         modelProvider: 'local',
                         ollamaApiKey: ''
@@ -2391,6 +2512,7 @@ class PaiperworkDB {
                     let systemPrompt = '';
                     let model = '';
                     let contextSize = '8192';
+                    let contextSizeStored = false;
                     let insightsEnabled = 'false';
                     let visualModel = '';
                     let modelProvider = 'local';
@@ -2414,6 +2536,7 @@ class PaiperworkDB {
                         if (contextSizeStr) {
                             const encryptedSize = JSON.parse(contextSizeStr);
                             contextSize = await this.decrypt(hashedMasterKey, encryptedSize);
+                            contextSizeStored = String(contextSize || '').trim().length > 0;
                         }
 
                         // ALWAYS decrypt and load insights_enabled without any conditions
@@ -2456,6 +2579,7 @@ class PaiperworkDB {
                         systemPrompt,
                         model,
                         contextSize,
+                        contextSizeStored,
                         insights_enabled: insightsEnabled,
                         visualModel,
                         modelProvider: modelProvider || 'local',
@@ -2473,6 +2597,7 @@ class PaiperworkDB {
                 systemPrompt: '',
                 model: '',
                 contextSize: '8192',
+                contextSizeStored: false,
                 insights_enabled: 'false',
                 visualModel: '',
                 modelProvider: 'local',
@@ -2484,6 +2609,7 @@ class PaiperworkDB {
                 systemPrompt: '',
                 model: '',
                 contextSize: '8192',
+                contextSizeStored: false,
                 insights_enabled: 'false',
                 visualModel: '',
                 modelProvider: 'local',
