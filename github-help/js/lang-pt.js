@@ -13,6 +13,10 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         contentComingSoon: 'Conteúdo para esta seção em breve.',
         inThisSection: 'Nesta Seção:',
         noArticlesAvailable: 'Nenhum artigo disponível para esta seção.',
+        adminKeyNoticeTitle: 'Chave de administrador necessária',
+        adminKeyNoticeBody: 'Para executar ações administrativas, esta sessão precisa de uma chave de administrador. Ela será armazenada na sessão do navegador.',
+        adminKeyNoticeHint: 'Clique em OK para gerar e salvar a chave para esta sessão.',
+        adminKeySavedToast: 'Chave de administrador salva na sessão.',
 
 
       

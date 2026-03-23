@@ -14,6 +14,10 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         contentComingSoon: 'Le contenu de cette section arrive bientôt.',
         inThisSection: 'Dans Cette Section :',
         noArticlesAvailable: 'Aucun article disponible pour cette section.',
+        adminKeyNoticeTitle: "Clé d'administration requise",
+        adminKeyNoticeBody: "Pour effectuer des actions administratives, cette session a besoin d'une clé d'administration. Elle sera stockée dans la session du navigateur.",
+        adminKeyNoticeHint: "Cliquez sur OK pour générer et enregistrer la clé pour cette session.",
+        adminKeySavedToast: "Clé d'administration enregistrée dans la session.",
 
 
     };

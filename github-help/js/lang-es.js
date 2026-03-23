@@ -14,6 +14,10 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         contentComingSoon: 'El contenido para esta sección estará disponible pronto.',
         inThisSection: 'En Esta Sección:',
         noArticlesAvailable: 'No hay artículos disponibles para esta sección.',
+        adminKeyNoticeTitle: 'Se requiere clave de administrador',
+        adminKeyNoticeBody: 'Para realizar acciones administrativas esta sesión necesita una clave de administrador. Se almacenará en la sesión del navegador.',
+        adminKeyNoticeHint: 'Haga clic en OK para generar y guardar la clave para esta sesión.',
+        adminKeySavedToast: 'Clave de administrador guardada en la sesión.',
       
 
     };

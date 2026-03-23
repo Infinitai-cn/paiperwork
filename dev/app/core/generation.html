@@ -194,6 +194,11 @@
                 </div>
             </div>
         </div>
+        <!-- Admin key modal (display on first-run or prompt for cloud deploys) -->
+                <!-- admin key UI removed: keys are stored silently in local config.env for local installs;
+                     cloud deployments should paste the admin key into the admin UI when performing admin actions.
+                     This app intentionally avoids displaying admin keys by default for security. -->
+
         <script>
 
             function setAppropriateImage() {
@@ -349,6 +354,16 @@
                 [150, 400, 800, 1500, 3000].forEach(delay => {
                     setTimeout(syncContextCardsVisibility, delay);
                 });
+
+                // Admin key flow: prefer sessionStorage (cloud), else try local server endpoint
+                async function showAdminKeyModal(key) {
+                    // Admin key UI removed: no client-side display by default.
+                    // If cloud deployment requires a key, prompt will be shown when
+                    // the user attempts an admin action (handled elsewhere).
+                }
+
+                // Admin key interactions are silent by default. Cloud deployments
+                // should prompt the user only when an admin action is attempted.
             });
         </script>
     </body>
