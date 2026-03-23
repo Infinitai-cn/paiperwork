@@ -13,6 +13,10 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         contentComingSoon: 'Content for this section coming soon.',
         inThisSection: 'In This Section:',
         noArticlesAvailable: 'No articles available for this section.',
+        adminKeyNoticeTitle: 'Admin key required',
+        adminKeyNoticeBody: 'To perform administrative actions this session needs an admin key. It will be stored in your browser session.',
+        adminKeyNoticeHint: 'Click OK to generate and save the key for this session.',
+        adminKeySavedToast: 'Admin key saved to session.',
 
     };
 

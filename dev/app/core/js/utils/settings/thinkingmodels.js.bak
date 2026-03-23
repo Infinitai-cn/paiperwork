@@ -56,7 +56,7 @@ window.isThinkingModel = function(modelName) {
     // Normalize selected model so quantized aliases resolve to the same token.
     const normalizedSelectedModel = window.normalizeThinkingModelName(modelName);
     
-    //console.log('ThinkingModels: Checking model:', modelName, 'Base name:', baseModelName);
+   //console.log('ThinkingModels: Checking model:', modelName, 'Base name:', baseModelName);
     
     // Check if the base model name matches any thinking model
     const isSupported = window.THINKING_MODELS.some(thinkingModel => {
@@ -83,7 +83,7 @@ window.isThinkingModel = function(modelName) {
         return false;
     });
     
-    //console.log('ThinkingModels: Model', modelName, 'supports thinking:', isSupported);
+   //console.log('ThinkingModels: Model', modelName, 'supports thinking:', isSupported);
     return isSupported;
 };
 

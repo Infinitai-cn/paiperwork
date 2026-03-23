@@ -95,6 +95,30 @@ document.addEventListener('DOMContentLoaded', async function () {
         hideLocalOnlyTabsForCloudOnly();
     }
 
+    // Auto-generate a session admin key silently in cloud-only deployments
+    try {
+        if (window.PAIPERWORK_CLOUD_ONLY) {
+            const existing = sessionStorage.getItem('pa_admin_key');
+            if (!existing || !String(existing).trim()) {
+                try {
+                    const arr = new Uint8Array(32);
+                    if (window.crypto && crypto.getRandomValues) {
+                        crypto.getRandomValues(arr);
+                    } else {
+                        for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256);
+                    }
+                    const key = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+                    sessionStorage.setItem('pa_admin_key', key);
+                } catch (genErr) {
+                    // Non-fatal; if generation fails we'll fall back to on-demand prompt elsewhere
+                    console.warn('Failed to auto-generate pa_admin_key:', genErr);
+                }
+            }
+        }
+    } catch (e) {
+        // sessionStorage may be restricted in some contexts; ignore failures
+    }
+
     OllamaAPI.currentContextSize = parseInt(document.getElementById('context-selector')?.value || 16384);
     setupTabSwitching();
 

@@ -1,6 +1,9 @@
 package main
 
 import (
+	crand "crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,8 +19,11 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
+
+var adminAuditMutex sync.Mutex
 
 func noCacheHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -218,6 +224,188 @@ var cloudAPIHTTPClient = &http.Client{
 		// Prefer HTTP/1.1 stability for long-lived streaming proxies.
 		ForceAttemptHTTP2: false,
 	},
+}
+
+// Admin configuration loaded at startup.
+var (
+	adminAPIKey   string
+	allowedOrigin string
+)
+
+// loadOrCreateAdminKey loads the admin key from environment or a config file
+// next to the executable. If none exists, it generates a new 32-byte key,
+// writes it to config.env with restricted permissions, and prints it once.
+func loadOrCreateAdminKey(execDir string) string {
+	// 1) prefer env var
+	if k := strings.TrimSpace(os.Getenv("PAIPERWORK_ADMIN_KEY")); k != "" {
+		return k
+	}
+
+	cfgPath := filepath.Join(execDir, "config.env")
+
+	// Check rotate-on-start flag
+	rotate := strings.ToLower(strings.TrimSpace(os.Getenv("PAIPERWORK_ROTATE_ADMIN_KEY_ON_START"))) == "true"
+
+	// 2) if not rotating, try to read existing file
+	if !rotate {
+		if data, err := os.ReadFile(cfgPath); err == nil {
+			lines := strings.Split(string(data), "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "PAIPERWORK_ADMIN_KEY=") {
+					val := strings.TrimPrefix(line, "PAIPERWORK_ADMIN_KEY=")
+					val = strings.Trim(val, "\"' ")
+					if val != "" {
+						return val
+					}
+				}
+			}
+		}
+	}
+
+	// 3) generate a new key and persist it (either rotate=true or no existing key)
+	b := make([]byte, 32)
+	if _, err := crand.Read(b); err != nil {
+		// fallback to math/rand if crypto fails (very unlikely)
+		for i := range b {
+			b[i] = byte(rand.Intn(256))
+		}
+	}
+	key := hex.EncodeToString(b)
+
+	content := fmt.Sprintf("PAIPERWORK_ADMIN_KEY=%s\n", key)
+	// attempt atomic write
+	tmp := cfgPath + ".tmp"
+	if err := os.WriteFile(tmp, []byte(content), 0600); err == nil {
+		_ = os.Rename(tmp, cfgPath)
+		// best-effort chmod (Windows may ignore)
+		_ = os.Chmod(cfgPath, 0600)
+		// By default do NOT print the key to stdout to minimize exposure.
+		// Printing can be enabled for debug/dev via PAIPERWORK_SHOW_ADMIN_KEY_ON_FIRST_RUN=true
+		if strings.ToLower(strings.TrimSpace(os.Getenv("PAIPERWORK_SHOW_ADMIN_KEY_ON_FIRST_RUN"))) == "true" {
+			fmt.Println("====================================================================")
+			fmt.Println("Paiperwork admin key generated (store this securely).")
+			fmt.Printf("PAIPERWORK_ADMIN_KEY=%s\n", key)
+			fmt.Println("This key was saved to:", cfgPath)
+			fmt.Println("Save it to a password manager; keep it secret. Rotate by replacing the file and restarting the app.")
+			fmt.Println("====================================================================")
+		}
+	} else {
+		// If write failed, we still return the generated key but avoid printing by default.
+		if strings.ToLower(strings.TrimSpace(os.Getenv("PAIPERWORK_SHOW_ADMIN_KEY_ON_FIRST_RUN"))) == "true" {
+			fmt.Println("WARNING: failed to write admin key to", cfgPath, ":", err)
+			fmt.Println("Generated admin key (please save it):", key)
+		}
+	}
+
+	return key
+}
+
+// isAuthorized checks for the admin API key header.
+func isAuthorized(r *http.Request) bool {
+	// Allow loopback requests (local installs) without presenting the header.
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	ip := net.ParseIP(host)
+	if ip != nil && ip.IsLoopback() {
+		return true
+	}
+
+	// header check
+	key := strings.TrimSpace(r.Header.Get("X-Paiperwork-Admin-Key"))
+	if key != "" && adminAPIKey != "" {
+		if subtle.ConstantTimeCompare([]byte(key), []byte(adminAPIKey)) == 1 {
+			return true
+		}
+	}
+
+	return false
+}
+
+// requireAdmin is a middleware wrapper for admin-only handlers.
+func requireAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			// Allow preflight to be handled by the caller after CORS headers are applied
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if !isAuthorized(r) {
+			// log unauthorized attempt
+			auditAdminEvent(r, "admin-auth", "unauthorized", "missing or invalid admin key")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		// log successful auth attempt (will also log the action result in handler)
+		auditAdminEvent(r, "admin-auth", "authorized", "")
+		next(w, r)
+	}
+}
+
+// applyRestrictedCORS applies conservative CORS headers for admin endpoints.
+func applyRestrictedCORS(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
+	if allowedOrigin != "" {
+		if origin != "" && origin == allowedOrigin {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Paiperwork-Admin-Key")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		}
+	}
+}
+
+// auditAdminEvent appends an audit line to admin_actions.log next to the executable.
+func auditAdminEvent(r *http.Request, action, status, details string) {
+	execDir := filepath.Dir(os.Args[0])
+
+	entryTime := time.Now().Format(time.RFC3339)
+	remote := r.RemoteAddr
+	ua := r.Header.Get("User-Agent")
+	// Keep details single-line
+	details = strings.ReplaceAll(details, "\n", " ")
+
+	line := fmt.Sprintf("%s\tremote=%s\tmethod=%s\tpath=%s\taction=%s\tstatus=%s\tua=%s\tdetails=%s\n",
+		entryTime, remote, r.Method, r.URL.Path, action, status, ua, details)
+
+	// Decide whether this is a local install: if PAIPERWORK_BIND_HOST is set to 0.0.0.0 or ::,
+	// treat it as cloud (do not write local files). Otherwise allow local file logging.
+	bindHost := strings.TrimSpace(os.Getenv("PAIPERWORK_BIND_HOST"))
+	isCloud := bindHost == "0.0.0.0" || bindHost == "::"
+	if cloudFlag := strings.ToLower(strings.TrimSpace(os.Getenv("PAIPERWORK_CLOUD_DEPLOYMENT"))); cloudFlag == "true" {
+		isCloud = true
+	}
+
+	adminAuditMutex.Lock()
+	defer adminAuditMutex.Unlock()
+
+	if isCloud {
+		// Cloud deployment: avoid writing to local filesystem; log to stdout only
+		log.Printf("[admin-audit] %s", strings.TrimSpace(line))
+		return
+	}
+
+	// Local install: write under app/logs/admin_actions.log (create dir if needed)
+	logsDir := filepath.Join(execDir, "app", "logs")
+	if err := os.MkdirAll(logsDir, 0700); err != nil {
+		log.Printf("Failed to create logs dir %s: %v; falling back to stdout", logsDir, err)
+		log.Printf("[admin-audit] %s", strings.TrimSpace(line))
+		return
+	}
+
+	logPath := filepath.Join(logsDir, "admin_actions.log")
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		log.Printf("Failed to open admin audit log %s: %v; falling back to stdout", logPath, err)
+		log.Printf("[admin-audit] %s", strings.TrimSpace(line))
+		return
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(line); err != nil {
+		log.Printf("Failed to write admin audit log: %v", err)
+	}
 }
 
 func cloudRequestWantsStream(body []byte) bool {
@@ -883,10 +1071,12 @@ func thinkingModelsPostHandler(w http.ResponseWriter, r *http.Request) {
 	if err := os.Rename(tmpPath, fullPath); err != nil {
 		log.Printf("Failed to replace thinkingmodels.js: %v", err)
 		os.Remove(tmpPath)
+		auditAdminEvent(r, "update-thinkingmodels", "failure", err.Error())
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
 
+	auditAdminEvent(r, "update-thinkingmodels", "success", fullPath)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, `{"ok":true}`)
@@ -983,10 +1173,12 @@ func visualModelsPostHandler(w http.ResponseWriter, r *http.Request) {
 	if err := os.Rename(tmpPath, fullPath); err != nil {
 		log.Printf("Failed to replace visualmodels.js: %v", err)
 		os.Remove(tmpPath)
+		auditAdminEvent(r, "update-visualmodels", "failure", err.Error())
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
 
+	auditAdminEvent(r, "update-visualmodels", "success", fullPath)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, `{"ok":true}`)
@@ -1080,10 +1272,12 @@ func modelParametersPostHandler(w http.ResponseWriter, r *http.Request) {
 	if err := os.Rename(tmpPath, fullPath); err != nil {
 		log.Printf("Failed to replace modelparameters.js: %v", err)
 		os.Remove(tmpPath)
+		auditAdminEvent(r, "update-modelparameters", "failure", err.Error())
 		http.Error(w, "Failed to save file", http.StatusInternalServerError)
 		return
 	}
 
+	auditAdminEvent(r, "update-modelparameters", "success", fullPath)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, `{"ok":true}`)
@@ -1477,6 +1671,90 @@ func proxyImageSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// proxyFetchImage fetches an external image server-side and returns it with CORS headers.
+// Query param: url=ENCODED_URL
+func proxyFetchImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	raw := strings.TrimSpace(r.URL.Query().Get("url"))
+	if raw == "" {
+		http.Error(w, "Missing url parameter", http.StatusBadRequest)
+		return
+	}
+
+	parsed, err := validateOutboundURL(raw)
+	if err != nil {
+		log.Printf("proxyFetchImage: rejected url %q: %v", raw, err)
+		http.Error(w, "Invalid or disallowed url", http.StatusBadRequest)
+		return
+	}
+
+	client := &http.Client{Timeout: 20 * time.Second}
+	req, err := http.NewRequest("GET", parsed.String(), nil)
+	if err != nil {
+		http.Error(w, "Failed to create request", http.StatusInternalServerError)
+		return
+	}
+	// set a common browser-like user-agent
+	req.Header.Set("User-Agent", "Paiperwork-ImageProxy/1.0")
+	req.Header.Set("Accept", "image/*,*/*;q=0.8")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("proxyFetchImage: fetch error for %s: %v", parsed.String(), err)
+		http.Error(w, "Failed to fetch image", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Propagate status codes (e.g., 429) but include CORS headers so client sees message
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	if resp.StatusCode != http.StatusOK {
+		w.WriteHeader(resp.StatusCode)
+		io.Copy(io.Discard, resp.Body)
+		return
+	}
+
+	// Limit image size to 8MB
+	const maxBytes = 8 * 1024 * 1024
+	limited := io.LimitReader(resp.Body, maxBytes+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		log.Printf("proxyFetchImage: read error for %s: %v", parsed.String(), err)
+		http.Error(w, "Failed to read image", http.StatusBadGateway)
+		return
+	}
+	if int64(len(data)) > maxBytes {
+		log.Printf("proxyFetchImage: image too large %s size=%d", parsed.String(), len(data))
+		http.Error(w, "Image too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = http.DetectContentType(data)
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(data); err != nil {
+		log.Printf("proxyFetchImage: write response error: %v", err)
+	}
+}
+
 // Search for images using Pexels API (primary source)
 func searchPexelsImage(query string) (string, error) {
 	// Pexels API endpoint
@@ -1739,6 +2017,13 @@ func main() {
 	execDir := filepath.Dir(os.Args[0])
 	log.Printf("Executable directory: %s", execDir)
 
+	// Load or create admin key (first-run). This prefers the environment
+	// variable PAIPERWORK_ADMIN_KEY, then a local config.env next to the
+	// executable. If none exists, generate a strong random key, write it to
+	// config.env with restricted permissions, and display it once to stdout.
+	adminAPIKey = loadOrCreateAdminKey(execDir)
+	allowedOrigin = strings.TrimSpace(os.Getenv("PAIPERWORK_ALLOWED_ORIGIN"))
+
 	appDir := filepath.Join(execDir, "app")
 	log.Printf("Serving files from: %s", appDir)
 
@@ -1763,41 +2048,64 @@ func main() {
 	mux.HandleFunc("/api/extract/raw-html", fetchRawHtmlForLinks)
 	mux.HandleFunc("/api/proxy/pdf", proxyPdfContent)
 	mux.HandleFunc("/api/proxy/image-search", proxyImageSearch)
+	mux.HandleFunc("/api/proxy/fetch-image", proxyFetchImage)
 	mux.HandleFunc("/api/version-check", proxyVersionCheck)
 	mux.HandleFunc("/api/server-info", serverInfoHandler)
 	mux.HandleFunc("/api/proxy/image-search-multi", proxyImageSearchMulti) // New endpoint
+	// Note: admin key retrieval endpoint removed to minimize exposure. Local
+	// installs rely on loopback requests being treated as admin; cloud
+	// deployments must supply the admin key in `X-Paiperwork-Admin-Key` (or
+	// store it in sessionStorage via the admin UI when deployed).
 	// Thinking models management (read/write thinkingmodels.js)
 	mux.HandleFunc("/api/thinkingmodels", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" || r.Method == "OPTIONS" {
+		if r.Method == "GET" {
 			thinkingModelsGetHandler(w, r)
 			return
 		}
+		if r.Method == "OPTIONS" {
+			applyRestrictedCORS(w, r)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		if r.Method == "POST" {
-			thinkingModelsPostHandler(w, r)
+			applyRestrictedCORS(w, r)
+			requireAdmin(thinkingModelsPostHandler)(w, r)
 			return
 		}
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	})
 	// Visual models management
 	mux.HandleFunc("/api/visualmodels", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" || r.Method == "OPTIONS" {
+		if r.Method == "GET" {
 			visualModelsGetHandler(w, r)
 			return
 		}
+		if r.Method == "OPTIONS" {
+			applyRestrictedCORS(w, r)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		if r.Method == "POST" {
-			visualModelsPostHandler(w, r)
+			applyRestrictedCORS(w, r)
+			requireAdmin(visualModelsPostHandler)(w, r)
 			return
 		}
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	})
 	// Model parameters management
 	mux.HandleFunc("/api/modelparameters", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == "GET" || r.Method == "OPTIONS" {
+		if r.Method == "GET" {
 			modelParametersGetHandler(w, r)
 			return
 		}
+		if r.Method == "OPTIONS" {
+			applyRestrictedCORS(w, r)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		if r.Method == "POST" {
-			modelParametersPostHandler(w, r)
+			applyRestrictedCORS(w, r)
+			requireAdmin(modelParametersPostHandler)(w, r)
 			return
 		}
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

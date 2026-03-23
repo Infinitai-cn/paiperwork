@@ -14,6 +14,10 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         contentComingSoon: 'Inhalt für diesen Bereich kommt bald.',
         inThisSection: 'In Diesem Bereich:',
         noArticlesAvailable: 'Keine Artikel für diesen Bereich verfügbar.',
+        adminKeyNoticeTitle: 'Administrator-Schlüssel erforderlich',
+        adminKeyNoticeBody: 'Um administrative Aktionen auszuführen, benötigt diese Sitzung einen Administrator-Schlüssel. Er wird in Ihrer Browsersitzung gespeichert.',
+        adminKeyNoticeHint: 'Klicken Sie auf OK, um den Schlüssel für diese Sitzung zu generieren und zu speichern.',
+        adminKeySavedToast: 'Administrator-Schlüssel in der Sitzung gespeichert.',
 
 
     };

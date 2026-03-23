@@ -255,6 +255,10 @@
     margin-top: 8px;
 }
 
+/* Admin key modal styles (used by generation.html) */
+/* Admin key UI intentionally disabled; CSS kept for future use if needed. */
+
+
 .presentation-style-option {
     display: flex;
     align-items: center;

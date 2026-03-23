@@ -13,6 +13,10 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 contentComingSoon: '本节内容即将推出。',
                 inThisSection: '本节内容：',
                 noArticlesAvailable: '本节暂无可用文章。',
+                adminKeyNoticeTitle: '需要管理员密钥',
+                adminKeyNoticeBody: '要执行管理操作，本次会话需要管理员密钥。它将保存在浏览器会话中。',
+                adminKeyNoticeHint: '点击确定以为此会话生成并保存密钥。',
+                adminKeySavedToast: '管理员密钥已保存到会话。',
 
         };
         if (typeof window.Lang !== 'undefined') {

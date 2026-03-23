@@ -368,7 +368,11 @@ class selectionHelper {
                        //console.log('[selectionHelper] loadUrlsToBase64 - already data URI at', i);
                         continue;
                     }
-                    const resp = await fetch(raw);
+                    // Use server-side proxy to avoid CORS issues and rate limits
+                    const proxiedUrl = (typeof raw === 'string' && /^https?:\/\//i.test(raw) && !raw.startsWith(window.location.origin + '/api/'))
+                        ? `/api/proxy/fetch-image?url=${encodeURIComponent(raw)}`
+                        : raw;
+                    const resp = await fetch(proxiedUrl);
                     if (!resp.ok) { progressCb && progressCb(i + 1, urls.length); 
                        //console.log('[selectionHelper] loadUrlsToBase64 - fetch failed for', raw, 'status=', resp.status); 
                         continue; 

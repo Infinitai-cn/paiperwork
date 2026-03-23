@@ -870,6 +870,128 @@ class ModelDownloader {
             this._initialized = true;
         }
 
+        // Show an admin-key prompt on first load for cloud deployments.
+        (function promptAdminKeyOnLoad() {
+            try {
+                const host = window.location.hostname;
+                const isLocalHost = !host || host === 'localhost' || host === '127.0.0.1' || window.location.protocol === 'file:';
+
+                // Allow explicit override via global flag for cloud deployments.
+                const explicitCloud = (window.PAIPERWORK_CLOUD_DEPLOYMENT === '1' || window.PAIPERWORK_CLOUD_DEPLOYMENT === 'true');
+
+                // Only show the modal when running in a cloud deployment (either explicit or non-local host).
+                const showModal = explicitCloud || (!isLocalHost && !!host);
+                if (!showModal) return;
+
+                const existing = sessionStorage.getItem('pa_admin_key');
+                if (existing && String(existing).trim()) return;
+
+                setTimeout(() => {
+                    if (document.getElementById('pa-admin-key-modal')) return;
+
+                    const modal = document.createElement('div');
+                    modal.id = 'pa-admin-key-modal';
+                    modal.style.position = 'fixed';
+                    modal.style.top = '0';
+                    modal.style.left = '0';
+                    modal.style.width = '100%';
+                    modal.style.height = '100%';
+                    modal.style.display = 'flex';
+                    modal.style.alignItems = 'center';
+                    modal.style.justifyContent = 'center';
+                    modal.style.backgroundColor = 'rgba(0,0,0,0.45)';
+                    modal.style.zIndex = '10050';
+
+                    const dialog = document.createElement('div');
+                    dialog.style.width = '420px';
+                    dialog.style.maxWidth = '92%';
+                    dialog.style.background = 'var(--bg-color, #1f1f1f)';
+                    dialog.style.color = 'var(--text-color, #fff)';
+                    dialog.style.border = '1px solid var(--border-color, #333)';
+                    dialog.style.borderRadius = '10px';
+                    dialog.style.boxShadow = '0 10px 30px rgba(0,0,0,0.5)';
+                    dialog.style.padding = '18px';
+                    dialog.style.boxSizing = 'border-box';
+                    dialog.style.textAlign = 'left';
+
+                    const title = document.createElement('div');
+                    title.textContent = Lang.get('adminKeyNoticeTitle') || 'Admin key required for admin actions';
+                    title.style.fontSize = '16px';
+                    title.style.fontWeight = '600';
+                    title.style.marginBottom = '8px';
+
+                    const msg = document.createElement('p');
+                    msg.textContent = Lang.get('adminKeyNoticeBody') || 'This app requires an admin key to make changes to protected settings. The key is stored only in this browser tab for the session and will be forgotten when you close it.';
+                    msg.style.fontSize = '13px';
+                    msg.style.lineHeight = '1.4';
+                    msg.style.marginBottom = '16px';
+
+                    const hint = document.createElement('p');
+                    hint.textContent = Lang.get('adminKeyNoticeHint') || 'Click OK to create a new session key (saved only for this tab). If you already have a key, paste it in the browser console as sessionStorage.setItem("pa_admin_key", "<your-key>") before proceeding.';
+                    hint.style.fontSize = '12px';
+                    hint.style.opacity = '0.9';
+                    hint.style.marginBottom = '18px';
+
+                    const btnRow = document.createElement('div');
+                    btnRow.style.display = 'flex';
+                    btnRow.style.justifyContent = 'flex-end';
+
+                    const okBtn = document.createElement('button');
+                    okBtn.textContent = Lang.get('ok') || 'OK';
+                    okBtn.style.padding = '8px 14px';
+                    okBtn.style.borderRadius = '6px';
+                    okBtn.style.border = 'none';
+                    okBtn.style.cursor = 'pointer';
+                    okBtn.style.background = 'var(--button-bg, #2d7dff)';
+                    okBtn.style.color = 'white';
+
+                    btnRow.appendChild(okBtn);
+
+                    dialog.appendChild(title);
+                    dialog.appendChild(msg);
+                    dialog.appendChild(hint);
+                    dialog.appendChild(btnRow);
+                    modal.appendChild(dialog);
+                    document.body.appendChild(modal);
+
+                    const removeModal = () => { try { modal.remove(); } catch (e) { } };
+
+                    okBtn.addEventListener('click', () => {
+                        try {
+                            const arr = new Uint8Array(32);
+                            if (window.crypto && crypto.getRandomValues) {
+                                crypto.getRandomValues(arr);
+                            } else {
+                                for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256);
+                            }
+                            const key = Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+                            sessionStorage.setItem('pa_admin_key', key);
+
+                            const toast = document.createElement('div');
+                            toast.textContent = Lang.get('adminKeySavedToast') || 'Admin key saved for this session.';
+                            toast.style.position = 'fixed';
+                            toast.style.bottom = '18px';
+                            toast.style.right = '18px';
+                            toast.style.background = 'rgba(0,0,0,0.7)';
+                            toast.style.color = 'white';
+                            toast.style.padding = '8px 12px';
+                            toast.style.borderRadius = '6px';
+                            toast.style.zIndex = '10060';
+                            document.body.appendChild(toast);
+                            setTimeout(() => { try { toast.remove(); } catch (e) {} }, 3000);
+
+                            removeModal();
+                        } catch (e) {
+                            console.error('Failed to create admin key:', e);
+                            removeModal();
+                        }
+                    });
+                }, 400);
+            } catch (e) {
+                // sessionStorage may be unavailable in some contexts
+            }
+        })();
+
         if (!models || !Array.isArray(models)) {
             console.error('No valid models array provided');
             models = []; // Use empty array to allow UI initialization
@@ -1403,16 +1525,30 @@ class ModelDownloader {
                                 const val = textarea.value || '';
 
                                 // POST to server API
-                                const resp = await fetch('/api/thinkingmodels', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ content: val })
-                                });
+                                // Attach admin header from sessionStorage (prompt on-demand if missing)
+                                try {
+                                    const adminKey = await ensureAdminKey();
+                                    const headers = { 'Content-Type': 'application/json' };
+                                    if (adminKey) headers['X-Paiperwork-Admin-Key'] = adminKey;
+                                    const resp = await fetch('/api/thinkingmodels', {
+                                        method: 'POST',
+                                        headers,
+                                        body: JSON.stringify({ content: val })
+                                    });
 
-                                if (!resp.ok) {
-                                    const text = await resp.text().catch(() => '');
-                                    throw new Error('Server error: ' + resp.status + ' ' + text);
+                                    if (!resp.ok) {
+                                        const text = await resp.text().catch(() => '');
+                                        throw new Error('Server error: ' + resp.status + ' ' + text);
+                                    }
+                                } catch (err) {
+                                    if (String(err) === 'Error: admin-key-missing' || err.message === 'admin-key-missing') {
+                                        alert(Lang.get('adminKeyRequired') || 'Admin key required to perform this action');
+                                        saveBtn.innerHTML = original;
+                                        return;
+                                    }
+                                    throw err;
                                 }
+                                
 
                                 // No local encrypted backup — server is authoritative
 
@@ -1466,6 +1602,31 @@ class ModelDownloader {
                 }
             });
             this._editThinkingListenerAdded = true;
+        }
+
+        // Helper to ensure admin key is present in sessionStorage for cloud deployments.
+        async function ensureAdminKey() {
+            try {
+                const host = window.location.hostname;
+                const isLocalInstall = !host || host === 'localhost' || host === '127.0.0.1' || window.location.protocol === 'file:';
+                if (isLocalInstall) {
+                    // Local installs trust loopback; no client-side admin key required.
+                    return null;
+                }
+
+                let key = sessionStorage.getItem('pa_admin_key');
+                if (key && key.trim()) return key.trim();
+
+                // Prompt on-demand only when needed (cloud)
+                const supplied = prompt(Lang.get('enterAdminKey') || 'Enter admin key for admin actions (this tab only)');
+                if (supplied && supplied.trim()) {
+                    sessionStorage.setItem('pa_admin_key', supplied.trim());
+                    return supplied.trim();
+                }
+                throw new Error('admin-key-missing');
+            } catch (e) {
+                throw e;
+            }
         }
 
         // Visual models modal handler
@@ -1601,14 +1762,26 @@ class ModelDownloader {
                             const original = saveBtn.innerHTML;
                             try {
                                 const val = textarea.value || '';
-                                const resp = await fetch('/api/visualmodels', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ content: val })
-                                });
-                                if (!resp.ok) {
-                                    const text = await resp.text().catch(() => '');
-                                    throw new Error('Server error: ' + resp.status + ' ' + text);
+                                try {
+                                    const adminKey = await ensureAdminKey();
+                                    const headers = { 'Content-Type': 'application/json' };
+                                    if (adminKey) headers['X-Paiperwork-Admin-Key'] = adminKey;
+                                    const resp = await fetch('/api/visualmodels', {
+                                        method: 'POST',
+                                        headers,
+                                        body: JSON.stringify({ content: val })
+                                    });
+                                    if (!resp.ok) {
+                                        const text = await resp.text().catch(() => '');
+                                        throw new Error('Server error: ' + resp.status + ' ' + text);
+                                    }
+                                } catch (err) {
+                                    if (String(err) === 'Error: admin-key-missing' || err.message === 'admin-key-missing') {
+                                        alert(Lang.get('adminKeyRequired') || 'Admin key required to perform this action');
+                                        saveBtn.innerHTML = original;
+                                        return;
+                                    }
+                                    throw err;
                                 }
                                 saveBtn.innerHTML = (Lang.get('save') || 'Save') + ' ✓';
                                 setTimeout(() => saveBtn.innerHTML = original, 1400);
@@ -1774,14 +1947,26 @@ class ModelDownloader {
                             const original = saveBtn.innerHTML;
                             try {
                                 const val = textarea.value || '';
-                                const resp = await fetch('/api/modelparameters', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ content: val })
-                                });
-                                if (!resp.ok) {
-                                    const text = await resp.text().catch(() => '');
-                                    throw new Error('Server error: ' + resp.status + ' ' + text);
+                                try {
+                                    const adminKey = await ensureAdminKey();
+                                    const headers = { 'Content-Type': 'application/json' };
+                                    if (adminKey) headers['X-Paiperwork-Admin-Key'] = adminKey;
+                                    const resp = await fetch('/api/modelparameters', {
+                                        method: 'POST',
+                                        headers,
+                                        body: JSON.stringify({ content: val })
+                                    });
+                                    if (!resp.ok) {
+                                        const text = await resp.text().catch(() => '');
+                                        throw new Error('Server error: ' + resp.status + ' ' + text);
+                                    }
+                                } catch (err) {
+                                    if (String(err) === 'Error: admin-key-missing' || err.message === 'admin-key-missing') {
+                                        alert(Lang.get('adminKeyRequired') || 'Admin key required to perform this action');
+                                        saveBtn.innerHTML = original;
+                                        return;
+                                    }
+                                    throw err;
                                 }
                                 saveBtn.innerHTML = (Lang.get('save') || 'Save') + ' ✓';
                                 setTimeout(() => saveBtn.innerHTML = original, 1400);
