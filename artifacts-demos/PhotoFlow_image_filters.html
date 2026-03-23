@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhotoFlow - Advanced Image Editor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #08080a;
+            --bg-panel: #0f0f12;
+            --bg-card: #161619;
+            --bg-hover: #1e1e23;
+            --fg: #e8e8ec;
+            --fg-muted: #6a6a75;
+            --accent: #00e5a0;
+            --accent-dim: rgba(0, 229, 160, 0.12);
+            --accent-glow: rgba(0, 229, 160, 0.35);
+            --border: #252529;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-dark);
+            color: var(--fg);
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+        }
+
+        .filter-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            outline: none;
+            transition: background 0.2s ease;
+        }
+
+        .filter-slider:hover {
+            background: #353539;
+        }
+
+        .filter-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        .filter-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 18px var(--accent);
+        }
+
+        .filter-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #00c890 100%);
+            color: var(--bg-dark);
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .btn-primary:hover {
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--fg);
+            border: 1px solid var(--border);
+            padding: 10px 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--bg-hover);
+            border-color: var(--fg-muted);
+        }
+
+        .btn-secondary:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .canvas-container {
+            background: 
+                linear-gradient(45deg, #121215 25%, transparent 25%),
+                linear-gradient(-45deg, #121215 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #121215 75%),
+                linear-gradient(-45deg, transparent 75%, #121215 75%);
+            background-size: 16px 16px;
+            background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+            background-color: #0a0a0c;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preset-btn {
+            padding: 10px 14px;
+            font-size: 11px;
+            font-weight: 500;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--fg-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .preset-btn:hover {
+            background: var(--bg-hover);
+            color: var(--fg);
+            border-color: var(--accent);
+        }
+
+        .preset-btn.effect-brown { border-left: 3px solid #8B4513; }
+        .preset-btn.effect-teal { border-left: 3px solid #00CED1; }
+        .preset-btn.effect-purple { border-left: 3px solid #9B59B6; }
+        .preset-btn.effect-orange { border-left: 3px solid #FF6B35; }
+        .preset-btn.effect-pink { border-left: 3px solid #E91E63; }
+        .preset-btn.effect-gold { border-left: 3px solid #FFD700; }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: var(--bg-panel);
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: var(--fg-muted);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in { animation: fadeIn 0.3s ease forwards; }
+
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+            border: none;
+            background: transparent;
+            color: var(--fg-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            position: relative;
+        }
+
+        .tab-btn.active {
+            color: var(--accent);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent);
+            border-radius: 2px 2px 0 0;
+        }
+
+        .history-indicator {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--fg-muted);
+            background: var(--bg-card);
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .filter-group {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .filter-group-title {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--fg-muted);
+            margin-bottom: 10px;
+        }
+
+        .effect-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .effect-category {
+            margin-bottom: 16px;
+        }
+
+        .effect-category-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent);
+            margin-bottom: 8px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+    <header class="panel h-16 flex items-center justify-between px-6 border-b shrink-0">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
+                <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                    <rect x="4" y="4" width="24" height="24" rx="6" stroke="var(--accent)" stroke-width="2"/>
+                    <circle cx="16" cy="16" r="5" fill="var(--accent)" opacity="0.8"/>
+                    <circle cx="16" cy="16" r="2" fill="var(--bg-dark)"/>
+                </svg>
+                <h1 class="text-lg font-semibold">PhotoFlow</h1>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+                <button class="btn-secondary px-3 py-2 flex items-center gap-2" id="undoBtn" onclick="undo()" disabled title="Undo (Ctrl+Z)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"/>
+                    </svg>
+                </button>
+                <button class="btn-secondary px-3 py-2 flex items-center gap-2" id="redoBtn" onclick="redo()" disabled title="Redo (Ctrl+Y)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 7v6h-6"/><path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"/>
+                    </svg>
+                </button>
+                <span class="history-indicator" id="historyCounter">0/0</span>
+            </div>
+            <button class="btn-secondary" onclick="resetImage()">Reset</button>
+            <button class="btn-primary" onclick="exportImage()">Export PNG</button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex min-h-0">
+        <div class="flex-1 canvas-container flex items-center justify-center p-8">
+            <div id="dropZone" class="drop-zone flex flex-col items-center justify-center w-full max-w-2xl" style="min-height: 400px;">
+                <div id="uploadPrompt" class="flex flex-col items-center gap-6 text-center">
+                    <div class="w-20 h-20 rounded-2xl bg-[var(--accent-dim)] flex items-center justify-center">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold mb-2">Drop your image here</h2>
+                        <p class="text-[var(--fg-muted)] text-sm mb-4">or click to browse files</p>
+                        <label class="btn-primary inline-flex items-center gap-2 cursor-pointer">
+                            <input type="file" id="imageInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            Choose Image
+                        </label>
+                    </div>
+                    <p class="text-[var(--fg-muted)] text-xs">Supports JPG, PNG, WebP, GIF</p>
+                </div>
+                <canvas id="mainCanvas" class="hidden max-w-full max-h-full rounded-lg shadow-2xl"></canvas>
+            </div>
+        </div>
+
+        <aside class="panel w-80 flex flex-col shrink-0 overflow-hidden">
+            <div class="flex border-b border-[var(--border)]">
+                <button class="tab-btn active" id="filtersTab" onclick="showTab('filters')">Filters</button>
+                <button class="tab-btn" id="effectsTab" onclick="showTab('effects')">Effects</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4" id="filtersPanel">
+                <div class="filter-group">
+                    <div class="filter-group-title">Light</div>
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Exposure</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="exposureValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="exposure" min="-100" max="100" value="0" 
+                                oninput="previewFilter('exposure', this.value)" onchange="commitFilter('exposure', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Brightness</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="brightnessValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="brightness" min="-100" max="100" value="0" 
+                                oninput="previewFilter('brightness', this.value)" onchange="commitFilter('brightness', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Contrast</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="contrastValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="contrast" min="-100" max="100" value="0"
+                                oninput="previewFilter('contrast', this.value)" onchange="commitFilter('contrast', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Highlights</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="highlightsValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="highlights" min="-100" max="100" value="0"
+                                oninput="previewFilter('highlights', this.value)" onchange="commitFilter('highlights', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Shadows</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="shadowsValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="shadows" min="-100" max="100" value="0"
+                                oninput="previewFilter('shadows', this.value)" onchange="commitFilter('shadows', this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <div class="filter-group-title">Color</div>
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Saturation</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="saturationValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="saturation" min="-100" max="100" value="0"
+                                oninput="previewFilter('saturation', this.value)" onchange="commitFilter('saturation', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Vibrance</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="vibranceValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="vibrance" min="-100" max="100" value="0"
+                                oninput="previewFilter('vibrance', this.value)" onchange="commitFilter('vibrance', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Temperature</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="temperatureValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="temperature" min="-100" max="100" value="0"
+                                oninput="previewFilter('temperature', this.value)" onchange="commitFilter('temperature', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Tint</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="tintValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="tint" min="-100" max="100" value="0"
+                                oninput="previewFilter('tint', this.value)" onchange="commitFilter('tint', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Hue Rotate</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="hueValue">0°</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="hue" min="0" max="360" value="0"
+                                oninput="previewFilter('hue', this.value)" onchange="commitFilter('hue', this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <div class="filter-group-title">Detail</div>
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Blur</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="blurValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="blur" min="0" max="20" value="0"
+                                oninput="previewFilter('blur', this.value)" onchange="commitFilter('blur', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Sharpen</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="sharpenValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="sharpen" min="0" max="100" value="0"
+                                oninput="previewFilter('sharpen', this.value)" onchange="commitFilter('sharpen', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Grain</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="grainValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="grain" min="0" max="100" value="0"
+                                oninput="previewFilter('grain', this.value)" onchange="commitFilter('grain', this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <div class="filter-group-title">Effects</div>
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Vignette</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="vignetteValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="vignette" min="0" max="100" value="0"
+                                oninput="previewFilter('vignette', this.value)" onchange="commitFilter('vignette', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Sepia</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="sepiaValue">0</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="sepia" min="0" max="100" value="0"
+                                oninput="previewFilter('sepia', this.value)" onchange="commitFilter('sepia', this.value)">
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm">Opacity</span>
+                                <span class="text-xs font-mono text-[var(--fg-muted)]" id="opacityValue">100%</span>
+                            </div>
+                            <input type="range" class="filter-slider" id="opacity" min="0" max="100" value="100"
+                                oninput="previewFilter('opacity', this.value)" onchange="commitFilter('opacity', this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button class="btn-secondary w-full" onclick="resetFilters()">Reset All Filters</button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto scrollbar-thin p-4 hidden" id="effectsPanel">
+                <div class="effect-category">
+                    <div class="effect-category-title">Color Grading</div>
+                    <div class="effect-grid">
+                        <button class="preset-btn effect-orange" onclick="applyEffect('vintage')">Vintage</button>
+                        <button class="preset-btn effect-teal" onclick="applyEffect('cold')">Cold</button>
+                        <button class="preset-btn effect-orange" onclick="applyEffect('warm')">Warm</button>
+                        <button class="preset-btn effect-purple" onclick="applyEffect('cinematic')">Cinematic</button>
+                        <button class="preset-btn effect-teal" onclick="applyEffect('tealOrange')">Teal & Orange</button>
+                        <button class="preset-btn effect-brown" onclick="applyEffect('autumn')">Autumn</button>
+                        <button class="preset-btn effect-pink" onclick="applyEffect('neon')">Neon Glow</button>
+                        <button class="preset-btn effect-purple" onclick="applyEffect('cyberpunk')">Cyberpunk</button>
+                    </div>
+                </div>
+
+                <div class="effect-category">
+                    <div class="effect-category-title">Black & White</div>
+                    <div class="effect-grid">
+                        <button class="preset-btn" onclick="applyEffect('grayscale')">Grayscale</button>
+                        <button class="preset-btn" onclick="applyEffect('bwHighContrast')">High Contrast B&W</button>
+                        <button class="preset-btn" onclick="applyEffect('bwSoft')">Soft B&W</button>
+                        <button class="preset-btn" onclick="applyEffect('bwDramatic')">Dramatic B&W</button>
+                    </div>
+                </div>
+
+                <div class="effect-category">
+                    <div class="effect-category-title">Film Looks</div>
+                    <div class="effect-grid">
+                        <button class="preset-btn effect-brown" onclick="applyEffect('sepia')">Sepia</button>
+                        <button class="preset-btn" onclick="applyEffect('fadedFilm')">Faded Film</button>
+                        <button class="preset-btn effect-brown" onclick="applyEffect('polaroid')">Polaroid</button>
+                        <button class="preset-btn effect-gold" onclick="applyEffect('kodak')">Kodak Gold</button>
+                        <button class="preset-btn" onclick="applyEffect('filmNoir')">Film Noir</button>
+                        <button class="preset-btn" onclick="applyEffect('crossProcess')">Cross Process</button>
+                    </div>
+                </div>
+
+                <div class="effect-category">
+                    <div class="effect-category-title">Artistic</div>
+                    <div class="effect-grid">
+                        <button class="preset-btn" onclick="applyEffect('posterize')">Posterize</button>
+                        <button class="preset-btn" onclick="applyEffect('popArt')">Pop Art</button>
+                        <button class="preset-btn effect-purple" onclick="applyEffect('duotone')">Duotone</button>
+                        <button class="preset-btn" onclick="applyEffect('invert')">Invert</button>
+                        <button class="preset-btn" onclick="applyEffect('pixelate')">Pixelate</button>
+                        <button class="preset-btn" onclick="applyEffect('emboss')">Emboss</button>
+                        <button class="preset-btn" onclick="applyEffect('sketch')">Sketch</button>
+                        <button class="preset-btn" onclick="applyEffect('oilPaint')">Oil Paint</button>
+                    </div>
+                </div>
+
+                <div class="effect-category">
+                    <div class="effect-category-title">Creative</div>
+                    <div class="effect-grid">
+                        <button class="preset-btn effect-pink" onclick="applyEffect('dream')">Dreamy</button>
+                        <button class="preset-btn effect-purple" onclick="applyEffect('glitch')">Glitch</button>
+                        <button class="preset-btn effect-teal" onclick="applyEffect('hdr')">HDR</button>
+                        <button class="preset-btn effect-orange" onclick="applyEffect('sunset')">Sunset</button>
+                        <button class="preset-btn effect-teal" onclick="applyEffect('underwater')">Underwater</button>
+                        <button class="preset-btn effect-gold" onclick="applyEffect('goldenHour')">Golden Hour</button>
+                        <button class="preset-btn effect-purple" onclick="applyEffect('twilight')">Twilight</button>
+                        <button class="preset-btn effect-pink" onclick="applyEffect('retro')">Retro</button>
+                    </div>
+                </div>
+
+                <div class="effect-category">
+                    <div class="effect-category-title">Classic Adjustments</div>
+                    <div class="effect-grid">
+                        <button class="preset-btn" onclick="applyEffect('dramatic')">Dramatic</button>
+                        <button class="preset-btn" onclick="applyEffect('fade')">Fade</button>
+                        <button class="preset-btn" onclick="applyEffect('vignette')">Vignette</button>
+                        <button class="preset-btn" onclick="applyEffect('noise')">Film Grain</button>
+                        <button class="preset-btn" onclick="applyEffect('sharpen')">Sharpen</button>
+                        <button class="preset-btn" onclick="applyEffect('blur')">Heavy Blur</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        const state = {
+            originalImage: null,
+            baseCanvas: null,
+            baseCtx: null,
+            filters: {
+                brightness: 0,
+                contrast: 0,
+                saturation: 0,
+                exposure: 0,
+                blur: 0,
+                hue: 0,
+                opacity: 100,
+                highlights: 0,
+                shadows: 0,
+                vibrance: 0,
+                temperature: 0,
+                tint: 0,
+                sharpen: 0,
+                grain: 0,
+                vignette: 0,
+                sepia: 0
+            }
+        };
+
+        const history = {
+            states: [],
+            currentIndex: -1,
+            maxStates: 200
+        };
+
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const dropZone = document.getElementById('dropZone');
+        const uploadPrompt = document.getElementById('uploadPrompt');
+        let isSavingState = false;
+
+        function init() {
+            setupEventListeners();
+            updateHistoryUI();
+        }
+
+        function setupEventListeners() {
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    loadImage(file);
+                }
+            });
+
+            document.addEventListener('keydown', handleKeyboard);
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                loadImage(file);
+            }
+        }
+
+        function loadImage(file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const maxWidth = window.innerWidth - 350;
+                    const maxHeight = window.innerHeight - 150;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth || height > maxHeight) {
+                        const ratio = Math.min(maxWidth / width, maxHeight / height);
+                        width *= ratio;
+                        height *= ratio;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    state.baseCanvas = document.createElement('canvas');
+                    state.baseCanvas.width = width;
+                    state.baseCanvas.height = height;
+                    state.baseCtx = state.baseCanvas.getContext('2d');
+
+                    state.baseCtx.drawImage(img, 0, 0, width, height);
+                    state.originalImage = img;
+
+                    uploadPrompt.classList.add('hidden');
+                    canvas.classList.remove('hidden');
+
+                    resetFilters();
+                    saveState('Load Image');
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function previewFilter(filter, value) {
+            if (!state.baseCanvas) return;
+
+            state.filters[filter] = parseInt(value);
+
+            const valueSuffix = filter === 'hue' ? '°' : (filter === 'opacity' ? '%' : '');
+            document.getElementById(filter + 'Value').textContent = value + valueSuffix;
+
+            applyFilters();
+        }
+
+        function commitFilter(filter, value) {
+            if (!state.baseCanvas) return;
+            saveState(`Filter: ${filter}`);
+        }
+
+        function applyFilters() {
+            if (!state.baseCanvas) return;
+
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Get image data from base canvas
+            const imageData = state.baseCtx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+
+            // Apply pixel-level filters first
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i];
+                let g = data[i + 1];
+                let b = data[i + 2];
+
+                // Brightness
+                if (state.filters.brightness !== 0) {
+                    const bVal = state.filters.brightness * 2.55;
+                    r += bVal;
+                    g += bVal;
+                    b += bVal;
+                }
+
+                // Contrast
+                if (state.filters.contrast !== 0) {
+                    const factor = (259 * (state.filters.contrast + 255)) / (255 * (259 - state.filters.contrast));
+                    r = factor * (r - 128) + 128;
+                    g = factor * (g - 128) + 128;
+                    b = factor * (b - 128) + 128;
+                }
+
+                // Exposure
+                if (state.filters.exposure !== 0) {
+                    const expFactor = Math.pow(2, state.filters.exposure / 100);
+                    r *= expFactor;
+                    g *= expFactor;
+                    b *= expFactor;
+                }
+
+                // Saturation
+                if (state.filters.saturation !== 0) {
+                    const sat = state.filters.saturation / 100;
+                    const gray = 0.2989 * r + 0.587 * g + 0.114 * b;
+                    r = gray + sat * (r - gray) + (1 - sat) * (r - gray);
+                    g = gray + sat * (g - gray) + (1 - sat) * (g - gray);
+                    b = gray + sat * (b - gray) + (1 - sat) * (b - gray);
+                }
+
+                // Vibrance
+                if (state.filters.vibrance !== 0) {
+                    const vib = state.filters.vibrance / 100;
+                    const max = Math.max(r, g, b);
+                    const avg = (r + g + b) / 3;
+                    const amt = ((Math.abs(max - avg) * 2 / 255) * vib) * 0.3;
+                    r += (max - r) * amt;
+                    g += (max - g) * amt;
+                    b += (max - b) * amt;
+                }
+
+                // Temperature
+                if (state.filters.temperature !== 0) {
+                    const temp = state.filters.temperature / 100;
+                    r += temp * 30;
+                    b -= temp * 30;
+                }
+
+                // Tint
+                if (state.filters.tint !== 0) {
+                    const t = state.filters.tint / 100;
+                    g += t * 20;
+                }
+
+                // Highlights
+                if (state.filters.highlights !== 0) {
+                    const lum = (r + g + b) / 3;
+                    if (lum > 128) {
+                        const factor = (lum - 128) / 127 * (state.filters.highlights / 100);
+                        r += factor * 50;
+                        g += factor * 50;
+                        b += factor * 50;
+                    }
+                }
+
+                // Shadows
+                if (state.filters.shadows !== 0) {
+                    const lum = (r + g + b) / 3;
+                    if (lum < 128) {
+                        const factor = (128 - lum) / 128 * (state.filters.shadows / 100);
+                        r += factor * 50;
+                        g += factor * 50;
+                        b += factor * 50;
+                    }
+                }
+
+                // Sepia
+                if (state.filters.sepia !== 0) {
+                    const sepiaAmount = state.filters.sepia / 100;
+                    const sr = r * 0.393 + g * 0.769 + b * 0.189;
+                    const sg = r * 0.349 + g * 0.686 + b * 0.168;
+                    const sb = r * 0.272 + g * 0.534 + b * 0.131;
+                    r = r * (1 - sepiaAmount) + sr * sepiaAmount;
+                    g = g * (1 - sepiaAmount) + sg * sepiaAmount;
+                    b = b * (1 - sepiaAmount) + sb * sepiaAmount;
+                }
+
+                // Hue rotation
+                if (state.filters.hue !== 0) {
+                    const angle = state.filters.hue * Math.PI / 180;
+                    const cos = Math.cos(angle);
+                    const sin = Math.sin(angle);
+                    const nr = r * (0.213 + cos * 0.787 - sin * 0.213) + g * (0.715 - cos * 0.715 - sin * 0.715) + b * (0.072 - cos * 0.072 + sin * 0.928);
+                    const ng = r * (0.213 - cos * 0.213 + sin * 0.143) + g * (0.715 + cos * 0.285 + sin * 0.140) + b * (0.072 - cos * 0.072 - sin * 0.283);
+                    const nb = r * (0.213 - cos * 0.213 - sin * 0.787) + g * (0.715 - cos * 0.715 + sin * 0.715) + b * (0.072 + cos * 0.928 + sin * 0.072);
+                    r = nr;
+                    g = ng;
+                    b = nb;
+                }
+
+                // Clamp values
+                data[i] = Math.min(255, Math.max(0, r));
+                data[i + 1] = Math.min(255, Math.max(0, g));
+                data[i + 2] = Math.min(255, Math.max(0, b));
+            }
+
+            // Put processed data
+            ctx.putImageData(imageData, 0, 0);
+
+            // Apply blur via CSS
+            if (state.filters.blur > 0) {
+                canvas.style.filter = `blur(${state.filters.blur}px)`;
+            } else {
+                canvas.style.filter = 'none';
+            }
+
+            // Apply opacity
+            canvas.style.opacity = state.filters.opacity / 100;
+
+            // Apply sharpen (convolution on already drawn canvas)
+            if (state.filters.sharpen > 0) {
+                applySharpen(state.filters.sharpen / 100);
+            }
+
+            // Apply grain
+            if (state.filters.grain > 0) {
+                applyGrain(state.filters.grain);
+            }
+
+            // Apply vignette
+            if (state.filters.vignette > 0) {
+                applyVignette(state.filters.vignette / 100);
+            }
+        }
+
+        function applySharpen(amount) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+            const copy = new Uint8ClampedArray(data);
+            
+            const kernel = [0, -1, 0, -1, 4 + 1, -1, 0, -1, 0];
+            const factor = amount;
+            
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    for (let c = 0; c < 3; c++) {
+                        let val = 0;
+                        for (let ky = -1; ky <= 1; ky++) {
+                            for (let kx = -1; kx <= 1; kx++) {
+                                const idx = ((y + ky) * w + (x + kx)) * 4 + c;
+                                val += copy[idx] * kernel[(ky + 1) * 3 + (kx + 1)];
+                            }
+                        }
+                        const idx = (y * w + x) * 4 + c;
+                        data[idx] = Math.min(255, Math.max(0, copy[idx] + val * factor));
+                    }
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function applyGrain(amount) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+            
+            const grainAmount = amount / 2;
+            for (let i = 0; i < data.length; i += 4) {
+                const noise = (Math.random() - 0.5) * grainAmount;
+                data[i] = Math.min(255, Math.max(0, data[i] + noise));
+                data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise));
+                data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise));
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function applyVignette(strength) {
+            const w = canvas.width;
+            const h = canvas.height;
+            const cx = w / 2;
+            const cy = h / 2;
+            const maxDist = Math.sqrt(cx * cx + cy * cy);
+            
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+            
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const i = (y * w + x) * 4;
+                    const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+                    const factor = 1 - Math.pow(dist / maxDist, 2) * strength;
+                    data[i] *= factor;
+                    data[i + 1] *= factor;
+                    data[i + 2] *= factor;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function resetFilters() {
+            state.filters = {
+                brightness: 0,
+                contrast: 0,
+                saturation: 0,
+                exposure: 0,
+                blur: 0,
+                hue: 0,
+                opacity: 100,
+                highlights: 0,
+                shadows: 0,
+                vibrance: 0,
+                temperature: 0,
+                tint: 0,
+                sharpen: 0,
+                grain: 0,
+                vignette: 0,
+                sepia: 0
+            };
+
+            const filterKeys = Object.keys(state.filters);
+            filterKeys.forEach(key => {
+                const slider = document.getElementById(key);
+                const valueEl = document.getElementById(key + 'Value');
+                if (slider) {
+                    slider.value = key === 'opacity' ? 100 : 0;
+                }
+                if (valueEl) {
+                    if (key === 'hue') {
+                        valueEl.textContent = '0°';
+                    } else if (key === 'opacity') {
+                        valueEl.textContent = '100%';
+                    } else {
+                        valueEl.textContent = '0';
+                    }
+                }
+            });
+
+            if (state.baseCanvas && state.baseCtx && state.originalImage) {
+                state.baseCtx.clearRect(0, 0, state.baseCanvas.width, state.baseCanvas.height);
+                state.baseCtx.drawImage(state.originalImage, 0, 0, state.baseCanvas.width, state.baseCanvas.height);
+            }
+
+            applyFilters();
+            saveState('Reset Filters');
+        }
+
+        function applyEffect(effect) {
+            if (!state.baseCanvas) return;
+
+            // First apply current filters to get the current state
+            applyFilters();
+
+            // Get current pixel data
+            const w = canvas.width;
+            const h = canvas.height;
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const data = imageData.data;
+
+            switch (effect) {
+                case 'grayscale':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                        data[i] = data[i + 1] = data[i + 2] = gray;
+                    }
+                    break;
+
+                case 'sepia':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const r = data[i], g = data[i + 1], b = data[i + 2];
+                        data[i] = Math.min(255, r * 0.393 + g * 0.769 + b * 0.189);
+                        data[i + 1] = Math.min(255, r * 0.349 + g * 0.686 + b * 0.168);
+                        data[i + 2] = Math.min(255, r * 0.272 + g * 0.534 + b * 0.131);
+                    }
+                    break;
+
+                case 'invert':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = 255 - data[i];
+                        data[i + 1] = 255 - data[i + 1];
+                        data[i + 2] = 255 - data[i + 2];
+                    }
+                    break;
+
+                case 'vintage':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.1 + 20);
+                        data[i + 1] = data[i + 1] * 0.9 + 10;
+                        data[i + 2] = data[i + 2] * 0.75;
+                    }
+                    break;
+
+                case 'cold':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = data[i] * 0.85;
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.25);
+                    }
+                    break;
+
+                case 'warm':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.2 + 15);
+                        data[i + 2] = data[i + 2] * 0.85;
+                    }
+                    break;
+
+                case 'dramatic':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const factor = 1.4;
+                        data[i] = Math.min(255, Math.max(0, (data[i] - 128) * factor + 128));
+                        data[i + 1] = Math.min(255, Math.max(0, (data[i + 1] - 128) * factor + 128));
+                        data[i + 2] = Math.min(255, Math.max(0, (data[i + 2] - 128) * factor + 128));
+                    }
+                    break;
+
+                case 'fade':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = data[i] * 0.75 + 255 * 0.25;
+                        data[i + 1] = data[i + 1] * 0.75 + 255 * 0.25;
+                        data[i + 2] = data[i + 2] * 0.75 + 255 * 0.25;
+                    }
+                    break;
+
+                case 'vignette':
+                    {
+                        const cx = w / 2;
+                        const cy = h / 2;
+                        const maxDist = Math.sqrt(cx * cx + cy * cy);
+                        for (let y = 0; y < h; y++) {
+                            for (let x = 0; x < w; x++) {
+                                const i = (y * w + x) * 4;
+                                const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+                                const factor = 1 - Math.pow(dist / maxDist, 2) * 0.7;
+                                data[i] *= factor;
+                                data[i + 1] *= factor;
+                                data[i + 2] *= factor;
+                            }
+                        }
+                    }
+                    break;
+
+                case 'noise':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const noise = (Math.random() - 0.5) * 50;
+                        data[i] = Math.min(255, Math.max(0, data[i] + noise));
+                        data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise));
+                        data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise));
+                    }
+                    break;
+
+                case 'pixelate':
+                    {
+                        const size = 10;
+                        for (let y = 0; y < h; y += size) {
+                            for (let x = 0; x < w; x += size) {
+                                const i = (y * w + x) * 4;
+                                const r = data[i], g = data[i + 1], b = data[i + 2];
+                                for (let dy = 0; dy < size && y + dy < h; dy++) {
+                                    for (let dx = 0; dx < size && x + dx < w; dx++) {
+                                        const j = ((y + dy) * w + (x + dx)) * 4;
+                                        data[j] = r;
+                                        data[j + 1] = g;
+                                        data[j + 2] = b;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+
+                case 'emboss':
+                    {
+                        const embossKernel = [-2, -1, 0, -1, 1, 1, 0, 1, 2];
+                        const embossCopy = new Uint8ClampedArray(data);
+                        for (let y = 1; y < h - 1; y++) {
+                            for (let x = 1; x < w - 1; x++) {
+                                for (let c = 0; c < 3; c++) {
+                                    let val = 0;
+                                    for (let ky = -1; ky <= 1; ky++) {
+                                        for (let kx = -1; kx <= 1; kx++) {
+                                            const idx = ((y + ky) * w + (x + kx)) * 4 + c;
+                                            val += embossCopy[idx] * embossKernel[(ky + 1) * 3 + (kx + 1)];
+                                        }
+                                    }
+                                    data[(y * w + x) * 4 + c] = Math.min(255, Math.max(0, val + 128));
+                                }
+                            }
+                        }
+                    }
+                    break;
+
+                case 'sharpen':
+                    {
+                        const sharpKernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
+                        const sharpCopy = new Uint8ClampedArray(data);
+                        for (let y = 1; y < h - 1; y++) {
+                            for (let x = 1; x < w - 1; x++) {
+                                for (let c = 0; c < 3; c++) {
+                                    let val = 0;
+                                    for (let ky = -1; ky <= 1; ky++) {
+                                        for (let kx = -1; kx <= 1; kx++) {
+                                            const idx = ((y + ky) * w + (x + kx)) * 4 + c;
+                                            val += sharpCopy[idx] * sharpKernel[(ky + 1) * 3 + (kx + 1)];
+                                        }
+                                    }
+                                    data[(y * w + x) * 4 + c] = Math.min(255, Math.max(0, val));
+                                }
+                            }
+                        }
+                    }
+                    break;
+
+                case 'posterize':
+                    {
+                        const levels = 4;
+                        const step = 255 / levels;
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = Math.round(data[i] / step) * step;
+                            data[i + 1] = Math.round(data[i + 1] / step) * step;
+                            data[i + 2] = Math.round(data[i + 2] / step) * step;
+                        }
+                    }
+                    break;
+
+                case 'cinematic':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        data[i] = Math.min(255, data[i] * 0.9 + lum * 0.1 + 10);
+                        data[i + 1] = data[i + 1] * 0.95;
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.15 + 15);
+                    }
+                    break;
+
+                case 'tealOrange':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        if (lum > 128) {
+                            data[i] = Math.min(255, data[i] * 1.2);
+                            data[i + 1] = data[i + 1] * 0.8;
+                            data[i + 2] = data[i + 2] * 0.7;
+                        } else {
+                            data[i] = data[i] * 0.7;
+                            data[i + 1] = Math.min(255, data[i + 1] * 0.9 + 20);
+                            data[i + 2] = Math.min(255, data[i + 2] * 1.3);
+                        }
+                    }
+                    break;
+
+                case 'neon':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        data[i] = Math.min(255, data[i] * 1.3 + 30);
+                        data[i + 1] = data[i + 1] * 0.7;
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.5 + 40);
+                        if (avg > 180) {
+                            data[i] = 255;
+                            data[i + 2] = 200;
+                        }
+                    }
+                    break;
+
+                case 'cyberpunk':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const contrast = 1.3;
+                        data[i] = Math.min(255, Math.max(0, (data[i] - 128) * contrast + 128 + 20));
+                        data[i + 1] = Math.min(255, Math.max(0, (data[i + 1] - 128) * contrast + 128));
+                        data[i + 2] = Math.min(255, Math.max(0, (data[i + 2] - 128) * contrast + 128 + 40));
+                    }
+                    break;
+
+                case 'autumn':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.15 + 15);
+                        data[i + 1] = Math.min(255, data[i + 1] * 0.95);
+                        data[i + 2] = data[i + 2] * 0.75;
+                    }
+                    break;
+
+                case 'bwHighContrast':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                        const contrast = ((gray - 128) * 1.5) + 128;
+                        data[i] = data[i + 1] = data[i + 2] = Math.min(255, Math.max(0, contrast));
+                    }
+                    break;
+
+                case 'bwSoft':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                        const soft = gray * 0.9 + 255 * 0.1;
+                        data[i] = data[i + 1] = data[i + 2] = soft;
+                    }
+                    break;
+
+                case 'bwDramatic':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                        const dramatic = gray < 128 ? gray * 0.7 : 128 + (gray - 128) * 1.3;
+                        data[i] = data[i + 1] = data[i + 2] = Math.min(255, Math.max(0, dramatic));
+                    }
+                    break;
+
+                case 'fadedFilm':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = data[i] * 0.8 + 40;
+                        data[i + 1] = data[i + 1] * 0.85 + 30;
+                        data[i + 2] = data[i + 2] * 0.9 + 20;
+                    }
+                    break;
+
+                case 'polaroid':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.05 + 10);
+                        data[i + 1] = Math.min(255, data[i + 1] * 1.02 + 5);
+                        data[i + 2] = data[i + 2] * 0.95;
+                    }
+                    break;
+
+                case 'kodak':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.1 + 15);
+                        data[i + 1] = Math.min(255, data[i + 1] * 0.95 + 5);
+                        data[i + 2] = data[i + 2] * 0.85;
+                    }
+                    break;
+
+                case 'filmNoir':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                        const contrast = ((gray - 128) * 1.4) + 128;
+                        data[i] = data[i + 1] = data[i + 2] = Math.min(255, Math.max(0, contrast));
+                    }
+                    break;
+
+                case 'crossProcess':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.2);
+                        data[i + 1] = data[i + 1] * 0.85;
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.3 - 20);
+                    }
+                    break;
+
+                case 'popArt':
+                    {
+                        const popLevels = 3;
+                        for (let i = 0; i < data.length; i += 4) {
+                            data[i] = Math.round(data[i] / (255 / popLevels)) * (255 / popLevels);
+                            data[i + 1] = Math.round(data[i + 1] / (255 / popLevels)) * (255 / popLevels);
+                            data[i + 2] = Math.round(data[i + 2] / (255 / popLevels)) * (255 / popLevels);
+                        }
+                        for (let i = 0; i < data.length; i += 4) {
+                            const max = Math.max(data[i], data[i + 1], data[i + 2]);
+                            if (max === data[i]) { data[i + 1] = 0; data[i + 2] = 0; }
+                            else if (max === data[i + 1]) { data[i] = 0; data[i + 2] = 0; }
+                            else { data[i] = 0; data[i + 1] = 0; }
+                        }
+                    }
+                    break;
+
+                case 'duotone':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                        const t = gray / 255;
+                        data[i] = Math.min(255, t * 80 + (1 - t) * 20);
+                        data[i + 1] = Math.min(255, t * 200 + (1 - t) * 100);
+                        data[i + 2] = Math.min(255, t * 255 + (1 - t) * 150);
+                    }
+                    break;
+
+                case 'sketch':
+                    {
+                        const sketchKernel = [-1, -1, -1, -1, 8, -1, -1, -1, -1];
+                        const sketchCopy = new Uint8ClampedArray(data);
+                        for (let y = 1; y < h - 1; y++) {
+                            for (let x = 1; x < w - 1; x++) {
+                                for (let c = 0; c < 3; c++) {
+                                    let val = 0;
+                                    for (let ky = -1; ky <= 1; ky++) {
+                                        for (let kx = -1; kx <= 1; kx++) {
+                                            const idx = ((y + ky) * w + (x + kx)) * 4 + c;
+                                            val += sketchCopy[idx] * sketchKernel[(ky + 1) * 3 + (kx + 1)];
+                                        }
+                                    }
+                                    data[(y * w + x) * 4 + c] = Math.min(255, Math.max(0, val));
+                                }
+                            }
+                        }
+                    }
+                    break;
+
+                case 'oilPaint':
+                    {
+                        const radius = 3;
+                        const intensity = 20;
+                        const oilCopy = new Uint8ClampedArray(data);
+                        for (let y = radius; y < h - radius; y++) {
+                            for (let x = radius; x < w - radius; x++) {
+                                const intensityCount = new Array(intensity + 1).fill(0);
+                                const avgR = new Array(intensity + 1).fill(0);
+                                const avgG = new Array(intensity + 1).fill(0);
+                                const avgB = new Array(intensity + 1).fill(0);
+
+                                for (let ky = -radius; ky <= radius; ky++) {
+                                    for (let kx = -radius; kx <= radius; kx++) {
+                                        const idx = ((y + ky) * w + (x + kx)) * 4;
+                                        const curIntensity = Math.floor(((oilCopy[idx] + oilCopy[idx + 1] + oilCopy[idx + 2]) / 3) * intensity / 255);
+                                        intensityCount[curIntensity]++;
+                                        avgR[curIntensity] += oilCopy[idx];
+                                        avgG[curIntensity] += oilCopy[idx + 1];
+                                        avgB[curIntensity] += oilCopy[idx + 2];
+                                    }
+                                }
+
+                                let maxIndex = 0;
+                                for (let i = 1; i <= intensity; i++) {
+                                    if (intensityCount[i] > intensityCount[maxIndex]) maxIndex = i;
+                                }
+
+                                const i = (y * w + x) * 4;
+                                data[i] = avgR[maxIndex] / intensityCount[maxIndex];
+                                data[i + 1] = avgG[maxIndex] / intensityCount[maxIndex];
+                                data[i + 2] = avgB[maxIndex] / intensityCount[maxIndex];
+                            }
+                        }
+                    }
+                    break;
+
+                case 'dream':
+                    {
+                        const dreamCopy = new Uint8ClampedArray(data);
+                        const blurAmount = 5;
+                        for (let y = 0; y < h; y++) {
+                            for (let x = 0; x < w; x++) {
+                                const i = (y * w + x) * 4;
+                                let r = 0, g = 0, b = 0, count = 0;
+                                for (let dy = -blurAmount; dy <= blurAmount; dy++) {
+                                    for (let dx = -blurAmount; dx <= blurAmount; dx++) {
+                                        const ny = Math.min(h - 1, Math.max(0, y + dy));
+                                        const nx = Math.min(w - 1, Math.max(0, x + dx));
+                                        const ni = (ny * w + nx) * 4;
+                                        r += dreamCopy[ni];
+                                        g += dreamCopy[ni + 1];
+                                        b += dreamCopy[ni + 2];
+                                        count++;
+                                    }
+                                }
+                                const blend = 0.5;
+                                data[i] = data[i] * (1 - blend) + (r / count + 20) * blend;
+                                data[i + 1] = data[i + 1] * (1 - blend) + (g / count + 10) * blend;
+                                data[i + 2] = data[i + 2] * (1 - blend) + (b / count) * blend;
+                            }
+                        }
+                    }
+                    break;
+
+                case 'glitch':
+                    for (let y = 0; y < h; y++) {
+                        if (Math.random() > 0.95) {
+                            const offset = Math.floor(Math.random() * 20) - 10;
+                            for (let x = 0; x < w; x++) {
+                                const i = (y * w + x) * 4;
+                                const srcX = Math.min(w - 1, Math.max(0, x + offset));
+                                const si = (y * w + srcX) * 4;
+                                data[i] = data[si];
+                            }
+                        }
+                    }
+                    for (let i = 0; i < data.length; i += 4) {
+                        if (Math.random() > 0.99) {
+                            data[i] = Math.min(255, data[i] + 100);
+                        }
+                    }
+                    break;
+
+                case 'hdr':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        const factor = lum > 128 ? 1.2 : 1.4;
+                        data[i] = Math.min(255, Math.max(0, (data[i] - 128) * factor + 128));
+                        data[i + 1] = Math.min(255, Math.max(0, (data[i + 1] - 128) * factor + 128));
+                        data[i + 2] = Math.min(255, Math.max(0, (data[i + 2] - 128) * factor + 128));
+                    }
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.1);
+                        data[i + 1] = Math.min(255, data[i + 1] * 1.05);
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.15);
+                    }
+                    break;
+
+                case 'sunset':
+                    for (let i = 0; i < data.length; i += 4) {
+                        const lum = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        data[i] = Math.min(255, data[i] * 1.2 + (lum / 255) * 40);
+                        data[i + 1] = data[i + 1] * 0.9;
+                        data[i + 2] = data[i + 2] * 0.7;
+                    }
+                    break;
+
+                case 'underwater':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = data[i] * 0.7;
+                        data[i + 1] = Math.min(255, data[i + 1] * 1.1);
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.3 + 20);
+                    }
+                    break;
+
+                case 'goldenHour':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.15 + 20);
+                        data[i + 1] = Math.min(255, data[i + 1] * 1.05 + 10);
+                        data[i + 2] = data[i + 2] * 0.85;
+                    }
+                    break;
+
+                case 'twilight':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = data[i] * 0.8;
+                        data[i + 1] = Math.min(255, data[i + 1] * 0.85 + 10);
+                        data[i + 2] = Math.min(255, data[i + 2] * 1.3 + 30);
+                    }
+                    break;
+
+                case 'retro':
+                    for (let i = 0; i < data.length; i += 4) {
+                        data[i] = Math.min(255, data[i] * 1.1 + 15);
+                        data[i + 1] = Math.min(255, data[i + 1] * 0.95 + 5);
+                        data[i + 2] = data[i + 2] * 0.85;
+                    }
+                    {
+                        const vCx = w / 2;
+                        const vCy = h / 2;
+                        const vMaxDist = Math.sqrt(vCx * vCx + vCy * vCy);
+                        for (let y = 0; y < h; y++) {
+                            for (let x = 0; x < w; x++) {
+                                const idx = (y * w + x) * 4;
+                                const dist = Math.sqrt((x - vCx) ** 2 + (y - vCy) ** 2);
+                                const factor = 1 - Math.pow(dist / vMaxDist, 2) * 0.3;
+                                data[idx] *= factor;
+                                data[idx + 1] *= factor;
+                                data[idx + 2] *= factor;
+                            }
+                        }
+                    }
+                    break;
+
+                case 'blur':
+                    {
+                        const blurRadius = 8;
+                        const blurCopy = new Uint8ClampedArray(data);
+                        for (let y = 0; y < h; y++) {
+                            for (let x = 0; x < w; x++) {
+                                const i = (y * w + x) * 4;
+                                let r = 0, g = 0, b = 0, count = 0;
+                                for (let dy = -blurRadius; dy <= blurRadius; dy++) {
+                                    for (let dx = -blurRadius; dx <= blurRadius; dx++) {
+                                        const ny = Math.min(h - 1, Math.max(0, y + dy));
+                                        const nx = Math.min(w - 1, Math.max(0, x + dx));
+                                        const ni = (ny * w + nx) * 4;
+                                        r += blurCopy[ni];
+                                        g += blurCopy[ni + 1];
+                                        b += blurCopy[ni + 2];
+                                        count++;
+                                    }
+                                }
+                                data[i] = r / count;
+                                data[i + 1] = g / count;
+                                data[i + 2] = b / count;
+                            }
+                        }
+                    }
+                    break;
+            }
+
+            // Put the processed image data
+            ctx.putImageData(imageData, 0, 0);
+
+            // Update base canvas with the effect applied
+            state.baseCtx.clearRect(0, 0, state.baseCanvas.width, state.baseCanvas.height);
+            state.baseCtx.drawImage(canvas, 0, 0);
+
+            // Reset filter sliders
+            Object.keys(state.filters).forEach(key => {
+                state.filters[key] = key === 'opacity' ? 100 : 0;
+                const slider = document.getElementById(key);
+                const valueEl = document.getElementById(key + 'Value');
+                if (slider) {
+                    slider.value = state.filters[key];
+                }
+                if (valueEl) {
+                    if (key === 'hue') valueEl.textContent = '0°';
+                    else if (key === 'opacity') valueEl.textContent = '100%';
+                    else valueEl.textContent = '0';
+                }
+            });
+
+            // Reset canvas styles
+            canvas.style.filter = 'none';
+            canvas.style.opacity = 1;
+
+            saveState(`Effect: ${effect}`);
+        }
+
+        function saveState(actionName) {
+            if (isSavingState || !state.baseCanvas) return;
+
+            if (history.currentIndex < history.states.length - 1) {
+                history.states = history.states.slice(0, history.currentIndex + 1);
+            }
+
+            const stateSnapshot = {
+                baseCanvas: state.baseCanvas.toDataURL(),
+                filters: { ...state.filters },
+                action: actionName,
+                timestamp: Date.now()
+            };
+
+            history.states.push(stateSnapshot);
+
+            if (history.states.length > history.maxStates) {
+                history.states.shift();
+            } else {
+                history.currentIndex++;
+            }
+
+            updateHistoryUI();
+        }
+
+        function undo() {
+            if (history.currentIndex <= 0) return;
+            history.currentIndex--;
+            restoreFromHistory();
+        }
+
+        function redo() {
+            if (history.currentIndex >= history.states.length - 1) return;
+            history.currentIndex++;
+            restoreFromHistory();
+        }
+
+        function restoreFromHistory() {
+            isSavingState = true;
+
+            const snapshot = history.states[history.currentIndex];
+            state.filters = { ...snapshot.filters };
+
+            Object.keys(state.filters).forEach(key => {
+                const slider = document.getElementById(key);
+                const valueEl = document.getElementById(key + 'Value');
+                if (slider) {
+                    slider.value = state.filters[key];
+                }
+                if (valueEl) {
+                    if (key === 'hue') valueEl.textContent = state.filters[key] + '°';
+                    else if (key === 'opacity') valueEl.textContent = state.filters[key] + '%';
+                    else valueEl.textContent = state.filters[key];
+                }
+            });
+
+            const img = new Image();
+            img.onload = () => {
+                state.baseCtx.clearRect(0, 0, state.baseCanvas.width, state.baseCanvas.height);
+                state.baseCtx.drawImage(img, 0, 0);
+                
+                // Clear the display canvas and redraw with filters
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                applyFilters();
+                
+                updateHistoryUI();
+                setTimeout(() => { isSavingState = false; }, 50);
+            };
+            img.src = snapshot.baseCanvas;
+        }
+
+        function updateHistoryUI() {
+            const undoBtn = document.getElementById('undoBtn');
+            const redoBtn = document.getElementById('redoBtn');
+            const counter = document.getElementById('historyCounter');
+
+            undoBtn.disabled = history.currentIndex <= 0 || !state.baseCanvas;
+            redoBtn.disabled = history.currentIndex >= history.states.length - 1 || !state.baseCanvas;
+
+            if (history.states.length > 0) {
+                counter.textContent = `${history.currentIndex + 1}/${history.states.length}`;
+            } else {
+                counter.textContent = '0/0';
+            }
+        }
+
+        function resetImage() {
+            if (!state.originalImage) return;
+
+            history.states = [];
+            history.currentIndex = -1;
+
+            state.baseCtx.clearRect(0, 0, state.baseCanvas.width, state.baseCanvas.height);
+            state.baseCtx.drawImage(state.originalImage, 0, 0, state.baseCanvas.width, state.baseCanvas.height);
+
+            // Clear the display canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            resetFilters();
+        }
+
+        function exportImage() {
+            if (!state.baseCanvas) {
+                alert('Please load an image first');
+                return;
+            }
+
+            // Apply filters one more time to ensure current state
+            applyFilters();
+
+            const link = document.createElement('a');
+            link.download = 'photoflow-export.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function showTab(tab) {
+            const filtersTab = document.getElementById('filtersTab');
+            const effectsTab = document.getElementById('effectsTab');
+            const filtersPanel = document.getElementById('filtersPanel');
+            const effectsPanel = document.getElementById('effectsPanel');
+
+            if (tab === 'filters') {
+                filtersTab.classList.add('active');
+                effectsTab.classList.remove('active');
+                filtersPanel.classList.remove('hidden');
+                effectsPanel.classList.add('hidden');
+            } else {
+                effectsTab.classList.add('active');
+                filtersTab.classList.remove('active');
+                effectsPanel.classList.remove('hidden');
+                filtersPanel.classList.add('hidden');
+            }
+        }
+
+        function handleKeyboard(e) {
+            if (e.target.tagName === 'INPUT') return;
+
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z' || e.key === 'Z') {
+                    e.preventDefault();
+                    if (e.shiftKey) redo();
+                    else undo();
+                } else if (e.key === 'y' || e.key === 'Y') {
+                    e.preventDefault();
+                    redo();
+                } else if (e.key === 's' || e.key === 'S') {
+                    e.preventDefault();
+                    exportImage();
+                }
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
