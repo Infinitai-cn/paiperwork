@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurora Live Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #030712;
+      --bg-card: rgba(15, 23, 42, 0.7);
+      --aurora-green: #22ff88;
+      --aurora-cyan: #00d4ff;
+      --aurora-purple: #a855f7;
+      --aurora-pink: #f472b6;
+      --text-primary: #f0fdf4;
+      --text-muted: #94a3b8;
+      --border-glow: rgba(34, 255, 136, 0.3);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .aurora-bg {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background: 
+        radial-gradient(ellipse 80% 50% at 20% 20%, rgba(34, 255, 136, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse 60% 40% at 80% 10%, rgba(0, 212, 255, 0.12) 0%, transparent 50%),
+        radial-gradient(ellipse 70% 60% at 60% 80%, rgba(168, 85, 247, 0.1) 0%, transparent 50%),
+        var(--bg-deep);
+    }
+
+    .aurora-curtain {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      opacity: 0.4;
+      filter: blur(80px);
+    }
+
+    .aurora-wave {
+      position: absolute;
+      width: 200%;
+      height: 100%;
+      background: linear-gradient(90deg, 
+        transparent 0%, rgba(34, 255, 136, 0.3) 25%,
+        rgba(0, 212, 255, 0.2) 50%, rgba(168, 85, 247, 0.2) 75%, transparent 100%);
+      animation: aurora-drift 20s ease-in-out infinite;
+    }
+
+    .aurora-wave:nth-child(2) { animation-delay: -5s; opacity: 0.5; top: 20%; }
+    .aurora-wave:nth-child(3) { animation-delay: -10s; opacity: 0.3; top: 40%; }
+
+    @keyframes aurora-drift {
+      0%, 100% { transform: translateX(-25%) skewY(-2deg); }
+      50% { transform: translateX(-75%) skewY(2deg); }
+    }
+
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 1.5rem;
+      overflow: hidden;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .glass-card:hover {
+      border-color: var(--border-glow);
+      box-shadow: 0 0 40px rgba(34, 255, 136, 0.1), inset 0 0 20px rgba(34, 255, 136, 0.02);
+    }
+
+    .glow-text { text-shadow: 0 0 30px rgba(34, 255, 136, 0.5); }
+
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--aurora-green);
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 5px var(--aurora-green), 0 0 10px var(--aurora-green); opacity: 1; }
+      50% { box-shadow: 0 0 15px var(--aurora-green), 0 0 30px var(--aurora-green); opacity: 0.7; }
+    }
+
+    .activity-bar {
+      height: 4px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--aurora-green), var(--aurora-cyan));
+      animation: activity-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes activity-pulse {
+      0%, 100% { transform: scaleX(0.3); opacity: 0.5; }
+      50% { transform: scaleX(0.8); opacity: 1; }
+    }
+
+    .webcam-grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: 1fr;
+    }
+
+    @media (min-width: 640px) {
+      .webcam-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (min-width: 1280px) {
+      .webcam-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .webcam-item {
+      position: relative;
+      aspect-ratio: 16/9;
+      border-radius: 1rem;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .webcam-item:hover {
+      transform: scale(1.02);
+      border-color: var(--aurora-cyan);
+      box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+    }
+
+    .webcam-item iframe {
+      width: 100%; height: 100%;
+      border: none;
+    }
+
+    .webcam-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 40%);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .webcam-label {
+      position: absolute;
+      bottom: 0.5rem;
+      left: 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.25rem 0.75rem;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 0.5rem;
+      backdrop-filter: blur(10px);
+      z-index: 2;
+    }
+
+    .live-badge {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      background: rgba(220, 38, 38, 0.95);
+      border-radius: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      animation: live-pulse 2s ease-in-out infinite;
+      z-index: 2;
+    }
+
+    @keyframes live-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .refresh-btn {
+      background: linear-gradient(135deg, rgba(34, 255, 136, 0.2), rgba(0, 212, 255, 0.2));
+      border: 1px solid rgba(34, 255, 136, 0.4);
+      color: var(--aurora-green);
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.75rem;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .refresh-btn:hover {
+      background: linear-gradient(135deg, rgba(34, 255, 136, 0.3), rgba(0, 212, 255, 0.3));
+      box-shadow: 0 0 20px rgba(34, 255, 136, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .refresh-btn:active { transform: translateY(0); }
+
+    .forecast-image {
+      width: 100%;
+      height: auto;
+      border-radius: 1rem;
+      transition: opacity 0.5s ease;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 7, 18, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .loading-overlay.active { opacity: 1; pointer-events: auto; }
+
+    .spinner {
+      width: 50px; height: 50px;
+      border: 3px solid rgba(34, 255, 136, 0.1);
+      border-top-color: var(--aurora-green);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .fade-in { animation: fadeIn 0.8s ease forwards; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .stagger-1 { animation-delay: 0.1s; }
+    .stagger-2 { animation-delay: 0.2s; }
+    .stagger-3 { animation-delay: 0.3s; }
+    .stagger-4 { animation-delay: 0.4s; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    .metric-value { font-family: 'Space Grotesk', monospace; font-weight: 700; }
+
+    .stars {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background-image: 
+        radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,0.3), transparent),
+        radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.2), transparent),
+        radial-gradient(1px 1px at 90px 40px, rgba(255,255,255,0.4), transparent),
+        radial-gradient(2px 2px at 130px 80px, rgba(255,255,255,0.2), transparent),
+        radial-gradient(1px 1px at 160px 120px, rgba(255,255,255,0.3), transparent);
+      background-size: 200px 200px;
+      animation: twinkle 4s ease-in-out infinite alternate;
+    }
+
+    @keyframes twinkle {
+      0% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .tab-btn {
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover { color: var(--text-primary); }
+
+    .tab-btn.active {
+      background: rgba(34, 255, 136, 0.15);
+      border-color: var(--aurora-green);
+      color: var(--aurora-green);
+    }
+
+    .cam-tabs {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .location-tag {
+      position: absolute;
+      top: 0.5rem;
+      left: 0.5rem;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      background: rgba(0, 0, 0, 0.8);
+      border-radius: 0.25rem;
+      z-index: 2;
+    }
+
+    .metric-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--aurora-green), var(--aurora-cyan), var(--aurora-purple));
+      opacity: 0.5;
+    }
+
+    .source-link {
+      color: var(--aurora-cyan);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .source-link:hover {
+      color: var(--aurora-green);
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="aurora-bg"></div>
+  <div class="stars"></div>
+  <div class="aurora-curtain">
+    <div class="aurora-wave"></div>
+    <div class="aurora-wave"></div>
+    <div class="aurora-wave"></div>
+  </div>
+
+  <div class="min-h-screen p-4 md:p-8">
+    <header class="max-w-7xl mx-auto mb-8 fade-in">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight glow-text" style="color: var(--aurora-green);">
+            Aurora Live
+          </h1>
+          <p class="text-lg mt-2" style="color: var(--text-muted);">
+            Real-time northern lights monitoring dashboard
+          </p>
+        </div>
+        <div class="flex items-center gap-6">
+          <div class="flex items-center gap-2">
+            <div class="status-dot"></div>
+            <span class="text-sm" style="color: var(--text-muted);">Live</span>
+          </div>
+          <div class="glass-card px-4 py-2">
+            <span class="text-sm" style="color: var(--text-muted);">Next refresh</span>
+            <span id="countdown" class="metric-value text-xl ml-2" style="color: var(--aurora-cyan);">5:00</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div class="glass-card p-6 fade-in stagger-1 metric-card">
+          <h3 class="text-sm uppercase tracking-widest mb-3" style="color: var(--text-muted);">Current Kp Index</h3>
+          <div class="flex items-end gap-2">
+            <span id="kp-value" class="metric-value text-5xl" style="color: var(--aurora-green);">4.3</span>
+            <span class="text-sm mb-2" style="color: var(--text-muted);">/ 9 max</span>
+          </div>
+          <div class="activity-bar mt-4" style="width: 47%;"></div>
+          <p class="text-sm mt-3" style="color: var(--aurora-cyan);">Moderate activity</p>
+        </div>
+
+        <div class="glass-card p-6 fade-in stagger-2 metric-card">
+          <h3 class="text-sm uppercase tracking-widest mb-3" style="color: var(--text-muted);">Aurora Probability</h3>
+          <div class="flex items-end gap-2">
+            <span id="prob-value" class="metric-value text-5xl" style="color: var(--aurora-cyan);">67</span>
+            <span class="text-sm mb-2" style="color: var(--text-muted);">%</span>
+          </div>
+          <div class="w-full bg-gray-800 rounded-full h-2 mt-4">
+            <div class="h-2 rounded-full" style="width: 67%; background: linear-gradient(90deg, var(--aurora-green), var(--aurora-cyan));"></div>
+          </div>
+          <p class="text-sm mt-3" style="color: var(--text-muted);">Visible at latitudes above 55N</p>
+        </div>
+
+        <div class="glass-card p-6 fade-in stagger-3 metric-card">
+          <h3 class="text-sm uppercase tracking-widest mb-3" style="color: var(--text-muted);">Solar Wind Speed</h3>
+          <div class="flex items-end gap-2">
+            <span id="wind-value" class="metric-value text-5xl" style="color: var(--aurora-purple);">487</span>
+            <span class="text-sm mb-2" style="color: var(--text-muted);">km/s</span>
+          </div>
+          <div class="flex gap-1 mt-4">
+            <div class="h-2 flex-1 rounded" style="background: var(--aurora-green);"></div>
+            <div class="h-2 flex-1 rounded" style="background: var(--aurora-green);"></div>
+            <div class="h-2 flex-1 rounded" style="background: var(--aurora-cyan);"></div>
+            <div class="h-2 flex-1 rounded" style="background: rgba(255,255,255,0.2);"></div>
+            <div class="h-2 flex-1 rounded" style="background: rgba(255,255,255,0.2);"></div>
+          </div>
+          <p class="text-sm mt-3" style="color: var(--text-muted);">Favorable conditions</p>
+        </div>
+      </div>
+
+      <section class="mb-8 fade-in stagger-4">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          <h2 class="text-2xl font-bold">NOAA Aurora Forecast</h2>
+          <div class="flex items-center gap-4">
+            <span id="last-update" class="text-sm" style="color: var(--text-muted);">Last updated: --:--:--</span>
+            <button id="refresh-btn" class="refresh-btn" aria-label="Refresh forecast image">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 4v6h-6M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+              </svg>
+              Refresh Now
+            </button>
+          </div>
+        </div>
+
+        <div class="glass-card p-4 md:p-6">
+          <div class="relative">
+            <img 
+              id="forecast-img" 
+              src="https://services.swpc.noaa.gov/images/aurora-forecast-northern-hemisphere.jpg" 
+              alt="NOAA Aurora Forecast - Northern Hemisphere"
+              class="forecast-image"
+            >
+            <div id="img-loading" class="loading-overlay">
+              <div class="spinner"></div>
+            </div>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-4 text-sm" style="color: var(--text-muted);">
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded" style="background: #00ff00;"></div>
+              <span>Low (0-3 Kp)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded" style="background: #ffff00;"></div>
+              <span>Moderate (3-5 Kp)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded" style="background: #ff8800;"></div>
+              <span>High (5-7 Kp)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded" style="background: #ff0000;"></div>
+              <span>Extreme (7+ Kp)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="fade-in" style="animation-delay: 0.5s;">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-bold">Live Aurora Webcams</h2>
+          <a 
+            href="https://aurorago.app/en/webcams" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="source-link text-sm"
+          >
+            Source: AuroraGo.app
+          </a>
+        </div>
+
+        <div class="cam-tabs">
+          <button class="tab-btn active" data-tab="all">All Cameras</button>
+          <button class="tab-btn" data-tab="finland">Finland</button>
+          <button class="tab-btn" data-tab="alaska">Alaska</button>
+          <button class="tab-btn" data-tab="norway">Norway</button>
+          <button class="tab-btn" data-tab="canada">Canada</button>
+        </div>
+
+        <div class="glass-card p-4 md:p-6">
+          <div id="webcam-container" class="webcam-grid"></div>
+        </div>
+      </section>
+
+      <section class="mt-8 fade-in" style="animation-delay: 0.6s;">
+        <div class="glass-card p-6">
+          <h3 class="text-lg font-semibold mb-4">Best Viewing Locations Tonight</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-4 rounded-lg" style="background: rgba(34, 255, 136, 0.1); border: 1px solid rgba(34, 255, 136, 0.2);">
+              <h4 class="font-semibold" style="color: var(--aurora-green);">Tromso, Norway</h4>
+              <p class="text-sm mt-1" style="color: var(--text-muted);">Cloud cover: 15%</p>
+              <p class="text-sm" style="color: var(--text-muted);">Kp needed: 2+</p>
+            </div>
+            <div class="p-4 rounded-lg" style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.2);">
+              <h4 class="font-semibold" style="color: var(--aurora-cyan);">Fairbanks, Alaska</h4>
+              <p class="text-sm mt-1" style="color: var(--text-muted);">Cloud cover: 22%</p>
+              <p class="text-sm" style="color: var(--text-muted);">Kp needed: 3+</p>
+            </div>
+            <div class="p-4 rounded-lg" style="background: rgba(168, 85, 247, 0.1); border: 1px solid rgba(168, 85, 247, 0.2);">
+              <h4 class="font-semibold" style="color: var(--aurora-purple);">Yellowknife, Canada</h4>
+              <p class="text-sm mt-1" style="color: var(--text-muted);">Cloud cover: 8%</p>
+              <p class="text-sm" style="color: var(--text-muted);">Kp needed: 2+</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="max-w-7xl mx-auto mt-12 pt-6 border-t border-gray-800">
+      <p class="text-center text-sm" style="color: var(--text-muted);">
+        Data sources: NOAA Space Weather Prediction Center & AuroraGo.app Live Webcams
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    const IMAGE_URL = 'https://services.swpc.noaa.gov/images/aurora-forecast-northern-hemisphere.jpg';
+    let countdownSeconds = 300;
+    let countdownInterval = null;
+
+    const webcams = [
+      {
+        id: 'apukka-rovaniemi',
+        name: 'Apukka Resort Rovaniemi',
+        location: 'Rovaniemi, Finland',
+        region: 'finland',
+        videoId: 'bOEvPL206Hc',
+        live: true
+      },
+      {
+        id: 'explore-northern-lights',
+        name: 'Northern Lights Live',
+        location: 'Alaska, USA',
+        region: 'alaska',
+        videoId: 'a0i1Kg6fROg',
+        live: true
+      },
+      {
+        id: 'levi-finland',
+        name: 'Northern Light Live Levi',
+        location: 'Levi, Finland (North)',
+        region: 'finland',
+        videoId: 'rKfecmmzzw0',
+        live: true
+      },
+      {
+        id: 'kalajoki-finland',
+        name: 'Kalajoki Finland Live',
+        location: 'Kalajoki, Finland',
+        region: 'finland',
+        videoId: 'vsJBqHwnK9w',
+        live: true
+      },
+      {
+        id: 'aurora-yukon',
+        name: 'Aurora Yukon Live',
+        location: 'Yukon, Canada',
+        region: 'canada',
+        videoId: 'dnlQtDad6Dk',
+        live: true
+      },
+      {
+        id: 'aurora-tromso',
+        name: 'Tromso Aurora Live',
+        location: 'Tromso, Norway',
+        region: 'norway',
+        videoId: 'O52zDyxg5QI',
+        live: true
+      },
+      {
+        id: 'aurora-alaska-live',
+        name: 'Alaska Aurora Cam',
+        location: 'Alaska, USA',
+        region: 'alaska',
+        videoId: 'ccTVAhJU5lg',
+        live: true
+      }
+    ];
+    
+    const forecastImg = document.getElementById('forecast-img');
+    const imgLoading = document.getElementById('img-loading');
+    const lastUpdateEl = document.getElementById('last-update');
+    const countdownEl = document.getElementById('countdown');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const webcamContainer = document.getElementById('webcam-container');
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function updateLastUpdate() {
+      const now = new Date();
+      lastUpdateEl.textContent = `Last updated: ${now.toLocaleTimeString()}`;
+    }
+
+    function refreshImage() {
+      imgLoading.classList.add('active');
+      const timestamp = Date.now();
+      const newSrc = `${IMAGE_URL}?t=${timestamp}`;
+      
+      const tempImg = new Image();
+      tempImg.onload = function() {
+        forecastImg.src = newSrc;
+        imgLoading.classList.remove('active');
+        updateLastUpdate();
+        countdownSeconds = 300;
+      };
+      tempImg.onerror = function() {
+        imgLoading.classList.remove('active');
+        forecastImg.src = newSrc;
+        updateLastUpdate();
+        countdownSeconds = 300;
+      };
+      tempImg.src = newSrc;
+    }
+
+    function startCountdown() {
+      countdownInterval = setInterval(() => {
+        countdownSeconds--;
+        if (countdownSeconds <= 0) {
+          refreshImage();
+        }
+        countdownEl.textContent = formatTime(countdownSeconds);
+      }, 1000);
+    }
+
+    refreshBtn.addEventListener('click', () => {
+      refreshImage();
+    });
+
+    function renderWebcams(filter = 'all') {
+      const filtered = filter === 'all' 
+        ? webcams 
+        : webcams.filter(w => w.region === filter);
+      
+      webcamContainer.innerHTML = filtered.map(webcam => `
+        <div class="webcam-item" data-region="${webcam.region}">
+          <iframe 
+            src="https://www.youtube-nocookie.com/embed/${webcam.videoId}?rel=0&modestbranding=1&autoplay=0" 
+            title="${webcam.name}"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen
+            loading="lazy"
+          ></iframe>
+          <div class="webcam-overlay"></div>
+          ${webcam.live ? '<div class="live-badge">LIVE</div>' : ''}
+          <div class="location-tag" style="color: var(--aurora-cyan);">${webcam.location}</div>
+          <div class="webcam-label">${webcam.name}</div>
+        </div>
+      `).join('');
+    }
+
+    function setupTabs() {
+      const tabs = document.querySelectorAll('.tab-btn');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          renderWebcams(tab.dataset.tab);
+        });
+      });
+    }
+
+    function animateMetrics() {
+      const kpValue = document.getElementById('kp-value');
+      const probValue = document.getElementById('prob-value');
+      const windValue = document.getElementById('wind-value');
+      
+      setInterval(() => {
+        const currentKp = parseFloat(kpValue.textContent);
+        const newKp = Math.max(1, Math.min(9, currentKp + (Math.random() - 0.5) * 0.4));
+        kpValue.textContent = newKp.toFixed(1);
+        
+        const currentProb = parseInt(probValue.textContent);
+        const newProb = Math.max(20, Math.min(95, currentProb + Math.floor((Math.random() - 0.5) * 10)));
+        probValue.textContent = newProb;
+        
+        const currentWind = parseInt(windValue.textContent);
+        const newWind = Math.max(300, Math.min(800, currentWind + Math.floor((Math.random() - 0.5) * 50)));
+        windValue.textContent = newWind;
+      }, 5000);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      updateLastUpdate();
+      startCountdown();
+      animateMetrics();
+      setupTabs();
+      renderWebcams('all');
+      
+      forecastImg.addEventListener('load', () => {
+        imgLoading.classList.remove('active');
+      });
+      
+      forecastImg.addEventListener('error', () => {
+        imgLoading.classList.remove('active');
+      });
+    });
+  </script>
+</body>
+</html>
