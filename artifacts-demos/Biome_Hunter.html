@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biome Hunter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #030606;
+            --fg: #a0e0a0;
+            --muted: #0a1a0a;
+            --accent: #00ff66;
+            --accent-alt: #ff0055;
+            --card: rgba(5, 20, 12, 0.95);
+            --border: #00ff6625;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--fg);
+            overflow: hidden;
+            min-height: 100vh;
+        }
+        
+        .title-font { font-family: 'Orbitron', sans-serif; }
+        
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        
+        #biome-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .control-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: var(--card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 260px;
+            box-shadow: 0 0 50px rgba(0, 255, 102, 0.06);
+        }
+        
+        .slider-track {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 5px;
+            background: #0a1a0a;
+            border-radius: 3px;
+            outline: none;
+            border: 1px solid #00ff6620;
+        }
+        
+        .slider-track::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent);
+            transition: transform 0.15s ease;
+        }
+        
+        .slider-track::-webkit-slider-thumb:hover { transform: scale(1.15); }
+        
+        .slider-track::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px var(--accent);
+        }
+        
+        .btn-reset {
+            background: linear-gradient(135deg, #aa0044, #ff0055);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(255, 0, 85, 0.2);
+        }
+        
+        .btn-reset:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 20px rgba(255, 0, 85, 0.35);
+        }
+        
+        .btn-reset:active { transform: translateY(0); }
+        
+        .stat-display {
+            background: rgba(0, 255, 102, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+        }
+        
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.9; }
+        }
+        
+        .pulse-indicator { animation: pulse-glow 2.5s ease-in-out infinite; }
+        
+        @media (max-width: 480px) {
+            .control-panel {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                min-width: auto;
+                padding: 14px;
+            }
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+            * { animation: none !important; transition: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <canvas id="biome-canvas" aria-label="Biome Hunter simulation canvas"></canvas>
+    </div>
+    
+    <div class="control-panel" role="region" aria-label="Simulation controls">
+        <h1 class="title-font text-lg font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-cyan-400">
+            BIOME HUNTER
+        </h1>
+        
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs mb-1 opacity-70" for="predator-rate">Hunter Spawn Rate</label>
+                <input type="range" id="predator-rate" class="slider-track" min="0" max="100" value="15">
+                <div class="flex justify-between text-xs mt-1 opacity-50">
+                    <span>Low</span>
+                    <span id="predator-value">15%</span>
+                    <span>High</span>
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-xs mb-1 opacity-70" for="growth-speed">Growth Speed</label>
+                <input type="range" id="growth-speed" class="slider-track" min="1" max="10" value="2">
+                <div class="flex justify-between text-xs mt-1 opacity-50">
+                    <span>Slow</span>
+                    <span id="growth-value">2 pts</span>
+                    <span>Fast</span>
+                </div>
+            </div>
+            
+            <button id="reset-btn" class="btn-reset w-full">RESET WORLD</button>
+            
+            <div class="stat-display">
+                <div class="text-xs opacity-50 mb-2">ECOSYSTEM</div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #00ff66"></div>
+                        <span>Grass: <span id="grass-count">0</span></span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #00cccc"></div>
+                        <span>Trees: <span id="tree-count">0</span></span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff0055"></div>
+                        <span>Hunters: <span id="hunter-count">0</span></span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #2a2200"></div>
+                        <span>Decay: <span id="dead-count">0</span></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-xs opacity-40 text-center pulse-indicator">
+                Click to plant vegetation
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            CELL_SIZE: 5,
+            INITIAL_GROWTH: 0.006,
+            MAX_HUNTERS: 80,
+            HUNTER_SIZE: 11,
+            FLOCK_RADIUS: 55,
+            HUNT_RADIUS: 180,
+            EAT_RADIUS: 12,
+            STARVING_THRESHOLD: 45,
+            DYING_THRESHOLD: 18,
+            HEALTH_GAIN_GRASS: 28,
+            HEALTH_GAIN_TREE: 45,
+            HEALTH_DECAY: 0.06
+        };
+
+        const STATE = { EMPTY: 0, GRASS: 1, TREE: 2, DEAD: 3 };
+        
+        const COLORS = {
+            EMPTY: '#030606',
+            GRASS: '#00ff66',
+            TREE: '#00cccc',
+            DEAD: '#2a2200',
+            HUNTER_HEALTHY: '#ff0055',
+            HUNTER_STARVING: '#ff7744',
+            HUNTER_DYING: '#555566',
+            NUCLEUS: '#aa0033',
+            MEMBRANE: '#ff4477'
+        };
+
+        const canvas = document.getElementById('biome-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let width = 0;
+        let height = 0;
+        let cols = 0;
+        let rows = 0;
+        let grid = [];
+        let nextGrid = [];
+        let hunters = [];
+        let predatorSpawnRate = 15;
+        let grassGrowthSpeed = 2;
+        let frameCount = 0;
+        let mouseDown = false;
+        let mouseX = 0;
+        let mouseY = 0;
+
+        function initGrid() {
+            cols = Math.floor(width / CONFIG.CELL_SIZE);
+            rows = Math.floor(height / CONFIG.CELL_SIZE);
+            
+            grid = [];
+            nextGrid = [];
+            
+            for (let i = 0; i < cols; i++) {
+                grid[i] = [];
+                nextGrid[i] = [];
+                for (let j = 0; j < rows; j++) {
+                    grid[i][j] = STATE.EMPTY;
+                    nextGrid[i][j] = STATE.EMPTY;
+                }
+            }
+            
+            const initialSeeds = Math.max(5, Math.floor((cols * rows) * 0.0008));
+            for (let s = 0; s < initialSeeds; s++) {
+                const x = Math.floor(Math.random() * cols);
+                const y = Math.floor(Math.random() * rows);
+                grid[x][y] = Math.random() < 0.2 ? STATE.TREE : STATE.GRASS;
+            }
+        }
+
+        class Hunter {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 2.5;
+                this.vy = (Math.random() - 0.5) * 2.5;
+                this.ax = 0;
+                this.ay = 0;
+                this.health = 70 + Math.random() * 25;
+                this.maxHealth = 100;
+                this.maxSpeed = 2.2;
+                this.maxForce = 0.1;
+                this.membranePhase = Math.random() * Math.PI * 2;
+                this.wobble = Math.random() * Math.PI * 2;
+            }
+
+            applyForce(fx, fy) {
+                this.ax += fx;
+                this.ay += fy;
+            }
+
+            separate(hunters) {
+                let steerX = 0, steerY = 0;
+                let count = 0;
+                const desiredSep = 30;
+
+                for (const other of hunters) {
+                    if (other === this) continue;
+                    const dx = this.x - other.x;
+                    const dy = this.y - other.y;
+                    const d = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (d > 0 && d < desiredSep) {
+                        steerX += dx / (d * d);
+                        steerY += dy / (d * d);
+                        count++;
+                    }
+                }
+
+                if (count > 0) {
+                    steerX /= count;
+                    steerY /= count;
+                    const mag = Math.sqrt(steerX * steerX + steerY * steerY);
+                    if (mag > 0) {
+                        steerX = (steerX / mag) * this.maxSpeed - this.vx;
+                        steerY = (steerY / mag) * this.maxSpeed - this.vy;
+                        const steerMag = Math.sqrt(steerX * steerX + steerY * steerY);
+                        if (steerMag > this.maxForce) {
+                            steerX = (steerX / steerMag) * this.maxForce;
+                            steerY = (steerY / steerMag) * this.maxForce;
+                        }
+                    }
+                }
+                return { x: steerX * 1.8, y: steerY * 1.8 };
+            }
+
+            align(hunters) {
+                let avgVx = 0, avgVy = 0;
+                let count = 0;
+
+                for (const other of hunters) {
+                    if (other === this) continue;
+                    const dx = other.x - this.x;
+                    const dy = other.y - this.y;
+                    const d = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (d > 0 && d < CONFIG.FLOCK_RADIUS) {
+                        avgVx += other.vx;
+                        avgVy += other.vy;
+                        count++;
+                    }
+                }
+
+                if (count > 0) {
+                    avgVx /= count;
+                    avgVy /= count;
+                    const mag = Math.sqrt(avgVx * avgVx + avgVy * avgVy);
+                    if (mag > 0) {
+                        avgVx = (avgVx / mag) * this.maxSpeed;
+                        avgVy = (avgVy / mag) * this.maxSpeed;
+                    }
+                    let steerX = avgVx - this.vx;
+                    let steerY = avgVy - this.vy;
+                    const steerMag = Math.sqrt(steerX * steerX + steerY * steerY);
+                    if (steerMag > this.maxForce) {
+                        steerX = (steerX / steerMag) * this.maxForce;
+                        steerY = (steerY / steerMag) * this.maxForce;
+                    }
+                    return { x: steerX, y: steerY };
+                }
+                return { x: 0, y: 0 };
+            }
+
+            cohere(hunters) {
+                let centerX = 0, centerY = 0;
+                let count = 0;
+
+                for (const other of hunters) {
+                    if (other === this) continue;
+                    const dx = other.x - this.x;
+                    const dy = other.y - this.y;
+                    const d = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (d > 0 && d < CONFIG.FLOCK_RADIUS) {
+                        centerX += other.x;
+                        centerY += other.y;
+                        count++;
+                    }
+                }
+
+                if (count > 0) {
+                    centerX /= count;
+                    centerY /= count;
+                    return this.seek(centerX, centerY, 0.25);
+                }
+                return { x: 0, y: 0 };
+            }
+
+            hunt(grid) {
+                let closestDist = CONFIG.HUNT_RADIUS;
+                let targetX = -1, targetY = -1;
+
+                for (let i = 0; i < cols; i++) {
+                    for (let j = 0; j < rows; j++) {
+                        const cellState = grid[i][j];
+                        if (cellState === STATE.GRASS || cellState === STATE.TREE) {
+                            const px = i * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
+                            const py = j * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
+                            const dx = px - this.x;
+                            const dy = py - this.y;
+                            const d = Math.sqrt(dx * dx + dy * dy);
+                            
+                            const priority = cellState === STATE.TREE ? 1.15 : 1;
+                            const adjustedDist = d / priority;
+                            
+                            if (adjustedDist < closestDist) {
+                                closestDist = adjustedDist;
+                                targetX = px;
+                                targetY = py;
+                            }
+                        }
+                    }
+                }
+
+                if (targetX >= 0) {
+                    return this.seek(targetX, targetY, 2.0);
+                }
+                return { x: 0, y: 0 };
+            }
+
+            seek(tx, ty, weight) {
+                let dx = tx - this.x;
+                let dy = ty - this.y;
+                const d = Math.sqrt(dx * dx + dy * dy);
+                
+                if (d > 0) {
+                    dx = (dx / d) * this.maxSpeed;
+                    dy = (dy / d) * this.maxSpeed;
+                }
+                
+                let steerX = dx - this.vx;
+                let steerY = dy - this.vy;
+                const steerMag = Math.sqrt(steerX * steerX + steerY * steerY);
+                
+                if (steerMag > this.maxForce) {
+                    steerX = (steerX / steerMag) * this.maxForce;
+                    steerY = (steerY / steerMag) * this.maxForce;
+                }
+                
+                return { x: steerX * weight, y: steerY * weight };
+            }
+
+            eat(grid) {
+                const cellX = Math.floor(this.x / CONFIG.CELL_SIZE);
+                const cellY = Math.floor(this.y / CONFIG.CELL_SIZE);
+                const range = 2;
+                
+                for (let i = cellX - range; i <= cellX + range; i++) {
+                    for (let j = cellY - range; j <= cellY + range; j++) {
+                        if (i >= 0 && i < cols && j >= 0 && j < rows) {
+                            const cellState = grid[i][j];
+                            if (cellState === STATE.GRASS || cellState === STATE.TREE) {
+                                const px = i * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
+                                const py = j * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
+                                const dx = px - this.x;
+                                const dy = py - this.y;
+                                const d = Math.sqrt(dx * dx + dy * dy);
+                                
+                                if (d < CONFIG.EAT_RADIUS) {
+                                    // Eaten vegetation disappears completely (becomes EMPTY)
+                                    grid[i][j] = STATE.EMPTY;
+                                    const healthGain = cellState === STATE.TREE 
+                                        ? CONFIG.HEALTH_GAIN_TREE 
+                                        : CONFIG.HEALTH_GAIN_GRASS;
+                                    this.health = Math.min(this.maxHealth, this.health + healthGain);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+
+            update(hunters, grid) {
+                const sep = this.separate(hunters);
+                const ali = this.align(hunters);
+                const coh = this.cohere(hunters);
+                const huntForce = this.hunt(grid);
+
+                this.applyForce(sep.x, sep.y);
+                this.applyForce(ali.x, ali.y);
+                this.applyForce(coh.x, coh.y);
+                this.applyForce(huntForce.x, huntForce.y);
+
+                this.vx += this.ax;
+                this.vy += this.ay;
+                
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > this.maxSpeed) {
+                    this.vx = (this.vx / speed) * this.maxSpeed;
+                    this.vy = (this.vy / speed) * this.maxSpeed;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+                
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+
+                this.ax = 0;
+                this.ay = 0;
+
+                this.health -= CONFIG.HEALTH_DECAY;
+                this.membranePhase += 0.08;
+                this.wobble += 0.06;
+            }
+
+            draw(ctx, time) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                const healthRatio = Math.max(0, this.health / this.maxHealth);
+                const baseSize = CONFIG.HUNTER_SIZE;
+                const pulseAmp = Math.sin(this.membranePhase) * 1.5;
+                const membraneSize = baseSize + pulseAmp;
+                
+                let bodyColor, nucleusColor, membraneColor;
+                
+                if (this.health > CONFIG.STARVING_THRESHOLD) {
+                    bodyColor = COLORS.HUNTER_HEALTHY;
+                    nucleusColor = COLORS.NUCLEUS;
+                    membraneColor = COLORS.MEMBRANE;
+                } else if (this.health > CONFIG.DYING_THRESHOLD) {
+                    bodyColor = COLORS.HUNTER_STARVING;
+                    nucleusColor = '#aa5522';
+                    membraneColor = '#ff9955';
+                } else {
+                    bodyColor = COLORS.HUNTER_DYING;
+                    nucleusColor = '#444455';
+                    membraneColor = '#666677';
+                }
+                
+                ctx.globalAlpha = Math.max(0.5, healthRatio);
+                
+                // Outer membrane glow
+                ctx.shadowColor = bodyColor;
+                ctx.shadowBlur = 8 + healthRatio * 6;
+                
+                // Cell membrane
+                ctx.beginPath();
+                ctx.arc(0, 0, Math.max(1, membraneSize), 0, Math.PI * 2);
+                ctx.strokeStyle = membraneColor;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Cell body
+                ctx.beginPath();
+                ctx.arc(0, 0, Math.max(1, baseSize - 2), 0, Math.PI * 2);
+                ctx.fillStyle = bodyColor;
+                ctx.globalAlpha = Math.max(0.35, healthRatio * 0.55);
+                ctx.fill();
+                
+                // Nucleus
+                const nucleusOffsetX = Math.sin(this.wobble) * 1.2;
+                const nucleusOffsetY = Math.cos(this.wobble) * 1.2;
+                ctx.globalAlpha = Math.max(0.6, healthRatio);
+                ctx.shadowBlur = 4;
+                ctx.shadowColor = nucleusColor;
+                ctx.beginPath();
+                ctx.arc(nucleusOffsetX, nucleusOffsetY, Math.max(1, baseSize * 0.32), 0, Math.PI * 2);
+                ctx.fillStyle = nucleusColor;
+                ctx.fill();
+                
+                // Organelles
+                ctx.globalAlpha = Math.max(0.4, healthRatio * 0.65);
+                ctx.shadowBlur = 0;
+                for (let i = 0; i < 4; i++) {
+                    const angle = this.wobble * 0.7 + i * Math.PI / 2;
+                    const dist = baseSize * 0.55;
+                    const ox = Math.cos(angle) * dist;
+                    const oy = Math.sin(angle) * dist;
+                    ctx.beginPath();
+                    ctx.arc(ox, oy, 1.2, 0, Math.PI * 2);
+                    ctx.fillStyle = membraneColor;
+                    ctx.fill();
+                }
+                
+                // Health meter
+                if (this.health < this.maxHealth) {
+                    const meterWidth = baseSize * 1.5;
+                    const meterHeight = 2.5;
+                    const meterY = -baseSize - 7;
+                    
+                    ctx.globalAlpha = 0.85;
+                    ctx.shadowBlur = 0;
+                    
+                    ctx.fillStyle = '#111111';
+                    ctx.fillRect(-meterWidth / 2, meterY, meterWidth, meterHeight);
+                    
+                    const healthWidth = Math.max(0, (this.health / this.maxHealth) * meterWidth);
+                    let healthColor;
+                    if (this.health > 60) {
+                        healthColor = '#00ff66';
+                    } else if (this.health > CONFIG.STARVING_THRESHOLD) {
+                        healthColor = '#ffaa00';
+                    } else if (this.health > CONFIG.DYING_THRESHOLD) {
+                        healthColor = '#ff6644';
+                    } else {
+                        healthColor = '#555566';
+                    }
+                    ctx.fillStyle = healthColor;
+                    ctx.fillRect(-meterWidth / 2, meterY, healthWidth, meterHeight);
+                }
+                
+                ctx.restore();
+            }
+
+            isAlive() {
+                return this.health > 0;
+            }
+        }
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            initGrid();
+        }
+
+        function countNeighbors(x, y, state) {
+            let count = 0;
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    if (i === 0 && j === 0) continue;
+                    const nx = x + i;
+                    const ny = y + j;
+                    if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+                        if (grid[nx][ny] === state) count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        function updateCells() {
+            const growthChance = CONFIG.INITIAL_GROWTH * grassGrowthSpeed;
+            
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const current = grid[i][j];
+                    const grassNeighbors = countNeighbors(i, j, STATE.GRASS);
+                    const treeNeighbors = countNeighbors(i, j, STATE.TREE);
+                    
+                    switch (current) {
+                        case STATE.EMPTY:
+                            if (grassNeighbors >= 2 && Math.random() < growthChance * 0.4) {
+                                nextGrid[i][j] = STATE.GRASS;
+                            } else if (treeNeighbors >= 3 && Math.random() < growthChance * 0.08) {
+                                nextGrid[i][j] = STATE.GRASS;
+                            }
+                            break;
+                            
+                        case STATE.GRASS:
+                            if (treeNeighbors >= 4 && Math.random() < 0.003) {
+                                nextGrid[i][j] = STATE.TREE;
+                            } else if (grassNeighbors > 6 && Math.random() < 0.002) {
+                                nextGrid[i][j] = STATE.DEAD;
+                            } else {
+                                nextGrid[i][j] = STATE.GRASS;
+                            }
+                            break;
+                            
+                        case STATE.TREE:
+                            if (Math.random() < 0.0008) {
+                                nextGrid[i][j] = STATE.DEAD;
+                            } else {
+                                nextGrid[i][j] = STATE.TREE;
+                            }
+                            break;
+                            
+                        case STATE.DEAD:
+                            if (Math.random() < 0.008) {
+                                nextGrid[i][j] = STATE.EMPTY;
+                            } else {
+                                nextGrid[i][j] = STATE.DEAD;
+                            }
+                            break;
+                    }
+                }
+            }
+            
+            const temp = grid;
+            grid = nextGrid;
+            nextGrid = temp;
+        }
+
+        function spawnHunters() {
+            if (Math.random() < predatorSpawnRate / 2500 && hunters.length < CONFIG.MAX_HUNTERS) {
+                const edge = Math.floor(Math.random() * 4);
+                let x, y;
+                
+                switch (edge) {
+                    case 0: x = 0; y = Math.random() * height; break;
+                    case 1: x = width; y = Math.random() * height; break;
+                    case 2: x = Math.random() * width; y = 0; break;
+                    default: x = Math.random() * width; y = height; break;
+                }
+                
+                hunters.push(new Hunter(x, y));
+            }
+        }
+
+        function paintVegetation() {
+            if (!mouseDown) return;
+            
+            const cellX = Math.floor(mouseX / CONFIG.CELL_SIZE);
+            const cellY = Math.floor(mouseY / CONFIG.CELL_SIZE);
+            const brushSize = 2;
+            
+            for (let i = -brushSize; i <= brushSize; i++) {
+                for (let j = -brushSize; j <= brushSize; j++) {
+                    const nx = cellX + i;
+                    const ny = cellY + j;
+                    if (nx >= 0 && nx < cols && ny >= 0 && ny < rows) {
+                        const dist = Math.sqrt(i * i + j * j);
+                        if (dist <= brushSize && Math.random() < 0.35) {
+                            grid[nx][ny] = Math.random() < 0.12 ? STATE.TREE : STATE.GRASS;
+                        }
+                    }
+                }
+            }
+        }
+
+        function countCells() {
+            let grass = 0, trees = 0, dead = 0;
+            
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    switch (grid[i][j]) {
+                        case STATE.GRASS: grass++; break;
+                        case STATE.TREE: trees++; break;
+                        case STATE.DEAD: dead++; break;
+                    }
+                }
+            }
+            
+            document.getElementById('grass-count').textContent = grass.toLocaleString();
+            document.getElementById('tree-count').textContent = trees.toLocaleString();
+            document.getElementById('hunter-count').textContent = hunters.length;
+            document.getElementById('dead-count').textContent = dead.toLocaleString();
+        }
+
+        function render() {
+            ctx.fillStyle = COLORS.EMPTY;
+            ctx.fillRect(0, 0, width, height);
+            
+            ctx.globalCompositeOperation = 'lighter';
+            
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const state = grid[i][j];
+                    if (state === STATE.EMPTY) continue;
+                    
+                    let color;
+                    switch (state) {
+                        case STATE.GRASS: color = COLORS.GRASS; break;
+                        case STATE.TREE: color = COLORS.TREE; break;
+                        case STATE.DEAD: color = COLORS.DEAD; break;
+                    }
+                    
+                    ctx.fillStyle = color;
+                    ctx.globalAlpha = state === STATE.DEAD ? 0.45 : 0.8;
+                    ctx.fillRect(
+                        i * CONFIG.CELL_SIZE,
+                        j * CONFIG.CELL_SIZE,
+                        CONFIG.CELL_SIZE - 1,
+                        CONFIG.CELL_SIZE - 1
+                    );
+                }
+            }
+            
+            ctx.globalAlpha = 1;
+            for (const hunter of hunters) {
+                hunter.draw(ctx, frameCount);
+            }
+            
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function gameLoop() {
+            frameCount++;
+            
+            if (frameCount % 4 === 0) {
+                updateCells();
+            }
+            
+            paintVegetation();
+            spawnHunters();
+            
+            for (const hunter of hunters) {
+                hunter.update(hunters, grid);
+                hunter.eat(grid);
+            }
+            
+            hunters = hunters.filter(h => h.isAlive());
+            
+            if (frameCount % 25 === 0) {
+                countCells();
+            }
+            
+            render();
+            requestAnimationFrame(gameLoop);
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            mouseDown = true;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        canvas.addEventListener('mouseup', () => { mouseDown = false; });
+        canvas.addEventListener('mouseleave', () => { mouseDown = false; });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            mouseDown = true;
+            mouseX = e.touches[0].clientX;
+            mouseY = e.touches[0].clientY;
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            mouseX = e.touches[0].clientX;
+            mouseY = e.touches[0].clientY;
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => { mouseDown = false; });
+
+        document.getElementById('predator-rate').addEventListener('input', (e) => {
+            predatorSpawnRate = parseInt(e.target.value);
+            document.getElementById('predator-value').textContent = predatorSpawnRate + '%';
+        });
+
+        document.getElementById('growth-speed').addEventListener('input', (e) => {
+            grassGrowthSpeed = parseInt(e.target.value);
+            document.getElementById('growth-value').textContent = grassGrowthSpeed + ' pts';
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            hunters = [];
+            initGrid();
+        });
+
+        window.addEventListener('resize', resize);
+
+        resize();
+        gameLoop();
+    </script>
+</body>
+</html>
