@@ -2860,7 +2860,7 @@ class StreamProcessor {
                         .replace(/>/g, '&gt;');
 
                     // Apply highlighting that matches the highlightMarkup() method.
-                    const highlightedLine = this.highlightEscapedMarkupTags(escapedLine);
+                    const highlightedLine = CodeStyler.highlightEscapedMarkupTags(escapedLine);
 
                     highlightedHtml += highlightedLine + "\n";
                 }
