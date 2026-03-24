@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Pet Owner Dashboard | Vet-Approved Health Guide</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cat-primary: #8B5CF6;
+            --cat-secondary: #A78BFA;
+            --cat-light: #EDE9FE;
+            --cat-dark: #6D28D9;
+            
+            --dog-primary: #0EA5E9;
+            --dog-secondary: #38BDF8;
+            --dog-light: #E0F2FE;
+            --dog-dark: #0284C7;
+            
+            --success: #22C55E;
+            --warning: #F59E0B;
+            --danger: #EF4444;
+            --gray-100: #F3F4F6;
+            --gray-200: #E5E7EB;
+            --gray-300: #D1D5DB;
+            --gray-600: #4B5563;
+            --gray-800: #1F2937;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            min-height: 100vh;
+            color: var(--gray-800);
+            line-height: 1.6;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--cat-dark) 0%, var(--dog-dark) 100%);
+            color: white;
+            padding: 2rem 1rem;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        header h1 {
+            font-family: 'Poppins', sans-serif;
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            font-size: 1rem;
+            opacity: 0.95;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header-icons {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1rem;
+        }
+
+        .header-icon {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+        }
+
+        .main-container {
+            max-width: 1600px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pet-column {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+        }
+
+        .pet-column.cat {
+            border-top: 5px solid var(--cat-primary);
+        }
+
+        .pet-column.dog {
+            border-top: 5px solid var(--dog-primary);
+        }
+
+        .pet-header {
+            padding: 1.5rem 1.5rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .pet-column.cat .pet-header {
+            background: linear-gradient(135deg, var(--cat-light) 0%, white 100%);
+        }
+
+        .pet-column.dog .pet-header {
+            background: linear-gradient(135deg, var(--dog-light) 0%, white 100%);
+        }
+
+        .pet-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .pet-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+        }
+
+        .cat .pet-icon {
+            background: var(--cat-light);
+        }
+
+        .dog .pet-icon {
+            background: var(--dog-light);
+        }
+
+        .pet-title h2 {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .pet-title span {
+            font-size: 0.85rem;
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+
+        .overall-progress {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .progress-circle {
+            position: relative;
+            width: 60px;
+            height: 60px;
+        }
+
+        .progress-circle svg {
+            transform: rotate(-90deg);
+        }
+
+        .progress-circle .bg {
+            fill: none;
+            stroke: var(--gray-200);
+            stroke-width: 6;
+        }
+
+        .progress-circle .progress {
+            fill: none;
+            stroke-width: 6;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+
+        .cat .progress-circle .progress {
+            stroke: var(--cat-primary);
+        }
+
+        .dog .progress-circle .progress {
+            stroke: var(--dog-primary);
+        }
+
+        .progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .pet-content {
+            padding: 0 1.5rem 1.5rem;
+        }
+
+        .section {
+            margin-bottom: 1.25rem;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--gray-200);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .section:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .section-header {
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .cat .section-header {
+            background: var(--cat-light);
+        }
+
+        .dog .section-header {
+            background: var(--dog-light);
+        }
+
+        .section-header:hover {
+            filter: brightness(0.97);
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .cat .section-icon {
+            background: white;
+            color: var(--cat-primary);
+        }
+
+        .dog .section-icon {
+            background: white;
+            color: var(--dog-primary);
+        }
+
+        .section-title h3 {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .section-title span {
+            font-size: 0.75rem;
+            color: var(--gray-600);
+            display: block;
+            font-weight: 500;
+        }
+
+        .section-toggle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .section.collapsed .section-toggle {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            padding: 1rem 1.25rem;
+            display: block;
+            transition: all 0.3s ease;
+        }
+
+        .section.collapsed .section-content {
+            display: none;
+        }
+
+        .checklist {
+            list-style: none;
+        }
+
+        .checklist li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--gray-100);
+            font-size: 0.9rem;
+        }
+
+        .checklist li:last-child {
+            border-bottom: none;
+        }
+
+        .checkbox {
+            width: 22px;
+            height: 22px;
+            min-width: 22px;
+            border: 2px solid var(--gray-300);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            margin-top: 2px;
+        }
+
+        .cat .checkbox:hover,
+        .cat .checkbox.checked {
+            border-color: var(--cat-primary);
+            background: var(--cat-primary);
+        }
+
+        .dog .checkbox:hover,
+        .dog .checkbox.checked {
+            border-color: var(--dog-primary);
+            background: var(--dog-primary);
+        }
+
+        .checkbox.checked {
+            color: white;
+        }
+
+        .checkbox.checked::after {
+            content: '✓';
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .checklist li.checked {
+            text-decoration: line-through;
+            color: var(--gray-600);
+        }
+
+        .tip-box {
+            padding: 0.85rem 1rem;
+            border-radius: 10px;
+            margin: 0.75rem 0;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .tip-box.info {
+            background: #EFF6FF;
+            border-left: 4px solid var(--dog-primary);
+        }
+
+        .tip-box.warning {
+            background: #FEF3C7;
+            border-left: 4px solid var(--warning);
+        }
+
+        .tip-box.alert {
+            background: #FEE2E2;
+            border-left: 4px solid var(--danger);
+        }
+
+        .tip-box.success {
+            background: #DCFCE7;
+            border-left: 4px solid var(--success);
+        }
+
+        .tip-icon {
+            font-size: 1.1rem;
+        }
+
+        .tip-text strong {
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        .vaccine-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        @media (max-width: 500px) {
+            .vaccine-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .vaccine-card {
+            padding: 0.75rem;
+            border-radius: 10px;
+            background: var(--gray-100);
+            text-align: center;
+            font-size: 0.8rem;
+        }
+
+        .vaccine-card .vaccine-name {
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .vaccine-card .vaccine-timing {
+            color: var(--gray-600);
+            font-size: 0.75rem;
+        }
+
+        .schedule-table {
+            width: 100%;
+            font-size: 0.85rem;
+            border-collapse: collapse;
+        }
+
+        .schedule-table th,
+        .schedule-table td {
+            padding: 0.6rem 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .schedule-table th {
+            background: var(--gray-100);
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .schedule-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .badge.required {
+            background: #FEE2E2;
+            color: var(--danger);
+        }
+
+        .badge.recommended {
+            background: #DCFCE7;
+            color: #16A34A;
+        }
+
+        .badge.optional {
+            background: var(--gray-200);
+            color: var(--gray-600);
+        }
+
+        .symptoms-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+
+        .symptom-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            padding: 0.5rem;
+            background: var(--gray-100);
+            border-radius: 8px;
+        }
+
+        .symptom-item span:first-child {
+            font-size: 1rem;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--gray-600);
+            font-size: 0.85rem;
+        }
+
+        .footer a {
+            color: var(--cat-primary);
+            text-decoration: none;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card {
+            flex: 1;
+            padding: 0.75rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .cat .stat-card {
+            background: var(--cat-light);
+        }
+
+        .dog .stat-card {
+            background: var(--dog-light);
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+
+        .cat .stat-number {
+            color: var(--cat-primary);
+        }
+
+        .dog .stat-number {
+            color: var(--dog-primary);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--gray-600);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .completed-badge {
+            background: var(--success);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .navigation-dots {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .nav-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--gray-300);
+            transition: all 0.3s ease;
+        }
+
+        .nav-dot.active {
+            width: 30px;
+            border-radius: 5px;
+        }
+
+        .cat .nav-dot.active {
+            background: var(--cat-primary);
+        }
+
+        .dog .nav-dot.active {
+            background: var(--dog-primary);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🩺 New Pet Owner Dashboard</h1>
+        <p>Vet-approved health guide with step-by-step instructions for raising healthy, happy cats and dogs</p>
+        <div class="header-icons">
+            <div class="header-icon">🐱 <span>Cats</span></div>
+            <div class="header-icon">🐕 <span>Dogs</span></div>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <div class="dashboard-grid">
+            <!-- Cat Column -->
+            <div class="pet-column cat">
+                <div class="pet-header">
+                    <div class="pet-title">
+                        <div class="pet-icon">🐱</div>
+                        <div>
+                            <h2>Kitten & Cat Care</h2>
+                            <span>From 8 weeks to senior years</span>
+                        </div>
+                    </div>
+                    <div class="overall-progress">
+                        <div class="progress-circle">
+                            <svg width="60" height="60">
+                                <circle class="bg" cx="30" cy="30" r="26"></circle>
+                                <circle class="progress" cx="30" cy="30" r="26" stroke-dasharray="163.36" stroke-dashoffset="163.36" data-progress="cat"></circle>
+                            </svg>
+                            <span class="progress-text" id="cat-progress-text">0%</span>
+                        </div>
+                        <span style="font-size: 0.7rem; color: var(--gray-600);">Complete</span>
+                    </div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-number">3</div>
+                        <div class="stat-label">Core Vaccines</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">12</div>
+                        <div class="stat-label">Weeks First Visit</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">2</div>
+                        <div class="stat-label">Annual Visits</div>
+                    </div>
+                </div>
+
+                <div class="pet-content">
+                    <!-- First Vet Visit Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">🏥</div>
+                                <div>
+                                    <h3>First Vet Visit</h3>
+                                    <span>Schedule within 7-10 days</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <ul class="checklist" data-category="cat-first">
+                                <li data-task="cat-first-1">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Schedule appointment within first week of adoption</span>
+                                </li>
+                                <li data-task="cat-first-2">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Bring adoption records and any previous medical history</span>
+                                </li>
+                                <li data-task="cat-first-3">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Bring stool sample for parasite screening (within 24 hours)</span>
+                                </li>
+                                <li data-task="cat-first-4">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Discuss microchipping with your veterinarian</span>
+                                </li>
+                                <li data-task="cat-first-5">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Ask about spay/neuter timeline and recommendations</span>
+                                </li>
+                            </ul>
+                            <div class="tip-box warning">
+                                <span class="tip-icon">⚠️</span>
+                                <div class="tip-text">
+                                    <strong>Important:</strong> Keep your cat in a secure carrier during the car ride to reduce stress.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vaccination Schedule Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">💉</div>
+                                <div>
+                                    <h3>Vaccination Schedule</h3>
+                                    <span>Core vaccines timeline</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <div class="vaccine-grid">
+                                <div class="vaccine-card">
+                                    <div class="vaccine-name">FVRCP #1</div>
+                                    <div class="vaccine-timing">6-8 weeks</div>
+                                </div>
+                                <div class="vaccine-card">
+                                    <div class="vaccine-name">FVRCP #2</div>
+                                    <div class="vaccine-timing">10-12 weeks</div>
+                                </div>
+                                <div class="vaccine-card">
+                                    <div class="vaccine-name">FVRCP #3</div>
+                                    <div class="vaccine-timing">14-16 weeks</div>
+                                </div>
+                                <div class="vaccine-card">
+                                    <div class="vaccine-name">Rabies</div>
+                                    <div class="vaccine-timing">12-16 weeks</div>
+                                </div>
+                            </div>
+                            <div class="tip-box info">
+                                <span class="tip-icon">ℹ️</span>
+                                <div class="tip-text">
+                                    <strong>Booster Schedule:</strong> FVRCP boosters every 1-3 years, Rabies as required by law (1-3 years).
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nutrition Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">🍽️</div>
+                                <div>
+                                    <h3>Nutrition & Feeding</h3>
+                                    <span>Age-appropriate diet guide</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <ul class="checklist" data-category="cat-nutrition">
+                                <li data-task="cat-nutrition-1">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Feed high-quality commercial cat food (AAFCO approved)</span>
+                                </li>
+                                <li data-task="cat-nutrition-2">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Kittens: 3-4 meals daily until 6 months</span>
+                                </li>
+                                <li data-task="cat-nutrition-3">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Adults: 2 meals daily after 6 months</span>
+                                </li>
+                                <li data-task="cat-nutrition-4">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Always provide fresh, clean water</span>
+                                </li>
+                                <li data-task="cat-nutrition-5">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Avoid human foods (especially toxic: chocolate, onions, garlic)</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Grooming Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">✨</div>
+                                <div>
+                                    <h3>Grooming & Hygiene</h3>
+                                    <span>Daily and weekly care routine</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <ul class="checklist" data-category="cat-grooming">
+                                <li data-task="cat-grooming-1">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Scoop litter box daily, full change weekly</span>
+                                </li>
+                                <li data-task="cat-grooming-2">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Brush 1-2 times weekly (daily for long-haired breeds)</span>
+                                </li>
+                                <li data-task="cat-grooming-3">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Trim nails every 2-3 weeks</span>
+                                </li>
+                                <li data-task="cat-grooming-4">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Check and clean ears monthly</span>
+                                </li>
+                                <li data-task="cat-grooming-5">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Dental check-ups recommended annually</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Warning Signs Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">🚨</div>
+                                <div>
+                                    <h3>Warning Signs to Watch</h3>
+                                    <span>Know when to call the vet</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <div class="symptoms-grid">
+                                <div class="symptom-item"><span>🤮</span> Vomiting</div>
+                                <div class="symptom-item"><span>💩</span> Diarrhea</div>
+                                <div class="symptom-item"><span>🚰</span> Excessive thirst</div>
+                                <div class="symptom-item"><span>🍽️</span> Loss of appetite</div>
+                                <div class="symptom-item"><span>😴</span> Lethargy</div>
+                                <div class="symptom-item"><span>🤧</span> Sneezing/coughing</div>
+                            </div>
+                            <div class="tip-box alert">
+                                <span class="tip-icon">🚨</span>
+                                <div class="tip-text">
+                                    <strong>Emergency:</strong> Difficulty breathing, seizures, inability to urinate, or collapse require immediate veterinary care.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Essential Supplies Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">🛒</div>
+                                <div>
+                                    <h3>Essential Supplies</h3>
+                                    <span>What you need to get started</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <ul class="checklist" data-category="cat-supplies">
+                                <li data-task="cat-supplies-1">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Litter box + litter (one per cat + one extra)</span>
+                                </li>
+                                <li data-task="cat-supplies-2">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Quality cat food (wet and dry)</span>
+                                </li>
+                                <li data-task="cat-supplies-3">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Food and water bowls (stainless steel or ceramic)</span>
+                                </li>
+                                <li data-task="cat-supplies-4">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Scratching post or cat tree</span>
+                                </li>
+                                <li data-task="cat-supplies-5">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Comfortable bed and hiding spots</span>
+                                </li>
+                                <li data-task="cat-supplies-6">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Cat carrier for vet visits</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dog Column -->
+            <div class="pet-column dog">
+                <div class="pet-header">
+                    <div class="pet-title">
+                        <div class="pet-icon">🐕</div>
+                        <div>
+                            <h2>Puppy & Dog Care</h2>
+                            <span>From 8 weeks to senior years</span>
+                        </div>
+                    </div>
+                    <div class="overall-progress">
+                        <div class="progress-circle">
+                            <svg width="60" height="60">
+                                <circle class="bg" cx="30" cy="30" r="26"></circle>
+                                <circle class="progress" cx="30" cy="30" r="26" stroke-dasharray="163.36" stroke-dashoffset="163.36" data-progress="dog"></circle>
+                            </svg>
+                            <span class="progress-text" id="dog-progress-text">0%</span>
+                        </div>
+                        <span style="font-size: 0.7rem; color: var(--gray-600);">Complete</span>
+                    </div>
+                </div>
+
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <div class="stat-number">5</div>
+                        <div class="stat-label">Core Vaccines</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">48h</div>
+                        <div class="stat-label">First Visit</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">4</div>
+                        <div class="stat-label">Early Visits</div>
+                    </div>
+                </div>
+
+                <div class="pet-content">
+                    <!-- First Vet Visit Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">🏥</div>
+                                <div>
+                                    <h3>First Vet Visit</h3>
+                                    <span>Schedule within 48-72 hours</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <ul class="checklist" data-category="dog-first">
+                                <li data-task="dog-first-1">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Schedule appointment within 48-72 hours of bringing puppy home</span>
+                                </li>
+                                <li data-task="dog-first-2">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Bring breeder/rescue medical records and vaccination history</span>
+                                </li>
+                                <li data-task="dog-first-3">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Bring fresh stool sample for intestinal parasite test</span>
+                                </li>
+                                <li data-task="dog-first-4">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Discuss microchipping - recommended for all dogs</span>
+                                </li>
+                                <li data-task="dog-first-5">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Ask about flea, tick, and heartworm prevention schedule</span>
+                                </li>
+                            </ul>
+                            <div class="tip-box success">
+                                <span class="tip-icon">✅</span>
+                                <div class="tip-text">
+                                    <strong>Tip:</strong> Bring treats to create positive associations with vet visits early on.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Vaccination Schedule Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">💉</div>
+                                <div>
+                                    <h3>Vaccination Schedule</h3>
+                                    <span>Puppy shot timeline</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <table class="schedule-table">
+                                <thead>
+                                    <tr>
+                                        <th>Vaccine</th>
+                                        <th>Timing</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>DHPP #1</td>
+                                        <td>6-8 weeks</td>
+                                        <td><span class="badge required">Required</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>DHPP #2</td>
+                                        <td>10-12 weeks</td>
+                                        <td><span class="badge required">Required</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>DHPP #3</td>
+                                        <td>14-16 weeks</td>
+                                        <td><span class="badge required">Required</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Rabies</td>
+                                        <td>12-16 weeks</td>
+                                        <td><span class="badge required">Required</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Bordetella</td>
+                                        <td>8 weeks+</td>
+                                        <td><span class="badge recommended">Recommended</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Leptospirosis</td>
+                                        <td>12 weeks+</td>
+                                        <td><span class="badge recommended">Recommended</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Lyme</td>
+                                        <td>12 weeks+</td>
+                                        <td><span class="badge optional">If at risk</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Nutrition Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">🍽️</div>
+                                <div>
+                                    <h3>Nutrition & Feeding</h3>
+                                    <span>Puppy vs Adult feeding guide</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <ul class="checklist" data-category="dog-nutrition">
+                                <li data-task="dog-nutrition-1">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Choose AAFCO-approved puppy food for dogs under 12 months</span>
+                                </li>
+                                <li data-task="dog-nutrition-2">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Puppies: Feed 3-4 times daily until 4 months</span>
+                                </li>
+                                <li data-task="dog-nutrition-3">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Reduce to 2 meals daily after 6 months</span>
+                                </li>
+                                <li data-task="dog-nutrition-4">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Measure portions based on weight and activity level</span>
+                                </li>
+                                <li data-task="dog-nutrition-5">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Never feed: chocolate, grapes, raisins, onions, xylitol</span>
+                                </li>
+                            </ul>
+                            <div class="tip-box info">
+                                <span class="tip-icon">💡</span>
+                                <div class="tip-text">
+                                    <strong>Growth Monitoring:</strong> Large breed puppies should eat specific large breed puppy food to prevent rapid bone growth.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Training & Exercise Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">🎾</div>
+                                <div>
+                                    <h3>Training & Exercise</h3>
+                                    <span>Physical and mental development</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <ul class="checklist" data-category="dog-training">
+                                <li data-task="dog-training-1">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Begin house training at 8-12 weeks old</span>
+                                </li>
+                                <li data-task="dog-training-2">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Start basic commands (sit, stay, come) by 12 weeks</span>
+                                </li>
+                                <li data-task="dog-training-3">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Socialize during critical period (8-16 weeks)</span>
+                                </li>
+                                <li data-task="dog-training-4">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Exercise appropriate for age (5 min × months old for puppies)</span>
+                                </li>
+                                <li data-task="dog-training-5">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Provide mental stimulation with puzzle toys</span>
+                                </li>
+                            </ul>
+                            <div class="tip-box warning">
+                                <span class="tip-icon">⚠️</span>
+                                <div class="tip-text">
+                                    <strong>Caution:</strong> Avoid strenuous exercise before 18 months in large breeds to protect developing joints.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Warning Signs Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">🚨</div>
+                                <div>
+                                    <h3>Warning Signs to Watch</h3>
+                                    <span>Emergency symptoms list</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <div class="symptoms-grid">
+                                <div class="symptom-item"><span>🤮</span> Vomiting</div>
+                                <div class="symptom-item"><span>💩</span> Bloody stool</div>
+                                <div class="symptom-item"><span>🫁</span> Difficulty breathing</div>
+                                <div class="symptom-item"><span>💥</span> Bloating/swollen abdomen</div>
+                                <div class="symptom-item"><span>🦴</span> Unable to stand</div>
+                                <div class="symptom-item"><span>😵</span> Seizures</div>
+                            </div>
+                            <div class="tip-box alert">
+                                <span class="tip-icon">🚨</span>
+                                <div class="tip-text">
+                                    <strong>Bloat Emergency:</strong> If your dog has a distended stomach, tries to vomit but can't, seek immediate emergency care - this is life-threatening.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Essential Supplies Section -->
+                    <div class="section">
+                        <div class="section-header" onclick="toggleSection(this)">
+                            <div class="section-title">
+                                <div class="section-icon">🛒</div>
+                                <div>
+                                    <h3>Essential Supplies</h3>
+                                    <span>New puppy checklist</span>
+                                </div>
+                            </div>
+                            <div class="section-toggle">▼</div>
+                        </div>
+                        <div class="section-content">
+                            <ul class="checklist" data-category="dog-supplies">
+                                <li data-task="dog-supplies-1">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Appropriately sized collar with ID tag</span>
+                                </li>
+                                <li data-task="dog-supplies-2">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>6-foot nylon leash and treats for training</span>
+                                </li>
+                                <li data-task="dog-supplies-3">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Quality puppy food (check with breeder/rescue)</span>
+                                </li>
+                                <li data-task="dog-supplies-4">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Food and water bowls (stable, non-tip design)</span>
+                                </li>
+                                <li data-task="dog-supplies-5">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Crate for sleeping and safe space</span>
+                                </li>
+                                <li data-task="dog-supplies-6">
+                                    <div class="checkbox" onclick="toggleCheck(this)"></div>
+                                    <span>Chew toys and puzzle feeders</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>📋 Based on vet-approved guidelines from Keep It Animal, BlueBlood Veterinary, The Vet Desk & more.</p>
+        <p style="margin-top: 0.5rem;">Always consult your local veterinarian for personalized advice.</p>
+    </footer>
+
+    <script>
+        // Initialize from localStorage
+        function loadProgress() {
+            const savedCatProgress = localStorage.getItem('catProgress');
+            const savedDogProgress = localStorage.getItem('dogProgress');
+            const savedChecks = localStorage.getItem('checklistState');
+
+            if (savedChecks) {
+                const state = JSON.parse(savedChecks);
+                Object.keys(state).forEach(taskId => {
+                    const checkbox = document.querySelector(`[data-task="${taskId}"] .checkbox`);
+                    const listItem = document.querySelector(`[data-task="${taskId}"]`);
+                    if (checkbox && state[taskId]) {
+                        checkbox.classList.add('checked');
+                        listItem.classList.add('checked');
+                    }
+                });
+            }
+
+            updateProgress('cat');
+            updateProgress('dog');
+        }
+
+        function saveChecklistState() {
+            const checks = {};
+            document.querySelectorAll('.checklist li').forEach(li => {
+                const taskId = li.dataset.task;
+                const isChecked = li.classList.contains('checked');
+                checks[taskId] = isChecked;
+            });
+            localStorage.setItem('checklistState', JSON.stringify(checks));
+        }
+
+        function toggleCheck(checkbox) {
+            const listItem = checkbox.closest('li');
+            const petType = listItem.closest('.pet-column').classList.contains('cat') ? 'cat' : 'dog';
+            
+            checkbox.classList.toggle('checked');
+            listItem.classList.toggle('checked');
+            
+            saveChecklistState();
+            updateProgress(petType);
+        }
+
+        function updateProgress(petType) {
+            const column = petType === 'cat' ? '.pet-column.cat' : '.pet-column.dog';
+            const checkboxes = document.querySelectorAll(`${column} .checkbox`);
+            const checkedBoxes = document.querySelectorAll(`${column} .checkbox.checked`);
+            
+            const total = checkboxes.length;
+            const completed = checkedBoxes.length;
+            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            // Update progress circle
+            const progressCircle = document.querySelector(`${column} .progress-circle .progress`);
+            const circumference = 163.36;
+            const offset = circumference - (percentage / 100) * circumference;
+            progressCircle.style.strokeDashoffset = offset;
+
+            // Update progress text
+            const progressText = document.getElementById(`${petType}-progress-text`);
+            progressText.textContent = percentage + '%';
+
+            // Save to localStorage
+            localStorage.setItem(`${petType}Progress`, percentage);
+        }
+
+        function toggleSection(header) {
+            const section = header.closest('.section');
+            section.classList.toggle('collapsed');
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', loadProgress);
+
+        // Add entrance animation
+        const sections = document.querySelectorAll('.section');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+
+        sections.forEach((section, index) => {
+            section.style.opacity = '0';
+            section.style.transform = 'translateY(20px)';
+            section.style.transition = `all 0.4s ease ${index * 0.05}s`;
+            observer.observe(section);
+        });
+
+        // Add keyboard accessibility
+        document.querySelectorAll('.section-header').forEach(header => {
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('role', 'button');
+            header.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleSection(header);
+                }
+            });
+        });
+
+        document.querySelectorAll('.checkbox').forEach(checkbox => {
+            checkbox.setAttribute('tabindex', '0');
+            checkbox.setAttribute('role', 'checkbox');
+            checkbox.setAttribute('aria-checked', 'false');
+            
+            checkbox.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleCheck(checkbox);
+                    checkbox.setAttribute('aria-checked', checkbox.classList.contains('checked'));
+                }
+            });
+        });
+    </script>
+</body>
+</html>
