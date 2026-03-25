@@ -8,7 +8,9 @@ Paiperwork is a local-first AI Javascript Desktop application (not intended for 
 
 ## Credits & Acknowledgments
 
+
 We're grateful to the amazing open-source community and the brilliant developers behind these essential libraries that make Paiperwork possible:
+
 
 - **[Llama.cpp](https://github.com/ggml-org/llama.cpp)** - The backbone for running LLMs locally, ensuring privacy and control *(MIT License)*
 - **[Ollama](https://ollama.com/)** - For making it easy to download and use Ai models *(MIT License)*
@@ -17,6 +19,7 @@ We're grateful to the amazing open-source community and the brilliant developers
 - **[SQL.js](https://sql.js.org/)** - SQLite compiled to JavaScript, providing our local database functionality with privacy-first storage *(MIT License)*
 - **[Konva.js](https://konvajs.org/)** - Powerful 2D canvas library for desktop and mobile applications, enabling our interactive visual design and presentation features *(MIT License)*
 - **[JSZip](https://stuk.github.io/jszip/)** - JavaScript library for creating, reading and editing .zip files, enabling our Word document processing and file extraction capabilities *(MIT License)*
+- **[SheetJS (xlsx)](https://github.com/SheetJS/sheetjs)** - JavaScript library for reading, writing, and exporting Excel (XLSX) files in the browser and Node.js. *(Community Edition, see [SheetJS License](https://github.com/SheetJS/sheetjs/blob/master/LICENSE))*
 
 
 These incredible tools enable us to deliver a rich, offline-first experience while maintaining our commitment to data privacy. Thank you to all the contributors who make these projects possible! 
