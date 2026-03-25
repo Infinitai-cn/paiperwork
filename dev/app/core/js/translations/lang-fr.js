@@ -2082,6 +2082,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         useWebSearchButton: "Utiliser la recherche web",
         webSearchStateOn: "Web ON",
         webSearchStateOff: "Web OFF",
+        searchingInternet: "Recherche sur internet...",
         replaceImageLabel: "Remplacer l'image",
         searchImagesPlaceholder: "Rechercher des images",
         restoreOriginalButton: "Restaurer l'original",

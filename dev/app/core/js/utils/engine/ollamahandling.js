@@ -1516,7 +1516,16 @@ class OllamaAPI {
         }
     }
     // Sends a prompt to the Ollama API with web search context, handles streaming and UI updates.
-    static async sendToOllamaWithWebSearch(prompt, systemPrompt, includeContext = true, abortSignal = null, documentContext = '', isDocumentWebSearch = false) {
+    static async sendToOllamaWithWebSearch(
+        prompt,
+        systemPrompt,
+        includeContext = true,
+        abortSignal = null,
+        documentContext = '',
+        isDocumentWebSearch = false,
+        forceNewGroup = null,
+        targetConversationGroup = null
+    ) {
        //  //console.log('Websearch OllamaAPI: Sending to Ollama...');
         const progressBar = document.getElementById('progress-bar');
         progressBar.classList.add('active', 'indeterminate');
@@ -1542,6 +1551,42 @@ class OllamaAPI {
             }
         };
 
+        let searchStatusDiv = null;
+        const removeSearchStatus = () => {
+            if (searchStatusDiv && searchStatusDiv.parentNode) {
+                searchStatusDiv.parentNode.removeChild(searchStatusDiv);
+            }
+            searchStatusDiv = null;
+        };
+
+        const showSearchStatus = () => {
+            removeSearchStatus();
+            const aiReplies = document.querySelector('.ai-replies');
+            if (!aiReplies) return;
+
+            searchStatusDiv = document.createElement('div');
+            searchStatusDiv.className = 'assistant-message web-search-status-message';
+            searchStatusDiv.innerHTML = `
+                <div class="ai-response-container" style="display:flex; align-items:center; gap:10px; padding:10px 12px;">
+                    <svg width="16" height="16" viewBox="0 0 50 50" aria-hidden="true" style="flex:0 0 auto;">
+                        <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-opacity="0.25" stroke-width="5"></circle>
+                        <path d="M25 5a20 20 0 0 1 20 20" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round">
+                            <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="0.8s" repeatCount="indefinite"></animateTransform>
+                        </path>
+                    </svg>
+                    <span>${(window.Lang && typeof Lang.get === 'function' && Lang.get('searchingInternet')) || 'Searching internet...'}</span>
+                </div>
+            `;
+
+            aiReplies.appendChild(searchStatusDiv);
+            if (window.OllamaAPI && typeof window.OllamaAPI.scrollToBottom === 'function') {
+                window.OllamaAPI.scrollToBottom();
+            }
+        };
+
+        let streamProcessor = null;
+        let aiDiv = null;
+
         try {
             // Get the original prompt before any thinking tags removal
             const originalPrompt = prompt;
@@ -1558,9 +1603,8 @@ class OllamaAPI {
                 // Move the instruction into the user prompt so we do NOT change the external systemPrompt
                 const queryUserPrompt = `You will be asked to produce a single concise web search query (no surrounding text) that best captures the user's information need. Keep it short and focused; do not include commentary or quotes.\n\nCreate a concise web search query for this user request:\n\n${originalPrompt}`;
 
-                // Call sendToOllama to get the model's reply. We'll pass a temporary StreamProcessor so we get identical streaming parsing behavior
-                const qpStreamProcessor = new StreamProcessor();
-                const queryResponse = await OllamaAPI.sendToOllama(queryUserPrompt, systemPrompt, document.getElementById('context-selector').value, null, null, `webquery_${Date.now()}`, qpStreamProcessor);
+                // Call sendToOllama WITHOUT a StreamProcessor to avoid rendering the internal query-generation step in the chat UI.
+                const queryResponse = await OllamaAPI.sendToOllama(queryUserPrompt, systemPrompt, document.getElementById('context-selector').value, null, null, `webquery_${Date.now()}`, null);
 
                 // sendToOllama may return { success: true, streamProcessor } when it processed the stream
                 if (!queryResponse) {
@@ -1573,8 +1617,6 @@ class OllamaAPI {
                             generatedQuery = sp.responseContainer.textContent.trim() || originalPrompt;
                         } else if (sp && sp.getText && typeof sp.getText === 'function') {
                             generatedQuery = (await sp.getText()).trim() || originalPrompt;
-                        } else if (qpStreamProcessor && qpStreamProcessor.responseContainer && qpStreamProcessor.responseContainer.textContent) {
-                            generatedQuery = qpStreamProcessor.responseContainer.textContent.trim() || originalPrompt;
                         } else {
                             generatedQuery = originalPrompt;
                         }
@@ -1582,10 +1624,54 @@ class OllamaAPI {
                         generatedQuery = originalPrompt;
                     }
                 } else if (queryResponse instanceof Response) {
-                    // Non-streamed fetch Response - read text
+                    // Drain NDJSON stream and extract only generated text chunks.
                     try {
-                        const text = await queryResponse.text();
-                        generatedQuery = text.trim() || originalPrompt;
+                        const reader = queryResponse.body && typeof queryResponse.body.getReader === 'function'
+                            ? queryResponse.body.getReader()
+                            : null;
+
+                        if (!reader) {
+                            const text = await queryResponse.text();
+                            generatedQuery = text.trim() || originalPrompt;
+                        } else {
+                            const decoder = new TextDecoder();
+                            let buffer = '';
+                            let extracted = '';
+
+                            while (true) {
+                                const { value, done } = await reader.read();
+                                buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                                const lines = buffer.split('\n');
+                                buffer = lines.pop() || '';
+
+                                for (const line of lines) {
+                                    if (!line.trim()) continue;
+                                    try {
+                                        const data = JSON.parse(line);
+                                        const chunk = data.response || data.message?.content || '';
+                                        if (chunk) extracted += chunk;
+                                    } catch (_e) {
+                                        // Ignore malformed/partial line chunks from stream boundaries.
+                                    }
+                                }
+
+                                if (done) {
+                                    const tail = buffer.trim();
+                                    if (tail) {
+                                        try {
+                                            const data = JSON.parse(tail);
+                                            const chunk = data.response || data.message?.content || '';
+                                            if (chunk) extracted += chunk;
+                                        } catch (_e) {
+                                            // Ignore partial tail data.
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+
+                            generatedQuery = extracted.trim() || originalPrompt;
+                        }
                     } catch (e) {
                         generatedQuery = originalPrompt;
                     }
@@ -1681,7 +1767,13 @@ class OllamaAPI {
             } catch (e) {}
 
             // Pass the isDocumentWebSearch flag to WebSearch.smartSearch
-            const webSearchResults = await WebSearch.smartSearch(searchQueryToUse, new Date(), isDocumentWebSearch);
+            let webSearchResults;
+            showSearchStatus();
+            try {
+                webSearchResults = await WebSearch.smartSearch(searchQueryToUse, new Date(), isDocumentWebSearch);
+            } finally {
+                removeSearchStatus();
+            }
 
             // Important: Get the actual search query used (after thinking tags were stripped)
             // This will be different than originalPrompt if thinking tags were removed
@@ -1773,12 +1865,12 @@ class OllamaAPI {
             const supportsNativeThinking = window.isThinkingModel && window.isThinkingModel(selectedModel);
 
             // Create AI message container
-            const aiDiv = document.createElement('div');
+            aiDiv = document.createElement('div');
             aiDiv.className = 'assistant-message';
             aiReplies.appendChild(aiDiv);
 
             // Create the stream processor
-            const streamProcessor = this.createStreamProcessorForRouting(routing.source === 'cloud');
+            streamProcessor = this.createStreamProcessorForRouting(routing.source === 'cloud');
 
             //  ALSO: Update StreamProcessor's cache if it exists
             if (streamProcessor) {
@@ -1801,6 +1893,42 @@ class OllamaAPI {
 
             // Add it to our aiDiv
             aiDiv.appendChild(streamProcessor.responseContainer);
+
+            const persistWebSearchConversation = async () => {
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+                if (!hashedMasterKey) return;
+
+                const normalizedTargetGroup = Number.isInteger(targetConversationGroup)
+                    ? targetConversationGroup
+                    : (Number.isInteger(window.currentConversationGroup) ? window.currentConversationGroup : null);
+
+                const shouldForceNewGroup =
+                    forceNewGroup === true ||
+                    window.forceNewConversationGroup === true ||
+                    !normalizedTargetGroup;
+
+                const aiResponse = (streamProcessor && typeof streamProcessor.getCleanResponseHTML === 'function')
+                    ? streamProcessor.getCleanResponseHTML()
+                    : streamProcessor.responseContainer.outerHTML;
+                await PaiperworkDB.storeConversationOnly(
+                    hashedMasterKey,
+                    originalPrompt,
+                    aiResponse,
+                    shouldForceNewGroup,
+                    shouldForceNewGroup ? null : normalizedTargetGroup
+                );
+
+                if (window.forceNewConversationGroup) {
+                    window.forceNewConversationGroup = false;
+                }
+
+                if (window.currentConversationGroup) {
+                    await PaiperworkDB.touchConversationGroup(hashedMasterKey, window.currentConversationGroup);
+                    if (window.chat && typeof window.chat.refreshConversationListIfNeeded === 'function') {
+                        await window.chat.refreshConversationListIfNeeded(hashedMasterKey, window.currentConversationGroup);
+                    }
+                }
+            };
 
             const isCloudRouting = routing.source === 'cloud';
 
@@ -2033,7 +2161,6 @@ class OllamaAPI {
                                 if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
                                     window.chat.addMessageActionsToMessage(aiDiv);
                                 }
-                                const aiResponse = streamProcessor.responseContainer.outerHTML;
 
                                 // Handle context management
                                 if (Array.isArray(data.context)) {
@@ -2050,21 +2177,8 @@ class OllamaAPI {
                                     this.handleContextLimitReached();
                                 }
 
-                                // Store conversation if needed - use the original user prompt (not the enhanced request prompt)
-                                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-                               //  //console.log('WebSearch: Saving conversation to database');
-                                await PaiperworkDB.storeConversationOnly(
-                                    hashedMasterKey,
-                                    originalPrompt,
-                                    aiResponse,
-                                    window.forceNewConversationGroup || false,  // Not forcing a new group
-                                    window.currentConversationGroup  // Use current group if it exists
-                                );
-
-                                if (window.forceNewConversationGroup) {
-                                   //  //console.log('WebSearch: Created new conversation group based on forceNewConversationGroup flag');
-                                    window.forceNewConversationGroup = false;
-                                }
+                                // Store conversation and refresh session list for web-search flow.
+                                await persistWebSearchConversation();
                                 OllamaAPI.scrollToBottom();
 
                                 return artificialResponse;
@@ -2115,7 +2229,6 @@ class OllamaAPI {
                                 if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
                                     window.chat.addMessageActionsToMessage(aiDiv);
                                 }
-                                const aiResponse = streamProcessor.responseContainer.outerHTML;
 
                                 if (Array.isArray(data.context)) {
                                     OllamaAPI.previousContext = data.context;
@@ -2131,18 +2244,7 @@ class OllamaAPI {
                                     this.handleContextLimitReached();
                                 }
 
-                                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-                                await PaiperworkDB.storeConversationOnly(
-                                    hashedMasterKey,
-                                    originalPrompt,
-                                    aiResponse,
-                                    window.forceNewConversationGroup || false,
-                                    window.currentConversationGroup
-                                );
-
-                                if (window.forceNewConversationGroup) {
-                                    window.forceNewConversationGroup = false;
-                                }
+                                await persistWebSearchConversation();
                                 OllamaAPI.scrollToBottom();
 
                                 return artificialResponse;
@@ -2161,8 +2263,18 @@ class OllamaAPI {
                 }
             }
 
-            // If we reach here, we're done processing but didn't get a data.done event
-            // Still return the artificial response
+            // Fallback: some providers may end stream without an explicit data.done marker.
+            // Persist what was received so web-search conversations are not lost.
+            if (streamProcessor && streamProcessor.responseContainer) {
+                streamProcessor.finishResponse();
+                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
+                    window.chat.addMessageActionsToMessage(aiDiv);
+                }
+                await persistWebSearchConversation();
+                OllamaAPI.scrollToBottom();
+            }
+
+            // If we reach here, we're done processing but didn't get a data.done event.
             return artificialResponse;
 
         } catch (error) {
@@ -2189,6 +2301,7 @@ class OllamaAPI {
 
             throw error; // Re-throw the error so the caller knows something went wrong
         } finally {
+            removeSearchStatus();
             progressBar.classList.remove('active', 'indeterminate');
             window.isGenerating = false;
         }

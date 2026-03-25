@@ -2130,6 +2130,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 useWebSearchButton: '使用网页搜索',
                 webSearchStateOn: '网页 开',
                 webSearchStateOff: '网页 关',
+                searchingInternet: '正在搜索互联网...',
                 replaceImageLabel: '替换图片',
                 searchImagesPlaceholder: '搜索图片',
                 restoreOriginalButton: '恢复原图',

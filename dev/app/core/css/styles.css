@@ -724,6 +724,31 @@ body {
     margin-bottom: 10px;
 }
 
+.assistant-message.assistant-streaming {
+    width: 100%;
+    max-width: 100%;
+}
+
+.assistant-message.assistant-streaming .ai-response-container.ai-response-streaming {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.assistant-message.assistant-streaming .ai-response-container.ai-response-streaming .thinking-mode-container {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
 .assistant-message .message-bubble {
     background-color: var(--chat-bubble-bg);
     color: var(--text-color);

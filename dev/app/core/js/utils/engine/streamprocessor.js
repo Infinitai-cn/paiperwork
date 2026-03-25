@@ -482,6 +482,7 @@ class StreamProcessor {
         this.responseContainer = document.createElement('div');
         this.responseContainer.className = 'ai-response-container';
         document.querySelector('.ai-replies').appendChild(this.responseContainer);
+        this._streamingLayoutApplied = false;
         this.tempBackticksBuffer = '';
         this.backticksBuffer = '';
         this.existingCodeBlockCount = 0;
@@ -527,6 +528,27 @@ class StreamProcessor {
     //  NEW: Log the initial state to help debugging
    //console.log('🧠 StreamProcessor: Initialized with thinking enabled:', this._cachedThinkingEnabled);
     }
+
+    _setStreamingLayoutState(isStreaming) {
+        if (!this.responseContainer) return;
+
+        const assistantMessage = this.responseContainer.closest('.assistant-message');
+        if (!assistantMessage) return;
+
+        if (isStreaming) {
+            assistantMessage.classList.add('assistant-streaming');
+            this.responseContainer.classList.add('ai-response-streaming');
+            this._streamingLayoutApplied = true;
+            return;
+        }
+
+        if (this._streamingLayoutApplied) {
+            assistantMessage.classList.remove('assistant-streaming');
+            this.responseContainer.classList.remove('ai-response-streaming');
+            this._streamingLayoutApplied = false;
+        }
+    }
+
     _setupThinkingStateListener() {
         // Listen for storage events (when localStorage changes in other tabs)
         window.addEventListener('storage', (e) => {
@@ -547,6 +569,8 @@ class StreamProcessor {
     // In the processChunk method, fix the native thinking detection:
 
     processChunk(chunk) {
+        this._setStreamingLayoutState(true);
+
         if (chunk === null || chunk === undefined) {
             return;
         }
@@ -1662,6 +1686,8 @@ class StreamProcessor {
             isNative: false,
             id: null
         };
+
+        this._setStreamingLayoutState(false);
     }
 
     endThinkingMode() {

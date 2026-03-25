@@ -2081,6 +2081,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         useWebSearchButton: "Websuche verwenden",
         webSearchStateOn: "Web EIN",
         webSearchStateOff: "Web AUS",
+        searchingInternet: "Internet wird durchsucht...",
         replaceImageLabel: "Bild ersetzen",
         searchImagesPlaceholder: "Bilder suchen",
         restoreOriginalButton: "Original wiederherstellen",
