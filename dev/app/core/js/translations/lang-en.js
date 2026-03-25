@@ -2110,6 +2110,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         useWebSearchButton: 'Use web search',
         webSearchStateOn: 'Web ON',
         webSearchStateOff: 'Web OFF',
+        searchingInternet: 'Searching internet...',
         replaceImageLabel: 'Replace image',
         searchImagesPlaceholder: 'Search images',
         restoreOriginalButton: 'Restore original',

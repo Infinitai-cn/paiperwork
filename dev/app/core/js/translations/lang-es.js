@@ -1980,6 +1980,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         useWebSearchButton: "Usar búsqueda web",
         webSearchStateOn: "Web ACT",
         webSearchStateOff: "Web DES",
+        searchingInternet: "Buscando en internet...",
         replaceImageLabel: "Reemplazar imagen",
         searchImagesPlaceholder: "Buscar imágenes",
         restoreOriginalButton: "Restaurar original",

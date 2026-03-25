@@ -1809,6 +1809,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         useWebSearchButton: 'Usar pesquisa web',
         webSearchStateOn: 'Web ON',
         webSearchStateOff: 'Web OFF',
+        searchingInternet: 'Pesquisando na internet...',
         replaceImageLabel: 'Substituir imagem',
         searchImagesPlaceholder: 'Pesquisar imagens',
         restoreOriginalButton: 'Restaurar original',

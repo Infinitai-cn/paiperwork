@@ -1052,7 +1052,9 @@ class Chat {
                             true,
                             this.globalAbortController.signal,
                             documentAnswer.substring(0, 2000),
-                            true
+                            true,
+                            forceNewGroup,
+                            window.currentConversationGroup
                         );
 
                         // Finalize the response
@@ -1060,7 +1062,9 @@ class Chat {
                         streamProcessor.finishResponse();
 
                         // Store conversation
-                        const aiResponse = streamProcessor.responseContainer.outerHTML;
+                        const aiResponse = (streamProcessor && typeof streamProcessor.getCleanResponseHTML === 'function')
+                            ? streamProcessor.getCleanResponseHTML()
+                            : streamProcessor.responseContainer.outerHTML;
                         await PaiperworkDB.storeConversationOnly(
                             hashedMasterKey,
                             prompt,
@@ -1091,7 +1095,9 @@ class Chat {
                         // Finalize response even if there was an error
                         this.addMessageActionsToMessage(aiDiv);
                         streamProcessor.finishResponse();
-                        const aiResponse = streamProcessor.responseContainer.outerHTML;
+                        const aiResponse = (streamProcessor && typeof streamProcessor.getCleanResponseHTML === 'function')
+                            ? streamProcessor.getCleanResponseHTML()
+                            : streamProcessor.responseContainer.outerHTML;
                         await PaiperworkDB.storeConversationOnly(
                             hashedMasterKey,
                             prompt,
@@ -1487,7 +1493,9 @@ class Chat {
                             true, // includeContext
                             this.globalAbortController.signal,
                             '', // documentContext
-                            false // isDocumentWebSearch
+                            false, // isDocumentWebSearch
+                            forceNewGroup,
+                            window.currentConversationGroup
                         );
 
                         // Check if the response was aborted
@@ -2655,7 +2663,9 @@ class Chat {
                             true, // includeContext
                             abortController.signal,
                             '', // documentContext
-                            false // isDocumentWebSearch
+                            false, // isDocumentWebSearch
+                            false,
+                            window.currentConversationGroup
                         );
                     } catch (e) {
                         console.error('Regenerate: Error during web-search regeneration:', e);
