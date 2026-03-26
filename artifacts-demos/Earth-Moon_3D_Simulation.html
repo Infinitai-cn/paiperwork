@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earth-Moon 3D Simulation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            overflow: hidden; 
+            background: #000; 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+        }
+        #canvas-container { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+        }
+        .info-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(10, 15, 30, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(100, 150, 255, 0.25);
+            border-radius: 14px;
+            padding: 22px;
+            color: #e0e8ff;
+            max-width: 340px;
+            z-index: 100;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+        }
+        .info-panel h1 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+            color: #fff;
+        }
+        .info-panel p {
+            font-size: 0.85rem;
+            line-height: 1.65;
+            opacity: 0.88;
+            margin-bottom: 10px;
+        }
+        .controls-hint {
+            background: rgba(60, 100, 180, 0.2);
+            border-radius: 10px;
+            padding: 14px;
+            margin-top: 14px;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+        }
+        .controls-hint strong {
+            color: #7cb3ff;
+            display: block;
+            margin-bottom: 6px;
+        }
+        .log-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(10, 15, 30, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(100, 150, 255, 0.25);
+            border-radius: 14px;
+            padding: 16px;
+            color: #e0e8ff;
+            max-width: 400px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            font-family: 'Consolas', monospace;
+            font-size: 0.8rem;
+        }
+        .log-panel h3 {
+            margin-bottom: 10px;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(100, 150, 255, 0.1);
+        }
+        .log-success { color: #4ade80; }
+        .log-error { color: #f87171; }
+        .log-info { color: #7cb3ff; }
+        .log-warning { color: #fbbf24; }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div class="info-panel">
+        <h1>Earth-Moon Simulation</h1>
+        <p>Navigate freely through space and observe the Earth-Moon system in 3D.</p>
+        <p>The Moon orbits Earth while both bodies rotate on their axes.</p>
+        <div class="controls-hint">
+            <strong>Controls:</strong>
+            <p>Left click + drag: Rotate view</p>
+            <p>Right click + drag: Pan</p>
+            <p>Scroll: Zoom in/out</p>
+            <p>Click on Earth/Moon to focus</p>
+        </div>
+    </div>
+
+    <div class="log-panel" id="logPanel">
+        <h3>Loading Log</h3>
+        <div id="logContent"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <script>
+        // Logging utility
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const logContent = document.getElementById('logContent');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${time}] ${message}`;
+            logContent.appendChild(entry);
+            logContent.scrollTop = logContent.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        log('Starting Earth-Moon simulation...', 'info');
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Controls
+        log('Initializing OrbitControls...', 'info');
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 2;
+        controls.maxDistance = 500;
+        controls.enablePan = true;
+        controls.panSpeed = 0.5;
+        controls.rotateSpeed = 0.5;
+        controls.zoomSpeed = 1.2;
+
+        log('OrbitControls initialized successfully', 'success');
+
+        // Camera position
+        camera.position.set(50, 30, 80);
+        controls.update();
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x333344, 0.5);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        sunLight.position.set(100, 50, 100);
+        scene.add(sunLight);
+
+        // Stars background
+        function createStarfield() {
+            const starsGeometry = new THREE.BufferGeometry();
+            const starsMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.5,
+                transparent: true
+            });
+
+            const starsVertices = [];
+            for (let i = 0; i < 10000; i++) {
+                const x = (Math.random() - 0.5) * 2000;
+                const y = (Math.random() - 0.5) * 2000;
+                const z = (Math.random() - 0.5) * 2000;
+                starsVertices.push(x, y, z);
+            }
+
+            starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+            const starField = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(starField);
+            log('Starfield created', 'success');
+        }
+        createStarfield();
+
+        // Texture loader
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.crossOrigin = 'anonymous';
+
+        // Earth
+        const earthRadius = 10;
+        const earthGeometry = new THREE.SphereGeometry(earthRadius, 64, 64);
+        let earthMaterial;
+        let earth;
+
+        // Moon
+        const moonRadius = 2.7;
+        const moonGeometry = new THREE.SphereGeometry(moonRadius, 32, 32);
+        let moonMaterial;
+        let moon;
+
+        // Moon orbit group
+        const moonOrbitGroup = new THREE.Group();
+        scene.add(moonOrbitGroup);
+
+        // Reliable texture URLs (using raw.githubusercontent for CORS-friendly access)
+        const textures = {
+            earth: {
+                day: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg',
+                bump: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_normal_2048.jpg',
+                specular: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_specular_2048.jpg',
+                clouds: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_clouds_1024.png'
+            },
+            moon: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/moon_1024.jpg'
+        };
+
+        // Load Earth textures
+        let earthDayTexture, earthBumpTexture, earthSpecularTexture;
+        let earthTexturesLoaded = false;
+
+        function loadEarthTextures() {
+            log('Loading Earth day texture from: ' + textures.earth.day, 'info');
+            
+            textureLoader.load(
+                textures.earth.day,
+                function(texture) {
+                    earthDayTexture = texture;
+                    log('Earth day texture loaded successfully', 'success');
+                    createEarth();
+                },
+                undefined,
+                function(err) {
+                    log('Earth day texture failed: ' + err, 'error');
+                    log('Using procedural Earth texture', 'warning');
+                    createEarthFallback();
+                }
+            );
+
+            // Load bump map
+            textureLoader.load(
+                textures.earth.bump,
+                function(texture) {
+                    earthBumpTexture = texture;
+                    log('Earth bump/normal map loaded', 'success');
+                },
+                undefined,
+                function(err) {
+                    log('Earth bump map failed to load', 'warning');
+                }
+            );
+
+            // Load specular map
+            textureLoader.load(
+                textures.earth.specular,
+                function(texture) {
+                    earthSpecularTexture = texture;
+                    log('Earth specular map loaded', 'success');
+                },
+                undefined,
+                function(err) {
+                    log('Earth specular map failed to load', 'warning');
+                }
+            );
+        }
+
+        function createEarth() {
+            if (earth) {
+                scene.remove(earth);
+            }
+
+            earthMaterial = new THREE.MeshPhongMaterial({
+                map: earthDayTexture,
+                bumpMap: earthBumpTexture || null,
+                bumpScale: 0.05,
+                specularMap: earthSpecularTexture || null,
+                specular: new THREE.Color(0x333333),
+                shininess: 25
+            });
+
+            earth = new THREE.Mesh(earthGeometry, earthMaterial);
+            scene.add(earth);
+            earthTexturesLoaded = true;
+            log('Earth mesh created with textures', 'success');
+        }
+
+        function createEarthFallback() {
+            if (earth) {
+                scene.remove(earth);
+            }
+
+            // Create procedural texture
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // Draw procedural earth
+            const gradient = ctx.createLinearGradient(0, 0, 512, 256);
+            gradient.addColorStop(0, '#1a4d7c');
+            gradient.addColorStop(0.3, '#2d6b4f');
+            gradient.addColorStop(0.5, '#3d8b5f');
+            gradient.addColorStop(0.7, '#2d6b4f');
+            gradient.addColorStop(1, '#1a4d7c');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 512, 256);
+
+            // Add some land masses
+            ctx.fillStyle = '#2d5a3f';
+            for (let i = 0; i < 20; i++) {
+                ctx.beginPath();
+                const x = Math.random() * 512;
+                const y = Math.random() * 256;
+                const radius = Math.random() * 60 + 20;
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const proceduralTexture = new THREE.CanvasTexture(canvas);
+            earthMaterial = new THREE.MeshPhongMaterial({
+                map: proceduralTexture,
+                specular: new THREE.Color(0x222222),
+                shininess: 15
+            });
+
+            earth = new THREE.Mesh(earthGeometry, earthMaterial);
+            scene.add(earth);
+            log('Earth created with procedural texture', 'success');
+        }
+
+        // Load Moon texture
+        function loadMoonTexture() {
+            log('Loading Moon texture from: ' + textures.moon, 'info');
+            
+            textureLoader.load(
+                textures.moon,
+                function(texture) {
+                    log('Moon texture loaded successfully', 'success');
+                    createMoon(texture);
+                },
+                undefined,
+                function(err) {
+                    log('Moon texture failed: ' + err, 'error');
+                    log('Using procedural Moon texture', 'warning');
+                    createMoonFallback();
+                }
+            );
+        }
+
+        function createMoon(texture) {
+            moonMaterial = new THREE.MeshPhongMaterial({
+                map: texture,
+                bumpMap: texture,
+                bumpScale: 0.02
+            });
+
+            moon = new THREE.Mesh(moonGeometry, moonMaterial);
+            moon.position.set(40, 0, 0); // Distance from Earth
+            moonOrbitGroup.add(moon);
+            log('Moon mesh created with texture', 'success');
+        }
+
+        function createMoonFallback() {
+            // Create procedural moon texture
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // Gray base
+            ctx.fillStyle = '#888888';
+            ctx.fillRect(0, 0, 512, 256);
+
+            // Add craters
+            for (let i = 0; i < 50; i++) {
+                const shade = Math.random() * 60 + 100;
+                ctx.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
+                ctx.beginPath();
+                const x = Math.random() * 512;
+                const y = Math.random() * 256;
+                const radius = Math.random() * 15 + 3;
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const proceduralTexture = new THREE.CanvasTexture(canvas);
+            moonMaterial = new THREE.MeshPhongMaterial({
+                map: proceduralTexture
+            });
+
+            moon = new THREE.Mesh(moonGeometry, moonMaterial);
+            moon.position.set(40, 0, 0);
+            moonOrbitGroup.add(moon);
+            log('Moon created with procedural texture', 'success');
+        }
+
+        // Initialize textures
+        loadEarthTextures();
+        loadMoonTexture();
+
+        // Moon orbit line
+        const orbitRadius = 40;
+        const orbitSegments = 128;
+        const orbitGeometry = new THREE.BufferGeometry();
+        const orbitVertices = [];
+
+        for (let i = 0; i <= orbitSegments; i++) {
+            const angle = (i / orbitSegments) * Math.PI * 2;
+            orbitVertices.push(
+                Math.cos(angle) * orbitRadius,
+                0,
+                Math.sin(angle) * orbitRadius
+            );
+        }
+
+        orbitGeometry.setAttribute('position', new THREE.Float32BufferAttribute(orbitVertices, 3));
+        const orbitMaterial = new THREE.LineBasicMaterial({ 
+            color: 0x444466, 
+            transparent: true, 
+            opacity: 0.4 
+        });
+        const orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
+        scene.add(orbitLine);
+
+        // Animation
+        let moonAngle = 0;
+        const moonOrbitSpeed = 0.002;
+        const earthRotationSpeed = 0.001;
+        const moonRotationSpeed = 0.0005;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Earth rotation
+            if (earth) {
+                earth.rotation.y += earthRotationSpeed;
+            }
+
+            // Moon orbit and rotation
+            if (moon) {
+                moonAngle += moonOrbitSpeed;
+                moonOrbitGroup.rotation.y = moonAngle;
+                moon.rotation.y += moonRotationSpeed;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Click to focus
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        renderer.domElement.addEventListener('dblclick', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const objects = [];
+            if (earth) objects.push(earth);
+            if (moon) objects.push(moon);
+            
+            const intersects = raycaster.intersectObjects(objects);
+
+            if (intersects.length > 0) {
+                const target = intersects[0].object;
+                const targetName = target === earth ? 'Earth' : 'Moon';
+                log('Focusing on: ' + targetName, 'info');
+                
+                const targetPosition = new THREE.Vector3();
+                target.getWorldPosition(targetPosition);
+                
+                controls.target.copy(targetPosition);
+                controls.update();
+            }
+        });
+
+        // Start animation
+        log('Starting animation loop', 'info');
+        animate();
+        log('Simulation ready!', 'success');
+    </script>
+</body>
+</html>
