@@ -1496,6 +1496,32 @@ class ConnectorWhatsapp {
         return this._removeKeymapTokensFromNormalizedText(text, removableTokens);
     }
 
+    _isWhatsappCurrentModelQuestion(normalizedText, hasModelNoun = false) {
+        if (!normalizedText || !hasModelNoun) return false;
+
+        const currentStateHints = [
+            'current', 'selected', 'active', 'used', 'using', 'in use',
+            'actual', 'seleccionado', 'activo', 'en uso', 'usas ahora',
+            'atual', 'selecionado', 'activo', 'em uso', 'esta usando', 'está usando',
+            'actuel', 'selectionne', 'sélectionné', 'actif', 'utilise', 'utilisé',
+            'aktuell', 'ausgewahlt', 'ausgewählt', 'aktiv', 'verwendet', 'nutzt du',
+            'attuale', 'selezionato', 'attivo', 'in uso', 'stai usando',
+            'текущ', 'выбран', 'активн', 'использу',
+            '当前', '已选', '使用中', '现在用', '现在选择',
+            '現在', '選択中', '使用中', '今使って',
+            '현재', '선택된', '사용 중', '지금 쓰는'
+        ];
+        const questionHints = [
+            'what', 'which', 'que', 'qué', 'cual', 'cuál', 'qual', 'quel', 'welches', 'welche', 'welcher',
+            'quale', 'какая', 'какую', '什么', '哪', 'どの', '何', '무슨', '어떤'
+        ];
+
+        const hasStateHint = currentStateHints.some(token => normalizedText.includes(token));
+        const hasQuestionHint = normalizedText.includes('?') || questionHints.some(token => normalizedText.includes(token));
+
+        return hasStateHint && hasQuestionHint;
+    }
+
     _parseWhatsappModelCommand(text) {
         const rawText = String(text || '').trim();
         if (!rawText) return null;
@@ -1513,8 +1539,9 @@ class ConnectorWhatsapp {
         const listMatch = this._findLongestNormalizedTokenMatch(normalizedText, listTokens);
         const useMatch = this._findLongestNormalizedTokenMatch(normalizedText, useTokens);
         const hasExplicitListPhrase = !!(listMatch && listMatch.split(/\s+/).length > 1);
+        const isCurrentQuestion = this._isWhatsappCurrentModelQuestion(normalizedText, hasModelNoun);
 
-        if (currentMatch && (hasModelNoun || currentMatch.split(/\s+/).length > 1)) {
+        if ((currentMatch && (hasModelNoun || currentMatch.split(/\s+/).length > 1)) || isCurrentQuestion) {
             return { type: 'current' };
         }
 

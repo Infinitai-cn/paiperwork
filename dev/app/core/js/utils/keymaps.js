@@ -316,12 +316,12 @@ const modelKeymap = {
             '내 모델 보여줘', '모델 목록', '사용 가능한 모델', '설치된 모델'
         ],
         use: [
-            'use', 'use model', 'switch to', 'change to', 'set model to', 'select', 'choose',
-            'usar', 'usar modelo', 'usa', 'cambiar a', 'cambia a', 'poner modelo', 'seleccionar', 'elige',
-            'usar', 'usar modelo', 'usa', 'mudar para', 'trocar para', 'definir modelo', 'selecionar', 'escolher',
-            'utiliser', 'utiliser le modele', 'utiliser le modèle', 'passer a', 'passer à', 'changer pour', 'definir le modele', 'définir le modèle', 'selectionner', 'sélectionner', 'choisir',
-            'verwende', 'nutze', 'benutze', 'modell verwenden', 'wechsle zu', 'wechsel zu', 'setze modell auf', 'auswahlen', 'auswählen', 'wahlen', 'wählen',
-            'usa', 'usa modello', 'passa a', 'cambia a', 'imposta il modello', 'seleziona', 'scegli',
+            'use', 'use model', 'switch to', 'switch model to', 'switch the model to', 'change to', 'change model to', 'change the model to', 'set model to', 'set the model to', 'select', 'choose',
+            'usar', 'usar modelo', 'usa', 'cambiar a', 'cambia a', 'cambiar el modelo a', 'cambia el modelo a', 'poner modelo', 'poner el modelo en', 'seleccionar', 'elige',
+            'usar', 'usar modelo', 'usa', 'mudar para', 'mudar o modelo para', 'trocar para', 'trocar o modelo para', 'definir modelo', 'definir o modelo para', 'selecionar', 'escolher',
+            'utiliser', 'utiliser le modele', 'utiliser le modèle', 'passer a', 'passer à', 'passer le modele a', 'passer le modèle à', 'changer pour', 'changer le modele pour', 'changer le modèle pour', 'definir le modele', 'définir le modèle', 'selectionner', 'sélectionner', 'choisir',
+            'verwende', 'nutze', 'benutze', 'modell verwenden', 'wechsle zu', 'wechsel zu', 'wechsle das modell zu', 'wechsel das modell zu', 'andere das modell zu', 'ändere das modell zu', 'setze modell auf', 'setze das modell auf', 'auswahlen', 'auswählen', 'wahlen', 'wählen',
+            'usa', 'usa modello', 'passa a', 'passa il modello a', 'cambia a', 'cambia il modello a', 'imposta il modello', 'imposta il modello su', 'seleziona', 'scegli',
             'используй', 'используй модель', 'переключи на', 'смени на', 'выбери', 'установи модель',
             '使用', '使用模型', '切换到', '改用', '选择', '设为模型',
             '使う', 'モデルを使う', '切り替え', '変更して', '選択',

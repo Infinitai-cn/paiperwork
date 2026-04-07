@@ -36,6 +36,8 @@ class ConnectorsTab {
         this.whatsappSessionRestoreStatus = '';
         this.whatsappStalePreferredDeviceCleared = null;
         this.whatsappModalPhase = 'starting';
+        this.whatsappQrGraceUntil = 0;
+        this.whatsappQrGraceMs = 5000;
     }
 
     initialize() {
@@ -841,6 +843,27 @@ class ConnectorsTab {
         return false;
     }
 
+    _armWhatsappQrGracePeriod() {
+        const shouldDelayQr = !!this.savedWhatsappDeviceId;
+        this.whatsappQrGraceUntil = shouldDelayQr ? (Date.now() + this.whatsappQrGraceMs) : 0;
+    }
+
+    _isWhatsappQrGraceActive() {
+        return !!(this.whatsappQrGraceUntil && Date.now() < this.whatsappQrGraceUntil);
+    }
+
+    _shouldDelayWhatsappQrRender(data = null) {
+        if (!this.savedWhatsappDeviceId) {
+            return false;
+        }
+
+        if (this.isPaired || (data && data.loggedIn)) {
+            return false;
+        }
+
+        return this._isWhatsappQrGraceActive();
+    }
+
     setWhatsappModalStatus(message, whiteText = false) {
         const statusDiv = document.getElementById('wa-status');
         if (statusDiv) {
@@ -1082,6 +1105,7 @@ class ConnectorsTab {
         try {
             // Try to rehydrate stored device information from the encrypted per-user DB.
             await this._loadSavedWhatsappDeviceInfo();
+            this._armWhatsappQrGracePeriod();
 
             const data = await this.refreshWhatsappPairButton({ start: true, check: true, requestGeneration });
 
@@ -1790,7 +1814,13 @@ class ConnectorsTab {
                     // bundled gateway is still starting, attempt to fetch a
                     // server-cached QR image directly. The server will return
                     // cached image bytes even when the gateway API is transient.
-                    this.setWhatsappModalPhase('starting', 'Server starting, please wait...');
+                    const startupWaitMessage = this._shouldDelayWhatsappQrRender()
+                        ? 'Recovering WhatsApp session, please wait...'
+                        : 'Server starting, please wait...';
+                    this.setWhatsappModalPhase('starting', startupWaitMessage);
+                    if (this._shouldDelayWhatsappQrRender()) {
+                        return;
+                    }
                     try {
                         const qrContainer = document.getElementById('wa-qr-container');
                         const proxyUrl = '/api/whatsapp/qr-image?ts=' + Date.now();
@@ -1871,6 +1901,10 @@ class ConnectorsTab {
                 // Use the server proxy for absolute gateway URLs to avoid
                 // mixed-content/CORS problems when the frontend is served over HTTPS.
                 if (qrUrl) {
+                    if (this._shouldDelayWhatsappQrRender(data)) {
+                        this.setWhatsappModalPhase('starting', 'Recovering WhatsApp session, please wait...');
+                        return;
+                    }
                     this.setWhatsappModalPhase('qr');
                     const currentQr = qrUrl;
                     const isNewQr = currentQr !== this.lastQrDataUrl;
