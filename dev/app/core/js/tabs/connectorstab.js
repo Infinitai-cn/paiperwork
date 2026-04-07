@@ -849,6 +849,15 @@ class ConnectorsTab {
         }
     }
 
+    setWhatsappModalActivitySpinner(isVisible) {
+        const spinnerWrap = document.getElementById('wa-starting-spinner');
+        if (!spinnerWrap) {
+            return;
+        }
+
+        spinnerWrap.style.display = isVisible ? 'flex' : 'none';
+    }
+
     setWhatsappModalPhase(phase, statusMessage = '') {
         const normalized = phase === 'qr' ? 'qr' : 'starting';
         const desiredStartingMessage = statusMessage || 'Server starting, please wait...';
@@ -857,6 +866,7 @@ class ConnectorsTab {
         // Keep starting-phase UI stable during poll ticks: only update text.
         if (normalized === 'starting' && currentPhase === 'starting') {
             this.setWhatsappModalStatus(desiredStartingMessage);
+            this.setWhatsappModalActivitySpinner(true);
             return;
         }
 
@@ -870,6 +880,7 @@ class ConnectorsTab {
 
         if (normalized === 'starting') {
             this.setWhatsappModalStartStatus(false);
+            this.setWhatsappModalActivitySpinner(true);
             if (titleEl) {
                 titleEl.style.display = 'none';
             }
@@ -899,6 +910,7 @@ class ConnectorsTab {
             titleEl.style.display = 'block';
         }
         this.setWhatsappModalStartStatus(false);
+        this.setWhatsappModalActivitySpinner(false);
         if (qrLegend) {
             qrLegend.style.display = 'block';
             qrLegend.innerHTML = 'Scan this QR code in WhatsApp.<br><span style="font-size:12px;color:var(--wa-modal-muted, #6d7784);">Phone: Settings > Linked devices > Link a device</span>';
@@ -1616,6 +1628,9 @@ class ConnectorsTab {
                 <div id="wa-qr-container" style="text-align: center; margin-top: 16px; margin-bottom: 16px;"></div>
                 <div id="wa-qr-legend" style="text-align: center; font-size: 13px; color: var(--wa-modal-status-color, #4d4d4d); margin-top: 4px; margin-bottom: 8px; display: none;"></div>
                 <div id="wa-status" style="text-align: center; font-size: 14px; color: var(--wa-modal-status-color, #666);"></div>
+                <div id="wa-starting-spinner" style="display: none; justify-content: center; align-items: center; margin-top: 10px; margin-bottom: 2px;">
+                    <div class="wa-loading-spinner" style="width: 22px; height: 22px; border: 3px solid var(--wa-modal-spinner-track, #c4c4c4); border-top-color: var(--wa-modal-spinner-accent, #0b74de); border-top-left-radius: 50%; border-radius: 50%; animation: wa-spin 0.9s linear infinite;"></div>
+                </div>
                 <div id="wa-session-restore-status" style="text-align: center; font-size: 12px; color: var(--wa-modal-muted, #7a7a7a); margin-top: 6px; min-height: 16px; display: none;"></div>
                 <div id="wa-qr-countdown" style="text-align: center; font-size: 13px; color: var(--wa-modal-status-color, #4d4d4d); margin-top: 6px; min-height: 18px; display: none;"></div>
                 <div id="wa-qr-refresh-note" style="text-align: center; font-size: 13px; color: var(--wa-modal-link, #007bff); margin-top: 8px; min-height: 18px; visibility: hidden; opacity: 0; transition: opacity 0.25s;"></div>
