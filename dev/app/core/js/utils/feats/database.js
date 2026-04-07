@@ -5589,7 +5589,7 @@ class PaiperworkDB {
         }
     }
     // Deletes a user/assistant message pair from the conversation history.
-    static async deleteConversationPair(hashedMasterKey, userContent, assistantContent) {
+    static async deleteConversationPair(hashedMasterKey, userContent, assistantContent, options = null) {
        //console.log('🗑️ Enhanced deletion of conversation pair with multi-strategy matching');
 
         try {
@@ -5614,9 +5614,67 @@ class PaiperworkDB {
 
            //console.log(`🔍 Found ${conversationsResult[0].values.length} conversations to check`);
 
+            const requestedConversationGroup = Number.isFinite(Number(options?.conversationGroup))
+                ? Number(options.conversationGroup)
+                : null;
+            const requirePair = Boolean(options?.requirePair);
+
+            const scoreUserMessageMatch = (msg, targetUserContent) => {
+                if (!targetUserContent) return 0;
+
+                if (msg.content === targetUserContent || msg.jsonTextContent === targetUserContent) {
+                    return 400;
+                }
+
+                if (
+                    targetUserContent.includes(msg.content) ||
+                    msg.content.includes(targetUserContent) ||
+                    (msg.jsonTextContent && (
+                        targetUserContent.includes(msg.jsonTextContent) ||
+                        msg.jsonTextContent.includes(targetUserContent)
+                    ))
+                ) {
+                    return 250;
+                }
+
+                const targetWords = targetUserContent.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+                const contentToCheck = (msg.jsonTextContent || msg.content || '').toLowerCase();
+                const msgWords = contentToCheck.split(/\s+/).filter(w => w.length > 2);
+                if (targetWords.length === 0 || msgWords.length === 0) {
+                    return 0;
+                }
+
+                const intersection = targetWords.filter(word => msgWords.includes(word));
+                const score = intersection.length / Math.min(targetWords.length, msgWords.length);
+                return score >= 0.5 ? Math.round(score * 100) : 0;
+            };
+
+            const scoreAssistantMessageMatch = (msg, targetAssistantContent) => {
+                if (!targetAssistantContent) return 0;
+
+                if (msg.content === targetAssistantContent) {
+                    return 400;
+                }
+
+                if (targetAssistantContent.includes(msg.content) || msg.content.includes(targetAssistantContent)) {
+                    return 250;
+                }
+
+                const targetWords = targetAssistantContent.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+                const msgWords = (msg.content || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
+                if (targetWords.length === 0 || msgWords.length === 0) {
+                    return 0;
+                }
+
+                const intersection = targetWords.filter(word => msgWords.includes(word));
+                const score = intersection.length / Math.min(targetWords.length, msgWords.length);
+                return score >= 0.3 ? Math.round(score * 100) : 0;
+            };
+
             // Separate user and assistant messages with enhanced content extraction
             const userMessages = [];
             const assistantMessages = [];
+            const orderedMessages = [];
 
             for (const [rowid, encryptedConversation, encryptedRole, encryptedTimestamp, conversationGroup] of conversationsResult[0].values) {
                 try {
@@ -5641,14 +5699,16 @@ class PaiperworkDB {
                             // Not JSON, use text as-is
                         }
 
-                        userMessages.push({
+                        const userMessage = {
                             rowid,
                             content: cleanContent,
                             jsonTextContent,
                             rawContent,
                             timestamp: decryptedTimestamp,
                             conversationGroup: conversationGroup || 1
-                        });
+                        };
+                        userMessages.push(userMessage);
+                        orderedMessages.push({ role: 'user', ...userMessage });
                     } else if (decryptedRole === "assistant") {
                         // For assistant messages, clean up HTML/markdown for comparison
                         let cleanAssistantContent = cleanContent;
@@ -5662,13 +5722,15 @@ class PaiperworkDB {
                             // Keep original if HTML parsing fails
                         }
 
-                        assistantMessages.push({
+                        const assistantMessage = {
                             rowid,
                             content: cleanAssistantContent.trim(),
                             rawContent,
                             timestamp: decryptedTimestamp,
                             conversationGroup: conversationGroup || 1
-                        });
+                        };
+                        assistantMessages.push(assistantMessage);
+                        orderedMessages.push({ role: 'assistant', ...assistantMessage });
                     }
                 } catch (err) {
                     console.error('❌ Error decrypting message:', err);
@@ -5677,19 +5739,90 @@ class PaiperworkDB {
 
            //console.log(`📊 Parsed messages - Users: ${userMessages.length}, Assistants: ${assistantMessages.length}`);
 
+            const scopedUserMessages = requestedConversationGroup == null
+                ? userMessages
+                : userMessages.filter(msg => msg.conversationGroup === requestedConversationGroup);
+            const scopedAssistantMessages = requestedConversationGroup == null
+                ? assistantMessages
+                : assistantMessages.filter(msg => msg.conversationGroup === requestedConversationGroup);
+            const scopedOrderedMessages = requestedConversationGroup == null
+                ? orderedMessages
+                : orderedMessages.filter(msg => msg.conversationGroup === requestedConversationGroup);
+
+            const rowsToDelete = new Set();
+
+            if (requirePair && userContent && assistantContent) {
+                const targetUserContent = userContent.trim();
+                const targetAssistantContent = assistantContent.trim();
+                let bestPair = null;
+
+                for (let index = 0; index < scopedOrderedMessages.length; index++) {
+                    const currentMessage = scopedOrderedMessages[index];
+                    if (currentMessage.role !== 'user') {
+                        continue;
+                    }
+
+                    const userScore = scoreUserMessageMatch(currentMessage, targetUserContent);
+                    if (!userScore) {
+                        continue;
+                    }
+
+                    let pairedAssistant = null;
+                    for (let nextIndex = index + 1; nextIndex < scopedOrderedMessages.length; nextIndex++) {
+                        const nextMessage = scopedOrderedMessages[nextIndex];
+                        if (nextMessage.conversationGroup !== currentMessage.conversationGroup) {
+                            continue;
+                        }
+                        if (nextMessage.role === 'user') {
+                            break;
+                        }
+                        if (nextMessage.role === 'assistant') {
+                            pairedAssistant = nextMessage;
+                            break;
+                        }
+                    }
+
+                    if (!pairedAssistant) {
+                        continue;
+                    }
+
+                    const assistantScore = scoreAssistantMessageMatch(pairedAssistant, targetAssistantContent);
+                    if (!assistantScore) {
+                        continue;
+                    }
+
+                    const pairScore = (userScore * 1000) + assistantScore;
+                    if (!bestPair || pairScore > bestPair.score) {
+                        bestPair = {
+                            user: currentMessage,
+                            assistant: pairedAssistant,
+                            score: pairScore
+                        };
+                    }
+                }
+
+                if (!bestPair) {
+                    console.warn('⚠️ No exact message pair match found in the current conversation group');
+                    return false;
+                }
+
+                rowsToDelete.add(bestPair.user.rowid);
+                rowsToDelete.add(bestPair.assistant.rowid);
+            }
+
             //  ENHANCED: Multi-strategy user message matching
             let bestUserMatch = null;
-            if (userContent && userContent.trim()) {
+            if (!rowsToDelete.size && userContent && userContent.trim()) {
                 const targetUserContent = userContent.trim();
                //console.log(`🎯 Looking for user message: "${targetUserContent.substring(0, 50)}..."`);
 
                 // Strategy 1: Exact text match
-                bestUserMatch = userMessages.find(msg => msg.content === targetUserContent);
+                bestUserMatch = scopedUserMessages.find(msg => msg.content === targetUserContent);
                 if (bestUserMatch) //console.log('✅ User match: Exact text match');
 
                 // Strategy 2: JSON text content match (for messages with images)
                 if (!bestUserMatch) {
-                    bestUserMatch = userMessages.find(msg =>
+                    bestUserMatch = scopedUserMessages.find(msg =>
                         msg.jsonTextContent && msg.jsonTextContent === targetUserContent
                     );
                    //if (bestUserMatch) //console.log('✅ User match: JSON text content match');
@@ -5697,7 +5830,7 @@ class PaiperworkDB {
 
                 // Strategy 3: Content inclusion (either direction)
                 if (!bestUserMatch) {
-                    bestUserMatch = userMessages.find(msg =>
+                    bestUserMatch = scopedUserMessages.find(msg =>
                         targetUserContent.includes(msg.content) ||
                         msg.content.includes(targetUserContent) ||
                         (msg.jsonTextContent && (targetUserContent.includes(msg.jsonTextContent) || msg.jsonTextContent.includes(targetUserContent)))
@@ -5710,18 +5843,11 @@ class PaiperworkDB {
                     const targetWords = targetUserContent.toLowerCase().split(/\s+/).filter(w => w.length > 2);
                     let bestScore = 0;
 
-                    for (const msg of userMessages) {
-                        const contentToCheck = msg.jsonTextContent || msg.content;
-                        const msgWords = contentToCheck.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-
-                        if (targetWords.length > 0 && msgWords.length > 0) {
-                            const intersection = targetWords.filter(word => msgWords.includes(word));
-                            const score = intersection.length / Math.min(targetWords.length, msgWords.length);
-
-                            if (score > bestScore && score >= 0.5) {
-                                bestScore = score;
-                                bestUserMatch = msg;
-                            }
+                    for (const msg of scopedUserMessages) {
+                        const score = scoreUserMessageMatch(msg, targetUserContent);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestUserMatch = msg;
                         }
                     }
                    //if (bestUserMatch) //console.log(`✅ User match: Fuzzy match (${(bestScore * 100).toFixed(1)}% similarity)`);
@@ -5730,17 +5856,17 @@ class PaiperworkDB {
 
             //  ENHANCED: Multi-strategy assistant message matching
             let bestAssistantMatch = null;
-            if (assistantContent && assistantContent.trim()) {
+            if (!rowsToDelete.size && assistantContent && assistantContent.trim()) {
                 const targetAssistantContent = assistantContent.trim();
                //console.log(`🎯 Looking for assistant message: "${targetAssistantContent.substring(0, 50)}..."`);
 
                 // Strategy 1: Exact text match
-                bestAssistantMatch = assistantMessages.find(msg => msg.content === targetAssistantContent);
+                bestAssistantMatch = scopedAssistantMessages.find(msg => msg.content === targetAssistantContent);
                //if (bestAssistantMatch) console.log('✅ Assistant match: Exact text match');
 
                 // Strategy 2: Content inclusion (either direction)
                 if (!bestAssistantMatch) {
-                    bestAssistantMatch = assistantMessages.find(msg =>
+                    bestAssistantMatch = scopedAssistantMessages.find(msg =>
                         targetAssistantContent.includes(msg.content) || msg.content.includes(targetAssistantContent)
                     );
                    //if (bestAssistantMatch) console.log('✅ Assistant match: Content inclusion match');
@@ -5751,27 +5877,18 @@ class PaiperworkDB {
                     const targetWords = targetAssistantContent.toLowerCase().split(/\s+/).filter(w => w.length > 2);
                     let bestScore = 0;
 
-                    for (const msg of assistantMessages) {
-                        const msgWords = msg.content.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-
-                        if (targetWords.length > 0 && msgWords.length > 0) {
-                            const intersection = targetWords.filter(word => msgWords.includes(word));
-                            const score = intersection.length / Math.min(targetWords.length, msgWords.length);
-
-                            if (score > bestScore && score >= 0.3) { // Lower threshold for assistant content
-                                bestScore = score;
-                                bestAssistantMatch = msg;
-                            }
+                    for (const msg of scopedAssistantMessages) {
+                        const score = scoreAssistantMessageMatch(msg, targetAssistantContent);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestAssistantMatch = msg;
                         }
                     }
                    //if (bestAssistantMatch) console.log(`✅ Assistant match: Fuzzy match (${(bestScore * 100).toFixed(1)}% similarity)`);
                 }
             }
 
-            //  ENHANCED: Smart pairing with conversation group awareness
-            const rowsToDelete = new Set();
-
-            if (bestUserMatch) {
+            if (!rowsToDelete.size && bestUserMatch) {
                //console.log(`✅ Found user message to delete (Group ${bestUserMatch.conversationGroup}): "${bestUserMatch.content.substring(0, 50)}..."`);
                 rowsToDelete.add(bestUserMatch.rowid);
 
@@ -5780,7 +5897,7 @@ class PaiperworkDB {
                     const userTime = new Date(bestUserMatch.timestamp).getTime();
 
                     // Look for assistant message in same group that came after this user message
-                    const candidateAssistants = assistantMessages.filter(msg =>
+                    const candidateAssistants = scopedAssistantMessages.filter(msg =>
                         msg.conversationGroup === bestUserMatch.conversationGroup
                     );
 
@@ -5804,7 +5921,7 @@ class PaiperworkDB {
                 }
             }
 
-            if (bestAssistantMatch) {
+            if (!rowsToDelete.size && bestAssistantMatch) {
                //console.log(`✅ Found assistant message to delete (Group ${bestAssistantMatch.conversationGroup}): "${bestAssistantMatch.content.substring(0, 50)}..."`);
                 rowsToDelete.add(bestAssistantMatch.rowid);
 
@@ -5813,7 +5930,7 @@ class PaiperworkDB {
                     const assistantTime = new Date(bestAssistantMatch.timestamp).getTime();
 
                     // Look for user message in same group that came before this assistant message
-                    const candidateUsers = userMessages.filter(msg =>
+                    const candidateUsers = scopedUserMessages.filter(msg =>
                         msg.conversationGroup === bestAssistantMatch.conversationGroup
                     );
 
