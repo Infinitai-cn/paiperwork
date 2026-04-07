@@ -3258,26 +3258,15 @@ class Chat {
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             if (hashedMasterKey && (userContent || assistantContent)) {
                 try {
-                    // Try multiple deletion strategies
-                    let deletionSuccess = false;
-
-                    // Strategy 1: Try with both user and assistant content
-                    if (userContent && assistantContent) {
-                       //console.log('Trying deletion with both user and assistant content');
-                        deletionSuccess = await PaiperworkDB.deleteConversationPair(hashedMasterKey, userContent, assistantContent);
-                    }
-
-                    // Strategy 2: If that failed, try with just user content
-                    if (!deletionSuccess && userContent) {
-                       //console.log('Trying deletion with user content only');
-                        deletionSuccess = await PaiperworkDB.deleteConversationPair(hashedMasterKey, userContent, null);
-                    }
-
-                    // Strategy 3: If that failed, try with just assistant content
-                    if (!deletionSuccess && assistantContent) {
-                       //console.log('Trying deletion with assistant content only');
-                        deletionSuccess = await PaiperworkDB.deleteConversationPair(hashedMasterKey, null, assistantContent);
-                    }
+                    const deletionSuccess = await PaiperworkDB.deleteConversationPair(
+                        hashedMasterKey,
+                        userContent,
+                        assistantContent,
+                        {
+                            conversationGroup: window.currentConversationGroup || null,
+                            requirePair: Boolean(userContent && assistantContent)
+                        }
+                    );
 
                     if (!deletionSuccess) {
                         throw new Error('Database deletion failed with all strategies');

@@ -1324,6 +1324,8 @@ class ChatTab {
                     // Find the first user message for preview
                     let previewMessage = '';
                     let actualTimestamp = null;
+                    let assistantFallbackPreview = '';
+                    let assistantFallbackTimestamp = null;
 
                     for (const conv of groupConversations) {
                         try {
@@ -1347,6 +1349,21 @@ class ChatTab {
                                 actualTimestamp = new Date(decryptedTimestamp).getTime();
                                 break; // Use first user message
                             }
+
+                            if (!assistantFallbackPreview && decryptedRole === 'assistant') {
+                                const decryptedMessage = await PaiperworkDB.decrypt(
+                                    hashedMasterKey,
+                                    JSON.parse(conv.conversation)
+                                );
+
+                                const decryptedTimestamp = await PaiperworkDB.decrypt(
+                                    hashedMasterKey,
+                                    JSON.parse(conv.timestamp)
+                                );
+
+                                assistantFallbackPreview = this.createSessionPreview(decryptedMessage);
+                                assistantFallbackTimestamp = new Date(decryptedTimestamp).getTime();
+                            }
                         } catch (decryptError) {
                             console.error(`ChatTab: Error decrypting conversation in group ${group.id}:`, decryptError);
                             continue;
@@ -1354,8 +1371,14 @@ class ChatTab {
                     }
 
                     if (!previewMessage) {
+                        if (assistantFallbackPreview) {
+                            console.warn(`ChatTab: No valid user message found for group ${group.id}, using assistant preview fallback`);
+                            previewMessage = assistantFallbackPreview;
+                            actualTimestamp = assistantFallbackTimestamp;
+                        } else {
                         console.warn(`ChatTab: No valid user message found for group ${group.id}`);
                         continue;
+                        }
                     }
 
                     // Create session object
