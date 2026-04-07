@@ -27,7 +27,7 @@ These incredible tools enable us to deliver an offline-first experience while ma
 
 ## Why Paiperwork?
 
-**Runs on Consumer Hardware** - We tested it with Core i3 laptops with 16GB of RAM on CPU mode (Qwen3 1.7b) and it performed well, so Paiperwork is good for not-so-powerful consumer hardware.
+**Runs on Consumer Hardware** - We tested it with Core i3 laptops with 16GB of RAM on CPU mode (Qwen3 1.7b) and it performed well, so Paiperwork is good for not-so-powerful consumer hardware, you have the option to run Ollama cloud models for a more powerful experience.
 
 **Truly Portable** - Nothing to install, it's a portable app. Simply download and run.
 
