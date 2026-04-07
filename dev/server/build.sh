@@ -41,11 +41,19 @@ if ! command -v go &> /dev/null; then
     exit 1
 fi
 
+MODULE_FILE=$(go env GOMOD 2>/dev/null)
+MODULE_DIR=""
+if [ -n "$MODULE_FILE" ] && [ "$MODULE_FILE" != "/dev/null" ]; then
+    MODULE_DIR="$(dirname "$MODULE_FILE")"
+fi
+
 # Check and download dependencies
 echo "📦 Checking dependencies..."
-if [ -f "go.mod" ]; then
-    echo "  Found go.mod, downloading dependencies..."
-    go mod download
+if [ -n "$MODULE_DIR" ] && [ -f "$MODULE_DIR/go.mod" ]; then
+    echo "  Found go.mod at $MODULE_DIR, downloading dependencies..."
+    (
+        cd "$MODULE_DIR" && go mod download
+    )
     if [ $? -ne 0 ]; then
         echo "  ❌ Failed to download dependencies"
         exit 1
