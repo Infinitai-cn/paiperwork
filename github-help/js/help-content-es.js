@@ -23,13 +23,29 @@ window.helpContent = {
             <li>Acceder a tu historial de conversaciones usando una Clave Maestra ingresada previamente</li>
             <li>Verificar actualizaciones del programa</li>
             <li>Acceder a la documentación de ayuda</li>
+
+                <h4>Editar la lista de modelos Thinking</h4>
+                <p>Usa el botón <strong>Editar la lista de modelos Thinking</strong> en la pestaña Models para controlar qué modelos muestran el botón thinking en la pestaña Chat.</p>
+                <ul>
+                    <li>El botón abre la lista <code>thinkingmodels.js</code></li>
+                    <li>Agrega o elimina nombres de modelos dentro de <code>window.THINKING_MODELS</code></li>
+                    <li>Guarda la lista para actualizar el soporte thinking inmediatamente sin reiniciar la aplicación</li>
+                </ul>
+
+                <h4>Editar la lista de modelos Visual</h4>
+                <p>Usa el botón <strong>Editar la lista de modelos Visual</strong> en la pestaña Models para controlar qué modelos habilitan la carga de imágenes y otras funciones visuales en la pestaña Chat.</p>
+                <ul>
+                    <li>El botón abre la lista <code>visualmodels.js</code></li>
+                    <li>Agrega o elimina identificadores de modelos dentro de <code>window.VISUAL_MODELS</code></li>
+                    <li>Guarda la lista para actualizar la detección de modelos visuales inmediatamente sin reiniciar la aplicación</li>
+                </ul>
         </ul>
         
         <div class="note">
             <p><strong>Importante:</strong> La Clave Maestra que ingreses cumple dos propósitos críticos:</p>
             <ul>
                 <li>Puede crear entornos de trabajo separados (Usando diferentes Claves Maestras)</li>
-                <li>Actúa como tu clave de cifrado para almacenar datos de conversación de forma segura (tus datos se almacenarán localmente en el almacenamiento de tu navegador en forma de base de datos). Nunca se enviarán datos fuera de tu sistema excepto consultas de búsqueda cuando el botón web se active para búsquedas web o la función de Investigación (enviando una consulta de búsqueda web al motor de búsqueda Bing de Microsoft) o consultas/descargas de modelos Ollama. No se recopila telemetría. Ten en cuenta que si cambias tu navegador, no habrá base de datos previa en él, así que comenzarás desde cero.</li>
+                    <li>Guarda el archivo para aplicar los cambios inmediatamente sin reiniciar la aplicación</li>
             </ul>
             <p>Para acceder a una conversación anterior, debes ingresar la <em>misma Clave Maestra exacta</em> (sensible a mayúsculas) que usaste al crearla.</p>
         </div>
@@ -109,66 +125,7 @@ window.helpContent = {
                 imageCaption:
                     "Ingresa tu Clave maestra y haz clic en Comenzar para iniciar una nueva sesión de chat",
             },
-            {
-                id: "gs-password-protection",
-                title: "Función de Contraseña de Protección",
-                content: `
-                <p>Paiperwork incluye una función opcional de contraseña de protección que agrega una capa extra de seguridad contra la eliminación accidental de datos para tus bases de datos almacenadas.</p>
-                
-                <h4>¿Qué es la Contraseña de Protección?</h4>
-                <p>La contraseña de protección es una función de seguridad que:</p>
-                <ul>
-                    <li>Previene la eliminación accidental de todos tus datos y conversaciones</li>
-                    <li>Requiere verificación de contraseña antes de realizar la acción "Eliminar Toda la Información"</li>
-                    <li>Es completamente opcional - puedes elegir si configurar una (solo requerida para eliminar toda la información de la base de datos)</li>
-                    <li>Se almacena de forma segura usando cifrado con hash basado en sal</li>
-                </ul>
-                
-                <h4>Configurando la Contraseña de Protección</h4>
-                <p>Cuando intentas eliminar toda la información por primera vez:</p>
-                <ol>
-                    <li>Haz clic en el botón "Eliminar Toda la Información" en la pantalla de bienvenida</li>
-                    <li>Si no existe contraseña de protección, se te pedirá configurar una</li>
-                    <li>Elige si configurar una contraseña de protección o saltar esta función (solo cierra esta ventana)</li>
-                    <li>Si eliges configurar: ingresa una contraseña (mínimo 6 caracteres) y confírmala</li>
-                    <li>La contraseña se cifrará de forma segura y se almacenará localmente</li>
-                </ol>
-                
-                <h4>Usando la Contraseña de Protección</h4>
-                <p>Una vez que se establece una contraseña de protección:</p>
-                <ul>
-                    <li>Cualquier intento de eliminar toda la información requerirá verificación de contraseña</li>
-                    <li>Ingresa tu contraseña de protección en el diálogo de verificación</li>
-                    <li>Solo con la contraseña correcta puedes proceder con la eliminación</li>
-                    <li>La verificación de contraseña incluye una opción "Restablecer Contraseña" si necesitas cambiarla</li>
-                </ul>
-                
-                <h4>Restableciendo tu Contraseña de Protección</h4>
-                <p>Si necesitas cambiar tu contraseña de protección:</p>
-                <ol>
-                    <li>Intenta eliminar toda la información para abrir el diálogo de verificación de contraseña</li>
-                    <li>Ingresa tu contraseña actual en el campo de entrada</li>
-                    <li>Haz clic en el botón "Restablecer Contraseña"</li>
-                    <li>Si tu contraseña actual es correcta, serás guiado para establecer una nueva contraseña</li>
-                </ol>
-                
-                <h4>Detalles de Seguridad</h4>
-                <ul>
-                    <li><strong>Cifrado</strong> - Las contraseñas se hashean usando SHA-256 con sales únicas</li>
-                    <li><strong>Almacenamiento Local</strong> - Las contraseñas de protección se almacenan solo en tu dispositivo</li>
-                    <li><strong>Sin Recuperación</strong> - Si olvidas tu contraseña de protección, no puedes recuperarla</li>
-                    <li><strong>Función Opcional</strong> - Puedes saltar la configuración de una contraseña de protección si prefieres (solo requerida para eliminar toda la información de la base de datos)</li>
-                </ul>
-                
-                <div class="note">
-                    <p><strong>Importante:</strong> La contraseña de protección está diseñada para prevenir eliminación accidental. Si olvidas tu contraseña de protección, no hay método de recuperación (necesitarás eliminar el almacenamiento local de tu navegador para localhost para comenzar limpio, perdiendo toda tu información almacenada para Paiperwork). Elige una contraseña que recordarás pero que sea diferente de opciones fáciles de adivinar.</p>
-                </div>
-            `,
-                image: "protection_password.png",
-                imageAlt: "Configuración de Contraseña de Protección",
-                imageCaption: "El diálogo de configuración de contraseña de protección para asegurar la eliminación de datos",
-            },
-        ],
+            ],
     },
 
     chat: {
@@ -2597,7 +2554,7 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Importante:</strong> Después de modificar el archivo modelparameters.js, necesitas reiniciar la aplicación para que los cambios tengan efecto.</p>
+                    <p><strong>Importante:</strong> Después de guardar los cambios en el editor de modelos, la configuración cargada se actualiza automáticamente.</p>
                 </div>
                 `,
                 image: "models_configuration.png",
@@ -2827,6 +2784,14 @@ window.helpContent = {
                 <ul>
                     <li><strong>Exportar Base de Datos</strong> - Crea un archivo de copia completo llamado <code>Paiperwork-Backup.pwdb</code></li>
                     <li><strong>Importar Base de Datos</strong> - Restaura ese archivo en su almacenamiento local actual</li>
+                <h4>Uso de los botones de la base de datos</h4>
+                <p>Utilice los botones en la parte superior de la pestaña Base de Datos de la siguiente manera:</p>
+                <ol>
+                    <li>Haga clic en "Exportar Base de Datos" para descargar un archivo de copia completa.</li>
+                    <li>Haga clic en "Importar Base de Datos" para seleccionar un archivo de copia y restaurarlo. Esto reemplaza su base de datos local actual.</li>
+                    <li>Haga clic en "Eliminar toda la información" para borrar permanentemente todas las conversaciones, documentos y configuraciones almacenadas, y volver a la pantalla de bienvenida.</li>
+                </ol>
+
                 </ul>
 
                 <h4>Que Incluye la Copia</h4>
@@ -2951,12 +2916,12 @@ window.helpContent = {
                 
                 <h4>Último Recurso: Reinicio de Base de Datos</h4>
                 <p>Si ocurren problemas persistentes y el mantenimiento normal no ayuda:</p>
-                <ol>
+                                <ol>
                     <li>Exporta cualquier conversación o documento importante primero</li>
-                    <li>Regresa a la pantalla de bienvenida</li>
-                    <li>Haz clic en "Eliminar Toda la Información" para reiniciar la base de datos</li>
-                    <li>Esto eliminará todos los datos y creará una base de datos nueva</li>
+                    <li>Haz clic en "Eliminar Toda la Información" para eliminar la base de datos</li>
+                    <li>Esto eliminará todos los datos y creará una base de datos nueva, ahora puedes intentar importar tu base de datos guardada</li>
                 </ol>
+                <p>puedes usar esta función para eliminar de forma segura toda tu información del navegador si la necesitas</p>
                 
                 <div class="note">
                     <p><strong>Advertencia:</strong> El reinicio de base de datos es irreversible y eliminará todos tus datos. Siempre exporta información importante primero.</p>

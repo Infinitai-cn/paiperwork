@@ -19,4 +19,5 @@ window.VISUAL_MODELS = [
     'qwen3.5:35b-a3b',
     'qwen3.5:35b',
     'qwen3.5:397b',
+    'gemma4:26b-a4b-it-q8_0',
 ];

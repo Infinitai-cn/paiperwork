@@ -22,13 +22,29 @@ window.helpContent = {
             <li>Acessar seu histórico de conversas usando uma Chave Mestra previamente inserida</li>
             <li>Verificar atualizações do programa</li>
             <li>Acessar a documentação de ajuda</li>
+
+                <h4>Editar lista de modelos Thinking</h4>
+                <p>Use o botão <strong>Editar lista de modelos Thinking</strong> na aba Models para controlar quais modelos exibem o botão thinking na aba Chat.</p>
+                <ul>
+                    <li>O botão abre a lista <code>thinkingmodels.js</code></li>
+                    <li>Adicione ou remova nomes de modelos dentro de <code>window.THINKING_MODELS</code></li>
+                    <li>Salve a lista para atualizar o suporte a thinking imediatamente sem reiniciar o aplicativo</li>
+                </ul>
+
+                <h4>Editar lista de modelos Visuais</h4>
+                <p>Use o botão <strong>Editar lista de modelos Visuais</strong> na aba Models para controlar quais modelos habilitam upload de imagens e outros recursos visuais na aba Chat.</p>
+                <ul>
+                    <li>O botão abre a lista <code>visualmodels.js</code></li>
+                    <li>Adicione ou remova identificadores de modelos dentro de <code>window.VISUAL_MODELS</code></li>
+                    <li>Salve a lista para atualizar a detecção de modelos visuais imediatamente sem reiniciar o aplicativo</li>
+                </ul>
         </ul>
         
         <div class="note">
             <p><strong>Importante:</strong> A Chave Mestra que você insere serve a dois propósitos críticos:</p>
             <ul>
                 <li>Pode criar ambientes de trabalho separados (Usando diferentes Chaves Mestras)</li>
-                <li>Atua como sua chave de criptografia para armazenar dados de conversa com segurança (seus dados serão armazenados localmente no armazenamento do seu navegador na forma de um banco de dados). Nenhum dado será enviado para fora do seu sistema, exceto prompts de pesquisa quando o botão web for ativado para pesquisas web ou a função de Pesquisa (enviando uma consulta de pesquisa web para o mecanismo de busca Bing da Microsoft) ou consulta/download de modelos Ollama. Nenhuma telemetria é coletada. Note que se você mudar seu navegador, não haverá banco de dados anterior nele, então você começará do zero.</li>
+                    <li>Salve o arquivo para aplicar as mudanças imediatamente sem reiniciar a aplicação</li>
             </ul>
             <p>Para acessar uma conversa anterior, você deve inserir a <em>exata mesma Chave Mestra</em> (diferencia maiúsculas e minúsculas) que você usou ao criá-la.</p>
         </div>
@@ -106,66 +122,7 @@ window.helpContent = {
                 imageAlt: "Iniciando uma nova conversa",
                 imageCaption: "Digite sua Chave Mestra e clique em Iniciar para começar uma nova sessão de chat",
             },
-            {
-                id: "gs-password-protection",
-                title: "Recurso de Senha de Proteção",
-                content: `
-                <p>O Paiperwork inclui um recurso opcional de senha de proteção que adiciona uma camada extra de segurança contra exclusão acidental de dados para seus bancos de dados armazenados.</p>
-                
-                <h4>O que é a Senha de Proteção?</h4>
-                <p>A senha de proteção é um recurso de segurança que:</p>
-                <ul>
-                    <li>Previne exclusão acidental de todos os seus dados e conversas</li>
-                    <li>Requer verificação de senha antes de executar a ação "Deletar Todas as Informações"</li>
-                    <li>É completamente opcional - você pode escolher se quer configurar uma (necessária apenas para deletar todas as informações do banco de dados)</li>
-                    <li>É armazenada com segurança usando criptografia com hash baseado em salt</li>
-                </ul>
-                
-                <h4>Configurando a Senha de Proteção</h4>
-                <p>Quando você primeiro tentar deletar todas as informações:</p>
-                <ol>
-                    <li>Clique no botão "Deletar Todas as Informações" na tela de boas-vindas</li>
-                    <li>Se nenhuma senha de proteção existir, você será solicitado a configurar uma</li>
-                    <li>Escolha se quer configurar uma senha de proteção ou pular este recurso (apenas feche esta janela)</li>
-                    <li>Se você escolher configurar: digite uma senha (mínimo 6 caracteres) e confirme</li>
-                    <li>A senha será criptografada com segurança e armazenada localmente</li>
-                </ol>
-                
-                <h4>Usando a Senha de Proteção</h4>
-                <p>Uma vez que uma senha de proteção seja definida:</p>
-                <ul>
-                    <li>Qualquer tentativa de deletar todas as informações exigirá verificação de senha</li>
-                    <li>Digite sua senha de proteção no diálogo de verificação</li>
-                    <li>Apenas com a senha correta você pode prosseguir com a exclusão</li>
-                    <li>A verificação de senha inclui uma opção "Redefinir Senha" se você precisar mudá-la</li>
-                </ul>
-                
-                <h4>Redefinindo Sua Senha de Proteção</h4>
-                <p>Se você precisar mudar sua senha de proteção:</p>
-                <ol>
-                    <li>Tente deletar todas as informações para abrir o diálogo de verificação de senha</li>
-                    <li>Digite sua senha atual no campo de entrada</li>
-                    <li>Clique no botão "Redefinir Senha"</li>
-                    <li>Se sua senha atual estiver correta, você será guiado através da configuração de uma nova senha</li>
-                </ol>
-                
-                <h4>Detalhes de Segurança</h4>
-                <ul>
-                    <li><strong>Criptografia</strong> - Senhas são hash usando SHA-256 com salts únicos</li>
-                    <li><strong>Armazenamento Local</strong> - Senhas de proteção são armazenadas apenas no seu dispositivo</li>
-                    <li><strong>Sem Recuperação</strong> - Se você esquecer sua senha de proteção, não pode recuperá-la</li>
-                    <li><strong>Recurso Opcional</strong> - Você pode pular a configuração de uma senha de proteção se preferir (necessária apenas para deletar todas as informações do banco de dados)</li>
-                </ul>
-                
-                <div class="note">
-                    <p><strong>Importante:</strong> A senha de proteção é projetada para prevenir exclusão acidental. Se você esquecer sua senha de proteção, não há método de recuperação (você precisará deletar o armazenamento local do seu navegador para localhost para começar limpo, perdendo todas as suas informações armazenadas para o Paiperwork). Escolha uma senha que você lembrará mas que seja diferente de opções facilmente adivinhadas.</p>
-                </div>
-            `,
-                image: "protection_password.png",
-                imageAlt: "Configuração de Senha de Proteção",
-                imageCaption: "O diálogo de configuração de senha de proteção para proteger exclusão de dados",
-            },
-        ],
+            ],
     },
     chat: {
         title: "Chat",
@@ -2580,7 +2537,7 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Importante:</strong> Após modificar o arquivo modelparameters.js, você precisa reiniciar a aplicação para que as mudanças tenham efeito.</p>
+                    <p><strong>Importante:</strong> Após salvar as alterações no editor de modelos, a configuração carregada é atualizada automaticamente.</p>
                 </div>
                 `,
                 image: "models_configuration.png",
@@ -2810,6 +2767,14 @@ window.helpContent = {
                 <ul>
                     <li><strong>Exportar Base de Dados</strong> - Cria um ficheiro de backup completo chamado <code>Paiperwork-Backup.pwdb</code></li>
                     <li><strong>Importar Base de Dados</strong> - Restaura esse ficheiro no seu armazenamento local atual</li>
+                <h4>Uso dos botões do banco de dados</h4>
+                <p>Use os botões na parte superior da aba Base de Dados da seguinte forma:</p>
+                <ol>
+                    <li>Clique em "Exportar Base de Dados" para baixar um arquivo de backup completo.</li>
+                    <li>Clique em "Importar Base de Dados" para selecionar um arquivo de backup e restaurá-lo. Isso substitui seu banco de dados local atual.</li>
+                    <li>Clique em "Excluir todas as informações" para remover permanentemente todas as conversas, documentos e configurações armazenadas e retornar à tela de boas-vindas.</li>
+                </ol>
+
                 </ul>
 
                 <h4>O que o backup inclui</h4>
@@ -2934,12 +2899,12 @@ window.helpContent = {
                 
                 <h4>Último Recurso: Reset da Base de Dados</h4>
                 <p>Se problemas persistentes ocorrem e a manutenção normal não ajuda:</p>
-                <ol>
+                                <ol>
                     <li>Exporte primeiro quaisquer conversas ou documentos importantes</li>
-                    <li>Regresse ao ecrã de boas-vindas</li>
-                    <li>Clique "Eliminar Toda a Informação" para reiniciar a base de dados</li>
-                    <li>Isto removerá todos os dados e criará uma base de dados nova</li>
+                    <li>Clique em "Eliminar Toda a Informação" para eliminar a base de dados</li>
+                    <li>Isto removerá todos os dados e criará uma base de dados nova, agora você pode tentar importar a sua base de dados salva</li>
                 </ol>
+                <p>você pode usar esta função para excluir com segurança todas as suas informações do navegador se precisar</p>
                 
                 <div class="note">
                     <p><strong>Aviso:</strong> O reset da base de dados é irreversível e eliminará todos os seus dados. Exporte sempre informação importante primeiro.</p>

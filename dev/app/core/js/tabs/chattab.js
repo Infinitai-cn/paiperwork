@@ -1545,10 +1545,18 @@ class ChatTab {
                                //console.log('IMAGES DEBUG: Setting img.src from string:', img.substring(0, 30) + '...');
                                 imgEl.src = img;
                                 imgEl.dataset.fullImage = img;
+                                if (img.startsWith('data:image/')) {
+                                    imgEl.dataset.imageData = img;
+                                    imgEl.setAttribute('data-image-data', img);
+                                }
                             } else if (img && typeof img === 'object') {
                                //console.log('IMAGES DEBUG: Setting img.src from object:', img);
-                                imgEl.src = img.src || img.thumbnail || '';
-                                imgEl.dataset.fullImage = img.src || img.thumbnail || '';
+                                imgEl.src = img.src || img.thumbnail || img.dataUrl || '';
+                                imgEl.dataset.fullImage = img.fullImage || img.src || img.thumbnail || img.dataUrl || '';
+                                if (img.dataUrl) {
+                                    imgEl.dataset.imageData = img.dataUrl;
+                                    imgEl.setAttribute('data-image-data', img.dataUrl);
+                                }
                             } else {
                                //console.log('IMAGES DEBUG: Invalid image data:', img);
                             }
@@ -1613,6 +1621,10 @@ class ChatTab {
                         messageDiv.innerHTML = `${messageContent}<br>`;
                     }
 
+                    if (window.chat && typeof window.chat.addCopyActionToUserMessage === 'function') {
+                        window.chat.addCopyActionToUserMessage(messageDiv);
+                    }
+
                     // Add to conversations array for continue button
                     conversationsForContinue.push({
                         role: 'user',
@@ -1622,6 +1634,10 @@ class ChatTab {
                     });
 
                 } else {
+                    if (typeof conv.message === 'string' && conv.message.includes('whatsapp-thread-bootstrap')) {
+                        return;
+                    }
+
                     // CRITICAL: Don't manipulate the HTML in any way
                     // Simply set the innerHTML directly from the loaded conversation
                     const container = document.createElement('div');
@@ -2115,6 +2131,7 @@ class ChatTab {
         try {
             // Get the database
             const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+            const attachmentDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'images', true);
             if (!db) {
                 console.error(`ChatTab: Database not found for masterkey: ${hashedMasterKey}`);
                 return false;
@@ -2125,8 +2142,15 @@ class ChatTab {
             // Delete all messages with this group ID
             db.exec(`DELETE FROM conversations_${hashedMasterKey} WHERE conversation_group = ?`, [groupId]);
 
+            if (attachmentDb && typeof PaiperworkDB.deleteConversationAttachmentsByGroup === 'function') {
+                await PaiperworkDB.deleteConversationAttachmentsByGroup(attachmentDb, hashedMasterKey, groupId);
+            }
+
             // Save changes to IndexedDB
             await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
+            if (attachmentDb) {
+                await PaiperworkDB.saveToStorage(attachmentDb.export(), hashedMasterKey, 'images');
+            }
 
             return true;
         } catch (error) {
@@ -2172,8 +2196,6 @@ class ChatTab {
         // Check if the selected model is a visual model
         const isVisual = OllamaAPI.isVisualModel(modelName);
        //console.log('ChatTab: Model is visual:', isVisual, modelName);
-        OllamaAPI.maxImagesUsed = 0;
-       //console.log('ChatTab: Reset maxImagesUsed to 0 due to model change');
 
         // Check if the model is Gemma3 for multi-image support
         const isGemma3 = modelName.toLowerCase().includes('gemma3');
@@ -2186,6 +2208,8 @@ class ChatTab {
             window.cleanedImageBase64 = null;
             window.selectedImages = [];
             window.cleanedImageBase64Array = [];
+            window.selectedImagePayload = null;
+            window.selectedImagePayloads = [];
         } else {
             // Initialize multi-image arrays if needed for Gemma3
             window.selectedImages = window.selectedImages || [];
@@ -2380,6 +2404,8 @@ class ChatTab {
                     // Reset the state for single image mode
                     window.selectedImage = null;
                     window.cleanedImageBase64 = null;
+                    window.selectedImagePayload = null;
+                    window.selectedImagePayloads = [];
                     const previewImage = imageModal.querySelector('#preview-image');
                     if (previewImage) previewImage.src = '';
                 }
@@ -2389,6 +2415,14 @@ class ChatTab {
 
                 const reader = new FileReader();
                 reader.onload = (e) => {
+                    const imagePayload = {
+                        originalBlob: file,
+                        fileName: file.name || '',
+                        mimeType: file.type || 'application/octet-stream',
+                        byteSize: file.size || 0,
+                        dataUrl: e.target.result
+                    };
+
                     // Show preview containers
                     const uploadPlaceholder = imageModal.querySelector('.upload-placeholder');
                     const imagePreview = imageModal.querySelector('.image-preview');
@@ -2408,6 +2442,7 @@ class ChatTab {
                         if (!appendMode) {
                             window.selectedImages = [];
                             window.cleanedImageBase64Array = [];
+                            window.selectedImagePayloads = [];
                         }
                         window.selectedImages.push(e.target.result);
 
@@ -2417,6 +2452,7 @@ class ChatTab {
                             base64Image = base64Image.split('base64,')[1];
                         }
                         window.cleanedImageBase64Array.push(base64Image);
+                        window.selectedImagePayloads.push(imagePayload);
 
                         // Update the grid of images
                         updateMultiImageGridRef();
@@ -2424,6 +2460,7 @@ class ChatTab {
                         // Single image mode
                         window.selectedImage = e.target.result;
                         window.cleanedImageBase64 = null; // Reset cleaned base64
+                        window.selectedImagePayload = imagePayload;
 
                         // Show preview
                         const previewImage = imageModal.querySelector('#preview-image');
@@ -2473,6 +2510,8 @@ class ChatTab {
                     // Clear all images
                     window.selectedImages = [];
                     window.cleanedImageBase64Array = [];
+                    window.selectedImagePayloads = [];
+                    window.selectedImagePayload = null;
 
                     // CRITICAL FIX: Replace the file input to ensure change event can fire again
                     const oldFileInput = document.getElementById('image-upload');
@@ -2508,6 +2547,7 @@ class ChatTab {
             imageModal.querySelector('.remove-image').addEventListener('click', () => {
                 window.selectedImage = null;
                 window.cleanedImageBase64 = null; // Clear stored cleaned base64 too
+                window.selectedImagePayload = null;
 
                 // CRITICAL FIX: Create a new file input element to replace the old one
                 // This ensures the change event will fire even if the same file is selected again
@@ -3080,6 +3120,9 @@ class ChatTab {
             removeBtn.addEventListener('click', () => {
                 window.selectedImages.splice(index, 1);
                 window.cleanedImageBase64Array.splice(index, 1);
+                if (Array.isArray(window.selectedImagePayloads)) {
+                    window.selectedImagePayloads.splice(index, 1);
+                }
                 this.updateMultiImageGrid(); // Use this method directly
             });
 
@@ -3116,6 +3159,7 @@ class ChatTab {
 
         // Store the selected image in sessionStorage
         window.selectedImage = null;
+        window.selectedImagePayload = null;
 
         // Handle file selection
         // In the setupImageUploadHandlers method, add quality information:
@@ -3143,6 +3187,13 @@ class ChatTab {
             reader.onload = (e) => {
                 // Store base64 image data
                 window.selectedImage = e.target.result;
+                window.selectedImagePayload = {
+                    originalBlob: file,
+                    fileName: file.name || '',
+                    mimeType: file.type || 'application/octet-stream',
+                    byteSize: file.size || 0,
+                    dataUrl: e.target.result
+                };
 
                 // Show preview
                 previewImage.src = e.target.result;
@@ -3179,6 +3230,7 @@ class ChatTab {
         // Handle image removal
         removeImageBtn.addEventListener('click', () => {
             window.selectedImage = null;
+            window.selectedImagePayload = null;
             imageUpload.value = '';
             uploadPlaceholder.style.display = 'block';
             imagePreview.style.display = 'none';
@@ -3238,7 +3290,6 @@ class ChatTab {
                 OllamaAPI.previousContext = null;
                 OllamaAPI.resetContext();
                 OllamaAPI.previousConversations = [];
-                OllamaAPI.maxImagesUsed = 0;
                 OllamaAPI.lastUsedImages = [];
                 window.imagesUnderTheHood = false;
 
@@ -5368,11 +5419,7 @@ class ChatTab {
         manageButton.className = deleteButton.className || 'primary-button';
         manageButton.innerHTML = `<i class="fa-solid fa-key"></i> ${Lang.get('manageCloudApiKey') || 'Manage Cloud API key'}`;
 
-        if (deleteButton.nextSibling) {
-            deleteButton.parentNode.insertBefore(manageButton, deleteButton.nextSibling);
-        } else {
-            deleteButton.parentNode.appendChild(manageButton);
-        }
+        deleteButton.parentNode.insertBefore(manageButton, deleteButton);
 
         manageButton.addEventListener('click', async () => {
             try {

@@ -757,7 +757,7 @@ async function handleFiles(files) {
 
         await new Promise(resolve => setTimeout(resolve, 300));
         // Update the documents list
-        await updateDocumentsList(true);
+        await refreshDocumentAndDatabaseViews(true);
 
         documentProcessingState.isProcessing = wasProcessing;
 
@@ -799,7 +799,7 @@ async function handleFiles(files) {
         setTimeout(async () => {
             if (document.querySelector('.tab-button[data-tab="documents-tab"].active')) {
                //console.log('Documents tab still active, doing final refresh');
-                await updateDocumentsList(true);
+                await refreshDocumentAndDatabaseViews(true);
             }
         }, 2500);
     }
@@ -1110,7 +1110,7 @@ async function updateDocumentsList(forceReload = false) {
                                 }
 
                                 // Refresh the document list to reflect the deletion
-                                updateDocumentsList(true);
+                                await refreshDocumentAndDatabaseViews(true);
                                 showNotification(Lang.get('ragDeleteSuccess'));
                             } else {
                                 // Restore button state if deletion failed
@@ -1142,6 +1142,18 @@ async function updateDocumentsList(forceReload = false) {
         <p>${Lang.get('ragLoadingError', { error: error.message })}</p>
     </div>
 `;
+    }
+}
+
+async function refreshDocumentAndDatabaseViews(forceReload = true) {
+    await updateDocumentsList(forceReload);
+
+    if (window.databaseTab && typeof window.databaseTab.refreshDatabaseStats === 'function') {
+        try {
+            await window.databaseTab.refreshDatabaseStats();
+        } catch (error) {
+            console.warn('RAG_Utils: Could not refresh database stats after document mutation:', error);
+        }
     }
 }
 
@@ -1252,18 +1264,16 @@ function addSelectionPanel(documentsList, documents) {
 }
 
 // Update the enableDocumentQuestioningMode function to handle UI positioning properly
-function enableDocumentQuestioningMode(documentId) {
+async function enableDocumentQuestioningMode(documentId, options = { force: false }) {
     //console.debug('[documents_tab] enableDocumentQuestioningMode called for documentId:', documentId);
 
-    // Ensure the Documents tab is currently active - only allow document mode from Documents tab
+    // If Documents tab isn't active, show a gentle notification but still enable mode for programmatic flows (e.g., WhatsApp).
     try {
         const activeTab = document.querySelector('.tab-button.active')?.getAttribute('data-tab') || document.querySelector('.tab-button[data-tab="documents"].active')?.getAttribute('data-tab');
-        if (activeTab !== 'documents' && activeTab !== 'documents-tab') {
-            showNotification(Lang.get('ragDocumentModeOnlyOnDocuments') || 'Document mode can only be enabled from the Documents tab.');
-            return;
+        if (activeTab !== 'documents' && activeTab !== 'documents-tab' && !options.force) {
+            showNotification(Lang.get('ragDocumentModeOnlyOnDocuments') || 'Document mode is recommended from the Documents tab, but will still be enabled.');
         }
     } catch (err) {
-        // If any error occurs while checking tab state, log but continue - we'll still attempt to enable
         console.error('Could not determine active tab when enabling document questioning mode:', err);
     }
 
@@ -1271,148 +1281,521 @@ function enableDocumentQuestioningMode(documentId) {
     const activeDocumentId = localStorage.getItem('ragQuestioningDocumentId');
     if (activeDocumentId === documentId) {
         //console.debug('[documents_tab] enableDocumentQuestioningMode - already active for this document:', documentId);
-        return;
+        return true;
     }
 
     // If we're in document mode for a different document, exit it first
     if (activeDocumentId) {
-        exitDocumentQuestioningMode();
+        try { exitDocumentQuestioningMode(); } catch (_) {}
     }
 
-    // Use a self-executing async function to handle the async operations
-    (async () => {
-        try {
-            // Get the masterkey hash
-            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-            if (!hashedMasterKey) {
-                console.error('No masterkey hash found in localStorage');
-                return;
-            }
-
-            // Get database connection
-            const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-            if (!db) {
-                console.error('Could not connect to database');
-                return;
-            }
-
-            // Query the document info
-            const result = db.exec(`
-                SELECT document_name
-                FROM documents_${hashedMasterKey}
-                WHERE document_id = ?
-            `, [documentId]);
-
-            // Check if document was found
-            if (!result || result.length === 0 || !result[0].values || !result[0].values.length === 0) {
-                console.error('Document not found in database:', documentId);
-                return;
-            }
-
-            // Decrypt the document name
-            const encName = result[0].values[0][0];
-            const docName = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encName));
-
-            // Store document info for chat (encrypt the document name)
-            try {
-                localStorage.setItem('ragQuestioningDocumentId', documentId);
-                await PaiperworkDB.secureLocalStorageSet('ragQuestioningDocumentName', docName);
-            } catch (err) {
-                // Fallback to plain localStorage if secure storage fails
-                console.error('Could not securely store ragQuestioningDocumentName, falling back to plain localStorage', err);
-                localStorage.setItem('ragQuestioningDocumentId', documentId);
-                localStorage.setItem('ragQuestioningDocumentName', docName);
-            }
-
-            // Ensure document mode styles are available
-            addDocumentModeStyles();
-
-            // Add a notification explaining the mode
-            setTimeout(() => {
-                showNotification(
-                    `${Lang.get('ragDocumentModeEnabled') || 'Document questioning mode enabled.'} 
-            ${Lang.get('ragDocumentModePriority') || 'This will take priority even when in Documents tab.'}`
-                );
-            }, 500);
-            // Disable the "Ask Questions" button for this document until document mode is exited
-            // This prevents users from enabling document mode multiple times for the same document
-            const askDocumentButton = document.getElementById('ask-document');
-            if (askDocumentButton) {
-                askDocumentButton.disabled = true;
-                askDocumentButton.textContent = Lang.get('ragDocumentModeEnabled');
-                askDocumentButton.style.opacity = '0.6';
-                askDocumentButton.style.cursor = 'not-allowed';
-            }
-
-            // Add a visual highlight to the Chat tab to guide the user
-            const chatTab = document.querySelector('.tab-button[data-tab="chat"]');
-            if (chatTab) {
-                chatTab.classList.add('highlight-tab');
-                setTimeout(() => {
-                    chatTab.classList.remove('highlight-tab');
-                }, 3000);
-            }
-
-            // Find the chat interface where we'll add the green bar
-            const chatContainer = document.querySelector('.chat-container');
-            const progressBar = document.getElementById('progress-bar');
-
-            if (chatContainer) {
-                // Add class to chat container to reposition other elements
-                document.body.classList.add('document-questioning-active');
-
-                // Create the document questioning indicator
-                const indicator = document.createElement('div');
-                indicator.className = 'document-questioning-indicator';
-                indicator.id = 'document-mode-indicator';
-
-                indicator.innerHTML = `
-                    <div class="document-questioning-info">
-                        <div class="mode-indicator document-mode">
-                            <span class="mode-icon">📄</span>
-                            <span class="mode-label">${Lang.get('ragDocumentModeLabel')}</span>
-                        </div>
-                        <div class="document-details">
-                            <span class="document-name" title="${docName}">${Lang.get('ragDocumentModeAsking', { document: docName })}</span>
-                            <button class="exit-questioning">${Lang.get('ragDocumentModeExit')}</button>
-                        </div>
-                    </div>
-                `;
-                // Insert right after the progress bar
-                if (progressBar && progressBar.nextSibling) {
-                    chatContainer.insertBefore(indicator, progressBar.nextSibling);
-                } else {
-                    chatContainer.insertBefore(indicator, chatContainer.firstChild);
-                }
-
-                // Add event listener to exit button
-                indicator.querySelector('.exit-questioning').addEventListener('click', () => {
-                    exitDocumentQuestioningMode();
-                });
-
-                // Update input placeholder if it exists
-                const promptInput = document.getElementById('prompt-input');
-                if (promptInput) {
-                    const originalPlaceholder = promptInput.getAttribute('data-original-placeholder') ||
-                        promptInput.getAttribute('placeholder') ||
-                        Lang.get('ragPromptDefault');
-
-                    // Save original placeholder if not already saved
-                    if (!promptInput.getAttribute('data-original-placeholder')) {
-                        promptInput.setAttribute('data-original-placeholder', originalPlaceholder);
-                    }
-
-                    // Update placeholder
-                    promptInput.setAttribute('placeholder', Lang.get('ragDocumentModePlaceholder', { document: docName }));
-                }
-            }
-
-        } catch (error) {
-            console.error('Error enabling document questioning mode:', error);
-            showNotification(Lang.get('ragEnableError'));
+    try {
+        // Get the masterkey hash
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+        if (!hashedMasterKey) {
+            console.error('No masterkey hash found in localStorage');
+            return false;
         }
-    })();
 
+        // Get database connection
+        const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+        if (!db) {
+            console.error('Could not connect to database');
+            return false;
+        }
+
+        // Query the document info
+        const result = db.exec(`
+            SELECT document_name
+            FROM documents_${hashedMasterKey}
+            WHERE document_id = ?
+        `, [documentId]);
+
+        // Check if document was found
+        if (!result || result.length === 0 || !result[0].values || result[0].values.length === 0) {
+            console.error('Document not found in database:', documentId);
+            return false;
+        }
+
+        // Decrypt the document name
+        const encName = result[0].values[0][0];
+        const docName = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encName));
+
+        // Store document info for chat (encrypt the document name)
+        try {
+            localStorage.setItem('ragQuestioningDocumentId', documentId);
+            await PaiperworkDB.secureLocalStorageSet('ragQuestioningDocumentName', docName);
+        } catch (err) {
+            // Fallback to plain localStorage if secure storage fails
+            console.error('Could not securely store ragQuestioningDocumentName, falling back to plain localStorage', err);
+            localStorage.setItem('ragQuestioningDocumentId', documentId);
+            localStorage.setItem('ragQuestioningDocumentName', docName);
+        }
+
+        // Ensure document mode styles are available
+        addDocumentModeStyles();
+
+        // Add a notification explaining the mode
+        setTimeout(() => {
+            showNotification(
+                `${Lang.get('ragDocumentModeEnabled') || 'Document questioning mode enabled.'} 
+        ${Lang.get('ragDocumentModePriority') || 'This will take priority even when in Documents tab.'}`
+            );
+        }, 500);
+
+        // Disable the "Ask Questions" button for this document until document mode is exited
+        const askDocumentButton = document.getElementById('ask-document');
+        if (askDocumentButton) {
+            askDocumentButton.disabled = true;
+            askDocumentButton.textContent = Lang.get('ragDocumentModeEnabled');
+            askDocumentButton.style.opacity = '0.6';
+            askDocumentButton.style.cursor = 'not-allowed';
+        }
+
+        // Add a visual highlight to the Chat tab to guide the user
+        const chatTab = document.querySelector('.tab-button[data-tab="chat"]');
+        if (chatTab) {
+            chatTab.classList.add('highlight-tab');
+            setTimeout(() => {
+                chatTab.classList.remove('highlight-tab');
+            }, 3000);
+        }
+
+        // Find the chat interface where we'll add the green bar
+        const chatContainer = document.querySelector('.chat-container');
+        const progressBar = document.getElementById('progress-bar');
+
+        if (chatContainer) {
+            // Add class to chat container to reposition other elements
+            document.body.classList.add('document-questioning-active');
+
+            // Create the document questioning indicator
+            const indicator = document.createElement('div');
+            indicator.className = 'document-questioning-indicator';
+            indicator.id = 'document-mode-indicator';
+
+            indicator.innerHTML = `
+                <div class="document-questioning-info">
+                    <div class="mode-indicator document-mode">
+                        <span class="mode-icon">📄</span>
+                        <span class="mode-label">${Lang.get('ragDocumentModeLabel')}</span>
+                    </div>
+                    <div class="document-details">
+                        <span class="document-name" title="${docName}">${Lang.get('ragDocumentModeAsking', { document: docName })}</span>
+                        <button class="exit-questioning">${Lang.get('ragDocumentModeExit')}</button>
+                    </div>
+                </div>
+            `;
+            // Insert right after the progress bar
+            if (progressBar && progressBar.nextSibling) {
+                chatContainer.insertBefore(indicator, progressBar.nextSibling);
+            } else {
+                chatContainer.insertBefore(indicator, chatContainer.firstChild);
+            }
+
+            // Add event listener to exit button
+            indicator.querySelector('.exit-questioning').addEventListener('click', () => {
+                exitDocumentQuestioningMode();
+            });
+
+            // Update input placeholder if it exists
+            const promptInput = document.getElementById('prompt-input');
+            if (promptInput) {
+                const originalPlaceholder = promptInput.getAttribute('data-original-placeholder') ||
+                    promptInput.getAttribute('placeholder') ||
+                    Lang.get('ragPromptDefault');
+
+                // Save original placeholder if not already saved
+                if (!promptInput.getAttribute('data-original-placeholder')) {
+                    promptInput.setAttribute('data-original-placeholder', originalPlaceholder);
+                }
+
+                // Update placeholder
+                promptInput.setAttribute('placeholder', Lang.get('ragDocumentModePlaceholder', { document: docName }));
+            }
+        }
+
+            // Wait until the document questioning indicator is present and visible before returning,
+            // so callers (like WhatsApp flows) can confidently send a confirmation after UI is updated.
+            try {
+                const waitUntilVisible = async (selector, timeoutMs = 800) => {
+                    const deadline = Date.now() + timeoutMs;
+                    while (Date.now() < deadline) {
+                        const el = document.querySelector(selector);
+                        if (el && document.body.contains(el) && el.offsetParent !== null) return true;
+                        await new Promise(r => setTimeout(r, 50));
+                    }
+                    return !!document.querySelector(selector);
+                };
+                await waitUntilVisible('.document-questioning-indicator', 800);
+            } catch (e) {
+                console.warn('enableDocumentQuestioningMode: waiting for indicator failed', e);
+            }
+
+            return true;
+    } catch (error) {
+        console.error('Error enabling document questioning mode:', error);
+        showNotification(Lang.get('ragEnableError'));
+        return false;
+    }
+}
+
+function normalizeDocumentIntentText(text) {
+    return String(text || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\u00C0-\u017F\u3040-\u30FF\u3400-\u9FFF\uF900-\uFAFF\uAC00-\uD7AF]+/gi, ' ')
+        .trim();
+}
+
+function getDocumentIntentKeymap() {
+    const keymap = window.Keymaps && window.Keymaps.document;
+    if (Array.isArray(keymap)) {
+        return {
+            nouns: keymap,
+            actions: {},
+            questionStarters: [],
+            terms: keymap,
+            generalChat: []
+        };
+    }
+
+    return keymap || {
+        nouns: [],
+        actions: {},
+        questionStarters: [],
+        terms: [],
+        generalChat: []
+    };
+}
+
+function getDocumentIntentKeymapTokens(...paths) {
+    const keymap = getDocumentIntentKeymap();
+    const collected = [];
+
+    for (const path of paths) {
+        const segments = String(path || '').split('.').filter(Boolean);
+        let value = keymap;
+        for (const segment of segments) {
+            value = value && value[segment];
+        }
+        if (Array.isArray(value)) {
+            collected.push(...value);
+        }
+    }
+
+    return [...new Set(collected.map(token => normalizeDocumentIntentText(token)).filter(Boolean))];
+}
+
+function textContainsAnyDocumentIntentToken(text, tokens = []) {
+    const normalizedText = normalizeDocumentIntentText(text);
+    if (!normalizedText) {
+        return false;
+    }
+
+    return tokens.some(token => token && normalizedText.includes(token));
+}
+
+function stripDocumentIntentTokens(text, tokens = []) {
+    let normalizedText = normalizeDocumentIntentText(text);
+    const uniqueTokens = [...new Set(tokens.filter(Boolean))].sort((left, right) => right.length - left.length);
+
+    for (const token of uniqueTokens) {
+        normalizedText = normalizedText.replace(new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ' ');
+    }
+
+    return normalizedText.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeDocumentConversationScopeKey(scopeKey = 'ui') {
+    const normalized = String(scopeKey || 'ui').trim();
+    return normalized || 'ui';
+}
+
+function getDocumentConversationScopeStore() {
+    if (!window.__documentConversationScopes) {
+        window.__documentConversationScopes = {};
+    }
+    return window.__documentConversationScopes;
+}
+
+function getActiveDocumentConversation(scopeKey = 'ui') {
+    const normalizedScopeKey = normalizeDocumentConversationScopeKey(scopeKey);
+    if (normalizedScopeKey === 'ui') {
+        return {
+            documentId: String(localStorage.getItem('ragQuestioningDocumentId') || '').trim() || null,
+            documentName: String(localStorage.getItem('ragQuestioningDocumentName') || '').trim() || null
+        };
+    }
+
+    const store = getDocumentConversationScopeStore();
+    const scope = store[normalizedScopeKey] || {};
+    return scope.active || null;
+}
+
+function getPendingDocumentConversationSelection(scopeKey = 'ui') {
+    const normalizedScopeKey = normalizeDocumentConversationScopeKey(scopeKey);
+    if (normalizedScopeKey === 'ui') {
+        return null;
+    }
+
+    const store = getDocumentConversationScopeStore();
+    const scope = store[normalizedScopeKey] || {};
+    return scope.pending || null;
+}
+
+function setPendingDocumentConversationSelection(scopeKey = 'ui', documentInfo = null) {
+    const normalizedScopeKey = normalizeDocumentConversationScopeKey(scopeKey);
+    if (normalizedScopeKey === 'ui') {
+        return null;
+    }
+
+    const store = getDocumentConversationScopeStore();
+    const scope = store[normalizedScopeKey] || {};
+    if (!documentInfo || !documentInfo.id) {
+        delete scope.pending;
+    } else {
+        scope.pending = {
+            id: String(documentInfo.id).trim(),
+            name: String(documentInfo.name || '').trim()
+        };
+    }
+    store[normalizedScopeKey] = scope;
+    return scope.pending || null;
+}
+
+function clearPendingDocumentConversationSelection(scopeKey = 'ui') {
+    return setPendingDocumentConversationSelection(scopeKey, null);
+}
+
+async function activateDocumentConversationScope(scopeKey = 'ui', documentInfo = null, options = { force: false }) {
+    const normalizedScopeKey = normalizeDocumentConversationScopeKey(scopeKey);
+    const documentId = String(documentInfo?.documentId || documentInfo?.id || '').trim();
+    const documentName = String(documentInfo?.documentName || documentInfo?.name || '').trim();
+
+    if (!documentId) {
+        return false;
+    }
+
+    if (normalizedScopeKey === 'ui') {
+        return enableDocumentQuestioningMode(documentId, options);
+    }
+
+    const store = getDocumentConversationScopeStore();
+    const scope = store[normalizedScopeKey] || {};
+    scope.active = {
+        documentId,
+        documentName: documentName || null
+    };
+    delete scope.pending;
+    store[normalizedScopeKey] = scope;
+    return true;
+}
+
+function exitDocumentConversationScope(scopeKey = 'ui') {
+    const normalizedScopeKey = normalizeDocumentConversationScopeKey(scopeKey);
+    if (normalizedScopeKey === 'ui') {
+        exitDocumentQuestioningMode();
+        return true;
+    }
+
+    const store = getDocumentConversationScopeStore();
+    if (store[normalizedScopeKey]) {
+        delete store[normalizedScopeKey].active;
+        delete store[normalizedScopeKey].pending;
+        if (!Object.keys(store[normalizedScopeKey]).length) {
+            delete store[normalizedScopeKey];
+        }
+    }
+    return true;
+}
+
+async function detectDocumentQuestionIntent(prompt, options = {}) {
+    const rawPrompt = String(prompt || '').trim();
+    if (!rawPrompt) {
+        return null;
+    }
+
+    const normalizedPrompt = normalizeDocumentIntentText(rawPrompt);
+    if (!normalizedPrompt) {
+        return null;
+    }
+
+    const documentNouns = getDocumentIntentKeymapTokens('nouns');
+    const browseTerms = getDocumentIntentKeymapTokens('actions.browse');
+    const summaryTerms = getDocumentIntentKeymapTokens('actions.summary');
+    const questionTerms = getDocumentIntentKeymapTokens('actions.question');
+    const questionStarters = getDocumentIntentKeymapTokens('questionStarters');
+    const questionLikeTerms = [...new Set([...browseTerms, ...summaryTerms, ...questionTerms, ...questionStarters])];
+
+    if (!/[?？¿]/.test(rawPrompt) && !textContainsAnyDocumentIntentToken(rawPrompt, questionLikeTerms)) {
+        return null;
+    }
+
+    const keymapTerms = getDocumentIntentKeymapTokens('terms', 'nouns', 'actions.browse', 'actions.summary', 'actions.question');
+    const hasDocumentKeyword = keymapTerms.some(term => normalizedPrompt.includes(term));
+
+    const hashedMasterKey = options.hashedMasterKey || sessionStorage.getItem('hashedMasterKey');
+    if (!hashedMasterKey) {
+        return null;
+    }
+
+    const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+    if (!db) {
+        return null;
+    }
+
+    const result = db.exec(`SELECT document_id, document_name FROM documents_${hashedMasterKey} WHERE embedding_status = 'completed'`);
+    const rows = result?.[0]?.values || [];
+    if (!rows.length) {
+        return null;
+    }
+
+    const docs = [];
+    for (const row of rows) {
+        try {
+            const id = String(row[0] || '').trim();
+            const encName = row[1];
+            const name = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encName));
+            if (id && name) {
+                docs.push({ id, name });
+            }
+        } catch (err) {
+            console.warn('detectDocumentQuestionIntent: failed to decode document row', err);
+        }
+    }
+
+    if (!docs.length) {
+        return null;
+    }
+
+    const promptWithoutActions = stripDocumentIntentTokens(normalizedPrompt, [...summaryTerms, ...questionTerms, ...questionStarters, ...browseTerms, ...documentNouns]);
+
+    const scoreDocumentMatch = (doc, query) => {
+        const normalizedName = normalizeDocumentIntentText(doc.name);
+        const normalizedId = normalizeDocumentIntentText(doc.id);
+        const normalizedNameNoExt = normalizedName.replace(/\s+[a-z0-9]{1,6}$/i, '').trim();
+
+        let score = 0;
+        if (normalizedName === query || normalizedId === query) score = Math.max(score, 1);
+        if (normalizedNameNoExt && normalizedNameNoExt === query) score = Math.max(score, 0.98);
+        if (normalizedName.includes(query) || normalizedId.includes(query)) score = Math.max(score, 0.92);
+        if (normalizedNameNoExt && normalizedNameNoExt.includes(query)) score = Math.max(score, 0.9);
+
+        const queryTokens = new Set(query.split(/\s+/).filter(Boolean));
+        const docTokens = new Set(normalizedName.split(/\s+/).filter(Boolean));
+        const overlap = Array.from(queryTokens).filter(token => docTokens.has(token)).length;
+        if (overlap > 0) {
+            score = Math.max(score, overlap / Math.max(queryTokens.size, docTokens.size, 1));
+        }
+
+        return score;
+    };
+
+    const queriesToTry = [normalizedPrompt];
+    if (promptWithoutActions && promptWithoutActions !== normalizedPrompt) {
+        queriesToTry.push(promptWithoutActions);
+    }
+
+    let bestMatch = null;
+    let bestScore = 0;
+    for (const query of queriesToTry) {
+        if (!query) continue;
+        for (const doc of docs) {
+            const score = scoreDocumentMatch(doc, query);
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = doc;
+            }
+        }
+    }
+
+    const threshold = hasDocumentKeyword ? 0.3 : 0.45;
+    if (!bestMatch || bestScore < threshold) {
+        return null;
+    }
+
+    return {
+        documentId: bestMatch.id,
+        documentName: bestMatch.name,
+        score: bestScore,
+        hasDocumentKeyword
+    };
+}
+
+function isClearlyGeneralChatPrompt(prompt) {
+    const text = String(prompt || '').trim();
+    if (!text) {
+        return false;
+    }
+
+    const normalized = normalizeDocumentIntentText(text);
+    if (!normalized) {
+        return false;
+    }
+
+    const exitTerms = getDocumentIntentKeymapTokens('actions.exit');
+    const generalChatTerms = getDocumentIntentKeymapTokens('generalChat');
+    if (textContainsAnyDocumentIntentToken(text, exitTerms)) {
+        return true;
+    }
+
+    const generalPatterns = [
+        /\bwhat\s+(day|date|time)\b/i,
+        /\bwhat\s+is\s+today\b/i,
+        /\bweather\b|\btemperature\b|\bforecast\b/i,
+        /\bcurrent\s+(news|events?)\b|\blatest\s+(news|updates?|events?)\b/i,
+        /\bwho\s+won\b|\bscore\b.*\bgame\b/i,
+        /\btell\s+me\s+a\s+joke\b|\bjoke\b/i,
+        /\bhello\b|\bhi\b|\bhey\b|\bthanks\b|\bthank you\b/i
+    ];
+
+    return generalPatterns.some(pattern => pattern.test(text)) || textContainsAnyDocumentIntentToken(text, generalChatTerms);
+}
+
+async function resolveDocumentQuestioningAction(prompt, options = {}) {
+    const scopeKey = normalizeDocumentConversationScopeKey(options.scopeKey || 'ui');
+    const activeConversation = getActiveDocumentConversation(scopeKey);
+    const activeDocumentId = String(options.activeDocumentId || activeConversation?.documentId || '').trim();
+    const orchestratorTool = String(options.orchestratorTool || '').trim().toLowerCase();
+    const rawPrompt = String(prompt || '').trim();
+
+    if (!rawPrompt) {
+        return { action: 'none', reason: 'empty_prompt', match: null };
+    }
+
+    if (textContainsAnyDocumentIntentToken(rawPrompt, getDocumentIntentKeymapTokens('actions.exit'))) {
+        return { action: 'exit', reason: 'explicit_exit', match: null };
+    }
+
+    const detectedIntent = await detectDocumentQuestionIntent(rawPrompt, options);
+    if (detectedIntent && detectedIntent.documentId) {
+        if (activeDocumentId && detectedIntent.documentId === activeDocumentId) {
+            return { action: 'stay', reason: 'matched_active_document', match: detectedIntent };
+        }
+        return { action: activeDocumentId ? 'switch' : 'enter', reason: 'matched_document_intent', match: detectedIntent };
+    }
+
+    if (!activeDocumentId) {
+        return { action: 'none', reason: 'no_active_document', match: null };
+    }
+
+    if (isClearlyGeneralChatPrompt(rawPrompt)) {
+        return { action: 'exit', reason: 'clearly_general_chat', match: null };
+    }
+
+    if (orchestratorTool === 'document-check') {
+        return { action: 'stay', reason: 'orchestrator_document_check', match: null };
+    }
+
+    if (orchestratorTool === 'dataviz' || orchestratorTool === 'presentation') {
+        return { action: 'exit', reason: `orchestrator_${orchestratorTool}`, match: null };
+    }
+
+    if (orchestratorTool === 'chat+websearch' || orchestratorTool === 'research') {
+        return { action: 'stay', reason: `preserve_active_document_despite_${orchestratorTool}`, match: null };
+    }
+
+    return { action: 'stay', reason: 'default_document_followup', match: null };
 }
 
 // Update the exitDocumentQuestioningMode function to match
@@ -2068,11 +2451,19 @@ function addDocumentSearchStyles() {
     document.head.appendChild(styleEl);
 }
 
-async function showDocumentSummary(documentId, documentTitle, hashedMasterKey) {
+async function showDocumentSummary(documentId, documentTitle, hashedMasterKey, options = {}) {
+    console.info('[DocumentsTab][debug] showDocumentSummary called', {
+        documentId,
+        documentTitle,
+        workflow: options?.workflow || null,
+        sendToPhone: options?.sendToPhone || null,
+        suppressWhatsappSend: options?.suppressWhatsappSend === true,
+        closeAfterComplete: options?.closeAfterComplete === true
+    });
     // If a summary is already being generated, show a notification and return
     if (isSummaryGenerating) {
         showNotification(Lang.get('ragSummaryGenerating'));
-        return;
+        return null;
     }
 
     // Get the current context size setting
@@ -2092,7 +2483,7 @@ async function showDocumentSummary(documentId, documentTitle, hashedMasterKey) {
 
         if (!chunksResult || chunksResult.length === 0 || !chunksResult[0].values) {
             showNotification(Lang.get('ragSummaryNoContent'));
-            return;
+            return null;
         }
 
         // Decrypt chunk texts and calculate approximate size
@@ -2135,8 +2526,46 @@ async function showDocumentSummary(documentId, documentTitle, hashedMasterKey) {
 
        //console.log(`Document size: ${sizeInKB.toFixed(2)}KB, estimated tokens: ${estimatedTokens}, recommended context: ${recommendedContextSize}`);
 
+        const isSummaryPresentationWorkflow = options && options.workflow === 'summary-presentation';
+        console.info('[DocumentsTab][debug] showDocumentSummary context evaluation', {
+            documentId,
+            documentTitle,
+            contextSize,
+            estimatedTokens,
+            sizeInKB,
+            recommendedContextSize,
+            isSummaryPresentationWorkflow
+        });
+
         // If context is insufficient, warn the user
         if (contextSize < recommendedContextSize) {
+            if (isSummaryPresentationWorkflow) {
+                console.info('[DocumentsTab][debug] showDocumentSummary auto-adjusting context for summary-presentation workflow', {
+                    documentId,
+                    currentContextSize: contextSize,
+                    recommendedContextSize
+                });
+                const contextSelector = document.getElementById('context-selector');
+                if (contextSelector) {
+                    const availableOptions = Array.from(contextSelector.options)
+                        .map(o => parseInt(o.value, 10))
+                        .filter(value => Number.isFinite(value));
+
+                    if (availableOptions.length > 0) {
+                        const closestOption = availableOptions.reduce((prev, curr) => {
+                            return (curr >= recommendedContextSize && curr < prev) ? curr : prev;
+                        }, Infinity);
+
+                        const newValue = closestOption !== Infinity ? closestOption : Math.max(...availableOptions);
+                        contextSelector.value = String(newValue);
+                        const event = new Event('change', { bubbles: true });
+                        contextSelector.dispatchEvent(event);
+                    }
+                }
+
+                return await continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey, chunks, sizeInKB, options);
+            }
+
             // Create a custom warning notification
             const warningModal = document.createElement('div');
             warningModal.className = 'modal context-warning-modal';
@@ -2203,28 +2632,42 @@ async function showDocumentSummary(documentId, documentTitle, hashedMasterKey) {
                 document.body.removeChild(warningModal);
 
                 // Start summary generation with new context size
-                setTimeout(() => showDocumentSummary(documentId, documentTitle, hashedMasterKey), 500);
+                setTimeout(() => showDocumentSummary(documentId, documentTitle, hashedMasterKey, options), 500);
             });
 
-            document.getElementById('proceed-anyway').addEventListener('click', () => {
+            document.getElementById('proceed-anyway').addEventListener('click', async () => {
                 document.body.removeChild(warningModal);
                 // Continue with the summary process
-                continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey, chunks, sizeInKB);
+                try {
+                    await continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey, chunks, sizeInKB, options);
+                } catch (e) {
+                    console.error('Error continuing with summary after proceed-anyway:', e);
+                }
             });
 
-            return; // Stop here and wait for user decision
+            return null; // Stop here and wait for user decision
         }
 
         // If context is sufficient, continue with summary generation
-        continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey, chunks, sizeInKB);
+        return await continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey, chunks, sizeInKB, options);
     } catch (error) {
         console.error('Error checking document size:', error);
         // Continue anyway as we couldn't determine the size
-        continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey);
+        return await continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey, null, null, options);
     }
 }
 // Function to continue with summary generation after context size check
-async function continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey, preLoadedChunks = null, preCalculatedSize = null) {
+async function continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey, preLoadedChunks = null, preCalculatedSize = null, options = {}) {
+    console.info('[DocumentsTab][debug] continueWithSummaryGeneration started', {
+        documentId,
+        documentTitle,
+        workflow: options?.workflow || null,
+        sendToPhone: options?.sendToPhone || null,
+        suppressWhatsappSend: options?.suppressWhatsappSend === true,
+        closeAfterComplete: options?.closeAfterComplete === true,
+        usedPreloadedChunks: Array.isArray(preLoadedChunks),
+        preCalculatedSize: preCalculatedSize || null
+    });
     // Set the flag to indicate we're generating a summary
     isSummaryGenerating = true;
 
@@ -2330,7 +2773,7 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
             document.getElementById('document-summary-progress').style.display = 'none';
             document.getElementById('document-summary-copy').style.display = 'none';
             isSummaryGenerating = false;
-            return;
+            return null;
         }
 
         const supportsSummaryGeneration = await modelSupportsSummaryGeneration(selectedModel);
@@ -2342,7 +2785,7 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
             document.getElementById('document-summary-copy').style.display = 'none';
             showNotification(incompatibleMessage, 5000);
             isSummaryGenerating = false;
-            return;
+            return null;
         }
 
         // Use preloaded chunks if provided, otherwise fetch them
@@ -2362,7 +2805,7 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
                 document.getElementById('document-summary-progress').style.display = 'none';
                 document.getElementById('document-summary-copy').style.display = 'block';
                 isSummaryGenerating = false; // Reset the flag
-                return;
+                return null;
             }
 
             // Decrypt chunk texts
@@ -2636,6 +3079,82 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
             percent: percentUsed
         }));
 
+        // If caller requested the summary be sent back to a WhatsApp phone, do so now
+        try {
+            const shouldSendToWhatsapp = !!(
+                options &&
+                options.sendToPhone &&
+                options.suppressWhatsappSend !== true &&
+                options.workflow !== 'summary-presentation'
+            );
+            console.info('[DocumentsTab][debug] WhatsApp summary send decision', {
+                documentId,
+                documentTitle,
+                workflow: options?.workflow || null,
+                sendToPhone: options?.sendToPhone || null,
+                suppressWhatsappSend: options?.suppressWhatsappSend === true,
+                shouldSendToWhatsapp,
+                summaryLength: cleanFinalSummary ? cleanFinalSummary.length : 0
+            });
+            if (shouldSendToWhatsapp && (window.connectors && typeof window.connectors.postWhatsappText === 'function')) {
+                (async () => {
+                    try {
+                        const phone = String(options.sendToPhone).replace(/@.*$/g, '');
+                        console.info('[DocumentsTab][debug] Sending summary to WhatsApp', {
+                            documentId,
+                            documentTitle,
+                            phone
+                        });
+                        let textToSend = cleanFinalSummary || finalSummaryText || '';
+                        if (!textToSend) return;
+                        // Convert markdown links to plain text + URL so WhatsApp clients can click
+                        textToSend = textToSend.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, '$1 ($2)');
+                        // Preserve raw URLs; no change required (WhatsApp auto-links them)
+                        // Remove markdown heading and bold/italic characters to keep the WA output clean
+                        textToSend = textToSend.replace(/#+\s*/g, ' ').replace(/\*/g, '').replace(/_+/g, '').trim();
+                        // Collapse excessive blank lines
+                        textToSend = textToSend.replace(/\n{3,}/g, '\n\n').trim();
+                        const header = `🤖 Summary of "${documentTitle}":\n\n`;
+                        const MAX_CHUNK = 1500;
+                        let payload = header + textToSend;
+                        while (payload.length > 0) {
+                            let chunk = payload.slice(0, MAX_CHUNK);
+                            if (payload.length > MAX_CHUNK) {
+                                // try to cut at last newline or space to avoid breaking words
+                                const lastNl = chunk.lastIndexOf('\n');
+                                const lastSp = chunk.lastIndexOf(' ');
+                                const cutAt = Math.max(lastNl, lastSp);
+                                if (cutAt > Math.floor(MAX_CHUNK * 0.6)) {
+                                    chunk = chunk.slice(0, cutAt);
+                                }
+                            }
+                            try {
+                                await window.connectors.postWhatsappText(phone, chunk);
+                            } catch (sendErr) {
+                                console.error('Failed to send summary chunk to WhatsApp', sendErr);
+                                break;
+                            }
+                            payload = payload.slice(chunk.length).trim();
+                            // small delay between messages
+                            await new Promise(r => setTimeout(r, 200));
+                        }
+                    } catch (err) {
+                        console.error('Error sending summary to WhatsApp:', err);
+                    }
+                })();
+            }
+        } catch (e) {
+            console.error('Error in WhatsApp summary send block:', e);
+        }
+
+        // Auto-close the summary modal when requested by WhatsApp workflow usage
+        if (options && (options.sendToPhone || options.closeAfterComplete)) {
+            const summaryModal = document.getElementById('document-summary-modal');
+            if (summaryModal) {
+                summaryModal.style.display = 'none';
+            }
+        }
+
         // Update the main context indicator
         const contextLabel = document.getElementById('context-remaining-label');
         if (contextLabel) {
@@ -2650,6 +3169,8 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
                 contextLabel.style.color = 'red';
             }
         }
+
+        return cleanFinalSummary;
 
     } catch (error) {
         console.error('Error generating document summary:', error);
@@ -3464,156 +3985,7 @@ function addSelectionPanel(documentsList, documents) {
     });
 }
 
-// Enables document questioning mode for a selected document (duplicate, can be merged)
-function enableDocumentQuestioningMode(documentId) {
-   //console.log('Enabling document questioning mode for document ID:', documentId);
-
-    // Check if we're already in document mode for this document
-    const activeDocumentId = localStorage.getItem('ragQuestioningDocumentId');
-    if (activeDocumentId === documentId) {
-       //console.log('Document is already in questioning mode');
-        return;
-    }
-
-    // If we're in document mode for a different document, exit it first
-    if (activeDocumentId) {
-        exitDocumentQuestioningMode();
-    }
-
-    // Use a self-executing async function to handle the async operations
-    (async () => {
-        try {
-            // Get the masterkey hash
-            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-            if (!hashedMasterKey) {
-                console.error('No masterkey hash found in localStorage');
-                return;
-            }
-
-            // Get database connection
-            const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-            if (!db) {
-                console.error('Could not connect to database');
-                return;
-            }
-
-            // Query the document info
-            const result = db.exec(`
-                SELECT document_name
-                FROM documents_${hashedMasterKey}
-                WHERE document_id = ?
-            `, [documentId]);
-
-            // Check if document was found
-            if (!result || result.length === 0 || !result[0].values || !result[0].values.length === 0) {
-                console.error('Document not found in database:', documentId);
-                return;
-            }
-
-            // Decrypt the document name
-            const encName = result[0].values[0][0];
-            const docName = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encName));
-
-            // Store document info for chat (encrypt document name)
-            try {
-                localStorage.setItem('ragQuestioningDocumentId', documentId);
-                await PaiperworkDB.secureLocalStorageSet('ragQuestioningDocumentName', docName);
-            } catch (err) {
-                console.error('Could not securely store ragQuestioningDocumentName, falling back to plain localStorage', err);
-                localStorage.setItem('ragQuestioningDocumentId', documentId);
-                localStorage.setItem('ragQuestioningDocumentName', docName);
-            }
-
-            // Ensure document mode styles are available
-            addDocumentModeStyles();
-
-            // Add a notification explaining the mode
-            setTimeout(() => {
-                showNotification(
-                    `${Lang.get('ragDocumentModeEnabled') || 'Document questioning mode enabled.'} 
-            ${Lang.get('ragDocumentModePriority') || 'This will take priority even when in Documents tab.'}`
-                );
-            }, 500);
-            // Disable the "Ask Questions" button for this document until document mode is exited
-            // This prevents users from enabling document mode multiple times for the same document
-            const askDocumentButton = document.getElementById('ask-document');
-            if (askDocumentButton) {
-                askDocumentButton.disabled = true;
-                askDocumentButton.textContent = 'Document Mode Enabled';
-                askDocumentButton.style.opacity = '0.6';
-                askDocumentButton.style.cursor = 'not-allowed';
-            }
-
-            // Add a visual highlight to the Chat tab to guide the user
-            const chatTab = document.querySelector('.tab-button[data-tab="chat"]');
-            if (chatTab) {
-                chatTab.classList.add('highlight-tab');
-                setTimeout(() => {
-                    chatTab.classList.remove('highlight-tab');
-                }, 3000);
-            }
-
-            // Find the chat interface where we'll add the green bar
-            const chatContainer = document.querySelector('.chat-container');
-            const progressBar = document.getElementById('progress-bar');
-
-            if (chatContainer) {
-                // Add class to chat container to reposition other elements
-                document.body.classList.add('document-questioning-active');
-
-                // Create the document questioning indicator
-                const indicator = document.createElement('div');
-                indicator.className = 'document-questioning-indicator';
-                indicator.id = 'document-mode-indicator';
-
-                indicator.innerHTML = `
-                <div class="document-questioning-info">
-                    <div class="mode-indicator document-mode">
-                        <span class="mode-icon">📄</span>
-                        <span class="mode-label">${Lang.get('ragDocumentModeLabel')}</span>
-                    </div>
-                    <span class="document-name" title="${docName}">${docName}</span>
-                    <div class="document-details">
-                        <button class="exit-questioning">${Lang.get('ragDocumentModeExit')}</button>
-                    </div>
-                </div>
-            `;
-                // Insert right after the progress bar
-                if (progressBar && progressBar.nextSibling) {
-                    chatContainer.insertBefore(indicator, progressBar.nextSibling);
-                } else {
-                    chatContainer.insertBefore(indicator, chatContainer.firstChild);
-                }
-
-                // Add event listener to exit button
-                indicator.querySelector('.exit-questioning').addEventListener('click', () => {
-                    exitDocumentQuestioningMode();
-                });
-
-                // Update input placeholder if it exists
-                const promptInput = document.getElementById('prompt-input');
-                if (promptInput) {
-                    const originalPlaceholder = promptInput.getAttribute('data-original-placeholder') ||
-                        promptInput.getAttribute('placeholder') ||
-                        Lang.get('ragPromptDefault');
-
-                    // Save original placeholder if not already saved
-                    if (!promptInput.getAttribute('data-original-placeholder')) {
-                        promptInput.setAttribute('data-original-placeholder', originalPlaceholder);
-                    }
-
-                    // Update placeholder
-                    promptInput.setAttribute('placeholder', Lang.get('ragDocumentModePlaceholder', { document: docName }));
-                }
-            }
-
-        } catch (error) {
-            console.error('Error enabling document questioning mode:', error);
-            showNotification(Lang.get('ragEnableError'));
-        }
-    })();
-
-}
+// (duplicate enableDocumentQuestioningMode implementation removed; single async implementation retained above)
 
 // Exits document questioning mode and resets related UI
 function exitDocumentQuestioningMode() {
@@ -6349,6 +6721,14 @@ window.RAG_Utils = {
     initializeDocumentUI,
     updateDocumentsList,
     enableDocumentQuestioningMode,
+    detectDocumentQuestionIntent,
+    resolveDocumentQuestioningAction,
+    getActiveDocumentConversation,
+    getPendingDocumentConversationSelection,
+    setPendingDocumentConversationSelection,
+    clearPendingDocumentConversationSelection,
+    activateDocumentConversationScope,
+    exitDocumentConversationScope,
     exitDocumentQuestioningMode,
     updateDocumentQuestioningUI,
     showNotification,

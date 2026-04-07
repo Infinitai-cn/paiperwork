@@ -19,7 +19,7 @@ class DatabaseTab {
         // Load statistics (will reuse open handles when available)
         await this.refreshDatabaseStats();
 
-        if (!openState.main || !openState.rag || !openState.html || !openState.kb) {
+        if (!openState.main || !openState.rag || !openState.presentations || !openState.artifacts || !openState.kb || !openState.whatsapp) {
             console.info('DatabaseTab: One or more DB roles were not open; opened on-demand for stats.');
         }
         
@@ -56,11 +56,16 @@ class DatabaseTab {
                         </button>
                     </div>
                     <div class="action-buttons secondary-actions">
-                        <button id="export-database" class="action-button">
-                            <i class="fas fa-file-export"></i> ${Lang.get('exportDatabase') || 'Export Database'}
-                        </button>
-                        <button id="import-database" class="action-button">
-                            <i class="fas fa-file-import"></i> ${Lang.get('importDatabase') || 'Import Database'}
+                        <div class="secondary-action-row">
+                            <button id="export-database" class="action-button">
+                                <i class="fas fa-file-export"></i> ${Lang.get('exportDatabase') || 'Export Database'}
+                            </button>
+                            <button id="import-database" class="action-button">
+                                <i class="fas fa-file-import"></i> ${Lang.get('importDatabase') || 'Import Database'}
+                            </button>
+                        </div>
+                        <button id="delete-all-databases" class="action-button warning" style="background-color: #b91c1c; color: white; width: auto; min-width: 220px; text-align: center;">
+                            <i class="fas fa-trash"></i> ${Lang.get('deleteAllButton') || 'Delete All Information'}
                         </button>
                         <input id="import-database-file" type="file" accept=".pwdb,.json,.db,application/json,application/octet-stream" style="display:none" tabindex="-1" aria-hidden="true">
                     </div>
@@ -90,6 +95,43 @@ class DatabaseTab {
         document.getElementById('export-database')?.addEventListener('click', () => this.exportDatabase());
         document.getElementById('import-database')?.addEventListener('click', () => this.openImportDialog());
         document.getElementById('import-database-file')?.addEventListener('change', (event) => this.importDatabase(event));
+
+        // Delete all database content (user-level destructive action)
+        const deleteAllBtn = document.getElementById('delete-all-databases');
+        if (deleteAllBtn) {
+            deleteAllBtn.addEventListener('click', async () => {
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+                if (!hashedMasterKey) {
+                    alert(Lang.get('securityNotLoggedIn') || 'Please log in before deleting databases');
+                    return;
+                }
+
+                const confirmed = confirm(Lang.get('securityFinalDeleteWarning') || 'This will permanently delete all data. Are you sure?');
+                if (!confirmed) return;
+
+                deleteAllBtn.disabled = true;
+                const originalText = deleteAllBtn.textContent;
+                deleteAllBtn.textContent = Lang.get('securityDeleting') || 'Deleting...';
+
+                try {
+                    const ok = await PaiperworkDB.deleteAllDatabases();
+                    if (ok) {
+                        alert(Lang.get('securityDataDeletedSuccess') || 'All data deleted successfully');
+                        sessionStorage.clear();
+                        window.location.href = '../index.html';
+                    } else {
+                        alert(Lang.get('securityDeleteError') || 'Error deleting data');
+                        deleteAllBtn.disabled = false;
+                        deleteAllBtn.textContent = originalText;
+                    }
+                } catch (err) {
+                    console.error('Error deleting databases', err);
+                    alert(Lang.get('securityDeletionError') || 'Deletion failed');
+                    deleteAllBtn.disabled = false;
+                    deleteAllBtn.textContent = originalText;
+                }
+            });
+        }
         
         // Add styles
         this.addStyles();
@@ -202,18 +244,28 @@ class DatabaseTab {
                         </div>
                         <div class="db-breakdown-card">
                             <div class="db-breakdown-title">${Lang.get('presentationTab') || 'Presentations'}</div>
-                            <div class="db-breakdown-size">${breakdown.presentations?.payloadFormatted || '-'}</div>
-                            <div class="db-breakdown-meta">${Lang.get('databaseCountLabel') || 'Count'}: ${breakdown.presentations?.count || 0}</div>
+                            <div class="db-breakdown-size">${breakdown.presentations?.formatted || '-'}</div>
+                            <div class="db-breakdown-meta">${openState.presentations ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseCountLabel') || 'Count'}: ${breakdown.presentations?.count || 0}</div>
                         </div>
                         <div class="db-breakdown-card">
                             <div class="db-breakdown-title">${Lang.get('artifactsTab') || 'Artifacts'}</div>
-                            <div class="db-breakdown-size">${breakdown.artifacts?.payloadFormatted || '-'}</div>
-                            <div class="db-breakdown-meta">${Lang.get('databaseCountLabel') || 'Count'}: ${breakdown.artifacts?.count || 0}</div>
+                            <div class="db-breakdown-size">${breakdown.artifacts?.formatted || '-'}</div>
+                            <div class="db-breakdown-meta">${openState.artifacts ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseCountLabel') || 'Count'}: ${breakdown.artifacts?.count || 0}</div>
                         </div>
                         <div class="db-breakdown-card">
                             <div class="db-breakdown-title">${Lang.get('knowledgeBaseTitle') || 'Knowledge Base'}</div>
                             <div class="db-breakdown-size">${breakdown.knowledgeBase?.formatted || '-'}</div>
                             <div class="db-breakdown-meta">${openState.kb ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseCollectionsLabel') || 'Collections'}: ${breakdown.knowledgeBase?.collections || 0}</div>
+                        </div>
+                        <div class="db-breakdown-card">
+                            <div class="db-breakdown-title">${Lang.get('images') || 'Images'}</div>
+                            <div class="db-breakdown-size">${breakdown.images?.formatted || '-'}</div>
+                            <div class="db-breakdown-meta">${openState.images ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseCountLabel') || 'Count'}: ${breakdown.images?.count || 0}</div>
+                        </div>
+                        <div class="db-breakdown-card">
+                            <div class="db-breakdown-title">WhatsApp</div>
+                            <div class="db-breakdown-size">${breakdown.whatsapp?.formatted || '-'}</div>
+                            <div class="db-breakdown-meta">${openState.whatsapp ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseCountLabel') || 'Sessions'}: ${breakdown.whatsapp?.sessions || 0}</div>
                         </div>
                     </div>
                 </div>
@@ -322,6 +374,7 @@ class DatabaseTab {
         exportButton.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Exporting...';
 
         try {
+            await this.refreshDatabaseStats();
             const bundleText = await PaiperworkDB.exportDatabaseBundle(this.hashedMasterKey);
             const blob = new Blob([bundleText], { type: 'application/json' });
             const downloadUrl = URL.createObjectURL(blob);
@@ -332,6 +385,8 @@ class DatabaseTab {
             link.click();
             link.remove();
             URL.revokeObjectURL(downloadUrl);
+
+            await this.refreshDatabaseStats();
 
             this.showNotification('success', Lang.get('databaseExported') || 'Database backup exported successfully.');
         } catch (error) {
@@ -362,7 +417,7 @@ class DatabaseTab {
 
         const confirmed = confirm(
             Lang.get('importDatabaseConfirm') ||
-            'Importing a backup will replace your current local databases (main, rag, html, kb). Continue?'
+            'Importing a backup will replace your current local databases (main, rag, presentations, artifacts, kb, images, whatsapp). Continue?'
         );
         if (!confirmed) {
             return;
@@ -396,7 +451,7 @@ class DatabaseTab {
             }, 800);
         } catch (error) {
             console.error('Error importing database:', error);
-            this.showNotification('error', Lang.get('databaseImportFailed') || 'Database import failed.');
+            this.showNotification('error', error?.message || Lang.get('databaseImportFailed') || 'Database import failed.');
             importButton.innerHTML = '<i class="fas fa-file-import"></i> ' +
                 (Lang.get('importDatabase') || 'Import Database');
             importButton.disabled = false;
@@ -451,7 +506,7 @@ class DatabaseTab {
         if (active && this.initialized) {
             // Check if DBs are already open before acting on them.
             const openState = PaiperworkDB.getOpenDatabaseState(this.hashedMasterKey);
-            if (!openState.main || !openState.rag || !openState.html || !openState.kb) {
+            if (!openState.main || !openState.rag || !openState.presentations || !openState.artifacts || !openState.kb || !openState.whatsapp) {
                 console.info('DatabaseTab: Refreshing stats with on-demand DB open.', openState);
             }
             // Refresh when tab becomes active
@@ -686,6 +741,27 @@ class DatabaseTab {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 10px;
+        }
+
+        .action-buttons.secondary-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .action-buttons.secondary-actions .secondary-action-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .action-buttons.secondary-actions .secondary-action-row .action-button {
+            flex: 1 1 0;
+            min-width: 0;
+            width: auto;
         }
 
         .secondary-actions {

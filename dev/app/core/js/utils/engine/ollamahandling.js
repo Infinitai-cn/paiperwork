@@ -37,11 +37,9 @@ class OllamaAPI {
     static {
         window.autoScrollEnabled = window.autoScrollEnabled === undefined ? true : window.autoScrollEnabled;
         window.imagesUnderTheHood = false;
-        OllamaAPI.maxImagesUsed = 0;
     }
     static visualModels = null;
     static visualModelsSource = null;
-    static maxImagesUsed = 0; // Track the maximum number of images used in this conversation
     static lastUsedImages = []; // Store the last real images used in the conversation
     static systemPromptCache = new Map();
     static systemPromptRevision = new Map();
@@ -166,25 +164,39 @@ class OllamaAPI {
     }
     
     static buildCloudConversationHistoryBlock(currentUserPrompt = '', options = {}) {
+        const whatsappOverride = (typeof window !== 'undefined' && window.__paiperworkWhatsappContextOverride && window.__paiperworkWhatsappContextOverride.active)
+            ? window.__paiperworkWhatsappContextOverride
+            : null;
+
         const aiReplies = document.querySelector('.ai-replies');
-        if (!aiReplies) return '';
-        
         const maxTurns = Number.isFinite(options.maxTurns) ? options.maxTurns : 8;
         const maxCharsPerTurn = Number.isFinite(options.maxCharsPerTurn) ? options.maxCharsPerTurn : 1200;
         const maxCharsTotal = Number.isFinite(options.maxCharsTotal) ? options.maxCharsTotal : 12000;
-        
-        const messageNodes = Array.from(aiReplies.querySelectorAll('.user-message, .assistant-message:not(.welcome-message)'));
-        if (!messageNodes.length) return '';
-        
+
         const turns = [];
-        for (const node of messageNodes) {
-            const role = node.classList.contains('user-message') ? 'user' : 'assistant';
-            const content = this.getMessageTextForHistory(node, maxCharsPerTurn);
-            if (content) {
-                turns.push({ role, content });
+        if (whatsappOverride && Array.isArray(whatsappOverride.turns) && whatsappOverride.turns.length) {
+            for (const turn of whatsappOverride.turns) {
+                const role = String(turn && turn.role ? turn.role : '').trim().toLowerCase();
+                const content = this.normalizeConversationText(turn && (turn.text || turn.content || ''), maxCharsPerTurn);
+                if ((role === 'user' || role === 'assistant') && content) {
+                    turns.push({ role, content });
+                }
+            }
+        } else {
+            if (!aiReplies) return '';
+
+            const messageNodes = Array.from(aiReplies.querySelectorAll('.user-message, .assistant-message:not(.welcome-message)'));
+            if (!messageNodes.length) return '';
+
+            for (const node of messageNodes) {
+                const role = node.classList.contains('user-message') ? 'user' : 'assistant';
+                const content = this.getMessageTextForHistory(node, maxCharsPerTurn);
+                if (content) {
+                    turns.push({ role, content });
+                }
             }
         }
-        
+
         if (!turns.length) return '';
         
         // The active prompt is already represented by the live input/request body.
@@ -553,11 +565,13 @@ class OllamaAPI {
                 ? Promise.resolve({ skipped: true })
                 : fetchLocalTagsWithRetry();
 
+            const cloudTagsTimeoutMs = 5000; // increased from 2500 to improve reliability on slow/cloud paths
+
             const [localResponse, cloudResponse] = await Promise.allSettled([
                 localTagsPromise,
                 fetch('/api/cloud/tags', {
                     // Cloud fetch should never block local model visibility.
-                    signal: AbortSignal.timeout(2500),
+                    signal: AbortSignal.timeout(cloudTagsTimeoutMs),
                     headers: cloudApiKey
                         ? {
                             'Authorization': `Bearer ${cloudApiKey}`
@@ -992,7 +1006,9 @@ class OllamaAPI {
         }
     }
     // Sends a prompt to the Ollama API for text models, handling streaming and thinking mode.
-    static async sendToOllama(userPrompt, systemPrompt, contextSize, previousContext = null, abortSignal = null, requestId = null, streamProcessor = null) {
+    // `forceThink` can be used by callers to explicitly enable/disable native "think"
+    // behavior for a single request. `null` means respect the user/global setting.
+    static async sendToOllama(userPrompt, systemPrompt, contextSize, previousContext = null, abortSignal = null, requestId = null, streamProcessor = null, forceThink = null) {
        //  //console.log('Normal OllamaAPI: Sending to Ollama...');
 
         const modelSelector = document.getElementById('model-selector');
@@ -1002,14 +1018,13 @@ class OllamaAPI {
 
         // Check if this is a visual model
         const isVisualModel = await OllamaAPI.isVisualModel(selectedModel);
-        const isGemma3 = selectedModel.toLowerCase().includes('gemma3');
-
         //  CRITICAL FIX: Always refresh cache before each request to get latest state
         this._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
             ? window.ThinkingState.getEffectiveThinkingEnabled()
             : (localStorage.getItem('thinkingEnabled') === 'true');
 
-        const thinkingEnabled = this._cachedThinkingEnabled;
+        // Allow callers to explicitly force think on/off via `forceThink` (null = respect user setting)
+        const thinkingEnabled = (typeof forceThink === 'boolean') ? forceThink : this._cachedThinkingEnabled;
         const supportsNativeThinking = window.isThinkingModel && window.isThinkingModel(selectedModel);
 
         let enhancedPrompt = userPrompt;
@@ -1054,27 +1069,10 @@ class OllamaAPI {
 
                 jsonPost.images = savedImages;
                 OllamaAPI.lastUsedImages = [...savedImages];
-                OllamaAPI.maxImagesUsed = Math.max(OllamaAPI.maxImagesUsed, savedImages.length);
             }
-            else if (OllamaAPI.maxImagesUsed > 0) {
-                if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
-                    if (isGemma3) {
-                       //  //console.log(`OllamaAPI: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
-                        if (OllamaAPI.lastUsedImages.length < OllamaAPI.maxImagesUsed) {
-                           //  //console.log(`OllamaAPI: Adjusting maxImagesUsed to match actual available images (${OllamaAPI.lastUsedImages.length})`);
-                            OllamaAPI.maxImagesUsed = OllamaAPI.lastUsedImages.length;
-                            jsonPost.images = [...OllamaAPI.lastUsedImages];
-                        } else {
-                            jsonPost.images = OllamaAPI.lastUsedImages;
-                        }
-                    } else {
-                       //  //console.log(`OllamaAPI: Reusing previously sent image for ${selectedModel}`);
-                        jsonPost.images = [OllamaAPI.lastUsedImages[0]];
-                    }
-                } else {
-                   //  //console.log(`OllamaAPI: No saved real images found, resetting counter and not sending any images`);
-                    OllamaAPI.maxImagesUsed = 0;
-                }
+            else if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
+               //  //console.log(`OllamaAPI: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
+                jsonPost.images = [...OllamaAPI.lastUsedImages];
             } else {
                //  //console.log(`OllamaAPI: No images used yet, not adding any images`);
             }
@@ -1515,6 +1513,97 @@ class OllamaAPI {
             return null;
         }
     }
+
+    // OrchestratorCall: headless call to Ollama that returns only cleaned text.
+    // Signature mirrors `sendToOllama` but this method will NOT attach a
+    // StreamProcessor or render UI; it always returns a single plain string.
+    static async OrchestratorCall(userPrompt, systemPrompt, contextSize, previousContext = null, abortSignal = null, requestId = null, streamProcessor = null) {
+        try {
+            // Force headless behavior by not passing a StreamProcessor to sendToOllama
+            // and explicitly disable native thinking for orchestrator latency.
+            const response = await this.sendToOllama(userPrompt, systemPrompt, contextSize, previousContext, abortSignal, requestId, null, false);
+            if (!response) return '';
+
+            // If the helper returned a simple string
+            if (typeof response === 'string') return response.trim();
+
+            // If we received a Fetch Response, try to drain NDJSON or text
+            if (response instanceof Response) {
+                try {
+                    if (!response.body || typeof response.body.getReader !== 'function') {
+                        const text = await response.text();
+                        return (text || '').trim();
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    let extracted = '';
+
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+
+                        for (const line of lines) {
+                            if (!line.trim()) continue;
+                            try {
+                                const data = JSON.parse(line.trim());
+                                const chunk = data.response || data.message?.content || data.text || '';
+                                if (Array.isArray(chunk)) extracted += chunk.join('');
+                                else if (typeof chunk === 'string') extracted += chunk;
+                            } catch (e) {
+                                // Fallback: append raw line
+                                extracted += line;
+                            }
+                        }
+
+                        if (done) {
+                            if (buffer && buffer.trim()) {
+                                try {
+                                    const data = JSON.parse(buffer);
+                                    const chunk = data.response || data.message?.content || data.text || '';
+                                    if (Array.isArray(chunk)) extracted += chunk.join('');
+                                    else if (typeof chunk === 'string') extracted += chunk;
+                                } catch (e) {
+                                    extracted += buffer;
+                                }
+                            }
+                            break;
+                        }
+                    }
+
+                    return (extracted || '').replace(/\s+/g, ' ').trim();
+                } catch (e) {
+                    console.error('OrchestratorCall: error draining Response', e);
+                    try { const text = await response.text(); return (text || '').trim(); } catch (_) { return ''; }
+                }
+            }
+
+            // If sendToOllama returned a streamProcessor wrapper, extract clean text
+            if (response.success && response.streamProcessor) {
+                const sp = response.streamProcessor;
+                if (sp && typeof sp.getCleanResponseText === 'function') {
+                    return (sp.getCleanResponseText() || '').trim();
+                } else if (sp && sp.responseContainer && sp.responseContainer.textContent) {
+                    return sp.responseContainer.textContent.trim();
+                }
+            }
+
+            // Try common shaped responses
+            if (response.response) {
+                if (Array.isArray(response.response)) return response.response.join('').trim();
+                if (typeof response.response === 'string') return response.response.trim();
+            }
+            if (response.text && typeof response.text === 'string') return response.text.trim();
+
+            return '';
+        } catch (err) {
+            console.error('OrchestratorCall error', err);
+            return '';
+        }
+    }
     // Sends a prompt to the Ollama API with web search context, handles streaming and UI updates.
     static async sendToOllamaWithWebSearch(
         prompt,
@@ -1946,8 +2035,6 @@ class OllamaAPI {
 
             // Check if this is a visual model
             const isVisualModel = await OllamaAPI.isVisualModel(selectedModel);
-            const isGemma3 = selectedModel.toLowerCase().includes('gemma3');
-
             // Prepare request body
             const requestBody = {
                 model: selectedModel,
@@ -1986,31 +2073,9 @@ class OllamaAPI {
             });*/
 
             if (isVisualModel) {
-                // FIXED: Only add images if we've used images before
-                if (OllamaAPI.maxImagesUsed > 0) {
-                    // Check if we have last used images first
-                    if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
-                        if (isGemma3) {
-                           //  //console.log(`OllamaAPI WebSearch: Reusing previously sent images`);
-                            // For Gemma3, ensure we have the right number of images
-                            if (OllamaAPI.lastUsedImages.length < OllamaAPI.maxImagesUsed) {
-                               //  //console.log(`OllamaAPI: Adjusting maxImagesUsed to match actual available images (${OllamaAPI.lastUsedImages.length})`);
-                                // Instead of padding with images, adjust maxImagesUsed to match what we have
-                                OllamaAPI.maxImagesUsed = OllamaAPI.lastUsedImages.length;
-                                requestBody.images = [...OllamaAPI.lastUsedImages];
-                            } else {
-                                requestBody.images = OllamaAPI.lastUsedImages;
-                            }
-                        } else {
-                           //  //console.log(`OllamaAPI WebSearch: Reusing previously sent image`);
-                            requestBody.images = [OllamaAPI.lastUsedImages[0]];
-                        }
-                    } else {
-                        // No previous real images exist, reset counter
-                       //  //console.log(`OllamaAPI WebSearch: No saved real images found, resetting counter and not sending any images`);
-                        OllamaAPI.maxImagesUsed = 0; // Reset this to avoid problems in future requests
-                        // Don't set requestBody.images at all
-                    }
+                if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
+                   //  //console.log(`OllamaAPI WebSearch: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
+                    requestBody.images = [...OllamaAPI.lastUsedImages];
                 } else {
                    //  //console.log(`OllamaAPI WebSearch: No images used yet, not adding any images`);
                 }
@@ -2323,7 +2388,6 @@ class OllamaAPI {
                 selectedModel = modelSelector.value;
                //  //console.log('OllamaAPI: Using chat tab model:', selectedModel);
             }
-            const isGemma3 = selectedModel.toLowerCase().includes('gemma3');
             const modelParams = this.getModelParameters(selectedModel);
             const localContextPayload = window.currentCheckpoint?.lastContext || OllamaAPI.previousContext;
             // Create the request body
@@ -2341,8 +2405,7 @@ class OllamaAPI {
                 request_id: requestId || `ollama_image_${Date.now()}`
             };
 
-            // Handle multi-image mode for Gemma3
-            if (isGemma3 && multiImages && Array.isArray(multiImages) && multiImages.length > 0) {
+            if (multiImages && Array.isArray(multiImages) && multiImages.length > 0) {
                //  //console.log(`OllamaAPI: Preparing multi-image request with ${multiImages.length} images`);
 
                 // Make sure we have the cleanedImageBase64Array
@@ -2351,21 +2414,11 @@ class OllamaAPI {
                     throw new Error('Missing image data for visual model');
                 }
 
-                // Update max images if this batch is larger than previous max
-                OllamaAPI.maxImagesUsed = Math.max(OllamaAPI.maxImagesUsed, window.cleanedImageBase64Array.length);
-               //  //console.log(`OllamaAPI: Updated max images used to ${OllamaAPI.maxImagesUsed}`);
-
                 // Create images array with the actual images
                 const imagesArray = [...window.cleanedImageBase64Array];
 
-                // If we've previously sent more images than we have now, pad with  images
-                if (imagesArray.length < OllamaAPI.maxImagesUsed) {
-                   //  //console.log(`OllamaAPI: Adjusting maxImagesUsed to match available images (${imagesArray.length})`);
-                    OllamaAPI.maxImagesUsed = imagesArray.length;
-                }
-
-                // Set the padded images array in the request
                 jsonPost.images = imagesArray;
+                OllamaAPI.lastUsedImages = [...imagesArray];
 
             } else if (imageData && typeof imageData === 'string' && imageData.trim().length > 0) {
                 // Single image mode
@@ -2388,43 +2441,16 @@ class OllamaAPI {
                     window.cleanedImageBase64 = base64Image;
                 }
 
-                // Update max images for single image (always 1)
-                OllamaAPI.maxImagesUsed = Math.max(OllamaAPI.maxImagesUsed, 1);
-
                 // For single image, we don't need padding since max is 1
                 jsonPost.images = [window.cleanedImageBase64];
+                OllamaAPI.lastUsedImages = [...jsonPost.images];
 
             } else {
                 // No image data provided but we're in visual mode
-                if (OllamaAPI.maxImagesUsed > 0) {
-                    // Check if we have last used images first
-                    if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
-                        if (isGemma3) {
-                            // For Gemma3, ensure we have the right number of images by reusing or padding
-                           //  //console.log(`OllamaAPI Image: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
-                            if (OllamaAPI.lastUsedImages.length < OllamaAPI.maxImagesUsed) {
-                               //  //console.log(`OllamaAPI: Adjusting maxImagesUsed to match actual available images (${OllamaAPI.lastUsedImages.length})`);
-                                // Instead of padding with  images, adjust maxImagesUsed to match what we have
-                                OllamaAPI.maxImagesUsed = OllamaAPI.lastUsedImages.length;
-                                jsonPost.images = [...OllamaAPI.lastUsedImages];
-                            } else {
-                                jsonPost.images = OllamaAPI.lastUsedImages;
-                            }
-                        } else {
-                            // For other visual models, just use the first previously sent image
-                           //  //console.log(`OllamaAPI Image: Reusing previously sent image for ${selectedModel}`);
-                            jsonPost.images = [OllamaAPI.lastUsedImages[0]];
-                        }
-                    } else {
-                        // No previous real images exist, just reset maxImagesUsed
-                        // IMPORTANT: Don't send  images at all
-                       //  //console.log(`OllamaAPI Image: No saved real images found, not sending any images`);
-                        OllamaAPI.maxImagesUsed = 0; // Reset this to avoid the problem in future requests
-                        // Don't set jsonPost.images at all
-                    }
+                if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
+                   //  //console.log(`OllamaAPI Image: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
+                    jsonPost.images = [...OllamaAPI.lastUsedImages];
                 } else {
-                    // FIXED: If no images have been used and this is a visual model request without an image
-                    // This is likely an error case since this method is specifically for sending images
                     console.error('OllamaAPI: No valid image data provided for visual model');
                     throw new Error('Missing or invalid image data for visual model');
                 }
@@ -2628,8 +2654,6 @@ class OllamaAPI {
         this.previousContext = null;  // Using class property
         window.currentCheckpoint = null;
         this.contextLimitReached = false;
-        this.maxImagesUsed = 0;
-       //  //console.log('OllamaAPI: Reset maxImagesUsed to 0');
         const contextLabel = document.getElementById('context-remaining-label');
         if (contextLabel) {
             contextLabel.style.color = '';
@@ -2646,16 +2670,33 @@ class OllamaAPI {
         const basePromptSignature = hasProvidedBasePrompt
             ? `${formattedBasePrompt.length}:${formattedBasePrompt.slice(0, 80)}`
             : '<db>';
-        const languageCode = (window.Lang && typeof window.Lang.getCurrentLanguage === 'function')
+        const browserLanguageCode = (window.Lang && typeof window.Lang.getCurrentLanguage === 'function')
             ? (window.Lang.getCurrentLanguage() || '')
             : (navigator.language || navigator.userLanguage || 'en');
+
+        const whatsappLanguageCode = (window.whatsappIncomingLanguage && String(window.whatsappIncomingLanguage).trim())
+            ? String(window.whatsappIncomingLanguage).trim()
+            : '';
+
+        const orchestratorLanguageCode = (window.lastOrchestratorDecision && window.lastOrchestratorDecision.language && String(window.lastOrchestratorDecision.language).trim())
+            ? String(window.lastOrchestratorDecision.language).trim()
+            : '';
+
+        const languageCode = orchestratorLanguageCode || whatsappLanguageCode || browserLanguageCode || 'en';
+        /* console.log('OllamaAPI: buildCompleteSystemPrompt language auto-detect', {
+            orchestratorLanguageCode,
+            whatsappLanguageCode,
+            browserLanguageCode,
+            selectedLanguageCode: languageCode,
+            originalIncomingTextExample: (window.whatsappIncomingLanguage && window.whatsappIncomingLanguageSample) ? window.whatsappIncomingLanguageSample : undefined
+        }); */
         const dayKey = new Date().toISOString().slice(0, 10);
 
-        let reasoningLevel = '';
-        try {
-            if (window.gptOssReasoningLevel) {
-                reasoningLevel = (window.gptOssReasoningLevel || '').toLowerCase().trim();
-            }
+        let reasoningLevel = '';        
+            try {
+                if (window.gptOssReasoningLevel) {
+                    reasoningLevel = (window.gptOssReasoningLevel || '').toLowerCase().trim();
+                }
         } catch (_wErr) {
             // ignore
         }
@@ -2707,19 +2748,19 @@ class OllamaAPI {
             formattedBasePrompt += ' ';
         }
 
-        // ADD LANGUAGE ENFORCEMENT: Detect user's language and add enforcement
+        // ADD LANGUAGE ENFORCEMENT: Prefer WhatsApp incoming language when available.
         let languageEnforcement = '';
         try {
            //  //console.log('OllamaAPI DEBUG: Adding language enforcement...');
 
-            // Get user's language from browser or saved preference
-            let userLanguage = 'English'; // Default fallback
-            userLanguage = this.getLanguageDisplayName(languageCode);
+            const normalizedLangCode = this.getLanguageCode(languageCode || 'en');
+            const userLanguage = this.getLanguageDisplayName(languageCode || 'en');
 
-            // Create language enforcement instruction
-            languageEnforcement = `Always respond in ${userLanguage}. Match the user's language and communication style. If the user writes in ${userLanguage}, respond in ${userLanguage}. `;
+            // Create language enforcement instruction using human-readable language names.
+            // Include the language code as secondary information for clarity.
+            languageEnforcement = `Always respond in ${userLanguage} (${normalizedLangCode}). Match the user's language and communication style. If the user writes in ${userLanguage}, respond in ${userLanguage}. `;
 
-           //  //console.log('OllamaAPI DEBUG: Language enforcement added for:', userLanguage);
+           //  //console.log('OllamaAPI DEBUG: Language enforcement added for:', normalizedLangCode, userLanguage);
         } catch (error) {
             console.error('OllamaAPI: Error adding language enforcement:', error);
             // Continue without language enforcement if there's an error
@@ -2786,19 +2827,26 @@ class OllamaAPI {
             console.warn('OllamaAPI: error applying gpt-oss reasoning prefix', e);
         }
 
-        /*console.log('OllamaAPI DEBUG: Final system prompt components:', {
+        console.log('OllamaAPI DEBUG: Final system prompt components:', {
             basePromptLength: formattedBasePrompt.length,
             languageEnforcementLength: languageEnforcement.length,
             insightsLength: insightsString.length,
             temporalContextLength: temporalContext.length,
             finalLength: finalPrompt.length
-        });*/
+        });
 
         // Enhanced logging to show what's actually in the final prompt
-       //  //console.log('OllamaAPI DEBUG: Complete system prompt with language enforcement + insights:');
-       //  //console.log(finalPrompt);
+         console.log('OllamaAPI DEBUG: Complete system prompt with language enforcement + insights:');
+         console.log(finalPrompt);
 
         const finalResult = finalPromptWithReasoning.trim();
+        //console.log('OllamaAPI: buildCompleteSystemPrompt final system prompt length:', finalResult.length);
+        //console.log('OllamaAPI: buildCompleteSystemPrompt final system prompt:', finalResult);
+        /*console.log('OllamaAPI: buildCompleteSystemPrompt language context:', {
+            lang: languageCode,
+            whatsappLanguageCode,
+            orchestratorLanguageCode
+        }); */
         this.systemPromptCache.set(hashedMasterKey, {
             cacheKey,
             prompt: finalResult
@@ -2806,87 +2854,151 @@ class OllamaAPI {
         return finalResult;
     }
 
+    // Normalizes a user language label/code to ISO-like code for prompt directives.
+    static getLanguageCode(langCode) {
+        if (!langCode) return 'en';
+        const normalized = String(langCode).trim().toLowerCase();
+        const languageCodeMap = {
+            'en': 'en', 'en-us': 'en', 'en-gb': 'en', 'english': 'en',
+            'es': 'es', 'es-es': 'es', 'es-mx': 'es', 'spanish': 'es',
+            'fr': 'fr', 'fr-fr': 'fr', 'french': 'fr',
+            'de': 'de', 'de-de': 'de', 'german': 'de',
+            'it': 'it', 'it-it': 'it', 'italian': 'it',
+            'pt': 'pt', 'pt-br': 'pt', 'pt-pt': 'pt', 'portuguese': 'pt',
+            'ru': 'ru', 'ru-ru': 'ru', 'russian': 'ru',
+            'ja': 'ja', 'ja-jp': 'ja', 'japanese': 'ja',
+            'ko': 'ko', 'ko-kr': 'ko', 'korean': 'ko',
+            'zh': 'zh', 'zh-cn': 'zh', 'zh-tw': 'zh', 'chinese': 'zh', '中文': 'zh', '简体中文': 'zh', '繁體中文': 'zh', '繁体中文': 'zh',
+            'ar': 'ar', 'ar-sa': 'ar', 'arabic': 'ar',
+            'hi': 'hi', 'hi-in': 'hi', 'hindi': 'hi'
+        };
+        if (languageCodeMap[normalized]) return languageCodeMap[normalized];
+        const base = normalized.split('-')[0];
+        if (languageCodeMap[base]) return languageCodeMap[base];
+        return 'en';
+    }
+
     // Converts a language code (e.g., 'en-US') to a human-readable language name.
     static getLanguageDisplayName(langCode) {
         const languageMap = {
             'en': 'English',
-            'en-US': 'English',
-            'en-GB': 'English',
+            'en-us': 'English',
+            'en-gb': 'English',
+            'english': 'English',
             'es': 'Spanish',
-            'es-ES': 'Spanish',
-            'es-MX': 'Spanish',
+            'es-es': 'Spanish',
+            'es-mx': 'Spanish',
+            'spanish': 'Spanish',
             'fr': 'French',
-            'fr-FR': 'French',
+            'fr-fr': 'French',
+            'french': 'French',
             'de': 'German',
-            'de-DE': 'German',
+            'de-de': 'German',
+            'german': 'German',
             'it': 'Italian',
             'it-IT': 'Italian',
+            'italian': 'Italian',
             'pt': 'Portuguese',
             'pt-BR': 'Portuguese',
             'pt-PT': 'Portuguese',
+            'portuguese': 'Portuguese',
             'ru': 'Russian',
             'ru-RU': 'Russian',
+            'russian': 'Russian',
             'ja': 'Japanese',
             'ja-JP': 'Japanese',
+            'japanese': 'Japanese',
             'ko': 'Korean',
             'ko-KR': 'Korean',
             'zh': 'Chinese',
-            'zh-CN': 'Chinese',
-            'zh-TW': 'Chinese',
+            'zh-cn': 'Chinese',
+            'zh-tw': 'Chinese',
+            'chinese': 'Chinese',
+            '中文': 'Chinese',
+            '简体中文': 'Chinese',
+            '繁體中文': 'Chinese',
+            '繁体中文': 'Chinese',
             'ar': 'Arabic',
-            'ar-SA': 'Arabic',
+            'ar-sa': 'Arabic',
+            'arabic': 'Arabic',
             'hi': 'Hindi',
-            'hi-IN': 'Hindi',
+            'hi-in': 'Hindi',
+            'hindi': 'Hindi',
             'nl': 'Dutch',
-            'nl-NL': 'Dutch',
+            'nl-nl': 'Dutch',
+            'dutch': 'Dutch',
             'sv': 'Swedish',
-            'sv-SE': 'Swedish',
+            'sv-se': 'Swedish',
+            'swedish': 'Swedish',
             'da': 'Danish',
-            'da-DK': 'Danish',
+            'da-dk': 'Danish',
+            'danish': 'Danish',
             'no': 'Norwegian',
-            'nb-NO': 'Norwegian',
+            'nb-no': 'Norwegian',
+            'norwegian': 'Norwegian',
             'fi': 'Finnish',
-            'fi-FI': 'Finnish',
+            'fi-fi': 'Finnish',
+            'finnish': 'Finnish',
             'pl': 'Polish',
-            'pl-PL': 'Polish',
+            'pl-pl': 'Polish',
+            'polish': 'Polish',
             'tr': 'Turkish',
-            'tr-TR': 'Turkish',
+            'tr-tr': 'Turkish',
+            'turkish': 'Turkish',
             'el': 'Greek',
-            'el-GR': 'Greek',
+            'el-gr': 'Greek',
+            'greek': 'Greek',
             'he': 'Hebrew',
-            'he-IL': 'Hebrew',
+            'he-il': 'Hebrew',
+            'hebrew': 'Hebrew',
             'th': 'Thai',
-            'th-TH': 'Thai',
+            'th-th': 'Thai',
+            'thai': 'Thai',
             'vi': 'Vietnamese',
-            'vi-VN': 'Vietnamese',
+            'vi-vn': 'Vietnamese',
+            'vietnamese': 'Vietnamese',
             'id': 'Indonesian',
-            'id-ID': 'Indonesian',
+            'id-id': 'Indonesian',
+            'indonesian': 'Indonesian',
             'ms': 'Malay',
-            'ms-MY': 'Malay',
+            'ms-my': 'Malay',
+            'malay': 'Malay',
             'uk': 'Ukrainian',
-            'uk-UA': 'Ukrainian',
+            'uk-ua': 'Ukrainian',
+            'ukrainian': 'Ukrainian',
             'cs': 'Czech',
-            'cs-CZ': 'Czech',
+            'cs-cz': 'Czech',
+            'czech': 'Czech',
             'sk': 'Slovak',
-            'sk-SK': 'Slovak',
+            'sk-sk': 'Slovak',
+            'slovak': 'Slovak',
             'hu': 'Hungarian',
-            'hu-HU': 'Hungarian',
+            'hu-hu': 'Hungarian',
+            'hungarian': 'Hungarian',
             'ro': 'Romanian',
-            'ro-RO': 'Romanian',
+            'ro-ro': 'Romanian',
+            'romanian': 'Romanian',
             'bg': 'Bulgarian',
-            'bg-BG': 'Bulgarian',
+            'bg-bg': 'Bulgarian',
+            'bulgarian': 'Bulgarian',
             'hr': 'Croatian',
-            'hr-HR': 'Croatian',
+            'hr-hr': 'Croatian',
+            'croatian': 'Croatian',
             'sr': 'Serbian',
-            'sr-RS': 'Serbian',
+            'sr-rs': 'Serbian',
+            'serbian': 'Serbian',
             'sl': 'Slovenian',
-            'sl-SI': 'Slovenian',
+            'sl-si': 'Slovenian',
+            'slovenian': 'Slovenian',
             'et': 'Estonian',
-            'et-EE': 'Estonian',
+            'et-ee': 'Estonian',
+            'estonian': 'Estonian',
             'lv': 'Latvian',
-            'lv-LV': 'Latvian',
+            'lv-lv': 'Latvian',
+            'latvian': 'Latvian',
             'lt': 'Lithuanian',
-            'lt-LT': 'Lithuanian'
+            'lt-lt': 'Lithuanian',
+            'lithuanian': 'Lithuanian'
         };
 
         // Get base language code (e.g., 'en-US' -> 'en')
@@ -3060,9 +3172,6 @@ class OllamaAPI {
             window.cleanedImageBase64 = null;
             window.selectedImages = [];
             window.cleanedImageBase64Array = [];
-
-            // Reset max images count to avoid  images being added
-            OllamaAPI.maxImagesUsed = 0;
 
             // STEP 1: Get the user's proper system prompt with insights and temporal context
             // WITHOUT including any continuation context
@@ -3530,8 +3639,6 @@ class OllamaAPI {
                         }
                     }
 
-                    // Reset max images count
-                    OllamaAPI.maxImagesUsed = 0;
                 } else {
                     // If continuation failed, restore the continue button and remove the user message
                     aiReplies.appendChild(continuationDiv);

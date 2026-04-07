@@ -69,6 +69,72 @@ class ModelDownloader {
         }, 7000);
     }
 
+    static _getActiveChatModelName() {
+        const modelSelector = document.getElementById('model-selector');
+        return String(modelSelector?.value || '').trim();
+    }
+
+    static _applyRuntimeSettingsScript(scriptContent, scriptName) {
+        const content = String(scriptContent || '').trim();
+        if (!content) {
+            throw new Error(`${scriptName || 'settings script'} is empty`);
+        }
+
+        const applyScript = new Function('window', `${content}\n//# sourceURL=${scriptName || 'runtime-settings.js'}`);
+        applyScript(window);
+    }
+
+    static async _refreshRuntimeSettings(settingType, scriptContent) {
+        this._applyRuntimeSettingsScript(scriptContent, settingType);
+
+        const activeChatModel = this._getActiveChatModelName();
+
+        if (settingType === 'thinkingmodels.js') {
+            if (window.chatTab && typeof window.chatTab.updateThinkingToggleUI === 'function' && activeChatModel) {
+                window.chatTab.updateThinkingToggleUI(activeChatModel);
+            }
+            try {
+                window.dispatchEvent(new Event('thinkingModelsUpdated'));
+            } catch (eventErr) {
+                console.warn('Failed to dispatch thinkingModelsUpdated after runtime refresh:', eventErr);
+            }
+            return;
+        }
+
+        if (settingType === 'visualmodels.js') {
+            if (window.OllamaAPI) {
+                window.OllamaAPI.visualModels = null;
+                window.OllamaAPI.visualModelsSource = null;
+                if (typeof window.OllamaAPI.loadVisualModels === 'function') {
+                    await window.OllamaAPI.loadVisualModels();
+                }
+            }
+
+            if (window.chatTab && typeof window.chatTab.updateVisualModelUI === 'function' && activeChatModel) {
+                window.chatTab.updateVisualModelUI(activeChatModel);
+            }
+
+            if (window.artworksInstance && typeof window.artworksInstance.loadVisualModels === 'function') {
+                await window.artworksInstance.loadVisualModels();
+            }
+
+            try {
+                window.dispatchEvent(new Event('visualModelsUpdated'));
+            } catch (eventErr) {
+                console.warn('Failed to dispatch visualModelsUpdated after runtime refresh:', eventErr);
+            }
+            return;
+        }
+
+        if (settingType === 'modelparameters.js') {
+            try {
+                window.dispatchEvent(new Event('modelParametersUpdated'));
+            } catch (eventErr) {
+                console.warn('Failed to dispatch modelParametersUpdated after runtime refresh:', eventErr);
+            }
+        }
+    }
+
     // Saves the current browsing state to encrypted storage
     static async saveBrowsingState() {
         await this.storeEncryptedValue('modelBrowsingState', JSON.stringify(this.browsingState));
@@ -1552,14 +1618,11 @@ class ModelDownloader {
 
                                 // No local encrypted backup — server is authoritative
 
+                                await this._refreshRuntimeSettings('thinkingmodels.js', val);
+
                                 // Flash success on the button
                                 saveBtn.innerHTML = (Lang.get('save') || 'Save') + ' ✓';
                                 setTimeout(() => saveBtn.innerHTML = original, 1400);
-
-                                // Notify other modules to reload the list
-                                try {
-                                    window.dispatchEvent(new Event('thinkingModelsUpdated'));
-                                } catch (e) { /* ignore */ }
 
                                 // Close modal after short delay
                                 setTimeout(() => { modal.style.display = 'none'; }, 250);
@@ -1783,9 +1846,11 @@ class ModelDownloader {
                                     }
                                     throw err;
                                 }
+
+                                await this._refreshRuntimeSettings('visualmodels.js', val);
+
                                 saveBtn.innerHTML = (Lang.get('save') || 'Save') + ' ✓';
                                 setTimeout(() => saveBtn.innerHTML = original, 1400);
-                                try { window.dispatchEvent(new Event('visualModelsUpdated')); } catch (e) {}
                                 setTimeout(() => { modal.style.display = 'none'; }, 250);
                             } catch (e) {
                                 console.error('Error saving visual models list to server:', e);
@@ -1968,6 +2033,9 @@ class ModelDownloader {
                                     }
                                     throw err;
                                 }
+
+                                await this._refreshRuntimeSettings('modelparameters.js', val);
+
                                 saveBtn.innerHTML = (Lang.get('save') || 'Save') + ' ✓';
                                 setTimeout(() => saveBtn.innerHTML = original, 1400);
                                 setTimeout(() => { modal.style.display = 'none'; }, 250);

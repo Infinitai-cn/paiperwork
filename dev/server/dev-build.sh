@@ -1,8 +1,9 @@
 #!/bin/bash
 
-# Get the directory where the script is located
+# Always build from the server directory, regardless of where the script is run from
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}" )" && pwd)"
 cd "$SCRIPT_DIR"
+
 
 echo "🔨 Building Paiperwork server for development..."
 
@@ -57,16 +58,18 @@ fi
 
 # Remove previous dev binaries
 echo "🧹 Cleaning previous dev binaries..."
-rm -f ../Paiperwork-server-dev-osx
-rm -f ../Paiperwork-server-dev-win.exe
-rm -f ../Paiperwork-server-dev-linux
+rm -f "$SCRIPT_DIR/../Paiperwork-server-dev-osx"
+rm -f "$SCRIPT_DIR/../Paiperwork-server-dev-win.exe"
+rm -f "$SCRIPT_DIR/../Paiperwork-server-dev-linux"
 
 echo "📦 Building executables..."
+
+# Always build from the server directory, never from whatsapp-gateway-go
+pushd "$SCRIPT_DIR" > /dev/null
 
 # Build for Windows (AMD64) - Disable CGO for pure Go builds
 echo "  Building for Windows (AMD64)..."
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../Paiperwork-server-dev-win.exe main.go
-
 if [ $? -eq 0 ]; then
     echo "  ✅ Windows build successful"
 else
@@ -85,7 +88,6 @@ build_macos_binary amd64 ../Paiperwork-server-dev-osx-intel
 # Build for Linux (AMD64)
 echo "  Building for Linux (AMD64)..."
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../Paiperwork-server-dev-linux main.go
-
 if [ $? -eq 0 ]; then
     echo "  ✅ Linux build successful"
 else
@@ -97,7 +99,12 @@ chmod +x ../Paiperwork-server-dev-osx
 chmod +x ../Paiperwork-server-dev-osx-intel
 chmod +x ../Paiperwork-server-dev-linux
 
+popd > /dev/null
+
+# --- Build WhatsApp Gateway ---
 echo ""
+echo "🔨 Gowa WhatsApp Gateway is now in-process; no standalone gowa build required."
+
 echo "🎉 Development build complete! Executables created in dev folder:"
 echo "   📦 Paiperwork-server-dev-osx (macOS arm64)"
 echo "   📦 Paiperwork-server-dev-osx-intel (macOS amd64)"

@@ -1,6 +1,7 @@
 class PaiperworkDB {
 
-    static DB_BUNDLE_FORMAT = 'paiperwork-db-bundle-v1';
+    static DB_BUNDLE_FORMAT = 'paiperwork-db-bundle-v2';
+    static LEGACY_DB_BUNDLE_FORMAT = 'paiperwork-db-bundle-v1';
 
     static dbInitialized = false;
     static initializationPromise = null;
@@ -12,8 +13,11 @@ class PaiperworkDB {
 
     static normalizeDbRole(role = 'main') {
         if (role === 'rag') return 'rag';
-        if (role === 'html') return 'html';
+        if (role === 'slideforge' || role === 'presentation' || role === 'presentations') return 'presentations';
+        if (role === 'artifact' || role === 'artifacts') return 'artifacts';
         if (role === 'kb') return 'kb';
+        if (role === 'images' || role === 'attachments' || role === 'media') return 'images';
+        if (role === 'whatsapp') return 'whatsapp';
         return 'main';
     }
 
@@ -42,8 +46,13 @@ class PaiperworkDB {
         return {
             main: !!this.getTrackedOpenDatabase(hashedMasterKey, 'main'),
             rag: !!this.getTrackedOpenDatabase(hashedMasterKey, 'rag'),
-            html: !!this.getTrackedOpenDatabase(hashedMasterKey, 'html'),
-            kb: !!this.getTrackedOpenDatabase(hashedMasterKey, 'kb')
+            html: false,
+            presentations: !!this.getTrackedOpenDatabase(hashedMasterKey, 'presentations'),
+            slideforge: !!this.getTrackedOpenDatabase(hashedMasterKey, 'presentations'),
+            artifacts: !!this.getTrackedOpenDatabase(hashedMasterKey, 'artifacts'),
+            kb: !!this.getTrackedOpenDatabase(hashedMasterKey, 'kb'),
+            images: !!this.getTrackedOpenDatabase(hashedMasterKey, 'images'),
+            whatsapp: !!this.getTrackedOpenDatabase(hashedMasterKey, 'whatsapp')
         };
     }
 
@@ -52,11 +61,20 @@ class PaiperworkDB {
         if (normalizedRole === 'rag') {
             return `${hashedMasterKey}.rag.db`;
         }
-        if (normalizedRole === 'html') {
-            return `${hashedMasterKey}.html.db`;
+        if (normalizedRole === 'presentations') {
+            return `${hashedMasterKey}.presentations.db`;
+        }
+        if (normalizedRole === 'artifacts') {
+            return `${hashedMasterKey}.artifacts.db`;
         }
         if (normalizedRole === 'kb') {
             return `${hashedMasterKey}.kb.db`;
+        }
+        if (normalizedRole === 'images') {
+            return `${hashedMasterKey}.images.db`;
+        }
+        if (normalizedRole === 'whatsapp') {
+            return `${hashedMasterKey}.whatsapp.db`;
         }
         return `${hashedMasterKey}.db`;
     }
@@ -66,13 +84,141 @@ class PaiperworkDB {
         if (normalizedRole === 'rag') {
             return `${hashedMasterKey}::rag`;
         }
-        if (normalizedRole === 'html') {
-            return `${hashedMasterKey}::html`;
+        if (normalizedRole === 'presentations') {
+            return `${hashedMasterKey}::presentations`;
+        }
+        if (normalizedRole === 'artifacts') {
+            return `${hashedMasterKey}::artifacts`;
         }
         if (normalizedRole === 'kb') {
             return `${hashedMasterKey}::kb`;
         }
+        if (normalizedRole === 'images') {
+            return `${hashedMasterKey}::images`;
+        }
+        if (normalizedRole === 'whatsapp') {
+            return `${hashedMasterKey}::whatsapp`;
+        }
         return hashedMasterKey;
+    }
+
+    static getLegacyHtmlDbFileName(hashedMasterKey) {
+        return `${hashedMasterKey}.html.db`;
+    }
+
+    static getLegacyHtmlDbStorageKey(hashedMasterKey) {
+        return `${hashedMasterKey}::html`;
+    }
+
+    static async getLegacyHtmlRoleDatabaseBytes(hashedMasterKey) {
+        if (!hashedMasterKey) {
+            return null;
+        }
+
+        if (this.opfsSupported && !this.useIndexedDBOnly) {
+            try {
+                const root = await navigator.storage.getDirectory();
+                const dbDir = await root.getDirectoryHandle('PaiperworkDB', { create: true });
+                const fileHandle = await dbDir.getFileHandle(this.getLegacyHtmlDbFileName(hashedMasterKey), { create: false });
+                const file = await fileHandle.getFile();
+                const buffer = await file.arrayBuffer();
+                return new Uint8Array(buffer);
+            } catch (error) {
+                if (error?.name !== 'NotFoundError') {
+                    console.warn('Error reading legacy html database from OPFS:', error);
+                }
+            }
+        }
+
+        return new Promise((resolve) => {
+            const request = indexedDB.open('PaiperworkDB', 1);
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('databases')) {
+                    db.createObjectStore('databases');
+                }
+            };
+
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+
+                if (!db.objectStoreNames.contains('databases')) {
+                    db.close();
+                    resolve(null);
+                    return;
+                }
+
+                const transaction = db.transaction(['databases'], 'readonly');
+                const store = transaction.objectStore('databases');
+                const getRequest = store.get(this.getLegacyHtmlDbStorageKey(hashedMasterKey));
+
+                getRequest.onsuccess = () => {
+                    db.close();
+                    resolve(getRequest.result || null);
+                };
+
+                getRequest.onerror = () => {
+                    console.warn('Error reading legacy html database from IndexedDB:', getRequest.error);
+                    db.close();
+                    resolve(null);
+                };
+            };
+
+            request.onerror = () => {
+                console.warn('Error opening IndexedDB while reading legacy html database:', request.error);
+                resolve(null);
+            };
+        });
+    }
+
+    static async deleteLegacyHtmlDatabase(hashedMasterKey) {
+        if (!hashedMasterKey) {
+            return true;
+        }
+
+        let opfsDeleted = true;
+        if (this.opfsSupported) {
+            try {
+                const root = await navigator.storage.getDirectory();
+                const dbDir = await root.getDirectoryHandle('PaiperworkDB', { create: false });
+                await dbDir.removeEntry(this.getLegacyHtmlDbFileName(hashedMasterKey));
+            } catch (error) {
+                if (error?.name !== 'NotFoundError') {
+                    console.warn('Error deleting legacy html database from OPFS:', error);
+                    opfsDeleted = false;
+                }
+            }
+        }
+
+        const indexedDbDeleted = await new Promise((resolve) => {
+            const request = indexedDB.open('PaiperworkDB', 1);
+
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                const transaction = db.transaction(['databases'], 'readwrite');
+                const store = transaction.objectStore('databases');
+                const deleteRequest = store.delete(this.getLegacyHtmlDbStorageKey(hashedMasterKey));
+
+                deleteRequest.onsuccess = () => {
+                    db.close();
+                    resolve(true);
+                };
+
+                deleteRequest.onerror = () => {
+                    console.error('Error deleting legacy html database from IndexedDB:', deleteRequest.error);
+                    db.close();
+                    resolve(false);
+                };
+            };
+
+            request.onerror = () => {
+                console.error('Error opening IndexedDB while deleting legacy html database:', request.error);
+                resolve(false);
+            };
+        });
+
+        return opfsDeleted && indexedDbDeleted;
     }
 
     // Detects if the browser is Safari.
@@ -355,12 +501,51 @@ class PaiperworkDB {
         return this.getDatabase(hashedMasterKey, 'rag', true);
     }
 
-    static async getHtmlDatabase(hashedMasterKey) {
-        return this.getDatabase(hashedMasterKey, 'html', true);
+    static async getPresentationsDatabase(hashedMasterKey) {
+        return this.getDatabase(hashedMasterKey, 'presentations', true);
+    }
+
+    static async getArtifactsDatabase(hashedMasterKey) {
+        return this.getDatabase(hashedMasterKey, 'artifacts', true);
     }
 
     static async getKnowledgeDatabase(hashedMasterKey) {
         return this.getDatabase(hashedMasterKey, 'kb', true);
+    }
+
+    static async getImagesDatabase(hashedMasterKey) {
+        return this.getDatabase(hashedMasterKey, 'images', true);
+    }
+
+    static async getWhatsappDatabase(hashedMasterKey) {
+        return this.getDatabase(hashedMasterKey, 'whatsapp', true);
+    }
+
+    static async getWhatsappRoleSqlDatabase(hashedMasterKey, createIfMissing = true) {
+        if (!this.SQL) {
+            this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+        }
+
+        const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+        if (existingDb) {
+            return new this.SQL.Database(existingDb);
+        }
+
+        if (!createIfMissing) {
+            return null;
+        }
+
+        return new this.SQL.Database();
+    }
+
+    static async saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey) {
+        if (!sqlDb || !hashedMasterKey) return false;
+        await this.saveToStorage(sqlDb.export(), hashedMasterKey, 'whatsapp');
+        return true;
+    }
+
+    static async closeWhatsappDatabase(hashedMasterKey = null) {
+        return this.closeRoleDatabases('whatsapp', hashedMasterKey);
     }
 
     static async closeRoleDatabases(role = 'rag', hashedMasterKey = null) {
@@ -390,12 +575,20 @@ class PaiperworkDB {
         return this.closeRoleDatabases('rag', hashedMasterKey);
     }
 
-    static async closeHtmlDatabases(hashedMasterKey = null) {
-        return this.closeRoleDatabases('html', hashedMasterKey);
+    static async closePresentationsDatabases(hashedMasterKey = null) {
+        return this.closeRoleDatabases('presentations', hashedMasterKey);
+    }
+
+    static async closeArtifactDatabases(hashedMasterKey = null) {
+        return this.closeRoleDatabases('artifacts', hashedMasterKey);
     }
 
     static async closeKnowledgeDatabases(hashedMasterKey = null) {
         return this.closeRoleDatabases('kb', hashedMasterKey);
+    }
+
+    static async closeImagesDatabases(hashedMasterKey = null) {
+        return this.closeRoleDatabases('images', hashedMasterKey);
     }
 
     static async closeAllDatabases(hashedMasterKey = null) {
@@ -421,6 +614,11 @@ class PaiperworkDB {
 
     static async exportDatabase(hashedMasterKey, role = 'main') {
         try {
+            if (role === 'html') {
+                const legacyDb = await this.getLegacyHtmlRoleDatabaseBytes(hashedMasterKey);
+                return legacyDb && legacyDb.byteLength > 0 ? new Uint8Array(legacyDb) : new Uint8Array(0);
+            }
+
             const normalizedRole = this.normalizeDbRole(role);
             // Export from persisted bytes first so we don't depend on potentially stale tracked SQL.js handles.
             const persistedDb = await this.getExistingDatabase(hashedMasterKey, normalizedRole);
@@ -490,18 +688,116 @@ class PaiperworkDB {
         return bytes;
     }
 
+    static async inspectImportedMainDatabase(dbBytes) {
+        if (!this.validateSQLiteBytes(dbBytes)) {
+            return { detectedHashes: [], userSettingHashes: [], tableHashes: [] };
+        }
+
+        if (!this.SQL) {
+            this.SQL = await initSqlJs({
+                locateFile: file => `/core/js/libraries/SQLjs/${file}`
+            });
+        }
+
+        let sqlDb = null;
+        try {
+            sqlDb = new this.SQL.Database(dbBytes);
+
+            const userSettingHashes = [];
+            try {
+                const userSettingsTable = sqlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='user_settings'`);
+                if (userSettingsTable?.[0]?.values?.length) {
+                    const rows = sqlDb.exec(`SELECT masterkey_hash FROM user_settings WHERE masterkey_hash IS NOT NULL AND masterkey_hash != ''`);
+                    for (const row of rows?.[0]?.values || []) {
+                        const hash = String(row[0] || '').trim();
+                        if (/^[a-f0-9]{64}$/i.test(hash)) {
+                            userSettingHashes.push(hash);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.warn('PaiperworkDB: Could not inspect imported user_settings hashes:', error);
+            }
+
+            const tableHashes = [];
+            try {
+                const rows = sqlDb.exec(`SELECT name FROM sqlite_master WHERE type='table'`);
+                for (const row of rows?.[0]?.values || []) {
+                    const tableName = String(row[0] || '');
+                    const match = tableName.match(/_([a-f0-9]{64})$/i);
+                    if (match) {
+                        tableHashes.push(match[1]);
+                    }
+                }
+            } catch (error) {
+                console.warn('PaiperworkDB: Could not inspect imported table hashes:', error);
+            }
+
+            const detectedHashes = [...new Set([...userSettingHashes, ...tableHashes])];
+            return { detectedHashes, userSettingHashes, tableHashes };
+        } finally {
+            try {
+                sqlDb?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
+        }
+    }
+
+    static async validateImportedBackupForMasterKey(hashedMasterKey, mainDbBytes) {
+        const inspection = await this.inspectImportedMainDatabase(mainDbBytes);
+        const detectedHashes = inspection.detectedHashes || [];
+
+        console.info('PaiperworkDB: Import backup hash inspection', {
+            currentHashPrefix: String(hashedMasterKey || '').slice(0, 8),
+            detectedHashPrefixes: detectedHashes.map(hash => String(hash).slice(0, 8))
+        });
+
+        if (detectedHashes.length > 0 && !detectedHashes.includes(hashedMasterKey)) {
+            throw new Error('Backup belongs to a different master key. Log in with the original master key before importing.');
+        }
+
+        return inspection;
+    }
+
+    static async persistTrackedDatabases(hashedMasterKey = null) {
+        const trackedEntries = this.openDbInstances.filter((entry) => {
+            if (!entry || !entry.db || !entry.role || !entry.hashedMasterKey) {
+                return false;
+            }
+
+            return hashedMasterKey ? entry.hashedMasterKey === hashedMasterKey : true;
+        });
+
+        for (const entry of trackedEntries) {
+            try {
+                await this.saveToStorage(entry.db.export(), entry.hashedMasterKey, entry.role);
+            } catch (error) {
+                console.warn(`Error persisting tracked ${entry.role} database before export:`, error);
+            }
+        }
+    }
+
     static async exportDatabaseBundle(hashedMasterKey) {
         try {
+            await this.persistTrackedDatabases(hashedMasterKey);
+
             const mainDb = await this.exportDatabase(hashedMasterKey, 'main');
             const ragDb = await this.exportDatabase(hashedMasterKey, 'rag');
-            const htmlDb = await this.exportDatabase(hashedMasterKey, 'html');
+            const presentationsDb = await this.exportDatabase(hashedMasterKey, 'presentations');
+            const artifactsDb = await this.exportDatabase(hashedMasterKey, 'artifacts');
             const kbDb = await this.exportDatabase(hashedMasterKey, 'kb');
+            const imagesDb = await this.exportDatabase(hashedMasterKey, 'images');
+            const whatsappDb = await this.exportDatabase(hashedMasterKey, 'whatsapp');
 
             const roleSizes = {
                 main: mainDb?.length || 0,
                 rag: ragDb?.length || 0,
-                html: htmlDb?.length || 0,
-                kb: kbDb?.length || 0
+                presentations: presentationsDb?.length || 0,
+                artifacts: artifactsDb?.length || 0,
+                kb: kbDb?.length || 0,
+                images: imagesDb?.length || 0,
+                whatsapp: whatsappDb?.length || 0
             };
             console.info('PaiperworkDB: Export bundle role sizes (bytes):', roleSizes);
 
@@ -511,8 +807,11 @@ class PaiperworkDB {
                 dbs: {
                     main: this.encodeUint8ArrayToBase64(mainDb),
                     rag: this.encodeUint8ArrayToBase64(ragDb),
-                    html: this.encodeUint8ArrayToBase64(htmlDb),
-                    kb: this.encodeUint8ArrayToBase64(kbDb)
+                    presentations: this.encodeUint8ArrayToBase64(presentationsDb),
+                    artifacts: this.encodeUint8ArrayToBase64(artifactsDb),
+                    kb: this.encodeUint8ArrayToBase64(kbDb),
+                    images: this.encodeUint8ArrayToBase64(imagesDb),
+                    whatsapp: this.encodeUint8ArrayToBase64(whatsappDb)
                 }
             };
 
@@ -538,6 +837,7 @@ class PaiperworkDB {
 
             // Backward compatibility: single .db file imports only the main DB.
             if (rawBytes && this.validateSQLiteBytes(rawBytes)) {
+                await this.closeAllDatabases(hashedMasterKey);
                 await this.importDatabase(hashedMasterKey, rawBytes, 'main');
                 return { success: true, legacyMainOnly: true, importedRoles: ['main'] };
             }
@@ -547,17 +847,25 @@ class PaiperworkDB {
             }
 
             const parsed = JSON.parse(bundleText);
-            if (!parsed || parsed.format !== this.DB_BUNDLE_FORMAT || !parsed.dbs) {
+            if (!parsed || !parsed.dbs || ![this.DB_BUNDLE_FORMAT, this.LEGACY_DB_BUNDLE_FORMAT].includes(parsed.format)) {
                 throw new Error('Invalid Paiperwork backup bundle');
             }
 
-            const allRoles = ['main', 'rag', 'html', 'kb'];
+            console.info('PaiperworkDB: Starting bundle import', {
+                format: parsed.format,
+                currentHashPrefix: String(hashedMasterKey || '').slice(0, 8),
+                availableRoles: Object.keys(parsed.dbs || {})
+            });
+
+            const isLegacyBundle = parsed.format === this.LEGACY_DB_BUNDLE_FORMAT;
+            const allRoles = isLegacyBundle
+                ? ['main', 'rag', 'html', 'kb', 'images', 'whatsapp']
+                : ['main', 'rag', 'presentations', 'artifacts', 'kb', 'images', 'whatsapp'];
             if (typeof parsed.dbs.main !== 'string' || !parsed.dbs.main) {
                 throw new Error('Backup is missing main database data');
             }
 
             const decoded = {};
-            const importedRoles = [];
             for (const role of allRoles) {
                 const encodedPayload = parsed.dbs[role];
                 if (typeof encodedPayload !== 'string' || !encodedPayload) {
@@ -570,16 +878,23 @@ class PaiperworkDB {
                 }
 
                 decoded[role] = bytes;
-                importedRoles.push(role);
             }
 
             if (!decoded.main) {
                 throw new Error('Backup is missing main database data');
             }
 
+            await this.validateImportedBackupForMasterKey(hashedMasterKey, decoded.main);
+
             await this.closeAllDatabases(hashedMasterKey);
 
-            for (const role of allRoles) {
+            const persistedRoles = ['main', 'rag', 'presentations', 'artifacts', 'kb', 'images', 'whatsapp'];
+            if (isLegacyBundle) {
+                await this.deleteStoredDatabaseRole(hashedMasterKey, 'presentations');
+                await this.deleteStoredDatabaseRole(hashedMasterKey, 'artifacts');
+            }
+
+            for (const role of persistedRoles) {
                 if (decoded[role]) {
                     const saved = await this.saveToStorage(decoded[role], hashedMasterKey, role);
                     if (!saved) {
@@ -591,13 +906,37 @@ class PaiperworkDB {
                 }
             }
 
+            const importedRoles = persistedRoles.filter(role => !!decoded[role]);
+
+            if (isLegacyBundle) {
+                await this.deleteLegacyHtmlDatabase(hashedMasterKey);
+
+                if (decoded.html) {
+                    const migrationResult = await this.migrateLegacyHtmlRoleDbToDedicatedRoles(hashedMasterKey, {
+                        legacyHtmlBytes: decoded.html,
+                        cleanupLegacyStorage: false
+                    });
+
+                    if (migrationResult.migratedPresentationRows > 0) {
+                        importedRoles.push('presentations');
+                    }
+                    if (migrationResult.migratedArtifactRows > 0) {
+                        importedRoles.push('artifacts');
+                    }
+                }
+            } else {
+                await this.deleteLegacyHtmlDatabase(hashedMasterKey);
+            }
+
+            await this.migrateImportedDatabaseSchema(hashedMasterKey);
+
             // Verify imported databases can be opened.
-            for (const role of importedRoles) {
+            for (const role of [...new Set(importedRoles)]) {
                 const verifyDb = await this.getDatabase(hashedMasterKey, role, true);
                 verifyDb?.exec?.('SELECT 1');
             }
 
-            return { success: true, legacyMainOnly: false, importedRoles };
+            return { success: true, legacyMainOnly: false, importedRoles: [...new Set(importedRoles)] };
         } catch (error) {
             console.error('Error importing database bundle:', error);
             throw error;
@@ -605,6 +944,10 @@ class PaiperworkDB {
     }
 
     static async deleteStoredDatabaseRole(hashedMasterKey, role = 'main') {
+        if (role === 'html') {
+            return this.deleteLegacyHtmlDatabase(hashedMasterKey);
+        }
+
         const normalizedRole = this.normalizeDbRole(role);
 
         await this.closeRoleDatabases(normalizedRole, hashedMasterKey);
@@ -656,6 +999,10 @@ class PaiperworkDB {
 
             const normalizedRole = this.normalizeDbRole(role);
 
+            if (normalizedRole === 'main') {
+                await this.validateImportedBackupForMasterKey(hashedMasterKey, dbBytes);
+            }
+
             // Close tracked instances for this role/key before replacing persisted bytes.
             await this.closeRoleDatabases(normalizedRole, hashedMasterKey);
 
@@ -668,10 +1015,58 @@ class PaiperworkDB {
             const verifyDb = await this.getDatabase(hashedMasterKey, normalizedRole, true);
             verifyDb?.exec?.('SELECT 1');
 
+            if (normalizedRole === 'main') {
+                await this.migrateImportedDatabaseSchema(hashedMasterKey);
+            }
+
             return true;
         } catch (error) {
             console.error('Error importing database:', error);
             throw error;
+        }
+    }
+
+    static async migrateImportedDatabaseSchema(hashedMasterKey) {
+        let importedMainDb = null;
+
+        try {
+            if (!hashedMasterKey) {
+                return false;
+            }
+
+            await this.ensureDatabaseExists();
+            await this.closeAllDatabases(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({
+                    locateFile: file => `/core/js/libraries/SQLjs/${file}`
+                });
+            }
+
+            const existingMainDb = await this.getExistingDatabase(hashedMasterKey, 'main');
+            if (!existingMainDb) {
+                return false;
+            }
+
+            importedMainDb = new this.SQL.Database(existingMainDb);
+            importedMainDb.run(`
+                CREATE TABLE IF NOT EXISTS db_version (
+                    version INTEGER PRIMARY KEY
+                )
+            `);
+
+            await this.migrateDatabase(importedMainDb, hashedMasterKey);
+            await this.saveToStorage(importedMainDb.export(), hashedMasterKey, 'main');
+            return true;
+        } catch (error) {
+            console.error('Error migrating imported database schema:', error);
+            return false;
+        } finally {
+            try {
+                importedMainDb?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
         }
     }
 
@@ -709,8 +1104,8 @@ class PaiperworkDB {
     static isEncryptedPayloadObject(value) {
         return !!value &&
             typeof value === 'object' &&
-            Array.isArray(value.encrypted) &&
-            Array.isArray(value.iv);
+            (Array.isArray(value.encrypted) || typeof value.encrypted === 'string') &&
+            (Array.isArray(value.iv) || typeof value.iv === 'string');
     }
 
     static parseEncryptedPayloadString(value) {
@@ -755,6 +1150,642 @@ class PaiperworkDB {
         }
 
         return this.parseEncryptedPayloadString(current) ? '' : current;
+    }
+
+    static bytesToBase64(bytes) {
+        let binary = '';
+        const chunkSize = 0x8000;
+
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+            const chunk = bytes.subarray(offset, offset + chunkSize);
+            binary += String.fromCharCode(...chunk);
+        }
+
+        return btoa(binary);
+    }
+
+    static base64ToUint8Array(base64Value) {
+        const binary = atob(base64Value);
+        const bytes = new Uint8Array(binary.length);
+
+        for (let index = 0; index < binary.length; index++) {
+            bytes[index] = binary.charCodeAt(index);
+        }
+
+        return bytes;
+    }
+
+    static normalizeConversationImageData(imageData) {
+        if (!Array.isArray(imageData) || imageData.length === 0) {
+            return [];
+        }
+
+        return imageData
+            .map((img) => {
+                if (typeof img === 'string' && img.trim()) {
+                    return { src: img };
+                }
+
+                if (!img || typeof img !== 'object') {
+                    return null;
+                }
+
+                const src = typeof img.src === 'string' ? img.src.trim() : '';
+                const thumbnail = typeof img.thumbnail === 'string' ? img.thumbnail.trim() : '';
+
+                if (!src && !thumbnail) {
+                    return null;
+                }
+
+                const normalizedImage = {};
+
+                if (src) {
+                    normalizedImage.src = src;
+                }
+
+                if (thumbnail && thumbnail !== src) {
+                    normalizedImage.thumbnail = thumbnail;
+                }
+
+                if (!normalizedImage.src && normalizedImage.thumbnail) {
+                    normalizedImage.src = normalizedImage.thumbnail;
+                    delete normalizedImage.thumbnail;
+                }
+
+                return normalizedImage;
+            })
+            .filter(Boolean);
+    }
+
+    static createConversationAttachmentId() {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            return `conversation_image_${crypto.randomUUID()}`;
+        }
+
+        return `conversation_image_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    static async blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => reject(reader.error || new Error('Failed to read blob as data URL'));
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    static parseDataUrlImage(dataUrl) {
+        const match = String(dataUrl || '').match(/^data:([^;,]+)?;base64,(.+)$/);
+        if (!match) {
+            return null;
+        }
+
+        const mimeType = (match[1] || 'application/octet-stream').trim();
+        const bytes = this.base64ToUint8Array(match[2]);
+
+        return {
+            mimeType,
+            bytes,
+            byteSize: bytes.length,
+            dataUrl: String(dataUrl || '')
+        };
+    }
+
+    static async resolveConversationImageBlobSource(image) {
+        if (!image) {
+            return null;
+        }
+
+        if (image && typeof image === 'object' && image.attachmentId) {
+            return {
+                attachmentRef: {
+                    attachmentId: image.attachmentId,
+                    mimeType: image.mimeType || image.mime_type || '',
+                    fileName: image.fileName || image.file_name || '',
+                    byteSize: image.byteSize || image.byte_size || 0
+                }
+            };
+        }
+
+        let blob = null;
+        let dataUrl = '';
+        let mimeType = '';
+        let fileName = '';
+        let byteSize = 0;
+
+        if (typeof image === 'string') {
+            if (image.startsWith('data:image/')) {
+                dataUrl = image;
+            } else if (image.startsWith('blob:')) {
+                const response = await fetch(image);
+                if (!response.ok) {
+                    return null;
+                }
+                blob = await response.blob();
+            } else {
+                return null;
+            }
+        } else if (typeof image === 'object') {
+            if (image.originalBlob instanceof Blob) {
+                blob = image.originalBlob;
+            } else if (image.blob instanceof Blob) {
+                blob = image.blob;
+            } else if (image.file instanceof Blob) {
+                blob = image.file;
+            }
+
+            if (typeof image.dataUrl === 'string' && image.dataUrl.startsWith('data:image/')) {
+                dataUrl = image.dataUrl;
+            } else if (typeof image.src === 'string' && image.src.startsWith('data:image/')) {
+                dataUrl = image.src;
+            } else if (typeof image.thumbnail === 'string' && image.thumbnail.startsWith('data:image/')) {
+                dataUrl = image.thumbnail;
+            } else if (!blob && typeof image.src === 'string' && image.src.startsWith('blob:')) {
+                const response = await fetch(image.src);
+                if (!response.ok) {
+                    return null;
+                }
+                blob = await response.blob();
+            }
+
+            mimeType = String(image.mimeType || image.mime_type || '').trim();
+            fileName = String(image.fileName || image.file_name || image.name || '').trim();
+            byteSize = Number(image.byteSize || image.byte_size || 0) || 0;
+        }
+
+        if (!blob && dataUrl) {
+            const decoded = this.parseDataUrlImage(dataUrl);
+            if (!decoded) {
+                return null;
+            }
+
+            return {
+                bytes: decoded.bytes,
+                mimeType: mimeType || decoded.mimeType,
+                fileName,
+                byteSize: byteSize || decoded.byteSize,
+                dataUrl
+            };
+        }
+
+        if (!blob) {
+            return null;
+        }
+
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+
+        return {
+            bytes,
+            mimeType: mimeType || blob.type || 'application/octet-stream',
+            fileName,
+            byteSize: byteSize || blob.size || bytes.length,
+            dataUrl
+        };
+    }
+
+    static async ensureConversationAttachmentTable(attachmentDb, hashedMasterKey) {
+        attachmentDb.run(`
+            CREATE TABLE IF NOT EXISTS conversation_attachments_${hashedMasterKey} (
+                attachment_id TEXT PRIMARY KEY,
+                conversation_group INTEGER DEFAULT 1,
+                mime_type TEXT,
+                file_name TEXT,
+                byte_size INTEGER DEFAULT 0,
+                blob_ciphertext BLOB,
+                blob_iv BLOB,
+                created_at TEXT
+            )
+        `);
+    }
+
+    static async serializeConversationImageRefs(attachmentDb, hashedMasterKey, imageData, conversationGroup = 1) {
+        if (!Array.isArray(imageData) || imageData.length === 0) {
+            return [];
+        }
+
+        await this.ensureConversationAttachmentTable(attachmentDb, hashedMasterKey);
+
+        const storedImages = [];
+
+        for (const image of imageData) {
+            const resolvedSource = await this.resolveConversationImageBlobSource(image);
+
+            if (resolvedSource?.attachmentRef) {
+                storedImages.push(resolvedSource.attachmentRef);
+                continue;
+            }
+
+            if (!resolvedSource || !resolvedSource.bytes || resolvedSource.bytes.length === 0) {
+                const fallback = this.normalizeConversationImageData([image])[0];
+                if (fallback) {
+                    storedImages.push(fallback);
+                }
+                continue;
+            }
+
+            const attachmentId = this.createConversationAttachmentId();
+            const encryptedBlob = await this.encryptBinary(hashedMasterKey, resolvedSource.bytes);
+            const createdAt = new Date().toISOString();
+
+            attachmentDb.run(
+                `INSERT OR REPLACE INTO conversation_attachments_${hashedMasterKey}
+                (attachment_id, conversation_group, mime_type, file_name, byte_size, blob_ciphertext, blob_iv, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    attachmentId,
+                    conversationGroup,
+                    resolvedSource.mimeType || 'application/octet-stream',
+                    resolvedSource.fileName || '',
+                    resolvedSource.byteSize || resolvedSource.bytes.length,
+                    encryptedBlob.encrypted,
+                    encryptedBlob.iv,
+                    createdAt
+                ]
+            );
+
+            storedImages.push({
+                attachmentId,
+                mimeType: resolvedSource.mimeType || 'application/octet-stream',
+                fileName: resolvedSource.fileName || '',
+                byteSize: resolvedSource.byteSize || resolvedSource.bytes.length
+            });
+        }
+
+        return storedImages;
+    }
+
+    static async resolveStoredConversationImage(attachmentDb, hashedMasterKey, imageRef) {
+        if (!imageRef || typeof imageRef !== 'object' || !imageRef.attachmentId) {
+            return null;
+        }
+
+        if (!attachmentDb) {
+            return null;
+        }
+
+        await this.ensureConversationAttachmentTable(attachmentDb, hashedMasterKey);
+
+        const result = attachmentDb.exec(
+            `SELECT mime_type, file_name, byte_size, blob_ciphertext, blob_iv
+             FROM conversation_attachments_${hashedMasterKey}
+             WHERE attachment_id = ?
+             LIMIT 1`,
+            [imageRef.attachmentId]
+        );
+
+        if (!result[0]?.values?.length) {
+            return null;
+        }
+
+        const row = result[0].values[0];
+        const mimeType = row[0] || imageRef.mimeType || imageRef.mime_type || 'application/octet-stream';
+        const fileName = row[1] || imageRef.fileName || imageRef.file_name || '';
+        const byteSize = row[2] || imageRef.byteSize || imageRef.byte_size || 0;
+        const encryptedBlob = row[3];
+        const blobIv = row[4];
+        const decryptedBytes = await this.decryptBinary(hashedMasterKey, encryptedBlob, blobIv);
+        const blob = new Blob([decryptedBytes], { type: mimeType });
+        const objectUrl = URL.createObjectURL(blob);
+        const dataUrl = await this.blobToDataUrl(blob);
+
+        return {
+            attachmentId: imageRef.attachmentId,
+            src: objectUrl,
+            fullImage: objectUrl,
+            dataUrl,
+            mimeType,
+            fileName,
+            byteSize,
+            blob
+        };
+    }
+
+    static async resolveConversationImageData(attachmentDb, hashedMasterKey, images) {
+        if (!Array.isArray(images) || images.length === 0) {
+            return [];
+        }
+
+        const resolvedImages = [];
+
+        for (const image of images) {
+            if (image && typeof image === 'object' && image.attachmentId) {
+                const resolvedAttachment = await this.resolveStoredConversationImage(attachmentDb, hashedMasterKey, image);
+                if (resolvedAttachment) {
+                    resolvedImages.push(resolvedAttachment);
+                    continue;
+                }
+            }
+
+            if (typeof image === 'string' && image.startsWith('data:image/')) {
+                resolvedImages.push({
+                    src: image,
+                    fullImage: image,
+                    dataUrl: image
+                });
+                continue;
+            }
+
+            if (image && typeof image === 'object') {
+                const normalizedImage = { ...image };
+
+                if (!normalizedImage.dataUrl) {
+                    if (typeof normalizedImage.src === 'string' && normalizedImage.src.startsWith('data:image/')) {
+                        normalizedImage.dataUrl = normalizedImage.src;
+                    } else if (typeof normalizedImage.thumbnail === 'string' && normalizedImage.thumbnail.startsWith('data:image/')) {
+                        normalizedImage.dataUrl = normalizedImage.thumbnail;
+                    }
+                }
+
+                if (!normalizedImage.src && normalizedImage.dataUrl) {
+                    normalizedImage.src = normalizedImage.dataUrl;
+                }
+
+                if (!normalizedImage.fullImage) {
+                    normalizedImage.fullImage = normalizedImage.src || normalizedImage.thumbnail || normalizedImage.dataUrl || '';
+                }
+
+                resolvedImages.push(normalizedImage);
+            }
+        }
+
+        return resolvedImages;
+    }
+
+    static extractConversationAttachmentIdsFromStoredMessage(messageValue) {
+        if (!messageValue) {
+            return [];
+        }
+
+        try {
+            const parsedMessage = typeof messageValue === 'string'
+                ? JSON.parse(messageValue)
+                : messageValue;
+
+            if (!parsedMessage || typeof parsedMessage !== 'object' || !Array.isArray(parsedMessage.images)) {
+                return [];
+            }
+
+            return parsedMessage.images
+                .map((image) => (image && typeof image === 'object' ? String(image.attachmentId || '').trim() : ''))
+                .filter(Boolean);
+        } catch (_error) {
+            return [];
+        }
+    }
+
+    static async deleteConversationAttachmentsByIds(attachmentDb, hashedMasterKey, attachmentIds = []) {
+        const uniqueIds = [...new Set((attachmentIds || []).map(id => String(id || '').trim()).filter(Boolean))];
+        if (!attachmentDb || !hashedMasterKey || uniqueIds.length === 0) {
+            return 0;
+        }
+
+        await this.ensureConversationAttachmentTable(attachmentDb, hashedMasterKey);
+
+        for (const attachmentId of uniqueIds) {
+            attachmentDb.run(
+                `DELETE FROM conversation_attachments_${hashedMasterKey} WHERE attachment_id = ?`,
+                [attachmentId]
+            );
+        }
+
+        return uniqueIds.length;
+    }
+
+    static async deleteConversationAttachmentsByGroup(attachmentDb, hashedMasterKey, conversationGroup) {
+        if (!attachmentDb || !hashedMasterKey || conversationGroup === undefined || conversationGroup === null) {
+            return 0;
+        }
+
+        await this.ensureConversationAttachmentTable(attachmentDb, hashedMasterKey);
+        attachmentDb.run(
+            `DELETE FROM conversation_attachments_${hashedMasterKey} WHERE conversation_group = ?`,
+            [conversationGroup]
+        );
+
+        return typeof attachmentDb.getRowsModified === 'function'
+            ? (attachmentDb.getRowsModified() || 0)
+            : 0;
+    }
+
+    static async migrateConversationImagesToAttachments(mainDb, attachmentDb, hashedMasterKey) {
+        await this.ensureConversationAttachmentTable(attachmentDb, hashedMasterKey);
+
+        const rows = mainDb.exec(`
+            SELECT id, conversation, role, conversation_group
+            FROM conversations_${hashedMasterKey}
+            ORDER BY id ASC
+        `);
+
+        if (!rows[0]?.values?.length) {
+            return { updatedMessages: 0 };
+        }
+
+        let updatedMessages = 0;
+
+        for (const row of rows[0].values) {
+            const messageId = row[0];
+            const encryptedConversation = row[1];
+            const encryptedRole = row[2];
+            const conversationGroup = row[3] || 1;
+
+            const decryptedRole = await this.decrypt(hashedMasterKey, JSON.parse(encryptedRole));
+            if (decryptedRole !== 'user') {
+                continue;
+            }
+
+            const decryptedMessage = await this.decrypt(hashedMasterKey, JSON.parse(encryptedConversation));
+
+            let parsedMessage;
+            try {
+                parsedMessage = JSON.parse(decryptedMessage);
+            } catch (_error) {
+                continue;
+            }
+
+            if (!parsedMessage || typeof parsedMessage !== 'object' || parsedMessage.text === undefined || !Array.isArray(parsedMessage.images) || parsedMessage.images.length === 0) {
+                continue;
+            }
+
+            const migratedImages = await this.serializeConversationImageRefs(
+                attachmentDb,
+                hashedMasterKey,
+                parsedMessage.images,
+                conversationGroup
+            );
+
+            const nextMessage = JSON.stringify({
+                text: parsedMessage.text || '',
+                images: migratedImages
+            });
+
+            if (nextMessage === decryptedMessage) {
+                continue;
+            }
+
+            const encryptedNextMessage = await this.encrypt(hashedMasterKey, nextMessage);
+            mainDb.run(
+                `UPDATE conversations_${hashedMasterKey} SET conversation = ? WHERE id = ?`,
+                [JSON.stringify(encryptedNextMessage), messageId]
+            );
+            updatedMessages += 1;
+        }
+
+        return { updatedMessages };
+    }
+
+    static async migrateConversationAttachmentsToRoleDb(mainDb, attachmentDb, hashedMasterKey) {
+        await this.ensureConversationAttachmentTable(attachmentDb, hashedMasterKey);
+
+        const tableCheck = mainDb.exec(`
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name='conversation_attachments_${hashedMasterKey}'
+        `);
+
+        if (!tableCheck[0]?.values?.length) {
+            return { movedAttachments: 0 };
+        }
+
+        const rows = mainDb.exec(`
+            SELECT attachment_id, conversation_group, mime_type, file_name, byte_size, blob_ciphertext, blob_iv, created_at
+            FROM conversation_attachments_${hashedMasterKey}
+        `);
+
+        if (!rows[0]?.values?.length) {
+            return { movedAttachments: 0 };
+        }
+
+        let movedAttachments = 0;
+
+        for (const row of rows[0].values) {
+            attachmentDb.run(
+                `INSERT OR REPLACE INTO conversation_attachments_${hashedMasterKey}
+                (attachment_id, conversation_group, mime_type, file_name, byte_size, blob_ciphertext, blob_iv, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                row
+            );
+            movedAttachments += 1;
+        }
+
+        mainDb.run(`DELETE FROM conversation_attachments_${hashedMasterKey}`);
+        return { movedAttachments };
+    }
+
+    static ensurePromptablePresentationHtmlTable(presentationsDb, hashedMasterKey) {
+        presentationsDb.run(`
+            CREATE TABLE IF NOT EXISTS promptable_presentations_html_${hashedMasterKey} (
+                presentation_id INTEGER PRIMARY KEY,
+                html_content TEXT,
+                updated_at TEXT
+            )
+        `);
+    }
+
+    static ensureArtifactHtmlTable(artifactsDb, hashedMasterKey) {
+        artifactsDb.run(`
+            CREATE TABLE IF NOT EXISTS artifacts_html_${hashedMasterKey} (
+                artifact_id INTEGER PRIMARY KEY,
+                html_content TEXT,
+                updated_at TEXT
+            )
+        `);
+    }
+
+    static async migrateLegacyHtmlRoleDbToDedicatedRoles(hashedMasterKey, options = {}) {
+        let legacyHtmlDb = options.legacyHtmlDb || null;
+        let shouldCloseLegacyDb = false;
+
+        try {
+            if (!hashedMasterKey) {
+                return { migratedPresentationRows: 0, migratedArtifactRows: 0, hadLegacyDb: false };
+            }
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({
+                    locateFile: file => `/core/js/libraries/SQLjs/${file}`
+                });
+            }
+
+            if (!legacyHtmlDb) {
+                const legacyHtmlBytes = options.legacyHtmlBytes || await this.getLegacyHtmlRoleDatabaseBytes(hashedMasterKey);
+                if (!legacyHtmlBytes || !legacyHtmlBytes.byteLength) {
+                    return { migratedPresentationRows: 0, migratedArtifactRows: 0, hadLegacyDb: false };
+                }
+
+                legacyHtmlDb = new this.SQL.Database(legacyHtmlBytes);
+                shouldCloseLegacyDb = true;
+            }
+
+            const tableExists = (sqlDb, tableName) => {
+                try {
+                    const result = sqlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+                    return !!(result?.[0]?.values?.length);
+                } catch (_error) {
+                    return false;
+                }
+            };
+
+            const presentationTableName = `promptable_presentations_html_${hashedMasterKey}`;
+            const artifactTableName = `artifacts_html_${hashedMasterKey}`;
+            const presentationsDb = await this.getDatabase(hashedMasterKey, 'presentations', true);
+            const artifactsDb = await this.getDatabase(hashedMasterKey, 'artifacts', true);
+
+            this.ensurePromptablePresentationHtmlTable(presentationsDb, hashedMasterKey);
+            this.ensureArtifactHtmlTable(artifactsDb, hashedMasterKey);
+
+            let migratedPresentationRows = 0;
+            let migratedArtifactRows = 0;
+
+            if (tableExists(legacyHtmlDb, presentationTableName)) {
+                const rows = legacyHtmlDb.exec(`SELECT presentation_id, html_content, updated_at FROM ${presentationTableName}`);
+                for (const row of rows?.[0]?.values || []) {
+                    presentationsDb.run(
+                        `INSERT OR REPLACE INTO ${presentationTableName} (presentation_id, html_content, updated_at) VALUES (?, ?, ?)`,
+                        row
+                    );
+                    migratedPresentationRows += 1;
+                }
+            }
+
+            if (tableExists(legacyHtmlDb, artifactTableName)) {
+                const rows = legacyHtmlDb.exec(`SELECT artifact_id, html_content, updated_at FROM ${artifactTableName}`);
+                for (const row of rows?.[0]?.values || []) {
+                    artifactsDb.run(
+                        `INSERT OR REPLACE INTO ${artifactTableName} (artifact_id, html_content, updated_at) VALUES (?, ?, ?)`,
+                        row
+                    );
+                    migratedArtifactRows += 1;
+                }
+            }
+
+            if (migratedPresentationRows > 0) {
+                await this.saveToStorage(presentationsDb.export(), hashedMasterKey, 'presentations');
+            }
+
+            if (migratedArtifactRows > 0) {
+                await this.saveToStorage(artifactsDb.export(), hashedMasterKey, 'artifacts');
+            }
+
+            if (options.cleanupLegacyStorage !== false) {
+                await this.deleteLegacyHtmlDatabase(hashedMasterKey);
+            }
+
+            return {
+                migratedPresentationRows,
+                migratedArtifactRows,
+                hadLegacyDb: true
+            };
+        } catch (error) {
+            console.error('DATABASE MIGRATION: Error migrating legacy html role database', error);
+            return { migratedPresentationRows: 0, migratedArtifactRows: 0, hadLegacyDb: false };
+        } finally {
+            if (shouldCloseLegacyDb) {
+                try {
+                    legacyHtmlDb?.close?.();
+                } catch (_error) {
+                    // Ignore SQL.js close errors during cleanup.
+                }
+            }
+        }
     }
 
     // Reads a localStorage key that may be plaintext or secureLocalStorageSet-encrypted.
@@ -1268,11 +2299,244 @@ class PaiperworkDB {
                 }
             }
 
-            // Update database version to 13
+            // Version 14: Add WhatsApp device mapping fields to user_settings
+            if (currentVersion < 14) {
+                try {
+                    const columnCheck = db.exec(`PRAGMA table_info(user_settings)`);
+                    const hasWhatsappDeviceId = columnCheck[0].values.some(col => col[1] === 'whatsapp_device_id');
+                    const hasWhatsappDeviceMeta = columnCheck[0].values.some(col => col[1] === 'whatsapp_device_meta');
+
+                    if (!hasWhatsappDeviceId) {
+                        db.run(`ALTER TABLE user_settings ADD COLUMN whatsapp_device_id TEXT`);
+                    }
+                    if (!hasWhatsappDeviceMeta) {
+                        db.run(`ALTER TABLE user_settings ADD COLUMN whatsapp_device_meta TEXT`);
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error adding whatsapp_device columns', error);
+                }
+            }
+
+            // Version 15: Add WhatsApp key management fields for persistent shared-key pairing metadata
+            if (currentVersion < 15) {
+                try {
+                    const columnCheck = db.exec(`PRAGMA table_info(user_settings)`);
+                    const hasWhatsappPreferredDeviceId = columnCheck[0].values.some(col => col[1] === 'whatsapp_preferred_device_id');
+                    const hasWhatsappPreferredDeviceMeta = columnCheck[0].values.some(col => col[1] === 'whatsapp_preferred_device_meta');
+
+                    if (!hasWhatsappPreferredDeviceId) {
+                        db.run(`ALTER TABLE user_settings ADD COLUMN whatsapp_preferred_device_id TEXT`);
+                    }
+                    if (!hasWhatsappPreferredDeviceMeta) {
+                        db.run(`ALTER TABLE user_settings ADD COLUMN whatsapp_preferred_device_meta TEXT`);
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error adding whatsapp_preferred_device columns', error);
+                }
+            }
+
+            // Version 16: Add WhatsApp mode for Personal/Bot mode toggle
+            if (currentVersion < 16) {
+                try {
+                    const columnCheck = db.exec(`PRAGMA table_info(user_settings)`);
+                    const hasWhatsappMode = columnCheck[0].values.some(col => col[1] === 'whatsapp_mode');
+                    if (!hasWhatsappMode) {
+                        db.run(`ALTER TABLE user_settings ADD COLUMN whatsapp_mode TEXT DEFAULT ''`);
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error adding whatsapp_mode column', error);
+                }
+            }
+
+            // Version 17: Migrate WhatsApp per-phone context key format from localStorage into secure DB.
+            if (currentVersion < 17) {
+                try {
+                    db.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_phone_contexts (
+                            phone TEXT PRIMARY KEY,
+                            context TEXT
+                        )
+                    `);
+
+                    for (let i = localStorage.length - 1; i >= 0; i--) {
+                        const key = localStorage.key(i);
+                        if (!key || !key.startsWith('whatsappPhoneContext_')) continue;
+
+                        const remainder = key.replace('whatsappPhoneContext_', '');
+                        if (!remainder) continue;
+
+                        let normalizedPhone = remainder;
+                        let sourceMasterHash = null;
+
+                        const parts = remainder.split('_');
+                        if (parts.length > 1) {
+                            const cand = parts[0];
+                            const candPhone = parts.slice(1).join('_');
+                            if (cand === hashedMasterKey || cand.length === 64) {
+                                sourceMasterHash = cand;
+                                normalizedPhone = candPhone;
+                            }
+                        }
+
+                        if (sourceMasterHash && sourceMasterHash !== hashedMasterKey) {
+                            continue;
+                        }
+
+                        normalizedPhone = String(normalizedPhone).replace(/@.*$/g, '').trim();
+                        if (!normalizedPhone) continue;
+
+                        try {
+                            const stored = await this.secureLocalStorageGet(key);
+                            if (!stored) {
+                                if (!sourceMasterHash || sourceMasterHash === hashedMasterKey) localStorage.removeItem(key);
+                                continue;
+                            }
+
+                            let parsedContext;
+                            try {
+                                parsedContext = JSON.parse(stored);
+                            } catch (_e) {
+                                parsedContext = { value: stored };
+                            }
+
+                            const payload = typeof parsedContext === 'object' ? parsedContext : { value: parsedContext };
+                            const encrypted = await this.encrypt(hashedMasterKey, JSON.stringify(payload));
+
+                            db.run(`
+                                INSERT OR REPLACE INTO whatsapp_phone_contexts (phone, context)
+                                VALUES (?, ?)
+                            `, [normalizedPhone, encrypted]);
+
+                            if (!sourceMasterHash || sourceMasterHash === hashedMasterKey) {
+                                localStorage.removeItem(key);
+                            }
+                        } catch (err) {
+                            console.warn('DATABASE MIGRATION: Could not migrate whatsappPhoneContext for key', key, err);
+                        }
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error migrating whatsappPhoneContext keys', error);
+                }
+            }
+
+            // Version 18: Move WhatsApp settings/context into dedicated whatsapp role DB.
+            if (currentVersion < 18) {
+                try {
+                    const whatsappDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                            masterkey_hash TEXT PRIMARY KEY,
+                            whatsapp_device_id TEXT,
+                            whatsapp_device_meta TEXT,
+                            whatsapp_mode TEXT DEFAULT ''
+                        )
+                    `);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_phone_contexts (
+                            phone TEXT PRIMARY KEY,
+                            context TEXT
+                        )
+                    `);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_session_bundles (
+                            device_id TEXT PRIMARY KEY,
+                            session_blob TEXT,
+                            metadata_blob TEXT,
+                            updated_at TEXT
+                        )
+                    `);
+
+                    const settingsColumns = db.exec(`PRAGMA table_info(user_settings)`);
+                    const hasDeviceID = settingsColumns[0]?.values?.some(col => col[1] === 'whatsapp_device_id');
+                    const hasDeviceMeta = settingsColumns[0]?.values?.some(col => col[1] === 'whatsapp_device_meta');
+                    const hasMode = settingsColumns[0]?.values?.some(col => col[1] === 'whatsapp_mode');
+
+                    if (hasDeviceID || hasDeviceMeta || hasMode) {
+                        const row = db.exec(`
+                            SELECT whatsapp_device_id, whatsapp_device_meta, whatsapp_mode
+                            FROM user_settings
+                            WHERE masterkey_hash = ?
+                            LIMIT 1
+                        `, [hashedMasterKey]);
+
+                        if (row && row[0] && row[0].values && row[0].values.length) {
+                            const encDeviceID = row[0].values[0][0] || '';
+                            const encDeviceMeta = row[0].values[0][1] || '';
+                            const mode = row[0].values[0][2] || '';
+
+                            whatsappDb.run(`
+                                INSERT OR REPLACE INTO whatsapp_settings
+                                (masterkey_hash, whatsapp_device_id, whatsapp_device_meta, whatsapp_mode)
+                                VALUES (?, ?, ?, ?)
+                            `, [hashedMasterKey, encDeviceID, encDeviceMeta, mode]);
+                        }
+                    }
+
+                    const legacyPhoneContextTable = db.exec(`
+                        SELECT name FROM sqlite_master
+                        WHERE type='table' AND name='whatsapp_phone_contexts'
+                    `);
+                    if (legacyPhoneContextTable.length && legacyPhoneContextTable[0].values.length) {
+                        const rows = db.exec(`SELECT phone, context FROM whatsapp_phone_contexts`);
+                        if (rows && rows[0] && rows[0].values && rows[0].values.length) {
+                            for (const [phone, context] of rows[0].values) {
+                                if (!phone) continue;
+                                whatsappDb.run(`
+                                    INSERT OR REPLACE INTO whatsapp_phone_contexts (phone, context)
+                                    VALUES (?, ?)
+                                `, [phone, context || '']);
+                            }
+                        }
+                    }
+
+                    await this.saveWhatsappRoleSqlDatabase(whatsappDb, hashedMasterKey);
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error migrating whatsapp role database', error);
+                }
+            }
+
+            // Version 20: Move conversation images into the dedicated images role DB.
+            if (currentVersion < 20) {
+                try {
+                    const attachmentDb = await this.getDatabase(hashedMasterKey, 'images', true);
+                    await this.ensureConversationAttachmentTable(attachmentDb, hashedMasterKey);
+
+                    const migrationResult = await this.migrateConversationImagesToAttachments(db, attachmentDb, hashedMasterKey);
+                    const movedAttachmentRows = await this.migrateConversationAttachmentsToRoleDb(db, attachmentDb, hashedMasterKey);
+
+                    await this.saveToStorage(attachmentDb.export(), hashedMasterKey, 'images');
+
+                    if (migrationResult.updatedMessages > 0 || movedAttachmentRows.movedAttachments > 0) {
+                        db.exec('VACUUM');
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error migrating conversation image attachments', error);
+                }
+            }
+
+            // Version 21: Move shared legacy html payloads into dedicated presentations/artifacts databases.
+            if (currentVersion < 21) {
+                try {
+                    const migrationResult = await this.migrateLegacyHtmlRoleDbToDedicatedRoles(hashedMasterKey);
+                    if (migrationResult.migratedPresentationRows > 0 || migrationResult.migratedArtifactRows > 0) {
+                        console.info(
+                            `DATABASE MIGRATION: Migrated ${migrationResult.migratedPresentationRows} presentation payload rows ` +
+                            `and ${migrationResult.migratedArtifactRows} artifact payload rows from legacy html DB.`
+                        );
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error migrating legacy html role DB', error);
+                }
+            }
+
+            // Update database version to 21 (includes dedicated presentations/artifacts role database migration)
             if (currentVersion === 0) {
-                db.run('INSERT INTO db_version (version) VALUES (13)');
+                db.run('INSERT INTO db_version (version) VALUES (21)');
             } else {
-                db.run('UPDATE db_version SET version = 13');
+                db.run('UPDATE db_version SET version = 21');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
@@ -1513,7 +2777,7 @@ class PaiperworkDB {
     static async savePromptablePresentationHtmlContent(hashedMasterKey, presentationId, html) {
         if (!hashedMasterKey || !presentationId) return false;
 
-        let htmlDb = null;
+        let presentationsDb = null;
 
         try {
             await this.initializeDatabase(hashedMasterKey);
@@ -1522,28 +2786,22 @@ class PaiperworkDB {
             }
 
             const htmlTableName = `promptable_presentations_html_${hashedMasterKey}`;
-            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
-            htmlDb = existingHtmlDb ? new this.SQL.Database(existingHtmlDb) : new this.SQL.Database();
+            const existingPresentationsDb = await this.getExistingDatabase(hashedMasterKey, 'presentations');
+            presentationsDb = existingPresentationsDb ? new this.SQL.Database(existingPresentationsDb) : new this.SQL.Database();
 
-            htmlDb.run(`
-                CREATE TABLE IF NOT EXISTS ${htmlTableName} (
-                    presentation_id INTEGER PRIMARY KEY,
-                    html_content TEXT,
-                    updated_at TEXT
-                )
-            `);
+            this.ensurePromptablePresentationHtmlTable(presentationsDb, hashedMasterKey);
 
             const encryptedHtml = await this.encrypt(hashedMasterKey, html || '');
-            htmlDb.run(
+            presentationsDb.run(
                 `INSERT OR REPLACE INTO ${htmlTableName} (presentation_id, html_content, updated_at) VALUES (?, ?, ?)`,
                 [presentationId, JSON.stringify(encryptedHtml), new Date().toISOString()]
             );
 
-            await this.saveToStorage(htmlDb.export(), hashedMasterKey, 'html');
+            await this.saveToStorage(presentationsDb.export(), hashedMasterKey, 'presentations');
             return true;
         } finally {
             try {
-                htmlDb?.close?.();
+                presentationsDb?.close?.();
             } catch (_error) {
                 // Ignore SQL.js close errors during cleanup.
             }
@@ -1660,8 +2918,13 @@ class PaiperworkDB {
 
     // Load and decrypt a promptable presentation HTML by id
     static async loadPromptablePresentationHtml(hashedMasterKey, id) {
-        let htmlDb = null;
+        let presentationsDb = null;
         try {
+            console.info('[PaiperworkDB][presentation] loadPromptablePresentationHtml start', {
+                hasHashedMasterKey: !!hashedMasterKey,
+                hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                id
+            });
             if (!hashedMasterKey || !id) return '';
 
             await this.initializeDatabase(hashedMasterKey);
@@ -1671,39 +2934,137 @@ class PaiperworkDB {
             }
 
             const htmlTableName = `promptable_presentations_html_${hashedMasterKey}`;
-            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
-            if (!existingHtmlDb) return '';
-
-            htmlDb = new this.SQL.Database(existingHtmlDb);
-            const htmlTableCheck = htmlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
-            if (!htmlTableCheck || !htmlTableCheck[0] || !htmlTableCheck[0].values.length) {
+            const existingPresentationsDb = await this.getExistingDatabase(hashedMasterKey, 'presentations');
+            if (!existingPresentationsDb) {
+                console.warn('[PaiperworkDB][presentation] No presentations database found', {
+                    hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                    id,
+                    role: 'presentations'
+                });
                 return '';
             }
 
-            const htmlResult = htmlDb.exec(
+            presentationsDb = new this.SQL.Database(existingPresentationsDb);
+            const htmlTableCheck = presentationsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
+            if (!htmlTableCheck || !htmlTableCheck[0] || !htmlTableCheck[0].values.length) {
+                console.warn('[PaiperworkDB][presentation] HTML table missing', {
+                    hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                    id,
+                    htmlTableName
+                });
+                return '';
+            }
+
+            const htmlResult = presentationsDb.exec(
                 `SELECT html_content FROM ${htmlTableName} WHERE presentation_id = ? LIMIT 1`,
                 [id]
             );
             if (!htmlResult || !htmlResult[0] || !htmlResult[0].values || !htmlResult[0].values.length) {
+                console.warn('[PaiperworkDB][presentation] No HTML row found for presentation', {
+                    hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                    id,
+                    htmlTableName
+                });
                 return '';
             }
 
             const encryptedStr = htmlResult[0].values[0][0];
-            if (!encryptedStr) return '';
+            if (!encryptedStr) {
+                console.warn('[PaiperworkDB][presentation] HTML row was empty', {
+                    hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                    id,
+                    htmlTableName
+                });
+                return '';
+            }
+
+            console.info('[PaiperworkDB][presentation] HTML row loaded', {
+                hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                id,
+                storedLength: String(encryptedStr).length,
+                storedPreview: String(encryptedStr).slice(0, 120)
+            });
+
+            const looksLikeHtml = (value) => {
+                const normalized = String(value || '').trim();
+                if (!normalized) {
+                    return false;
+                }
+
+                return /^<!doctype\s+html/i.test(normalized)
+                    || /^<html\b/i.test(normalized)
+                    || /^<body\b/i.test(normalized)
+                    || /^<(section|main|article|div|h1|h2|style|script)\b/i.test(normalized);
+            };
+
+            if (looksLikeHtml(encryptedStr)) {
+                console.info('[PaiperworkDB][presentation] Returning raw stored HTML', {
+                    hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                    id,
+                    htmlLength: String(encryptedStr).trim().length
+                });
+                return String(encryptedStr).trim();
+            }
 
             try {
                 const parsedEncrypted = JSON.parse(encryptedStr);
+                if (typeof parsedEncrypted === 'string' && looksLikeHtml(parsedEncrypted)) {
+                    console.info('[PaiperworkDB][presentation] Returning HTML from parsed JSON string', {
+                        hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                        id,
+                        htmlLength: parsedEncrypted.trim().length
+                    });
+                    return parsedEncrypted.trim();
+                }
                 const decrypted = await this.decrypt(hashedMasterKey, parsedEncrypted);
-                return decrypted || '';
+                if (decrypted) {
+                    console.info('[PaiperworkDB][presentation] Returning decrypted HTML', {
+                        hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                        id,
+                        htmlLength: String(decrypted).length
+                    });
+                    return decrypted;
+                }
             } catch (_error) {
+                console.warn('[PaiperworkDB][presentation] Failed to parse/decrypt stored HTML payload', {
+                    hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                    id,
+                    error: _error && _error.message ? _error.message : String(_error)
+                });
+                // Fall through to legacy compatibility checks below.
+            }
+
+            try {
+                const normalizedStored = String(encryptedStr || '').trim();
+                const unquotedStored = normalizedStored.replace(/^"|"$/g, '');
+                if (looksLikeHtml(unquotedStored)) {
+                    console.info('[PaiperworkDB][presentation] Returning unquoted legacy HTML', {
+                        hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                        id,
+                        htmlLength: unquotedStored.length
+                    });
+                    return unquotedStored;
+                }
+            } catch (_error) {
+                console.warn('[PaiperworkDB][presentation] Legacy HTML fallback failed', {
+                    hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                    id,
+                    error: _error && _error.message ? _error.message : String(_error)
+                });
                 return '';
             }
+
+            console.warn('[PaiperworkDB][presentation] Stored presentation HTML could not be decoded', {
+                hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
+                id
+            });
+            return '';
         } catch (error) {
             console.error('loadPromptablePresentationHtml error:', error);
             return '';
         } finally {
             try {
-                htmlDb?.close?.();
+                presentationsDb?.close?.();
             } catch (_error) {
                 // Ignore SQL.js close errors during cleanup.
             }
@@ -1712,7 +3073,7 @@ class PaiperworkDB {
 
     // Delete a saved promptable presentation by id
     static async deletePromptablePresentation(hashedMasterKey, id) {
-        let htmlDb = null;
+        let presentationsDb = null;
         try {
             if (!hashedMasterKey || !id) return false;
 
@@ -1736,13 +3097,13 @@ class PaiperworkDB {
             await this.saveToStorage(db.export(), hashedMasterKey);
 
             const htmlTableName = `promptable_presentations_html_${hashedMasterKey}`;
-            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
-            if (existingHtmlDb) {
-                htmlDb = new this.SQL.Database(existingHtmlDb);
-                const htmlTableCheck = htmlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
+            const existingPresentationsDb = await this.getExistingDatabase(hashedMasterKey, 'presentations');
+            if (existingPresentationsDb) {
+                presentationsDb = new this.SQL.Database(existingPresentationsDb);
+                const htmlTableCheck = presentationsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
                 if (htmlTableCheck && htmlTableCheck[0] && htmlTableCheck[0].values.length) {
-                    htmlDb.run(`DELETE FROM ${htmlTableName} WHERE presentation_id = ?`, [id]);
-                    await this.saveToStorage(htmlDb.export(), hashedMasterKey, 'html');
+                    presentationsDb.run(`DELETE FROM ${htmlTableName} WHERE presentation_id = ?`, [id]);
+                    await this.saveToStorage(presentationsDb.export(), hashedMasterKey, 'presentations');
                 }
             }
 
@@ -1752,7 +3113,7 @@ class PaiperworkDB {
             return false;
         } finally {
             try {
-                htmlDb?.close?.();
+                presentationsDb?.close?.();
             } catch (_error) {
                 // Ignore SQL.js close errors during cleanup.
             }
@@ -1762,7 +3123,7 @@ class PaiperworkDB {
     static async saveArtifactHtmlContent(hashedMasterKey, artifactId, html) {
         if (!hashedMasterKey || !artifactId) return false;
 
-        let htmlDb = null;
+        let artifactsDb = null;
 
         try {
             await this.initializeDatabase(hashedMasterKey);
@@ -1771,28 +3132,22 @@ class PaiperworkDB {
             }
 
             const htmlTableName = `artifacts_html_${hashedMasterKey}`;
-            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
-            htmlDb = existingHtmlDb ? new this.SQL.Database(existingHtmlDb) : new this.SQL.Database();
+            const existingArtifactsDb = await this.getExistingDatabase(hashedMasterKey, 'artifacts');
+            artifactsDb = existingArtifactsDb ? new this.SQL.Database(existingArtifactsDb) : new this.SQL.Database();
 
-            htmlDb.run(`
-                CREATE TABLE IF NOT EXISTS ${htmlTableName} (
-                    artifact_id INTEGER PRIMARY KEY,
-                    html_content TEXT,
-                    updated_at TEXT
-                )
-            `);
+            this.ensureArtifactHtmlTable(artifactsDb, hashedMasterKey);
 
             const encryptedHtml = await this.encrypt(hashedMasterKey, html || '');
-            htmlDb.run(
+            artifactsDb.run(
                 `INSERT OR REPLACE INTO ${htmlTableName} (artifact_id, html_content, updated_at) VALUES (?, ?, ?)`,
                 [artifactId, JSON.stringify(encryptedHtml), new Date().toISOString()]
             );
 
-            await this.saveToStorage(htmlDb.export(), hashedMasterKey, 'html');
+            await this.saveToStorage(artifactsDb.export(), hashedMasterKey, 'artifacts');
             return true;
         } finally {
             try {
-                htmlDb?.close?.();
+                artifactsDb?.close?.();
             } catch (_error) {
                 // Ignore SQL.js close errors during cleanup.
             }
@@ -1908,7 +3263,7 @@ class PaiperworkDB {
 
     // Load and decrypt artifact HTML by id
     static async loadArtifactHtml(hashedMasterKey, id) {
-        let htmlDb = null;
+        let artifactsDb = null;
         try {
             if (!hashedMasterKey || !id) return '';
 
@@ -1919,16 +3274,16 @@ class PaiperworkDB {
             }
 
             const htmlTableName = `artifacts_html_${hashedMasterKey}`;
-            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
-            if (!existingHtmlDb) return '';
+            const existingArtifactsDb = await this.getExistingDatabase(hashedMasterKey, 'artifacts');
+            if (!existingArtifactsDb) return '';
 
-            htmlDb = new this.SQL.Database(existingHtmlDb);
-            const htmlTableCheck = htmlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
+            artifactsDb = new this.SQL.Database(existingArtifactsDb);
+            const htmlTableCheck = artifactsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
             if (!htmlTableCheck || !htmlTableCheck[0] || !htmlTableCheck[0].values.length) {
                 return '';
             }
 
-            const htmlResult = htmlDb.exec(
+            const htmlResult = artifactsDb.exec(
                 `SELECT html_content FROM ${htmlTableName} WHERE artifact_id = ? LIMIT 1`,
                 [id]
             );
@@ -1951,7 +3306,7 @@ class PaiperworkDB {
             return '';
         } finally {
             try {
-                htmlDb?.close?.();
+                artifactsDb?.close?.();
             } catch (_error) {
                 // Ignore SQL.js close errors during cleanup.
             }
@@ -1960,7 +3315,7 @@ class PaiperworkDB {
 
     // Delete a saved artifact by id
     static async deleteArtifact(hashedMasterKey, id) {
-        let htmlDb = null;
+        let artifactsDb = null;
         try {
             if (!hashedMasterKey || !id) return false;
 
@@ -1984,13 +3339,13 @@ class PaiperworkDB {
             await this.saveToStorage(db.export(), hashedMasterKey);
 
             const htmlTableName = `artifacts_html_${hashedMasterKey}`;
-            const existingHtmlDb = await this.getExistingDatabase(hashedMasterKey, 'html');
-            if (existingHtmlDb) {
-                htmlDb = new this.SQL.Database(existingHtmlDb);
-                const htmlTableCheck = htmlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
+            const existingArtifactsDb = await this.getExistingDatabase(hashedMasterKey, 'artifacts');
+            if (existingArtifactsDb) {
+                artifactsDb = new this.SQL.Database(existingArtifactsDb);
+                const htmlTableCheck = artifactsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
                 if (htmlTableCheck && htmlTableCheck[0] && htmlTableCheck[0].values.length) {
-                    htmlDb.run(`DELETE FROM ${htmlTableName} WHERE artifact_id = ?`, [id]);
-                    await this.saveToStorage(htmlDb.export(), hashedMasterKey, 'html');
+                    artifactsDb.run(`DELETE FROM ${htmlTableName} WHERE artifact_id = ?`, [id]);
+                    await this.saveToStorage(artifactsDb.export(), hashedMasterKey, 'artifacts');
                 }
             }
 
@@ -2000,7 +3355,7 @@ class PaiperworkDB {
             return false;
         } finally {
             try {
-                htmlDb?.close?.();
+                artifactsDb?.close?.();
             } catch (_error) {
                 // Ignore SQL.js close errors during cleanup.
             }
@@ -2023,8 +3378,11 @@ class PaiperworkDB {
 
         // Close any open DB handles for this profile to avoid blocked deletes.
         await this.closeRoleDatabases('rag', hashedMasterKey);
-        await this.closeRoleDatabases('html', hashedMasterKey);
+        await this.closeRoleDatabases('presentations', hashedMasterKey);
+        await this.closeRoleDatabases('artifacts', hashedMasterKey);
         await this.closeRoleDatabases('kb', hashedMasterKey);
+        await this.closeRoleDatabases('images', hashedMasterKey);
+        await this.closeRoleDatabases('whatsapp', hashedMasterKey);
         await this.closeRoleDatabases('main', hashedMasterKey);
 
         let opfsDeleted = true;
@@ -2057,10 +3415,19 @@ class PaiperworkDB {
                 }
 
                 try {
-                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'html'));
+                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'presentations'));
                 } catch (error) {
                     if (error?.name !== 'NotFoundError') {
-                        console.warn('Error deleting html database from OPFS:', error);
+                        console.warn('Error deleting presentations database from OPFS:', error);
+                        opfsDeleted = false;
+                    }
+                }
+
+                try {
+                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'artifacts'));
+                } catch (error) {
+                    if (error?.name !== 'NotFoundError') {
+                        console.warn('Error deleting artifacts database from OPFS:', error);
                         opfsDeleted = false;
                     }
                 }
@@ -2070,6 +3437,24 @@ class PaiperworkDB {
                 } catch (error) {
                     if (error?.name !== 'NotFoundError') {
                         console.warn('Error deleting kb database from OPFS:', error);
+                        opfsDeleted = false;
+                    }
+                }
+
+                try {
+                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'images'));
+                } catch (error) {
+                    if (error?.name !== 'NotFoundError') {
+                        console.warn('Error deleting images database from OPFS:', error);
+                        opfsDeleted = false;
+                    }
+                }
+
+                try {
+                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'whatsapp'));
+                } catch (error) {
+                    if (error?.name !== 'NotFoundError') {
+                        console.warn('Error deleting whatsapp database from OPFS:', error);
                         opfsDeleted = false;
                     }
                 }
@@ -2089,24 +3474,48 @@ class PaiperworkDB {
                 const store = transaction.objectStore('databases');
                 const mainKey = this.getDbStorageKey(hashedMasterKey, 'main');
                 const ragKey = this.getDbStorageKey(hashedMasterKey, 'rag');
-                const htmlKey = this.getDbStorageKey(hashedMasterKey, 'html');
+                const presentationsKey = this.getDbStorageKey(hashedMasterKey, 'presentations');
+                const artifactsKey = this.getDbStorageKey(hashedMasterKey, 'artifacts');
                 const kbKey = this.getDbStorageKey(hashedMasterKey, 'kb');
+                const imagesKey = this.getDbStorageKey(hashedMasterKey, 'images');
+                const whatsappKey = this.getDbStorageKey(hashedMasterKey, 'whatsapp');
                 const deleteRequest = store.delete(mainKey);
 
                 deleteRequest.onsuccess = () => {
                     const deleteRagRequest = store.delete(ragKey);
                     deleteRagRequest.onsuccess = () => {
-                        const deleteHtmlRequest = store.delete(htmlKey);
-                        deleteHtmlRequest.onsuccess = () => {
-                            const deleteKbRequest = store.delete(kbKey);
-                            deleteKbRequest.onsuccess = () => resolve(true);
-                            deleteKbRequest.onerror = () => {
-                                console.error('Error deleting kb database from IndexedDB:', deleteKbRequest.error);
+                        const deletePresentationsRequest = store.delete(presentationsKey);
+                        deletePresentationsRequest.onsuccess = () => {
+                            const deleteArtifactsRequest = store.delete(artifactsKey);
+                            deleteArtifactsRequest.onsuccess = () => {
+                                const deleteKbRequest = store.delete(kbKey);
+                                deleteKbRequest.onsuccess = () => {
+                                    const deleteImagesRequest = store.delete(imagesKey);
+                                    deleteImagesRequest.onsuccess = () => {
+                                        const deleteWhatsappRequest = store.delete(whatsappKey);
+                                        deleteWhatsappRequest.onsuccess = () => resolve(true);
+                                        deleteWhatsappRequest.onerror = () => {
+                                            console.error('Error deleting whatsapp database from IndexedDB:', deleteWhatsappRequest.error);
+                                            resolve(false);
+                                        };
+                                    };
+                                    deleteImagesRequest.onerror = () => {
+                                        console.error('Error deleting images database from IndexedDB:', deleteImagesRequest.error);
+                                        resolve(false);
+                                    };
+                                };
+                                deleteKbRequest.onerror = () => {
+                                    console.error('Error deleting kb database from IndexedDB:', deleteKbRequest.error);
+                                    resolve(false);
+                                };
+                            };
+                            deleteArtifactsRequest.onerror = () => {
+                                console.error('Error deleting artifacts database from IndexedDB:', deleteArtifactsRequest.error);
                                 resolve(false);
                             };
                         };
-                        deleteHtmlRequest.onerror = () => {
-                            console.error('Error deleting html database from IndexedDB:', deleteHtmlRequest.error);
+                        deletePresentationsRequest.onerror = () => {
+                            console.error('Error deleting presentations database from IndexedDB:', deletePresentationsRequest.error);
                             resolve(false);
                         };
                     };
@@ -2128,8 +3537,10 @@ class PaiperworkDB {
             };
         });
 
+        const legacyHtmlDeleted = await this.deleteLegacyHtmlDatabase(hashedMasterKey);
+
        //console.log(`Database deletion results - OPFS: ${opfsDeleted}, IndexedDB: ${indexedDBDeleted}`);
-        const deleteSuccess = opfsDeleted && indexedDBDeleted;
+        const deleteSuccess = opfsDeleted && indexedDBDeleted && legacyHtmlDeleted;
 
         // Remove profile-specific traces from browser storage/session when profile deletion succeeds.
         if (deleteSuccess) {
@@ -2194,8 +3605,11 @@ class PaiperworkDB {
        //console.log('🗑️ Starting deletion of all data');
 
         await this.closeRoleDatabases('rag');
-        await this.closeRoleDatabases('html');
+        await this.closeRoleDatabases('presentations');
+        await this.closeRoleDatabases('artifacts');
         await this.closeRoleDatabases('kb');
+        await this.closeRoleDatabases('images');
+        await this.closeRoleDatabases('whatsapp');
         await this.closeRoleDatabases('main');
 
         // CRITICAL FIX: Ensure we know our current storage strategy
@@ -2346,8 +3760,23 @@ class PaiperworkDB {
         );
 
         return {
-            encrypted: Array.from(new Uint8Array(encryptedData)),
-            iv: Array.from(iv)
+            encrypted: this.bytesToBase64(new Uint8Array(encryptedData)),
+            iv: this.bytesToBase64(iv)
+        };
+    }
+
+    static async encryptBinary(masterkey, bytes) {
+        const key = await this.generateKey(masterkey);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const encryptedData = await crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv },
+            key,
+            bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+        );
+
+        return {
+            encrypted: new Uint8Array(encryptedData),
+            iv: new Uint8Array(iv)
         };
     }
 
@@ -2373,11 +3802,18 @@ class PaiperworkDB {
                 return '';
             }
 
+            const encryptedBytes = Array.isArray(parsedData.encrypted)
+                ? new Uint8Array(parsedData.encrypted)
+                : this.base64ToUint8Array(parsedData.encrypted);
+            const ivBytes = Array.isArray(parsedData.iv)
+                ? new Uint8Array(parsedData.iv)
+                : this.base64ToUint8Array(parsedData.iv);
+
             const key = await this.generateKey(masterkey);
             const decrypted = await crypto.subtle.decrypt(
-                { name: "AES-GCM", iv: new Uint8Array(parsedData.iv) },
+                { name: "AES-GCM", iv: ivBytes },
                 key,
-                new Uint8Array(parsedData.encrypted)
+                encryptedBytes
             );
 
             const result = new TextDecoder().decode(decrypted);
@@ -2388,6 +3824,24 @@ class PaiperworkDB {
            //console.log('Decryption failed:', error.message);
             return '';
         }
+    }
+
+    static async decryptBinary(masterkey, encryptedData, ivData) {
+        const encryptedBytes = encryptedData instanceof Uint8Array
+            ? encryptedData
+            : new Uint8Array(encryptedData || []);
+        const ivBytes = ivData instanceof Uint8Array
+            ? ivData
+            : new Uint8Array(ivData || []);
+
+        const key = await this.generateKey(masterkey);
+        const decrypted = await crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: ivBytes },
+            key,
+            encryptedBytes
+        );
+
+        return new Uint8Array(decrypted);
     }
 
     // Securely store a value in localStorage by encrypting it with a master key derived from the storage key
@@ -2784,6 +4238,437 @@ class PaiperworkDB {
         }
     }
 
+    static async saveWhatsappDeviceInfo(hashedMasterKey, deviceId, metadata = '') {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const encryptedDeviceId = deviceId ? await this.encrypt(hashedMasterKey, String(deviceId)) : '';
+            const encryptedMeta = metadata ? await this.encrypt(hashedMasterKey, JSON.stringify(metadata)) : '';
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    whatsapp_device_id TEXT,
+                    whatsapp_device_meta TEXT,
+                    whatsapp_mode TEXT DEFAULT ''
+                )
+            `);
+
+            sqlDb.run(`INSERT OR IGNORE INTO whatsapp_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
+            sqlDb.run(`
+                UPDATE whatsapp_settings
+                SET whatsapp_device_id = ?, whatsapp_device_meta = ?
+                WHERE masterkey_hash = ?
+            `, [JSON.stringify(encryptedDeviceId), JSON.stringify(encryptedMeta), hashedMasterKey]);
+
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            console.log('PaiperworkDB: saveWhatsappDeviceInfo succeeded', { hashedMasterKey, deviceId });
+            return true;
+        } catch (error) {
+            console.error('Error saving Whatsapp device info:', error);
+            return false;
+        }
+    }
+
+    static async saveWhatsappPhoneContext(hashedMasterKey, phone, context) {
+        try {
+            if (!hashedMasterKey || !phone) return false;
+
+            await this.initializeDatabase(hashedMasterKey);
+            const normalizedPhone = String(phone).replace(/@.*$/g, '').trim();
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_phone_contexts (
+                    phone TEXT PRIMARY KEY,
+                    context TEXT
+                )
+            `);
+
+            const serialized = context && typeof context === 'object' ? JSON.stringify(context) : String(context || '');
+            const encrypted = serialized ? await this.encrypt(hashedMasterKey, serialized) : '';
+            const encryptedJson = encrypted ? JSON.stringify(encrypted) : '';
+
+            sqlDb.run(`
+                INSERT OR REPLACE INTO whatsapp_phone_contexts (phone, context)
+                VALUES (?, ?)
+            `, [normalizedPhone, encryptedJson]);
+
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error saving Whatsapp phone context:', error);
+            return false;
+        }
+    }
+
+    static async getWhatsappPhoneContext(hashedMasterKey, phone) {
+        try {
+            if (!hashedMasterKey || !phone) return null;
+
+            await this.initializeDatabase(hashedMasterKey);
+            const normalizedPhone = String(phone).replace(/@.*$/g, '').trim();
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return null;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_phone_contexts (
+                    phone TEXT PRIMARY KEY,
+                    context TEXT
+                )
+            `);
+            const rows = sqlDb.exec(`SELECT context FROM whatsapp_phone_contexts WHERE phone = ? LIMIT 1`, [normalizedPhone]);
+            if (!rows || !rows[0] || !rows[0].values || !rows[0].values.length) {
+                return null;
+            }
+
+            let encrypted = rows[0].values[0][0] || '';
+            if (!encrypted) return null;
+
+            // If we stored a JSON string, parse it into the encryption object.
+            if (typeof encrypted === 'string') {
+                try {
+                    const maybeObj = JSON.parse(encrypted);
+                    if (maybeObj && typeof maybeObj === 'object') {
+                        encrypted = maybeObj;
+                    }
+                } catch (_err) {
+                    // keep as raw string (legacy support)
+                }
+            }
+
+            const decrypted = await this.decrypt(hashedMasterKey, encrypted);
+            if (!decrypted) return null;
+
+            try {
+                return JSON.parse(decrypted);
+            } catch (e) {
+                return null;
+            }
+        } catch (error) {
+            console.error('Error getting Whatsapp phone context:', error);
+            return null;
+        }
+    }
+
+    static async clearWhatsappPhoneContext(hashedMasterKey, phone) {
+        try {
+            if (!hashedMasterKey || !phone) return false;
+
+            await this.initializeDatabase(hashedMasterKey);
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return false;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`DELETE FROM whatsapp_phone_contexts WHERE phone = ?`, [String(phone).replace(/@.*$/g, '').trim()]);
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error clearing Whatsapp phone context:', error);
+            return false;
+        }
+    }
+
+    static async getWhatsappDeviceInfo(hashedMasterKey) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return null;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    whatsapp_device_id TEXT,
+                    whatsapp_device_meta TEXT,
+                    whatsapp_mode TEXT DEFAULT ''
+                )
+            `);
+            const row = sqlDb.exec(`SELECT whatsapp_device_id, whatsapp_device_meta FROM whatsapp_settings WHERE masterkey_hash = ? LIMIT 1`, [hashedMasterKey]);
+            if (!row || !row[0] || !row[0].values || !row[0].values.length) {
+                // Backward compatibility: migrate legacy values from main DB if present.
+                const legacyDbBytes = await this.getExistingDatabase(hashedMasterKey, 'main');
+                if (!legacyDbBytes) {
+                    return null;
+                }
+
+                const legacyDb = new this.SQL.Database(legacyDbBytes);
+                const legacy = legacyDb.exec(`SELECT whatsapp_device_id, whatsapp_device_meta FROM user_settings WHERE masterkey_hash = ? LIMIT 1`, [hashedMasterKey]);
+                if (!legacy || !legacy[0] || !legacy[0].values || !legacy[0].values.length) {
+                    return null;
+                }
+
+                const legacyDeviceEnc = legacy[0].values[0][0] || '';
+                const legacyMetaEnc = legacy[0].values[0][1] || '';
+                if (!legacyDeviceEnc && !legacyMetaEnc) {
+                    return null;
+                }
+
+                let migratedDeviceId = '';
+                let migratedMeta = '';
+                if (legacyDeviceEnc) {
+                    migratedDeviceId = await this.decrypt(hashedMasterKey, legacyDeviceEnc);
+                }
+                if (legacyMetaEnc) {
+                    const decryptedMeta = await this.decrypt(hashedMasterKey, legacyMetaEnc);
+                    migratedMeta = decryptedMeta ? JSON.parse(decryptedMeta) : '';
+                }
+
+                if (migratedDeviceId || (migratedMeta && Object.keys(migratedMeta).length > 0)) {
+                    await this.saveWhatsappDeviceInfo(hashedMasterKey, migratedDeviceId, migratedMeta || '');
+                    return { deviceId: migratedDeviceId, meta: migratedMeta || '' };
+                }
+
+                return null;
+            }
+
+            const encryptedDeviceId = row[0].values[0][0] || '';
+            const encryptedMeta = row[0].values[0][1] || '';
+
+            let deviceId = '';
+            let meta = '';
+            if (encryptedDeviceId) {
+                try {
+                    deviceId = await this.decrypt(hashedMasterKey, encryptedDeviceId);
+                } catch (_e) {
+                    deviceId = '';
+                }
+            }
+            if (encryptedMeta) {
+                try {
+                    const decrypted = await this.decrypt(hashedMasterKey, encryptedMeta);
+                    meta = decrypted ? JSON.parse(decrypted) : '';
+                } catch (_e) {
+                    meta = '';
+                }
+            }
+
+            if (!deviceId && (!meta || Object.keys(meta).length === 0)) {
+                console.log('PaiperworkDB: getWhatsappDeviceInfo no device info saved yet', { hashedMasterKey });
+                return null;
+            }
+
+            console.log('PaiperworkDB: getWhatsappDeviceInfo', { hashedMasterKey, deviceId, meta });
+            return { deviceId, meta };
+        } catch (error) {
+            console.error('Error getting Whatsapp device info:', error);
+            return null;
+        }
+    }
+
+    static async saveWhatsappMode(hashedMasterKey, mode) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const normalizedMode = mode === 'personal' || mode === 'bot' ? mode : '';
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    whatsapp_device_id TEXT,
+                    whatsapp_device_meta TEXT,
+                    whatsapp_mode TEXT
+                )
+            `);
+
+            const columnCheck = sqlDb.exec(`PRAGMA table_info(whatsapp_settings)`);
+            const hasWhatsappMode = columnCheck[0].values.some(col => col[1] === 'whatsapp_mode');
+            if (!hasWhatsappMode) {
+                sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_mode TEXT DEFAULT ''`);
+            }
+
+            sqlDb.run(`INSERT OR IGNORE INTO whatsapp_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
+            sqlDb.run(`
+                UPDATE whatsapp_settings
+                SET whatsapp_mode = ?
+                WHERE masterkey_hash = ?
+            `, [normalizedMode, hashedMasterKey]);
+
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            console.log('PaiperworkDB: saveWhatsappMode succeeded', { hashedMasterKey, normalizedMode });
+            return true;
+        } catch (error) {
+            console.error('Error saving Whatsapp mode:', error);
+            return false;
+        }
+    }
+
+    static async getWhatsappMode(hashedMasterKey) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return null;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    whatsapp_device_id TEXT,
+                    whatsapp_device_meta TEXT,
+                    whatsapp_mode TEXT DEFAULT ''
+                )
+            `);
+            const row = sqlDb.exec(`SELECT whatsapp_mode FROM whatsapp_settings WHERE masterkey_hash = ? LIMIT 1`, [hashedMasterKey]);
+            if (!row || !row[0] || !row[0].values || !row[0].values.length) {
+                // Backward compatibility: migrate legacy mode from main DB if present.
+                const legacyDbBytes = await this.getExistingDatabase(hashedMasterKey, 'main');
+                if (!legacyDbBytes) {
+                    return null;
+                }
+
+                const legacyDb = new this.SQL.Database(legacyDbBytes);
+                const legacy = legacyDb.exec(`SELECT whatsapp_mode FROM user_settings WHERE masterkey_hash = ? LIMIT 1`, [hashedMasterKey]);
+                if (!legacy || !legacy[0] || !legacy[0].values || !legacy[0].values.length) {
+                    return null;
+                }
+
+                const legacyMode = legacy[0].values[0][0] || '';
+                const normalized = legacyMode === 'personal' || legacyMode === 'bot' ? legacyMode : '';
+                if (!normalized) {
+                    return null;
+                }
+
+                await this.saveWhatsappMode(hashedMasterKey, normalized);
+                return normalized;
+            }
+
+            return row[0].values[0][0] || null;
+        } catch (error) {
+            console.error('Error getting Whatsapp mode:', error);
+            return null;
+        }
+    }
+
+    static async clearWhatsappDeviceInfo(hashedMasterKey) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return false;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    whatsapp_device_id TEXT,
+                    whatsapp_device_meta TEXT,
+                    whatsapp_mode TEXT DEFAULT ''
+                )
+            `);
+            sqlDb.run(`
+                UPDATE whatsapp_settings
+                SET whatsapp_device_id = '', whatsapp_device_meta = ''
+                WHERE masterkey_hash = ?
+            `, [hashedMasterKey]);
+
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error clearing Whatsapp device info:', error);
+            return false;
+        }
+    }
+
+    static async saveWhatsappSessionBundle(hashedMasterKey, deviceId, sessionBundle, metadata = {}) {
+        try {
+            if (!hashedMasterKey || !deviceId) return false;
+            await this.initializeDatabase(hashedMasterKey);
+
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_session_bundles (
+                    device_id TEXT PRIMARY KEY,
+                    session_blob TEXT,
+                    metadata_blob TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            const serializedBundle = typeof sessionBundle === 'string' ? sessionBundle : JSON.stringify(sessionBundle || {});
+            const serializedMeta = typeof metadata === 'string' ? metadata : JSON.stringify(metadata || {});
+
+            const encryptedBundle = await this.encrypt(hashedMasterKey, serializedBundle);
+            const encryptedMeta = await this.encrypt(hashedMasterKey, serializedMeta);
+
+            sqlDb.run(`
+                INSERT OR REPLACE INTO whatsapp_session_bundles (device_id, session_blob, metadata_blob, updated_at)
+                VALUES (?, ?, ?, ?)
+            `, [String(deviceId), JSON.stringify(encryptedBundle), JSON.stringify(encryptedMeta), new Date().toISOString()]);
+
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error saving WhatsApp session bundle:', error);
+            return false;
+        }
+    }
+
+    static async getWhatsappSessionBundle(hashedMasterKey, deviceId) {
+        try {
+            if (!hashedMasterKey || !deviceId) return null;
+            await this.initializeDatabase(hashedMasterKey);
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return null;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_session_bundles (
+                    device_id TEXT PRIMARY KEY,
+                    session_blob TEXT,
+                    metadata_blob TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            const row = sqlDb.exec(`
+                SELECT session_blob, metadata_blob, updated_at
+                FROM whatsapp_session_bundles
+                WHERE device_id = ?
+                LIMIT 1
+            `, [String(deviceId)]);
+            if (!row || !row[0] || !row[0].values || !row[0].values.length) {
+                return null;
+            }
+
+            const sessionBlob = row[0].values[0][0] || '';
+            const metadataBlob = row[0].values[0][1] || '';
+            const updatedAt = row[0].values[0][2] || '';
+            if (!sessionBlob) return null;
+
+            const sessionRaw = await this.decrypt(hashedMasterKey, sessionBlob);
+            const metadataRaw = metadataBlob ? await this.decrypt(hashedMasterKey, metadataBlob) : '{}';
+
+            let session = sessionRaw;
+            let metadata = {};
+            try { session = JSON.parse(sessionRaw); } catch (_e) {}
+            try { metadata = JSON.parse(metadataRaw || '{}') || {}; } catch (_e) { metadata = {}; }
+
+            return { deviceId: String(deviceId), session, metadata, updatedAt };
+        } catch (error) {
+            console.error('Error getting WhatsApp session bundle:', error);
+            return null;
+        }
+    }
+
+    static async clearWhatsappSessionBundle(hashedMasterKey, deviceId) {
+        try {
+            if (!hashedMasterKey || !deviceId) return false;
+            await this.initializeDatabase(hashedMasterKey);
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return true;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`DELETE FROM whatsapp_session_bundles WHERE device_id = ?`, [String(deviceId)]);
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error clearing WhatsApp session bundle:', error);
+            return false;
+        }
+    }
+
     static normalizeOllamaApiKey(rawKey) {
         const key = String(rawKey || '').trim();
         if (!key) return '';
@@ -3051,6 +4936,7 @@ class PaiperworkDB {
         try {
             // Get database using our method that already handles OPFS/IndexedDB properly
             const db = await this.getDatabase(hashedMasterKey);
+            const attachmentDb = await this.getDatabase(hashedMasterKey, 'images', true);
             if (!db) {
                 console.error("Failed to get database for storing conversation");
                 return false;
@@ -3158,6 +5044,8 @@ class PaiperworkDB {
             let processedUserMessage = userMessage;
             let imageData = [];
 
+            await this.ensureConversationAttachmentTable(attachmentDb, hashedMasterKey);
+
             if (isUserMessageObject) {
                 // If userMessage is already an object with text and images
                //console.log('Processing user message with images:', userMessage);
@@ -3170,19 +5058,17 @@ class PaiperworkDB {
                 }
                 // If no saved images, check for images in global variables as fallback
                 else if (window.selectedImages && window.selectedImages.length > 0) {
-                    imageData = window.selectedImages.map(img => ({
-                        src: img,
-                        thumbnail: img
-                    }));
+                    imageData = window.selectedImages.map(img => ({ src: img }));
                 } else if (window.selectedImage) {
                     imageData = [{
-                        src: window.selectedImage,
-                        thumbnail: window.selectedImage
+                        src: window.selectedImage
                     }];
                 }
 
                 // If we have images, create a structured object
                 if (imageData.length > 0) {
+                    imageData = await this.serializeConversationImageRefs(attachmentDb, hashedMasterKey, imageData, conversationGroup);
+
                     processedUserMessage = {
                         text: processedUserMessage,
                         images: imageData
@@ -3191,6 +5077,14 @@ class PaiperworkDB {
                     // Convert to JSON string for storage
                     processedUserMessage = JSON.stringify(processedUserMessage);
                 }
+            }
+
+            if (isUserMessageObject && imageData.length > 0) {
+                imageData = await this.serializeConversationImageRefs(attachmentDb, hashedMasterKey, imageData, conversationGroup);
+                processedUserMessage = JSON.stringify({
+                    text: processedUserMessage,
+                    images: imageData
+                });
             }
 
             // Use separate timestamps with sufficient difference for proper ordering
@@ -3254,6 +5148,9 @@ class PaiperworkDB {
             // Save to both OPFS and IndexedDB using our enhanced saveToStorage method
            //console.log(`Saving conversation to storage with group ${conversationGroup}`);
             await this.saveToStorage(db.export(), hashedMasterKey);
+            if (imageData.length > 0) {
+                await this.saveToStorage(attachmentDb.export(), hashedMasterKey, 'images');
+            }
             return true;
         } catch (error) {
             console.error('Error storing conversation:', error);
@@ -3273,6 +5170,7 @@ class PaiperworkDB {
         try {
             // Get the database using our unified method that handles OPFS/IndexedDB properly
             const db = await this.getDatabase(hashedMasterKey);
+            const attachmentDb = await this.getDatabase(hashedMasterKey, 'images');
             if (!db) {
                //console.log('No database found when loading conversation history');
                 return result;
@@ -3351,7 +5249,7 @@ class PaiperworkDB {
                         const parsedMessage = JSON.parse(decryptedMessage);
                         if (parsedMessage && typeof parsedMessage === 'object' && parsedMessage.text !== undefined) {
                             processedMessage = parsedMessage.text;
-                            images = parsedMessage.images || [];
+                            images = await this.resolveConversationImageData(attachmentDb, hashedMasterKey, parsedMessage.images || []);
                         }
                     } catch (e) {
                         // Not JSON, use as-is
@@ -3526,6 +5424,7 @@ class PaiperworkDB {
         try {
             // Get the database using our unified method that handles OPFS/IndexedDB properly
             const db = await this.getDatabase(hashedMasterKey);
+            const attachmentDb = await this.getDatabase(hashedMasterKey, 'images');
             if (!db) {
                //console.log(`No database found for masterkey when loading group ${groupId}`);
                 return { conversations: [] };
@@ -3593,7 +5492,7 @@ class PaiperworkDB {
                         const parsedMessage = JSON.parse(decryptedMessage);
                         if (parsedMessage && typeof parsedMessage === 'object' && parsedMessage.text !== undefined) {
                             processedMessage = parsedMessage.text;
-                            images = parsedMessage.images || [];
+                            images = await this.resolveConversationImageData(attachmentDb, hashedMasterKey, parsedMessage.images || []);
                         }
                     } catch (e) {
                         // Not JSON, use as-is
@@ -3695,6 +5594,7 @@ class PaiperworkDB {
 
         try {
             const db = await this.getDatabase(hashedMasterKey);
+            const attachmentDb = await this.getDatabase(hashedMasterKey, 'images', true);
             if (!db) {
                 console.error('❌ Database not found for masterkey:', hashedMasterKey);
                 throw new Error('Database not found');
@@ -3939,7 +5839,12 @@ class PaiperworkDB {
 
             //  EXECUTE DELETION
             let deletedCount = 0;
+            let deletedAttachmentCount = 0;
            //console.log(`🗑️ Attempting to delete ${rowsToDelete.size} messages`);
+
+            const attachmentIdsToDelete = userMessages
+                .filter(msg => rowsToDelete.has(msg.rowid))
+                .flatMap(msg => this.extractConversationAttachmentIdsFromStoredMessage(msg.rawContent));
 
             for (const rowid of rowsToDelete) {
                 try {
@@ -3953,8 +5858,19 @@ class PaiperworkDB {
 
             // Save changes if any deletions were successful
             if (deletedCount > 0) {
+                if (attachmentIdsToDelete.length > 0 && attachmentDb) {
+                    deletedAttachmentCount = await this.deleteConversationAttachmentsByIds(
+                        attachmentDb,
+                        hashedMasterKey,
+                        attachmentIdsToDelete
+                    );
+                }
+
                //console.log(`💾 Successfully deleted ${deletedCount} messages, saving to storage`);
                 await this.saveToStorage(db.export(), hashedMasterKey);
+                if (deletedAttachmentCount > 0 && attachmentDb) {
+                    await this.saveToStorage(attachmentDb.export(), hashedMasterKey, 'images');
+                }
                //console.log('✅ Database saved successfully');
                 return true;
             } else {
@@ -5039,9 +6955,12 @@ class PaiperworkDB {
         try {
             const db = await PaiperworkDB.getDatabase(hashedMasterKey, 'main', true);
             const ragDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'rag', true);
-            const htmlDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'html', true);
+            const presentationsDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'presentations', true);
+            const artifactsDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'artifacts', true);
             const kbDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'kb', true);
-            if (!db || !ragDb || !htmlDb || !kbDb) {
+            const imagesDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'images', true);
+            const whatsappDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'whatsapp', true);
+            if (!db || !ragDb || !presentationsDb || !artifactsDb || !kbDb || !imagesDb || !whatsappDb) {
                 throw new Error(Lang.get("databaseNotAvailable") || "Database not available");
             }
 
@@ -5074,16 +6993,22 @@ class PaiperworkDB {
                 }
             };
 
-            // Get total database size (main + rag + html payload db + knowledge payload db)
+            // Get total database size across all dedicated role databases.
             const exportedDb = db.export();
             const exportedRagDb = ragDb.export();
-            const exportedHtmlDb = htmlDb.export();
+            const exportedPresentationsDb = presentationsDb.export();
+            const exportedArtifactsDb = artifactsDb.export();
             const exportedKbDb = kbDb.export();
+            const exportedImagesDb = imagesDb.export();
+            const exportedWhatsappDb = whatsappDb.export();
             const mainSizeBytes = exportedDb.length;
             const ragSizeBytes = exportedRagDb.length;
-            const htmlSizeBytes = exportedHtmlDb.length;
+            const presentationsSizeBytes = exportedPresentationsDb.length;
+            const artifactsSizeBytes = exportedArtifactsDb.length;
             const kbSizeBytes = exportedKbDb.length;
-            const totalSizeInBytes = mainSizeBytes + ragSizeBytes + htmlSizeBytes + kbSizeBytes;
+            const imagesSizeBytes = exportedImagesDb.length;
+            const whatsappSizeBytes = exportedWhatsappDb.length;
+            const totalSizeInBytes = mainSizeBytes + ragSizeBytes + presentationsSizeBytes + artifactsSizeBytes + kbSizeBytes + imagesSizeBytes + whatsappSizeBytes;
 
             const documentsTable = `documents_${hashedMasterKey}`;
             const chunksTable = `document_chunks_${hashedMasterKey}`;
@@ -5093,6 +7018,10 @@ class PaiperworkDB {
             const artifactsHtmlTable = `artifacts_html_${hashedMasterKey}`;
             const kbCollectionsTable = `knowledge_collections_${hashedMasterKey}`;
             const kbEntriesTable = `knowledge_entries_${hashedMasterKey}`;
+            const attachmentsTable = `conversation_attachments_${hashedMasterKey}`;
+            const whatsappSettingsTable = 'whatsapp_settings';
+            const whatsappContextsTable = 'whatsapp_phone_contexts';
+            const whatsappSessionsTable = 'whatsapp_session_bundles';
 
             // Get document count (guard if table doesn't exist yet)
             const documentCount = countRows(db, documentsTable);
@@ -5101,13 +7030,17 @@ class PaiperworkDB {
             const chunkCount = countRows(ragDb, chunksTable);
 
             const presentationsCount = countRows(db, promptableTable);
-            const presentationsPayloadBytes = textColumnBytes(htmlDb, promptableHtmlTable, 'html_content');
+            const presentationsPayloadBytes = textColumnBytes(presentationsDb, promptableHtmlTable, 'html_content');
 
             const artifactsCount = countRows(db, artifactsTable);
-            const artifactsPayloadBytes = textColumnBytes(htmlDb, artifactsHtmlTable, 'html_content');
+            const artifactsPayloadBytes = textColumnBytes(artifactsDb, artifactsHtmlTable, 'html_content');
 
             const kbCollectionsCount = countRows(db, kbCollectionsTable);
             const kbPayloadCollectionsCount = countRows(kbDb, kbEntriesTable);
+            const imagesCount = countRows(imagesDb, attachmentsTable);
+            const whatsappSettingsCount = countRows(whatsappDb, whatsappSettingsTable);
+            const whatsappContextsCount = countRows(whatsappDb, whatsappContextsTable);
+            const whatsappSessionsCount = countRows(whatsappDb, whatsappSessionsTable);
 
             // Check for orphaned chunks (chunks with no parent document) - guard if either table is missing
             let orphanedCount = 0;
@@ -5151,11 +7084,15 @@ class PaiperworkDB {
                         formatted: this.formatFileSize(ragSizeBytes)
                     },
                     presentations: {
+                        bytes: presentationsSizeBytes,
+                        formatted: this.formatFileSize(presentationsSizeBytes),
                         count: presentationsCount,
                         payloadBytes: presentationsPayloadBytes,
                         payloadFormatted: this.formatFileSize(presentationsPayloadBytes)
                     },
                     artifacts: {
+                        bytes: artifactsSizeBytes,
+                        formatted: this.formatFileSize(artifactsSizeBytes),
                         count: artifactsCount,
                         payloadBytes: artifactsPayloadBytes,
                         payloadFormatted: this.formatFileSize(artifactsPayloadBytes)
@@ -5166,9 +7103,17 @@ class PaiperworkDB {
                         collections: kbCollectionsCount,
                         payloadCollections: kbPayloadCollectionsCount
                     },
-                    htmlPayload: {
-                        bytes: htmlSizeBytes,
-                        formatted: this.formatFileSize(htmlSizeBytes)
+                    images: {
+                        bytes: imagesSizeBytes,
+                        formatted: this.formatFileSize(imagesSizeBytes),
+                        count: imagesCount
+                    },
+                    whatsapp: {
+                        bytes: whatsappSizeBytes,
+                        formatted: this.formatFileSize(whatsappSizeBytes),
+                        settings: whatsappSettingsCount,
+                        contexts: whatsappContextsCount,
+                        sessions: whatsappSessionsCount
                     }
                 },
                 documents: {
@@ -5269,30 +7214,35 @@ class PaiperworkDB {
 
     static async vacuumDatabase(hashedMasterKey) {
         try {
-            const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-            if (!db) {
+            const roles = ['main', 'rag', 'presentations', 'artifacts', 'kb', 'images', 'whatsapp'];
+            let totalBeforeSize = 0;
+            let totalAfterSize = 0;
+
+            for (const role of roles) {
+                const db = await PaiperworkDB.getDatabase(hashedMasterKey, role, true);
+                if (!db) {
+                    continue;
+                }
+
+                const beforeExport = db.export();
+                totalBeforeSize += beforeExport.length;
+
+                db.exec('VACUUM');
+
+                const afterExport = db.export();
+                totalAfterSize += afterExport.length;
+                await PaiperworkDB.saveToStorage(afterExport, hashedMasterKey, role);
+            }
+
+            if (totalBeforeSize === 0 && totalAfterSize === 0) {
                 throw new Error(Lang.get("databaseNotAvailable") || "Database not available");
             }
 
-            // Get size before vacuum
-            const beforeExport = db.export();
-            const beforeSize = beforeExport.length;
-
-            // Run VACUUM command
-            db.exec('VACUUM');
-
-            // Get new size after vacuum
-            const afterExport = db.export();
-            const afterSize = afterExport.length;
-
-            // Save the optimized database
-            await PaiperworkDB.saveToStorage(afterExport, hashedMasterKey);
-
             return {
-                sizeBeforeOptimize: this.formatFileSize(beforeSize),
-                sizeAfterOptimize: this.formatFileSize(afterSize),
-                bytesSaved: beforeSize - afterSize,
-                savedFormatted: this.formatFileSize(beforeSize - afterSize),
+                sizeBeforeOptimize: this.formatFileSize(totalBeforeSize),
+                sizeAfterOptimize: this.formatFileSize(totalAfterSize),
+                bytesSaved: totalBeforeSize - totalAfterSize,
+                savedFormatted: this.formatFileSize(totalBeforeSize - totalAfterSize),
                 success: true
             };
         } catch (error) {

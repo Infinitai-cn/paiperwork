@@ -104,6 +104,7 @@
                         <button class="tab-button" data-tab="artifacts">Artifacts</button>
                         <button class="tab-button" data-tab="models">Models</button>
                         <button class="tab-button" data-tab="database">Database</button>
+                        <button class="tab-button" data-tab="connectors">Connectors</button>
                     </div>
 
                     <div class="tab-content">
@@ -135,7 +136,13 @@
                                 <button id="save-prompt" disabled>Save</button>
                             </div>
                             <button id="clear-currentsession">Clear current Session</button>
-                            <button id="delete-all-databases" style="margin-top:8px; background-color: #b91c1c; color: white; border: none; padding: 10px; border-radius:6px; cursor:pointer;">Delete all databases</button>
+                        </div>
+                        <!-- Connectors Tab -->
+                        <div class="tab-pane" id="connectors-tab">
+                            <div class="connectors-header" style="padding:16px;">
+                                <h2>Connectors</h2>
+                                <p style="margin-top:8px; color: #666;">Connectors is where you can pair your device with popular messaging apps and chat with your AI models.</p>
+                            </div>
                         </div>
 
                         <!-- Documents Tab -->
@@ -188,6 +195,11 @@
                         <div class="tab-pane" id="database-tab">
                             <div class="loading-placeholder">
                                 <p id="loading-database">Loading database statistics...</p>
+                            </div>
+                        </div>
+                            <div class="tab-pane" id="connectors-tab">
+                            <div class="loading-placeholder">
+                                <p id="loading-connectors">Loading database statistics...</p>
                             </div>
                         </div>
                     </div>
