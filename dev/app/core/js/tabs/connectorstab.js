@@ -1628,7 +1628,7 @@ class ConnectorsTab {
                 <div id="wa-qr-container" style="text-align: center; margin-top: 16px; margin-bottom: 16px;"></div>
                 <div id="wa-qr-legend" style="text-align: center; font-size: 13px; color: var(--wa-modal-status-color, #4d4d4d); margin-top: 4px; margin-bottom: 8px; display: none;"></div>
                 <div id="wa-status" style="text-align: center; font-size: 14px; color: var(--wa-modal-status-color, #666);"></div>
-                <div id="wa-starting-spinner" style="display: none; justify-content: center; align-items: center; margin-top: 10px; margin-bottom: 2px;">
+                <div id="wa-starting-spinner" style="display: none; justify-content: center; align-items: center; margin-top: 18px; margin-bottom: 2px;">
                     <div class="wa-loading-spinner" style="width: 22px; height: 22px; border: 3px solid var(--wa-modal-spinner-track, #c4c4c4); border-top-color: var(--wa-modal-spinner-accent, #0b74de); border-top-left-radius: 50%; border-radius: 50%; animation: wa-spin 0.9s linear infinite;"></div>
                 </div>
                 <div id="wa-session-restore-status" style="text-align: center; font-size: 12px; color: var(--wa-modal-muted, #7a7a7a); margin-top: 6px; min-height: 16px; display: none;"></div>

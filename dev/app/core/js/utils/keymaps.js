@@ -277,6 +277,104 @@ presentationKeymap.terms = [...new Set([
     ...Object.values(presentationKeymap.actions).flat()
 ])];
 
+const modelKeymap = {
+    nouns: [
+        'model', 'models', 'my model', 'my models', 'installed model', 'installed models', 'available model', 'available models', 'ai model', 'ai models',
+        'modelo', 'modelos', 'mi modelo', 'mis modelos', 'modelo instalado', 'modelos instalados', 'modelo disponible', 'modelos disponibles',
+        'modelo', 'modelos', 'meu modelo', 'meus modelos', 'modelo instalado', 'modelos instalados', 'modelo disponivel', 'modelo disponível', 'modelos disponiveis', 'modelos disponíveis',
+        'modele', 'modèle', 'modeles', 'modèles', 'mon modele', 'mon modèle', 'mes modeles', 'mes modèles', 'modele installe', 'modèle installé', 'modeles installes', 'modèles installés',
+        'modell', 'modelle', 'mein modell', 'meine modelle', 'installiertes modell', 'installierte modelle', 'verfugbare modelle', 'verfügbare modelle',
+        'modello', 'modelli', 'mio modello', 'miei modelli', 'modello installato', 'modelli installati', 'modello disponibile', 'modelli disponibili',
+        'модель', 'модели', 'моя модель', 'мои модели', 'установленная модель', 'доступные модели',
+        '模型', '我的模型', '可用模型', '已安装模型',
+        'モデル', '自分のモデル', '利用可能なモデル', 'インストール済みモデル',
+        '모델', '내 모델', '사용 가능한 모델', '설치된 모델'
+    ],
+    actions: {
+        current: [
+            'current model', 'selected model', 'active model', 'used model', 'model in use', 'what model is selected', 'what model is selected now', 'what model is used now', 'which model is selected', 'which model are you using', 'what are you using now',
+            'modelo actual', 'modelo seleccionado', 'modelo activo', 'modelo en uso', 'que modelo esta seleccionado', 'qué modelo está seleccionado', 'que modelo usas ahora', 'qué modelo usas ahora', 'cual es el modelo actual', 'cuál es el modelo actual',
+            'modelo atual', 'modelo selecionado', 'modelo activo', 'modelo em uso', 'qual modelo esta selecionado', 'qual modelo está selecionado', 'qual modelo esta usando', 'qual modelo está usando', 'qual e o modelo atual', 'qual é o modelo atual',
+            'modele actuel', 'modèle actuel', 'modele selectionne', 'modèle sélectionné', 'modele actif', 'modèle actif', 'modele utilise', 'modèle utilisé', 'quel modele est selectionne', 'quel modèle est sélectionné', 'quel modele utilises tu', 'quel modèle utilises-tu',
+            'aktuelles modell', 'ausgewahltes modell', 'ausgewähltes modell', 'aktives modell', 'verwendetes modell', 'welches modell ist ausgewahlt', 'welches modell ist ausgewählt', 'welches modell nutzt du',
+            'modello attuale', 'modello selezionato', 'modello attivo', 'modello in uso', 'quale modello e selezionato', 'quale modello è selezionato', 'quale modello stai usando',
+            'текущая модель', 'выбранная модель', 'активная модель', 'какая модель выбрана', 'какую модель ты используешь',
+            '当前模型', '已选模型', '正在使用的模型', '现在用的模型', '现在选择的模型',
+            '現在のモデル', '選択中のモデル', '使用中のモデル', '今使っているモデル',
+            '현재 모델', '선택된 모델', '사용 중인 모델', '지금 쓰는 모델'
+        ],
+        list: [
+            'show', 'list', 'show my models', 'show me my models', 'list my models', 'what models do i have', 'which models do i have', 'available models', 'installed models',
+            'mostrar', 'mostrar mis modelos', 'muestrame mis modelos', 'muéstrame mis modelos', 'listar', 'lista mis modelos', 'que modelos tengo', 'qué modelos tengo', 'cuales son mis modelos', 'cuáles son mis modelos', 'modelos disponibles', 'modelos instalados',
+            'mostrar', 'mostra meus modelos', 'mostra me meus modelos', 'listar', 'liste meus modelos', 'quais modelos eu tenho', 'quais sao meus modelos', 'quais são meus modelos', 'modelos disponiveis', 'modelos disponíveis', 'modelos instalados',
+            'afficher', 'montre moi mes modeles', 'montre-moi mes modèles', 'liste', 'lister', 'liste mes modeles', 'liste mes modèles', 'quels modeles ai je', 'quels modèles ai-je', 'modeles disponibles', 'modèles disponibles', 'modeles installes', 'modèles installés',
+            'zeigen', 'zeige meine modelle', 'liste meine modelle', 'welche modelle habe ich', 'verfugbare modelle', 'verfügbare modelle', 'installierte modelle',
+            'mostra', 'mostrami i miei modelli', 'elenca i miei modelli', 'quali modelli ho', 'modelli disponibili', 'modelli installati',
+            'покажи мои модели', 'список моделей', 'какие модели у меня есть', 'доступные модели', 'установленные модели',
+            '显示我的模型', '列出我的模型', '我有哪些模型', '可用模型', '已安装模型',
+            'モデルを表示', '自分のモデルを表示', 'モデル一覧', '使えるモデル', 'インストール済みモデル',
+            '내 모델 보여줘', '모델 목록', '사용 가능한 모델', '설치된 모델'
+        ],
+        use: [
+            'use', 'use model', 'switch to', 'change to', 'set model to', 'select', 'choose',
+            'usar', 'usar modelo', 'usa', 'cambiar a', 'cambia a', 'poner modelo', 'seleccionar', 'elige',
+            'usar', 'usar modelo', 'usa', 'mudar para', 'trocar para', 'definir modelo', 'selecionar', 'escolher',
+            'utiliser', 'utiliser le modele', 'utiliser le modèle', 'passer a', 'passer à', 'changer pour', 'definir le modele', 'définir le modèle', 'selectionner', 'sélectionner', 'choisir',
+            'verwende', 'nutze', 'benutze', 'modell verwenden', 'wechsle zu', 'wechsel zu', 'setze modell auf', 'auswahlen', 'auswählen', 'wahlen', 'wählen',
+            'usa', 'usa modello', 'passa a', 'cambia a', 'imposta il modello', 'seleziona', 'scegli',
+            'используй', 'используй модель', 'переключи на', 'смени на', 'выбери', 'установи модель',
+            '使用', '使用模型', '切换到', '改用', '选择', '设为模型',
+            '使う', 'モデルを使う', '切り替え', '変更して', '選択',
+            '사용', '모델 사용', '바꿔', '전환', '선택', '모델로 설정'
+        ]
+    },
+    providers: {
+        local: [
+            'local', 'locally', 'on device', 'device', 'local model',
+            'local', 'localmente', 'modelo local',
+            'local', 'localmente', 'modelo local',
+            'local', 'localement', 'modele local', 'modèle local',
+            'lokal', 'lokales modell',
+            'locale', 'modello locale',
+            'локально', 'локальная', 'локальная модель', 'локально установленная',
+            '本地', '本地模型',
+            'ローカル', 'ローカルモデル',
+            '로컬', '로컬 모델'
+        ],
+        cloud: [
+            'cloud', 'online', 'remote', 'cloud model',
+            'nube', 'en la nube', 'modelo en la nube',
+            'nuvem', 'na nuvem', 'modelo na nuvem',
+            'cloud', 'nuage', 'en ligne', 'modele cloud', 'modèle cloud',
+            'cloud', 'online', 'fern', 'cloud modell',
+            'cloud', 'nuvola', 'modello cloud',
+            'облако', 'облачная', 'облачная модель',
+            '云端', '云', '云模型',
+            'クラウド', 'クラウドモデル',
+            '클라우드', '클라우드 모델'
+        ]
+    },
+    fillers: [
+        'please', 'my', 'the', 'to', 'for', 'now',
+        'por favor', 'mi', 'mis', 'el', 'la', 'los', 'las', 'para', 'ahora',
+        'por favor', 'meu', 'meus', 'minha', 'minhas', 'o', 'a', 'os', 'as', 'para', 'agora',
+        's il vous plait', 's il te plait', 'mon', 'mes', 'le', 'la', 'les', 'pour', 'maintenant',
+        'bitte', 'mein', 'meine', 'das', 'der', 'die', 'den', 'zu', 'jetzt',
+        'per favore', 'mio', 'mia', 'miei', 'mie', 'il', 'la', 'i', 'le', 'per', 'adesso',
+        'пожалуйста', 'мой', 'моя', 'мои', 'для', 'сейчас',
+        '请', '我的', '现在',
+        'お願いします', '私の', '今',
+        '제발', '내', '지금'
+    ]
+};
+
+modelKeymap.terms = [...new Set([
+    ...modelKeymap.nouns,
+    ...modelKeymap.fillers,
+    ...Object.values(modelKeymap.actions).flat(),
+    ...Object.values(modelKeymap.providers).flat()
+])];
+
 window.Keymaps = {
     dataViz: {
         intent: [
@@ -336,5 +434,6 @@ window.Keymaps = {
     },
     research: researchKeymap,
     document: documentKeymap,
-    presentation: presentationKeymap
+    presentation: presentationKeymap,
+    model: modelKeymap
 };

@@ -27,6 +27,12 @@ Instructions:
         - Português: "Cria uma apresentação com este texto: ..." => presentation
         - English: "Show my saved presentations" => presentation
         - English: "Send my saved Mercedes presentation" => presentation
+    - Model-management command examples:
+        - English: "Show me my models" → chat
+        - English: "What model is selected now?" → chat
+        - English: "Use Gemma4 Local" → chat
+        - Español: "Muéstrame mis modelos" → chat
+        - Português: "Mostra meus modelos" → chat
   - Document intent examples:
     - English: "Summarize my invoice.pdf" → document-check
     - Español: "Resumen mi informe" → document-check
@@ -41,6 +47,7 @@ Instructions:
 - Handle multi-language requests robustly using these keyword signals.
 - Prefer "chat+websearch" when the user explicitly requests web lookups, asks for current events, requests citations, or asks for verifiable/up-to-date facts.
 - Prefer "research" when the user asks for a research-style workflow, comprehensive topic analysis, or actionable insights (examples: "research the latest AI trends", "prepare a report on market dynamics", "investigate competitor strategies", "what is the best approach for market research?").
+- Requests about available AI models, the current selected model, installed models, switching models, choosing between local/cloud models, or commands like "show me my models" / "what model is selected now" / "use Gemma4 local" are NOT document requests. Route those to "chat" so the frontend can handle model management.
 - Choose "document-check" whenever the user explicitly or implicitly asks to interact with saved documents or files. Use semantic intent matching (not just exact text matches) and fuzzy document-name matching (close titles, partial names, alternate case, punctuation variations) so varied forms like "I want to review my recent reports", "find the PDF about taxes", "can you open that contract", "browse my docs", and "show me my uploads" are all treated as document-check. Also treat forms like "ask a question to <document>", "question this document", "ask about <document>", "a question for <doc title>" as document-check intent (not general knowledge questions without explicit document reference). If the user asks to "summarize" or "ask about" a near-matching document name (e.g. "Summarize a call to action" vs "A_Call_to_Action_for_Generative_AI.pdf"), prefer document-check with the closest candidate. Do not set document-check for generic conversational queries like "What day is today?", "Who won the game?", or "How do I boil pasta?" unless there is explicit document context. Examples of document intent: "my documents", "check my documents", "list my documents", "summarize my file", "summarize invoice.pdf", "ask questions about my report", "open the contract named X", "review the uploaded files", or when the user mentions uploading content to be checked. In these cases:
     - If you can confidently identify a specific saved document, set the "document" field to that exact filename or id.
     - If you cannot confidently identify a specific document (user didn't supply a filename or the name is ambiguous), set the tool to "document-check" and set the "document" field to an empty string so the frontend can ask the user to choose from candidate documents.
@@ -85,6 +92,9 @@ class ConnectorWhatsapp {
         this.incomingPollIntervalMs = 2500;
         this.whatsappIncomingRetryQueue = [];
         this._whatsappPresenceStarted = false;
+        this._whatsappPresenceChatId = '';
+        this._whatsappPresenceKeepAliveTimer = null;
+        this._whatsappPresenceKeepAliveIntervalMs = 8000;
         this._whatsappPendingDocSelection = {}; // keyed by normalized phone
         this._whatsappPendingPresentationSelection = {}; // keyed by normalized phone
     }
@@ -442,9 +452,20 @@ class ConnectorWhatsapp {
 
     async _beginWhatsappModelRoutingSession(phone, phoneContext = null) {
         const normalizedPhone = String(phone || '').replace(/@.*$/g, '').trim();
-        const selectedModel = (document.getElementById('model-selector') && document.getElementById('model-selector').value)
+        let selectedModel = (document.getElementById('model-selector') && document.getElementById('model-selector').value)
             ? String(document.getElementById('model-selector').value).trim()
             : '';
+
+        if (!selectedModel) {
+            try {
+                const refreshedModels = await this._loadWhatsappAvailableModels();
+                selectedModel = refreshedModels && refreshedModels.modelSelector && refreshedModels.modelSelector.value
+                    ? String(refreshedModels.modelSelector.value).trim()
+                    : '';
+            } catch (refreshErr) {
+                console.warn('[ConnectorWhatsapp][models] Failed to recover model selector before routing session', refreshErr);
+            }
+        }
 
         const routing = (typeof OllamaAPI !== 'undefined' && OllamaAPI && typeof OllamaAPI.getApiRoutingForModel === 'function' && selectedModel)
             ? await OllamaAPI.getApiRoutingForModel(selectedModel)
@@ -1377,6 +1398,636 @@ class ConnectorWhatsapp {
         }
 
         return [...new Set(collected.map(token => String(token || '').trim()).filter(Boolean))];
+    }
+
+    _getModelKeymapConfig() {
+        const keymap = window.Keymaps && window.Keymaps.model;
+        return keymap || {
+            nouns: [],
+            actions: {},
+            providers: {},
+            fillers: [],
+            terms: []
+        };
+    }
+
+    _getModelKeymapTokens(...paths) {
+        const keymap = this._getModelKeymapConfig();
+        const collected = [];
+
+        for (const path of paths) {
+            const segments = String(path || '').split('.').filter(Boolean);
+            let value = keymap;
+            for (const segment of segments) {
+                value = value && value[segment];
+            }
+            if (Array.isArray(value)) {
+                collected.push(...value);
+            }
+        }
+
+        return [...new Set(collected.map(token => String(token || '').trim()).filter(Boolean))];
+    }
+
+    _findLongestNormalizedTokenMatch(text, tokens = []) {
+        const normalizedText = this._normalizeDocumentIntentKeymapText(text);
+        if (!normalizedText) return '';
+
+        let bestMatch = '';
+        for (const token of tokens) {
+            const normalizedToken = this._normalizeDocumentIntentKeymapText(token);
+            if (!normalizedToken) continue;
+            if (normalizedText === normalizedToken || normalizedText.includes(normalizedToken)) {
+                if (normalizedToken.length > bestMatch.length) {
+                    bestMatch = normalizedToken;
+                }
+            }
+        }
+
+        return bestMatch;
+    }
+
+    _escapeRegExp(text) {
+        return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    _removeKeymapTokensFromNormalizedText(text, tokens = []) {
+        let candidate = this._normalizeDocumentIntentKeymapText(text);
+        if (!candidate) return '';
+
+        const normalizedTokens = [...new Set(tokens
+            .map(token => this._normalizeDocumentIntentKeymapText(token))
+            .filter(Boolean))]
+            .sort((left, right) => right.length - left.length);
+
+        for (const token of normalizedTokens) {
+            const pattern = token
+                .split(/\s+/)
+                .map(part => this._escapeRegExp(part))
+                .join('\\s+');
+            const regex = new RegExp(`(^|\\s)${pattern}(?=\\s|$)`, 'gi');
+            candidate = candidate.replace(regex, ' ');
+        }
+
+        return candidate.replace(/\s+/g, ' ').trim();
+    }
+
+    _detectWhatsappRequestedModelProvider(text) {
+        const normalizedText = this._normalizeDocumentIntentKeymapText(text);
+        if (!normalizedText) return null;
+
+        const localMatch = this._findLongestNormalizedTokenMatch(normalizedText, this._getModelKeymapTokens('providers.local'));
+        const cloudMatch = this._findLongestNormalizedTokenMatch(normalizedText, this._getModelKeymapTokens('providers.cloud'));
+
+        if (localMatch && !cloudMatch) return 'local';
+        if (cloudMatch && !localMatch) return 'cloud';
+        return null;
+    }
+
+    _extractWhatsappRequestedModelName(text) {
+        const removableTokens = [
+            ...this._getModelKeymapTokens('actions.use'),
+            ...this._getModelKeymapTokens('nouns'),
+            ...this._getModelKeymapTokens('providers.local'),
+            ...this._getModelKeymapTokens('providers.cloud'),
+            ...this._getModelKeymapTokens('fillers')
+        ];
+
+        return this._removeKeymapTokensFromNormalizedText(text, removableTokens);
+    }
+
+    _parseWhatsappModelCommand(text) {
+        const rawText = String(text || '').trim();
+        if (!rawText) return null;
+
+        const normalizedText = this._normalizeDocumentIntentKeymapText(rawText);
+        if (!normalizedText) return null;
+
+        const nounTokens = this._getModelKeymapTokens('nouns');
+        const currentTokens = this._getModelKeymapTokens('actions.current');
+        const listTokens = this._getModelKeymapTokens('actions.list');
+        const useTokens = this._getModelKeymapTokens('actions.use');
+
+        const hasModelNoun = this._textMatchesDocumentKeymapTokens(normalizedText, nounTokens);
+        const currentMatch = this._findLongestNormalizedTokenMatch(normalizedText, currentTokens);
+        const listMatch = this._findLongestNormalizedTokenMatch(normalizedText, listTokens);
+        const useMatch = this._findLongestNormalizedTokenMatch(normalizedText, useTokens);
+        const hasExplicitListPhrase = !!(listMatch && listMatch.split(/\s+/).length > 1);
+
+        if (currentMatch && (hasModelNoun || currentMatch.split(/\s+/).length > 1)) {
+            return { type: 'current' };
+        }
+
+        if (hasExplicitListPhrase || (hasModelNoun && !!listMatch)) {
+            return { type: 'list' };
+        }
+
+        if (!useMatch) {
+            return null;
+        }
+
+        return {
+            type: 'switch',
+            provider: this._detectWhatsappRequestedModelProvider(rawText),
+            requestedModelName: this._extractWhatsappRequestedModelName(rawText)
+        };
+    }
+
+    async _loadWhatsappAvailableModels() {
+        const modelSelector = document.getElementById('model-selector');
+        if (!modelSelector) {
+            return { modelSelector: null, models: [] };
+        }
+
+        const previousOption = modelSelector.options[modelSelector.selectedIndex] || null;
+        const previousModel = String(modelSelector.value || '').trim();
+        const previousProvider = (previousOption && previousOption.dataset && previousOption.dataset.provider)
+            ? String(previousOption.dataset.provider || '').trim().toLowerCase()
+            : ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
+                ? (window.OllamaAPI.getModelSource(previousModel) || 'local')
+                : 'local');
+
+        if (window.OllamaAPI && typeof window.OllamaAPI.loadOllamaModels === 'function') {
+            try {
+                await window.OllamaAPI.loadOllamaModels();
+            } catch (err) {
+                console.warn('[ConnectorWhatsapp][models] Failed to refresh available models before WhatsApp command', err);
+            }
+        }
+
+        if (previousModel) {
+            const exactProviderOption = Array.from(modelSelector.options).find(option =>
+                option &&
+                option.value === previousModel &&
+                option.dataset &&
+                String(option.dataset.provider || '').trim().toLowerCase() === previousProvider
+            );
+            const fallbackOption = Array.from(modelSelector.options).find(option => option && option.value === previousModel);
+            const optionToRestore = exactProviderOption || fallbackOption;
+            if (optionToRestore) {
+                modelSelector.value = optionToRestore.value;
+                modelSelector.selectedIndex = optionToRestore.index;
+            }
+        }
+
+        if (!String(modelSelector.value || '').trim()) {
+            const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+            let desiredModel = previousModel;
+            let desiredProvider = previousProvider;
+
+            if (hashedMasterKey && typeof PaiperworkDB !== 'undefined' && typeof PaiperworkDB.loadSettings === 'function') {
+                try {
+                    const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
+                    if (!desiredModel && settings && settings.model) {
+                        desiredModel = String(settings.model || '').trim();
+                    }
+                    if ((!desiredProvider || desiredProvider === 'local') && settings && settings.modelProvider) {
+                        desiredProvider = String(settings.modelProvider || 'local').trim().toLowerCase() || 'local';
+                    }
+                } catch (settingsErr) {
+                    console.warn('[ConnectorWhatsapp][models] Failed to load saved model settings during selector restore', settingsErr);
+                }
+            }
+
+            const exactSavedOption = desiredModel
+                ? Array.from(modelSelector.options).find(option =>
+                    option &&
+                    option.value === desiredModel &&
+                    option.dataset &&
+                    String(option.dataset.provider || '').trim().toLowerCase() === desiredProvider
+                )
+                : null;
+            const fallbackSavedOption = desiredModel
+                ? Array.from(modelSelector.options).find(option => option && option.value === desiredModel)
+                : null;
+            const recoveryOption = exactSavedOption || fallbackSavedOption || null;
+
+            if (recoveryOption) {
+                modelSelector.value = recoveryOption.value;
+                modelSelector.selectedIndex = recoveryOption.index;
+
+                if (hashedMasterKey && typeof PaiperworkDB !== 'undefined' && typeof PaiperworkDB.saveModel === 'function') {
+                    const recoveryProvider = (recoveryOption.dataset && recoveryOption.dataset.provider)
+                        ? String(recoveryOption.dataset.provider || '').trim().toLowerCase() || 'local'
+                        : 'local';
+                    try {
+                        await this._persistWhatsappSelectedModel(modelSelector, recoveryOption.value, recoveryProvider);
+                    } catch (saveErr) {
+                        console.warn('[ConnectorWhatsapp][models] Failed to persist recovered model selection', saveErr);
+                    }
+                }
+
+                console.info('[ConnectorWhatsapp][models] Recovered blank model selector before WhatsApp handling', {
+                    recoveredModel: recoveryOption.value,
+                    recoveredProvider: (recoveryOption.dataset && recoveryOption.dataset.provider) || 'local'
+                });
+            } else {
+                console.warn('[ConnectorWhatsapp][models] Selector recovery skipped because the last used model is unavailable', {
+                    desiredModel,
+                    desiredProvider
+                });
+            }
+        }
+
+        const models = Array.from(modelSelector.options)
+            .filter(option => option && String(option.value || '').trim())
+            .map(option => ({
+                index: option.index,
+                value: String(option.value || '').trim(),
+                label: String(option.textContent || option.label || option.value || '').trim(),
+                provider: String((option.dataset && option.dataset.provider) || (window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function'
+                    ? (window.OllamaAPI.getModelSource(option.value) || 'local')
+                    : 'local')).trim().toLowerCase() || 'local',
+                isCurrent: option.index === modelSelector.selectedIndex && String(option.value || '').trim() === String(modelSelector.value || '').trim()
+            }));
+
+        return { modelSelector, models };
+    }
+
+    _normalizeWhatsappModelAlias(value) {
+        return this._normalizeDocumentIntentKeymapText(String(value || ''));
+    }
+
+    _mergeAlphaNumericModelTokens(text) {
+        return String(text || '')
+            .replace(/\b([a-z]+)\s+(\d+)\b/gi, '$1$2')
+            .replace(/\b([a-z]+\d+)\s+(\d+)\b/gi, '$1 $2')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    _normalizeWhatsappModelQuantization(text) {
+        return String(text || '')
+            .replace(/\bq(\d+)\s*0\b/gi, 'q$1')
+            .replace(/\bq(\d+)\s+[a-z](?:\s+[a-z])?\b/gi, 'q$1')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    _stripWhatsappModelLatestTag(text) {
+        return String(text || '')
+            .replace(/\blatest\b/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    _stripWhatsappModelQuantization(text) {
+        return String(text || '')
+            .replace(/\bq\d+\b/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    _buildWhatsappModelAliases(model) {
+        const rawValues = [model && model.value, model && model.label]
+            .map(value => String(value || '').trim())
+            .filter(Boolean);
+        const aliases = new Set();
+
+        for (const rawValue of rawValues) {
+            const normalized = this._normalizeWhatsappModelAlias(rawValue);
+            const merged = this._mergeAlphaNumericModelTokens(normalized);
+            const quantNormalized = this._normalizeWhatsappModelQuantization(merged);
+            const withoutLatest = this._stripWhatsappModelLatestTag(quantNormalized);
+            const withoutQuant = this._stripWhatsappModelQuantization(withoutLatest);
+
+            [normalized, merged, quantNormalized, withoutLatest, withoutQuant]
+                .map(value => String(value || '').trim())
+                .filter(Boolean)
+                .forEach(value => aliases.add(value));
+        }
+
+        return Array.from(aliases);
+    }
+
+    _extractWhatsappModelQuantToken(text) {
+        const normalized = this._normalizeWhatsappModelQuantization(this._normalizeWhatsappModelAlias(text));
+        const match = normalized.match(/\bq\d+\b/i);
+        return match ? match[0].toLowerCase() : '';
+    }
+
+    _extractWhatsappModelQuantRank(model) {
+        const aliasBlob = this._buildWhatsappModelAliases(model).join(' ');
+        const match = aliasBlob.match(/\bq(\d+)\b/i);
+        return match ? Number(match[1]) || 0 : 0;
+    }
+
+    _scoreWhatsappModelCandidate(requestedModelName, model) {
+        const normalizedRequest = this._normalizeWhatsappModelAlias(requestedModelName);
+        if (!normalizedRequest) return 0;
+
+        const mergedRequest = this._mergeAlphaNumericModelTokens(normalizedRequest);
+        const quantNormalizedRequest = this._normalizeWhatsappModelQuantization(mergedRequest);
+        const requestWithoutQuant = this._stripWhatsappModelQuantization(quantNormalizedRequest);
+        const compactRequest = quantNormalizedRequest.replace(/\s+/g, '');
+        const compactRequestWithoutQuant = requestWithoutQuant.replace(/\s+/g, '');
+        const requestQuant = this._extractWhatsappModelQuantToken(quantNormalizedRequest);
+        const requestAliases = [...new Set([
+            normalizedRequest,
+            mergedRequest,
+            quantNormalizedRequest,
+            requestWithoutQuant
+        ].filter(Boolean))];
+        const aliases = this._buildWhatsappModelAliases(model);
+
+        let bestScore = 0;
+        for (const alias of aliases) {
+            const compactAlias = alias.replace(/\s+/g, '');
+            const aliasWithoutQuant = this._stripWhatsappModelQuantization(alias);
+            const compactAliasWithoutQuant = aliasWithoutQuant.replace(/\s+/g, '');
+            const aliasQuant = this._extractWhatsappModelQuantToken(alias);
+
+            if (requestAliases.includes(alias) || compactAlias === compactRequest) {
+                bestScore = Math.max(bestScore, 100);
+                continue;
+            }
+
+            if (requestQuant && aliasQuant === requestQuant && alias.includes(requestWithoutQuant)) {
+                bestScore = Math.max(bestScore, 96);
+                continue;
+            }
+
+            if (alias.includes(quantNormalizedRequest)
+                || quantNormalizedRequest.includes(alias)
+                || compactAlias.includes(compactRequest)
+                || compactRequest.includes(compactAlias)
+                || (requestWithoutQuant && aliasWithoutQuant.includes(requestWithoutQuant))
+                || (requestWithoutQuant && requestWithoutQuant.includes(aliasWithoutQuant))
+                || (compactRequestWithoutQuant && compactAliasWithoutQuant.includes(compactRequestWithoutQuant))) {
+                bestScore = Math.max(bestScore, 85);
+            }
+
+            const aliasTokens = new Set(alias.split(/\s+/).filter(Boolean));
+            const requestTokens = new Set(quantNormalizedRequest.split(/\s+/).filter(Boolean));
+            const overlap = Array.from(requestTokens).filter(token => aliasTokens.has(token)).length;
+            if (overlap > 0) {
+                const score = Math.round((overlap / Math.max(aliasTokens.size, requestTokens.size, 1)) * 70);
+                bestScore = Math.max(bestScore, score);
+            }
+
+            if (requestWithoutQuant) {
+                const aliasNoQuantTokens = new Set(aliasWithoutQuant.split(/\s+/).filter(Boolean));
+                const requestNoQuantTokens = new Set(requestWithoutQuant.split(/\s+/).filter(Boolean));
+                const noQuantOverlap = Array.from(requestNoQuantTokens).filter(token => aliasNoQuantTokens.has(token)).length;
+                if (noQuantOverlap > 0) {
+                    const score = Math.round((noQuantOverlap / Math.max(aliasNoQuantTokens.size, requestNoQuantTokens.size, 1)) * 68);
+                    bestScore = Math.max(bestScore, score);
+                }
+            }
+        }
+
+        return bestScore;
+    }
+
+    _matchWhatsappRequestedModel(requestedModelName, models, requestedProvider = null) {
+        const filteredModels = Array.isArray(models)
+            ? models.filter(model => !requestedProvider || model.provider === requestedProvider)
+            : [];
+
+        if (filteredModels.length === 0) {
+            return { match: null, ambiguous: false };
+        }
+
+        const requestQuant = this._extractWhatsappModelQuantToken(requestedModelName);
+        const scored = filteredModels
+            .map(model => {
+                const aliases = this._buildWhatsappModelAliases(model);
+                const aliasBlob = aliases.join(' ');
+                const quantRank = this._extractWhatsappModelQuantRank(model);
+                const matchesRequestedQuant = !!requestQuant && aliasBlob.includes(requestQuant);
+                return {
+                    model,
+                    score: this._scoreWhatsappModelCandidate(requestedModelName, model),
+                    quantRank,
+                    matchesRequestedQuant
+                };
+            })
+            .filter(entry => entry.score > 0)
+            .sort((left, right) => {
+                if (right.score !== left.score) return right.score - left.score;
+                if (right.matchesRequestedQuant !== left.matchesRequestedQuant) return Number(right.matchesRequestedQuant) - Number(left.matchesRequestedQuant);
+                if (right.quantRank !== left.quantRank) return right.quantRank - left.quantRank;
+                return left.model.label.localeCompare(right.model.label);
+            });
+
+        if (scored.length === 0 || scored[0].score < 35) {
+            return { match: null, ambiguous: false };
+        }
+
+        if (scored.length > 1
+            && scored[1].score === scored[0].score
+            && scored[1].matchesRequestedQuant === scored[0].matchesRequestedQuant
+            && scored[1].quantRank === scored[0].quantRank) {
+            return { match: null, ambiguous: true };
+        }
+
+        return { match: scored[0].model, ambiguous: false };
+    }
+
+    async _getWhatsappLocalizedModelProviderLabel(provider, language) {
+        if (provider === 'cloud') {
+            return this._getLocalizedLangText(language, 'whatsappModelsProviderCloud', 'Cloud');
+        }
+        return this._getLocalizedLangText(language, 'whatsappModelsProviderLocal', 'Local');
+    }
+
+    async _persistWhatsappSelectedModel(modelSelector = null, fallbackModel = '', fallbackProvider = 'local') {
+        const selector = modelSelector || document.getElementById('model-selector');
+        if (!selector || typeof PaiperworkDB === 'undefined' || typeof PaiperworkDB.saveModel !== 'function') {
+            return false;
+        }
+
+        const liveMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (!liveMasterKey) {
+            console.warn('[ConnectorWhatsapp][models] Skipping model persistence because no live master key is available');
+            return false;
+        }
+
+        const selectedOption = selector.options[selector.selectedIndex] || null;
+        const selectedModel = String(selector.value || fallbackModel || '').trim();
+        const selectedProvider = String(
+            (selectedOption && selectedOption.dataset && selectedOption.dataset.provider)
+                || fallbackProvider
+                || (window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function'
+                    ? (window.OllamaAPI.getModelSource(selectedModel) || 'local')
+                    : 'local')
+        ).trim().toLowerCase() || 'local';
+
+        if (!selectedModel) {
+            console.warn('[ConnectorWhatsapp][models] Skipping model persistence because the selector has no resolved model');
+            return false;
+        }
+
+        const saved = await PaiperworkDB.saveModel(liveMasterKey, selectedModel, selectedProvider);
+        if (!saved) {
+            console.warn('[ConnectorWhatsapp][models] Failed to persist WhatsApp-selected model', {
+                selectedModel,
+                selectedProvider
+            });
+        }
+        return !!saved;
+    }
+
+    async _handleWhatsappModelCommand(phone, replyTarget, userText, language, phoneContext = null) {
+        const command = this._parseWhatsappModelCommand(userText);
+        if (!command) {
+            return false;
+        }
+
+        const botPrefix = '🤖 ';
+        const { modelSelector, models } = await this._loadWhatsappAvailableModels();
+
+        if (!modelSelector || !Array.isArray(models) || models.length === 0) {
+            const unavailableText = await this._getLocalizedLangText(
+                language,
+                'whatsappModelsUnavailable',
+                'I could not load the model list right now.'
+            );
+            await this.postWhatsappText(replyTarget || phone, `${botPrefix}${unavailableText}`);
+            return true;
+        }
+
+        if (command.type === 'current') {
+            const currentModel = models.find(model => model.isCurrent) || null;
+            if (!currentModel) {
+                const noCurrentText = await this._getLocalizedLangText(
+                    language,
+                    'whatsappModelsCurrentUnknown',
+                    'No model is currently selected.'
+                );
+                await this.postWhatsappText(replyTarget || phone, `${botPrefix}${noCurrentText}`);
+                return true;
+            }
+
+            const providerLabel = await this._getWhatsappLocalizedModelProviderLabel(currentModel.provider, language);
+            const currentText = await this._getLocalizedLangText(
+                language,
+                'whatsappModelsCurrentAnswer',
+                'The current model is {model} ({provider}).',
+                {
+                    model: currentModel.label,
+                    provider: providerLabel
+                }
+            );
+            await this.postWhatsappText(replyTarget || phone, `${botPrefix}${currentText}`);
+            return true;
+        }
+
+        if (command.type === 'list') {
+            const localHeader = await this._getLocalizedLangText(language, 'whatsappModelsLocalHeader', 'Local models');
+            const cloudHeader = await this._getLocalizedLangText(language, 'whatsappModelsCloudHeader', 'Cloud models');
+            const availableTitle = await this._getLocalizedLangText(language, 'whatsappModelsAvailableTitle', 'Available models');
+            const currentTitle = await this._getLocalizedLangText(language, 'whatsappModelsCurrentModel', 'Current model');
+            const noLocalText = await this._getLocalizedLangText(language, 'whatsappModelsNoLocal', 'No local models available.');
+            const noCloudText = await this._getLocalizedLangText(language, 'whatsappModelsNoCloud', 'No cloud models available.');
+            const tipText = await this._getLocalizedLangText(
+                language,
+                'whatsappModelsListTip',
+                'Reply with "Use Gemma4 Local" or "Use Gemma4 Cloud" to switch models.'
+            );
+            const currentMarker = await this._getLocalizedLangText(language, 'whatsappModelsCurrentMarker', 'current');
+
+            const formatModels = (items, emptyText) => {
+                if (!Array.isArray(items) || items.length === 0) {
+                    return `- ${emptyText}`;
+                }
+                return items.map(item => `- ${item.label}${item.isCurrent ? ` (${currentMarker})` : ''}`).join('\n');
+            };
+
+            const localModels = models.filter(model => model.provider === 'local');
+            const cloudModels = models.filter(model => model.provider === 'cloud');
+            const currentModel = models.find(model => model.isCurrent) || null;
+            const currentProviderLabel = currentModel
+                ? await this._getWhatsappLocalizedModelProviderLabel(currentModel.provider, language)
+                : '';
+
+            const parts = [
+                `${botPrefix}${availableTitle}`,
+                `${localHeader}:\n${formatModels(localModels, noLocalText)}`,
+                `${cloudHeader}:\n${formatModels(cloudModels, noCloudText)}`
+            ];
+
+            if (currentModel) {
+                parts.push(`${currentTitle}: ${currentModel.label} (${currentProviderLabel})`);
+            }
+
+            parts.push(tipText);
+            await this.postWhatsappText(replyTarget || phone, parts.join('\n\n'));
+            return true;
+        }
+
+        const requestedModelName = String(command.requestedModelName || '').trim();
+        if (!requestedModelName) {
+            const missingNameText = await this._getLocalizedLangText(
+                language,
+                'whatsappModelsSwitchMissingName',
+                'Tell me which model to use, for example: "Use Gemma4 Local".'
+            );
+            await this.postWhatsappText(replyTarget || phone, `${botPrefix}${missingNameText}`);
+            return true;
+        }
+
+        const resolution = this._matchWhatsappRequestedModel(requestedModelName, models, command.provider || null);
+        if (resolution.ambiguous) {
+            const ambiguousText = await this._getLocalizedLangText(
+                language,
+                'whatsappModelsSwitchAmbiguous',
+                'I found more than one match for "{query}". Add "Local" or "Cloud" to choose the right model.',
+                { query: requestedModelName }
+            );
+            await this.postWhatsappText(replyTarget || phone, `${botPrefix}${ambiguousText}`);
+            return true;
+        }
+
+        const matchedModel = resolution.match;
+        if (!matchedModel) {
+            const notFoundText = await this._getLocalizedLangText(
+                language,
+                'whatsappModelsSwitchNotFound',
+                'I could not find a matching model for "{query}". Ask me to show your models for the current list.',
+                { query: requestedModelName }
+            );
+            await this.postWhatsappText(replyTarget || phone, `${botPrefix}${notFoundText}`);
+            return true;
+        }
+
+        modelSelector.value = matchedModel.value;
+        modelSelector.selectedIndex = matchedModel.index;
+
+        await this._persistWhatsappSelectedModel(modelSelector, matchedModel.value, matchedModel.provider);
+
+        if (typeof OllamaAPI !== 'undefined' && OllamaAPI) {
+            OllamaAPI.previousContext = null;
+            if (typeof OllamaAPI.resetContext === 'function') {
+                OllamaAPI.resetContext();
+            }
+        }
+
+        const updatedPhoneContext = (phoneContext && typeof phoneContext === 'object')
+            ? { ...phoneContext }
+            : ((await this._getWhatsappPhoneContext(phone)) || {});
+        updatedPhoneContext.localPreviousContext = null;
+        updatedPhoneContext.conversationTurns = [];
+        await this._setWhatsappPhoneContext(phone, updatedPhoneContext);
+
+        try {
+            modelSelector.dispatchEvent(new Event('change', { bubbles: true }));
+        } catch (dispatchErr) {
+            console.warn('[ConnectorWhatsapp][models] Failed to dispatch model selector change event', dispatchErr);
+        }
+
+        const providerLabel = await this._getWhatsappLocalizedModelProviderLabel(matchedModel.provider, language);
+        const switchedText = await this._getLocalizedLangText(
+            language,
+            'whatsappModelsSwitchSuccess',
+            'Model changed to {model} ({provider}). Future replies will use this model.',
+            {
+                model: matchedModel.label,
+                provider: providerLabel
+            }
+        );
+        await this.postWhatsappText(replyTarget || phone, `${botPrefix}${switchedText}`);
+        return true;
     }
 
     _presentationRequestHasExplicitSourceText(text) {
@@ -2688,6 +3339,14 @@ class ConnectorWhatsapp {
                 console.info('[ConnectorWhatsapp][orchestrator] Empty orchestrator response, defaulting to chat');
             }
 
+            const modelCommand = this._parseWhatsappModelCommand(routingIntentText || cleaned);
+            if (modelCommand) {
+                decision.tool = 'chat';
+                decision.document = '';
+                decision.shortAnswer = true;
+                decision.reason = (decision.reason ? `${decision.reason} ` : '') + 'Model-management command handled by frontend chat routing.';
+            }
+
             if (decision.tool === 'chat' || decision.tool === 'chat+websearch') {
                 try {
                     const matchedSavedPresentation = this._matchPendingSavedPresentationFollowUp(normalizedPhone, routingIntentText);
@@ -3340,6 +3999,17 @@ class ConnectorWhatsapp {
             window.whatsappIncomingLanguageSample = userText;
             window.lastOrchestratorDecision = msg.orchestrator;
 
+            const modelCommandHandled = await this._handleWhatsappModelCommand(
+                normalizedPhone,
+                replyTarget,
+                userText,
+                resolvedLanguage,
+                phoneContext
+            );
+            if (modelCommandHandled) {
+                return;
+            }
+
             if (this._isSummaryToPresentationWorkflowIntent(routingIntentText || userText)) {
                 if (window.chatInstance) {
                     window.chatInstance.whatsappPendingReplyChatId = replyTarget;
@@ -3473,7 +4143,7 @@ class ConnectorWhatsapp {
             // Post presence/thinking to the phone (best-effort)
             try {
                 if (window.chatInstance && window.chatInstance.whatsappPendingReplyChatId && typeof this.postWhatsappPresence === 'function') {
-                    await this.postWhatsappPresence(window.chatInstance.whatsappPendingReplyChatId, 'start');
+                    await this._startWhatsappPresenceKeepAlive(window.chatInstance.whatsappPendingReplyChatId);
 
                     const shouldSendThinking = !(msg?.orchestrator && msg.orchestrator.think === false);
                     if (shouldSendThinking && typeof this.postWhatsappText === 'function') {
@@ -3539,15 +4209,52 @@ class ConnectorWhatsapp {
         }
     }
 
+    _clearWhatsappPresenceKeepAliveTimer() {
+        if (this._whatsappPresenceKeepAliveTimer) {
+            clearInterval(this._whatsappPresenceKeepAliveTimer);
+            this._whatsappPresenceKeepAliveTimer = null;
+        }
+    }
+
+    async _startWhatsappPresenceKeepAlive(chatId) {
+        const target = this._getResolvedWhatsappOutgoingTarget(
+            chatId || this._whatsappPresenceChatId || window.chat?.whatsappPendingReplyChatId || window.chatInstance?.whatsappPendingReplyChatId || ''
+        );
+        if (!target || typeof this.postWhatsappPresence !== 'function') return;
+
+        if (this._whatsappPresenceKeepAliveTimer && this._whatsappPresenceChatId === target) {
+            await this._ensureWhatsappPresenceStartedIfNeeded(target);
+            return;
+        }
+
+        this._clearWhatsappPresenceKeepAliveTimer();
+        await this._ensureWhatsappPresenceStartedIfNeeded(target);
+
+        this._whatsappPresenceKeepAliveTimer = setInterval(() => {
+            if (!this._whatsappPresenceStarted || this._whatsappPresenceChatId !== target || typeof this.postWhatsappPresence !== 'function') {
+                return;
+            }
+            this.postWhatsappPresence(target, 'start').catch(err => {
+                console.warn('ConnectorWhatsapp: WhatsApp presence keepalive failed', err);
+            });
+        }, this._whatsappPresenceKeepAliveIntervalMs);
+    }
+
     // Ensure presence 'start' is posted once for the given chatId (or current chat if omitted)
     async _ensureWhatsappPresenceStartedIfNeeded(chatId) {
         try {
-            const target = chatId || (window.chat && window.chat.whatsappPendingReplyChatId) || null;
+            const target = this._getResolvedWhatsappOutgoingTarget(
+                chatId || this._whatsappPresenceChatId || window.chat?.whatsappPendingReplyChatId || window.chatInstance?.whatsappPendingReplyChatId || ''
+            );
             if (!target) return;
-            if (this._whatsappPresenceStarted) return;
+            if (this._whatsappPresenceStarted && this._whatsappPresenceChatId === target) return;
+            if (this._whatsappPresenceStarted && this._whatsappPresenceChatId && this._whatsappPresenceChatId !== target) {
+                await this._postWhatsappPresenceStopIfNeeded(this._whatsappPresenceChatId);
+            }
             if (typeof this.postWhatsappPresence === 'function') {
                 await this.postWhatsappPresence(target, 'start');
                 this._whatsappPresenceStarted = true;
+                this._whatsappPresenceChatId = target;
             }
         } catch (err) {
             console.warn('ConnectorWhatsapp: _ensureWhatsappPresenceStartedIfNeeded failed', err);
@@ -3557,7 +4264,10 @@ class ConnectorWhatsapp {
     // Post presence 'stop' for the given chatId (or current chat if omitted)
     async _postWhatsappPresenceStopIfNeeded(chatId) {
         try {
-            const target = chatId || (window.chat && window.chat.whatsappPendingReplyChatId) || null;
+            this._clearWhatsappPresenceKeepAliveTimer();
+            const target = this._getResolvedWhatsappOutgoingTarget(
+                chatId || this._whatsappPresenceChatId || window.chat?.whatsappPendingReplyChatId || window.chatInstance?.whatsappPendingReplyChatId || ''
+            );
             if (!target) return;
             if (typeof this.postWhatsappPresence === 'function') {
                 await this.postWhatsappPresence(target, 'stop');
@@ -3565,7 +4275,10 @@ class ConnectorWhatsapp {
         } catch (err) {
             console.warn('ConnectorWhatsapp: _postWhatsappPresenceStopIfNeeded failed', err);
         }
-        try { this._whatsappPresenceStarted = false; } catch (_) {}
+        try {
+            this._whatsappPresenceStarted = false;
+            this._whatsappPresenceChatId = '';
+        } catch (_) {}
     }
 
     _normalizeWhatsappLinkUrl(href) {
@@ -3769,7 +4482,7 @@ class ConnectorWhatsapp {
             if (!segments || segments.length === 0) return;
 
             // Ensure presence start is posted
-            try { await this._ensureWhatsappPresenceStartedIfNeeded(targetPhone); } catch (_) { }
+            try { await this._startWhatsappPresenceKeepAlive(targetPhone); } catch (_) { }
 
             let firstMessage = true;
             for (const seg of segments) {
