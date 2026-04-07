@@ -111,66 +111,7 @@ window.helpContent = {
                 imageCaption:
                     "Enter your Master key and click Start to begin a new chat session",
             },
-            {
-                id: "gs-password-protection",
-                title: "Protection Password Feature",
-                content: `
-                <p>Paiperwork includes an optional protection password feature that adds an extra layer of security against accidental data deletion for your stored databases.</p>
-                
-                <h4>What is the Protection Password?</h4>
-                <p>The protection password is a security feature that:</p>
-                <ul>
-                    <li>Prevents accidental deletion of all your data and conversations</li>
-                    <li>Requires password verification before performing the "Delete All Information" action</li>
-                    <li>Is completely optional - you can choose whether to set one up (only required to delete all information from the database)</li>
-                    <li>Is stored securely using encryption with salt-based hashing</li>
-                </ul>
-                
-                <h4>Setting Up Protection Password</h4>
-                <p>When you first try to delete all information:</p>
-                <ol>
-                    <li>Click the "Delete All Information" button on the welcome screen</li>
-                    <li>If no protection password exists, you'll be prompted to set one up</li>
-                    <li>Choose whether to set up a protection password or skip this feature (just close this window)</li>
-                    <li>If you choose to set up: enter a password (minimum 6 characters) and confirm it</li>
-                    <li>The password will be securely encrypted and stored locally</li>
-                </ol>
-                
-                <h4>Using Protection Password</h4>
-                <p>Once a protection password is set:</p>
-                <ul>
-                    <li>Any attempt to delete all information will require password verification</li>
-                    <li>Enter your protection password in the verification dialog</li>
-                    <li>Only with the correct password can you proceed with deletion</li>
-                    <li>The password verification includes a "Reset Password" option if you need to change it</li>
-                </ul>
-                
-                <h4>Resetting Your Protection Password</h4>
-                <p>If you need to change your protection password:</p>
-                <ol>
-                    <li>Attempt to delete all information to bring up the password verification dialog</li>
-                    <li>Enter your current password in the input field</li>
-                    <li>Click the "Reset Password" button</li>
-                    <li>If your current password is correct, you'll be guided through setting a new password</li>
-                </ol>
-                
-                <h4>Security Details</h4>
-                <ul>
-                    <li><strong>Encryption</strong> - Passwords are hashed using SHA-256 with unique salts</li>
-                    <li><strong>Local Storage</strong> - Protection passwords are stored only on your device</li>
-                    <li><strong>No Recovery</strong> - If you forget your protection password, you cannot recover it</li>
-                    <li><strong>Optional Feature</strong> - You can skip setting up a protection password if preferred (only required to delete all information from the database)</li>
-                </ul>
-                
-                <div class="note">
-                    <p><strong>Important:</strong> The protection password is designed to prevent accidental deletion. If you forget your protection password, there is no recovery method (you will need to delete your browser's local storage for localhost to start clean, losing all your stored information for Paiperwork). Choose a password you'll remember but that's different from easily guessed options.</p>
-                </div>
-            `,
-                image: "protection_password.png",
-                imageAlt: "Protection Password Setup",
-                imageCaption: "The protection password setup dialog for securing data deletion",
-            },
-        ],
+            ],
     },
 
     // Chat Features section
@@ -2579,13 +2520,29 @@ window.helpContent = {
                 title: "Configuring Model Parameters",
                 content: `
                 <p>Fine-tune how models respond by adjusting their parameters in the modelparameters.js file.</p>
+
+                <h4>Edit Thinking models list</h4>
+                <p>Use the <strong>Edit Thinking models list</strong> button in the Models tab to control which models show the thinking button in the Chat tab.</p>
+                <ul>
+                    <li>The button opens the <code>thinkingmodels.js</code> list</li>
+                    <li>Add or remove model names inside <code>window.THINKING_MODELS</code></li>
+                    <li>Save the list to update thinking support immediately without restarting the app</li>
+                </ul>
+
+                <h4>Edit Visual models list</h4>
+                <p>Use the <strong>Edit Visual models list</strong> button in the Models tab to control which models enable image upload and other visual features in the Chat tab.</p>
+                <ul>
+                    <li>The button opens the <code>visualmodels.js</code> list</li>
+                    <li>Add or remove model identifiers inside <code>window.VISUAL_MODELS</code></li>
+                    <li>Save the list to refresh visual model detection immediately without restarting the app</li>
+                </ul>
                 
                 <h4>Parameter Configuration</h4>
                 <p>Model parameters are now configured directly in the <code>modelparameters.js</code> file:</p>
                 <ul>
                     <li>Open the <code>modelparameters.js</code> file in your code editor</li>
                     <li>Add your model to the <code>MODEL_PARAMETERS</code> object or modify existing entries</li>
-                    <li>Save the file and restart the application to apply changes</li>
+                    <li>Save the file to apply changes immediately without restarting the application</li>
                 </ul>
                 
                 <h4>Example for Adding a New Model</h4>
@@ -2617,7 +2574,7 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Important:</strong> After modifying the modelparameters.js file, you need to restart the application for changes to take effect.</p>
+                    <p><strong>Important:</strong> After saving changes in the model editor, the loaded configuration is refreshed automatically.</p>
                 </div>
                 `,
                 image: "models_configuration.png",
@@ -2849,6 +2806,14 @@ window.helpContent = {
                 <ul>
                     <li><strong>Export Database</strong> - Creates a full backup file named <code>Paiperwork-Backup.pwdb</code></li>
                     <li><strong>Import Database</strong> - Restores a backup file into your current local storage</li>
+                <h4>Using Database Buttons</h4>
+                <p>Use the buttons at the top of the Database tab as follows:</p>
+                <ol>
+                    <li>Click "Export Database" to download a full backup file.</li>
+                    <li>Click "Import Database" to select a backup file and restore it. This replaces your current local database.</li>
+                    <li>Click "Delete All Information" to permanently remove all stored conversations, documents, and settings, then return to the welcome screen.</li>
+                </ol>
+
                 </ul>
 
                 <h4>What Is Included in the Backup</h4>
@@ -2975,10 +2940,10 @@ window.helpContent = {
                 <p>If persistent issues occur and normal maintenance doesn't help:</p>
                 <ol>
                     <li>Export any important conversations or documents first</li>
-                    <li>Return to the welcome screen</li>
-                    <li>Click "Delete All Information" to reset the database</li>
-                    <li>This will remove all data and create a fresh database</li>
+                    <li>Click "Delete All Information" to delete the database</li>
+                    <li>This will remove all data and create a fresh database, now you can try importing your saved database</li>
                 </ol>
+                <p>you can use this function to safely delete all your information from the browser if you require it</p>
                 
                 <div class="note">
                     <p><strong>Warning:</strong> Database reset is irreversible and will delete all your data. Always export important information first.</p>

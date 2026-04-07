@@ -89,7 +89,30 @@
 
 document.addEventListener('DOMContentLoaded', async function () {
    //console.log('DOM Content Loaded');
-    Lang.initialize();
+    await Lang.initialize();
+
+    // Localize tab labels after language data is loaded
+    const tabTranslations = {
+        chat: 'chatTab',
+        connectors: 'connectorsTab',
+        documents: 'documentsTab',
+        translate: 'translateTab',
+        dataviz: 'datavizTab',
+        paperwork: 'paperworkTab',
+        research: 'researchTab',
+        artwork: 'artworkTab',
+        presentation: 'presentationTab',
+        artifacts: 'artifactsTab',
+        models: 'modelsTab',
+        database: 'databaseTab'
+    };
+
+    Object.entries(tabTranslations).forEach(([tab, key]) => {
+        const button = document.querySelector(`.tab-button[data-tab="${tab}"]`);
+        if (button) {
+            button.textContent = Lang.get(key);
+        }
+    });
 
     if (window.PAIPERWORK_CLOUD_ONLY) {
         hideLocalOnlyTabsForCloudOnly();
@@ -261,13 +284,21 @@ function setupTabSwitching() {
                     }
                 }
 
-                // Release html payload DB handles when exiting Artifacts/SlideForge context.
+                // Release dedicated payload DB handles when exiting Artifacts/SlideForge context.
                 const leavesHtmlTabs = (previousTab === 'artifacts' || previousTab === 'presentation') &&
                     button.dataset.tab !== 'artifacts' &&
                     button.dataset.tab !== 'presentation';
 
-                if (leavesHtmlTabs && window.PaiperworkDB && typeof window.PaiperworkDB.closeHtmlDatabases === 'function') {
-                    await window.PaiperworkDB.closeHtmlDatabases(sessionStorage.getItem('hashedMasterKey'));
+                if (leavesHtmlTabs && window.PaiperworkDB) {
+                    const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+
+                    if (typeof window.PaiperworkDB.closePresentationsDatabases === 'function') {
+                        await window.PaiperworkDB.closePresentationsDatabases(hashedMasterKey);
+                    }
+
+                    if (typeof window.PaiperworkDB.closeArtifactDatabases === 'function') {
+                        await window.PaiperworkDB.closeArtifactDatabases(hashedMasterKey);
+                    }
                 }
 
                 // Release knowledge-base DB handles when exiting Research tab.
@@ -297,6 +328,8 @@ function setupTabSwitching() {
                 await handlepresentationtab();
             } else if (button.dataset.tab === 'database') {
                 await handleDatabaseTab();
+            } else if (button.dataset.tab === 'connectors') {
+                await handleConnectorsTab();
             }
             // Guarded exit: call the module function if available to avoid ReferenceError
             if (typeof exitDocumentQuestioningMode === 'function') {
@@ -416,6 +449,30 @@ async function handleDataVizTab() {
             </div>
         `;
         }
+    }
+}
+
+// Handles initialization for the Connectors tab
+async function handleConnectorsTab() {
+    // Wait briefly for tab scripts to load in case this is invoked before loadTabScripts finishes.
+    let attempts = 0;
+    while (!window.ConnectorsTab && attempts < 20) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+    }
+
+    if (!window.connectorsTab && window.ConnectorsTab) {
+        window.connectorsTab = new window.ConnectorsTab();
+    }
+
+    if (window.connectorsTab && typeof window.connectorsTab.initialize === 'function') {
+        try {
+            window.connectorsTab.initialize();
+        } catch (err) {
+            console.error('App: Error initializing ConnectorsTab:', err);
+        }
+    } else {
+        console.warn('App: ConnectorsTab is unavailable');
     }
 }
 
@@ -706,18 +763,29 @@ async function handleResearchTab() {
    //console.log('App: Research tab clicked');
 
     try {
+        // Ensure research scripts are at least requested (use tabLoader if available)
+        if (!window.ResearchTab && window.tabLoader && typeof window.tabLoader.loadTabScripts === 'function') {
+           //console.log('App: Loading research tab scripts via tabLoader');
+            try {
+                await window.tabLoader.loadTabScripts('research');
+            } catch (loadErr) {
+                console.warn('App: tabLoader.loadTabScripts(research) failed', loadErr);
+            }
+        }
+
         // Wait for Research classes to be available
         if (!window.ResearchTab) {
            //console.log('App: Waiting for ResearchTab to load...');
             await new Promise((resolve, reject) => {
                 let attempts = 0;
+                const maxAttempts = (window.tabLoader && typeof window.tabLoader.getTabLoadMaxAttempts === 'function') ? window.tabLoader.getTabLoadMaxAttempts() : 100;
                 const checkInterval = setInterval(() => {
                     attempts++;
                     if (window.ResearchTab) {
                         clearInterval(checkInterval);
                         resolve();
                     }
-                    if (attempts > 10) { // 2 seconds timeout
+                    if (attempts >= maxAttempts) {
                         clearInterval(checkInterval);
                         reject(new Error('Timeout waiting for Research module'));
                     }

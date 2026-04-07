@@ -30,8 +30,32 @@ class ResearchAutomation {
 
     async initialize() {
         // Set up listeners
-        document.getElementById('research-query-btn').addEventListener('click',
-            () => this.performResearch());
+        const bindQueryButton = () => {
+            const queryBtn = document.getElementById('research-query-btn');
+            if (queryBtn) {
+                queryBtn.removeEventListener('click', this.performResearchBound);
+                this.performResearchBound = () => this.performResearch();
+                queryBtn.addEventListener('click', this.performResearchBound);
+                return true;
+            }
+            return false;
+        };
+
+        if (!bindQueryButton()) {
+            console.warn('[ResearchAutomation] research-query-btn not found during initialize(). Watching for insertion');
+            const observer = new MutationObserver((mutations, obs) => {
+                if (bindQueryButton()) {
+                    console.info('[ResearchAutomation] research-query-btn appeared and was bound successfully');
+                    obs.disconnect();
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+
+            // Safety timeout: stop observing after 20s
+            setTimeout(() => {
+                observer.disconnect();
+            }, 20000);
+        }
 
         // Add deep search controls to the research controls container
         const researchControlsContainer = document.getElementById('research-controls');
@@ -517,6 +541,7 @@ class ResearchAutomation {
             this.updateLoadingProgress(loadingWindow, Lang.get('researchComplete'), 100);
             loadingWindow.close();
             this.displayResearchResults(report, sources, currentRunId);
+            return report;
         }
         catch (error) {
             console.error("Research error:", error);
@@ -3748,6 +3773,86 @@ class ResearchAutomation {
         this.showSaveToKnowledgeBaseDialog(report, sources);
     }
 
+    async saveToKnowledgeBaseDirect(report, sources, options = {}) {
+        if (!window.researchTab || !window.researchTab.initialized) {
+            await window.researchTab.initialize();
+        }
+
+        if (!window.researchTab.knowledgeBase) {
+            throw new Error(Lang.get('knowledgeBaseNotAvailable'));
+        }
+
+        const modelSelector = document.getElementById('model-selector');
+        const selectedModel = modelSelector?.value;
+        if (!selectedModel) {
+            throw new Error(Lang.get('researchModelRequiredForKB'));
+        }
+
+        const trimmedReport = String(report || '').trim();
+        if (!trimmedReport) {
+            throw new Error('Report content is empty');
+        }
+
+        const normalizedSources = Array.isArray(sources) ? sources : [];
+        const title = String(options.title || this.currentQuery || 'Research Report').trim() || 'Research Report';
+        const createNewCollection = options.createNewCollection !== false;
+        const saveSeparateSources = options.saveSeparateSources !== false;
+        const showProgress = options.showProgress === true;
+
+        let targetCollectionId = String(options.collectionId || '').trim();
+        if (!targetCollectionId && createNewCollection) {
+            const newCollection = {
+                id: `collection_${Date.now()}`,
+                name: title,
+                entries: [],
+                created: new Date().toISOString(),
+                updated: new Date().toISOString()
+            };
+
+            await PaiperworkDB.saveKnowledgeCollection(window.researchTab.knowledgeBase.hashedMasterKey, newCollection);
+            window.researchTab.knowledgeBase.collections.push(newCollection);
+            targetCollectionId = newCollection.id;
+        }
+
+        if (!targetCollectionId) {
+            throw new Error(Lang.get('pleaseSelectCollection'));
+        }
+
+        const entryData = {
+            title: title,
+            content: trimmedReport,
+            source: {
+                type: 'research',
+                query: this.currentQuery || title,
+                timestamp: new Date().toISOString(),
+                sourcesCount: normalizedSources.length,
+                sources: normalizedSources.map(source => ({
+                    title: source.title,
+                    url: source.url,
+                    summary: source.summary
+                }))
+            }
+        };
+
+        const mainEntryId = await window.researchTab.knowledgeBase.addEntry(targetCollectionId, entryData);
+
+        if (saveSeparateSources && normalizedSources.length > 0) {
+            await this.saveSources(targetCollectionId, title, mainEntryId, normalizedSources, { showProgress });
+        }
+
+        await window.researchTab.knowledgeBase.reloadCollections();
+
+        if (window.researchTab.currentSubTab === 'knowledge-base') {
+            window.researchTab.knowledgeBase.renderAllCollections();
+        }
+
+        return {
+            collectionId: targetCollectionId,
+            entryId: mainEntryId,
+            title
+        };
+    }
+
     // Shows the modal dialog for saving a report and sources to the knowledge base
     showSaveToKnowledgeBaseDialog(report, sources) {
        //console.log('Research: Showing save to knowledge base dialog');
@@ -4064,52 +4169,59 @@ class ResearchAutomation {
     }
 
     // Saves each source as a separate entry in the knowledge base, showing progress
-    async saveSources(collectionId, reportTitle, mainEntryId, sources) {
+    async saveSources(collectionId, reportTitle, mainEntryId, sources, options = {}) {
         if (!sources || sources.length === 0) return;
 
-        // Create progress dialog
-        const progressOverlay = document.createElement('div');
-        progressOverlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.6);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 9999;
-    `;
+        const showProgress = options.showProgress !== false;
 
-        const progressContent = document.createElement('div');
-        progressContent.style.cssText = `
-        background-color: var(--bg-color);
-        color: var(--text-color);
-        border-radius: 10px;
-        padding: 24px;
-        width: 400px;
-        max-width: 90%;
-        box-shadow: 0 5px 15px var(--preview-shadow);
-    `;
+        let progressOverlay = null;
+        let statusEl = null;
+        let progressEl = null;
 
-        progressContent.innerHTML = `
-        <h3 style="margin-top: 0; font-size: 1.3rem; margin-bottom: 16px; color: var(--text-color);">
-            ${Lang.get('savingSourcesTitle')}
-        </h3>
-        <p id="saving-status" style="margin-bottom: 16px; color: var(--label-color);">
-            ${Lang.get('savingSourceInitial', { total: sources.length })}
-        </p>
-        <div style="height: 6px; background-color: var(--button-bg); border-radius: 3px; overflow: hidden;">
-            <div id="save-progress" style="height: 100%; width: 0%; background-color: var(--accent-color); transition: width 0.3s;"></div>
-        </div>
-    `;
+        if (showProgress) {
+            progressOverlay = document.createElement('div');
+            progressOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        `;
 
-        progressOverlay.appendChild(progressContent);
-        document.body.appendChild(progressOverlay);
+            const progressContent = document.createElement('div');
+            progressContent.style.cssText = `
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            border-radius: 10px;
+            padding: 24px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 5px 15px var(--preview-shadow);
+        `;
 
-        const statusEl = document.getElementById('saving-status');
-        const progressEl = document.getElementById('save-progress');
+            progressContent.innerHTML = `
+            <h3 style="margin-top: 0; font-size: 1.3rem; margin-bottom: 16px; color: var(--text-color);">
+                ${Lang.get('savingSourcesTitle')}
+            </h3>
+            <p id="saving-status" style="margin-bottom: 16px; color: var(--label-color);">
+                ${Lang.get('savingSourceInitial', { total: sources.length })}
+            </p>
+            <div style="height: 6px; background-color: var(--button-bg); border-radius: 3px; overflow: hidden;">
+                <div id="save-progress" style="height: 100%; width: 0%; background-color: var(--accent-color); transition: width 0.3s;"></div>
+            </div>
+        `;
+
+            progressOverlay.appendChild(progressContent);
+            document.body.appendChild(progressOverlay);
+
+            statusEl = document.getElementById('saving-status');
+            progressEl = document.getElementById('save-progress');
+        }
 
         // Save each source
         let savedCount = 0;
@@ -4117,8 +4229,12 @@ class ResearchAutomation {
             if (!source.title || !source.url || !source.summary) continue;
 
             // Update progress UI
-            statusEl.textContent = Lang.get('savingSourceProgress', { current: index + 1, total: sources.length });
-            progressEl.style.width = `${((index + 1) / sources.length) * 100}%`;
+            if (statusEl) {
+                statusEl.textContent = Lang.get('savingSourceProgress', { current: index + 1, total: sources.length });
+            }
+            if (progressEl) {
+                progressEl.style.width = `${((index + 1) / sources.length) * 100}%`;
+            }
 
             // Create source entry content - format the summary as HTML
             const sourceTitle = `${Lang.get('sourcePrefix')}: ${source.title || Lang.get('untitledSource')}`;
@@ -4157,7 +4273,9 @@ class ResearchAutomation {
         }
 
         // Remove progress dialog
-        document.body.removeChild(progressOverlay);
+        if (progressOverlay && document.body.contains(progressOverlay)) {
+            document.body.removeChild(progressOverlay);
+        }
         return savedCount;
     }
 

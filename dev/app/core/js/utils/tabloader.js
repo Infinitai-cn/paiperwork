@@ -46,6 +46,9 @@ class TabLoader {
             'models': {
                 scripts: ['js/tabs/modelstab.js']
             },
+            'connectors': {
+                scripts: ['js/utils/keymaps.js', 'js/tabs/connectorWhatsapp.js', 'js/tabs/connectorstab.js']
+            },
             'presentation': {
                 scripts: [
                     'js/libraries/JSZip/jszip.min.js',
@@ -209,7 +212,12 @@ class TabLoader {
                 window.translateTab = new window.TranslateTab();
             }
         }
-
+        // For Translate, create tab instance if needed
+        if (tabName === 'connectors' && window.ConnectorsTab) {
+            if (!window.connectorsTab) {
+                window.connectorsTab = new window.ConnectorsTab();
+            }
+        }
         // For Chat, ensure the chat tab is initialized
 
         switch (tabName) {
@@ -244,6 +252,12 @@ class TabLoader {
             case 'artifacts':
                 if (window.artifactsTab && !window.artifactsTab.isInitialized) {
                     window.artifactsTab.initialize();
+                }
+                break;
+
+            case 'connectors':
+                if (window.connectorsTab && !window.connectorsTab.isInitialized) {
+                    window.connectorsTab.initialize();
                 }
                 break;
         }
@@ -432,7 +446,25 @@ class TabLoader {
                     }, this.pollIntervalMs);
                 });
             }
+            if (tabName === 'connectors') {
+                await new Promise((resolve, reject) => {
+                    let attempts = 0;
+                    const maxAttempts = this.getTabLoadMaxAttempts();
 
+                    const checkInterval = setInterval(() => {
+                        attempts++;
+                        if (window.connectorsTab) {
+                            clearInterval(checkInterval);
+                           //console.log('TabLoader: ModelDownloader component ready');
+                            resolve();
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(checkInterval);
+                            console.error('TabLoader: Connectors not available');
+                            reject(new Error('Timeout waiting for Connectors Tab'));
+                        }
+                    }, this.pollIntervalMs);
+                });
+            }
             // Mark scripts as loaded and clear promises
             tabConfig.scripts.forEach(script => {
                 this.loadedModules[script] = true;

@@ -1,0 +1,688 @@
+map[]
+map[]
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 63417 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 65985 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 66643 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 67350 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 68639 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 69280 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 71044 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 72178 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 74147 │ 
+ └───────────────────────────────────────────────────┘ 
+
+[ERROR] 2026-03-26T15:52:27Z app.go:106 ▶  Error when connect to whatsappwebsocket is already connected
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 77262 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 77847 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 82608 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 83034 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 83263 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 83499 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 83941 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 84952 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 85700 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 86508 │ 
+ └───────────────────────────────────────────────────┘ 
+
+[ERROR] 2026-03-26T16:32:27Z app.go:106 ▶  Error when connect to whatsappinvalid use of deleted device
+[ERROR] 2026-03-26T16:32:47Z app.go:106 ▶  Error when connect to whatsappinvalid use of deleted device
+[ERROR] 2026-03-26T16:33:07Z app.go:106 ▶  Error when connect to whatsappinvalid use of deleted device
+[ERROR] 2026-03-26T16:33:27Z app.go:106 ▶  Error when connect to whatsappinvalid use of deleted device
+[ERROR] 2026-03-26T16:33:47Z app.go:106 ▶  Error when connect to whatsappinvalid use of deleted device
+[ERROR] 2026-03-26T16:34:07Z app.go:106 ▶  Error when connect to whatsappinvalid use of deleted device
+[ERROR] 2026-03-26T16:34:27Z app.go:106 ▶  Error when connect to whatsappinvalid use of deleted device
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 89643 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 90285 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 90997 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 93231 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 93865 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 94953 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 99287 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 99797 │ 
+ └───────────────────────────────────────────────────┘ 
+
+[ERROR] 2026-03-27T02:28:13Z app.go:106 ▶  Error when connect to whatsappinvalid use of deleted device
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 99938 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 111  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 10438 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 12127 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 13195 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 15070 │ 
+ └───────────────────────────────────────────────────┘ 
+
+16:40:46.144[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59433->57.145.11.32:443: read: connection reset by peer[0m
+17:12:07.773[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59511->57.145.11.32:443: read: connection reset by peer[0m
+17:51:31.940[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59535->57.145.11.32:443: read: connection reset by peer[0m
+18:42:43.465[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59569->57.145.11.32:443: read: connection reset by peer[0m
+18:52:49.327[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59605->57.145.11.32:443: read: connection reset by peer[0m
+19:25:46.157[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59635->57.145.11.32:443: read: connection reset by peer[0m
+19:53:28.785[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59655->57.145.11.32:443: read: connection reset by peer[0m
+20:43:12.323[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59681->57.145.11.32:443: read: connection reset by peer[0m
+20:50:17.793[31m [Client ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": read tcp 10.14.0.2:59711->57.145.11.32:443: read: connection reset by peer[0m
+20:54:37.084[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59729->57.145.11.32:443: read: connection reset by peer[0m
+21:29:56.772[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59746->57.145.11.32:443: read: connection reset by peer[0m
+21:55:28.901[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59768->57.145.11.32:443: read: connection reset by peer[0m
+22:48:02.359[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59787->57.145.11.32:443: read: connection reset by peer[0m
+22:56:41.332[31m [Client ERROR] Error reconnecting after autoreconnect sleep: noise handshake failed: timed out waiting for handshake response[0m
+23:28:07.308[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59845->57.145.11.32:443: read: connection reset by peer[0m
+23:57:28.833[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59860->57.145.11.32:443: read: connection reset by peer[0m
+00:50:55.327[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59884->57.145.11.32:443: read: connection reset by peer[0m
+00:58:49.226[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59904->57.145.11.32:443: read: connection reset by peer[0m
+01:59:24.327[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59935->57.145.11.32:443: read: connection reset by peer[0m
+02:14:54.307[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:59957->57.145.11.32:443: read: connection reset by peer[0m
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 16645 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 17891 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 18532 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 19585 │ 
+ └───────────────────────────────────────────────────┘ 
+
+07:32:58.051[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:61407->57.145.11.32:443: read: connection reset by peer[0m
+08:44:57.380[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:62278->157.240.24.60:443: read: connection reset by peer[0m
+09:08:36.833[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:62343->157.240.24.60:443: read: connection reset by peer[0m
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 21457 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 22075 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 22684 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 23462 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 24106 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 25217 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 25811 │ 
+ └───────────────────────────────────────────────────┘ 
+
+12:26:38.831[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:63540->157.240.24.60:443: read: connection reset by peer[0m
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 27145 │ 
+ └───────────────────────────────────────────────────┘ 
+
+13:37:28.700[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:63720->157.240.24.60:443: read: connection reset by peer[0m
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 28366 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 29649 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 32033 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 33464 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 35297 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 36328 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 37225 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 38143 │ 
+ └───────────────────────────────────────────────────┘ 
+
+16:38:15.312[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65162->157.240.24.60:443: read: connection reset by peer[0m
+16:38:27.502[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65051->157.240.24.60:443: read: connection reset by peer[0m
+17:11:21.978[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65221->157.240.24.60:443: read: connection reset by peer[0m
+17:45:46.289[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65248->157.240.24.60:443: read: connection reset by peer[0m
+18:07:37.599[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65265->157.240.24.60:443: read: connection reset by peer[0m
+18:41:35.854[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": read tcp 10.14.0.2:65297->157.240.24.60:443: read: connection reset by peer[0m
+20:09:37.207[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65310->157.240.24.60:443: read: connection reset by peer[0m
+21:10:39.613[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65373->157.240.24.60:443: read: connection reset by peer[0m
+22:00:41.278[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65409->157.240.24.60:443: read: connection reset by peer[0m
+22:00:42.672[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65423->157.240.24.60:443: read: connection reset by peer[0m
+22:11:36.759[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65444->157.240.24.60:443: read: connection reset by peer[0m
+23:12:36.659[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65462->157.240.24.60:443: read: connection reset by peer[0m
+00:29:41.761[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:65506->157.240.24.60:443: read: connection reset by peer[0m
+01:32:30.634[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:49169->157.240.24.60:443: read: connection reset by peer[0m
+02:04:02.740[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:49213->157.240.24.60:443: read: connection reset by peer[0m
+03:33:17.360[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:49237->157.240.24.60:443: read: operation timed out[0m
+03:35:01.881[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp: lookup web.whatsapp.com: i/o timeout[0m
+03:36:17.486[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f11f:83:face:b00c:0:25de]:443: connect: no route to host[0m
+03:36:34.805[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f11f:83:face:b00c:0:25de]:443: connect: no route to host[0m
+03:54:16.754[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f112:83:face:b00c:0:25de]:443: connect: no route to host[0m
+03:54:34.266[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f136:83:face:b00c:0:25de]:443: connect: no route to host[0m
+04:12:01.551[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp: lookup web.whatsapp.com: i/o timeout[0m
+04:34:10.955[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp: lookup web.whatsapp.com: i/o timeout[0m
+04:34:57.463[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f127:283:face:b00c:0:25de]:443: connect: no route to host[0m
+04:35:14.896[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f127:283:face:b00c:0:25de]:443: connect: no route to host[0m
+04:52:01.160[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f127:83:face:b00c:0:25de]:443: connect: no route to host[0m
+05:11:38.218[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp: lookup web.whatsapp.com: i/o timeout[0m
+05:18:47.826[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f10d:183:face:b00c:0:25de]:443: connect: no route to host[0m
+05:36:22.204[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp: lookup web.whatsapp.com: i/o timeout[0m
+06:02:57.657[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp: lookup web.whatsapp.com: i/o timeout[0m
+06:20:05.405[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f12c:183:face:b00c:0:25de]:443: connect: no route to host[0m
+06:36:35.317[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f12a:83:face:b00c:0:25de]:443: connect: no route to host[0m
+06:53:24.188[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f117:83:face:b00c:0:25de]:443: connect: no route to host[0m
+07:20:47.700[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f102:183:face:b00c:0:25de]:443: connect: no route to host[0m
+07:38:54.651[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f11b:83:face:b00c:0:25de]:443: connect: no route to host[0m
+08:08:00.787[31m [Client-ee41ac58-79e6-4938-9fb1-264e8939ba21 ERROR] Error reconnecting after autoreconnect sleep: failed to dial whatsapp web websocket: failed to WebSocket dial: failed to send handshake request: Get "https://web.whatsapp.com/ws/chat": dial tcp [2a03:2880:f11a:83:face:b00c:0:25de]:443: i/o timeout[0m
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 39674 │ 
+ └───────────────────────────────────────────────────┘ 
+
+09:23:06.537[31m [Client/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:50178->57.145.11.32:443: read: connection reset by peer[0m
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 47667 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 49783 │ 
+ └───────────────────────────────────────────────────┘ 
+
+12:26:10.317[31m [Client-effb5529-76da-4e5c-88d8-a1729fa142b1/Socket ERROR] Error reading from websocket: failed to get reader: failed to read frame header: read tcp 10.14.0.2:52216->157.240.24.60:443: read: connection reset by peer[0m
+12:49:38.309[31m [Main ERROR] Failed to download image: Get "https://mmg.whatsapp.net/o1/v/t24/f2/m235/AQOrd_Ivm0_v70LIiCZhD1rd6RIBSuSWslOGyuP_TvFeUUrzZtZDhscZQOFz1URQRiY-sjX2QQ-H4fZoLkb1FpEgwsmMlfCAsBPs_1aULA?ccb=9-4&oh=01_Q5Aa4AE-P_jF4HXd4-B0qD3KSTkua5Byyg76VudXOIs2K2M9lQ&oe=69F0932E&_nc_sid=e6ed6c&mms3=true": context canceled[0m
+12:50:13.117[31m [Main ERROR] Failed to download image: Get "https://mmg.whatsapp.net/v/t62.7118-24/551046155_3027226184139263_8570677311855665374_n.enc?ccb=11-4&oh=01_Q5Aa4AEH350P2zpu_iasX6SPesN4evc-vnHUi3uJ0dkBU--gYg&oe=69F08007&_nc_sid=5e03e0&mms3=true": context canceled[0m
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 53938 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 54526 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 55001 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 55755 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 56132 │ 
+ └───────────────────────────────────────────────────┘ 
+
+map[]
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                  Fiber v2.52.12                   │ 
+ │                 http://[::]:3000                  │ 
+ │                                                   │ 
+ │ Handlers ........... 113  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............. 57000 │ 
+ └───────────────────────────────────────────────────┘ 
+

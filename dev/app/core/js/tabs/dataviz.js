@@ -238,6 +238,18 @@ class DataViz {
             // Render the chart with the successfully parsed data
             this.renderChart(vizType, chartData);
 
+            // Attempt to capture the chart as image data URL for external uses
+            try {
+                const imageDataUrl = await this.captureChartAsDataUrl();
+                if (imageDataUrl) {
+                    return imageDataUrl;
+                }
+            } catch (captureError) {
+                console.warn('DataViz: Failed to capture chart image', captureError);
+            }
+
+            return null;
+
         } catch (error) {
             // Check if this is an abort error
             if (error.name === 'AbortError') {
@@ -305,6 +317,12 @@ class DataViz {
             .replace(/'/g, '&#39;');
     }
 
+    // Returns base system prompt prefix for all chart types
+    getBaseSystemPromptHeader() {
+        return `You are a data visualization expert. Supported chart types: pie, bar, line, scatter, area, radar, heatmap, bubble.
+                You must extract data from the user's request and return ONLY valid JSON in the format required for the selected chart type.`;
+    }
+
     // Returns the appropriate system prompt string for the specified visualization type
     getSystemPrompt(vizType) {
         switch (vizType) {
@@ -332,7 +350,8 @@ class DataViz {
 
     // Returns the system prompt for generating a pie chart
     getPieChartPrompt() {
-        return `You are a data visualization expert specializing in pie charts. 
+        return `${this.getBaseSystemPromptHeader()}
+                You are a data visualization expert specializing in pie charts. 
                 Extract data from the user request and return ONLY valid JSON in this format:
                 {
                   "title": "Chart title",
@@ -345,7 +364,8 @@ class DataViz {
     }
     // Returns the system prompt for generating a bar chart
     getBarChartPrompt() {
-        return `You are a data visualization expert specializing in bar charts. 
+        return `${this.getBaseSystemPromptHeader()}
+                You are a data visualization expert specializing in bar charts. 
                 Extract data from the user request and return ONLY valid JSON in this format:
                 {
                   "title": "Chart title",
@@ -390,7 +410,8 @@ class DataViz {
     }
     // Returns the system prompt for generating a line chart
     getLineChartPrompt() {
-        return `You are a data visualization expert specializing in line charts.
+        return `${this.getBaseSystemPromptHeader()}
+                You are a data visualization expert specializing in line charts.
                 Extract data from the user request and return ONLY valid JSON in this format:
                 {
                   "title": "Chart title",
@@ -443,7 +464,8 @@ class DataViz {
     }
     // Returns the system prompt for generating a scatter plot
     getScatterPlotPrompt() {
-        return `You are a data visualization expert specializing in scatter plots.
+        return `${this.getBaseSystemPromptHeader()}
+                You are a data visualization expert specializing in scatter plots.
                 Extract data from the user request and return ONLY valid JSON in this format:
                 {
                   "title": "Chart title",
@@ -496,7 +518,8 @@ class DataViz {
     }
     // Returns the system prompt for generating an area chart
     getAreaChartPrompt() {
-        return `You are a data visualization expert specializing in area charts.
+        return `${this.getBaseSystemPromptHeader()}
+                You are a data visualization expert specializing in area charts.
                 Extract data from the user request and return ONLY valid JSON in this format:
                 {
                   "title": "Chart title",
@@ -552,7 +575,8 @@ class DataViz {
     // Returns the system prompt for generating a radar chart
     getRadarChartPrompt() {
        //console.log("getRadarChartPrompt called");
-        return `You are a data visualization expert specializing in radar charts.
+        return `${this.getBaseSystemPromptHeader()}
+                You are a data visualization expert specializing in radar charts.
                 Extract data from the user request and return ONLY valid JSON in this format:
                 {
                   "title": "Chart title",
@@ -594,7 +618,8 @@ class DataViz {
     }
     // Returns the system prompt for generating a heat map
     getHeatMapPrompt() {
-        return `You are a data visualization expert specializing in heat maps.
+        return `${this.getBaseSystemPromptHeader()}
+                You are a data visualization expert specializing in heat maps.
                 Extract data from the user request and return ONLY valid JSON in this format:
                 {
                   "title": "Heat Map Title",
@@ -627,7 +652,8 @@ class DataViz {
     }
     // Returns the system prompt for generating a bubble chart
     getBubbleChartPrompt() {
-        return `You are a data visualization expert specializing in bubble charts.
+        return `${this.getBaseSystemPromptHeader()}
+                You are a data visualization expert specializing in bubble charts.
                 Extract data from the user request and return ONLY valid JSON in this format:
                 {
                   "title": "Chart title",
@@ -4095,6 +4121,19 @@ class DataViz {
 
         return names[vizType] || Lang.get('datavizChart');
     }
+
+    // Closes the current DataViz floating window and backdrop if present
+    closeFloatingWindow() {
+        const floatingWindow = document.querySelector('.dataviz-floating-window');
+        if (floatingWindow) {
+            floatingWindow.remove();
+        }
+        const backdrop = document.querySelector('.dataviz-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+    }
+
     // Displays a floating modal window with the provided chart HTML content and header controls
     showFloatingWindow(content, options = {}) {
         // Remove any existing floating window
@@ -4832,6 +4871,36 @@ class DataViz {
             console.error('DataViz: Error during export process:', error);
             this.showScreenshotInstructions();
         }
+    }
+
+    async captureChartAsDataUrl() {
+        const chartContent = document.getElementById('chart-content');
+        if (!chartContent) {
+            console.warn('DataViz: No chart content found for capture');
+            return null;
+        }
+
+        if (typeof html2canvas === 'undefined') {
+            console.warn('DataViz: html2canvas is not available for capture');
+            return null;
+        }
+
+        const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ||
+            document.documentElement.classList.contains('dark-mode') ||
+            getComputedStyle(document.documentElement).backgroundColor === 'rgb(0, 0, 0)' ||
+            getComputedStyle(document.documentElement).color === 'rgb(255, 255, 255)';
+
+        const backgroundColor = isDarkMode ? '#1a1a1a' : '#ffffff';
+
+        const canvas = await html2canvas(chartContent, {
+            scale: 2,
+            backgroundColor: backgroundColor,
+            logging: false,
+            useCORS: true,
+            allowTaint: true
+        });
+
+        return canvas.toDataURL('image/png');
     }
 
     downloadImage(dataURL, chartTitle) {

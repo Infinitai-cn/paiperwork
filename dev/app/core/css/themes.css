@@ -85,6 +85,16 @@
         --error-color: var(--danger-color);
         --error-hover: var(--danger-color-hover);
         --modal-overlay-bg: rgba(30, 30, 30, 0.7);
+        --wa-modal-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+        --wa-modal-status-color: #b8c3d1;
+        --wa-modal-status-strong: #e7edf6;
+        --wa-modal-muted: #9aa7b8;
+        --wa-modal-link: #7db5ff;
+        --wa-modal-qr-border: #4b5563;
+        --wa-modal-close-btn-bg: #2f6f3c;
+        --wa-modal-close-btn-text: #ffffff;
+        --wa-modal-spinner-track: #5b6470;
+        --wa-modal-spinner-accent: #7db5ff;
 
     /* SlideForge modal & controls (dark theme defaults) */
     --presentation-loading-border: rgba(255,255,255,0.06);
@@ -208,6 +218,16 @@
         --error-color: var(--danger-color);
         --error-hover: var(--danger-color-hover);
         --modal-overlay-bg: rgba(0, 0, 0, 0.38);
+        --wa-modal-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        --wa-modal-status-color: #666666;
+        --wa-modal-status-strong: #2f3742;
+        --wa-modal-muted: #6d7784;
+        --wa-modal-link: #0b74de;
+        --wa-modal-qr-border: #d1d5db;
+        --wa-modal-close-btn-bg: #4CAF50;
+        --wa-modal-close-btn-text: #ffffff;
+        --wa-modal-spinner-track: #c4c4c4;
+        --wa-modal-spinner-accent: #0b74de;
 
     /* SlideForge modal & controls (light theme defaults) */
     --presentation-loading-border: rgba(0,0,0,0.06);

@@ -1,9 +1,0 @@
-# Ignore files not needed for container build
-.git
-.gitignore
-dist/
-deployment/huggingface-space/
-node_modules/
-*.log
-*.tmp
-**/.DS_Store

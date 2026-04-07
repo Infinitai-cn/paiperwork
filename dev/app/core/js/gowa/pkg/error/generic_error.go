@@ -1,0 +1,69 @@
+package error
+
+import "net/http"
+
+// GenericError represent as the contract of generic error
+type GenericError interface {
+	Error() string
+	ErrCode() string
+	StatusCode() int
+}
+
+type InternalServerError string
+
+// Error for complying the error interface
+func (e InternalServerError) Error() string {
+	return string(e)
+}
+
+// ErrCode will return the error code based on the error data type
+func (e InternalServerError) ErrCode() string {
+	return "INTERNAL_SERVER_ERROR"
+}
+
+// StatusCode will return the HTTP status code based on the error data type
+func (e InternalServerError) StatusCode() int {
+	return http.StatusInternalServerError
+}
+
+type ContextError string
+
+// Error for complying the error interface
+func (e ContextError) Error() string {
+	return string(e)
+}
+
+// ErrCode will return the error code based on the error data type
+func (e ContextError) ErrCode() string {
+	return "CONTEXT_ERROR"
+}
+
+// StatusCode will return the HTTP status code based on the error data type
+func (e ContextError) StatusCode() int {
+	return http.StatusRequestTimeout
+}
+
+// TimeoutError represents a request timeout error
+type TimeoutError string
+
+func (e TimeoutError) Error() string {
+	return string(e)
+}
+
+func (e TimeoutError) ErrCode() string {
+	return "REQUEST_TIMEOUT"
+}
+
+func (e TimeoutError) StatusCode() int {
+	return http.StatusGatewayTimeout // 504
+}
+
+// RequestTimeout creates a timeout error with a custom message
+func RequestTimeout(text string) GenericError {
+	return TimeoutError(text)
+}
+
+var (
+	ErrInternalServerError = InternalServerError("internal server error")
+	ErrRequestTimeout      = TimeoutError("request timed out waiting for WhatsApp server response")
+)

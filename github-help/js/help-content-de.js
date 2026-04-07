@@ -22,13 +22,29 @@ window.helpContent = {
             <li>Auf Ihre Gesprächshistorie zugreifen, indem Sie einen zuvor eingegebenen Hauptschlüssel verwenden</li>
             <li>Nach Programm-Updates suchen</li>
             <li>Auf die Hilfedokumentation zugreifen</li>
+
+                <h4>Thinking-Modellliste bearbeiten</h4>
+                <p>Verwenden Sie die Schaltfläche <strong>Thinking-Modellliste bearbeiten</strong> im Models-Tab, um festzulegen, welche Modelle die Thinking-Schaltfläche im Chat-Tab anzeigen.</p>
+                <ul>
+                    <li>Die Schaltfläche öffnet die Liste <code>thinkingmodels.js</code></li>
+                    <li>Fügen Sie Modellnamen in <code>window.THINKING_MODELS</code> hinzu oder entfernen Sie sie</li>
+                    <li>Speichern Sie die Liste, um die Thinking-Unterstützung sofort ohne Neustart der Anwendung zu aktualisieren</li>
+                </ul>
+
+                <h4>Visuelle Modellliste bearbeiten</h4>
+                <p>Verwenden Sie die Schaltfläche <strong>Visuelle Modellliste bearbeiten</strong> im Models-Tab, um festzulegen, welche Modelle Bild-Uploads und andere visuelle Funktionen im Chat-Tab aktivieren.</p>
+                <ul>
+                    <li>Die Schaltfläche öffnet die Liste <code>visualmodels.js</code></li>
+                    <li>Fügen Sie Modellkennungen in <code>window.VISUAL_MODELS</code> hinzu oder entfernen Sie sie</li>
+                    <li>Speichern Sie die Liste, um die Erkennung visueller Modelle sofort ohne Neustart der Anwendung zu aktualisieren</li>
+                </ul>
         </ul>
         
         <div class="note">
             <p><strong>Wichtig:</strong> Der Hauptschlüssel, den Sie eingeben, dient zwei kritischen Zwecken:</p>
             <ul>
                 <li>Er kann getrennte Arbeitsumgebungen erstellen (Verwendung verschiedener Hauptschlüssel)</li>
-                <li>Er fungiert als Ihr Verschlüsselungsschlüssel zur sicheren Speicherung von Gesprächsdaten (Ihre Daten werden lokal im Browser-Speicher in Form einer Datenbank gespeichert). Keine Daten werden jemals außerhalb Ihres Systems gesendet, mit Ausnahme von Suchprompts, wenn die Web-Schaltfläche für Websuchen aktiviert ist, oder der Forschungsfunktion (Senden einer Websuchanfrage an Microsofts Bing-Suchmaschine) oder Ollama-Modellabfragen/-downloads. Es werden keine Telemetriedaten gesammelt. Bitte beachten Sie, dass bei einem Browserwechsel keine vorherige Datenbank vorhanden ist, sodass Sie neu anfangen.</li>
+                    <li>Speichern Sie die Datei, um die Änderungen sofort ohne Neustart der Anwendung zu übernehmen</li>
             </ul>
             <p>Um auf ein vorheriges Gespräch zuzugreifen, müssen Sie den <em>exakt gleichen Hauptschlüssel</em> (groß-/kleinschreibungsempfindlich) eingeben, den Sie bei der Erstellung verwendet haben.</p>
         </div>
@@ -106,66 +122,7 @@ window.helpContent = {
                 imageAlt: "Ein neues Gespräch beginnen",
                 imageCaption: "Geben Sie Ihren Hauptschlüssel ein und klicken Sie auf Start, um eine neue Chat-Sitzung zu beginnen",
             },
-            {
-                id: "gs-password-protection",
-                title: "Schutzpasswort-Funktion",
-                content: `
-                <p>Paiperwork enthält eine optionale Schutzpasswort-Funktion, die eine zusätzliche Sicherheitsebene gegen versehentliche Datenlöschung für Ihre gespeicherten Datenbanken bietet.</p>
-                
-                <h4>Was ist das Schutzpasswort?</h4>
-                <p>Das Schutzpasswort ist eine Sicherheitsfunktion, die:</p>
-                <ul>
-                    <li>Versehentliche Löschung aller Ihrer Daten und Gespräche verhindert</li>
-                    <li>Passwort-Verifizierung vor Ausführung der "Alle Informationen löschen"-Aktion erfordert</li>
-                    <li>Völlig optional ist - Sie können wählen, ob Sie eines einrichten möchten (nur erforderlich zum Löschen aller Informationen aus der Datenbank)</li>
-                    <li>Sicher gespeichert wird mit salzbasierter Hash-Verschlüsselung</li>
-                </ul>
-                
-                <h4>Schutzpasswort einrichten</h4>
-                <p>Wenn Sie zum ersten Mal versuchen, alle Informationen zu löschen:</p>
-                <ol>
-                    <li>Klicken Sie auf die Schaltfläche "Alle Informationen löschen" auf dem Willkommensbildschirm</li>
-                    <li>Wenn kein Schutzpasswort existiert, werden Sie aufgefordert, eines einzurichten</li>
-                    <li>Wählen Sie, ob Sie ein Schutzpasswort einrichten oder diese Funktion überspringen möchten (schließen Sie einfach dieses Fenster)</li>
-                    <li>Wenn Sie sich für die Einrichtung entscheiden: geben Sie ein Passwort ein (mindestens 6 Zeichen) und bestätigen Sie es</li>
-                    <li>Das Passwort wird sicher verschlüsselt und lokal gespeichert</li>
-                </ol>
-                
-                <h4>Schutzpasswort verwenden</h4>
-                <p>Sobald ein Schutzpasswort eingerichtet ist:</p>
-                <ul>
-                    <li>Jeder Versuch, alle Informationen zu löschen, erfordert eine Passwort-Verifizierung</li>
-                    <li>Geben Sie Ihr Schutzpasswort in den Verifizierungsdialog ein</li>
-                    <li>Nur mit dem korrekten Passwort können Sie mit der Löschung fortfahren</li>
-                    <li>Die Passwort-Verifizierung enthält eine "Passwort zurücksetzen"-Option, falls Sie es ändern müssen</li>
-                </ul>
-                
-                <h4>Ihr Schutzpasswort zurücksetzen</h4>
-                <p>Wenn Sie Ihr Schutzpasswort ändern müssen:</p>
-                <ol>
-                    <li>Versuchen Sie, alle Informationen zu löschen, um den Passwort-Verifizierungsdialog aufzurufen</li>
-                    <li>Geben Sie Ihr aktuelles Passwort in das Eingabefeld ein</li>
-                    <li>Klicken Sie auf die Schaltfläche "Passwort zurücksetzen"</li>
-                    <li>Wenn Ihr aktuelles Passwort korrekt ist, werden Sie durch die Einrichtung eines neuen Passworts geführt</li>
-                </ol>
-                
-                <h4>Sicherheitsdetails</h4>
-                <ul>
-                    <li><strong>Verschlüsselung</strong> - Passwörter werden mit SHA-256 mit eindeutigen Salzen gehashed</li>
-                    <li><strong>Lokale Speicherung</strong> - Schutzpasswörter werden nur auf Ihrem Gerät gespeichert</li>
-                    <li><strong>Keine Wiederherstellung</strong> - Wenn Sie Ihr Schutzpasswort vergessen, können Sie es nicht wiederherstellen</li>
-                    <li><strong>Optionale Funktion</strong> - Sie können die Einrichtung eines Schutzpassworts überspringen, wenn Sie möchten (nur erforderlich zum Löschen aller Informationen aus der Datenbank)</li>
-                </ul>
-                
-                <div class="note">
-                    <p><strong>Wichtig:</strong> Das Schutzpasswort ist darauf ausgelegt, versehentliche Löschung zu verhindern. Wenn Sie Ihr Schutzpasswort vergessen, gibt es keine Wiederherstellungsmethode (Sie müssen den lokalen Speicher Ihres Browsers für localhost löschen, um neu zu beginnen und dabei alle gespeicherten Informationen für Paiperwork zu verlieren). Wählen Sie ein Passwort, an das Sie sich erinnern werden, das aber anders als leicht zu erratende Optionen ist.</p>
-                </div>
-            `,
-                image: "protection_password.png",
-                imageAlt: "Schutzpasswort-Einrichtung",
-                imageCaption: "Der Schutzpasswort-Einrichtungsdialog zur Sicherung der Datenlöschung",
-            },
-        ],
+            ],
     },
     chat: {
         title: "Chat",
@@ -2580,7 +2537,7 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Wichtig:</strong> Nach der Änderung der modelparameters.js-Datei müssen Sie die Anwendung neu starten, damit die Änderungen wirksam werden.</p>
+                    <p><strong>Wichtig:</strong> Nach dem Speichern im Modell-Editor wird die geladene Konfiguration automatisch aktualisiert.</p>
                 </div>
                 `,
                 image: "models_configuration.png",
@@ -2810,6 +2767,14 @@ window.helpContent = {
                 <ul>
                     <li><strong>Datenbank exportieren</strong> - Erstellt eine vollstandige Sicherungsdatei namens <code>Paiperwork-Backup.pwdb</code></li>
                     <li><strong>Datenbank importieren</strong> - Stellt diese Sicherung im aktuellen lokalen Speicher wieder her</li>
+                <h4>Verwendung der Datenbankschaltflächen</h4>
+                <p>Verwenden Sie die Schaltflächen oben im Datenbank-Tab wie folgt:</p>
+                <ol>
+                    <li>Klicken Sie auf "Datenbank exportieren", um eine vollständige Sicherungsdatei herunterzuladen.</li>
+                    <li>Klicken Sie auf "Datenbank importieren", um eine Sicherungsdatei auszuwählen und wiederherzustellen. Dies ersetzt Ihre aktuelle lokale Datenbank.</li>
+                    <li>Klicken Sie auf "Alle Informationen löschen", um alle gespeicherten Gespräche, Dokumente und Einstellungen dauerhaft zu entfernen und zur Willkommensseite zurückzukehren.</li>
+                </ol>
+
                 </ul>
 
                 <h4>Was im Backup enthalten ist</h4>

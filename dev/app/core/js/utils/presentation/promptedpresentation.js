@@ -1009,6 +1009,88 @@ class PromptedPresentationWorkflow {
 		});
 	}
 
+	static async savePresentationToLibrary({
+		htmlContent = null,
+		title = '',
+		mode = null,
+		promptForName = false,
+		showAlerts = true,
+	} = {}) {
+		const hashedMasterKey = this.getActiveHashedMasterKey();
+		if (!hashedMasterKey) {
+			console.error('[PromptablePresentation] Save blocked: missing active hashed master key');
+			if (showAlerts) {
+				alert(window.Lang ? (Lang.get('presentationError') || 'Master key not found.') : 'Master key not found.');
+			}
+			throw new Error('Master key not found.');
+		}
+
+		const dbApi = this.getDatabaseApi();
+		if (!dbApi || typeof dbApi.savePromptablePresentation !== 'function') {
+			console.error('[PromptablePresentation] Save blocked: PaiperworkDB.savePromptablePresentation API unavailable', {
+				hasWindowPaiperworkDB: !!(typeof window !== 'undefined' && window.PaiperworkDB),
+				hasGlobalPaiperworkDB: typeof PaiperworkDB !== 'undefined',
+				saveMethodType: dbApi ? typeof dbApi.savePromptablePresentation : 'undefined'
+			});
+			if (showAlerts) {
+				alert(window.Lang ? (Lang.get('presentationError') || 'Database API unavailable.') : 'Database API unavailable.');
+			}
+			throw new Error('Database API unavailable.');
+		}
+
+		const htmlSource = htmlContent == null ? this.currentPresentationHtml : htmlContent;
+		const htmlToSave = this.normalizePromptableNavigationHtml(String(htmlSource || '').trim());
+		if (!htmlToSave) {
+			console.error('[PromptablePresentation] Save blocked: no current presentation HTML available', {
+				hasCurrentPresentationHtml: !!this.currentPresentationHtml,
+				htmlLength: this.currentPresentationHtml ? String(this.currentPresentationHtml).length : 0
+			});
+			if (showAlerts) {
+				alert(window.Lang ? (Lang.get('presentationError') || 'No presentation HTML to save.') : 'No presentation HTML to save.');
+			}
+			throw new Error('No presentation HTML to save.');
+		}
+
+		const defaultTitle = this.extractPresentationTitle(htmlToSave);
+		let resolvedTitle = String(title || '').trim();
+		if (promptForName) {
+			const chosenTitle = await this.promptPresentationName(defaultTitle);
+			if (chosenTitle === null) {
+				return null;
+			}
+			resolvedTitle = String(chosenTitle || '').trim();
+		}
+
+		const finalTitle = (resolvedTitle || defaultTitle || 'Untitled presentation').trim();
+		const selectedMode = mode || (this.selectedPresentationMode === 'pdf' ? 'pdf' : 'html');
+
+		console.info('[PromptablePresentation] Saving presentation to DB', {
+			title: finalTitle,
+			mode: selectedMode,
+			htmlLength: htmlToSave.length,
+			hasMasterKey: !!hashedMasterKey,
+			masterKeyPrefix: String(hashedMasterKey).slice(0, 8)
+		});
+
+		const savedId = await dbApi.savePromptablePresentation(hashedMasterKey, {
+			title: finalTitle,
+			mode: selectedMode,
+			html: htmlToSave,
+		});
+
+		this.currentPresentationHtml = htmlToSave;
+		console.info('[PromptablePresentation] Save completed, refreshing saved presentations list');
+		await this.refreshSavedPresentations();
+		console.info('[PromptablePresentation] Saved presentations list refreshed');
+
+		return {
+			id: savedId,
+			title: finalTitle,
+			mode: selectedMode,
+			html: htmlToSave,
+		};
+	}
+
 	static getFullscreenTarget() {
 		if (!this.renderArea) {
 			return null;
@@ -1170,7 +1252,7 @@ class PromptedPresentationWorkflow {
 			'Your job is to produce a visually rich presentation as a single, self-contained HTML document.',
             'The first slide is always the main title and subtitle slide.',
             'Create differentiated and visually appealing differentiated backgrounds for each slide using SVG that effectively communicate the provided content.',
-			'Use online image URLs (https://...) to enrich slides, NEVER use them as backgrounds. this images must always match the slide content and be relevant to the topic.',
+			'Use online image URLs (https://...) from pixabay.com with pexels.com as fallback to enrich slides, NEVER use them as backgrounds. this images must always match the slide content and be relevant to the topic.',
 			'ALWAYS use all text content provided by the user in the exact same order as provided; do not reorder any part of the text.',
 			'Respect the exact number of slides requested by the user.',
 			'Output MUST be only one HTML document and nothing else.',
@@ -1188,7 +1270,7 @@ class PromptedPresentationWorkflow {
 			'Your job is to produce a visually rich presentation as a single, self-contained HTML document.',
             'The first slide is always the main title and subtitle slide.',
             'Create differentiated and visually appealing differentiated backgrounds for each slide using SVG that effectively communicate the provided content.',
-			'Use online image URLs (https://...) to enrich slides, NEVER use them as backgrounds. this images must always match the slide content and be relevant to the topic.',
+			'Use online image URLs (https://...) from pixabay.com with pexels.com as fallback to enrich slides, NEVER use them as backgrounds. this images must always match the slide content and be relevant to the topic.',
 			'ALWAYS use all text content provided by the user in the exact same order as provided; do not reorder any part of the text.',
 			'Respect the exact number of slides requested by the user.',
 			'Output MUST be only one HTML document and nothing else.',
@@ -3530,73 +3612,25 @@ class PromptedPresentationWorkflow {
 		saveBtn.style.color = 'var(--presentation-export-color, #ffffff)';
 		saveBtn.addEventListener('click', async () => {
 			console.info('[PromptablePresentation] Save presentation clicked');
-			const hashedMasterKey = this.getActiveHashedMasterKey();
-			if (!hashedMasterKey) {
-				console.error('[PromptablePresentation] Save blocked: missing active hashed master key');
-				alert(window.Lang ? (Lang.get('presentationError') || 'Master key not found.') : 'Master key not found.');
-				return;
-			}
-
-			const dbApi = this.getDatabaseApi();
-			if (!dbApi || typeof dbApi.savePromptablePresentation !== 'function') {
-				console.error('[PromptablePresentation] Save blocked: PaiperworkDB.savePromptablePresentation API unavailable', {
-					hasWindowPaiperworkDB: !!(typeof window !== 'undefined' && window.PaiperworkDB),
-					hasGlobalPaiperworkDB: typeof PaiperworkDB !== 'undefined',
-					saveMethodType: dbApi ? typeof dbApi.savePromptablePresentation : 'undefined'
-				});
-				alert(window.Lang ? (Lang.get('presentationError') || 'Database API unavailable.') : 'Database API unavailable.');
-				return;
-			}
-
-			const htmlToSave = this.normalizePromptableNavigationHtml((this.currentPresentationHtml || '').trim());
-			if (!htmlToSave) {
-				console.error('[PromptablePresentation] Save blocked: no current presentation HTML available', {
-					hasCurrentPresentationHtml: !!this.currentPresentationHtml,
-					htmlLength: this.currentPresentationHtml ? String(this.currentPresentationHtml).length : 0
-				});
-				alert(window.Lang ? (Lang.get('presentationError') || 'No presentation HTML to save.') : 'No presentation HTML to save.');
-				return;
-			}
-
-			const defaultTitle = this.extractPresentationTitle(htmlToSave);
-			const chosenTitle = await this.promptPresentationName(defaultTitle);
-			if (chosenTitle === null) {
-				return;
-			}
-
-			const title = (chosenTitle || defaultTitle || 'Untitled presentation').trim();
-
 			saveBtn.disabled = true;
 			const previousLabel = saveBtn.textContent;
 			saveBtn.textContent = window.Lang ? (Lang.get('savingButton') || 'Saving...') : 'Saving...';
-			const selectedMode = this.selectedPresentationMode === 'pdf' ? 'pdf' : 'html';
 
 			try {
-				console.info('[PromptablePresentation] Saving presentation to DB', {
-					title,
-					mode: selectedMode,
-					htmlLength: htmlToSave.length,
-					hasMasterKey: !!hashedMasterKey,
-					masterKeyPrefix: String(hashedMasterKey).slice(0, 8)
-				});
-				await dbApi.savePromptablePresentation(hashedMasterKey, {
-					title,
-					mode: selectedMode,
-					html: htmlToSave,
-				});
-				console.info('[PromptablePresentation] Save completed, refreshing saved presentations list');
-				await this.refreshSavedPresentations();
-				console.info('[PromptablePresentation] Saved presentations list refreshed');
+				const saveResult = await this.savePresentationToLibrary({ promptForName: true, showAlerts: true });
+				if (saveResult === null) {
+					return;
+				}
 			} catch (error) {
 				console.error('[PromptablePresentation] Failed to save promptable presentation', {
 					error,
 					message: error && error.message ? error.message : String(error),
 					stack: error && error.stack ? error.stack : null,
-					htmlLength: htmlToSave.length,
-					hasMasterKey: !!hashedMasterKey,
-					masterKeyPrefix: String(hashedMasterKey).slice(0, 8)
+					hasCurrentPresentationHtml: !!this.currentPresentationHtml,
+					htmlLength: this.currentPresentationHtml ? String(this.currentPresentationHtml).length : 0,
+					hasMasterKey: !!this.getActiveHashedMasterKey(),
+					masterKeyPrefix: String(this.getActiveHashedMasterKey() || '').slice(0, 8)
 				});
-				alert(window.Lang ? (Lang.get('presentationError') || 'Could not save presentation.') : 'Could not save presentation.');
 			} finally {
 				saveBtn.disabled = false;
 				saveBtn.textContent = previousLabel;
@@ -3730,6 +3764,8 @@ class PromptedPresentationWorkflow {
 			}
 		};
 
+		this.close = closeWindow;
+
 		closeBtn.addEventListener('click', closeWindow);
 		overlay.addEventListener('keydown', (event) => {
 			if (event.key === 'Escape') {
@@ -3765,6 +3801,12 @@ class PromptedPresentationWorkflow {
 		this.updateTextActionButtons();
 		this.updateFullscreenButtonLabel();
 		this.refreshSavedPresentations();
+	}
+
+	static close() {
+		if (typeof this.close === 'function') {
+			this.close();
+		}
 	}
 
 	static setPresentationHtml(htmlContent) {

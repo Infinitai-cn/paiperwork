@@ -571,6 +571,19 @@ class StreamProcessor {
     processChunk(chunk) {
         this._setStreamingLayoutState(true);
 
+        // If this stream is associated with an incoming WhatsApp reply, ensure presence 'start' is posted once
+        try {
+            if (window.connectors && typeof window.connectors._ensureWhatsappPresenceStartedIfNeeded === 'function') {
+                const phone = (window.chat && window.chat.whatsappPendingReplyChatId) ? window.chat.whatsappPendingReplyChatId : null;
+                // fire-and-forget; don't block streaming on presence RPC
+                window.connectors._ensureWhatsappPresenceStartedIfNeeded(phone).catch(() => {});
+            } else if (window.chat && typeof window.chat._ensureWhatsappPresenceStartedIfNeeded === 'function') {
+                window.chat._ensureWhatsappPresenceStartedIfNeeded().catch(() => {});
+            }
+        } catch (_err) {
+            // ignore
+        }
+
         if (chunk === null || chunk === undefined) {
             return;
         }
@@ -1282,9 +1295,14 @@ class StreamProcessor {
         thinkingContainer.style.cssText = `
             margin: 10px 0;
             padding: 10px;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
             border-radius: 8px;
+            box-sizing: border-box;
             background-color: var(--thinking-bg, rgba(247, 237, 226, 0.1));
             border: 1px solid var(--thinking-border, rgba(214, 158, 46, 0.1));
+            overflow-x: hidden;
             transition: all 0.3s ease;
         `;
         // Create header with timer
@@ -1294,6 +1312,11 @@ class StreamProcessor {
         display: flex;
         align-items: center;
         justify-content: space-between; /* This ensures space between left items and right items */
+        gap: 8px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
         margin-bottom: 8px;
         font-weight: 500;
         color: var(--thinking-header-color, #d69e2e);
@@ -1301,7 +1324,7 @@ class StreamProcessor {
 
         // Left side container for icon and label
         const leftContainer = document.createElement('div');
-        leftContainer.style.cssText = 'display: flex; align-items: center;';
+        leftContainer.style.cssText = 'display: flex; align-items: center; min-width: 0; flex: 1 1 auto;';
 
         const thinkingIcon = document.createElement('span');
         thinkingIcon.innerHTML = `<i class="fa-solid fa-lightbulb" style="margin-right: 8px;"></i>`;
@@ -1309,6 +1332,7 @@ class StreamProcessor {
 
         const thinkingLabel = document.createElement('span');
         thinkingLabel.textContent = Lang.get('modelThinking') || 'Model thinking: ';
+        thinkingLabel.style.cssText = 'min-width: 0; overflow-wrap: anywhere; word-break: break-word;';
         leftContainer.appendChild(thinkingLabel);
 
         const timer = document.createElement('span');
@@ -1332,6 +1356,7 @@ class StreamProcessor {
         cursor: pointer;
         display: flex;
         align-items: center;
+        flex-shrink: 0;
         font-size: 0.85em;
     `;
 
@@ -1438,8 +1463,14 @@ class StreamProcessor {
             white-space: pre-wrap;
             font-size: 0.9em;
             color: var(--text-color);
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
             max-height: 0;
             overflow: hidden;
+            overflow-wrap: anywhere;
+            word-break: break-word;
             transition: max-height 0.3s ease;
             border-top: 0px solid var(--thinking-separator, rgba(214, 158, 46, 0.1));
             
@@ -1660,11 +1691,17 @@ class StreamProcessor {
             summaryElement.style.cssText = `
             margin-top: 8px;
             padding: 6px 10px;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
             background-color: var(--thinking-summary-bg, rgba(214, 158, 46, 0.05));
             border-radius: 4px;
             font-size: 0.85em;
             color: var(--thinking-summary-color, #8b7355);
             font-style: italic;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         `;
             summaryElement.textContent = `${Lang.get('thinkingCompletedIn') || 'Thinking completed in'} ${this.thinkingMode.elapsedSeconds}s`;
 
@@ -1985,9 +2022,14 @@ class StreamProcessor {
         thinkingContainer.style.cssText = `
         margin: 10px 0;
         padding: 10px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
         border-radius: 8px;
+        box-sizing: border-box;
         background-color: var(--thinking-bg, rgba(247, 237, 226, 0.1));
         border: 1px solid var(--thinking-border, rgba(214, 158, 46, 0.1));
+        overflow-x: hidden;
         transition: all 0.3s ease;
     `;
 
@@ -1998,6 +2040,11 @@ class StreamProcessor {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
         margin-bottom: 8px;
         font-weight: 500;
         color: var(--thinking-header-color, #d69e2e);
@@ -2005,7 +2052,7 @@ class StreamProcessor {
 
         // Left side container for icon and label
         const leftContainer = document.createElement('div');
-        leftContainer.style.cssText = 'display: flex; align-items: center;';
+        leftContainer.style.cssText = 'display: flex; align-items: center; min-width: 0; flex: 1 1 auto;';
 
         const thinkingIcon = document.createElement('span');
         thinkingIcon.innerHTML = `<i class="fa-solid fa-lightbulb" style="margin-right: 8px;"></i>`;
@@ -2013,6 +2060,7 @@ class StreamProcessor {
 
         const thinkingLabel = document.createElement('span');
         thinkingLabel.textContent = Lang.get('modelThinking') || 'Model thinking: ';
+        thinkingLabel.style.cssText = 'min-width: 0; overflow-wrap: anywhere; word-break: break-word;';
         leftContainer.appendChild(thinkingLabel);
 
         const timer = document.createElement('span');
@@ -2036,6 +2084,7 @@ class StreamProcessor {
         cursor: pointer;
         display: flex;
         align-items: center;
+        flex-shrink: 0;
         font-size: 0.85em;
     `;
 
@@ -2052,8 +2101,14 @@ class StreamProcessor {
         white-space: pre-wrap;
         font-size: 0.9em;
         color: var(--text-color);
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
         max-height: 0;
         overflow: hidden;
+        overflow-wrap: anywhere;
+        word-break: break-word;
         transition: max-height 0.3s ease;
         border-top: 0px solid var(--thinking-separator, rgba(214, 158, 46, 0.1));
         scrollbar-width: none;

@@ -369,7 +369,8 @@ class ArtifactsWindow {
 			'When embedding video, include iframe allow attributes for playback APIs and set allowfullscreen.',
 			'For non-YouTube video streams such as .m3u8 (HLS), generate player code that uses native HLS where available and hls.js fallback for browsers that do not natively play HLS.',
 			'If the requested media format needs a runtime library, include and initialize the required library inside the generated HTML.',
-			'Ensure the output renders correctly in modern browsers without additional explanation from you.'
+			'Ensure the output renders correctly in modern browsers without additional explanation from you.',
+			'If the user request a modification, always comply and return the fixed/upgraded/updated full html code.'
 		].join(' ');
 	}
 

@@ -22,6 +22,53 @@ class Chat {
         // CRITICAL: Make this instance available globally
         window.chatInstance = this;
 
+        // Register lightweight WhatsApp connector event listeners
+        try {
+            window.addEventListener('whatsappPaired', () => {
+                try {
+                    if (window.connectors && typeof window.connectors.startIncomingPolling === 'function') {
+                        window.connectors.startIncomingPolling();
+                    }
+                } catch (e) { console.error('Chat: failed to start connectors polling on whatsappPaired', e); }
+            });
+            window.addEventListener('whatsappUnpaired', () => {
+                try {
+                    if (window.connectors && typeof window.connectors.stopIncomingPolling === 'function') {
+                        window.connectors.stopIncomingPolling();
+                    }
+                } catch (e) { console.error('Chat: failed to stop connectors polling on whatsappUnpaired', e); }
+            });
+            window.addEventListener('whatsappIncoming', (e) => {
+                try {
+                    const msg = e && e.detail ? e.detail : null;
+                    if (!msg) return;
+
+                    const busy = window.isGenerating || this.isGenerating || (window.chat && window.chat.isGenerating);
+                    if (busy) {
+                        if (window.connectors && typeof window.connectors.enqueueWhatsappIncomingMessage === 'function') {
+                            window.connectors.enqueueWhatsappIncomingMessage(msg).catch(err => console.warn('Chat: failed to enqueue busy WA message', err));
+                        } else {
+                            console.warn('Chat: no connector enqueue function available while busy');
+                        }
+                        return;
+                    }
+
+                    if (!this.initialized) {
+                        // Queue incoming message until chat is initialized
+                        if (window.connectors && typeof window.connectors.enqueueWhatsappIncomingMessage === 'function') {
+                            window.connectors.enqueueWhatsappIncomingMessage(msg).catch(err => console.warn('Chat: failed to enqueue early WA message', err));
+                        }
+                        return;
+                    }
+                    this.processWhatsappIncomingMessage(msg);
+                } catch (err) {
+                    console.error('Chat: error handling whatsappIncoming event', err);
+                }
+            });
+        } catch (err) {
+            console.warn('Chat: failed to attach global WhatsApp listeners', err);
+        }
+
     }
 
     isCloudAuthFailureError(error) {
@@ -40,6 +87,47 @@ class Chat {
             || message.includes('unauthorized')
             || message.includes('cloudproxy401')
             || message.includes('keylen=0');
+    }
+
+    // Thin wrapper: delegate incoming WhatsApp message processing to the connector
+    async processWhatsappIncomingMessage(msg) {
+        const busy = window.isGenerating || this.isGenerating || (window.chat && window.chat.isGenerating);
+        if (busy) {
+            if (window.connectors && typeof window.connectors.enqueueWhatsappIncomingMessage === 'function') {
+                try {
+                    await window.connectors.enqueueWhatsappIncomingMessage(msg);
+                } catch (err) {
+                    console.warn('Chat: failed to enqueue busy WA message', err);
+                }
+            }
+            return;
+        }
+
+        if (window.connectors && typeof window.connectors.processWhatsappIncomingMessage === 'function') {
+            try {
+                await window.connectors.processWhatsappIncomingMessage(msg);
+                return;
+            } catch (e) {
+                console.error('Chat: connectors.processWhatsappIncomingMessage failed', e);
+            }
+        }
+        // Fallback: if chat not initialized, enqueue for later processing
+        if (!this.initialized) {
+            try { await this.enqueueWhatsappIncomingMessage(msg); } catch (err) { console.warn('Chat: failed to enqueue fallback WA message', err); }
+            return;
+        }
+    }
+
+    // Wrapper for orchestrator document-check from ConnectorWhatsapp
+    async _handleOrchestratorDocumentCheck(msg) {
+        if (window.connectors && typeof window.connectors.handleOrchestratorDocumentCheck === 'function') {
+            return await window.connectors.handleOrchestratorDocumentCheck(msg);
+        }
+
+        const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
+        if (phone && typeof window.connectors?.postWhatsappText === 'function') {
+            await window.connectors.postWhatsappText(phone, Lang.get('ragDocumentCheckNotSupported') || 'Document-check is not available right now.');
+        }
     }
 
     async handleCloudAuthFailureIfNeeded(error) {
@@ -453,15 +541,34 @@ class Chat {
             aiReplies.scrollTop = aiReplies.scrollHeight;
         }
     }
+
+    // Deactivate web-search mode after the assistant reply completes.
+    deactivateWebSearchButton() {
+        const webButton = document.getElementById('web-search');
+        if (webButton && webButton.classList.contains('active')) {
+            webButton.classList.remove('active');
+        }
+    }
+
     // Handles the send button click, including prompt processing, RAG, web search, and DataViz
     async handleSendButtonClick() {
         const aiReplies = document.querySelector('.ai-replies');
+        const conversationScopeKey = this.documentConversationScopeKey || 'ui';
+        const activeDocumentConversation = (window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function')
+            ? (window.RAG_Utils.getActiveDocumentConversation(conversationScopeKey) || null)
+            : null;
 
         // Check if we're in Documents tab (for global document search)
         const isDocumentsTabActive = document.querySelector('.tab-button[data-tab="documents"]')?.classList.contains('active');
 
         // Check if document questioning mode is active (specific document)
-        const activeDocumentId = localStorage.getItem('ragQuestioningDocumentId');
+        const activeDocumentId = activeDocumentConversation?.documentId || localStorage.getItem('ragQuestioningDocumentId');
+        console.info('[Chat][debug] handleSendButtonClick scope state', {
+            conversationScopeKey,
+            activeDocumentConversation,
+            activeDocumentId,
+            whatsappPendingReplyChatId: this.whatsappPendingReplyChatId || null
+        });
 
         // Prioritize document questioning mode over global document search
         if (isDocumentsTabActive && !activeDocumentId) {
@@ -588,6 +695,42 @@ class Chat {
             return;
         }
 
+        if (window.RAG_Utils && typeof window.RAG_Utils.resolveDocumentQuestioningAction === 'function') {
+            try {
+                const documentModeAction = await window.RAG_Utils.resolveDocumentQuestioningAction(prompt, {
+                    scopeKey: conversationScopeKey,
+                    activeDocumentId,
+                    hashedMasterKey: sessionStorage.getItem('hashedMasterKey')
+                });
+                if (documentModeAction && documentModeAction.action === 'exit') {
+                    if (typeof window.RAG_Utils.exitDocumentConversationScope === 'function') {
+                        window.RAG_Utils.exitDocumentConversationScope(conversationScopeKey);
+                    }
+                } else if (documentModeAction && (documentModeAction.action === 'enter' || documentModeAction.action === 'switch') && documentModeAction.match && documentModeAction.match.documentId) {
+                    let enabled = false;
+                    if (conversationScopeKey === 'ui') {
+                        enabled = await window.RAG_Utils.enableDocumentQuestioningMode(documentModeAction.match.documentId, { force: true });
+                    } else if (typeof window.RAG_Utils.activateDocumentConversationScope === 'function') {
+                        enabled = await window.RAG_Utils.activateDocumentConversationScope(conversationScopeKey, {
+                            id: documentModeAction.match.documentId,
+                            name: documentModeAction.match.documentName
+                        }, { force: true });
+                    }
+                    if (enabled) {
+                        try {
+                            if (conversationScopeKey === 'ui') {
+                                window.RAG_Utils.updateDocumentQuestioningUI(true);
+                            }
+                        } catch (uiErr) {
+                            console.warn('Chat: updateDocumentQuestioningUI after intent activation failed', uiErr);
+                        }
+                    }
+                }
+            } catch (intentErr) {
+                console.warn('Chat: automatic document mode action resolution failed', intentErr);
+            }
+        }
+
         const isGemma3 = modelSelector.value.toLowerCase().includes('gemma3');
 
         const userDiv = document.createElement('div');
@@ -611,6 +754,10 @@ class Chat {
             imagesContainer.style.marginTop = '8px';
             imagesContainer.style.marginBottom = '8px';
 
+            const selectedImagePayloads = Array.isArray(window.selectedImagePayloads)
+                ? window.selectedImagePayloads
+                : [];
+
             // Add each image
             window.selectedImages.forEach((imgSrc, index) => {
                 const imgWrapper = document.createElement('div');
@@ -627,6 +774,9 @@ class Chat {
                 img.style.objectFit = 'contain';
                 img.style.cursor = 'pointer';
                 img.dataset.fullImage = imgSrc;
+                const imageData = selectedImagePayloads[index]?.dataUrl || imgSrc;
+                img.dataset.imageData = imageData;
+                img.setAttribute('data-image-data', imageData);
 
                 img.addEventListener('click', (e) => {
                     this.showFullSizeImage(e.target.dataset.fullImage);
@@ -656,6 +806,9 @@ class Chat {
             img.style.objectFit = 'contain';
             img.style.cursor = 'pointer';
             img.dataset.fullImage = window.selectedImage;
+            const singleImageData = window.selectedImagePayload?.dataUrl || window.selectedImage;
+            img.dataset.imageData = singleImageData;
+            img.setAttribute('data-image-data', singleImageData);
 
             img.addEventListener('click', (e) => {
                 this.showFullSizeImage(e.target.dataset.fullImage);
@@ -664,6 +817,8 @@ class Chat {
             imgContainer.appendChild(img);
             userDiv.appendChild(imgContainer);
         }
+
+        this.addCopyActionToUserMessage(userDiv);
 
         userDiv.appendChild(document.createElement('br'));
         aiReplies.appendChild(userDiv);
@@ -708,15 +863,31 @@ class Chat {
         // Capture the current image data before it gets cleared
         if (isGemma3 && window.selectedImages && window.selectedImages.length > 0) {
             // Save Gemma3 multi-image data
-            window.currentMessageImages = window.selectedImages.map(img => ({
-                src: img,
-                thumbnail: img
-            }));
+            const selectedImagePayloads = Array.isArray(window.selectedImagePayloads)
+                ? window.selectedImagePayloads
+                : [];
+
+            window.currentMessageImages = window.selectedImages.map((img, index) => {
+                const payload = selectedImagePayloads[index] || {};
+                return {
+                    src: payload.dataUrl || img,
+                    dataUrl: payload.dataUrl || img,
+                    originalBlob: payload.originalBlob || null,
+                    fileName: payload.fileName || '',
+                    mimeType: payload.mimeType || '',
+                    byteSize: payload.byteSize || 0
+                };
+            });
         } else if (window.selectedImage) {
             // Save single image data
+            const payload = window.selectedImagePayload || {};
             window.currentMessageImages = [{
-                src: window.selectedImage,
-                thumbnail: window.selectedImage
+                src: payload.dataUrl || window.selectedImage,
+                dataUrl: payload.dataUrl || window.selectedImage,
+                originalBlob: payload.originalBlob || null,
+                fileName: payload.fileName || '',
+                mimeType: payload.mimeType || '',
+                byteSize: payload.byteSize || 0
             }];
         }
 
@@ -739,6 +910,10 @@ class Chat {
 
         // First load the base system prompt
         let basePrompt;
+        const isShortAnswer = window.lastOrchestratorDecision && window.lastOrchestratorDecision.shortAnswer;
+        if (isShortAnswer) {
+            basePrompt = (basePrompt || '') + '\n\nPlease answer in 2-3 short sentences in the same language as the user. Keep it concise and readable on mobile.';
+        }
         try {
             const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
             basePrompt = settings.systemPrompt || baseSystemPrompt;
@@ -747,7 +922,11 @@ class Chat {
             basePrompt = baseSystemPrompt;
         }
 
-        const enhancedSystemPrompt = await this.enhanceSystemPromptWithInsights(basePrompt);
+        let enhancedSystemPrompt = await this.enhanceSystemPromptWithInsights(basePrompt);
+
+        // NOTE: WhatsApp language enforcement is now handled in OllamaAPI.buildCompleteSystemPrompt.
+        // The routine will inspect window.whatsappIncomingLanguage and enforce it at the model system level.
+
         const buildRankedRagContext = (ragResults, options = {}) => {
             const maxChunks = Number.isFinite(options.maxChunks) ? options.maxChunks : 6;
             const maxPerDocument = Number.isFinite(options.maxPerDocument) ? options.maxPerDocument : 3;
@@ -794,19 +973,33 @@ class Chat {
             this.currentRequestId = `prompt_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
 
             // Check if we're in document questioning mode
-            const documentId = localStorage.getItem('ragQuestioningDocumentId');
+            const scopedDocument = (window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function')
+                ? (window.RAG_Utils.getActiveDocumentConversation(conversationScopeKey) || null)
+                : null;
+            const documentId = scopedDocument?.documentId || localStorage.getItem('ragQuestioningDocumentId');
             // Also allow triggering the document+websearch flow when the Documents tab is selected
             const isDocumentsTabSelected = document.querySelector('.tab-button[data-tab="documents"]')?.classList.contains('active');
             let documentName;
-            try {
-                documentName = await PaiperworkDB.secureLocalStorageGet('ragQuestioningDocumentName');
-            } catch (err) {
-                console.error('Chat: could not load secure ragQuestioningDocumentName, falling back to plain localStorage', err);
-                documentName = localStorage.getItem('ragQuestioningDocumentName');
+            documentName = scopedDocument?.documentName || null;
+            if (!documentName) {
+                try {
+                    documentName = await PaiperworkDB.secureLocalStorageGet('ragQuestioningDocumentName');
+                } catch (err) {
+                    console.error('Chat: could not load secure ragQuestioningDocumentName, falling back to plain localStorage', err);
+                    documentName = localStorage.getItem('ragQuestioningDocumentName');
+                }
             }
 
             // Check if web search is enabled
             const webSearchEnabled = document.getElementById('web-search').classList.contains('active');
+            console.info('[Chat][debug] response routing state', {
+                conversationScopeKey,
+                scopedDocument,
+                documentId,
+                documentName,
+                webSearchEnabled,
+                isDocumentsTabSelected
+            });
 
             const aiDiv = document.createElement('div');
             aiDiv.className = 'assistant-message';
@@ -1532,6 +1725,11 @@ class Chat {
 
                 if (documentId) {
                     // RAG only
+                    console.info('[Chat][debug] entering document-specific RAG branch', {
+                        conversationScopeKey,
+                        documentId,
+                        documentName
+                    });
                    //console.log('Chat: Using document-specific RAG for document ID:', documentId);
 
                     // Get document context
@@ -1680,6 +1878,7 @@ class Chat {
                 this.isGenerating = false;
                 this.globalAbortController = null;
                 window.globalAbortController = null;
+                this.deactivateWebSearchButton();
 
                 return; //  CRITICAL: Exit early to skip manual stream processing
             }
@@ -1771,6 +1970,7 @@ class Chat {
 
                                 this.addMessageActionsToMessage(aiDiv);
                                 streamProcessor.finishResponse();
+                                this.deactivateWebSearchButton();
 
                                 // Update UI scroll position
                                 if (window.autoScrollEnabled) {
@@ -2361,7 +2561,6 @@ class Chat {
             // Store images for future requests - CRUCIAL LINE
             if (imagesToSave.length > 0) {
                 OllamaAPI.lastUsedImages = [...imagesToSave];
-                OllamaAPI.maxImagesUsed = Math.max(OllamaAPI.maxImagesUsed || 0, imagesToSave.length);
                //console.log(`Chat: Saved ${imagesToSave.length} images under-the-hood for continuity`);
             }
         }
@@ -2410,6 +2609,8 @@ class Chat {
         window.cleanedImageBase64 = null;
         window.selectedImages = [];
         window.cleanedImageBase64Array = [];
+        window.selectedImagePayload = null;
+        window.selectedImagePayloads = [];
 
         // Mark images as hidden (used only under the hood)
         window.imagesUnderTheHood = true;
@@ -2463,7 +2664,10 @@ class Chat {
 
                 // Collect image data from img elements
                 imageElements.forEach(img => {
-                    if (img.src && img.src.startsWith('data:image/')) {
+                    const storedImageData = img.getAttribute('data-image-data') || img.dataset.imageData || '';
+                    if (storedImageData && !originalImages.includes(storedImageData)) {
+                        originalImages.push(storedImageData);
+                    } else if (img.src && img.src.startsWith('data:image/') && !originalImages.includes(img.src)) {
                         originalImages.push(img.src);
                     }
                 });
@@ -2483,7 +2687,11 @@ class Chat {
                     const singleImageContainer = userMessageElement.querySelector('.user-message-image');
                     if (singleImageContainer) {
                         const img = singleImageContainer.querySelector('img');
-                        if (img && img.src && img.src.startsWith('data:image/') && !originalImages.includes(img.src)) {
+                        const storedImageData = img?.getAttribute('data-image-data') || img?.dataset?.imageData || '';
+                        if (storedImageData && !originalImages.includes(storedImageData)) {
+                            originalImages.push(storedImageData);
+                           //console.log('Regenerate: Found single image in .user-message-image container');
+                        } else if (img && img.src && img.src.startsWith('data:image/') && !originalImages.includes(img.src)) {
                             originalImages.push(img.src);
                            //console.log('Regenerate: Found single image in .user-message-image container');
                         }
@@ -2494,7 +2702,10 @@ class Chat {
                     if (multiImageContainer) {
                         const imgs = multiImageContainer.querySelectorAll('img');
                         imgs.forEach(img => {
-                            if (img.src && img.src.startsWith('data:image/') && !originalImages.includes(img.src)) {
+                            const storedImageData = img.getAttribute('data-image-data') || img.dataset.imageData || '';
+                            if (storedImageData && !originalImages.includes(storedImageData)) {
+                                originalImages.push(storedImageData);
+                            } else if (img.src && img.src.startsWith('data:image/') && !originalImages.includes(img.src)) {
                                 originalImages.push(img.src);
                             }
                         });
@@ -3393,6 +3604,87 @@ class Chat {
         rootElement.querySelectorAll('.copy-btn').forEach((btn) => {
             btn.textContent = Lang.get('copy') || 'Copy';
         });
+    }
+    addCopyActionToUserMessage(userMessage) {
+        if (!userMessage || !userMessage.classList.contains('user-message')) {
+            console.error('Invalid user message element for adding copy action');
+            return;
+        }
+
+        const messageBubble = userMessage.querySelector('.message-bubble');
+        if (!messageBubble) {
+            console.error('No message bubble found in user message');
+            return;
+        }
+
+        const existingActions = userMessage.querySelector('.user-message-actions');
+        if (existingActions) {
+            existingActions.remove();
+        }
+
+        const actionsContainer = document.createElement('div');
+        actionsContainer.className = 'user-message-actions';
+        actionsContainer.style.cssText = `
+            text-align: right;
+            margin-top: 0.35rem;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        `;
+
+        actionsContainer.addEventListener('mouseenter', () => {
+            actionsContainer.style.opacity = '1';
+        });
+        actionsContainer.addEventListener('mouseleave', () => {
+            actionsContainer.style.opacity = '0.7';
+        });
+
+        const copyButton = document.createElement('a');
+        copyButton.href = '#';
+        copyButton.className = 'copy-btn';
+        copyButton.textContent = Lang.get('copy') || 'Copy';
+        copyButton.style.cssText = `
+            color: inherit;
+            text-decoration: none;
+            cursor: pointer;
+        `;
+
+        copyButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const cleanText = (messageBubble.innerText || messageBubble.textContent || '').replace(/\r\n/g, '\n').trimEnd();
+            if (!cleanText) {
+                return;
+            }
+
+            navigator.clipboard.writeText(cleanText)
+                .then(() => {
+                    const originalText = copyButton.textContent;
+                    copyButton.textContent = (Lang.get('copied') || 'Copied');
+                    setTimeout(() => {
+                        copyButton.textContent = originalText;
+                    }, 2000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy user message text:', err);
+                    const originalText = copyButton.textContent;
+                    copyButton.textContent = (Lang.get('copyError') || 'Error');
+                    setTimeout(() => {
+                        copyButton.textContent = originalText;
+                    }, 2000);
+                });
+        });
+
+        actionsContainer.appendChild(copyButton);
+
+        const trailingBreak = Array.from(userMessage.children).find((child) => child.tagName === 'BR');
+        if (trailingBreak) {
+            userMessage.insertBefore(actionsContainer, trailingBreak);
+        } else {
+            userMessage.appendChild(actionsContainer);
+        }
+
+        this.localizeMessageActionButtons(userMessage);
     }
     // Adds action buttons (regenerate, delete, copy) to an assistant message
     addMessageActionsToMessage(assistantMessage) {

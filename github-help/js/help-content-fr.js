@@ -22,13 +22,29 @@ window.helpContent = {
             <li>Accéder à votre historique de conversation en utilisant une Clé Maître précédemment saisie</li>
             <li>Vérifier les mises à jour du programme</li>
             <li>Accéder à la documentation d'aide</li>
+
+                <h4>Modifier la liste des modèles Thinking</h4>
+                <p>Utilisez le bouton <strong>Modifier la liste des modèles Thinking</strong> dans l'onglet Models pour contrôler quels modèles affichent le bouton thinking dans l'onglet Chat.</p>
+                <ul>
+                    <li>Le bouton ouvre la liste <code>thinkingmodels.js</code></li>
+                    <li>Ajoutez ou supprimez des noms de modèles dans <code>window.THINKING_MODELS</code></li>
+                    <li>Enregistrez la liste pour mettre à jour immédiatement la prise en charge du thinking sans redémarrer l'application</li>
+                </ul>
+
+                <h4>Modifier la liste des modèles visuels</h4>
+                <p>Utilisez le bouton <strong>Modifier la liste des modèles visuels</strong> dans l'onglet Models pour contrôler quels modèles activent l'envoi d'images et les autres fonctions visuelles dans l'onglet Chat.</p>
+                <ul>
+                    <li>Le bouton ouvre la liste <code>visualmodels.js</code></li>
+                    <li>Ajoutez ou supprimez des identifiants de modèles dans <code>window.VISUAL_MODELS</code></li>
+                    <li>Enregistrez la liste pour actualiser immédiatement la détection des modèles visuels sans redémarrer l'application</li>
+                </ul>
         </ul>
         
         <div class="note">
             <p><strong>Important :</strong> La Clé Maître que vous saisissez sert deux objectifs critiques :</p>
             <ul>
                 <li>Elle peut créer des environnements de travail séparés (En utilisant différentes Clés Maître)</li>
-                <li>Elle agit comme votre clé de chiffrement pour stocker les données de conversation de manière sécurisée (vos données seront stockées localement dans le stockage de votre navigateur sous forme de base de données). Aucune donnée ne sera jamais envoyée en dehors de votre système à l'exception des invites de recherche lorsque le bouton web est activé pour les recherches web ou la fonction de Recherche (envoi d'une requête de recherche web au moteur de recherche Bing de Microsoft) ou les requêtes/téléchargements de modèles Ollama. Aucune télémétrie n'est collectée. Veuillez noter que si vous changez de navigateur, il n'y aura pas de base de données précédente dessus, donc vous recommencerez à zéro.</li>
+                    <li>Enregistrez le fichier pour appliquer immédiatement les modifications sans redémarrer l'application</li>
             </ul>
             <p>Pour accéder à une conversation précédente, vous devez saisir la <em>même Clé Maître exacte</em> (sensible à la casse) que vous avez utilisée lors de sa création.</p>
         </div>
@@ -106,66 +122,7 @@ window.helpContent = {
                 imageAlt: "Commencer une nouvelle conversation",
                 imageCaption: "Saisissez votre Clé Maître et cliquez sur Commencer pour débuter une nouvelle session de chat",
             },
-            {
-                id: "gs-password-protection",
-                title: "Fonctionnalité de mot de passe de protection",
-                content: `
-                <p>Paiperwork inclut une fonctionnalité optionnelle de mot de passe de protection qui ajoute une couche de sécurité supplémentaire contre la suppression accidentelle de données pour vos bases de données stockées.</p>
-                
-                <h4>Qu'est-ce que le mot de passe de protection ?</h4>
-                <p>Le mot de passe de protection est une fonctionnalité de sécurité qui :</p>
-                <ul>
-                    <li>Empêche la suppression accidentelle de toutes vos données et conversations</li>
-                    <li>Nécessite une vérification par mot de passe avant d'effectuer l'action "Supprimer toutes les informations"</li>
-                    <li>Est complètement optionnel - vous pouvez choisir d'en configurer un ou non (requis seulement pour supprimer toutes les informations de la base de données)</li>
-                    <li>Est stocké de manière sécurisée en utilisant le chiffrement avec hachage basé sur le sel</li>
-                </ul>
-                
-                <h4>Configuration du mot de passe de protection</h4>
-                <p>Lorsque vous essayez pour la première fois de supprimer toutes les informations :</p>
-                <ol>
-                    <li>Cliquez sur le bouton "Supprimer toutes les informations" sur l'écran d'accueil</li>
-                    <li>Si aucun mot de passe de protection n'existe, vous serez invité à en configurer un</li>
-                    <li>Choisissez de configurer un mot de passe de protection ou d'ignorer cette fonctionnalité (fermez simplement cette fenêtre)</li>
-                    <li>Si vous choisissez de configurer : saisissez un mot de passe (minimum 6 caractères) et confirmez-le</li>
-                    <li>Le mot de passe sera chiffré de manière sécurisée et stocké localement</li>
-                </ol>
-                
-                <h4>Utilisation du mot de passe de protection</h4>
-                <p>Une fois qu'un mot de passe de protection est configuré :</p>
-                <ul>
-                    <li>Toute tentative de suppression de toutes les informations nécessitera une vérification par mot de passe</li>
-                    <li>Saisissez votre mot de passe de protection dans la boîte de dialogue de vérification</li>
-                    <li>Seul le mot de passe correct vous permettra de procéder à la suppression</li>
-                    <li>La vérification du mot de passe inclut une option "Réinitialiser le mot de passe" si vous devez le changer</li>
-                </ul>
-                
-                <h4>Réinitialisation de votre mot de passe de protection</h4>
-                <p>Si vous devez changer votre mot de passe de protection :</p>
-                <ol>
-                    <li>Tentez de supprimer toutes les informations pour faire apparaître la boîte de dialogue de vérification du mot de passe</li>
-                    <li>Saisissez votre mot de passe actuel dans le champ de saisie</li>
-                    <li>Cliquez sur le bouton "Réinitialiser le mot de passe"</li>
-                    <li>Si votre mot de passe actuel est correct, vous serez guidé à travers la configuration d'un nouveau mot de passe</li>
-                </ol>
-                
-                <h4>Détails de sécurité</h4>
-                <ul>
-                    <li><strong>Chiffrement</strong> - Les mots de passe sont hachés en utilisant SHA-256 avec des sels uniques</li>
-                    <li><strong>Stockage local</strong> - Les mots de passe de protection sont stockés uniquement sur votre appareil</li>
-                    <li><strong>Pas de récupération</strong> - Si vous oubliez votre mot de passe de protection, vous ne pouvez pas le récupérer</li>
-                    <li><strong>Fonctionnalité optionnelle</strong> - Vous pouvez ignorer la configuration d'un mot de passe de protection si vous préférez (requis seulement pour supprimer toutes les informations de la base de données)</li>
-                </ul>
-                
-                <div class="note">
-                    <p><strong>Important :</strong> Le mot de passe de protection est conçu pour empêcher la suppression accidentelle. Si vous oubliez votre mot de passe de protection, il n'y a pas de méthode de récupération (vous devrez supprimer le stockage local de votre navigateur pour localhost pour recommencer à zéro, perdant toutes vos informations stockées pour Paiperwork). Choisissez un mot de passe dont vous vous souviendrez mais qui est différent des options facilement devinables.</p>
-                </div>
-            `,
-                image: "protection_password.png",
-                imageAlt: "Configuration du mot de passe de protection",
-                imageCaption: "La boîte de dialogue de configuration du mot de passe de protection pour sécuriser la suppression de données",
-            },
-        ],
+            ],
     },
     chat: {
         title: "Chat",
@@ -2576,7 +2533,7 @@ window.helpContent = {
                 </ul>
                 
                 <div class="note">
-                    <p><strong>Important :</strong> Après avoir modifié le fichier modelparameters.js, vous devez redémarrer l'application pour que les changements prennent effet.</p>
+                    <p><strong>Important :</strong> Après l'enregistrement dans l'éditeur de modèles, la configuration chargée est actualisée automatiquement.</p>
                 </div>
                 `,
                 image: "models_configuration.png",
@@ -2805,6 +2762,14 @@ window.helpContent = {
                 <ul>
                     <li><strong>Exporter la base de donnees</strong> - Cree un fichier de sauvegarde complet nomme <code>Paiperwork-Backup.pwdb</code></li>
                     <li><strong>Importer la base de donnees</strong> - Restaure ce fichier dans votre stockage local actuel</li>
+                <h4>Utilisation des boutons de la base de données</h4>
+                <p>Utilisez les boutons en haut de l'onglet Base de données comme suit :</p>
+                <ol>
+                    <li>Cliquez sur "Exporter la base de données" pour télécharger un fichier de sauvegarde complet.</li>
+                    <li>Cliquez sur "Importer la base de données" pour sélectionner un fichier de sauvegarde et le restaurer. Cela remplace votre base de données locale actuelle.</li>
+                    <li>Cliquez sur "Supprimer toutes les informations" pour supprimer définitivement toutes les conversations, documents et paramètres stockés, puis revenir à l'écran d'accueil.</li>
+                </ol>
+
                 </ul>
 
                 <h4>Contenu de la sauvegarde</h4>
@@ -2929,12 +2894,12 @@ window.helpContent = {
                 
                 <h4>Dernier recours : Réinitialisation de base de données</h4>
                 <p>Si des problèmes persistants se produisent et que la maintenance normale n'aide pas :</p>
-                <ol>
+                                <ol>
                     <li>Exportez d'abord toutes conversations ou documents importants</li>
-                    <li>Retournez à l'écran d'accueil</li>
-                    <li>Cliquez sur "Supprimer toutes les informations" pour réinitialiser la base de données</li>
-                    <li>Cela supprimera toutes les données et créera une base de données fraîche</li>
+                    <li>Cliquez sur "Supprimer toutes les informations" pour supprimer la base de données</li>
+                    <li>Cela supprimera toutes les données et créera une base de données fraîche, vous pouvez maintenant essayer d'importer votre base de données enregistrée</li>
                 </ol>
+                <p>vous pouvez utiliser cette fonction pour supprimer en toute sécurité toutes vos informations du navigateur si nécessaire</p>
                 
                 <div class="note">
                     <p><strong>Avertissement :</strong> La réinitialisation de base de données est irréversible et supprimera toutes vos données. Exportez toujours les informations importantes d'abord.</p>
