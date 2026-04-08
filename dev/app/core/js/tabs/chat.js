@@ -945,11 +945,49 @@ class Chat {
         // NOTE: WhatsApp language enforcement is now handled in OllamaAPI.buildCompleteSystemPrompt.
         // The routine will inspect window.whatsappIncomingLanguage and enforce it at the model system level.
 
+        const buildQueryFocusedSnippet = (rawText, queryText, maxChars) => {
+            const text = String(rawText || '').trim();
+            if (!text) {
+                return '';
+            }
+
+            if (!Number.isFinite(maxChars) || maxChars <= 0 || text.length <= maxChars) {
+                return text;
+            }
+
+            const queryTerms = String(queryText || '')
+                .toLowerCase()
+                .split(/[^\p{L}\p{N}]+/u)
+                .map(term => term.trim())
+                .filter(term => term.length >= 3 && !['there', 'what', 'with', 'from', 'have', 'this', 'that', 'flip4'].includes(term));
+
+            let matchIndex = -1;
+            for (const term of queryTerms) {
+                const index = text.toLowerCase().indexOf(term);
+                if (index >= 0 && (matchIndex === -1 || index < matchIndex)) {
+                    matchIndex = index;
+                }
+            }
+
+            if (matchIndex === -1) {
+                return `${text.slice(0, maxChars).trimEnd()}...`;
+            }
+
+            const halfWindow = Math.floor(maxChars / 2);
+            const start = Math.max(0, matchIndex - halfWindow);
+            const end = Math.min(text.length, start + maxChars);
+            const adjustedStart = Math.max(0, end - maxChars);
+            const snippet = text.slice(adjustedStart, end).trim();
+
+            return `${adjustedStart > 0 ? '...' : ''}${snippet}${end < text.length ? '...' : ''}`;
+        };
+
         const buildRankedRagContext = (ragResults, options = {}) => {
             const maxChunks = Number.isFinite(options.maxChunks) ? options.maxChunks : 6;
             const maxPerDocument = Number.isFinite(options.maxPerDocument) ? options.maxPerDocument : 3;
             const maxCharsPerChunk = Number.isFinite(options.maxCharsPerChunk) ? options.maxCharsPerChunk : 650;
             const totalBudgetChars = Number.isFinite(options.totalBudgetChars) ? options.totalBudgetChars : 3600;
+            const queryText = String(options.query || '').trim();
 
             const safeResults = Array.isArray(ragResults) ? ragResults : [];
             const sorted = [...safeResults].sort((a, b) => (Number(b?.similarity || 0) - Number(a?.similarity || 0)));
@@ -967,9 +1005,7 @@ class Chat {
                 const rawText = String(item?.text || '').trim();
                 if (!rawText) continue;
 
-                const clipped = rawText.length > maxCharsPerChunk
-                    ? `${rawText.slice(0, maxCharsPerChunk).trimEnd()}...`
-                    : rawText;
+                const clipped = buildQueryFocusedSnippet(rawText, queryText, maxCharsPerChunk);
 
                 const pageNum = item?.metadata?.pageNumber || item?.pageNumber || 'unknown';
                 const docName = item?.documentName || 'Unknown Document';
@@ -1765,6 +1801,24 @@ class Chat {
                         { documentId: documentId }
                     );
 
+                    const documentRagLogPayload = {
+                        prompt,
+                        documentId,
+                        documentName,
+                        chunkCount: Array.isArray(ragResults) ? ragResults.length : 0,
+                        chunks: Array.isArray(ragResults)
+                            ? ragResults.map((result, index) => ({
+                                index: index + 1,
+                                documentId: result.documentId,
+                                documentName: result.documentName || documentName || null,
+                                similarity: result.similarity,
+                                text: result.text,
+                                metadata: result.metadata || null
+                            }))
+                            : []
+                    };
+                    console.info('[Chat][document-rag] Retrieved chunks for document questioning', JSON.stringify(documentRagLogPayload, null, 2));
+
                    //console.log(`Chat: RAG: Found ${ragResults.length} chunks from document ${documentId}`);
 
                     // If no chunks found, inform user
@@ -1788,8 +1842,9 @@ class Chat {
                     const rankedContext = buildRankedRagContext(ragResults, {
                         maxChunks: 5,
                         maxPerDocument: 3,
-                        maxCharsPerChunk: 700,
-                        totalBudgetChars: 3400
+                        maxCharsPerChunk: ragResults.length === 1 ? 2200 : 700,
+                        totalBudgetChars: ragResults.length === 1 ? 5000 : 3400,
+                        query: prompt
                     });
                     const ragSystemPrompt = `${enhancedSystemPrompt || ''}\n\nAnswer the user's question based on the following information retrieved from the document. Only use information from this document to answer:\n\n${rankedContext || ''}`;
 

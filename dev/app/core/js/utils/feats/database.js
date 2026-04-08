@@ -3173,8 +3173,6 @@ class PaiperworkDB {
     static async saveArtifactHtmlContent(hashedMasterKey, artifactId, html) {
         if (!hashedMasterKey || !artifactId) return false;
 
-        let artifactsDb = null;
-
         try {
             await this.initializeDatabase(hashedMasterKey);
             if (!this.SQL) {
@@ -3182,8 +3180,7 @@ class PaiperworkDB {
             }
 
             const htmlTableName = `artifacts_html_${hashedMasterKey}`;
-            const existingArtifactsDb = await this.getExistingDatabase(hashedMasterKey, 'artifacts');
-            artifactsDb = existingArtifactsDb ? new this.SQL.Database(existingArtifactsDb) : new this.SQL.Database();
+            const artifactsDb = await this.getDatabase(hashedMasterKey, 'artifacts', true);
 
             this.ensureArtifactHtmlTable(artifactsDb, hashedMasterKey);
 
@@ -3195,12 +3192,9 @@ class PaiperworkDB {
 
             await this.saveToStorage(artifactsDb.export(), hashedMasterKey, 'artifacts');
             return true;
-        } finally {
-            try {
-                artifactsDb?.close?.();
-            } catch (_error) {
-                // Ignore SQL.js close errors during cleanup.
-            }
+        } catch (error) {
+            console.error('saveArtifactHtmlContent error:', error);
+            return false;
         }
     }
 
@@ -3225,8 +3219,7 @@ class PaiperworkDB {
                 this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
             }
 
-            const existingDb = await this.getExistingDatabase(hashedMasterKey);
-            const db = existingDb ? new this.SQL.Database(existingDb) : new this.SQL.Database();
+            const db = await this.getDatabase(hashedMasterKey, 'main', true);
 
             db.run(`
                 CREATE TABLE IF NOT EXISTS ${tableName} (
@@ -3274,15 +3267,8 @@ class PaiperworkDB {
             if (!hashedMasterKey) return [];
 
             await this.initializeDatabase(hashedMasterKey);
-
-            if (!this.SQL) {
-                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
-            }
-
-            const existingDb = await this.getExistingDatabase(hashedMasterKey);
-            if (!existingDb) return [];
-
-            const db = new this.SQL.Database(existingDb);
+            const db = await this.getDatabase(hashedMasterKey, 'main', false);
+            if (!db) return [];
             const tableName = `artifacts_${hashedMasterKey}`;
             const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
             if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
@@ -3313,21 +3299,14 @@ class PaiperworkDB {
 
     // Load and decrypt artifact HTML by id
     static async loadArtifactHtml(hashedMasterKey, id) {
-        let artifactsDb = null;
         try {
             if (!hashedMasterKey || !id) return '';
 
             await this.initializeDatabase(hashedMasterKey);
 
-            if (!this.SQL) {
-                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
-            }
-
             const htmlTableName = `artifacts_html_${hashedMasterKey}`;
-            const existingArtifactsDb = await this.getExistingDatabase(hashedMasterKey, 'artifacts');
-            if (!existingArtifactsDb) return '';
-
-            artifactsDb = new this.SQL.Database(existingArtifactsDb);
+            const artifactsDb = await this.getDatabase(hashedMasterKey, 'artifacts', false);
+            if (!artifactsDb) return '';
             const htmlTableCheck = artifactsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
             if (!htmlTableCheck || !htmlTableCheck[0] || !htmlTableCheck[0].values.length) {
                 return '';
@@ -3354,31 +3333,17 @@ class PaiperworkDB {
         } catch (error) {
             console.error('loadArtifactHtml error:', error);
             return '';
-        } finally {
-            try {
-                artifactsDb?.close?.();
-            } catch (_error) {
-                // Ignore SQL.js close errors during cleanup.
-            }
         }
     }
 
     // Delete a saved artifact by id
     static async deleteArtifact(hashedMasterKey, id) {
-        let artifactsDb = null;
         try {
             if (!hashedMasterKey || !id) return false;
 
             await this.initializeDatabase(hashedMasterKey);
-
-            if (!this.SQL) {
-                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
-            }
-
-            const existingDb = await this.getExistingDatabase(hashedMasterKey);
-            if (!existingDb) return false;
-
-            const db = new this.SQL.Database(existingDb);
+            const db = await this.getDatabase(hashedMasterKey, 'main', false);
+            if (!db) return false;
             const tableName = `artifacts_${hashedMasterKey}`;
             const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
             if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
@@ -3389,9 +3354,8 @@ class PaiperworkDB {
             await this.saveToStorage(db.export(), hashedMasterKey);
 
             const htmlTableName = `artifacts_html_${hashedMasterKey}`;
-            const existingArtifactsDb = await this.getExistingDatabase(hashedMasterKey, 'artifacts');
-            if (existingArtifactsDb) {
-                artifactsDb = new this.SQL.Database(existingArtifactsDb);
+            const artifactsDb = await this.getDatabase(hashedMasterKey, 'artifacts', false);
+            if (artifactsDb) {
                 const htmlTableCheck = artifactsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
                 if (htmlTableCheck && htmlTableCheck[0] && htmlTableCheck[0].values.length) {
                     artifactsDb.run(`DELETE FROM ${htmlTableName} WHERE artifact_id = ?`, [id]);
@@ -3403,12 +3367,6 @@ class PaiperworkDB {
         } catch (error) {
             console.error('deleteArtifact error:', error);
             return false;
-        } finally {
-            try {
-                artifactsDb?.close?.();
-            } catch (_error) {
-                // Ignore SQL.js close errors during cleanup.
-            }
         }
     }
 

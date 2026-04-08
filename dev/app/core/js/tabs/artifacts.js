@@ -1,4 +1,10 @@
 class ArtifactsWindow {
+	static close() {
+		if (typeof this.closeWindowHandler === 'function') {
+			this.closeWindowHandler();
+		}
+	}
+
 	static getActiveHashedMasterKey() {
 		return sessionStorage.getItem('hashedMasterKey') || '';
 	}

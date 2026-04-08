@@ -27,6 +27,7 @@ class ConnectorsTab {
 
         this.whatsappWs = null;
         this.whatsappWsReconnectTimer = null;
+        this.whatsappWsStartupTimer = null;
         this.whatsappMode = null; // personal or bot
         this.whatsappPersonalModeButton = null;
         this.whatsappBotModeButton = null;
@@ -1429,6 +1430,10 @@ class ConnectorsTab {
             const justStarted = this.serverStarted == false && data.gatewayRunning;
             if (data.gatewayRunning) {
                 this.serverStarted = true;
+                if (this.whatsappWebsocketShouldReconnect || options.start || this.serverStarting) {
+                    this.whatsappWebsocketShouldReconnect = true;
+                    this.ensureWhatsappWebsocketListener(data);
+                }
             }
 
             // Do not automatically stop the gateway while pairing checks are in flight.
@@ -1548,9 +1553,15 @@ class ConnectorsTab {
             return;
         }
 
+        if (this.whatsappWsStartupTimer) {
+            clearTimeout(this.whatsappWsStartupTimer);
+            this.whatsappWsStartupTimer = null;
+        }
+
         this.whatsappWebsocketShouldReconnect = true;
 
         const wsUrl = (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + '127.0.0.1:3000/ws';
+        let socketOpened = false;
 
         try {
             this.whatsappWs = new WebSocket(wsUrl);
@@ -1560,6 +1571,7 @@ class ConnectorsTab {
         }
 
         this.whatsappWs.onopen = () => {
+            socketOpened = true;
             //console.log('ConnectorsTab: whatsapp websocket connected');
         };
 
@@ -1626,17 +1638,26 @@ class ConnectorsTab {
                 return;
             }
             this.whatsappWsReconnectTimer = setTimeout(() => {
-                this.startWhatsappWebsocketListener();
+                this.whatsappWsReconnectTimer = null;
+                this.ensureWhatsappWebsocketListener();
             }, 3000);
         };
 
         this.whatsappWs.onerror = (err) => {
+            if (!socketOpened && this.whatsappWebsocketShouldReconnect && this.serverStarted) {
+                console.info('ConnectorsTab: whatsapp websocket not ready yet; will retry');
+                return;
+            }
             console.warn('ConnectorsTab: whatsapp websocket error', err);
         };
     }
 
     stopWhatsappWebsocketListener() {
         this.whatsappWebsocketShouldReconnect = false;
+        if (this.whatsappWsStartupTimer) {
+            clearTimeout(this.whatsappWsStartupTimer);
+            this.whatsappWsStartupTimer = null;
+        }
         if (this.whatsappWs) {
             try {
                 this.whatsappWs.close();
@@ -1649,6 +1670,31 @@ class ConnectorsTab {
             clearTimeout(this.whatsappWsReconnectTimer);
             this.whatsappWsReconnectTimer = null;
         }
+    }
+
+    async ensureWhatsappWebsocketListener(gatewayInfo = null) {
+        if (this.whatsappWs || typeof WebSocket === 'undefined') {
+            return;
+        }
+
+        if (!this.serverStarted || this.serverStopping || this.whatsappManualStopRequested) {
+            return;
+        }
+
+        const resolvedGatewayInfo = gatewayInfo || await this._fetchWhatsappGatewayInfo();
+        if (resolvedGatewayInfo && resolvedGatewayInfo.gatewayRunning && resolvedGatewayInfo.websocketReady) {
+            this.startWhatsappWebsocketListener();
+            return;
+        }
+
+        if (this.whatsappWsStartupTimer || !this.whatsappWebsocketShouldReconnect) {
+            return;
+        }
+
+        this.whatsappWsStartupTimer = setTimeout(() => {
+            this.whatsappWsStartupTimer = null;
+            this.ensureWhatsappWebsocketListener();
+        }, 1000);
     }
 
     closeWhatsappPairModal() {
@@ -1749,8 +1795,9 @@ class ConnectorsTab {
         // Ensure modal is visible even if CSS rules set it to hidden by default
         try { modal.style.display = 'block'; } catch (_) {}
 
-        // Start listening for gowa websocket events (LOGIN_SUCCESS / connected)
-        this.startWhatsappWebsocketListener();
+        // Start listening for gowa websocket events once the gateway is really up.
+        this.whatsappWebsocketShouldReconnect = true;
+        this.ensureWhatsappWebsocketListener();
         this.setWhatsappSessionRestoreStatus(this.whatsappSessionRestoreStatus);
 
         // Reset any cached QR URL so the poller always inserts a fresh
