@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	domainChat "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chat"
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
@@ -247,12 +248,16 @@ func (service serviceChat) PinChat(ctx context.Context, request domainChat.PinCh
 	// This uses WhatsApp app state sync only for chat metadata (pin/archive).
 	// We do not sync raw WhatsApp messages as part of our app state model, so
 	// failures in this layer should not be treated as our app syncing chat history.
-	if err = client.SendAppState(ctx, patchInfo); err != nil {
-		// logrus.WithError(err).WithFields(logrus.Fields{
-		// 	"chat_jid": request.ChatJID,
-		// 	"pinned":   request.Pinned,
-		// }).Error("Failed to send pin chat app state")
-		return response, err
+	if config.WhatsappAppStateSyncEnabled {
+		if err = client.SendAppState(ctx, patchInfo); err != nil {
+			// logrus.WithError(err).WithFields(logrus.Fields{
+			// 	"chat_jid": request.ChatJID,
+			// 	"pinned":   request.Pinned,
+			// }).Error("Failed to send pin chat app state")
+			return response, err
+		}
+	} else {
+		// App state sync is disabled for this deployment; skip pin chat app state update.
 	}
 
 	// Build response
@@ -347,12 +352,16 @@ func (service serviceChat) ArchiveChat(ctx context.Context, request domainChat.A
 	// This only affects WhatsApp chat metadata sync; it is not part of our own
 	// message sync implementation. App state errors here can safely be treated as
 	// WhatsApp client sync layer issues rather than our application data sync.
-	if err = client.SendAppState(ctx, patchInfo); err != nil {
-		// logrus.WithError(err).WithFields(logrus.Fields{
-		// 	"chat_jid": request.ChatJID,
-		// 	"archived": request.Archived,
-		// }).Error("Failed to send archive chat app state")
-		return response, err
+	if config.WhatsappAppStateSyncEnabled {
+		if err = client.SendAppState(ctx, patchInfo); err != nil {
+			// logrus.WithError(err).WithFields(logrus.Fields{
+			// 	"chat_jid": request.ChatJID,
+			// 	"archived": request.Archived,
+			// }).Error("Failed to send archive chat app state")
+			return response, err
+		}
+	} else {
+		// App state sync is disabled for this deployment; skip archive chat app state update.
 	}
 
 	// Build response

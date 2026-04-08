@@ -355,7 +355,7 @@ class ArtifactsWindow {
 	static buildArtifactSystemPrompt() {
 		return [
 			'You are an elite software engineer and creative technical architect specialized in HTML, CSS, JavaScript, and modern web tooling.',
-			'Generate professional, artistic, smart, production-quality code solutions that directly satisfy the user request.',
+			'Generate professional, artistic, smart, production-quality code solutions that directly satisfy the user request (this code solutions can be called Miniapp or Artifact).',
 			'Return ONLY one fenced HTML code block with CSS and JS and nothing else.',
 			'Start with ```html and end with ```.',
 			'Inside the fence, provide one complete runnable HTML document.',
@@ -369,6 +369,7 @@ class ArtifactsWindow {
 			'When embedding video, include iframe allow attributes for playback APIs and set allowfullscreen.',
 			'For non-YouTube video streams such as .m3u8 (HLS), generate player code that uses native HLS where available and hls.js fallback for browsers that do not natively play HLS.',
 			'If the requested media format needs a runtime library, include and initialize the required library inside the generated HTML.',
+			'If you need to use pictures, always search for pictures related to the user request, use images from pixabay.com with pexels.com as fallback to enrich the miniapp or artifact, and make sure to use the correct API to fetch the image URLs and include them properly in the HTML.',
 			'Ensure the output renders correctly in modern browsers without additional explanation from you.',
 			'If the user request a modification, always comply and return the fixed/upgraded/updated full html code.'
 		].join(' ');
@@ -1199,6 +1200,173 @@ class ArtifactsWindow {
 		return { text: aggregated, context: finalContext, isCloudRouting };
 	}
 
+	static async saveArtifactToLibrary({ htmlContent = '', title = '', prompt = '' } = {}) {
+		const hashedMasterKey = this.getActiveHashedMasterKey();
+		const dbApi = this.getDatabaseApi();
+		const normalizedHtml = String(htmlContent || '').trim();
+
+		if (!hashedMasterKey || !dbApi || typeof dbApi.saveArtifact !== 'function') {
+			throw new Error('Artifact database API unavailable.');
+		}
+
+		if (!normalizedHtml) {
+			throw new Error('No HTML to save.');
+		}
+
+		const resolvedTitle = String(title || this.extractArtifactTitle(normalizedHtml) || this.t('artifactUntitled', 'Untitled artifact')).trim()
+			|| this.t('artifactUntitled', 'Untitled artifact');
+		const normalizedPrompt = this.normalizeArtifactPromptText(prompt || this.currentArtifactPrompt || '');
+
+		const artifactId = await dbApi.saveArtifact(hashedMasterKey, {
+			title: resolvedTitle,
+			html: normalizedHtml,
+			prompt: normalizedPrompt,
+		});
+
+		this.currentArtifactHtml = normalizedHtml;
+		this.currentArtifactPrompt = normalizedPrompt;
+		await this.refreshSavedArtifacts();
+
+		return {
+			id: artifactId,
+			title: resolvedTitle,
+			html: normalizedHtml,
+			prompt: normalizedPrompt,
+		};
+	}
+
+	static async generateArtifactHtmlFromPrompt(promptText = '', options = {}) {
+		const normalizedPrompt = this.normalizeArtifactPromptText(promptText);
+		if (!normalizedPrompt) {
+			throw new Error('Artifact prompt is empty.');
+		}
+
+		const {
+			useWebSearch = false,
+			abortSignal = null,
+		} = options || {};
+
+		const abortController = new AbortController();
+		if (abortSignal) {
+			if (abortSignal.aborted) {
+				throw new DOMException('Aborted', 'AbortError');
+			}
+			abortSignal.addEventListener('abort', () => {
+				try {
+					abortController.abort();
+				} catch (_error) {
+				}
+			}, { once: true });
+		}
+
+		this.currentAbortController = abortController;
+		this.setViewMode('code');
+		if (this.codeEditor) {
+			this.setCodeEditorValue('');
+		}
+		this.currentArtifactHtml = '';
+		this.setRequestProgressVisible(true);
+
+		try {
+			let effectiveUserPrompt = normalizedPrompt;
+
+			let smoothQueue = '';
+			let smoothRaf = null;
+			const flushSmoothQueue = () => {
+				if (smoothRaf) {
+					cancelAnimationFrame(smoothRaf);
+					smoothRaf = null;
+				}
+				if (smoothQueue && this.codeEditor) {
+					this.appendCodeEditorValue(smoothQueue);
+					this.scrollCodeEditorToBottom();
+					smoothQueue = '';
+				}
+			};
+			const pumpSmoothQueue = () => {
+				smoothRaf = null;
+				if (!this.codeEditor || !smoothQueue) {
+					return;
+				}
+				const take = Math.min(14, smoothQueue.length);
+				this.appendCodeEditorValue(smoothQueue.slice(0, take));
+				this.scrollCodeEditorToBottom();
+				smoothQueue = smoothQueue.slice(take);
+				if (smoothQueue.length > 0) {
+					smoothRaf = requestAnimationFrame(pumpSmoothQueue);
+				}
+			};
+			const queueCodeChunk = (chunk) => {
+				if (!chunk) {
+					return;
+				}
+				smoothQueue += chunk;
+				if (!smoothRaf) {
+					smoothRaf = requestAnimationFrame(pumpSmoothQueue);
+				}
+			};
+
+			const fenceExtractor = this.createCodeFenceExtractor(queueCodeChunk);
+
+			if (useWebSearch) {
+				this.setGenerationStatus(this.t('artifactStatusWebSearchRunning', 'Web search running...'), 'idle');
+				const webSearchSourceText = await this.buildWebSearchSourceText(normalizedPrompt, abortController.signal);
+				if (webSearchSourceText) {
+					effectiveUserPrompt = [
+						'Use the following user goal and web research context to produce the artifact HTML.',
+						`User goal:\n${normalizedPrompt}`,
+						'',
+						webSearchSourceText,
+					].join('\n');
+				}
+			}
+
+			this.setGenerationStatus(this.t('artifactStatusGenerating', 'Generating artifact...'), 'idle');
+			const streamResult = await this.streamArtifactHtml(effectiveUserPrompt, abortController.signal, (delta) => {
+				fenceExtractor.push(delta);
+			});
+
+			const fenceState = fenceExtractor.finish();
+			flushSmoothQueue();
+
+			const receivedCode = this.codeEditor ? String(this.codeEditor.value || '').trim() : '';
+			if (!fenceState.started || !receivedCode) {
+				throw new Error('No code block received from model response.');
+			}
+
+			this.currentArtifactHtml = receivedCode;
+			this.currentArtifactPrompt = normalizedPrompt;
+			this.addArtifactHistoryTurn('user', normalizedPrompt);
+			this.addArtifactHistoryTurn('assistant', receivedCode);
+			if (streamResult && !streamResult.isCloudRouting && Array.isArray(streamResult.context)) {
+				this.artifactLocalContext = streamResult.context;
+			}
+			this.setViewMode('artifact');
+			this.setGenerationStatus(this.t('artifactStatusDone', 'Done'), 'success');
+
+			return {
+				html: receivedCode,
+				prompt: normalizedPrompt,
+				title: this.extractArtifactTitle(receivedCode),
+			};
+		} catch (error) {
+			if (error && error.name === 'AbortError') {
+				this.setGenerationStatus(this.t('artifactStatusCancelled', 'Cancelled'), 'idle');
+			} else {
+				console.error('[ArtifactsWindow] WhatsApp generation failed:', error);
+				this.setGenerationStatus(this.t('artifactStatusFailed', 'Generation failed'), 'error');
+				if (this.isCloudUsageLimitError(error)) {
+					this.showCloudUsageLimitPreviewNotice(error);
+					this.setViewMode('artifact');
+				}
+			}
+			throw error;
+		} finally {
+			this.currentAbortController = null;
+			this.setRequestProgressVisible(false);
+		}
+	}
+
 	static applyArtifactsWebSearchToggleStyles() {
 		if (!this.webSearchBtn) {
 			return;
@@ -1816,11 +1984,13 @@ class ArtifactsWindow {
 			this.renderFrame = null;
 			this.sidebarList = null;
 			this.sidebarEmpty = null;
+			this.closeWindowHandler = null;
 
 			if (typeof onClose === 'function') {
 				onClose();
 			}
 		};
+		this.closeWindowHandler = closeWindow;
 
 		this.fullscreenChangeHandler = () => {
 			this.updateFullscreenButtonLabel();

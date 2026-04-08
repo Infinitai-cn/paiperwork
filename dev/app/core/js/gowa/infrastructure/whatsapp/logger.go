@@ -28,6 +28,15 @@ func isTransientSignalMacMismatch(msg string) bool {
 		strings.Contains(lower, "failed to verify ciphertext mac")
 }
 
+func isAppStateSyncError(msg string) bool {
+	lower := strings.ToLower(msg)
+	return strings.Contains(lower, "failed to sync app state") ||
+		strings.Contains(lower, "failed to do initial fetch of app state") ||
+		strings.Contains(lower, "failed to decode app state") ||
+		strings.Contains(lower, "failed to verify snapshot") ||
+		strings.Contains(lower, "failed to get key")
+}
+
 func newFilteredLogger(base waLog.Logger) waLog.Logger {
 	return &filteredLogger{base: base}
 }
@@ -41,6 +50,11 @@ func (l *filteredLogger) Errorf(msg string, args ...interface{}) {
 
 	if isTransientSignalMacMismatch(formatted) {
 		l.base.Debugf("Transient Signal decrypt mismatch observed (often during fresh pair/session sync). Ignoring unless repeated continuously: %s", formatted)
+		return
+	}
+
+	if isAppStateSyncError(formatted) {
+		l.base.Debugf("WhatsApp app-state sync error suppressed (not used by Paiperwork): %s", formatted)
 		return
 	}
 

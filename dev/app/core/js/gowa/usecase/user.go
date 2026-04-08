@@ -8,8 +8,9 @@ import (
 	"image"
 	"time"
 
-	domainUser "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/user"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
+	domainUser "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/user"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
 	pkgError "github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/error"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
@@ -334,9 +335,13 @@ func (service serviceUser) ChangePushName(ctx context.Context, request domainUse
 	}
 	utils.MustLogin(client)
 
-	err = client.SendAppState(ctx, appstate.BuildSettingPushName(request.PushName))
-	if err != nil {
-		return err
+	if config.WhatsappAppStateSyncEnabled {
+		err = client.SendAppState(ctx, appstate.BuildSettingPushName(request.PushName))
+		if err != nil {
+			return err
+		}
+	} else {
+		// App state sync is disabled for this deployment; skip pushname app state update.
 	}
 	return nil
 }
