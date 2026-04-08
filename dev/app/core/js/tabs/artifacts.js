@@ -369,7 +369,7 @@ class ArtifactsWindow {
 			'When embedding video, include iframe allow attributes for playback APIs and set allowfullscreen.',
 			'For non-YouTube video streams such as .m3u8 (HLS), generate player code that uses native HLS where available and hls.js fallback for browsers that do not natively play HLS.',
 			'If the requested media format needs a runtime library, include and initialize the required library inside the generated HTML.',
-			'If you need to use pictures, always search for pictures related to the user request, use images from pixabay.com with pexels.com as fallback to enrich the miniapp or artifact, and make sure to use the correct API to fetch the image URLs and include them properly in the HTML.',
+			'If you need to use pictures, always search for pictures related to the user request, use images from unsplash.com and make pixabay.com and pexels.com pictures as fallback in the code if unsplash pictures fail to load to enrich the miniapp or artifact, and make sure to use the correct API to fetch the image URLs and include them properly in the HTML.',
 			'Ensure the output renders correctly in modern browsers without additional explanation from you.',
 			'If the user request a modification, always comply and return the fixed/upgraded/updated full html code.'
 		].join(' ');
