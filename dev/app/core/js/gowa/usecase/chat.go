@@ -243,12 +243,15 @@ func (service serviceChat) PinChat(ctx context.Context, request domainChat.PinCh
 	// Build pin patch using whatsmeow's BuildPin
 	patchInfo := appstate.BuildPin(targetJID, request.Pinned)
 
-	// Send app state update
+	// Send app state update.
+	// This uses WhatsApp app state sync only for chat metadata (pin/archive).
+	// We do not sync raw WhatsApp messages as part of our app state model, so
+	// failures in this layer should not be treated as our app syncing chat history.
 	if err = client.SendAppState(ctx, patchInfo); err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"chat_jid": request.ChatJID,
-			"pinned":   request.Pinned,
-		}).Error("Failed to send pin chat app state")
+		// logrus.WithError(err).WithFields(logrus.Fields{
+		// 	"chat_jid": request.ChatJID,
+		// 	"pinned":   request.Pinned,
+		// }).Error("Failed to send pin chat app state")
 		return response, err
 	}
 
@@ -340,12 +343,15 @@ func (service serviceChat) ArchiveChat(ctx context.Context, request domainChat.A
 	// Build archive patch using whatsmeow's BuildArchive
 	patchInfo := appstate.BuildArchive(targetJID, request.Archived, time.Now(), nil)
 
-	// Send app state update
+	// Send app state update.
+	// This only affects WhatsApp chat metadata sync; it is not part of our own
+	// message sync implementation. App state errors here can safely be treated as
+	// WhatsApp client sync layer issues rather than our application data sync.
 	if err = client.SendAppState(ctx, patchInfo); err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"chat_jid": request.ChatJID,
-			"archived": request.Archived,
-		}).Error("Failed to send archive chat app state")
+		// logrus.WithError(err).WithFields(logrus.Fields{
+		// 	"chat_jid": request.ChatJID,
+		// 	"archived": request.Archived,
+		// }).Error("Failed to send archive chat app state")
 		return response, err
 	}
 

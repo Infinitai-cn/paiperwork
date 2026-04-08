@@ -190,6 +190,9 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 whatsappModelsUnavailable: "我现在无法加载模型列表。",
                 whatsappModelsProviderLocal: "本地",
                 whatsappModelsProviderCloud: "云端",
+                orchestratorWorkingTitle: "编排器正在工作",
+                orchestratorWorkingMessage: "正在路由收到的 WhatsApp 请求。请稍候...",
+                disconnectServer: "断开服务器",
 
                 // Context and Memory Management
                 contextChangeWarning: "更改上下文将重置当前短期记忆。数据库中的长期记忆将被保留。",

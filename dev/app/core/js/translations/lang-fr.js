@@ -190,6 +190,9 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         whatsappModelsUnavailable: "Je n'ai pas pu charger la liste des modèles pour le moment.",
         whatsappModelsProviderLocal: "Local",
         whatsappModelsProviderCloud: "Cloud",
+        orchestratorWorkingTitle: "Orchestrateur en cours",
+        orchestratorWorkingMessage: "Routage de la demande WhatsApp entrante. Veuillez patienter...",
+        disconnectServer: "Déconnecter le serveur",
 
         // Context and Memory Management
         contextChangeWarning: "Changer le contexte réinitialisera la mémoire à court terme actuelle. La mémoire à long terme dans la base de données sera préservée.",
