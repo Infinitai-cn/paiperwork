@@ -375,6 +375,14 @@ body {
     width: min(100%, 240px);
 }
 
+.whatsapp-model-lock-button-container {
+    margin: 0 auto 8px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: min(100%, 240px);
+}
+
 .connectors-mode-button {
     min-width: 100px;
     max-width: calc((100% - 8px) / 2);
@@ -389,6 +397,12 @@ body {
     font-weight: 700;
     cursor: pointer;
     transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.connectors-mode-button-full {
+    min-width: 100%;
+    max-width: 100%;
+    width: 100%;
 }
 
 .connectors-mode-button.active {

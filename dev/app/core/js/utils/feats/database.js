@@ -1987,6 +1987,7 @@ class PaiperworkDB {
                     db.run(`
                         CREATE TABLE IF NOT EXISTS conversations_${hashedMasterKey} (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            message_id TEXT,
                             conversation TEXT,
                             embedding BLOB,
                             timestamp DATETIME, 
@@ -2532,11 +2533,23 @@ class PaiperworkDB {
                 }
             }
 
-            // Update database version to 21 (includes dedicated presentations/artifacts role database migration)
+            // Version 22: Add stable per-message identifiers to conversation rows.
+            if (currentVersion < 22) {
+                try {
+                    const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='conversations_${hashedMasterKey}'`);
+                    if (tableCheck.length > 0 && tableCheck[0].values.length > 0) {
+                        await this.ensureConversationMessageIdColumn(db, hashedMasterKey);
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error adding conversation message_id column', error);
+                }
+            }
+
+            // Update database version to 22 (includes stable conversation message identifiers)
             if (currentVersion === 0) {
-                db.run('INSERT INTO db_version (version) VALUES (21)');
+                db.run('INSERT INTO db_version (version) VALUES (22)');
             } else {
-                db.run('UPDATE db_version SET version = 21');
+                db.run('UPDATE db_version SET version = 22');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
@@ -2549,6 +2562,43 @@ class PaiperworkDB {
             console.error('Error during database migration:', error);
             return false;
         }
+    }
+
+    static async ensureConversationMessageIdColumn(db, hashedMasterKey) {
+        if (!db || !hashedMasterKey) return false;
+
+        let changed = false;
+
+        const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='conversations_${hashedMasterKey}'`);
+        if (!tableCheck.length || !tableCheck[0].values.length) {
+            return false;
+        }
+
+        const columnsResult = db.exec(`PRAGMA table_info(conversations_${hashedMasterKey})`);
+        const hasMessageIdColumn = columnsResult[0]?.values.some(col => col[1] === 'message_id');
+
+        if (!hasMessageIdColumn) {
+            db.exec(`ALTER TABLE conversations_${hashedMasterKey} ADD COLUMN message_id TEXT`);
+            changed = true;
+        }
+
+        const missingIdsResult = db.exec(`
+            SELECT rowid
+            FROM conversations_${hashedMasterKey}
+            WHERE message_id IS NULL OR TRIM(COALESCE(message_id, '')) = ''
+        `);
+
+        if (missingIdsResult[0]?.values?.length) {
+            for (const [rowid] of missingIdsResult[0].values) {
+                db.run(
+                    `UPDATE conversations_${hashedMasterKey} SET message_id = ? WHERE rowid = ?`,
+                    [crypto.randomUUID(), rowid]
+                );
+            }
+            changed = true;
+        }
+
+        return changed;
     }
 
     static async migrateLegacyKnowledgeCollectionsToDedicatedDb(mainDb, hashedMasterKey) {
@@ -4013,8 +4063,13 @@ class PaiperworkDB {
 
                         // ALWAYS decrypt and load insights_enabled without any conditions
                         if (insightsEnabledStr) {
-                            const encryptedInsights = JSON.parse(insightsEnabledStr);
-                            insightsEnabled = await this.decrypt(hashedMasterKey, encryptedInsights);
+                            try {
+                                const encryptedInsights = JSON.parse(insightsEnabledStr);
+                                insightsEnabled = await this.decrypt(hashedMasterKey, encryptedInsights);
+                            } catch (parseError) {
+                                // Legacy or unencrypted values may be stored as plain text
+                                insightsEnabled = String(insightsEnabledStr).trim();
+                            }
                         }
 
                         // Decrypt visual model if it exists
@@ -4262,7 +4317,7 @@ class PaiperworkDB {
             `, [JSON.stringify(encryptedDeviceId), JSON.stringify(encryptedMeta), hashedMasterKey]);
 
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
-            console.log('PaiperworkDB: saveWhatsappDeviceInfo succeeded', { hashedMasterKey, deviceId });
+            //console.log('PaiperworkDB: saveWhatsappDeviceInfo succeeded', { hashedMasterKey, deviceId });
             return true;
         } catch (error) {
             console.error('Error saving Whatsapp device info:', error);
@@ -4445,11 +4500,11 @@ class PaiperworkDB {
             }
 
             if (!deviceId && (!meta || Object.keys(meta).length === 0)) {
-                console.log('PaiperworkDB: getWhatsappDeviceInfo no device info saved yet', { hashedMasterKey });
+                //console.log('PaiperworkDB: getWhatsappDeviceInfo no device info saved yet', { hashedMasterKey });
                 return null;
             }
 
-            console.log('PaiperworkDB: getWhatsappDeviceInfo', { hashedMasterKey, deviceId, meta });
+            //console.log('PaiperworkDB: getWhatsappDeviceInfo', { hashedMasterKey, deviceId, meta });
             return { deviceId, meta };
         } catch (error) {
             console.error('Error getting Whatsapp device info:', error);
@@ -4473,9 +4528,14 @@ class PaiperworkDB {
             `);
 
             const columnCheck = sqlDb.exec(`PRAGMA table_info(whatsapp_settings)`);
-            const hasWhatsappMode = columnCheck[0].values.some(col => col[1] === 'whatsapp_mode');
+            const settingsColumns = columnCheck[0]?.values || [];
+            const hasWhatsappMode = settingsColumns.some(col => col[1] === 'whatsapp_mode');
+            const hasModelLock = settingsColumns.some(col => col[1] === 'whatsapp_model_locked');
             if (!hasWhatsappMode) {
                 sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_mode TEXT DEFAULT ''`);
+            }
+            if (!hasModelLock) {
+                sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_model_locked TEXT DEFAULT 'false'`);
             }
 
             sqlDb.run(`INSERT OR IGNORE INTO whatsapp_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
@@ -4486,10 +4546,48 @@ class PaiperworkDB {
             `, [normalizedMode, hashedMasterKey]);
 
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
-            console.log('PaiperworkDB: saveWhatsappMode succeeded', { hashedMasterKey, normalizedMode });
+            //console.log('PaiperworkDB: saveWhatsappMode succeeded', { hashedMasterKey, normalizedMode });
             return true;
         } catch (error) {
             console.error('Error saving Whatsapp mode:', error);
+            return false;
+        }
+    }
+
+    static async saveWhatsappModelLock(hashedMasterKey, locked) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const normalizedLocked = String(locked).toLowerCase() === 'true' ? 'true' : 'false';
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    whatsapp_device_id TEXT,
+                    whatsapp_device_meta TEXT,
+                    whatsapp_mode TEXT DEFAULT '',
+                    whatsapp_model_locked TEXT DEFAULT 'false'
+                )
+            `);
+
+            const columnCheck = sqlDb.exec(`PRAGMA table_info(whatsapp_settings)`);
+            const settingsColumns = columnCheck[0]?.values || [];
+            const hasModelLock = settingsColumns.some(col => col[1] === 'whatsapp_model_locked');
+            if (!hasModelLock) {
+                sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_model_locked TEXT DEFAULT 'false'`);
+            }
+
+            sqlDb.run(`INSERT OR IGNORE INTO whatsapp_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
+            sqlDb.run(`
+                UPDATE whatsapp_settings
+                SET whatsapp_model_locked = ?
+                WHERE masterkey_hash = ?
+            `, [normalizedLocked, hashedMasterKey]);
+
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error saving Whatsapp model lock:', error);
             return false;
         }
     }
@@ -4537,6 +4635,44 @@ class PaiperworkDB {
         } catch (error) {
             console.error('Error getting Whatsapp mode:', error);
             return null;
+        }
+    }
+
+    static async getWhatsappModelLock(hashedMasterKey) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return false;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    whatsapp_device_id TEXT,
+                    whatsapp_device_meta TEXT,
+                    whatsapp_mode TEXT DEFAULT '',
+                    whatsapp_model_locked TEXT DEFAULT 'false'
+                )
+            `);
+
+            const columnCheck = sqlDb.exec(`PRAGMA table_info(whatsapp_settings)`);
+            const settingsColumns = columnCheck[0]?.values || [];
+            const hasModelLock = settingsColumns.some(col => col[1] === 'whatsapp_model_locked');
+            if (!hasModelLock) {
+                sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_model_locked TEXT DEFAULT 'false'`);
+                await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+                return false;
+            }
+
+            const row = sqlDb.exec(`SELECT whatsapp_model_locked FROM whatsapp_settings WHERE masterkey_hash = ? LIMIT 1`, [hashedMasterKey]);
+            if (!row || !row[0] || !row[0].values || !row[0].values.length) {
+                return false;
+            }
+
+            return String(row[0].values[0][0] || '').trim().toLowerCase() === 'true';
+        } catch (error) {
+            console.error('Error getting Whatsapp model lock:', error);
+            return false;
         }
     }
 
@@ -4930,7 +5066,7 @@ class PaiperworkDB {
     }
 
     // Stores a conversation pair (user and assistant messages) in the database.
-    static async storeConversationOnly(hashedMasterKey, userMessage, aiMessage, forceNewGroup = false, targetGroup = null) {
+    static async storeConversationOnly(hashedMasterKey, userMessage, aiMessage, forceNewGroup = false, targetGroup = null, messageIds = null) {
        //console.log("Storing conversation with OPFS/IndexedDB compatibility");
 
         try {
@@ -4953,6 +5089,12 @@ class PaiperworkDB {
                 }
             } catch (error) {
                 console.error('Error checking for conversation_group column:', error);
+            }
+
+            try {
+                await this.ensureConversationMessageIdColumn(db, hashedMasterKey);
+            } catch (error) {
+                console.error('Error checking for message_id column:', error);
             }
 
             // Determine conversation group (existing code)
@@ -5089,6 +5231,8 @@ class PaiperworkDB {
 
             // Use separate timestamps with sufficient difference for proper ordering
             const baseTime = new Date();
+            const userMessageId = String(messageIds?.userMessageId || crypto.randomUUID());
+            const assistantMessageId = String(messageIds?.assistantMessageId || crypto.randomUUID());
 
             // Store user message with initial timestamp
             const userTimestamp = baseTime.toISOString();
@@ -5105,9 +5249,10 @@ class PaiperworkDB {
             // Insert user message with conversation group
             db.run(
                 `INSERT INTO conversations_${hashedMasterKey}
-                (conversation, timestamp, role, conversation_group)
-                VALUES (?, ?, ?, ?)`,
+                (message_id, conversation, timestamp, role, conversation_group)
+                VALUES (?, ?, ?, ?, ?)`,
                 [
+                    userMessageId,
                     JSON.stringify(encryptedUserMessage),
                     JSON.stringify(encryptedUserTimestamp),
                     JSON.stringify(encryptedUserRole),
@@ -5130,9 +5275,10 @@ class PaiperworkDB {
             // Insert AI message with the same conversation group
             db.run(
                 `INSERT INTO conversations_${hashedMasterKey}
-                (conversation, timestamp, role, conversation_group)
-                VALUES (?, ?, ?, ?)`,
+                (message_id, conversation, timestamp, role, conversation_group)
+                VALUES (?, ?, ?, ?, ?)`,
                 [
+                    assistantMessageId,
                     JSON.stringify(encryptedAiMessage),
                     JSON.stringify(encryptedAiTimestamp),
                     JSON.stringify(encryptedAiRole),
@@ -5151,7 +5297,12 @@ class PaiperworkDB {
             if (imageData.length > 0) {
                 await this.saveToStorage(attachmentDb.export(), hashedMasterKey, 'images');
             }
-            return true;
+            return {
+                success: true,
+                userMessageId,
+                assistantMessageId,
+                conversationGroup
+            };
         } catch (error) {
             console.error('Error storing conversation:', error);
             return false;
@@ -5194,9 +5345,14 @@ class PaiperworkDB {
                 // Continue execution as this isn't critical
             }
 
+            const schemaChanged = await this.ensureConversationMessageIdColumn(db, hashedMasterKey);
+            if (schemaChanged) {
+                await this.saveToStorage(db.export(), hashedMasterKey);
+            }
+
             // IMPORTANT: Make sure we explicitly select conversation_group
             const queryResult = db.exec(`
-                SELECT conversation, timestamp, role, conversation_group
+                SELECT message_id, conversation, timestamp, role, conversation_group
                 FROM conversations_${hashedMasterKey}
                 ORDER BY timestamp ASC
             `);
@@ -5218,10 +5374,11 @@ class PaiperworkDB {
 
             // Process all messages, now with conversation_group
             for (const row of queryResult[0].values) {
-                const conversation = row[0];
-                const timestamp = row[1];
-                const role = row[2];
-                const group = row[3] || 1; // Default to 1 if null
+                const messageId = row[0];
+                const conversation = row[1];
+                const timestamp = row[2];
+                const role = row[3];
+                const group = row[4] || 1; // Default to 1 if null
 
                 const decryptedMessage = await this.decrypt(
                     hashedMasterKey,
@@ -5353,6 +5510,7 @@ class PaiperworkDB {
                 }
 
                 conversations.push({
+                    message_id: messageId,
                     message: processedMessage,
                     timestamp: decryptedTimestamp,
                     role: decryptedRole,
@@ -5448,9 +5606,14 @@ class PaiperworkDB {
                 // Continue execution as this isn't critical
             }
 
+            const schemaChanged = await this.ensureConversationMessageIdColumn(db, hashedMasterKey);
+            if (schemaChanged) {
+                await this.saveToStorage(db.export(), hashedMasterKey);
+            }
+
             // Query for conversations in the specified group
             const queryResult = db.exec(`
-                SELECT conversation, timestamp, role, conversation_group
+                SELECT message_id, conversation, timestamp, role, conversation_group
                 FROM conversations_${hashedMasterKey}
                 WHERE conversation_group = ?
                 ORDER BY timestamp ASC
@@ -5465,9 +5628,10 @@ class PaiperworkDB {
 
             // Process all messages in the group
             for (const row of queryResult[0].values) {
-                const conversation = row[0];
-                const timestamp = row[1];
-                const role = row[2];
+                const messageId = row[0];
+                const conversation = row[1];
+                const timestamp = row[2];
+                const role = row[3];
 
                 const decryptedMessage = await this.decrypt(
                     hashedMasterKey,
@@ -5503,6 +5667,7 @@ class PaiperworkDB {
                 }
 
                 conversations.push({
+                    message_id: messageId,
                     message: processedMessage,
                     timestamp: decryptedTimestamp,
                     role: decryptedRole,
@@ -5526,6 +5691,134 @@ class PaiperworkDB {
         } catch (error) {
             console.error('Error loading conversations by group:', error);
             return { conversations: [], error };
+        }
+    }
+
+    static async deleteConversationPairByIds(hashedMasterKey, userMessageId = null, assistantMessageId = null, options = null) {
+        try {
+            const db = await this.getDatabase(hashedMasterKey);
+            const attachmentDb = await this.getDatabase(hashedMasterKey, 'images', true);
+            if (!db) {
+                throw new Error('Database not found');
+            }
+
+            await this.ensureConversationMessageIdColumn(db, hashedMasterKey);
+
+            const requestedConversationGroup = Number.isFinite(Number(options?.conversationGroup))
+                ? Number(options.conversationGroup)
+                : null;
+
+            const queryResult = db.exec(`
+                SELECT rowid, message_id, conversation, role, timestamp, conversation_group
+                FROM conversations_${hashedMasterKey}
+                ORDER BY timestamp ASC
+            `);
+
+            if (!queryResult[0]?.values) {
+                return false;
+            }
+
+            const orderedMessages = [];
+            const userMessages = [];
+
+            for (const [rowid, messageId, encryptedConversation, encryptedRole, encryptedTimestamp, conversationGroup] of queryResult[0].values) {
+                const decryptedRole = await this.decrypt(hashedMasterKey, JSON.parse(encryptedRole));
+                const decryptedMessage = await this.decrypt(hashedMasterKey, JSON.parse(encryptedConversation));
+                const decryptedTimestamp = await this.decrypt(hashedMasterKey, JSON.parse(encryptedTimestamp));
+
+                const entry = {
+                    rowid,
+                    messageId,
+                    role: decryptedRole,
+                    rawContent: decryptedMessage,
+                    timestamp: decryptedTimestamp,
+                    conversationGroup: conversationGroup || 1
+                };
+
+                orderedMessages.push(entry);
+                if (decryptedRole === 'user') {
+                    userMessages.push(entry);
+                }
+            }
+
+            const scopedOrderedMessages = requestedConversationGroup == null
+                ? orderedMessages
+                : orderedMessages.filter(msg => msg.conversationGroup === requestedConversationGroup);
+
+            const rowsToDelete = new Set();
+
+            const exactUserMatch = userMessageId
+                ? scopedOrderedMessages.find(msg => msg.role === 'user' && String(msg.messageId) === String(userMessageId))
+                : null;
+            const exactAssistantMatch = assistantMessageId
+                ? scopedOrderedMessages.find(msg => msg.role === 'assistant' && String(msg.messageId) === String(assistantMessageId))
+                : null;
+
+            if (exactUserMatch && exactAssistantMatch) {
+                rowsToDelete.add(exactUserMatch.rowid);
+                rowsToDelete.add(exactAssistantMatch.rowid);
+            } else if (exactUserMatch) {
+                rowsToDelete.add(exactUserMatch.rowid);
+                const userIndex = scopedOrderedMessages.findIndex(msg => msg.rowid === exactUserMatch.rowid);
+                for (let nextIndex = userIndex + 1; nextIndex < scopedOrderedMessages.length; nextIndex++) {
+                    const nextMessage = scopedOrderedMessages[nextIndex];
+                    if (nextMessage.conversationGroup !== exactUserMatch.conversationGroup) continue;
+                    if (nextMessage.role === 'user') break;
+                    if (nextMessage.role === 'assistant') {
+                        rowsToDelete.add(nextMessage.rowid);
+                        break;
+                    }
+                }
+            } else if (exactAssistantMatch) {
+                rowsToDelete.add(exactAssistantMatch.rowid);
+                const assistantIndex = scopedOrderedMessages.findIndex(msg => msg.rowid === exactAssistantMatch.rowid);
+                for (let prevIndex = assistantIndex - 1; prevIndex >= 0; prevIndex--) {
+                    const prevMessage = scopedOrderedMessages[prevIndex];
+                    if (prevMessage.conversationGroup !== exactAssistantMatch.conversationGroup) continue;
+                    if (prevMessage.role === 'assistant') continue;
+                    if (prevMessage.role === 'user') {
+                        rowsToDelete.add(prevMessage.rowid);
+                        break;
+                    }
+                }
+            }
+
+            if (!rowsToDelete.size) {
+                console.warn('⚠️ No exact message id match found for deletion');
+                return false;
+            }
+
+            const attachmentIdsToDelete = userMessages
+                .filter(msg => rowsToDelete.has(msg.rowid))
+                .flatMap(msg => this.extractConversationAttachmentIdsFromStoredMessage(msg.rawContent));
+
+            let deletedCount = 0;
+            let deletedAttachmentCount = 0;
+            for (const rowid of rowsToDelete) {
+                db.exec(`DELETE FROM conversations_${hashedMasterKey} WHERE rowid = ?`, [rowid]);
+                deletedCount++;
+            }
+
+            if (deletedCount > 0) {
+                if (attachmentIdsToDelete.length > 0 && attachmentDb) {
+                    deletedAttachmentCount = await this.deleteConversationAttachmentsByIds(
+                        attachmentDb,
+                        hashedMasterKey,
+                        attachmentIdsToDelete
+                    );
+                }
+
+                await this.saveToStorage(db.export(), hashedMasterKey);
+                if (deletedAttachmentCount > 0 && attachmentDb) {
+                    await this.saveToStorage(attachmentDb.export(), hashedMasterKey, 'images');
+                }
+                return true;
+            }
+
+            return false;
+        } catch (error) {
+            console.error('❌ Error in deleteConversationPairByIds:', error);
+            return false;
         }
     }
     // Updates the timestamp for a specific conversation group.
@@ -5590,7 +5883,7 @@ class PaiperworkDB {
     }
     // Deletes a user/assistant message pair from the conversation history.
     static async deleteConversationPair(hashedMasterKey, userContent, assistantContent, options = null) {
-       //console.log('🗑️ Enhanced deletion of conversation pair with multi-strategy matching');
+       //console.log('🗑️ Deleting conversation pair with exact canonical matching');
 
         try {
             const db = await this.getDatabase(hashedMasterKey);
@@ -5600,7 +5893,6 @@ class PaiperworkDB {
                 throw new Error('Database not found');
             }
 
-            // Get all conversations for analysis
             const conversationsResult = db.exec(`
             SELECT rowid, conversation, role, timestamp, conversation_group
             FROM conversations_${hashedMasterKey}
@@ -5608,70 +5900,39 @@ class PaiperworkDB {
         `);
 
             if (!conversationsResult[0]?.values) {
-               //console.log('❌ No conversations found in database');
                 return false;
             }
-
-           //console.log(`🔍 Found ${conversationsResult[0].values.length} conversations to check`);
 
             const requestedConversationGroup = Number.isFinite(Number(options?.conversationGroup))
                 ? Number(options.conversationGroup)
                 : null;
             const requirePair = Boolean(options?.requirePair);
 
-            const scoreUserMessageMatch = (msg, targetUserContent) => {
-                if (!targetUserContent) return 0;
+            const normalizeExactText = (value) => String(value || '')
+                .normalize('NFKC')
+                .replace(/\r\n/g, '\n')
+                .replace(/\u00a0/g, ' ')
+                .replace(/[ \t]+/g, ' ')
+                .replace(/\n{2,}/g, '\n')
+                .replace(/[ \t]*\n[ \t]*/g, '\n')
+                .trim();
 
-                if (msg.content === targetUserContent || msg.jsonTextContent === targetUserContent) {
-                    return 400;
+            const normalizeHtmlToText = (value) => {
+                const raw = String(value || '');
+                if (!raw) return '';
+                try {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = raw;
+                    const transientElements = tempDiv.querySelectorAll(
+                        '.message-actions, .copy-response-container, .cancel-note, .code-copy-btn, .code-copy-with-lines-btn, .toggle-line-numbers, .code-run-btn, .line-numbers, [style*="display: none"], [style*="visibility: hidden"]'
+                    );
+                    transientElements.forEach(el => el.remove());
+                    return normalizeExactText(tempDiv.textContent || tempDiv.innerText || raw);
+                } catch (error) {
+                    return normalizeExactText(raw);
                 }
-
-                if (
-                    targetUserContent.includes(msg.content) ||
-                    msg.content.includes(targetUserContent) ||
-                    (msg.jsonTextContent && (
-                        targetUserContent.includes(msg.jsonTextContent) ||
-                        msg.jsonTextContent.includes(targetUserContent)
-                    ))
-                ) {
-                    return 250;
-                }
-
-                const targetWords = targetUserContent.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-                const contentToCheck = (msg.jsonTextContent || msg.content || '').toLowerCase();
-                const msgWords = contentToCheck.split(/\s+/).filter(w => w.length > 2);
-                if (targetWords.length === 0 || msgWords.length === 0) {
-                    return 0;
-                }
-
-                const intersection = targetWords.filter(word => msgWords.includes(word));
-                const score = intersection.length / Math.min(targetWords.length, msgWords.length);
-                return score >= 0.5 ? Math.round(score * 100) : 0;
             };
 
-            const scoreAssistantMessageMatch = (msg, targetAssistantContent) => {
-                if (!targetAssistantContent) return 0;
-
-                if (msg.content === targetAssistantContent) {
-                    return 400;
-                }
-
-                if (targetAssistantContent.includes(msg.content) || msg.content.includes(targetAssistantContent)) {
-                    return 250;
-                }
-
-                const targetWords = targetAssistantContent.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-                const msgWords = (msg.content || '').toLowerCase().split(/\s+/).filter(w => w.length > 2);
-                if (targetWords.length === 0 || msgWords.length === 0) {
-                    return 0;
-                }
-
-                const intersection = targetWords.filter(word => msgWords.includes(word));
-                const score = intersection.length / Math.min(targetWords.length, msgWords.length);
-                return score >= 0.3 ? Math.round(score * 100) : 0;
-            };
-
-            // Separate user and assistant messages with enhanced content extraction
             const userMessages = [];
             const assistantMessages = [];
             const orderedMessages = [];
@@ -5681,51 +5942,37 @@ class PaiperworkDB {
                     const decryptedRole = await this.decrypt(hashedMasterKey, JSON.parse(encryptedRole));
                     const decryptedMessage = await this.decrypt(hashedMasterKey, JSON.parse(encryptedConversation));
                     const decryptedTimestamp = await this.decrypt(hashedMasterKey, JSON.parse(encryptedTimestamp));
+                    const normalizedRaw = normalizeExactText(decryptedMessage);
 
-                    //  ENHANCED: Multiple content representations for better matching
-                    let cleanContent = decryptedMessage.trim();
-                    let jsonTextContent = null;
-                    let rawContent = decryptedMessage;
+                    if (decryptedRole === 'user') {
+                        let jsonTextContent = null;
+                        let normalizedJsonText = '';
 
-                    if (decryptedRole === "user") {
-                        // Try to extract text from JSON format (messages with images)
                         try {
                             const parsedMessage = JSON.parse(decryptedMessage);
                             if (parsedMessage && typeof parsedMessage === 'object' && parsedMessage.text !== undefined) {
-                                jsonTextContent = parsedMessage.text.trim();
-                               //console.log(`📄 Found JSON user message: "${jsonTextContent.substring(0, 50)}..."`);
+                                jsonTextContent = String(parsedMessage.text || '');
+                                normalizedJsonText = normalizeExactText(jsonTextContent);
                             }
-                        } catch (e) {
-                            // Not JSON, use text as-is
+                        } catch (error) {
+                            // Stored user message is plain text; no-op.
                         }
 
                         const userMessage = {
                             rowid,
-                            content: cleanContent,
-                            jsonTextContent,
-                            rawContent,
+                            content: normalizedRaw,
+                            jsonTextContent: normalizedJsonText,
+                            rawContent: decryptedMessage,
                             timestamp: decryptedTimestamp,
                             conversationGroup: conversationGroup || 1
                         };
                         userMessages.push(userMessage);
                         orderedMessages.push({ role: 'user', ...userMessage });
-                    } else if (decryptedRole === "assistant") {
-                        // For assistant messages, clean up HTML/markdown for comparison
-                        let cleanAssistantContent = cleanContent;
-
-                        // Remove HTML tags for text comparison
-                        try {
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = cleanContent;
-                            cleanAssistantContent = tempDiv.textContent || tempDiv.innerText || cleanContent;
-                        } catch (e) {
-                            // Keep original if HTML parsing fails
-                        }
-
+                    } else if (decryptedRole === 'assistant') {
                         const assistantMessage = {
                             rowid,
-                            content: cleanAssistantContent.trim(),
-                            rawContent,
+                            content: normalizeHtmlToText(decryptedMessage),
+                            rawContent: decryptedMessage,
                             timestamp: decryptedTimestamp,
                             conversationGroup: conversationGroup || 1
                         };
@@ -5736,8 +5983,6 @@ class PaiperworkDB {
                     console.error('❌ Error decrypting message:', err);
                 }
             }
-
-           //console.log(`📊 Parsed messages - Users: ${userMessages.length}, Assistants: ${assistantMessages.length}`);
 
             const scopedUserMessages = requestedConversationGroup == null
                 ? userMessages
@@ -5750,11 +5995,11 @@ class PaiperworkDB {
                 : orderedMessages.filter(msg => msg.conversationGroup === requestedConversationGroup);
 
             const rowsToDelete = new Set();
+            const normalizedTargetUserContent = normalizeExactText(userContent);
+            const normalizedTargetAssistantContent = normalizeExactText(assistantContent);
 
-            if (requirePair && userContent && assistantContent) {
-                const targetUserContent = userContent.trim();
-                const targetAssistantContent = assistantContent.trim();
-                let bestPair = null;
+            if (requirePair && normalizedTargetUserContent && normalizedTargetAssistantContent) {
+                let exactPair = null;
 
                 for (let index = 0; index < scopedOrderedMessages.length; index++) {
                     const currentMessage = scopedOrderedMessages[index];
@@ -5762,8 +6007,9 @@ class PaiperworkDB {
                         continue;
                     }
 
-                    const userScore = scoreUserMessageMatch(currentMessage, targetUserContent);
-                    if (!userScore) {
+                    const userMatches = currentMessage.content === normalizedTargetUserContent
+                        || currentMessage.jsonTextContent === normalizedTargetUserContent;
+                    if (!userMatches) {
                         continue;
                     }
 
@@ -5786,171 +6032,88 @@ class PaiperworkDB {
                         continue;
                     }
 
-                    const assistantScore = scoreAssistantMessageMatch(pairedAssistant, targetAssistantContent);
-                    if (!assistantScore) {
-                        continue;
-                    }
-
-                    const pairScore = (userScore * 1000) + assistantScore;
-                    if (!bestPair || pairScore > bestPair.score) {
-                        bestPair = {
+                    if (pairedAssistant.content === normalizedTargetAssistantContent) {
+                        exactPair = {
                             user: currentMessage,
-                            assistant: pairedAssistant,
-                            score: pairScore
+                            assistant: pairedAssistant
                         };
+                        break;
                     }
                 }
 
-                if (!bestPair) {
+                if (!exactPair) {
                     console.warn('⚠️ No exact message pair match found in the current conversation group');
                     return false;
                 }
 
-                rowsToDelete.add(bestPair.user.rowid);
-                rowsToDelete.add(bestPair.assistant.rowid);
-            }
+                rowsToDelete.add(exactPair.user.rowid);
+                rowsToDelete.add(exactPair.assistant.rowid);
+            } else {
+                let exactUserMatch = null;
+                let exactAssistantMatch = null;
 
-            //  ENHANCED: Multi-strategy user message matching
-            let bestUserMatch = null;
-            if (!rowsToDelete.size && userContent && userContent.trim()) {
-                const targetUserContent = userContent.trim();
-               //console.log(`🎯 Looking for user message: "${targetUserContent.substring(0, 50)}..."`);
-
-                // Strategy 1: Exact text match
-                bestUserMatch = scopedUserMessages.find(msg => msg.content === targetUserContent);
-                if (bestUserMatch) //console.log('✅ User match: Exact text match');
-
-                // Strategy 2: JSON text content match (for messages with images)
-                if (!bestUserMatch) {
-                    bestUserMatch = scopedUserMessages.find(msg =>
-                        msg.jsonTextContent && msg.jsonTextContent === targetUserContent
-                    );
-                   //if (bestUserMatch) //console.log('✅ User match: JSON text content match');
+                if (normalizedTargetUserContent) {
+                    exactUserMatch = scopedUserMessages.find(msg =>
+                        msg.content === normalizedTargetUserContent
+                        || msg.jsonTextContent === normalizedTargetUserContent
+                    ) || null;
                 }
 
-                // Strategy 3: Content inclusion (either direction)
-                if (!bestUserMatch) {
-                    bestUserMatch = scopedUserMessages.find(msg =>
-                        targetUserContent.includes(msg.content) ||
-                        msg.content.includes(targetUserContent) ||
-                        (msg.jsonTextContent && (targetUserContent.includes(msg.jsonTextContent) || msg.jsonTextContent.includes(targetUserContent)))
-                    );
-                   //if (bestUserMatch) //console.log('✅ User match: Content inclusion match');
+                if (normalizedTargetAssistantContent) {
+                    exactAssistantMatch = scopedAssistantMessages.find(msg =>
+                        msg.content === normalizedTargetAssistantContent
+                    ) || null;
                 }
 
-                // Strategy 4: Fuzzy word matching (50%+ word overlap)
-                if (!bestUserMatch) {
-                    const targetWords = targetUserContent.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-                    let bestScore = 0;
+                if (exactUserMatch) {
+                    rowsToDelete.add(exactUserMatch.rowid);
 
-                    for (const msg of scopedUserMessages) {
-                        const score = scoreUserMessageMatch(msg, targetUserContent);
-                        if (score > bestScore) {
-                            bestScore = score;
-                            bestUserMatch = msg;
+                    const userIndex = scopedOrderedMessages.findIndex(msg =>
+                        msg.role === 'user' && msg.rowid === exactUserMatch.rowid
+                    );
+                    if (userIndex !== -1) {
+                        for (let nextIndex = userIndex + 1; nextIndex < scopedOrderedMessages.length; nextIndex++) {
+                            const nextMessage = scopedOrderedMessages[nextIndex];
+                            if (nextMessage.conversationGroup !== exactUserMatch.conversationGroup) {
+                                continue;
+                            }
+                            if (nextMessage.role === 'user') {
+                                break;
+                            }
+                            if (nextMessage.role === 'assistant') {
+                                rowsToDelete.add(nextMessage.rowid);
+                                break;
+                            }
                         }
                     }
-                   //if (bestUserMatch) //console.log(`✅ User match: Fuzzy match (${(bestScore * 100).toFixed(1)}% similarity)`);
                 }
-            }
 
-            //  ENHANCED: Multi-strategy assistant message matching
-            let bestAssistantMatch = null;
-            if (!rowsToDelete.size && assistantContent && assistantContent.trim()) {
-                const targetAssistantContent = assistantContent.trim();
-               //console.log(`🎯 Looking for assistant message: "${targetAssistantContent.substring(0, 50)}..."`);
+                if (!rowsToDelete.size && exactAssistantMatch) {
+                    rowsToDelete.add(exactAssistantMatch.rowid);
 
-                // Strategy 1: Exact text match
-                bestAssistantMatch = scopedAssistantMessages.find(msg => msg.content === targetAssistantContent);
-               //if (bestAssistantMatch) console.log('✅ Assistant match: Exact text match');
-
-                // Strategy 2: Content inclusion (either direction)
-                if (!bestAssistantMatch) {
-                    bestAssistantMatch = scopedAssistantMessages.find(msg =>
-                        targetAssistantContent.includes(msg.content) || msg.content.includes(targetAssistantContent)
+                    const assistantIndex = scopedOrderedMessages.findIndex(msg =>
+                        msg.role === 'assistant' && msg.rowid === exactAssistantMatch.rowid
                     );
-                   //if (bestAssistantMatch) console.log('✅ Assistant match: Content inclusion match');
-                }
-
-                // Strategy 3: Fuzzy word matching
-                if (!bestAssistantMatch) {
-                    const targetWords = targetAssistantContent.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-                    let bestScore = 0;
-
-                    for (const msg of scopedAssistantMessages) {
-                        const score = scoreAssistantMessageMatch(msg, targetAssistantContent);
-                        if (score > bestScore) {
-                            bestScore = score;
-                            bestAssistantMatch = msg;
+                    if (assistantIndex !== -1) {
+                        for (let prevIndex = assistantIndex - 1; prevIndex >= 0; prevIndex--) {
+                            const previousMessage = scopedOrderedMessages[prevIndex];
+                            if (previousMessage.conversationGroup !== exactAssistantMatch.conversationGroup) {
+                                continue;
+                            }
+                            if (previousMessage.role === 'assistant') {
+                                continue;
+                            }
+                            if (previousMessage.role === 'user') {
+                                rowsToDelete.add(previousMessage.rowid);
+                                break;
+                            }
                         }
                     }
-                   //if (bestAssistantMatch) console.log(`✅ Assistant match: Fuzzy match (${(bestScore * 100).toFixed(1)}% similarity)`);
                 }
-            }
 
-            if (!rowsToDelete.size && bestUserMatch) {
-               //console.log(`✅ Found user message to delete (Group ${bestUserMatch.conversationGroup}): "${bestUserMatch.content.substring(0, 50)}..."`);
-                rowsToDelete.add(bestUserMatch.rowid);
-
-                // Find corresponding assistant message in the same group
-                if (!bestAssistantMatch) {
-                    const userTime = new Date(bestUserMatch.timestamp).getTime();
-
-                    // Look for assistant message in same group that came after this user message
-                    const candidateAssistants = scopedAssistantMessages.filter(msg =>
-                        msg.conversationGroup === bestUserMatch.conversationGroup
-                    );
-
-                    let closestAssistant = null;
-                    let closestDiff = Infinity;
-
-                    for (const msg of candidateAssistants) {
-                        const msgTime = new Date(msg.timestamp).getTime();
-                        const timeDiff = msgTime - userTime; // Assistant should come after user
-
-                        if (timeDiff > 0 && timeDiff < closestDiff && timeDiff < 60000) { // Within 1 minute
-                            closestDiff = timeDiff;
-                            closestAssistant = msg;
-                        }
-                    }
-
-                    if (closestAssistant) {
-                       //console.log(`✅ Found paired assistant message by timestamp in group ${bestUserMatch.conversationGroup}`);
-                        rowsToDelete.add(closestAssistant.rowid);
-                    }
-                }
-            }
-
-            if (!rowsToDelete.size && bestAssistantMatch) {
-               //console.log(`✅ Found assistant message to delete (Group ${bestAssistantMatch.conversationGroup}): "${bestAssistantMatch.content.substring(0, 50)}..."`);
-                rowsToDelete.add(bestAssistantMatch.rowid);
-
-                // Find corresponding user message in the same group
-                if (!bestUserMatch) {
-                    const assistantTime = new Date(bestAssistantMatch.timestamp).getTime();
-
-                    // Look for user message in same group that came before this assistant message
-                    const candidateUsers = scopedUserMessages.filter(msg =>
-                        msg.conversationGroup === bestAssistantMatch.conversationGroup
-                    );
-
-                    let closestUser = null;
-                    let closestDiff = Infinity;
-
-                    for (const msg of candidateUsers) {
-                        const msgTime = new Date(msg.timestamp).getTime();
-                        const timeDiff = assistantTime - msgTime; // User should come before assistant
-
-                        if (timeDiff > 0 && timeDiff < closestDiff && timeDiff < 60000) { // Within 1 minute
-                            closestDiff = timeDiff;
-                            closestUser = msg;
-                        }
-                    }
-
-                    if (closestUser) {
-                       //console.log(`✅ Found paired user message by timestamp in group ${bestAssistantMatch.conversationGroup}`);
-                        rowsToDelete.add(closestUser.rowid);
-                    }
+                if (!rowsToDelete.size) {
+                    console.warn('⚠️ No exact message match found for deletion');
+                    return false;
                 }
             }
 

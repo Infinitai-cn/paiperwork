@@ -1502,6 +1502,9 @@ class ChatTab {
             conversations.forEach((conv, index) => {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `${conv.role}-message`;
+                if (conv.message_id) {
+                    messageDiv.dataset.messageId = conv.message_id;
+                }
 
                 if (conv.role === 'user') {
                     messageDiv.style.flexDirection = 'column';
@@ -2180,6 +2183,75 @@ class ChatTab {
             console.error('ChatTab: Error deleting conversation group from database:', error);
             return false;
         }
+    }
+
+    // Deletes a conversation group if it no longer contains any stored messages.
+    async deleteEmptyConversationGroupIfNoMessages(hashedMasterKey, groupId) {
+        if (!hashedMasterKey || !groupId) {
+            return false;
+        }
+
+        try {
+            const removeSessionFromSidebar = () => {
+                const sessionItems = Array.from(document.querySelectorAll('.session-item'));
+                const matchingItem = sessionItems.find(item => String(item.dataset.groupId) === String(groupId));
+
+                if (matchingItem && matchingItem.parentNode) {
+                    const nextSibling = matchingItem.nextElementSibling;
+                    const prevSibling = matchingItem.previousElementSibling;
+
+                    matchingItem.parentNode.removeChild(matchingItem);
+
+                    if (nextSibling && nextSibling.classList.contains('session-separator')) {
+                        nextSibling.parentNode.removeChild(nextSibling);
+                    } else if (prevSibling && prevSibling.classList.contains('session-separator')) {
+                        prevSibling.parentNode.removeChild(prevSibling);
+                    }
+                }
+
+                const remainingSessionItems = document.querySelectorAll('.session-item');
+                const conversationList = document.getElementById('conversation-list');
+                if (conversationList && remainingSessionItems.length === 0) {
+                    conversationList.innerHTML = `<div class="no-sessions" style="text-align: center;">${Lang.get('noPreviousConversations')}</div>`;
+                }
+            };
+
+            const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+            if (!db) {
+                removeSessionFromSidebar();
+                return false;
+            }
+
+            const result = db.exec(`
+                SELECT COUNT(*) as count
+                FROM conversations_${hashedMasterKey}
+                WHERE conversation_group = ?
+            `, [groupId]);
+
+            const messageCount = result[0]?.values[0]?.[0] || 0;
+            if (messageCount === 0) {
+                removeSessionFromSidebar();
+
+                if (window.currentConversationGroup === groupId) {
+                    window.currentConversationGroup = null;
+                }
+
+                if (typeof this.showWelcomeMessage === 'function') {
+                    this.showWelcomeMessage();
+                }
+
+                if (typeof this.loadSessionsList === 'function') {
+                    const updatedSessions = await this.loadSessionsList(hashedMasterKey);
+                    this.renderSessionsList(updatedSessions);
+                }
+
+                return true;
+            }
+        } catch (error) {
+            console.error('ChatTab: Error checking for empty conversation group:', error);
+        }
+
+        return false;
     }
 
     // Displays a welcome message in the chat area when no conversation is selected.
@@ -4334,7 +4406,7 @@ class ChatTab {
 
                 // Set insights enabled state
                 if (settings.insights_enabled !== undefined) {
-                    const insightsEnabled = settings.insights_enabled === 'true';
+                    const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
                     localStorage.setItem('insightsEnabled', insightsEnabled.toString());
 
                     // Update toggle UI

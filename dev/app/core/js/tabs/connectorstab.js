@@ -30,6 +30,8 @@ class ConnectorsTab {
         this.whatsappMode = null; // personal or bot
         this.whatsappPersonalModeButton = null;
         this.whatsappBotModeButton = null;
+        this.whatsappModelLockButton = null;
+        this.whatsappModelLocked = false;
         this.whatsappUnpairButton = null;
         this.savedWhatsappDeviceId = null;
         this.whatsappSessionImportedForDevice = null;
@@ -65,6 +67,9 @@ class ConnectorsTab {
                         <button id="whatsapp-personal-mode-btn" class="connectors-mode-button" title="${Lang.get('whatsappPersonalModeButtonTitle') || 'Personal mode'}">${Lang.get('whatsappPersonalModeButton') || 'Personal'}</button>
                         <button id="whatsapp-bot-mode-btn" class="connectors-mode-button" title="${Lang.get('whatsappBotModeButtonTitle') || 'Bot mode'}">${Lang.get('whatsappBotModeButton') || 'Bot'}</button>
                     </div>
+                    <div class="whatsapp-model-lock-button-container">
+                        <button id="whatsapp-model-lock-btn" class="connectors-mode-button connectors-mode-button-full" title="Lock AI model">Lock AI model</button>
+                    </div>
                 </div>
 
             </div>
@@ -81,11 +86,12 @@ class ConnectorsTab {
     setupWhatsappButton() {
         if (!this.whatsappButton) return;
 
-        console.log('ConnectorsTab: setupWhatsappButton called');
+        //console.log('ConnectorsTab: setupWhatsappButton called');
 
         // Reference mode buttons
         this.whatsappPersonalModeButton = document.getElementById('whatsapp-personal-mode-btn');
         this.whatsappBotModeButton = document.getElementById('whatsapp-bot-mode-btn');
+        this.whatsappModelLockButton = document.getElementById('whatsapp-model-lock-btn');
 
         if (this.whatsappPersonalModeButton) {
             this.whatsappPersonalModeButton.addEventListener('click', async () => {
@@ -97,12 +103,21 @@ class ConnectorsTab {
                 await this.setWhatsappMode('bot');
             });
         }
+        if (this.whatsappModelLockButton) {
+            this.whatsappModelLockButton.addEventListener('click', async () => {
+                await this.setWhatsappModelLock(!this.whatsappModelLocked);
+            });
+        }
 
 
         // Initialize mode state from DB
         this.loadWhatsappModeFromDb().catch(err => {
             console.warn('ConnectorsTab: loadWhatsappModeFromDb failed', err);
             this.setWhatsappMode(null);
+        });
+        this.loadWhatsappModelLockFromDb().catch(err => {
+            console.warn('ConnectorsTab: loadWhatsappModelLockFromDb failed', err);
+            this.setWhatsappModelLock(false, true);
         });
 
         // Load any saved device from persistent Paiperwork DB and sync to server state
@@ -135,7 +150,7 @@ class ConnectorsTab {
 
         // Add click event listener
         this.whatsappButton.addEventListener('click', async () => {
-            console.log('ConnectorsTab: whatsapp button click detected');
+            //console.log('ConnectorsTab: whatsapp button click detected');
             if (this.serverStopping) {
                 return;
             }
@@ -186,7 +201,7 @@ class ConnectorsTab {
     }
 
     setWhatsappPairButtonState(isPaired) {
-        console.log('ConnectorsTab: setWhatsappPairButtonState', { isPaired });
+        //console.log('ConnectorsTab: setWhatsappPairButtonState', { isPaired });
         if (!this.whatsappButton) {
             console.warn('ConnectorsTab: setWhatsappPairButtonState called but whatsappButton is null');
             return;
@@ -253,10 +268,10 @@ class ConnectorsTab {
 
         try {
             if (isPaired) {
-                console.log('ConnectorsTab: dispatching whatsappPaired');
+                //console.log('ConnectorsTab: dispatching whatsappPaired');
                 window.dispatchEvent(new CustomEvent('whatsappPaired'));
             } else {
-                console.log('ConnectorsTab: dispatching whatsappUnpaired');
+                //console.log('ConnectorsTab: dispatching whatsappUnpaired');
                 window.dispatchEvent(new CustomEvent('whatsappUnpaired'));
             }
         } catch (e) {
@@ -266,7 +281,7 @@ class ConnectorsTab {
 
     async setWhatsappMode(mode, fromDB = false) {
         const normalized = mode === 'personal' || mode === 'bot' ? mode : null;
-        console.log('ConnectorsTab: setWhatsappMode called', { mode, normalized, fromDB });
+        //console.log('ConnectorsTab: setWhatsappMode called', { mode, normalized, fromDB });
         this.whatsappMode = normalized;
 
         if (this.whatsappPersonalModeButton) {
@@ -313,8 +328,39 @@ class ConnectorsTab {
         this.setWhatsappPairButtonState(this.isPaired);
     }
 
+    async setWhatsappModelLock(locked, fromDB = false) {
+        const normalizedLocked = locked === true || String(locked).toLowerCase() === 'true';
+        this.whatsappModelLocked = normalizedLocked;
+
+        if (this.whatsappModelLockButton) {
+            this.whatsappModelLockButton.classList.toggle('active', normalizedLocked);
+            this.whatsappModelLockButton.textContent = normalizedLocked ? 'AI model locked' : 'Lock AI model';
+            this.whatsappModelLockButton.title = normalizedLocked ? 'AI model locked' : 'Lock AI model';
+            this.whatsappModelLockButton.setAttribute('aria-pressed', normalizedLocked ? 'true' : 'false');
+        }
+
+        if (typeof window !== 'undefined') {
+            window.whatsappModelLocked = normalizedLocked;
+        }
+
+        const dbInstance = window.PaiperworkDB || (typeof PaiperworkDB !== 'undefined' ? PaiperworkDB : null);
+        if (!fromDB && dbInstance && typeof dbInstance.saveWhatsappModelLock === 'function') {
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+            if (hashedMasterKey) {
+                try {
+                    const saveResult = await dbInstance.saveWhatsappModelLock(hashedMasterKey, normalizedLocked);
+                    if (!saveResult) {
+                        console.warn('ConnectorsTab: saveWhatsappModelLock returned false');
+                    }
+                } catch (err) {
+                    console.warn('ConnectorsTab: saveWhatsappModelLock failed', err);
+                }
+            }
+        }
+    }
+
     async unpairWhatsappDevice() {
-        console.log('ConnectorsTab: unpairWhatsappDevice called');
+        //console.log('ConnectorsTab: unpairWhatsappDevice called');
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         if (!hashedMasterKey) {
             console.warn('ConnectorsTab: unpairWhatsappDevice missing master key');
@@ -353,7 +399,7 @@ class ConnectorsTab {
     async loadWhatsappModeFromDb(retryCount = 0) {
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         const dbHandle = window.PaiperworkDB || (typeof PaiperworkDB !== 'undefined' ? PaiperworkDB : null);
-        console.log('ConnectorsTab: loadWhatsappModeFromDb begin', { hashedMasterKey, retryCount, hasDBClass: !!dbHandle });
+        //console.log('ConnectorsTab: loadWhatsappModeFromDb begin', { hashedMasterKey, retryCount, hasDBClass: !!dbHandle });
 
         if (!hashedMasterKey || !dbHandle || typeof dbHandle.getWhatsappMode !== 'function') {
             console.warn('ConnectorsTab: loadWhatsappModeFromDb missing prerequisites', {
@@ -376,15 +422,15 @@ class ConnectorsTab {
             if (!dbInstance) {
                 throw new Error('PaiperworkDB is not available');
             }
-            console.log('ConnectorsTab: initializeDatabase call');
+            //console.log('ConnectorsTab: initializeDatabase call');
             const initResult = await dbInstance.initializeDatabase(hashedMasterKey);
-            console.log('ConnectorsTab: initializeDatabase result', { initResult });
+            //console.log('ConnectorsTab: initializeDatabase result', { initResult });
 
             const mode = await dbInstance.getWhatsappMode(hashedMasterKey);
-            console.log('ConnectorsTab: read Whatsapp mode from DB', { mode });
+            //console.log('ConnectorsTab: read Whatsapp mode from DB', { mode });
 
             if (!mode) {
-                console.log('ConnectorsTab: no mode found in DB, leaving unselected');
+                //console.log('ConnectorsTab: no mode found in DB, leaving unselected');
                 this.setWhatsappMode(null, true);
             } else {
                 this.setWhatsappMode(mode, true);
@@ -396,6 +442,39 @@ class ConnectorsTab {
                 return;
             }
             this.setWhatsappMode(null);
+        }
+    }
+
+    async loadWhatsappModelLockFromDb(retryCount = 0) {
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+        const dbHandle = window.PaiperworkDB || (typeof PaiperworkDB !== 'undefined' ? PaiperworkDB : null);
+
+        if (!hashedMasterKey || !dbHandle || typeof dbHandle.getWhatsappModelLock !== 'function') {
+            if (retryCount < 5) {
+                setTimeout(() => this.loadWhatsappModelLockFromDb(retryCount + 1), 300);
+                return;
+            }
+
+            this.setWhatsappModelLock(false, true);
+            return;
+        }
+
+        try {
+            const dbInstance = window.PaiperworkDB || (typeof PaiperworkDB !== 'undefined' ? PaiperworkDB : null);
+            if (!dbInstance) {
+                throw new Error('PaiperworkDB is not available');
+            }
+
+            await dbInstance.initializeDatabase(hashedMasterKey);
+            const locked = await dbInstance.getWhatsappModelLock(hashedMasterKey);
+            await this.setWhatsappModelLock(locked, true);
+        } catch (err) {
+            console.warn('ConnectorsTab: loadWhatsappModelLockFromDb failed', err);
+            if (retryCount < 5) {
+                setTimeout(() => this.loadWhatsappModelLockFromDb(retryCount + 1), 300);
+                return;
+            }
+            this.setWhatsappModelLock(false, true);
         }
     }
 
@@ -446,7 +525,7 @@ class ConnectorsTab {
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             const dbHandle = await this._getPaiperworkDBHandle();
             const hasFn = dbHandle && typeof dbHandle.getWhatsappDeviceInfo === 'function';
-            console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo called', { hashedMasterKey, hasDbHandle: !!dbHandle, hasFn, retryCount });
+            //console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo called', { hashedMasterKey, hasDbHandle: !!dbHandle, hasFn, retryCount });
 
             if (!hashedMasterKey || !dbHandle || !hasFn) {
                 const missingMetas = {
@@ -454,7 +533,7 @@ class ConnectorsTab {
                     dbHandle: !!dbHandle,
                     getWhatsappDeviceInfoFn: hasFn
                 };
-                console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo missing hashed key or DB handle', missingMetas);
+                //console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo missing hashed key or DB handle', missingMetas);
 
                 if (retryCount < 6 && hashedMasterKey) {
                     // Wait for PaiperworkDB to initialize in the app startup flow.
@@ -466,15 +545,15 @@ class ConnectorsTab {
             }
 
             if (typeof dbHandle.initializeDatabase === 'function') {
-                console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo initializing DB handle');
+                //console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo initializing DB handle');
                 await dbHandle.initializeDatabase(hashedMasterKey);
             }
 
             const info = await dbHandle.getWhatsappDeviceInfo(hashedMasterKey);
             if (!info) {
-                console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo no WhatsApp device info found');
+                //console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo no WhatsApp device info found');
             } else {
-                console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo retrieved info', info);
+                //console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo retrieved info', info);
             }
 
             if (info && info.deviceId) {
@@ -493,14 +572,14 @@ class ConnectorsTab {
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             const dbHandle = await this._getPaiperworkDBHandle();
             const hasFn = dbHandle && typeof dbHandle.saveWhatsappDeviceInfo === 'function';
-            console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo called', { hashedMasterKey, hasDbHandle: !!dbHandle, hasFn, retryCount });
+            //console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo called', { hashedMasterKey, hasDbHandle: !!dbHandle, hasFn, retryCount });
 
             if (!hashedMasterKey || !dbHandle || !hasFn) {
-                console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo missing hashed key or DB handle', {
+                /*console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo missing hashed key or DB handle', {
                     hashedMasterKey: !!hashedMasterKey,
                     dbHandle: !!dbHandle,
                     saveFn: hasFn
-                });
+                });*/
 
                 if (retryCount < 6 && hashedMasterKey) {
                     await new Promise(resolve => setTimeout(resolve, 250));
@@ -511,17 +590,17 @@ class ConnectorsTab {
             }
 
             const res = await fetch('/api/whatsapp/devices');
-            console.log('ConnectorsTab: /api/whatsapp/devices returned', { status: res.status });
+            //console.log('ConnectorsTab: /api/whatsapp/devices returned', { status: res.status });
             if (!res.ok) {
                 console.warn('ConnectorsTab: _saveCurrentWhatsappDeviceInfo no devices, status', res.status);
                 return;
             }
             const body = await res.json();
             const devices = Array.isArray(body.results) ? body.results : (Array.isArray(body) ? body : []);
-            console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo devices', devices);
+            //console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo devices', devices);
             const connectedDevice = devices.find(d => d.state === 'logged_in' || d.state === 'connected');
             if (!connectedDevice || !connectedDevice.id) {
-                console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo found no connected device');
+                //console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo found no connected device');
                 return;
             }
 
@@ -529,7 +608,7 @@ class ConnectorsTab {
                 phone_number: connectedDevice.phone_number || '',
                 display_name: connectedDevice.display_name || ''
             });
-            console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo saved to PaiperworkDB', connectedDevice.id);
+            //console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo saved to PaiperworkDB', connectedDevice.id);
             this.savedWhatsappDeviceId = connectedDevice.id;
             try {
                 await this._captureWhatsappSessionBundle(connectedDevice.id);
@@ -556,7 +635,7 @@ class ConnectorsTab {
             const dbHandle = await this._getPaiperworkDBHandle();
             const hasFn = dbHandle && typeof dbHandle.clearWhatsappDeviceInfo === 'function';
             if (!hashedMasterKey || !dbHandle || !hasFn) {
-                console.log('ConnectorsTab: _clearSavedWhatsappDeviceInfo skipped - missing hashed key or DB handle', { hashedMasterKey: !!hashedMasterKey, dbHandle: !!dbHandle, clearFn: hasFn });
+                //console.log('ConnectorsTab: _clearSavedWhatsappDeviceInfo skipped - missing hashed key or DB handle', { hashedMasterKey: !!hashedMasterKey, dbHandle: !!dbHandle, clearFn: hasFn });
                 return;
             }
             await dbHandle.clearWhatsappDeviceInfo(hashedMasterKey);
@@ -565,7 +644,7 @@ class ConnectorsTab {
                 this.whatsappUnpairButton.disabled = true;
                 this.whatsappUnpairButton.style.display = 'none';
             }
-            console.log('ConnectorsTab: Cleared saved WhatsApp device info from DB');
+            //console.log('ConnectorsTab: Cleared saved WhatsApp device info from DB');
         } catch (err) {
             console.warn('ConnectorsTab: _clearSavedWhatsappDeviceInfo failed', err);
         }
@@ -597,7 +676,7 @@ class ConnectorsTab {
 
     async _resetStoredWhatsappDeviceForFreshPairing(reason = '') {
         try {
-            console.log('ConnectorsTab: resetting stored WhatsApp device for fresh pairing', { reason });
+            //console.log('ConnectorsTab: resetting stored WhatsApp device for fresh pairing', { reason });
             await this._clearWhatsappRuntimeSession();
             await this._clearStoredPreferredWhatsappDeviceReferences();
         } catch (err) {
@@ -642,11 +721,11 @@ class ConnectorsTab {
 
         const explicitStaleDevice = /(invalid use of deleted device|deleted device|device not found|no such device|session deleted|stale device)/.test(statusText);
         if (!explicitStaleDevice) {
-            console.log('ConnectorsTab: keeping preferred device during QR fallback (no explicit stale-device signal)', {
+            /*console.log('ConnectorsTab: keeping preferred device during QR fallback (no explicit stale-device signal)', {
                 hadSavedDevice,
                 status: data && data.status,
                 reason: data && data.reason
-            });
+            });*/
             return;
         }
 
@@ -654,7 +733,7 @@ class ConnectorsTab {
             return;
         }
 
-        console.log('ConnectorsTab: clearing stale preferred device because QR fallback is active', { hadSavedDevice });
+        //console.log('ConnectorsTab: clearing stale preferred device because QR fallback is active', { hadSavedDevice });
         await this._clearStoredPreferredWhatsappDeviceReferences(hadSavedDevice, 'qr-fallback-stale-device');
         this.setWhatsappSessionRestoreStatus('Session restore: stale device cleared, waiting for fresh pairing.');
     }
@@ -834,7 +913,7 @@ class ConnectorsTab {
 
         if (normalized === 'AUTHENTICATION_FAILED') {
             if (transient) {
-                console.log('ConnectorsTab: skip device reset for transient auth/connectivity failure', payload);
+                //console.log('ConnectorsTab: skip device reset for transient auth/connectivity failure', payload);
                 return false;
             }
             return true;
@@ -1073,7 +1152,7 @@ class ConnectorsTab {
     }
 
     async startWhatsappServer() {
-        console.log('ConnectorsTab: startWhatsappServer called');
+        //console.log('ConnectorsTab: startWhatsappServer called');
 
         // Model selection guard: require an AI model selected in Chat Tab before starting.
         const modelSelector = document.getElementById('model-selector');
@@ -1224,7 +1303,7 @@ class ConnectorsTab {
     }
 
     async stopWhatsappServer() {
-        console.log('ConnectorsTab: stopWhatsappServer called');
+        //console.log('ConnectorsTab: stopWhatsappServer called');
         this.serverStopping = true;
         this.serverStarting = false;
         this.setWhatsappPairButtonState(this.isPaired);
@@ -1259,7 +1338,7 @@ class ConnectorsTab {
     }
 
     async refreshWhatsappPairButton(options = { start: false, check: true }) {
-        console.log('ConnectorsTab: refreshWhatsappPairButton called', options);
+        //console.log('ConnectorsTab: refreshWhatsappPairButton called', options);
         if (!this.whatsappButton) {
             console.warn('ConnectorsTab: refreshWhatsappPairButton called but whatsappButton missing');
             return;
@@ -1307,7 +1386,7 @@ class ConnectorsTab {
 
             const url = `/api/whatsapp/qr?${params.toString()}`;
 
-            console.log('ConnectorsTab: refreshWhatsappPairButton fetching', url);
+            //console.log('ConnectorsTab: refreshWhatsappPairButton fetching', url);
             const fetchOptions = {};
             if (typeof AbortController !== 'undefined') {
                 controller = new AbortController();
@@ -1319,7 +1398,7 @@ class ConnectorsTab {
                 this.whatsappPendingFetchControllers.delete(controller);
                 controller = null;
             }
-            console.log('ConnectorsTab: refreshWhatsappPairButton response status', res.status);
+            //console.log('ConnectorsTab: refreshWhatsappPairButton response status', res.status);
             if (res.status === 409) {
                 const errorBody = await res.json().catch(() => ({}));
                 if (!this._isWhatsappRequestActive(requestGeneration)) {
@@ -1343,7 +1422,7 @@ class ConnectorsTab {
             if (!this._isWhatsappRequestActive(requestGeneration)) {
                 return null;
             }
-            console.log('ConnectorsTab: refreshWhatsappPairButton data', data);
+            //console.log('ConnectorsTab: refreshWhatsappPairButton data', data);
 
             await this._maybeClearStalePreferredDeviceOnQrFallback(data);
 
@@ -1355,7 +1434,7 @@ class ConnectorsTab {
             // Do not automatically stop the gateway while pairing checks are in flight.
             // This avoids race conditions when gowa is starting and reporting gatewayRunning=true but not yet connected.
             // if (!data.connected && data.gatewayRunning && !options.start) {
-            //     console.log('ConnectorsTab: gateway running but not connected, stopping gateway to reset');
+            //     //console.log('ConnectorsTab: gateway running but not connected, stopping gateway to reset');
             //     await fetch('/api/whatsapp/qr?stop=true');
             // }
 
@@ -1408,7 +1487,7 @@ class ConnectorsTab {
                 if (shouldSaveDevice) {
                     await this._saveCurrentWhatsappDeviceInfo();
                 } else {
-                    console.log('ConnectorsTab: refreshWhatsappPairButton deferring device save until connected', { data });
+                    //console.log('ConnectorsTab: refreshWhatsappPairButton deferring device save until connected', { data });
                 }
             } else if (shouldClearDeviceInfo) {
                 // Only clear stored device when we are sure the gateway had started and
@@ -1416,7 +1495,7 @@ class ConnectorsTab {
                 // for auto-reconnect recovery.
                 await this._clearSavedWhatsappDeviceInfo();
             } else {
-                console.log('ConnectorsTab: refreshWhatsappPairButton not clearing saved device info (startup/unconfirmed state)', { data, serverStarted: this.serverStarted });
+                //console.log('ConnectorsTab: refreshWhatsappPairButton not clearing saved device info (startup/unconfirmed state)', { data, serverStarted: this.serverStarted });
             }
 
             return data;
@@ -1481,7 +1560,7 @@ class ConnectorsTab {
         }
 
         this.whatsappWs.onopen = () => {
-            console.log('ConnectorsTab: whatsapp websocket connected');
+            //console.log('ConnectorsTab: whatsapp websocket connected');
         };
 
         this.whatsappWs.onmessage = (event) => {
@@ -1490,7 +1569,7 @@ class ConnectorsTab {
                 const code = (payload && (payload.Code || payload.code || '')).toString();
 
                 if (code === 'LOGIN_SUCCESS' || code === 'LOGGED_IN') {
-                    console.log('ConnectorsTab: whatsapp event indicates paired', payload);
+                    //console.log('ConnectorsTab: whatsapp event indicates paired', payload);
                     this._completeWhatsappPairingFlow(null, 'websocket:' + code);
                     if (typeof this._saveCurrentWhatsappDeviceInfo === 'function') {
                         this._saveCurrentWhatsappDeviceInfo().catch(err => {
@@ -1504,7 +1583,7 @@ class ConnectorsTab {
                 }
 
                 if (code === 'LOGOUT_COMPLETE' || code === 'DISCONNECTED' || code === 'LOGGED_OUT') {
-                    console.log('ConnectorsTab: whatsapp event indicates unpaired', payload);
+                    //console.log('ConnectorsTab: whatsapp event indicates unpaired', payload);
                     if (this._shouldResetStoredDeviceForEvent(code, payload)) {
                         this._resetStoredWhatsappDeviceForFreshPairing(code).catch(err => {
                             console.warn('ConnectorsTab: failed to reset stored device after logout event', err);
@@ -1518,7 +1597,7 @@ class ConnectorsTab {
                 }
 
                 if (code === 'AUTHENTICATION_FAILED') {
-                    console.log('ConnectorsTab: whatsapp event indicates authentication issue', payload);
+                    //console.log('ConnectorsTab: whatsapp event indicates authentication issue', payload);
                     if (this._shouldResetStoredDeviceForEvent(code, payload)) {
                         this._resetStoredWhatsappDeviceForFreshPairing('AUTHENTICATION_FAILED').catch(err => {
                             console.warn('ConnectorsTab: failed to reset stored device after AUTHENTICATION_FAILED', err);
@@ -1537,7 +1616,7 @@ class ConnectorsTab {
         };
 
         this.whatsappWs.onclose = (event) => {
-            console.log('ConnectorsTab: whatsapp websocket closed', event);
+            //console.log('ConnectorsTab: whatsapp websocket closed', event);
             this.whatsappWs = null;
             if (this.whatsappWsReconnectTimer) {
                 clearTimeout(this.whatsappWsReconnectTimer);
@@ -1580,7 +1659,7 @@ class ConnectorsTab {
     }
 
     _completeWhatsappPairingFlow(modal = null, source = 'unknown') {
-        console.log('ConnectorsTab: _completeWhatsappPairingFlow', { source, isPaired: this.isPaired });
+        //console.log('ConnectorsTab: _completeWhatsappPairingFlow', { source, isPaired: this.isPaired });
         this.stopPolling();
         this.stopWhatsappModalCountdown();
         this.clearWhatsappQrCountdown();
@@ -1606,19 +1685,19 @@ class ConnectorsTab {
     // `window.connectors.postWhatsappPresence` APIs directly.
 
     openWhatsappPairModal(force = false) {
-        console.log('ConnectorsTab: openWhatsappPairModal called');
+        //console.log('ConnectorsTab: openWhatsappPairModal called');
         if (this.isPaired) {
-            console.log('ConnectorsTab: openWhatsappPairModal skipped because already paired');
+            //console.log('ConnectorsTab: openWhatsappPairModal skipped because already paired');
             return;
         }
         if (this.whatsappPairModalDismissed && !force) {
-            console.log('ConnectorsTab: openWhatsappPairModal skipped because modal was dismissed');
+            //console.log('ConnectorsTab: openWhatsappPairModal skipped because modal was dismissed');
             return;
         }
         this.whatsappPairModalDismissed = false;
         let modal = document.getElementById('wa-pair-modal');
         if (!modal) {
-            console.log('ConnectorsTab: creating wa-pair-modal');
+            //console.log('ConnectorsTab: creating wa-pair-modal');
             modal = document.createElement('div');
             modal.id = 'wa-pair-modal';
             modal.className = 'wa-pair-modal';
@@ -1640,7 +1719,7 @@ class ConnectorsTab {
             modal.style.borderRadius = '12px';
             modal.style.fontFamily = 'var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)';
         } else {
-            console.log('ConnectorsTab: wa-pair-modal already exists');
+            //console.log('ConnectorsTab: wa-pair-modal already exists');
         }
 
         // Create modal content
@@ -1744,7 +1823,7 @@ class ConnectorsTab {
 
     async startQrPolling(modal, requestGeneration = this.whatsappRequestGeneration) {
         if (this.isPaired) {
-            console.log('ConnectorsTab: startQrPolling skipped because already paired');
+            //console.log('ConnectorsTab: startQrPolling skipped because already paired');
             return;
         }
 
@@ -1759,16 +1838,16 @@ class ConnectorsTab {
             }
 
             if (this.isPaired) {
-                console.log('ConnectorsTab: pollQr stopped because already paired');
+                //console.log('ConnectorsTab: pollQr stopped because already paired');
                 this.stopPolling();
                 return;
             }
 
             pollCount++;
-            console.log('ConnectorsTab: pollQr tick', { pollCount });
+            //console.log('ConnectorsTab: pollQr tick', { pollCount });
             if (pollCount > maxPolls) {
                 this.stopPolling();
-                console.log('ConnectorsTab: pollQr maxPolls reached; stopping');
+                //console.log('ConnectorsTab: pollQr maxPolls reached; stopping');
                 return;
             }
 
@@ -1795,7 +1874,7 @@ class ConnectorsTab {
                         }
 
                         if (gatewayInfo && gatewayInfo.gatewayRunning) {
-                            console.log('ConnectorsTab: pollQr detected repeated unavailable status but gateway still running; keeping recovery state active');
+                            //console.log('ConnectorsTab: pollQr detected repeated unavailable status but gateway still running; keeping recovery state active');
                             this.serverStarted = true;
                             this.serverStarting = false;
                             this.setWhatsappPairButtonState(false);
@@ -1804,7 +1883,7 @@ class ConnectorsTab {
                             return;
                         }
 
-                        console.log('ConnectorsTab: pollQr detected repeated unavailable status; stopping poll loop');
+                        //console.log('ConnectorsTab: pollQr detected repeated unavailable status; stopping poll loop');
                         this.serverStarted = false;
                         this.serverStarting = false;
                         this.stopPolling();
@@ -1846,7 +1925,7 @@ class ConnectorsTab {
                                 img.style.border = '2px solid var(--wa-modal-qr-border, #ddd)';
                                 img.src = obj;
                                 qrContainer.appendChild(img);
-                                console.log('ConnectorsTab: proxied cached QR blob loaded, size=', blob.size);
+                                //console.log('ConnectorsTab: proxied cached QR blob loaded, size=', blob.size);
                             }
                             try { this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}
                             return;
@@ -1875,7 +1954,7 @@ class ConnectorsTab {
                 if (!qrUrl && data.gatewayRunning && !data.connected && !data.loggedIn) {
                     // In startup edge-cases, check-only polling can return running status
                     // without QR payload. Re-trigger a start/check request to force QR generation.
-                    console.log('ConnectorsTab: pollQr missing QR while gateway running, forcing start+check refresh');
+                    //console.log('ConnectorsTab: pollQr missing QR while gateway running, forcing start+check refresh');
                     const refreshed = await this.refreshWhatsappPairButton({ start: true, check: true, requestGeneration });
                     if (refreshed) {
                         data = refreshed;
@@ -1901,7 +1980,7 @@ class ConnectorsTab {
                     : (String(qrUrl).startsWith('data:')
                         ? `<data-url len=${String(qrUrl).length}>`
                         : `${String(qrUrl).slice(0, 180)}${String(qrUrl).length > 180 ? '...(truncated)' : ''}`);
-                console.log('ConnectorsTab: pollQr got data.qrDataUrl', qrLogPreview);
+                //console.log('ConnectorsTab: pollQr got data.qrDataUrl', qrLogPreview);
                 // Use the server proxy for absolute gateway URLs to avoid
                 // mixed-content/CORS problems when the frontend is served over HTTPS.
                 if (qrUrl) {
@@ -1960,7 +2039,7 @@ class ConnectorsTab {
                         if (currentQr.startsWith('data:')) {
                             try { if (this._currentQrObjectUrl) URL.revokeObjectURL(this._currentQrObjectUrl); } catch (_) {}
                             img.onload = () => {
-                                console.log('ConnectorsTab: inline QR data URL loaded');
+                                //console.log('ConnectorsTab: inline QR data URL loaded');
                                 try { this.lastQrDataUrl = currentQr; this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}
                                 this.setWhatsappModalStartStatus(false);
                             };
@@ -1973,7 +2052,7 @@ class ConnectorsTab {
                         } else {
                             // Try server-cached proxied blob first (fast, accurate).
                             const proxyUrl = '/api/whatsapp/qr-image?ts=' + Date.now();
-                            console.log('ConnectorsTab: fetching proxied QR at', proxyUrl);
+                            //console.log('ConnectorsTab: fetching proxied QR at', proxyUrl);
                             try {
                                 const blob = await this._fetchProxiedQrBlob(proxyUrl);
                                 if (blob) {
@@ -1981,7 +2060,7 @@ class ConnectorsTab {
                                     const obj = URL.createObjectURL(blob);
                                     this._currentQrObjectUrl = obj;
                                     img.onload = () => {
-                                        console.log('ConnectorsTab: proxied QR image loaded');
+                                        //console.log('ConnectorsTab: proxied QR image loaded');
                                         try { this.lastQrDataUrl = currentQr; this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}
                                         this.setWhatsappModalStartStatus(false);
                                     };
@@ -1991,14 +2070,14 @@ class ConnectorsTab {
                                     };
                                     img.src = obj;
                                     qrContainer.appendChild(img);
-                                    console.log('ConnectorsTab: proxied QR blob appended, size=', blob.size);
+                                    //console.log('ConnectorsTab: proxied QR blob appended, size=', blob.size);
                                 } else {
                                     // Fallback: let the browser fetch the proxied URL
                                     // directly (this will surface server-side errors
                                     // via the image onerror handler).
                                     const directProxy = '/api/whatsapp/qr-image?url=' + encodeURIComponent(currentQr) + '&ts=' + Date.now();
                                     img.onload = () => {
-                                        console.log('ConnectorsTab: direct-proxy QR image loaded');
+                                        //console.log('ConnectorsTab: direct-proxy QR image loaded');
                                         try { this.lastQrDataUrl = currentQr; this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}
                                         this.setWhatsappModalStartStatus(false);
                                     };
@@ -2014,7 +2093,7 @@ class ConnectorsTab {
                                 // Final fallback: try direct image URL via proxy
                                 const directProxy = '/api/whatsapp/qr-image?url=' + encodeURIComponent(currentQr) + '&ts=' + Date.now();
                                 img.onload = () => {
-                                    console.log('ConnectorsTab: direct-proxy QR image loaded after fetch error');
+                                    //console.log('ConnectorsTab: direct-proxy QR image loaded after fetch error');
                                     try { this.lastQrDataUrl = currentQr; this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}
                                     this.setWhatsappModalStartStatus(false);
                                 };
@@ -2049,7 +2128,7 @@ class ConnectorsTab {
 
     
 
-        console.log('ConnectorsTab: starting QR polling');
+        //console.log('ConnectorsTab: starting QR polling');
         // Countdown removed; we show refresh status message instead.
         await this.refreshWhatsappPairButton({ start: true, check: true, requestGeneration });
         if (!this._isWhatsappRequestActive(requestGeneration)) {
@@ -2063,7 +2142,7 @@ class ConnectorsTab {
         }
 
         this.qrPollInterval = setInterval(() => {
-            console.log('ConnectorsTab: polling QR');
+            //console.log('ConnectorsTab: polling QR');
             pollQr();
         }, 3000); // 3 seconds between refresh attempts until paired
     }
