@@ -91,6 +91,32 @@ documentKeymap.terms = [...new Set([
     ...Object.values(documentKeymap.actions).flat()
 ])];
 
+const commonFollowUpCloseCues = [
+    'no', 'no thanks', 'no thank you', 'im finished', "i'm finished", 'i am finished', 'finished', 'im good', "i'm good", 'i am good', 'all good', 'looks good', 'thats all', "that's all", 'no more changes', 'no more modifications', 'stop modifying', 'done',
+    'no', 'no gracias', 'estoy bien', 'ya termine', 'ya terminé', 'terminado', 'listo', 'sin mas cambios', 'sin más cambios', 'no mas cambios', 'no más cambios',
+    'nao', 'não', 'nao obrigado', 'não obrigado', 'estou bem', 'ja terminei', 'já terminei', 'terminado', 'pronto', 'sem mais alteracoes', 'sem mais alterações',
+    'non', 'non merci', 'cest bon', "c'est bon", 'je suis bon', 'jai fini', "j'ai fini", 'termine', 'terminé', 'plus de modifications', 'cest tout', "c'est tout",
+    'nein', 'nein danke', 'ich bin fertig', 'fertig', 'alles gut', 'sieht gut aus', 'keine weiteren anderungen', 'keine weiteren änderungen', 'das ist alles',
+    'no', 'no grazie', 'ho finito', 'finito', 'va bene cosi', 'va bene così', 'nessun altra modifica', "nessun'altra modifica", 'basta cosi', 'basta così',
+    'нет', 'нет спасибо', 'я закончил', 'я закончила', 'готово', 'все хорошо', 'всё хорошо', 'без изменений', 'без дальнейших изменений',
+    '不用了', '不用', '好了', '我好了', '我没问题', '完成了', '结束', '不需要再修改',
+    'いいえ', '大丈夫', 'これでいい', 'これで大丈夫', '終わり', '完了', 'もういい', 'もう修正はいらない',
+    '아니요', '괜찮아요', '됐어요', '끝났어요', '끝', '좋아요', '수정은 더 필요 없어요'
+];
+
+const commonFollowUpContinueCues = [
+    'yes', 'yes please', 'sure', 'ok', 'okay', 'continue', 'keep going', 'more changes', 'modify more', 'lets continue', "let's continue",
+    'si', 'sí', 'si por favor', 'sí por favor', 'claro', 'vale', 'continuar', 'sigue', 'mas cambios', 'más cambios',
+    'sim', 'sim por favor', 'claro', 'ok', 'continuar', 'continua', 'continue', 'mais alteracoes', 'mais alterações',
+    'oui', 'oui sil vous plait', 'oui s il vous plait', 'bien sur', 'bien sûr', 'daccord', "d'accord", 'continuer', 'encore des modifications',
+    'ja', 'ja bitte', 'klar', 'okay', 'weiter', 'weitermachen', 'mehr anderungen', 'mehr änderungen',
+    'si', 'sì', 'si per favore', 'sì per favore', 'certo', 'ok', 'continua', 'continuare', 'piu modifiche', 'più modifiche',
+    'да', 'да пожалуйста', 'конечно', 'продолжай', 'еще изменения', 'ещё изменения',
+    '是', '好的', '继续', '继续修改', '还要修改',
+    'はい', 'お願いします', '続けて', '続行', 'まだ修正したい',
+    '네', '예', '계속', '계속해줘', '더 수정할게요'
+];
+
 const researchKeymap = {
     intent: [
         'research', 'investigate', 'investigation', 'analyze', 'analyse', 'analysis', 'study', 'explore', 'examine',
@@ -146,7 +172,9 @@ const researchKeymap = {
         '最新', '当前', '最近', '深入', '全面', '详细', '市场', '竞争对手', '行业', '趋势',
         '最新', '現在', '最近', '詳細', '包括的', '市場', '競合', '業界', '動向', 'トレンド',
         '최신', '현재', '최근', '심층', '종합', '상세', '시장', '경쟁사', '업계', '동향', '트렌드'
-    ]
+    ],
+    followUpCloseCues: commonFollowUpCloseCues,
+    followUpContinueCues: commonFollowUpContinueCues
 };
 
 researchKeymap.terms = [...new Set([
@@ -232,6 +260,8 @@ const presentationKeymap = {
         '保存済みのプレゼン', '保存済みのプレゼンテーション', '自分のプレゼン',
         '저장된 프레젠테이션', '내 프레젠테이션'
     ],
+    followUpCloseCues: commonFollowUpCloseCues,
+    followUpContinueCues: commonFollowUpContinueCues,
     workflows: {
         summaryToPresentation: [
             'summarize and create a presentation', 'summarise and create a presentation', 'summary and create a presentation',
@@ -344,6 +374,8 @@ const artifactKeymap = {
         '保存済みのミニアプリ', '保存済みのアーティファクト', '自分のミニアプリ', '自分のアーティファクト',
         '저장된 미니앱', '저장된 미니 앱', '저장된 아티팩트', '내 미니앱', '내 아티팩트'
     ],
+    followUpCloseCues: commonFollowUpCloseCues,
+    followUpContinueCues: commonFollowUpContinueCues,
     webCues: [
         'use internet', 'use the internet', 'use web', 'use the web', 'with web search', 'using web search', 'search the web', 'search online', 'use online sources',
         'usa internet', 'usa el internet', 'usa la web', 'con busqueda web', 'con búsqueda web', 'buscar en la web', 'usa fuentes en linea', 'usa fuentes en línea',

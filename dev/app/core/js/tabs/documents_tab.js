@@ -1626,8 +1626,18 @@ async function detectDocumentQuestionIntent(prompt, options = {}) {
     const questionTerms = getDocumentIntentKeymapTokens('actions.question');
     const questionStarters = getDocumentIntentKeymapTokens('questionStarters');
     const questionLikeTerms = [...new Set([...browseTerms, ...summaryTerms, ...questionTerms, ...questionStarters])];
+    const activeDocumentId = String(options.activeDocumentId || '').trim();
+    const activeDocumentMode = !!activeDocumentId;
+    const hasQuestionLikeSignal = textContainsAnyDocumentIntentToken(rawPrompt, questionLikeTerms);
+    const hasDocumentNounSignal = textContainsAnyDocumentIntentToken(rawPrompt, documentNouns);
 
-    if (!/[?？¿]/.test(rawPrompt) && !textContainsAnyDocumentIntentToken(rawPrompt, questionLikeTerms)) {
+    if (!/[?？¿]/.test(rawPrompt) && !hasQuestionLikeSignal) {
+        if (!(activeDocumentMode && hasDocumentNounSignal)) {
+            return null;
+        }
+    }
+
+    if (!/[?？¿]/.test(rawPrompt) && !hasQuestionLikeSignal && !hasDocumentNounSignal) {
         return null;
     }
 
@@ -1756,7 +1766,6 @@ async function resolveDocumentQuestioningAction(prompt, options = {}) {
     const scopeKey = normalizeDocumentConversationScopeKey(options.scopeKey || 'ui');
     const activeConversation = getActiveDocumentConversation(scopeKey);
     const activeDocumentId = String(options.activeDocumentId || activeConversation?.documentId || '').trim();
-    const orchestratorTool = String(options.orchestratorTool || '').trim().toLowerCase();
     const rawPrompt = String(prompt || '').trim();
 
     if (!rawPrompt) {
@@ -1777,22 +1786,6 @@ async function resolveDocumentQuestioningAction(prompt, options = {}) {
 
     if (!activeDocumentId) {
         return { action: 'none', reason: 'no_active_document', match: null };
-    }
-
-    if (isClearlyGeneralChatPrompt(rawPrompt)) {
-        return { action: 'exit', reason: 'clearly_general_chat', match: null };
-    }
-
-    if (orchestratorTool === 'document-check') {
-        return { action: 'stay', reason: 'orchestrator_document_check', match: null };
-    }
-
-    if (orchestratorTool === 'dataviz' || orchestratorTool === 'presentation') {
-        return { action: 'exit', reason: `orchestrator_${orchestratorTool}`, match: null };
-    }
-
-    if (orchestratorTool === 'chat+websearch' || orchestratorTool === 'research') {
-        return { action: 'stay', reason: `preserve_active_document_despite_${orchestratorTool}`, match: null };
     }
 
     return { action: 'stay', reason: 'default_document_followup', match: null };

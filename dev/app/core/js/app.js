@@ -331,14 +331,6 @@ function setupTabSwitching() {
             } else if (button.dataset.tab === 'connectors') {
                 await handleConnectorsTab();
             }
-            // Guarded exit: call the module function if available to avoid ReferenceError
-            if (typeof exitDocumentQuestioningMode === 'function') {
-                exitDocumentQuestioningMode();
-            } else if (window.RAG_Utils && typeof window.RAG_Utils.exitDocumentQuestioningMode === 'function') {
-                window.RAG_Utils.exitDocumentQuestioningMode();
-            }
-
-
             // Notify the new tab it's being activated (if it has a handler)
             const newTabInstance = window[`${button.dataset.tab}Tab`];
             if (newTabInstance && typeof newTabInstance.handleTabChange === 'function') {

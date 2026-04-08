@@ -1,9 +1,13 @@
 const ORCHESTRATOR_SYSTEM_PROMPT = `You are an internal routing assistant for Paiperwork.
-Your job is to decide whether an incoming user message should be handled by the normal chat flow ("chat"), by the chat+websearch flow ("chat+websearch"), by document-check ("document-check"), by the research workflow ("research"), by the promptable SlideForge presentation workflow ("presentation"), or by the Artifacts miniapp workflow ("artifact").
+Your job is to decide whether an incoming user message should be handled by the normal chat flow ("chat"), by the chat+websearch flow ("chat+websearch"), by document-check ("document-check"), by the research workflow ("research"), by the promptable SlideForge presentation workflow ("presentation"), or by the Artifacts miniapp workflow ("artifact"). When the input includes active follow-up session context, you should also help rewrite the final engine prompt for that workflow.
 
 Instructions:
 - Do NOT produce natural chat replies. Under no circumstances generate conversational text as output.
-- Always respond with valid JSON only, with fields: tool, document, confidence, reason, language, think (false).
+- Always respond with valid JSON only.
+- Required JSON fields: tool, document, confidence, reason, language, think.
+- Optional JSON fields when useful:
+    - query: for research requests, the best final research query to send to the engine.
+    - merged_prompt: for active follow-up workflows, a single semantically merged prompt/request that should be preferred over naive concatenation.
 - Do NOT include any extra text, analysis, or commentary outside the JSON object.
 - If you cannot parse intent or format JSON, return exactly: { "tool": "chat", "document": "", "confidence": 0.9, "reason": "Unable to parse intent as JSON", "language": "English", "think": false }
 - Always reply in the user language of the input message (English, Español, Français, Deutsch, Italiano, Português, 中文, 日本語, 한국어, Русский).
@@ -32,6 +36,10 @@ Instructions:
         - English: "Generate one beautiful moving wallpaper miniapp using internet" => artifact
         - English: "Show my saved miniapps" => artifact
         - English: "Send my saved pinball miniapp" => artifact
+        - English follow-up after an artifact was just created: "Make the rain drops bigger" => artifact
+        - English follow-up after an artifact was just created: "Add a start button and make the background darker" => artifact
+        - English follow-up after an artifact was just created: "For the rain sounds use white/pink/mixed noise" => artifact
+        - English follow-up close reply after an artifact was just created: "No thanks, I'm finished" => artifact session close
         - Español: "Crea una miniaplicación de pinball" => artifact
         - Français: "Crée une miniapp de flipper" => artifact
         - Deutsch: "Erstelle eine Mini-App als Pinball-Spiel" => artifact
@@ -58,7 +66,24 @@ Instructions:
 - If user asks to create, generate, build, or prepare a miniapp / mini application / artifact / HTML mini app, prefer "artifact".
 - If user asks to list, browse, view, choose, or send an existing saved miniapp / artifact, also prefer "artifact".
 - Treat localized equivalents and spacing variants of "artifact", "miniapp", "mini-app", and "mini app" as the same artifact intent across all supported languages.
+- If the immediately previous user turns were about creating or refining an artifact/miniapp, then follow-up modification requests like "make it darker", "add a start button", or "make the rain drops bigger" should remain on "artifact" even if the user does not repeat the words miniapp or artifact.
+- When there is an active artifact/miniapp session, treat short refinement requests as "artifact" by default unless the user explicitly switches domains to models, documents, research, dataviz, or presentations.
+- In an active artifact/miniapp session, phrases like "use white noise", "use pink noise", "use this color", or "use bigger drops" are artifact refinements, not AI model-switch requests.
+- In an active artifact/miniapp session, replies like "no", "no thanks", "I'm finished", "I'm good", "looks good", or their localized equivalents mean the user wants to close artifact follow-up mode, not switch AI models.
 - Requests to make the miniapp richer with web/internet/search context should still stay on "artifact", not "chat+websearch".
+- Follow-Up Prompt Reconstruction:
+    - If the input includes active follow-up session context for artifact/miniapp, research, prompted presentations, or document-summary/document-questioning flows, do not just classify the tool. Also infer the best final rewritten request for the downstream engine.
+    - Use the optional field merged_prompt when the current user message modifies, negates, replaces, narrows, or refines a previous request.
+    - The merged_prompt must be a clean, coherent rewrite of the intended final request, not a blind concatenation of old and new instructions.
+    - Resolve conflicts by applying the latest user intent over earlier details. If the refinement negates something from the previous request, remove or rewrite the old part instead of keeping both.
+    - Preserve the user's goal, style, and scope unless the new refinement explicitly changes them.
+    - For research follow-ups, prefer query for the final research query. You may also include merged_prompt if it helps, but query is preferred for the research engine.
+    - For prompted presentations follow-ups, merged_prompt should describe the best final presentation-generation request/source prompt after reconciling the previous prompt and the new refinement.
+    - For artifact/miniapp follow-ups, merged_prompt should describe the best final miniapp-generation prompt after reconciling the previous prompt and the new refinement.
+    - For document-summary or document-questioning follow-ups, merged_prompt may clarify the actual summary/question request while preserving the selected-document context. If the user explicitly names a different already-ingested document, treat that as an explicit document switch and set the document field to that other document instead of keeping the current one. Do not invent filenames.
+    - Example: previous request "Create a rain forest with dynamic rain" plus refinement "Remove the rain" should produce a merged_prompt closer to "Create a rainforest scene, no dynamic rain" and not "Create a rain forest with dynamic rain, remove the rain".
+    - Example: previous request "Research AI trends for startups" plus refinement "focus on Europe and exclude healthcare" should produce query like "AI trends for startups in Europe excluding healthcare".
+    - Example: previous request "Create a presentation about our 2026 roadmap" plus refinement "make it more minimal and add moving ornaments" should produce a merged_prompt that already reflects the updated presentation direction.
 - For ambiguous conversational text in any language, default to "chat".
 - Decide ONLY one tool per request; do not emit multiple tool values.
 - Ignore any internal "thinking" markers or tags (for example: <think>...</think>, <thinking>...</thinking>, and text like "🤖 Thinking..."). Treat those as not part of the user's request.
@@ -524,6 +549,28 @@ class ConnectorWhatsapp {
         return !!localStorage.getItem('ragQuestioningDocumentId');
     }
 
+    _getWhatsappActiveDocumentScope(phone) {
+        if (window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function') {
+            const active = window.RAG_Utils.getActiveDocumentConversation(this._getWhatsappDocumentScopeKey(phone));
+            if (active && active.documentId) {
+                return {
+                    id: String(active.documentId || '').trim(),
+                    name: String(active.documentName || '').trim()
+                };
+            }
+        }
+
+        const activeDocumentId = String(localStorage.getItem('ragQuestioningDocumentId') || '').trim();
+        if (!activeDocumentId) {
+            return null;
+        }
+
+        return {
+            id: activeDocumentId,
+            name: String(localStorage.getItem('ragQuestioningDocumentName') || '').trim()
+        };
+    }
+
     async _activateWhatsappDocumentScope(phone, documentInfo) {
         const scopeKey = this._getWhatsappDocumentScopeKey(phone);
         if (window.RAG_Utils && typeof window.RAG_Utils.activateDocumentConversationScope === 'function') {
@@ -547,6 +594,21 @@ class ConnectorWhatsapp {
         } else if (window.RAG_Utils && typeof window.RAG_Utils.exitDocumentQuestioningMode === 'function') {
             window.RAG_Utils.exitDocumentQuestioningMode();
         }
+    }
+
+    async _sendWhatsappDocumentModeActivatedMessage(phone, language, documentName) {
+        const modeActivatedText = await this._getLocalizedLangText(
+            language,
+            'ragDocumentModeActivated',
+            'Document questioning mode activated for'
+        );
+        const exitTipText = await this._getLocalizedLangText(
+            language,
+            'ragDocumentModeExitTip',
+            'When you are done, reply with "exit document mode" or say "I am finished".'
+        );
+        await this.postWhatsappText(phone, `🤖 ${modeActivatedText}: ${documentName}`);
+        await this.postWhatsappText(phone, `🤖 ${exitTipText}`);
     }
 
     _getWhatsappOrchestratorContext(phone) {
@@ -607,9 +669,8 @@ class ConnectorWhatsapp {
         return normalized.slice(normalized.length - maxTurns);
     }
 
-    _normalizeWhatsappOrchestratorTurns(turns, maxTurns = 6) {
-        const normalized = this._normalizeWhatsappConversationTurns(turns, 50)
-            .filter(turn => turn.role === 'user');
+    _normalizeWhatsappOrchestratorTurns(turns, maxTurns = 20) {
+        const normalized = this._normalizeWhatsappConversationTurns(turns, 50);
 
         if (normalized.length <= maxTurns) {
             return normalized;
@@ -656,6 +717,1048 @@ class ConnectorWhatsapp {
         phoneContext.conversationTurns = this._normalizeWhatsappConversationTurns(existingTurns);
         await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
         return phoneContext;
+    }
+
+    _getWhatsappArtifactSession(phoneContext = null) {
+        const session = phoneContext && typeof phoneContext === 'object' ? phoneContext.artifactSession : null;
+        if (!session || typeof session !== 'object') {
+            return null;
+        }
+
+        const basePrompt = this._normalizeWhatsappResearchReportText(session.basePrompt || '');
+        const currentPrompt = this._normalizeWhatsappResearchReportText(session.currentPrompt || '');
+        const modifications = Array.isArray(session.modifications)
+            ? session.modifications
+                .map(item => this._normalizeWhatsappResearchReportText(item))
+                .filter(Boolean)
+            : [];
+
+        if (!basePrompt && !currentPrompt) {
+            return null;
+        }
+
+        return {
+            active: session.active !== false,
+            basePrompt: basePrompt || currentPrompt,
+            currentPrompt: currentPrompt || basePrompt,
+            modifications,
+            useWebSearch: !!session.useWebSearch,
+            title: String(session.title || '').trim(),
+            awaitingFollowUpConfirmation: !!session.awaitingFollowUpConfirmation,
+            updatedAt: String(session.updatedAt || '').trim()
+        };
+    }
+
+    async _setWhatsappArtifactSession(phone, session, existingPhoneContext = null) {
+        const normalizedPhone = String(phone || '').replace(/@.*$/g, '').trim();
+        if (!normalizedPhone) return existingPhoneContext || null;
+
+        const phoneContext = (existingPhoneContext && typeof existingPhoneContext === 'object')
+            ? { ...existingPhoneContext }
+            : ((await this._getWhatsappPhoneContext(normalizedPhone)) || {});
+
+        if (!session) {
+            delete phoneContext.artifactSession;
+        } else {
+            const normalizedSession = this._getWhatsappArtifactSession({ artifactSession: session });
+            if (normalizedSession) {
+                phoneContext.artifactSession = {
+                    ...normalizedSession,
+                    active: true,
+                    updatedAt: new Date().toISOString()
+                };
+            } else {
+                delete phoneContext.artifactSession;
+            }
+        }
+
+        await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
+        return phoneContext;
+    }
+
+    async _clearWhatsappArtifactSession(phone, existingPhoneContext = null) {
+        return this._setWhatsappArtifactSession(phone, null, existingPhoneContext);
+    }
+
+    _getWhatsappFollowUpSession(phoneContext = null) {
+        const session = phoneContext && typeof phoneContext === 'object' ? phoneContext.followUpSession : null;
+        if (!session || typeof session !== 'object') {
+            return null;
+        }
+
+        const kind = String(session.kind || '').trim().toLowerCase();
+        if (!kind) {
+            return null;
+        }
+
+        const basePrompt = this._normalizeWhatsappResearchReportText(session.basePrompt || '');
+        const currentPrompt = this._normalizeWhatsappResearchReportText(session.currentPrompt || '');
+        const sourceText = this._normalizeWhatsappResearchReportText(session.sourceText || '');
+        const refinements = Array.isArray(session.refinements)
+            ? session.refinements
+                .map(item => this._normalizeWhatsappResearchReportText(item))
+                .filter(Boolean)
+            : [];
+
+        if (kind !== 'document-summary' && !basePrompt && !currentPrompt && !sourceText) {
+            return null;
+        }
+
+        return {
+            kind,
+            active: session.active !== false,
+            awaitingFollowUpConfirmation: !!session.awaitingFollowUpConfirmation,
+            basePrompt: basePrompt || currentPrompt,
+            currentPrompt: currentPrompt || basePrompt,
+            sourceText,
+            refinements,
+            title: String(session.title || '').trim(),
+            documentId: String(session.documentId || '').trim(),
+            documentName: String(session.documentName || '').trim(),
+            updatedAt: String(session.updatedAt || '').trim()
+        };
+    }
+
+    async _setWhatsappFollowUpSession(phone, session, existingPhoneContext = null) {
+        const normalizedPhone = String(phone || '').replace(/@.*$/g, '').trim();
+        if (!normalizedPhone) return existingPhoneContext || null;
+
+        const phoneContext = (existingPhoneContext && typeof existingPhoneContext === 'object')
+            ? { ...existingPhoneContext }
+            : ((await this._getWhatsappPhoneContext(normalizedPhone)) || {});
+
+        if (!session) {
+            delete phoneContext.followUpSession;
+        } else {
+            const normalizedSession = this._getWhatsappFollowUpSession({ followUpSession: session });
+            if (normalizedSession) {
+                phoneContext.followUpSession = {
+                    ...normalizedSession,
+                    active: true,
+                    updatedAt: new Date().toISOString()
+                };
+            } else {
+                delete phoneContext.followUpSession;
+            }
+        }
+
+        await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
+        return phoneContext;
+    }
+
+    async _clearWhatsappFollowUpSession(phone, existingPhoneContext = null) {
+        return this._setWhatsappFollowUpSession(phone, null, existingPhoneContext);
+    }
+
+    _getWhatsappWorkflowFollowUpKeymapTokens(kind, cueType) {
+        const normalizedKind = String(kind || '').trim().toLowerCase();
+        if (normalizedKind === 'research') {
+            return this._getResearchKeymapTokens(cueType);
+        }
+        if (normalizedKind === 'presentation') {
+            return this._getPresentationKeymapTokens(cueType);
+        }
+        if (normalizedKind === 'document-summary') {
+            if (cueType === 'followUpCloseCues') {
+                return [...new Set([
+                    ...this._getDocumentKeymapTokens('actions.exit'),
+                    ...this._getArtifactKeymapTokens('followUpCloseCues')
+                ])];
+            }
+            if (cueType === 'followUpContinueCues') {
+                return this._getArtifactKeymapTokens('followUpContinueCues');
+            }
+        }
+        return [];
+    }
+
+    _isWhatsappWorkflowSwitchIntent(text) {
+        return this._isArtifactIntent(text)
+            || this._isSavedArtifactIntent(text)
+            || this._isPresentationIntent(text)
+            || this._isSavedPresentationIntent(text)
+            || this._isDataVizIntent(text)
+            || this._isResearchIntent(text)
+            || this._isDocumentSelectionIntent(text)
+            || this._isSummaryIntent(text)
+            || !!this._parseWhatsappModelCommand(text);
+    }
+
+    _getWhatsappDeterministicWorkflowSession(phoneContext = null) {
+        const artifactSession = this._getWhatsappArtifactSession(phoneContext);
+        if (artifactSession && artifactSession.active) {
+            return {
+                type: 'artifact',
+                kind: 'artifact',
+                tool: 'artifact',
+                session: artifactSession,
+                awaitingFollowUpConfirmation: !!artifactSession.awaitingFollowUpConfirmation
+            };
+        }
+
+        const followUpSession = this._getWhatsappFollowUpSession(phoneContext);
+        if (!followUpSession || !followUpSession.active) {
+            return null;
+        }
+
+        const toolMap = {
+            research: 'research',
+            presentation: 'presentation',
+            'document-summary': 'document-check'
+        };
+        const mappedTool = toolMap[followUpSession.kind];
+        if (!mappedTool) {
+            return null;
+        }
+
+        return {
+            type: 'follow-up',
+            kind: followUpSession.kind,
+            tool: mappedTool,
+            session: followUpSession,
+            awaitingFollowUpConfirmation: !!followUpSession.awaitingFollowUpConfirmation
+        };
+    }
+
+    _detectWhatsappExplicitWorkflowTarget(text, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        if (!normalizedText) {
+            return '';
+        }
+
+        if (this._isSummaryToPresentationWorkflowIntent(normalizedText)) {
+            return 'summary-presentation';
+        }
+
+        if (!!this._parseWhatsappModelCommand(normalizedText)) {
+            return 'chat';
+        }
+
+        if (this._isDataVizIntent(normalizedText) && !this._isPresentationIntent(normalizedText)) {
+            return 'dataviz';
+        }
+
+        if (this._isSavedArtifactIntent(normalizedText) || this._isArtifactIntent(normalizedText)) {
+            return 'artifact';
+        }
+
+        if (this._isSavedPresentationIntent(normalizedText) || this._isPresentationIntent(normalizedText)) {
+            return 'presentation';
+        }
+
+        if (this._isResearchIntent(normalizedText)) {
+            return 'research';
+        }
+
+        if (this._isDocumentSelectionIntent(normalizedText) || this._isSummaryIntent(normalizedText)) {
+            return 'document-check';
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (['artifact', 'research', 'presentation', 'document-check', 'dataviz'].includes(normalizedTool)) {
+            return normalizedTool;
+        }
+
+        return '';
+    }
+
+    _resolveWhatsappDeterministicWorkflowRouting(text, phoneContext = null, orchTool = '') {
+        const activeSession = this._getWhatsappDeterministicWorkflowSession(phoneContext);
+        if (!activeSession) {
+            return {
+                activeSession: null,
+                retain: false,
+                explicitTarget: this._detectWhatsappExplicitWorkflowTarget(text, orchTool),
+                tool: ''
+            };
+        }
+
+        const explicitTarget = this._detectWhatsappExplicitWorkflowTarget(text, orchTool);
+        const retainsCurrentSession = !explicitTarget
+            || explicitTarget === activeSession.tool
+            || (explicitTarget === 'document-check' && activeSession.tool === 'document-check');
+
+        return {
+            activeSession,
+            retain: retainsCurrentSession,
+            explicitTarget,
+            tool: retainsCurrentSession ? activeSession.tool : explicitTarget
+        };
+    }
+
+    _isWhatsappFollowUpSessionCloseIntent(text, phoneContext = null, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        if (!normalizedText || !session || !session.active) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        const allowedTools = ['chat'];
+        if (session.kind === 'research') allowedTools.push('research');
+        if (session.kind === 'presentation') allowedTools.push('presentation');
+        if (session.kind === 'document-summary') allowedTools.push('document-check');
+        if (normalizedTool && !allowedTools.includes(normalizedTool)) {
+            return false;
+        }
+
+        if (this._isWhatsappWorkflowSwitchIntent(normalizedText) && !this._textMatchesDocumentKeymapTokens(normalizedText, this._getWhatsappWorkflowFollowUpKeymapTokens(session.kind, 'followUpCloseCues'))) {
+            return false;
+        }
+
+        const closeMatch = this._findLongestNormalizedTokenMatch(normalizedText, this._getWhatsappWorkflowFollowUpKeymapTokens(session.kind, 'followUpCloseCues'));
+        if (!closeMatch) {
+            return false;
+        }
+
+        const wordCount = (normalizedText.match(/\S+/g) || []).length;
+        return wordCount <= 8;
+    }
+
+    _isWhatsappFollowUpSessionContinueIntent(text, phoneContext = null, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        if (!normalizedText || !session || !session.active || !session.awaitingFollowUpConfirmation) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        const allowedTools = ['chat'];
+        if (session.kind === 'research') allowedTools.push('research');
+        if (session.kind === 'presentation') allowedTools.push('presentation');
+        if (session.kind === 'document-summary') allowedTools.push('document-check');
+        if (normalizedTool && !allowedTools.includes(normalizedTool)) {
+            return false;
+        }
+
+        if (this._isWhatsappWorkflowSwitchIntent(normalizedText) && !this._textMatchesDocumentKeymapTokens(normalizedText, this._getWhatsappWorkflowFollowUpKeymapTokens(session.kind, 'followUpContinueCues'))) {
+            return false;
+        }
+
+        const continueMatch = this._findLongestNormalizedTokenMatch(normalizedText, this._getWhatsappWorkflowFollowUpKeymapTokens(session.kind, 'followUpContinueCues'));
+        if (!continueMatch) {
+            return false;
+        }
+
+        const wordCount = (normalizedText.match(/\S+/g) || []).length;
+        return wordCount <= 8;
+    }
+
+    _isWhatsappFollowUpSessionInlineContinueIntent(text, phoneContext = null, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        if (!normalizedText || !session || !session.active || !session.awaitingFollowUpConfirmation) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        const allowedTools = ['chat'];
+        if (session.kind === 'research') allowedTools.push('research');
+        if (session.kind === 'presentation') allowedTools.push('presentation');
+        if (session.kind === 'document-summary') allowedTools.push('document-check');
+        if (normalizedTool && !allowedTools.includes(normalizedTool)) {
+            return false;
+        }
+
+        const continueTokens = this._getWhatsappWorkflowFollowUpKeymapTokens(session.kind, 'followUpContinueCues');
+        const continueMatch = this._findLongestNormalizedTokenMatch(normalizedText, continueTokens);
+        if (!continueMatch) {
+            return false;
+        }
+
+        const stripped = this._stripWhatsappFollowUpContinuePrefix(normalizedText, session.kind);
+        if (!stripped || stripped === normalizedText) {
+            return false;
+        }
+
+        if (this._isWhatsappFollowUpSessionCloseIntent(stripped, {
+            ...(phoneContext || {}),
+            followUpSession: {
+                ...(session || {}),
+                awaitingFollowUpConfirmation: false
+            }
+        }, normalizedTool)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    _stripWhatsappFollowUpContinuePrefix(text, kind = '') {
+        const rawText = String(text || '').trim();
+        if (!rawText) return '';
+
+        const tokens = this._getWhatsappWorkflowFollowUpKeymapTokens(kind, 'followUpContinueCues')
+            .map(token => String(token || '').trim())
+            .filter(Boolean)
+            .sort((left, right) => right.length - left.length);
+
+        let candidate = rawText;
+        for (const token of tokens) {
+            const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+            const prefixPattern = new RegExp(`^${escapedToken}(?:[\\s,.;:!?-]+|$)`, 'i');
+            if (prefixPattern.test(candidate)) {
+                candidate = candidate.replace(prefixPattern, '').trim();
+                break;
+            }
+        }
+
+        candidate = candidate.replace(/^(?:and|then|also|please|por favor|s'il vous plait|s'il vous plaît|bitte)\b[\s,.;:!?-]*/i, '').trim();
+        return candidate || rawText;
+    }
+
+    async _sendWhatsappFollowUpSessionQuestion(phone, kind, language = null) {
+        const keyMap = {
+            research: ['researchFollowUpQuestion', 'Do you want to continue refining this research?'],
+            presentation: ['presentationFollowUpQuestion', 'Do you want to make more changes to this presentation?'],
+            'document-summary': ['ragDocumentSummaryFollowUpQuestion', 'Do you want to keep working with this document?']
+        };
+        const [key, fallback] = keyMap[kind] || [];
+        if (!key) return;
+        const questionText = await this._getLocalizedLangText(language, key, fallback);
+        await this.postWhatsappText(phone, `🤖 ${questionText}`);
+    }
+
+    async _handleWhatsappFollowUpSessionClose(phone, language = null, phoneContext = null) {
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        const updatedContext = await this._clearWhatsappFollowUpSession(phone, phoneContext);
+        const keyMap = {
+            research: ['researchFollowUpClosed', 'Okay, research follow-up mode is closed.'],
+            presentation: ['presentationFollowUpClosed', 'Okay, presentation follow-up mode is closed.'],
+            'document-summary': ['ragDocumentSummaryFollowUpClosed', 'Okay, document follow-up mode is closed.']
+        };
+        const [key, fallback] = keyMap[session && session.kind] || [];
+        if (key) {
+            const closedText = await this._getLocalizedLangText(language, key, fallback);
+            await this.postWhatsappText(phone, `🤖 ${closedText}`);
+        }
+        return updatedContext;
+    }
+
+    async _continueWhatsappDocumentSummarySession(phone, language = null, phoneContext = null, options = {}) {
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        if (!session || session.kind !== 'document-summary') {
+            return phoneContext;
+        }
+
+        const documentInfo = session.documentId
+            ? { id: session.documentId, name: session.documentName }
+            : null;
+        let updatedContext = phoneContext;
+
+        if (documentInfo && documentInfo.id) {
+            const success = await this._activateWhatsappDocumentScope(phone, documentInfo);
+            if (success) {
+                this._setPendingDocSelection(phone, documentInfo);
+                updatedContext = await this._clearWhatsappFollowUpSession(phone, updatedContext);
+                if (options.announce !== false) {
+                    const continueText = await this._getLocalizedLangText(
+                        language,
+                        'ragDocumentSummaryFollowUpContinue',
+                        'Document questioning mode is active again. Ask me what you want to know about the document.'
+                    );
+                    const exitTipText = await this._getLocalizedLangText(
+                        language,
+                        'ragDocumentModeExitTip',
+                        'When you are done, reply with "exit document mode" or say "I am finished".'
+                    );
+                    await this.postWhatsappText(phone, `🤖 ${continueText}`);
+                    await this.postWhatsappText(phone, `🤖 ${exitTipText}`);
+                }
+                return updatedContext;
+            }
+        }
+
+        return this._handleWhatsappFollowUpSessionClose(phone, language, updatedContext);
+    }
+
+    async _handleWhatsappFollowUpSessionContinue(phone, language = null, phoneContext = null) {
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        if (!session) {
+            return phoneContext;
+        }
+
+        if (session.kind === 'document-summary') {
+            return this._continueWhatsappDocumentSummarySession(phone, language, phoneContext, { announce: true });
+        }
+
+        const updatedContext = await this._setWhatsappFollowUpSession(phone, {
+            ...session,
+            active: true,
+            awaitingFollowUpConfirmation: false
+        }, phoneContext);
+        const keyMap = {
+            research: ['researchFollowUpContinue', 'Tell me how you want to refine the research.'],
+            presentation: ['presentationFollowUpContinue', 'Tell me what you want to change in the presentation.']
+        };
+        const [key, fallback] = keyMap[session.kind] || [];
+        if (key) {
+            const continueText = await this._getLocalizedLangText(language, key, fallback);
+            await this.postWhatsappText(phone, `🤖 ${continueText}`);
+        }
+        return updatedContext;
+    }
+
+    _isWhatsappResearchFollowUpIntent(text, phoneContext = null, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        if (!normalizedText || !session || session.kind !== 'research' || !session.active || session.awaitingFollowUpConfirmation) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'research') {
+            return false;
+        }
+
+        if (this._isResearchIntent(normalizedText)) {
+            return true;
+        }
+
+        if (this._isArtifactIntent(normalizedText)
+            || this._isSavedArtifactIntent(normalizedText)
+            || this._isPresentationIntent(normalizedText)
+            || this._isSavedPresentationIntent(normalizedText)
+            || this._isDataVizIntent(normalizedText)
+            || this._isDocumentSelectionIntent(normalizedText)
+            || this._isSummaryIntent(normalizedText)
+            || this._parseWhatsappModelCommand(normalizedText)) {
+            return false;
+        }
+
+        return (normalizedText.match(/\S+/g) || []).length <= 120;
+    }
+
+    _composeWhatsappResearchPrompt(requestText, phoneContext = null, options = {}) {
+        const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
+        const mergedPrompt = this._normalizeWhatsappResearchReportText(options && options.mergedPrompt ? options.mergedPrompt : '');
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        const isFollowUp = !!(session && session.kind === 'research' && this._isWhatsappResearchFollowUpIntent(normalizedRequest, phoneContext, 'research'));
+        const canonicalPrompt = session && (session.currentPrompt || session.basePrompt)
+            ? this._normalizeWhatsappResearchReportText(session.currentPrompt || session.basePrompt)
+            : '';
+
+        if (!isFollowUp) {
+            return {
+                prompt: mergedPrompt || normalizedRequest,
+                isFollowUp: false,
+                basePrompt: normalizedRequest,
+                currentPrompt: mergedPrompt || normalizedRequest,
+                refinements: [],
+                session,
+                usedMergedPrompt: !!mergedPrompt
+            };
+        }
+
+        const refinements = Array.isArray(session.refinements) ? [...session.refinements, normalizedRequest] : [normalizedRequest];
+        if (mergedPrompt) {
+            return {
+                prompt: mergedPrompt,
+                isFollowUp: true,
+                basePrompt: session.basePrompt || canonicalPrompt,
+                currentPrompt: mergedPrompt,
+                refinements,
+                session,
+                usedMergedPrompt: true
+            };
+        }
+
+        const combinedPrompt = [
+            canonicalPrompt || session.basePrompt,
+            '',
+            'Additional follow-up requests for the same research task. Incorporate all of them into the next research run:',
+            ...refinements.map((item, index) => `${index + 1}. ${item}`)
+        ].join('\n');
+
+        return {
+            prompt: combinedPrompt,
+            isFollowUp: true,
+            basePrompt: session.basePrompt,
+            currentPrompt: combinedPrompt,
+            refinements,
+            session,
+            usedMergedPrompt: false
+        };
+    }
+
+    _isWhatsappPresentationFollowUpIntent(text, phoneContext = null, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        if (!normalizedText || !session || session.kind !== 'presentation' || !session.active || session.awaitingFollowUpConfirmation) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'presentation') {
+            return false;
+        }
+
+        if (this._presentationRequestHasExplicitSourceText(normalizedText) || this._isPresentationIntent(normalizedText)) {
+            return true;
+        }
+
+        if (this._isSavedPresentationIntent(normalizedText)
+            || this._isArtifactIntent(normalizedText)
+            || this._isSavedArtifactIntent(normalizedText)
+            || this._isDataVizIntent(normalizedText)
+            || this._isResearchIntent(normalizedText)
+            || this._isDocumentSelectionIntent(normalizedText)
+            || this._isSummaryIntent(normalizedText)
+            || this._parseWhatsappModelCommand(normalizedText)) {
+            return false;
+        }
+
+        return (normalizedText.match(/\S+/g) || []).length <= 120;
+    }
+
+    _composeWhatsappPresentationRequest(requestText, phoneContext = null, options = {}) {
+        const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
+        const mergedPrompt = this._normalizeWhatsappResearchReportText(options && options.mergedPrompt ? options.mergedPrompt : '');
+        const extracted = this._extractPresentationRequestParts(normalizedRequest);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        const canonicalSource = session && (session.sourceText || session.currentPrompt || session.basePrompt)
+            ? this._normalizeWhatsappResearchReportText(session.sourceText || session.currentPrompt || session.basePrompt)
+            : '';
+        const isFollowUp = !!(
+            session
+            && session.kind === 'presentation'
+            && !this._presentationRequestHasExplicitSourceText(normalizedRequest)
+            && !this._isSavedPresentationIntent(normalizedRequest)
+            && this._isWhatsappPresentationFollowUpIntent(normalizedRequest, phoneContext, 'presentation')
+        );
+
+        if (!isFollowUp) {
+            const sourceText = mergedPrompt || extracted.sourceText || normalizedRequest;
+            return {
+                sourceText,
+                extraRequestText: extracted.extraRequestText || '',
+                isFollowUp: false,
+                basePrompt: extracted.sourceText || normalizedRequest,
+                currentPrompt: sourceText,
+                currentSourceText: sourceText,
+                refinements: [],
+                session,
+                usedMergedPrompt: !!mergedPrompt
+            };
+        }
+
+        const refinements = Array.isArray(session.refinements) ? [...session.refinements, normalizedRequest] : [normalizedRequest];
+        if (mergedPrompt) {
+            return {
+                sourceText: mergedPrompt,
+                extraRequestText: '',
+                isFollowUp: true,
+                basePrompt: session.basePrompt || canonicalSource,
+                currentPrompt: mergedPrompt,
+                currentSourceText: mergedPrompt,
+                refinements,
+                session,
+                usedMergedPrompt: true
+            };
+        }
+
+        return {
+            sourceText: canonicalSource || session.basePrompt,
+            extraRequestText: refinements.join('\n'),
+            isFollowUp: true,
+            basePrompt: session.basePrompt,
+            currentPrompt: refinements.join('\n'),
+            currentSourceText: canonicalSource || session.basePrompt,
+            refinements,
+            session,
+            usedMergedPrompt: false
+        };
+    }
+
+    _isWhatsappDocumentSummaryQuestionIntent(text, phoneContext = null, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        if (!normalizedText || !session || session.kind !== 'document-summary' || !session.active) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'document-check') {
+            return false;
+        }
+
+        if (this._isArtifactIntent(normalizedText)
+            || this._isSavedArtifactIntent(normalizedText)
+            || this._isPresentationIntent(normalizedText)
+            || this._isSavedPresentationIntent(normalizedText)
+            || this._isDataVizIntent(normalizedText)
+            || this._isResearchIntent(normalizedText)
+            || this._parseWhatsappModelCommand(normalizedText)) {
+            return false;
+        }
+
+        return this._isQuestionIntent(normalizedText)
+            || this._hasRunnableDocumentQuestionText(normalizedText, session.documentName || '')
+            || this._isSummaryIntent(normalizedText);
+    }
+
+    _getWhatsappArtifactFollowUpTokens() {
+        return [
+            'make', 'change', 'add', 'remove', 'delete', 'update', 'modify', 'adjust', 'increase', 'decrease', 'replace', 'keep', 'set', 'turn',
+            'bigger', 'smaller', 'larger', 'more', 'less', 'faster', 'slower', 'darker', 'lighter', 'improve', 'refine',
+            'haz', 'hace', 'cambia', 'agrega', 'añade', 'anade', 'quita', 'elimina', 'actualiza', 'modifica', 'ajusta', 'aumenta', 'reduce', 'reemplaza', 'mas', 'más', 'grande', 'pequeno', 'pequeño',
+            'faz', 'muda', 'adiciona', 'remove', 'atualiza', 'modifica', 'ajusta', 'aumenta', 'reduz', 'substitui', 'mais', 'menor', 'maior',
+            'fais', 'change', 'ajoute', 'retire', 'supprime', 'mets a jour', 'mets à jour', 'modifie', 'ajuste', 'augmente', 'reduis', 'réduis', 'remplace', 'plus', 'moins', 'plus grand', 'plus petit',
+            'mach', 'andere', 'ändere', 'fuge', 'füge', 'entferne', 'losche', 'lösche', 'aktualisiere', 'modifiziere', 'passe', 'erhohe', 'erhöhe', 'verringere', 'ersetze', 'grosser', 'größer', 'kleiner', 'mehr', 'weniger',
+            'fai', 'cambia', 'aggiungi', 'rimuovi', 'elimina', 'aggiorna', 'modifica', 'aumenta', 'riduci', 'sostituisci', 'piu', 'più', 'grande', 'piccolo',
+            'сделай', 'измени', 'добавь', 'убери', 'удали', 'обнови', 'модифицируй', 'увеличь', 'уменьши', 'замени', 'больше', 'меньше',
+            '修改', '调整', '增加', '减少', '删除', '更新', '替换', '更大', '更小', '更多', '更少',
+            '変更', '修正', '追加', '削除', '更新', '調整', '置き換え', '大きく', '小さく', 'もっと', '少なく',
+            '수정', '변경', '추가', '제거', '삭제', '업데이트', '조정', '늘려', '줄여', '바꿔', '더 크게', '더 작게'
+        ];
+    }
+
+    _isWhatsappArtifactSessionIntentOverride(text) {
+        return this._textMatchesDocumentKeymapTokens(text, this._getArtifactKeymapTokens('followUpCloseCues'))
+            || this._textMatchesDocumentKeymapTokens(text, this._getArtifactKeymapTokens('followUpContinueCues'));
+    }
+
+    _isWhatsappArtifactCloseIntent(text, phoneContext = null, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const session = this._getWhatsappArtifactSession(phoneContext);
+        if (!normalizedText || !session || !session.active) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'artifact') {
+            return false;
+        }
+
+        if (this._isArtifactIntent(normalizedText)
+            || this._isSavedArtifactIntent(normalizedText)
+            || this._isPresentationIntent(normalizedText)
+            || this._isSavedPresentationIntent(normalizedText)
+            || this._isDataVizIntent(normalizedText)
+            || this._isResearchIntent(normalizedText)
+            || this._isDocumentSelectionIntent(normalizedText)
+            || this._isSummaryIntent(normalizedText)
+            || this._parseWhatsappModelCommand(normalizedText)) {
+            return false;
+        }
+
+        const closeMatch = this._findLongestNormalizedTokenMatch(normalizedText, this._getArtifactKeymapTokens('followUpCloseCues'));
+        if (!closeMatch) {
+            return false;
+        }
+
+        const wordCount = (normalizedText.match(/\S+/g) || []).length;
+        return wordCount <= 8;
+    }
+
+    _isWhatsappArtifactContinueIntent(text, phoneContext = null, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const session = this._getWhatsappArtifactSession(phoneContext);
+        if (!normalizedText || !session || !session.active || !session.awaitingFollowUpConfirmation) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'artifact') {
+            return false;
+        }
+
+        if (this._isArtifactIntent(normalizedText)
+            || this._isSavedArtifactIntent(normalizedText)
+            || this._isPresentationIntent(normalizedText)
+            || this._isSavedPresentationIntent(normalizedText)
+            || this._isDataVizIntent(normalizedText)
+            || this._isResearchIntent(normalizedText)
+            || this._isDocumentSelectionIntent(normalizedText)
+            || this._isSummaryIntent(normalizedText)
+            || this._parseWhatsappModelCommand(normalizedText)) {
+            return false;
+        }
+
+        const continueMatch = this._findLongestNormalizedTokenMatch(normalizedText, this._getArtifactKeymapTokens('followUpContinueCues'));
+        if (!continueMatch) {
+            return false;
+        }
+
+        const wordCount = (normalizedText.match(/\S+/g) || []).length;
+        return wordCount <= 8;
+    }
+
+    _isWhatsappArtifactInlineContinueIntent(text, phoneContext = null, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const session = this._getWhatsappArtifactSession(phoneContext);
+        if (!normalizedText || !session || !session.active || !session.awaitingFollowUpConfirmation) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'artifact') {
+            return false;
+        }
+
+        const continueMatch = this._findLongestNormalizedTokenMatch(normalizedText, this._getArtifactKeymapTokens('followUpContinueCues'));
+        if (!continueMatch) {
+            return false;
+        }
+
+        const stripped = this._stripWhatsappArtifactContinuePrefix(normalizedText);
+        if (!stripped || stripped === normalizedText) {
+            return false;
+        }
+
+        if (this._isWhatsappArtifactCloseIntent(stripped, {
+            ...(phoneContext || {}),
+            artifactSession: {
+                ...(session || {}),
+                awaitingFollowUpConfirmation: false
+            }
+        }, normalizedTool)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    _stripWhatsappArtifactContinuePrefix(text) {
+        const rawText = String(text || '').trim();
+        if (!rawText) return '';
+
+        const tokens = this._getArtifactKeymapTokens('followUpContinueCues')
+            .map(token => String(token || '').trim())
+            .filter(Boolean)
+            .sort((left, right) => right.length - left.length);
+
+        let candidate = rawText;
+        for (const token of tokens) {
+            const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+            const prefixPattern = new RegExp(`^${escapedToken}(?:[\\s,.;:!?-]+|$)`, 'i');
+            if (prefixPattern.test(candidate)) {
+                candidate = candidate.replace(prefixPattern, '').trim();
+                break;
+            }
+        }
+
+        candidate = candidate.replace(/^(?:and|then|also|please|por favor|s'il vous plait|s'il vous plaît|bitte)\b[\s,.;:!?-]*/i, '').trim();
+        return candidate || rawText;
+    }
+
+    async _sendWhatsappArtifactFollowUpQuestion(phone, language = null) {
+        const questionText = await this._getLocalizedLangText(
+            language,
+            'whatsappArtifactFollowUpQuestion',
+            'Do you want to make further modifications to this miniapp?'
+        );
+        await this.postWhatsappText(phone, `🤖 ${questionText}`);
+    }
+
+    async _handleWhatsappArtifactSessionClose(phone, language = null, phoneContext = null) {
+        const updatedContext = await this._clearWhatsappArtifactSession(phone, phoneContext);
+        const closedText = await this._getLocalizedLangText(
+            language,
+            'whatsappArtifactFollowUpClosed',
+            'Okay, artifact modification mode is closed.'
+        );
+        await this.postWhatsappText(phone, `🤖 ${closedText}`);
+        return updatedContext;
+    }
+
+    async _handleWhatsappArtifactSessionContinue(phone, language = null, phoneContext = null) {
+        const session = this._getWhatsappArtifactSession(phoneContext);
+        const updatedContext = await this._setWhatsappArtifactSession(phone, {
+            ...(session || {}),
+            active: true,
+            awaitingFollowUpConfirmation: false
+        }, phoneContext);
+        const continueText = await this._getLocalizedLangText(
+            language,
+            'whatsappArtifactFollowUpContinue',
+            'Tell me what you want to change in the miniapp.'
+        );
+        await this.postWhatsappText(phone, `🤖 ${continueText}`);
+        return updatedContext;
+    }
+
+    _isWhatsappArtifactFollowUpIntent(text, phoneContext = null, orchTool = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const session = this._getWhatsappArtifactSession(phoneContext);
+        if (!normalizedText || !session || !session.active) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'artifact') {
+            return false;
+        }
+
+        if (this._isArtifactIntent(normalizedText) || this._isSavedArtifactIntent(normalizedText)) {
+            return true;
+        }
+
+        if (this._isPresentationIntent(normalizedText)
+            || this._isSavedPresentationIntent(normalizedText)
+            || this._isDataVizIntent(normalizedText)
+            || this._isResearchIntent(normalizedText)
+            || this._isDocumentSelectionIntent(normalizedText)
+            || this._isSummaryIntent(normalizedText)
+            || this._parseWhatsappModelCommand(normalizedText)) {
+            return false;
+        }
+
+        const followUpTokens = this._getWhatsappArtifactFollowUpTokens();
+        const hasFollowUpCue = this._textMatchesDocumentKeymapTokens(normalizedText, followUpTokens);
+        const wordCount = (normalizedText.match(/\S+/g) || []).length;
+        const isQuestion = this._isQuestionIntent(normalizedText);
+
+        if (isQuestion && !hasFollowUpCue) {
+            return false;
+        }
+
+        return hasFollowUpCue && wordCount <= 80;
+    }
+
+    _composeWhatsappArtifactPrompt(requestText, phoneContext = null, options = {}) {
+        const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
+        const mergedPrompt = this._normalizeWhatsappResearchReportText(options && options.mergedPrompt ? options.mergedPrompt : '');
+        const session = this._getWhatsappArtifactSession(phoneContext);
+        const isFollowUp = !!(session && this._isWhatsappArtifactFollowUpIntent(normalizedRequest, phoneContext, 'artifact'));
+        const canonicalPrompt = session && (session.currentPrompt || session.basePrompt)
+            ? this._normalizeWhatsappResearchReportText(session.currentPrompt || session.basePrompt)
+            : '';
+
+        if (!isFollowUp) {
+            return {
+                prompt: mergedPrompt || normalizedRequest,
+                isFollowUp: false,
+                basePrompt: normalizedRequest,
+                currentPrompt: mergedPrompt || normalizedRequest,
+                modifications: [],
+                session,
+                usedMergedPrompt: !!mergedPrompt
+            };
+        }
+
+        const previousModifications = Array.isArray(session.modifications) ? [...session.modifications] : [];
+        previousModifications.push(normalizedRequest);
+
+        if (mergedPrompt) {
+            return {
+                prompt: mergedPrompt,
+                isFollowUp: true,
+                basePrompt: session.basePrompt || canonicalPrompt,
+                currentPrompt: mergedPrompt,
+                modifications: previousModifications,
+                session,
+                usedMergedPrompt: true
+            };
+        }
+
+        const combinedPrompt = [
+            canonicalPrompt || session.basePrompt,
+            '',
+            'Additional modification requests for the same miniapp. Apply all of them while preserving the rest of the existing behavior unless explicitly changed:',
+            ...previousModifications.map((item, index) => `${index + 1}. ${item}`)
+        ].join('\n');
+
+        return {
+            prompt: combinedPrompt,
+            isFollowUp: true,
+            basePrompt: session.basePrompt,
+            currentPrompt: combinedPrompt,
+            modifications: previousModifications,
+            session,
+            usedMergedPrompt: false
+        };
+    }
+
+    _buildWhatsappArtifactOrchestratorHint(requestText, phoneContext = null) {
+        const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
+        const artifactSession = this._getWhatsappArtifactSession(phoneContext);
+        if (normalizedRequest && artifactSession && artifactSession.active) {
+            const modificationLines = Array.isArray(artifactSession.modifications) && artifactSession.modifications.length > 0
+                ? artifactSession.modifications.map((item, index) => `${index + 1}. ${item}`).join('\n')
+                : 'None yet.';
+
+            return [
+                'Active artifact session context:',
+                `Base artifact request: ${artifactSession.basePrompt}`,
+                `Current canonical artifact prompt: ${artifactSession.currentPrompt || artifactSession.basePrompt}`,
+                `Prior artifact modifications:\n${modificationLines}`,
+                'Routing rule: unless the user explicitly switches topics to models, documents, research, dataviz, or presentations, treat this as an artifact/miniapp follow-up request.',
+                'Prompt-construction rule: produce merged_prompt as a single coherent final artifact prompt when the latest refinement overrides, removes, or replaces earlier requirements. Do not just append contradictory clauses.',
+                'If the user answers with a closure confirmation like "no", "no thanks", "I am finished", or "I am good", treat that as closing artifact follow-up mode.',
+                `Current user request: ${normalizedRequest}`
+            ].join('\n\n');
+        }
+
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        if (!normalizedRequest || !session || !session.active) {
+            return normalizedRequest;
+        }
+
+        if (session.kind === 'research') {
+            const refinementLines = Array.isArray(session.refinements) && session.refinements.length > 0
+                ? session.refinements.map((item, index) => `${index + 1}. ${item}`).join('\n')
+                : 'None yet.';
+            return [
+                'Active research follow-up session context:',
+                `Base research request: ${session.basePrompt}`,
+                `Current canonical research prompt: ${session.currentPrompt || session.basePrompt}`,
+                `Prior research refinements:\n${refinementLines}`,
+                'Routing rule: unless the user explicitly switches topics, treat short follow-up prompts as continuing the same research task.',
+                'Prompt-construction rule: when the latest user message changes, removes, narrows, or replaces previous requirements, produce a semantically merged final query in the optional JSON field query or merged_prompt instead of naively concatenating conflicting instructions.',
+                'If the user answers with a closure confirmation like "no", "no thanks", or "I am finished", treat that as closing research follow-up mode.',
+                `Current user request: ${normalizedRequest}`
+            ].join('\n\n');
+        }
+
+        if (session.kind === 'presentation') {
+            const refinementLines = Array.isArray(session.refinements) && session.refinements.length > 0
+                ? session.refinements.map((item, index) => `${index + 1}. ${item}`).join('\n')
+                : 'None yet.';
+            return [
+                'Active presentation follow-up session context:',
+                `Base presentation source text: ${session.sourceText || session.basePrompt}`,
+                `Current canonical presentation prompt: ${session.currentPrompt || session.sourceText || session.basePrompt}`,
+                `Prior presentation refinements:\n${refinementLines}`,
+                'Routing rule: unless the user explicitly switches topics, treat short follow-up prompts as changes to the same presentation.',
+                'Prompt-construction rule: produce a semantically merged final presentation prompt in merged_prompt when the new request overrides or refines earlier instructions. Do not simply append contradictory phrases.',
+                'If the user answers with a closure confirmation like "no", "no thanks", or "I am finished", treat that as closing presentation follow-up mode.',
+                `Current user request: ${normalizedRequest}`
+            ].join('\n\n');
+        }
+
+        if (session.kind === 'document-summary') {
+            return [
+                'Active document-summary follow-up context:',
+                `Selected document: ${session.documentName || session.documentId}`,
+                'Routing rule: if the user asks a follow-up question or says they want to continue, keep working with the same document instead of switching to generic chat, unless they explicitly name a different already-ingested document.',
+                'Prompt-construction rule: if helpful, produce merged_prompt as a clarified document summary/question request while preserving the same selected-document context. If the user explicitly names another document, switch to that document instead of keeping the current one. Do not invent filenames.',
+                'If the user answers with a closure confirmation like "no", "no thanks", or "I am finished", treat that as closing document follow-up mode.',
+                `Current user request: ${normalizedRequest}`
+            ].join('\n\n');
+        }
+
+        return normalizedRequest;
+    }
+
+    _looksLikeSpecificWhatsappModelName(text) {
+        const normalized = this._normalizeDocumentIntentKeymapText(text);
+        if (!normalized) return false;
+
+        if (/[0-9]/.test(normalized)) {
+            return true;
+        }
+
+        if (/[:./_-]/.test(String(text || ''))) {
+            return true;
+        }
+
+        const tokens = normalized.split(/\s+/).filter(Boolean);
+        if (tokens.length === 1 && tokens[0].length >= 5 && tokens[0].length <= 24) {
+            return true;
+        }
+
+        return false;
     }
 
     async _beginWhatsappModelRoutingSession(phone, phoneContext = null) {
@@ -970,6 +2073,17 @@ class ConnectorWhatsapp {
                 resultLength: typeof summaryText === 'string' ? summaryText.length : null,
                 truthy: !!summaryText
             });
+            if (!suppressWhatsappSummarySend && phone && match && match.id && match.name) {
+                await this._setWhatsappFollowUpSession(phone, {
+                    kind: 'document-summary',
+                    active: true,
+                    awaitingFollowUpConfirmation: true,
+                    documentId: match.id,
+                    documentName: match.name,
+                    title: match.name
+                });
+                await this._sendWhatsappFollowUpSessionQuestion(phone, 'document-summary', language);
+            }
             return summaryText || true;
         }
         console.info('[ConnectorWhatsapp][debug] _executeDocumentSummary fallback: showDocumentSummary not available', { id: match.id, name: match.name });
@@ -1186,6 +2300,32 @@ class ConnectorWhatsapp {
             .trim();
     }
 
+    _formatResearchTextForWhatsapp(text) {
+        let content = this._normalizeWhatsappResearchReportText(text);
+        if (!content) {
+            return '';
+        }
+
+        content = content
+            .replace(/^---+$/gm, '')
+            .replace(/^#{1,6}\s+(.+)$/gm, (_match, heading) => `*${String(heading || '').trim()}*`)
+            .replace(/^\*\*(.+?)\*\*:\s*(.+)$/gm, (_match, label, value) => `*${String(label || '').trim()}:* ${String(value || '').trim()}`)
+            .replace(/^\*(.+?)\*:\s*(.+)$/gm, (_match, label, value) => `*${String(label || '').trim()}:* ${String(value || '').trim()}`)
+            .replace(/^\*\*(.+?)\*\*$/gm, (_match, heading) => `*${String(heading || '').trim()}*`)
+            .replace(/^\*(.+?)\*$/gm, (_match, heading) => `*${String(heading || '').trim()}*`)
+            .replace(/\*\*(.+?)\*\*/g, '*$1*')
+            .replace(/^#\s*$/gm, '')
+            .replace(/^##\s*$/gm, '')
+            .replace(/^###\s*$/gm, '');
+
+        content = content
+            .replace(/\n{3,}/g, '\n\n')
+            .replace(/\n\s+\n/g, '\n\n')
+            .trim();
+
+        return this._normalizeWhatsappReplyText(content);
+    }
+
     _stripWhatsappResearchSourcesSection(text) {
         const normalizedText = this._normalizeWhatsappResearchReportText(text);
         if (!normalizedText) {
@@ -1207,13 +2347,17 @@ class ConnectorWhatsapp {
                 const reportHtml = String(reportElement.innerHTML || '').trim();
                 if (reportHtml && researchAutomation && typeof researchAutomation.htmlToMarkdown === 'function') {
                     const markdownReport = researchAutomation.htmlToMarkdown(reportHtml);
-                    const normalizedMarkdownReport = this._stripWhatsappResearchSourcesSection(markdownReport);
+                    const normalizedMarkdownReport = this._formatResearchTextForWhatsapp(
+                        this._stripWhatsappResearchSourcesSection(markdownReport)
+                    );
                     if (normalizedMarkdownReport) {
                         return normalizedMarkdownReport;
                     }
                 }
 
-                const plainTextReport = this._stripWhatsappResearchSourcesSection(reportElement.innerText || reportElement.textContent || '');
+                const plainTextReport = this._formatResearchTextForWhatsapp(
+                    this._stripWhatsappResearchSourcesSection(reportElement.innerText || reportElement.textContent || '')
+                );
                 if (plainTextReport) {
                     return plainTextReport;
                 }
@@ -1222,7 +2366,7 @@ class ConnectorWhatsapp {
             console.warn('[ConnectorWhatsapp][research] Failed to extract report text from research window', err);
         }
 
-        return this._stripWhatsappResearchSourcesSection(fallbackReport);
+        return this._formatResearchTextForWhatsapp(this._stripWhatsappResearchSourcesSection(fallbackReport));
     }
 
     _getResearchSourcesForAutosave() {
@@ -1236,6 +2380,49 @@ class ConnectorWhatsapp {
         } catch (err) {
             console.warn('[ConnectorWhatsapp][research] Failed to extract research sources for autosave', err);
             return [];
+        }
+    }
+
+    _getResearchSourcesTextForWhatsapp() {
+        try {
+            const uniqueUrls = [];
+            const seen = new Set();
+
+            const addUrl = (candidate) => {
+                const normalizedUrl = this._normalizeWhatsappLinkUrl(candidate);
+                if (!normalizedUrl) {
+                    return;
+                }
+
+                const dedupeKey = normalizedUrl.replace(/\/$/, '');
+                if (seen.has(dedupeKey)) {
+                    return;
+                }
+
+                seen.add(dedupeKey);
+                uniqueUrls.push(normalizedUrl);
+            };
+
+            const sourceAnchors = Array.from(document.querySelectorAll('.research-results-overlay .sources-panel-area a[href], .research-results-overlay .report-content a[href]'));
+            for (const anchor of sourceAnchors) {
+                addUrl(anchor.getAttribute('href') || anchor.href || '');
+            }
+
+            if (uniqueUrls.length === 0) {
+                const sources = this._getResearchSourcesForAutosave();
+                for (const source of Array.isArray(sources) ? sources : []) {
+                    addUrl((source && (source.url || source.link || source.href)) || '');
+                }
+            }
+
+            if (uniqueUrls.length === 0) {
+                return '';
+            }
+
+            return this._formatResearchTextForWhatsapp(['*Sources*', ...uniqueUrls].join('\n'));
+        } catch (err) {
+            console.warn('[ConnectorWhatsapp][research] Failed to extract WhatsApp-safe research source links', err);
+            return '';
         }
     }
 
@@ -1616,6 +2803,8 @@ class ConnectorWhatsapp {
             actions: {},
             sourceCues: [],
             savedCues: [],
+            followUpCloseCues: [],
+            followUpContinueCues: [],
             workflows: {},
             sectionAnchors: [],
             terms: []
@@ -1646,6 +2835,8 @@ class ConnectorWhatsapp {
             intent: [],
             actions: {},
             savedCues: [],
+            followUpCloseCues: [],
+            followUpContinueCues: [],
             webCues: [],
             terms: []
         };
@@ -1733,7 +2924,12 @@ class ConnectorWhatsapp {
         for (const token of tokens) {
             const normalizedToken = this._normalizeDocumentIntentKeymapText(token);
             if (!normalizedToken) continue;
-            if (normalizedText === normalizedToken || normalizedText.includes(normalizedToken)) {
+            const pattern = normalizedToken
+                .split(/\s+/)
+                .map(part => this._escapeRegExp(part))
+                .join('\\s+');
+            const regex = new RegExp(`(^|\\s)${pattern}(?=\\s|$)`, 'i');
+            if (normalizedText === normalizedToken || regex.test(normalizedText)) {
                 if (normalizedToken.length > bestMatch.length) {
                     bestMatch = normalizedToken;
                 }
@@ -1915,6 +3111,7 @@ class ConnectorWhatsapp {
         const useMatch = this._findLongestNormalizedTokenMatch(normalizedText, useTokens);
         const hasExplicitListPhrase = !!(listMatch && listMatch.split(/\s+/).length > 1);
         const isCurrentQuestion = this._isWhatsappCurrentModelQuestion(normalizedText, hasModelNoun);
+        const provider = this._detectWhatsappRequestedModelProvider(rawText);
 
         if ((currentMatch && (hasModelNoun || currentMatch.split(/\s+/).length > 1)) || isCurrentQuestion) {
             return { type: 'current' };
@@ -1928,10 +3125,16 @@ class ConnectorWhatsapp {
             return null;
         }
 
+        const requestedModelName = String(this._extractWhatsappRequestedModelName(rawText) || '').trim();
+        const hasSpecificModelName = this._looksLikeSpecificWhatsappModelName(requestedModelName);
+        if (!hasModelNoun && !provider && !hasSpecificModelName) {
+            return null;
+        }
+
         return {
             type: 'switch',
-            provider: this._detectWhatsappRequestedModelProvider(rawText),
-            requestedModelName: this._extractWhatsappRequestedModelName(rawText)
+            provider,
+            requestedModelName
         };
     }
 
@@ -3120,6 +4323,8 @@ class ConnectorWhatsapp {
             actions: {},
             outputs: [],
             modifiers: [],
+            followUpCloseCues: [],
+            followUpContinueCues: [],
             terms: []
         };
     }
@@ -3638,17 +4843,26 @@ class ConnectorWhatsapp {
             throw new Error('Artifacts workflow is unavailable.');
         }
 
+        console.info('[ConnectorWhatsapp][artifact] Starting artifact generation', {
+            useWebSearch,
+            prompt: String(requestText || '')
+        });
+
         return workflow.generateArtifactHtmlFromPrompt(requestText, { useWebSearch });
     }
 
-    async _handleWhatsappPromptablePresentation(phone, requestText, language = null) {
+    async _handleWhatsappPromptablePresentation(phone, requestText, language = null, options = {}) {
         if (!phone) return false;
 
-        const shouldUseSavedPresentationFlow = this._isSavedPresentationIntent(requestText)
-            || (!!this._getPendingPresentationSelection(phone) && !this._presentationRequestHasExplicitSourceText(requestText));
+        let phoneContext = (await this._getWhatsappPhoneContext(phone)) || {};
+        const orchestratorMergedPrompt = this._normalizeWhatsappResearchReportText(options && options.orchestratorMergedPrompt ? options.orchestratorMergedPrompt : '');
+        const originalRequestText = this._normalizeWhatsappResearchReportText(options && options.originalRequestText ? options.originalRequestText : requestText);
+
+        const shouldUseSavedPresentationFlow = this._isSavedPresentationIntent(originalRequestText)
+            || (!!this._getPendingPresentationSelection(phone) && !this._presentationRequestHasExplicitSourceText(originalRequestText));
 
         if (shouldUseSavedPresentationFlow) {
-            return this._handleWhatsappSavedPresentations(phone, requestText, language);
+            return this._handleWhatsappSavedPresentations(phone, originalRequestText, language);
         }
 
         const workflow = await this._ensurePromptablePresentationReady();
@@ -3662,8 +4876,15 @@ class ConnectorWhatsapp {
             return false;
         }
 
-        const { sourceText, extraRequestText } = this._extractPresentationRequestParts(requestText);
-        const effectiveSourceText = sourceText || this._normalizeWhatsappResearchReportText(requestText);
+        const presentationPromptResolution = this._composeWhatsappPresentationRequest(originalRequestText, phoneContext, {
+            mergedPrompt: orchestratorMergedPrompt
+        });
+        const effectiveSourceText = presentationPromptResolution && presentationPromptResolution.sourceText
+            ? presentationPromptResolution.sourceText
+            : (orchestratorMergedPrompt || this._normalizeWhatsappResearchReportText(originalRequestText));
+        const extraRequestText = presentationPromptResolution && typeof presentationPromptResolution.extraRequestText === 'string'
+            ? presentationPromptResolution.extraRequestText
+            : '';
         const slideCount = this._estimatePromptablePresentationSlides(effectiveSourceText);
         this._clearPendingPresentationSelection(phone);
 
@@ -3696,6 +4917,25 @@ class ConnectorWhatsapp {
 
             await this.postWhatsappFile(phone, blob, filename, `🤖 ${title}`);
 
+            phoneContext = (await this._setWhatsappFollowUpSession(phone, {
+                kind: 'presentation',
+                active: true,
+                awaitingFollowUpConfirmation: true,
+                basePrompt: presentationPromptResolution && presentationPromptResolution.basePrompt
+                    ? presentationPromptResolution.basePrompt
+                    : effectiveSourceText,
+                currentPrompt: presentationPromptResolution && presentationPromptResolution.currentPrompt
+                    ? presentationPromptResolution.currentPrompt
+                    : (extraRequestText || orchestratorMergedPrompt || this._normalizeWhatsappResearchReportText(originalRequestText)),
+                sourceText: presentationPromptResolution && presentationPromptResolution.currentSourceText
+                    ? presentationPromptResolution.currentSourceText
+                    : effectiveSourceText,
+                refinements: presentationPromptResolution && Array.isArray(presentationPromptResolution.refinements)
+                    ? presentationPromptResolution.refinements
+                    : [],
+                title
+            }, phoneContext)) || phoneContext;
+
             this._closeWhatsappPromptablePresentationWindow();
 
             const sentText = await this._getLocalizedLangText(
@@ -3704,6 +4944,7 @@ class ConnectorWhatsapp {
                 'Presentation created and sent as an HTML file.'
             );
             await this.postWhatsappText(phone, `🤖 ${sentText}`);
+            await this._sendWhatsappFollowUpSessionQuestion(phone, 'presentation', language);
             return true;
         } catch (err) {
             console.error('ConnectorWhatsapp: _handleWhatsappPromptablePresentation failed', err);
@@ -3727,18 +4968,34 @@ class ConnectorWhatsapp {
         }
     }
 
-    async _handleWhatsappArtifact(phone, requestText, language = null) {
+    async _handleWhatsappArtifact(phone, requestText, language = null, options = {}) {
         if (!phone) return false;
 
-        const shouldUseSavedArtifactFlow = this._isSavedArtifactIntent(requestText)
-            || (!!this._getPendingArtifactSelection(phone) && !this._isArtifactIntent(requestText));
+        let phoneContext = (await this._getWhatsappPhoneContext(phone)) || {};
+        const orchestratorMergedPrompt = this._normalizeWhatsappResearchReportText(options && options.orchestratorMergedPrompt ? options.orchestratorMergedPrompt : '');
+        const originalRequestText = this._normalizeWhatsappResearchReportText(options && options.originalRequestText ? options.originalRequestText : requestText);
+
+        console.info('[ConnectorWhatsapp][artifact] Handling WhatsApp artifact request', {
+            phone,
+            requestText: String(requestText || ''),
+            originalRequestText: String(originalRequestText || ''),
+            orchestratorMergedPrompt: String(orchestratorMergedPrompt || '')
+        });
+
+        const shouldUseSavedArtifactFlow = this._isSavedArtifactIntent(originalRequestText)
+            || (!!this._getPendingArtifactSelection(phone) && !this._isArtifactIntent(originalRequestText));
 
         if (shouldUseSavedArtifactFlow) {
-            return this._handleWhatsappSavedArtifacts(phone, requestText, language);
+            console.info('[ConnectorWhatsapp][artifact] Routing to saved-artifact flow', {
+                phone,
+                requestText: String(originalRequestText || '')
+            });
+            return this._handleWhatsappSavedArtifacts(phone, originalRequestText, language);
         }
 
         const workflow = await this._ensureArtifactsReady();
         if (!workflow) {
+            console.warn('[ConnectorWhatsapp][artifact] Artifact workflow unavailable after UI bootstrap', { phone });
             const unavailableText = await this._getLocalizedLangText(
                 language,
                 'whatsappArtifactNotAvailable',
@@ -3750,7 +5007,25 @@ class ConnectorWhatsapp {
 
         this._clearPendingArtifactSelection(phone);
 
-        const useWebSearch = this._artifactRequestWantsWebSearch(requestText);
+        const artifactPromptResolution = this._composeWhatsappArtifactPrompt(originalRequestText, phoneContext, {
+            mergedPrompt: orchestratorMergedPrompt
+        });
+        const effectiveArtifactPrompt = artifactPromptResolution && artifactPromptResolution.prompt
+            ? artifactPromptResolution.prompt
+            : (orchestratorMergedPrompt || this._normalizeWhatsappResearchReportText(originalRequestText));
+
+        const useWebSearch = this._artifactRequestWantsWebSearch(originalRequestText)
+            || !!(artifactPromptResolution && artifactPromptResolution.session && artifactPromptResolution.session.useWebSearch);
+        console.info('[ConnectorWhatsapp][artifact] Artifact prompt resolved', {
+            phone,
+            useWebSearch,
+            basePrompt: String(artifactPromptResolution && artifactPromptResolution.basePrompt ? artifactPromptResolution.basePrompt : ''),
+            currentPrompt: String(artifactPromptResolution && artifactPromptResolution.currentPrompt ? artifactPromptResolution.currentPrompt : ''),
+            effectiveArtifactPrompt: String(effectiveArtifactPrompt || ''),
+            modificationsCount: artifactPromptResolution && Array.isArray(artifactPromptResolution.modifications)
+                ? artifactPromptResolution.modifications.length
+                : 0
+        });
         const creatingText = await this._getLocalizedLangText(
             language,
             useWebSearch ? 'whatsappArtifactCreatingWithWeb' : 'whatsappArtifactCreating',
@@ -3761,21 +5036,48 @@ class ConnectorWhatsapp {
         await this.postWhatsappText(phone, `🤖 ${creatingText}`);
 
         try {
-            const artifactResult = await this._generateWhatsappArtifactHtml(requestText, useWebSearch);
+            const artifactResult = await this._generateWhatsappArtifactHtml(effectiveArtifactPrompt, useWebSearch);
             const normalizedHtml = String(artifactResult && artifactResult.html ? artifactResult.html : '').trim();
+            console.info('[ConnectorWhatsapp][artifact] Artifact generation completed', {
+                phone,
+                title: artifactResult && artifactResult.title ? artifactResult.title : '',
+                htmlLength: normalizedHtml.length
+            });
             if (!normalizedHtml) {
                 throw new Error('Artifact HTML was empty.');
             }
 
             const title = String(artifactResult && artifactResult.title ? artifactResult.title : '').trim() || 'Artifact Miniapp';
             const filename = this._sanitizeWhatsappArtifactFilename(title);
-            const saveResult = await this._saveWhatsappArtifactToLibrary(normalizedHtml, title, requestText);
+            const saveResult = await this._saveWhatsappArtifactToLibrary(normalizedHtml, title, effectiveArtifactPrompt);
             if (!saveResult || !saveResult.id) {
                 throw new Error('Artifact autosave failed.');
             }
 
+            phoneContext = (await this._setWhatsappArtifactSession(phone, {
+                active: true,
+                basePrompt: artifactPromptResolution && artifactPromptResolution.basePrompt
+                    ? artifactPromptResolution.basePrompt
+                    : this._normalizeWhatsappResearchReportText(originalRequestText),
+                currentPrompt: artifactPromptResolution && artifactPromptResolution.currentPrompt
+                    ? artifactPromptResolution.currentPrompt
+                    : effectiveArtifactPrompt,
+                modifications: artifactPromptResolution && Array.isArray(artifactPromptResolution.modifications)
+                    ? artifactPromptResolution.modifications
+                    : [],
+                useWebSearch,
+                title,
+                awaitingFollowUpConfirmation: true
+            }, phoneContext)) || phoneContext;
+
             const blob = new Blob([normalizedHtml], { type: 'text/html' });
             await this.postWhatsappFile(phone, blob, filename, `🤖 ${title}`);
+            console.info('[ConnectorWhatsapp][artifact] Artifact file posted to WhatsApp', {
+                phone,
+                title,
+                filename,
+                artifactId: saveResult.id
+            });
 
             this._closeWhatsappArtifactsWindow();
 
@@ -3785,6 +5087,7 @@ class ConnectorWhatsapp {
                 'Miniapp created, saved, and sent as an HTML file.'
             );
             await this.postWhatsappText(phone, `🤖 ${sentText}`);
+            await this._sendWhatsappArtifactFollowUpQuestion(phone, language);
             return true;
         } catch (err) {
             console.error('ConnectorWhatsapp: _handleWhatsappArtifact failed', err);
@@ -3801,7 +5104,7 @@ class ConnectorWhatsapp {
 
     startIncomingPolling() {
         if (this.incomingPollInterval) return;
-        //console.log('ConnectorWhatsapp: startIncomingPolling');
+        console.log('ConnectorWhatsapp: startIncomingPolling');
         this._pollWhatsappIncomingMessages().catch(err => console.warn('ConnectorWhatsapp: initial poll failed', err));
         this.incomingPollInterval = setInterval(() => {
             this._pollWhatsappIncomingMessages().catch(err => console.warn('ConnectorWhatsapp: poll failed', err));
@@ -4071,8 +5374,8 @@ class ConnectorWhatsapp {
                 : cleanedOriginal;
             const cleaned = this._stripThinkingContent(effectiveInput);
             const routingIntentText = this._getWhatsappRoutingIntentText(cleaned);
-            const shortInput = cleaned.length > 200 ? cleaned.substring(0, 200) + '...' : cleaned;
-            console.info('[ConnectorWhatsapp][orchestrator] Sanitized input:', shortInput);
+            const orchestratorInput = this._buildWhatsappArtifactOrchestratorHint(cleaned, phoneContext);
+            console.info('[ConnectorWhatsapp][orchestrator] Sanitized input:', orchestratorInput);
 
             // Build system prompt for orchestrator
             const systemPrompt = ORCHESTRATOR_SYSTEM_PROMPT;
@@ -4109,7 +5412,7 @@ class ConnectorWhatsapp {
                     this._showWhatsappOrchestratorModal();
                     routingSession = await this._beginWhatsappModelRoutingSession(normalizedPhone, phoneContext);
                     const orchestratorContext = this._normalizeWhatsappOrchestratorTurns(this._getWhatsappOrchestratorContext(normalizedPhone) || []);
-                    orchText = await OllamaAPI.OrchestratorCall(cleaned, systemPrompt, contextSize, orchestratorContext, null, `wa_orch_${Date.now()}`, null);
+                    orchText = await OllamaAPI.OrchestratorCall(orchestratorInput, systemPrompt, contextSize, orchestratorContext, null, `wa_orch_${Date.now()}`, null);
                 }
             } catch (e) {
                 console.error('[ConnectorWhatsapp][orchestrator] Orchestrator call failed', e);
@@ -4127,7 +5430,7 @@ class ConnectorWhatsapp {
             if (orchText && typeof orchText === 'string' && orchText.trim().length > 0) {
                 const rawOut = orchText.trim();
                 const sanitizedOut = rawOut.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, ' ').trim();
-                console.info('[ConnectorWhatsapp][orchestrator] Raw output (sanitized):', sanitizedOut.substring(0, 400));
+                console.info('[ConnectorWhatsapp][orchestrator] Raw output (sanitized):', sanitizedOut);
 
                 if (!rawOut.startsWith('{') && !rawOut.includes('"tool"')) {
                     console.warn('[ConnectorWhatsapp][orchestrator] Orchestrator output appears non-JSON and will be ignored. Verify orchestrator model is used.', { rawOut });
@@ -4166,16 +5469,66 @@ class ConnectorWhatsapp {
                     }
                     // Document hint (optional) - normalise common fields
                     decision.document = parsed.document || parsed.document_name || parsed.doc || parsed.doc_id || parsed.documentId || parsed.document_id || '';
+                    decision.query = this._normalizeWhatsappResearchReportText(
+                        parsed.query || parsed.research_query || parsed.search_query || ''
+                    );
+                    decision.mergedPrompt = this._normalizeWhatsappResearchReportText(
+                        parsed.merged_prompt || parsed.mergedPrompt || parsed.refined_prompt || parsed.refinedPrompt || parsed.final_prompt || parsed.finalPrompt || ''
+                    );
                     decision.confidence = Number(parsed.confidence) || Number(parsed.confidence) === 0 ? Number(parsed.confidence) : (parsed.confidence === 0 ? 0 : (parsed.confidence || 0));
                     decision.reason = parsed.reason || parsed.explanation || '';
 
+                    let explicitDocumentAction = null;
+                    if (window.RAG_Utils && typeof window.RAG_Utils.resolveDocumentQuestioningAction === 'function') {
+                        try {
+                            explicitDocumentAction = await window.RAG_Utils.resolveDocumentQuestioningAction(routingIntentText || cleaned, {
+                                scopeKey: this._getWhatsappDocumentScopeKey(normalizedPhone),
+                                hashedMasterKey: sessionStorage.getItem('hashedMasterKey')
+                            });
+                        } catch (docIntentErr) {
+                            console.warn('[ConnectorWhatsapp][orchestrator] resolveDocumentQuestioningAction failed during routing upgrade', docIntentErr);
+                        }
+                    }
+                    const explicitDocumentSwitch = !!(explicitDocumentAction
+                        && (explicitDocumentAction.action === 'enter' || explicitDocumentAction.action === 'switch')
+                        && explicitDocumentAction.match
+                        && explicitDocumentAction.match.documentId);
+
                     // If prompt-based orchestrator gave chat but text matches data-viz criteria, upgrade to dataviz
+                    const artifactFollowUpIntent = this._isWhatsappArtifactFollowUpIntent(routingIntentText || cleaned, phoneContext, decision.tool);
+                    const researchFollowUpIntent = this._isWhatsappResearchFollowUpIntent(routingIntentText || cleaned, phoneContext, decision.tool);
+                    const presentationFollowUpIntent = this._isWhatsappPresentationFollowUpIntent(routingIntentText || cleaned, phoneContext, decision.tool);
+                    const documentSummaryFollowUpIntent = !explicitDocumentSwitch
+                        && this._isWhatsappDocumentSummaryQuestionIntent(routingIntentText || cleaned, phoneContext, decision.tool);
+                    const followUpSession = this._getWhatsappFollowUpSession(phoneContext);
+
+                    if (explicitDocumentSwitch) {
+                        decision.tool = 'document-check';
+                        decision.document = explicitDocumentAction.match.documentName || decision.document || '';
+                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected explicit request to switch to another document.';
+                    }
+
                     if (decision.tool === 'chat' && this._isDataVizIntent(routingIntentText) && !this._isPresentationIntent(routingIntentText)) {
                         decision.tool = 'dataviz';
                         decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected dataviz intent via keymap fallback.';
+                    } else if (decision.tool === 'chat' && artifactFollowUpIntent) {
+                        decision.tool = 'artifact';
+                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected artifact follow-up modification via active artifact session.';
                     } else if (decision.tool === 'chat' && (this._isArtifactIntent(routingIntentText) || this._isSavedArtifactIntent(routingIntentText))) {
                         decision.tool = 'artifact';
                         decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected artifact intent via keymap fallback.';
+                    } else if (decision.tool === 'chat' && researchFollowUpIntent) {
+                        decision.tool = 'research';
+                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected research follow-up via active research session.';
+                    } else if (decision.tool === 'chat' && presentationFollowUpIntent) {
+                        decision.tool = 'presentation';
+                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected presentation follow-up via active presentation session.';
+                    } else if (decision.tool === 'chat' && documentSummaryFollowUpIntent) {
+                        decision.tool = 'document-check';
+                        if (followUpSession && followUpSession.documentName) {
+                            decision.document = followUpSession.documentName;
+                        }
+                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected same-document follow-up via active document summary session.';
                     } else if (decision.tool === 'chat' && this._isPresentationIntent(routingIntentText)) {
                         decision.tool = 'presentation';
                         decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected presentation intent via keymap fallback.';
@@ -4189,6 +5542,30 @@ class ConnectorWhatsapp {
                     if (parsed.think === false || parsed.think === 'false') {
                         decision.think = false;
                     }
+
+                    const deterministicWorkflowRouting = this._resolveWhatsappDeterministicWorkflowRouting(routingIntentText || cleaned, phoneContext, decision.tool);
+                    if (deterministicWorkflowRouting.activeSession) {
+                        if (deterministicWorkflowRouting.retain && decision.tool !== deterministicWorkflowRouting.tool) {
+                            decision.tool = deterministicWorkflowRouting.tool;
+                            if (deterministicWorkflowRouting.tool === 'document-check' && followUpSession && followUpSession.documentName) {
+                                decision.document = followUpSession.documentName;
+                            }
+                            decision.reason = (decision.reason ? `${decision.reason} ` : '') + `Deterministically retained active ${deterministicWorkflowRouting.activeSession.kind} session.`;
+                            console.info('[ConnectorWhatsapp][session] Deterministically retained active workflow session during orchestration', {
+                                phone: normalizedPhone,
+                                sessionKind: deterministicWorkflowRouting.activeSession.kind,
+                                retainedTool: deterministicWorkflowRouting.tool,
+                                explicitTarget: deterministicWorkflowRouting.explicitTarget || ''
+                            });
+                        } else if (!deterministicWorkflowRouting.retain && deterministicWorkflowRouting.explicitTarget) {
+                            console.info('[ConnectorWhatsapp][session] Explicit workflow switch detected during orchestration', {
+                                phone: normalizedPhone,
+                                sessionKind: deterministicWorkflowRouting.activeSession.kind,
+                                previousTool: deterministicWorkflowRouting.activeSession.tool,
+                                explicitTarget: deterministicWorkflowRouting.explicitTarget
+                            });
+                        }
+                    }
                 } else {
                     console.warn('[ConnectorWhatsapp][orchestrator] Could not parse orchestrator JSON, falling back to chat', { rawOut });
                     decision = { tool: 'chat', confidence: 0, reason: 'parse_failure' };
@@ -4198,11 +5575,18 @@ class ConnectorWhatsapp {
             }
 
             const modelCommand = this._parseWhatsappModelCommand(routingIntentText || cleaned);
-            if (modelCommand) {
+            if (modelCommand && (!decision.tool || decision.tool === 'chat' || decision.tool === 'chat+websearch')) {
                 decision.tool = 'chat';
                 decision.document = '';
                 decision.shortAnswer = true;
                 decision.reason = (decision.reason ? `${decision.reason} ` : '') + 'Model-management command handled by frontend chat routing.';
+            } else if (modelCommand) {
+                console.info('[ConnectorWhatsapp][orchestrator] Ignoring model-management override because a specialized workflow was already selected', {
+                    phone: normalizedPhone,
+                    selectedTool: decision.tool,
+                    modelCommandType: modelCommand.type,
+                    requestedModelName: modelCommand.requestedModelName || ''
+                });
             }
 
             if (decision.tool === 'chat' || decision.tool === 'chat+websearch') {
@@ -4238,6 +5622,17 @@ class ConnectorWhatsapp {
                 if (autoLang) decision.language = autoLang;
             }
 
+            console.info('[ConnectorWhatsapp][orchestrator] Final routing decision', {
+                phone: normalizedPhone,
+                tool: decision.tool,
+                confidence: decision.confidence,
+                document: decision.document,
+                query: decision.query,
+                mergedPrompt: String(decision.mergedPrompt || ''),
+                reason: decision.reason,
+                language: decision.language
+            });
+
             // Attach orchestration decision to the message (so downstream can act on it)
             msg.orchestrator = decision;
             return msg;
@@ -4250,7 +5645,8 @@ class ConnectorWhatsapp {
     async handleOrchestratorResearch(msg) {
         try {
             const queryFromOrch = String(msg?.orchestrator?.query || '').trim();
-            const query = queryFromOrch || String(msg?.body || '').trim();
+            const mergedPrompt = this._normalizeWhatsappResearchReportText(msg?.orchestrator?.mergedPrompt || '');
+            const query = queryFromOrch || mergedPrompt || String(msg?.body || '').trim();
             const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
             const language = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(query) || 'English';
 
@@ -4289,14 +5685,54 @@ class ConnectorWhatsapp {
             }
 
             if (window.researchTab && window.researchTab.researchAutomation && typeof window.researchTab.researchAutomation.performResearch === 'function') {
+                const phoneContext = (await this._getWhatsappPhoneContext(phone)) || {};
+                const researchPromptResolution = this._composeWhatsappResearchPrompt(query, phoneContext, {
+                    mergedPrompt: mergedPrompt || queryFromOrch
+                });
+                const effectiveQuery = researchPromptResolution && researchPromptResolution.prompt
+                    ? researchPromptResolution.prompt
+                    : query;
                 const startedText = await this._getLocalizedLangText(
                     language,
                     'researchStarted',
                     `Research has started for "${query}". Gathering insights...`,
                     { query }
                 );
+                const researchExitTipText = await this._getLocalizedLangText(
+                    language,
+                    'researchExitTip',
+                    'When you are done, reply with "no", "no thanks", or say "I am finished" to close research mode.'
+                );
                 await this.postWhatsappText(phone, `🤖 ${startedText}`);
-                const report = await window.researchTab.researchAutomation.performResearch();
+                await this.postWhatsappText(phone, `🤖 ${researchExitTipText}`);
+                if (researchInput) {
+                    researchInput.value = effectiveQuery;
+                }
+                const researchAutomation = window.researchTab.researchAutomation;
+                const report = await researchAutomation.performResearch();
+                const wasCancelled = (
+                    report == null || String(report).trim() === ''
+                ) && !!(researchAutomation && researchAutomation.isCancelled);
+
+                if (wasCancelled) {
+                    await this._setWhatsappFollowUpSession(phone, {
+                        kind: 'research',
+                        active: true,
+                        awaitingFollowUpConfirmation: true,
+                        basePrompt: researchPromptResolution && researchPromptResolution.basePrompt
+                            ? researchPromptResolution.basePrompt
+                            : query,
+                        currentPrompt: effectiveQuery,
+                        refinements: researchPromptResolution && Array.isArray(researchPromptResolution.refinements)
+                            ? researchPromptResolution.refinements
+                            : [],
+                        title: query || 'Research Report'
+                    });
+                    await this._sendWhatsappFollowUpSessionQuestion(phone, 'research', language);
+                    await this._closeWhatsappResearchWindows();
+                    return true;
+                }
+
                 const inProgressText = await this._getLocalizedLangText(
                     language,
                     'researchInProgress',
@@ -4304,7 +5740,12 @@ class ConnectorWhatsapp {
                 );
                 await this.postWhatsappText(phone, `🤖 ${inProgressText}`);
 
-                const whatsappResearchReport = this._getResearchReportTextForWhatsapp(report);
+                const whatsappResearchReportBody = this._getResearchReportTextForWhatsapp(report);
+                const whatsappResearchSources = this._getResearchSourcesTextForWhatsapp();
+                const whatsappResearchReport = [whatsappResearchReportBody, whatsappResearchSources]
+                    .map(part => this._normalizeWhatsappResearchReportText(part))
+                    .filter(Boolean)
+                    .join('\n\n');
                 const autosaveTitle = query || (window.researchTab && window.researchTab.researchAutomation && window.researchTab.researchAutomation.currentQuery) || 'Research Report';
 
                 if (whatsappResearchReport) {
@@ -4315,6 +5756,20 @@ class ConnectorWhatsapp {
                     }
 
                     await this._sendWhatsappTextChunked(phone, whatsappResearchReport, language);
+                    await this._setWhatsappFollowUpSession(phone, {
+                        kind: 'research',
+                        active: true,
+                        awaitingFollowUpConfirmation: true,
+                        basePrompt: researchPromptResolution && researchPromptResolution.basePrompt
+                            ? researchPromptResolution.basePrompt
+                            : query,
+                        currentPrompt: effectiveQuery,
+                        refinements: researchPromptResolution && Array.isArray(researchPromptResolution.refinements)
+                            ? researchPromptResolution.refinements
+                            : [],
+                        title: autosaveTitle
+                    });
+                    await this._sendWhatsappFollowUpSessionQuestion(phone, 'research', language);
                     await this._closeWhatsappResearchWindows();
                 } else {
                     const completedEmptyText = await this._getLocalizedLangText(
@@ -4352,11 +5807,13 @@ class ConnectorWhatsapp {
 
     async handleOrchestratorDocumentCheck(msg) {
         try {
-            const rawBody = String(msg?.body || '').trim();
+            const rawBody = String(msg?.orchestrator?.mergedPrompt || msg?.body || '').trim();
             const docName = String(msg?.orchestrator?.document || '').trim();
             const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
             const language = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(rawBody) || 'English';
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+
+            msg.body = rawBody;
 
             if (!hashedMasterKey) {
                 const noMasterKeyText = await this._getLocalizedLangText(
@@ -4395,9 +5852,20 @@ class ConnectorWhatsapp {
             }
 
             const botPrefix = '🤖 ';
-            const pending = this._getPendingDocSelection(phone);
+            const explicitPending = this._getPendingDocSelection(phone);
+            const activeScopedDocument = this._getWhatsappActiveDocumentScope(phone);
+            const pending = explicitPending || activeScopedDocument;
             const userIntentText = (rawBody || '').trim();
             const input = (docName || rawBody || '').trim();
+
+            if (!explicitPending && activeScopedDocument && activeScopedDocument.id) {
+                console.info('[ConnectorWhatsapp][debug] using active scoped document as fallback for document-check', {
+                    phone,
+                    activeDocumentId: activeScopedDocument.id,
+                    activeDocumentName: activeScopedDocument.name,
+                    userIntentText
+                });
+            }
 
             const explicitQuestionToDocMatch = userIntentText.match(/\b(?:ask|make)\s+(?:a\s+)?question\s+(?:to|about)\s+([\w\-@\.\s]+)$/i);
             const extractedDocumentHint = explicitQuestionToDocMatch ? explicitQuestionToDocMatch[1].trim() : '';
@@ -4463,12 +5931,7 @@ class ConnectorWhatsapp {
                     });
                     if (success) {
                         if (!wasAlreadyActive) {
-                            const modeActivatedText = await this._getLocalizedLangText(
-                                language,
-                                'ragDocumentModeActivated',
-                                'Document questioning mode activated for'
-                            );
-                            await this.postWhatsappText(phone, `${botPrefix}${modeActivatedText}: ${pending.name}`);
+                            await this._sendWhatsappDocumentModeActivatedMessage(phone, language, pending.name);
                         }
                         if (hasRunnableQuestionText) {
                             return { continueToChat: true };
@@ -4494,12 +5957,7 @@ class ConnectorWhatsapp {
                     const success = await this._activateWhatsappDocumentScope(phone, pending);
                     if (success) {
                         if (!wasAlreadyActive) {
-                            const modeActivatedText = await this._getLocalizedLangText(
-                                language,
-                                'ragDocumentModeActivated',
-                                'Document questioning mode activated for'
-                            );
-                            await this.postWhatsappText(phone, `${botPrefix}${modeActivatedText}: ${pending.name}`);
+                            await this._sendWhatsappDocumentModeActivatedMessage(phone, language, pending.name);
                         }
                         // Keep pending for possible further actions until user leaves mode.
                         if (isFullQuestion && !isPureAction) {
@@ -4686,12 +6144,7 @@ class ConnectorWhatsapp {
                 });
                 if (success) {
                     if (!wasAlreadyActive) {
-                        const modeActivatedText = await this._getLocalizedLangText(
-                            language,
-                            'ragDocumentModeActivated',
-                            'Document questioning mode activated for'
-                        );
-                        await this.postWhatsappText(phone, `${botPrefix}${modeActivatedText}: ${match.name}`);
+                        await this._sendWhatsappDocumentModeActivatedMessage(phone, language, match.name);
                     }
                     this._setPendingDocSelection(phone, { id: match.id, name: match.name });
                     if (hasRunnableQuestionText) {
@@ -4791,7 +6244,7 @@ class ConnectorWhatsapp {
             let pendingDoc = this._getPendingDocSelection(normalizedPhone);
             let docModeActive = this._isWhatsappDocumentScopeActive(normalizedPhone);
 
-            const userText = String(msg?.body || '').trim();
+            let userText = String(msg?.body || '').trim();
             const regenerateState = msg && msg.whatsappRegenerate ? msg.whatsappRegenerate : null;
             if (regenerateState && regenerateState.requested && regenerateState.missingPreviousPrompt) {
                 const missingPromptLanguage = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(userText) || 'English';
@@ -4803,7 +6256,7 @@ class ConnectorWhatsapp {
                 await this.postWhatsappText(replyTarget, `🤖 ${noPromptText}`);
                 return;
             }
-            const routingIntentText = this._getWhatsappRoutingIntentText(userText);
+            let routingIntentText = this._getWhatsappRoutingIntentText(userText);
             let phoneContext = (await this._getWhatsappPhoneContext(normalizedPhone)) || {};
             const inferredLanguage = this._detectLanguage(routingIntentText || userText);
 
@@ -4811,9 +6264,11 @@ class ConnectorWhatsapp {
                 phoneContext = (await this._ensureWhatsappBotConversationThread(msg, normalizedPhone, phoneContext)) || phoneContext;
             }
 
+            let docModeAction = null;
+            let explicitDocumentSwitch = false;
             if (window.RAG_Utils && typeof window.RAG_Utils.resolveDocumentQuestioningAction === 'function') {
                 try {
-                    const docModeAction = await window.RAG_Utils.resolveDocumentQuestioningAction(routingIntentText || userText, {
+                    docModeAction = await window.RAG_Utils.resolveDocumentQuestioningAction(routingIntentText || userText, {
                         scopeKey: this._getWhatsappDocumentScopeKey(normalizedPhone),
                         hashedMasterKey: sessionStorage.getItem('hashedMasterKey'),
                         orchestratorTool: orchTool
@@ -4824,7 +6279,17 @@ class ConnectorWhatsapp {
                         pendingDoc = null;
                         docModeActive = false;
                     } else if (docModeAction && (docModeAction.action === 'enter' || docModeAction.action === 'switch') && docModeAction.match && docModeAction.match.documentId) {
+                        explicitDocumentSwitch = true;
                         orchTool = 'document-check';
+                        pendingDoc = {
+                            id: docModeAction.match.documentId,
+                            name: docModeAction.match.documentName
+                        };
+                        this._setPendingDocSelection(normalizedPhone, pendingDoc);
+                        msg.orchestrator = Object.assign({}, msg.orchestrator, {
+                            tool: 'document-check',
+                            document: docModeAction.match.documentName || ''
+                        });
                     }
                 } catch (docModeErr) {
                     console.warn('ConnectorWhatsapp: resolveDocumentQuestioningAction failed', docModeErr);
@@ -4839,6 +6304,27 @@ class ConnectorWhatsapp {
 
             if ((!orchTool || orchTool === 'chat') && (this._isArtifactIntent(routingIntentText) || this._isSavedArtifactIntent(routingIntentText))) {
                 orchTool = 'artifact';
+            }
+
+            let artifactFollowUpIntent = this._isWhatsappArtifactFollowUpIntent(routingIntentText || userText, phoneContext, orchTool);
+            if ((!orchTool || orchTool === 'chat') && artifactFollowUpIntent) {
+                orchTool = 'artifact';
+            }
+
+            let researchFollowUpIntent = this._isWhatsappResearchFollowUpIntent(routingIntentText || userText, phoneContext, orchTool);
+            if ((!orchTool || orchTool === 'chat') && researchFollowUpIntent) {
+                orchTool = 'research';
+            }
+
+            let presentationFollowUpIntent = this._isWhatsappPresentationFollowUpIntent(routingIntentText || userText, phoneContext, orchTool);
+            if ((!orchTool || orchTool === 'chat') && presentationFollowUpIntent) {
+                orchTool = 'presentation';
+            }
+
+            let documentSummaryFollowUpIntent = !explicitDocumentSwitch
+                && this._isWhatsappDocumentSummaryQuestionIntent(routingIntentText || userText, phoneContext, orchTool);
+            if ((!orchTool || orchTool === 'chat') && documentSummaryFollowUpIntent) {
+                orchTool = 'document-check';
             }
 
             if ((!orchTool || orchTool === 'chat') && this._isPresentationIntent(routingIntentText)) {
@@ -4872,15 +6358,176 @@ class ConnectorWhatsapp {
             window.whatsappIncomingLanguageSample = userText;
             window.lastOrchestratorDecision = msg.orchestrator;
 
-            const modelCommandHandled = await this._handleWhatsappModelCommand(
-                normalizedPhone,
+            console.info('[ConnectorWhatsapp][routing] Incoming WhatsApp routing state', {
+                phone: normalizedPhone,
                 replyTarget,
-                userText,
-                resolvedLanguage,
-                phoneContext
-            );
-            if (modelCommandHandled) {
+                orchTool,
+                userText: String(userText || ''),
+                routingIntentText: String(routingIntentText || ''),
+                pendingDoc: pendingDoc ? pendingDoc.name || pendingDoc.id : '',
+                docModeActive,
+                artifactFollowUpIntent,
+                researchFollowUpIntent,
+                presentationFollowUpIntent,
+                documentSummaryFollowUpIntent,
+                regenerateRequested: !!(regenerateState && regenerateState.requested)
+            });
+
+            if (this._isWhatsappArtifactCloseIntent(routingIntentText || userText, phoneContext, orchTool)) {
+                await this._handleWhatsappArtifactSessionClose(normalizedPhone, resolvedLanguage, phoneContext);
                 return;
+            }
+
+            if (this._isWhatsappArtifactContinueIntent(routingIntentText || userText, phoneContext, orchTool)) {
+                await this._handleWhatsappArtifactSessionContinue(normalizedPhone, resolvedLanguage, phoneContext);
+                return;
+            }
+
+            if (this._isWhatsappArtifactInlineContinueIntent(routingIntentText || userText, phoneContext, orchTool)) {
+                const activeArtifactSession = this._getWhatsappArtifactSession(phoneContext);
+                const strippedArtifactText = this._stripWhatsappArtifactContinuePrefix(userText);
+                phoneContext = (await this._setWhatsappArtifactSession(normalizedPhone, {
+                    ...(activeArtifactSession || {}),
+                    active: true,
+                    awaitingFollowUpConfirmation: false
+                }, phoneContext)) || phoneContext;
+
+                userText = strippedArtifactText || userText;
+                routingIntentText = this._getWhatsappRoutingIntentText(userText);
+                msg.body = userText;
+                orchTool = 'artifact';
+                msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: 'artifact' });
+                window.lastOrchestratorDecision = msg.orchestrator;
+            }
+
+            if (this._isWhatsappFollowUpSessionCloseIntent(routingIntentText || userText, phoneContext, orchTool)) {
+                await this._handleWhatsappFollowUpSessionClose(normalizedPhone, resolvedLanguage, phoneContext);
+                return;
+            }
+
+            if (this._isWhatsappFollowUpSessionContinueIntent(routingIntentText || userText, phoneContext, orchTool)) {
+                phoneContext = (await this._handleWhatsappFollowUpSessionContinue(normalizedPhone, resolvedLanguage, phoneContext)) || phoneContext;
+                return;
+            }
+
+            if (this._isWhatsappFollowUpSessionInlineContinueIntent(routingIntentText || userText, phoneContext, orchTool)) {
+                const activeFollowUpSession = this._getWhatsappFollowUpSession(phoneContext);
+                const strippedFollowUpText = this._stripWhatsappFollowUpContinuePrefix(userText, activeFollowUpSession && activeFollowUpSession.kind);
+                phoneContext = (await this._setWhatsappFollowUpSession(normalizedPhone, {
+                    ...(activeFollowUpSession || {}),
+                    active: true,
+                    awaitingFollowUpConfirmation: false
+                }, phoneContext)) || phoneContext;
+
+                userText = strippedFollowUpText || userText;
+                routingIntentText = this._getWhatsappRoutingIntentText(userText);
+                msg.body = userText;
+
+                if (activeFollowUpSession && activeFollowUpSession.kind === 'research') {
+                    orchTool = 'research';
+                } else if (activeFollowUpSession && activeFollowUpSession.kind === 'presentation') {
+                    orchTool = 'presentation';
+                } else if (activeFollowUpSession && activeFollowUpSession.kind === 'document-summary') {
+                    orchTool = 'document-check';
+                }
+
+                msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: orchTool || 'chat' });
+                window.lastOrchestratorDecision = msg.orchestrator;
+            }
+
+            const deterministicWorkflowRouting = this._resolveWhatsappDeterministicWorkflowRouting(routingIntentText || userText, phoneContext, orchTool);
+            if (deterministicWorkflowRouting.activeSession) {
+                if (deterministicWorkflowRouting.retain) {
+                    const retainedSession = deterministicWorkflowRouting.activeSession;
+                    console.info('[ConnectorWhatsapp][session] Retaining active workflow session', {
+                        phone: normalizedPhone,
+                        sessionKind: retainedSession.kind,
+                        retainedTool: retainedSession.tool,
+                        explicitTarget: deterministicWorkflowRouting.explicitTarget || '',
+                        awaitingFollowUpConfirmation: retainedSession.awaitingFollowUpConfirmation
+                    });
+
+                    orchTool = retainedSession.tool;
+                    if (retainedSession.kind === 'artifact') {
+                        artifactFollowUpIntent = true;
+                        if (retainedSession.awaitingFollowUpConfirmation) {
+                            phoneContext = (await this._setWhatsappArtifactSession(normalizedPhone, {
+                                ...(retainedSession.session || {}),
+                                active: true,
+                                awaitingFollowUpConfirmation: false
+                            }, phoneContext)) || phoneContext;
+                        }
+                    } else if (retainedSession.kind === 'research') {
+                        researchFollowUpIntent = true;
+                        if (retainedSession.awaitingFollowUpConfirmation) {
+                            phoneContext = (await this._setWhatsappFollowUpSession(normalizedPhone, {
+                                ...(retainedSession.session || {}),
+                                active: true,
+                                awaitingFollowUpConfirmation: false
+                            }, phoneContext)) || phoneContext;
+                        }
+                    } else if (retainedSession.kind === 'presentation') {
+                        presentationFollowUpIntent = true;
+                        if (retainedSession.awaitingFollowUpConfirmation) {
+                            phoneContext = (await this._setWhatsappFollowUpSession(normalizedPhone, {
+                                ...(retainedSession.session || {}),
+                                active: true,
+                                awaitingFollowUpConfirmation: false
+                            }, phoneContext)) || phoneContext;
+                        }
+                    } else if (retainedSession.kind === 'document-summary' && !explicitDocumentSwitch) {
+                        documentSummaryFollowUpIntent = true;
+                    }
+
+                    msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: orchTool || 'chat' });
+                    window.lastOrchestratorDecision = msg.orchestrator;
+                } else if (deterministicWorkflowRouting.explicitTarget) {
+                    console.info('[ConnectorWhatsapp][session] Explicit workflow switch detected', {
+                        phone: normalizedPhone,
+                        sessionKind: deterministicWorkflowRouting.activeSession.kind,
+                        previousTool: deterministicWorkflowRouting.activeSession.tool,
+                        explicitTarget: deterministicWorkflowRouting.explicitTarget
+                    });
+                }
+            }
+
+            if (documentSummaryFollowUpIntent && !explicitDocumentSwitch) {
+                phoneContext = (await this._continueWhatsappDocumentSummarySession(normalizedPhone, resolvedLanguage, phoneContext, { announce: false })) || phoneContext;
+                pendingDoc = this._getPendingDocSelection(normalizedPhone);
+                docModeActive = this._isWhatsappDocumentScopeActive(normalizedPhone);
+                orchTool = 'document-check';
+                msg.orchestrator = Object.assign({}, msg.orchestrator, {
+                    tool: 'document-check',
+                    document: pendingDoc && pendingDoc.name ? pendingDoc.name : (msg.orchestrator && msg.orchestrator.document) || ''
+                });
+                window.lastOrchestratorDecision = msg.orchestrator;
+            }
+
+            const shouldBypassModelCommand = orchTool === 'artifact'
+                || orchTool === 'research'
+                || orchTool === 'presentation'
+                || orchTool === 'document-check'
+                || orchTool === 'dataviz'
+                || this._isArtifactIntent(routingIntentText)
+                || this._isSavedArtifactIntent(routingIntentText)
+                || artifactFollowUpIntent
+                || researchFollowUpIntent
+                || presentationFollowUpIntent
+                || documentSummaryFollowUpIntent;
+
+            if (!shouldBypassModelCommand) {
+                const modelCommandHandled = await this._handleWhatsappModelCommand(
+                    normalizedPhone,
+                    replyTarget,
+                    userText,
+                    resolvedLanguage,
+                    phoneContext
+                );
+                if (modelCommandHandled) {
+                    phoneContext = (await this._clearWhatsappArtifactSession(normalizedPhone, phoneContext)) || phoneContext;
+                    phoneContext = (await this._clearWhatsappFollowUpSession(normalizedPhone, phoneContext)) || phoneContext;
+                    return;
+                }
             }
 
             if (this._isSummaryToPresentationWorkflowIntent(routingIntentText || userText)) {
@@ -4896,16 +6543,37 @@ class ConnectorWhatsapp {
                     resolvedLanguage
                 );
                 if (workflowHandled) {
+                    phoneContext = (await this._clearWhatsappArtifactSession(normalizedPhone, phoneContext)) || phoneContext;
+                    phoneContext = (await this._clearWhatsappFollowUpSession(normalizedPhone, phoneContext)) || phoneContext;
                     return;
                 }
             }
 
-            const shouldForceResearchWorkflow = this._isResearchIntent(routingIntentText) && (orchTool === 'research' || orchTool === 'chat+websearch' || !orchTool);
+            const shouldForceResearchWorkflow = (this._isResearchIntent(routingIntentText) || researchFollowUpIntent) && (orchTool === 'research' || orchTool === 'chat+websearch' || !orchTool || researchFollowUpIntent);
             if (shouldForceResearchWorkflow) {
                 orchTool = 'research';
                 msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: 'research' });
                 window.lastOrchestratorDecision = msg.orchestrator;
             }
+
+            if (orchTool !== 'artifact' && this._getWhatsappArtifactSession(phoneContext)) {
+                phoneContext = (await this._clearWhatsappArtifactSession(normalizedPhone, phoneContext)) || phoneContext;
+            }
+
+            const activeFollowUpSession = this._getWhatsappFollowUpSession(phoneContext);
+            const followUpToolMap = {
+                research: 'research',
+                presentation: 'presentation',
+                'document-summary': 'document-check'
+            };
+            if (activeFollowUpSession && followUpToolMap[activeFollowUpSession.kind] !== orchTool) {
+                const explicitSwitchTarget = this._detectWhatsappExplicitWorkflowTarget(routingIntentText || userText, orchTool);
+                const explicitSwitch = !!explicitSwitchTarget && explicitSwitchTarget !== followUpToolMap[activeFollowUpSession.kind];
+                if (explicitSwitch) {
+                    phoneContext = (await this._clearWhatsappFollowUpSession(normalizedPhone, phoneContext)) || phoneContext;
+                }
+            }
+
             let chartType = this._extractDataVizType(routingIntentText);
 
             // Orchestrator-driven web search / dataviz switch
@@ -4936,11 +6604,19 @@ class ConnectorWhatsapp {
             }
 
             if (orchTool === 'artifact') {
+                console.info('[ConnectorWhatsapp][routing] Dispatching to artifact workflow', {
+                    phone: normalizedPhone,
+                    mergedPrompt: String(msg?.orchestrator?.mergedPrompt || ''),
+                    reason: msg?.orchestrator?.reason || ''
+                });
                 if (window.chatInstance) {
                     window.chatInstance.whatsappPendingReplyChatId = replyTarget;
                     window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
                 }
-                await this._handleWhatsappArtifact(normalizedPhone, userText, resolvedLanguage);
+                await this._handleWhatsappArtifact(normalizedPhone, userText, resolvedLanguage, {
+                    orchestratorMergedPrompt: msg?.orchestrator?.mergedPrompt || '',
+                    originalRequestText: userText
+                });
                 return;
             }
 
@@ -4949,7 +6625,10 @@ class ConnectorWhatsapp {
                     window.chatInstance.whatsappPendingReplyChatId = replyTarget;
                     window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
                 }
-                await this._handleWhatsappPromptablePresentation(normalizedPhone, userText, resolvedLanguage);
+                await this._handleWhatsappPromptablePresentation(normalizedPhone, userText, resolvedLanguage, {
+                    orchestratorMergedPrompt: msg?.orchestrator?.mergedPrompt || '',
+                    originalRequestText: userText
+                });
                 return;
             }
 
@@ -5166,8 +6845,49 @@ class ConnectorWhatsapp {
     _normalizeWhatsappLinkUrl(href) {
         const raw = String(href || '').trim();
         if (!raw) return '';
-        if (/^www\./i.test(raw)) return `https://${raw}`;
-        if (/^https?:\/\//i.test(raw)) return raw;
+        const normalized = /^www\./i.test(raw) ? `https://${raw}` : raw;
+        if (!/^https?:\/\//i.test(normalized)) return '';
+
+        try {
+            const url = new URL(normalized);
+            const hostname = String(url.hostname || '').toLowerCase();
+
+            if ((hostname === 'www.bing.com' || hostname === 'bing.com') && url.pathname.startsWith('/ck/')) {
+                const encodedTarget = url.searchParams.get('u') || '';
+                const decodedTarget = this._decodeWhatsappRedirectTarget(encodedTarget);
+                if (decodedTarget) {
+                    return decodedTarget;
+                }
+            }
+
+            return url.toString();
+        } catch (_err) {
+            return normalized;
+        }
+    }
+
+    _decodeWhatsappRedirectTarget(value) {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+
+        const candidates = [raw];
+        if (/^a1/i.test(raw)) {
+            candidates.push(raw.slice(2));
+        }
+
+        for (const candidate of candidates) {
+            try {
+                const padded = candidate.padEnd(Math.ceil(candidate.length / 4) * 4, '=');
+                const decoded = atob(padded);
+                const normalized = this._normalizeWhatsappLinkUrl(decoded);
+                if (normalized && normalized !== raw) {
+                    return normalized;
+                }
+            } catch (_err) {
+                // Ignore invalid redirect payloads and keep trying.
+            }
+        }
+
         return '';
     }
 
@@ -5273,34 +6993,24 @@ class ConnectorWhatsapp {
         for (const rawLine of rawLines) {
             const line = rawLine.trim();
             if (!line) {
-                if (normalizedLines.length > 0 && normalizedLines[normalizedLines.length - 1] !== '') {
-                    normalizedLines.push('');
-                }
                 continue;
             }
 
             const isStructuredLine = /^([\-*•]\s+|\d+\.\s+|https?:\/\/|\*[^*]+\*|[^|]+\s\|\s[^|]+)/i.test(line);
-            if (normalizedLines.length === 0 || normalizedLines[normalizedLines.length - 1] === '' || isStructuredLine) {
-                normalizedLines.push(line.replace(/^#{1,6}\s+/, ''));
+            if (isStructuredLine) {
+                normalizedLines.push(line);
                 continue;
             }
 
-            normalizedLines[normalizedLines.length - 1] = `${normalizedLines[normalizedLines.length - 1]} ${line}`;
+            if (!normalizedLines.length) {
+                normalizedLines.push(line);
+                continue;
+            }
+
+            normalizedLines[normalizedLines.length - 1] = `${normalizedLines[normalizedLines.length - 1]} ${line}`.replace(/\s+/g, ' ').trim();
         }
 
         return normalizedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-    }
-
-    async _sendWhatsappReplyUnavailableMessage(chatId, language) {
-        const unavailableText = await this._getLocalizedLangText(
-            language,
-            'whatsappReplyUnavailable',
-            'Sorry, I could not send the AI reply this time. Please try again in a moment.'
-        );
-
-        if (typeof this.postWhatsappText === 'function') {
-            await this.postWhatsappText(chatId, `🤖 ${unavailableText}`);
-        }
     }
 
     async _isWhatsappReplyPlaceholderText(text, language) {

@@ -301,14 +301,14 @@ class RAG {
 
         // Combine paragraphs into reasonably sized chunks
         for (const paragraph of paragraphs) {
-          // Skip very small paragraphs (likely headers or page numbers)
-          if (paragraph.length < 20) continue;
+          const normalizedParagraph = this.normalizeParagraphForChunking(paragraph);
+          if (!normalizedParagraph) continue;
 
           // If adding this paragraph would make chunk too big, save current chunk
           if (
             currentChunk.length > 0 &&
-            (currentChunk.length + paragraph.length > MAX_CHUNK_SIZE ||
-              currentChunk.split(" ").length + paragraph.split(" ").length >
+            (currentChunk.length + normalizedParagraph.length > MAX_CHUNK_SIZE ||
+              currentChunk.split(" ").length + normalizedParagraph.split(" ").length >
               350)
           ) {
             processChunks.push(currentChunk);
@@ -319,12 +319,12 @@ class RAG {
           if (currentChunk.length > 0) {
             currentChunk += "\n\n";
           }
-          currentChunk += paragraph;
+          currentChunk += normalizedParagraph;
 
           // If we've reached a good chunk size and are at a natural break, save it
           if (
             currentChunk.length >= TARGET_CHUNK_SIZE &&
-            paragraph.endsWith(".")
+            normalizedParagraph.endsWith(".")
           ) {
             processChunks.push(currentChunk);
             currentChunk = "";
@@ -524,14 +524,14 @@ class RAG {
 
     // Combine paragraphs into reasonably sized chunks
     for (const paragraph of paragraphs) {
-      // Skip very small paragraphs (likely headers)
-      if (paragraph.length < 20) continue;
+      const normalizedParagraph = this.normalizeParagraphForChunking(paragraph);
+      if (!normalizedParagraph) continue;
 
       // If adding this paragraph would make chunk too big, save current chunk
       if (
         currentChunk.length > 0 &&
-        (currentChunk.length + paragraph.length > MAX_CHUNK_SIZE ||
-          currentChunk.split(" ").length + paragraph.split(" ").length > 350)
+        (currentChunk.length + normalizedParagraph.length > MAX_CHUNK_SIZE ||
+          currentChunk.split(" ").length + normalizedParagraph.split(" ").length > 350)
       ) {
         processChunks.push(currentChunk);
         currentChunk = "";
@@ -541,10 +541,10 @@ class RAG {
       if (currentChunk.length > 0) {
         currentChunk += "\n\n";
       }
-      currentChunk += paragraph;
+      currentChunk += normalizedParagraph;
 
       // If we've reached a good chunk size and are at a natural break, save it
-      if (currentChunk.length >= TARGET_CHUNK_SIZE && paragraph.endsWith(".")) {
+      if (currentChunk.length >= TARGET_CHUNK_SIZE && normalizedParagraph.endsWith(".")) {
         processChunks.push(currentChunk);
         currentChunk = "";
       }
@@ -1697,6 +1697,44 @@ class RAG {
   const hashedMasterKey = sessionStorage.getItem("hashedMasterKey");
   return await this.getMainDb(hashedMasterKey);
   }
+
+  static shouldPreserveShortParagraph(paragraph) {
+    const text = String(paragraph || "").trim();
+    if (!text) {
+      return false;
+    }
+
+    if (text.length >= 20) {
+      return true;
+    }
+
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    if (wordCount < 2) {
+      return false;
+    }
+
+    return (
+      /^[\u2022\u2023\u25E6\u2043\-*+]/.test(text) ||
+      /^\(?\d+[.):-]?\s+/.test(text) ||
+      /^\d+\s*[x×-]\s+/i.test(text) ||
+      /\b(usb|cable|charger|adapter|battery|speaker|bluetooth|wifi|warranty|included|box)\b/i.test(text) ||
+      /[:;,-]/.test(text) ||
+      wordCount >= 3
+    );
+  }
+
+  static normalizeParagraphForChunking(paragraph) {
+    const text = String(paragraph || "").trim();
+    if (!text) {
+      return "";
+    }
+
+    if (text.length >= 20 || this.shouldPreserveShortParagraph(text)) {
+      return text;
+    }
+
+    return "";
+  }
   // Searches document chunks with additional constraints (e.g., by document ID), using embeddings.
   static async searchDocumentsWithConstraint(query, hashedMasterKey, model, constraints) {
    //console.log("RAG: Searching documents with constraints:", constraints);
@@ -1771,12 +1809,14 @@ class RAG {
       }
 
       let topCandidates = [];
+      let usedLexicalFallback = false;
       const maxRowsToScan = constraints?.documentId
         ? Math.min(Math.max(chunkLimit * 30, 400), 1600)
         : 1400;
 
       const supportsEmbeddings = await this.modelSupportsEmbeddings(model);
       if (supportsEmbeddings === false) {
+        usedLexicalFallback = true;
         topCandidates = await this.findTopChunkCandidatesByLexical(
           db,
           hashedMasterKey,
@@ -1812,6 +1852,7 @@ class RAG {
           );
         } catch (error) {
           console.warn("RAG: Falling back to lexical retrieval for constrained search", error);
+          usedLexicalFallback = true;
           topCandidates = await this.findTopChunkCandidatesByLexical(
             db,
             hashedMasterKey,
@@ -1826,6 +1867,23 @@ class RAG {
             }
           );
         }
+      }
+
+      if (!topCandidates.length && query && !usedLexicalFallback) {
+        topCandidates = await this.findTopChunkCandidatesByLexical(
+          db,
+          hashedMasterKey,
+          query,
+          {
+            limit: 5,
+            candidateMultiplier: 10,
+            similarityThreshold: 0.1,
+            batchSize: 120,
+            documentId: constraints?.documentId || null,
+            maxRowsToScan,
+          }
+        );
+        usedLexicalFallback = topCandidates.length > 0;
       }
 
       if (!topCandidates.length) {
@@ -1852,18 +1910,59 @@ class RAG {
         { includeDocumentName: true, documentsDb: docsDb }
       );
 
-      const normalizedResults = hydratedResults
+      let normalizedResults = hydratedResults
         .map((chunk) => ({
           id: chunk.chunkId,
           documentId: chunk.docId,
           documentName: chunk.documentName || "Unknown Document",
           text: chunk.text,
           similarity: typeof chunk.similarity === "number" ? chunk.similarity : 0,
-        }))
-        .sort((a, b) => b.similarity - a.similarity)
-        .slice(0, 5);
+        }));
 
-      return normalizedResults;
+      const hasGoodMatches = normalizedResults.some((chunk) => chunk.similarity > 0.5);
+      if (!hasGoodMatches && normalizedResults.length > 0 && !usedLexicalFallback) {
+        const lexicalCandidates = await this.findTopChunkCandidatesByLexical(
+          db,
+          hashedMasterKey,
+          query,
+          {
+            limit: 5,
+            candidateMultiplier: 10,
+            similarityThreshold: 0.1,
+            batchSize: 120,
+            documentId: constraints?.documentId || null,
+            maxRowsToScan,
+          }
+        );
+
+        if (lexicalCandidates.length > 0) {
+          const lexicalResults = await this.hydrateChunkCandidates(
+            db,
+            hashedMasterKey,
+            lexicalCandidates,
+            { includeDocumentName: true, documentsDb: docsDb }
+          );
+
+          normalizedResults = lexicalResults.map((chunk) => ({
+            id: chunk.chunkId,
+            documentId: chunk.docId,
+            documentName: chunk.documentName || "Unknown Document",
+            text: chunk.text,
+            similarity: typeof chunk.similarity === "number" ? chunk.similarity : 0,
+          }));
+        } else {
+          const terms = this.tokenizeQueryTerms(query);
+
+          normalizedResults.forEach((chunk) => {
+            const textScore = this.calculateLexicalSimilarity(chunk.text, query, terms);
+            chunk.similarity = Math.max(chunk.similarity, textScore);
+          });
+        }
+      }
+
+      normalizedResults.sort((a, b) => b.similarity - a.similarity);
+
+      return normalizedResults.slice(0, 5);
     } catch (error) {
       console.error("RAG: Error in searchDocumentsWithConstraint:", error);
       return [];

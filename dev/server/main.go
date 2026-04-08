@@ -2958,12 +2958,17 @@ func whatsappGatewayInfoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gatewayRunning := isGatewayRunning()
+	websocketReady := false
+	if gatewayRunning {
+		websocketReady = isWhatsappGatewayWebsocketReady()
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]any{
 		"gatewayMode":    "embedded",
 		"gatewayRunning": gatewayRunning,
+		"websocketReady": websocketReady,
 		"serverStarted":  whatsappServerStarted,
 		"timestamp":      time.Now().Format(time.RFC3339),
 	})
@@ -3676,6 +3681,15 @@ func isGatewayRunning() bool {
 	if gatewayCmd.ProcessState != nil && gatewayCmd.ProcessState.Exited() {
 		return false
 	}
+	return true
+}
+
+func isWhatsappGatewayWebsocketReady() bool {
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:3000", 300*time.Millisecond)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
 	return true
 }
 
