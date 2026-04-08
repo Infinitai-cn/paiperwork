@@ -3,48 +3,40 @@ class SubjectiveInteractions {
 
     // Determines if a user's message is likely to contain insight-worthy information about their personality.
     static isMessageInsightWorthy(userPrompt) {
-        const wordCount = userPrompt.trim().split(/\s+/).length;
-        const charCount = userPrompt.trim().length;
-        const hasPunctuation = /[.!?]/.test(userPrompt);
-        const hasComplexStructure = userPrompt.includes(',') || userPrompt.includes('and');
-        const containsNameInfo = userPrompt.toLowerCase().includes('name');
-        const containsSelfReference = userPrompt.toLowerCase().includes("i'm") ||
-            userPrompt.toLowerCase().includes("i am") ||
-            userPrompt.toLowerCase().includes("i like") ||
-            userPrompt.toLowerCase().includes("i don't like") ||
-            userPrompt.toLowerCase().includes("this is") ||
-            userPrompt.toLowerCase().includes("i feel") ||
-            userPrompt.toLowerCase().includes("i think") ||
-            userPrompt.toLowerCase().includes("i believe") ||
-            userPrompt.toLowerCase().includes("i want") ||
-            userPrompt.toLowerCase().includes("i need") ||
-            userPrompt.toLowerCase().includes("i love") ||
-            userPrompt.toLowerCase().includes("i hate") ||
-            userPrompt.toLowerCase().includes("i prefer") ||
-            userPrompt.toLowerCase().includes("my") ||
-            userPrompt.toLowerCase().includes("mine") ||
-            userPrompt.toLowerCase().includes("i know") ||
-            userPrompt.toLowerCase().includes("i work") ||
-            userPrompt.toLowerCase().includes("i live") ||
-            userPrompt.toLowerCase().includes("i enjoy") ||
-            userPrompt.toLowerCase().includes("i used to");
+        const normalizedPrompt = userPrompt.trim();
+        const lowerPrompt = normalizedPrompt.toLowerCase();
+        const wordCount = normalizedPrompt.split(/\s+/).filter(Boolean).length;
+        const charCount = normalizedPrompt.length;
+        const hasPunctuation = /[.!?]/.test(normalizedPrompt);
+        const hasComplexStructure = normalizedPrompt.includes(',') || normalizedPrompt.includes(' and ');
+        const containsNameInfo = lowerPrompt.includes('name') || lowerPrompt.includes('nombre') || lowerPrompt.includes('nom');
 
+        const personalPatterns = [
+            "i'm", "i am", "i like", "i don't like", "i dont like", "this is", "i feel", "i think", "i believe", "i want", "i need", "i love", "i hate", "i prefer", "my", "mine", "i know", "i work", "i live", "i enjoy", "i used to",
+            "yo soy", "me gusta", "no me gusta", "quiero", "necesito", "mi", "mío", "soy", "me siento", "pienso", "creo", "amo", "odio", "prefiero", "trabajo", "vivo",
+            "je suis", "j'aime", "je n'aime pas", "j'ai", "je veux", "j'ai besoin", "mon", "ma", "mes", "je pense", "je crois", "j'adore", "je déteste", "je préfère", "je travaille", "j'habite",
+            "ich bin", "ich mag", "ich hasse", "ich brauche", "ich möchte", "mein", "meine", "ich liebe", "ich denke", "ich glaube", "ich arbeite", "ich lebe",
+            "sono", "mi piace", "non mi piace", "voglio", "ho bisogno", "mio", "mia", "io penso", "io credo", "amo", "odio", "preferisco", "lavoro", "vivo",
+            "我", "我喜欢", "我不喜欢", "我想", "我需要", "我觉得", "我认为", "我是", "我的", "我爱", "我讨厌", "我偏好", "我工作", "我住", "我曾",
+            "私", "僕", "好き", "嫌い", "仕事", "住んで", "欲しい", "必要", "思う", "考える", "愛してる",
+            "저는", "나는", "좋아", "싫어", "원해", "필요", "일해", "살아요", "사랑"
+        ];
 
-        /*console.log('Message insight analysis:', {
-            wordCount,
-            charCount,
-            hasPunctuation,
-            hasComplexStructure,
-            containsNameInfo,
-            containsSelfReference
-        });*/
+        const containsPersonalSignal = personalPatterns.some(pattern => lowerPrompt.includes(pattern));
+
+        const cjkMatches = normalizedPrompt.match(/[\u2E80-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/gu);
+        const cjkCount = cjkMatches ? cjkMatches.length : 0;
+        const isMostlyCJK = cjkCount > 0 && cjkCount / Math.max(charCount, 1) > 0.4;
+
+        const hasStrongCJKSignal = isMostlyCJK && /我|私|僕|저는|나는|喜欢|讨厌|想|需要|觉得|认为|好き|嫌い|원해|필요/.test(normalizedPrompt);
 
         return (
             containsNameInfo ||
-            containsSelfReference ||
-            wordCount >= 5 ||
-            (charCount > 30) ||
-            (wordCount >= 3 && (hasPunctuation || hasComplexStructure))
+            containsPersonalSignal ||
+            wordCount >= 4 ||
+            charCount > 20 ||
+            (wordCount >= 3 && (hasPunctuation || hasComplexStructure)) ||
+            (hasStrongCJKSignal && cjkCount >= 6)
         );
     }
     // Removes any "thinking" or reasoning tags and their content from a given text string.
@@ -70,13 +62,74 @@ class SubjectiveInteractions {
         cleanedText = cleanedText.trim().replace(/\s+/g, ' ');
 
         // Log what was removed if anything changed
-        if (text !== cleanedText) {
-           //console.log('Removed thinking content from insight');
-           //console.log('Original:', text);
-           //console.log('Cleaned:', cleanedText);
-        }
+        /*if (text !== cleanedText) {
+           console.log('Removed thinking content from insight');
+           console.log('Original:', text);
+           console.log('Cleaned:', cleanedText);
+        }*/
 
         return cleanedText;
+    }
+
+    static normalizeInsightText(insight) {
+        if (!insight) return '';
+        return insight
+            .trim()
+            .replace(/^['"“”‘’]+|['"“”‘’]+$/g, '')
+            .replace(/[。！？.!?]+$/g, '')
+            .replace(/[\uFE30-\uFE4F]/g, '')
+            .replace(/\s+/g, ' ')
+            .toLowerCase();
+    }
+
+    static parseInsightResponse(rawResponse) {
+        const cleanedResponse = this.cleanThinkingContent(String(rawResponse || '')).trim();
+        let jsonText = '';
+
+        const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            jsonText = jsonMatch[0];
+        } else {
+            const firstBrace = cleanedResponse.indexOf('{');
+            const lastBrace = cleanedResponse.lastIndexOf('}');
+            if (firstBrace >= 0 && lastBrace > firstBrace) {
+                jsonText = cleanedResponse.slice(firstBrace, lastBrace + 1);
+            }
+        }
+
+        if (jsonText) {
+            try {
+                const parsed = JSON.parse(jsonText);
+                const insight = String(parsed.insight || parsed.insight_text || '').trim();
+                const category = String(parsed.category || parsed.type || 'other').trim() || 'other';
+                const confidence = Number(parsed.confidence || parsed.score || 0) || 0;
+                return {
+                    insight,
+                    category,
+                    confidence: Math.min(Math.max(confidence, 0), 1)
+                };
+            } catch (error) {
+               //console.log('Failed to parse insight JSON, falling back to text output', error);
+            }
+        }
+
+        const fallbackInsight = cleanedResponse.replace(/^['"“”‘’]+|['"“”‘’]+$/g, '').trim();
+        return {
+            insight: fallbackInsight,
+            category: 'other',
+            confidence: fallbackInsight ? 0.5 : 0
+        };
+    }
+
+    static buildInsightAnalysisPrompt(userPrompt) {
+        return `Extract a single, meaningful insight about the user from this message: "${userPrompt}"
+Return valid JSON with the following shape exactly:
+{
+  "insight": "A short user-specific insight phrase in the same language as the user's message if possible.",
+  "category": "identity|preference|personality|background|habit|interest|location|occupation|tone|other",
+  "confidence": confidence_score_as_a_number_between_0_and_1
+}
+Only return JSON. Do not include any other text outside the JSON object. If a clear user-specific insight cannot be extracted, set "insight" to an empty string and "confidence" to 0.0.`;
     }
 
     // Analyzes a user's message to extract a single, concise insight about their identity, preferences, or personality.
@@ -95,12 +148,8 @@ class SubjectiveInteractions {
 
         try {
            //console.log('Starting subjective analysis for:', userPrompt);
-            const analysisPrompt = `Extract a single, meaningful insight about the user from this message: "${userPrompt}"
-            Focus on identity, personality traits, or personal information.
-            Respond with only the insight, for example: "Name is John" or "Shows friendly personality"`;
-
-            // ADD SYSTEM PROMPT for better results
-            const systemPrompt = "You are an AI assistant that extracts concise insights about users from their messages. Keep responses brief, focused only on extracting a single meaningful insight about the user's identity, preferences, or personality. Remove identifying personal details.";
+            const analysisPrompt = this.buildInsightAnalysisPrompt(userPrompt);
+            const systemPrompt = "You are an AI assistant that extracts concise insights about users from their messages. Keep responses brief, structured, and user-focused. Return only valid JSON with insight, category, and confidence. Use the same language as the user's message when possible, and avoid personal identifiers.";
             const routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
 
             const response = await fetch(`${routing.baseUrl}/generate`, {
@@ -123,18 +172,23 @@ class SubjectiveInteractions {
             }
 
             const analysis = await response.json();
-            let insight = analysis?.response || analysis?.message?.content || '';
+            const rawResponse = analysis?.response || analysis?.message?.content || '';
+            const insightData = this.parseInsightResponse(rawResponse);
 
-            insight = this.cleanThinkingContent(insight);
-
-            // ADDED: Remove trailing period if present
-            if (insight.endsWith('.')) {
-                insight = insight.slice(0, -1);
-               //console.log('Removed trailing period from analysis result:', insight);
+            insightData.insight = this.cleanThinkingContent(insightData.insight || '').trim();
+            if (insightData.insight.endsWith('.')) {
+                insightData.insight = insightData.insight.slice(0, -1).trim();
             }
 
-           //console.log('Analysis result (cleaned):', insight);
-            return insight;
+            if (!insightData.insight) {
+                return {
+                    insight: '',
+                    category: 'other',
+                    confidence: 0
+                };
+            }
+
+            return insightData;
         } finally {
             // Re-enable input
             promptInput.disabled = false;
@@ -202,29 +256,71 @@ class SubjectiveInteractions {
         }
     }
 
+    static async findDuplicateInsight(hashedMasterKey, insight) {
+        const normalizedNewInsight = this.normalizeInsightText(insight);
+        if (!normalizedNewInsight) return false;
+
+        const db = await PaiperworkDB.getDatabase(hashedMasterKey);
+        const result = db.exec(`
+            SELECT insight_content
+            FROM subjective_insights_${hashedMasterKey}
+        `);
+
+        if (!result[0]?.values) {
+            return false;
+        }
+
+        for (const [encryptedInsight] of result[0].values) {
+            const decryptedInsight = await PaiperworkDB.decrypt(
+                hashedMasterKey,
+                JSON.parse(encryptedInsight)
+            );
+
+            if (this.normalizeInsightText(decryptedInsight) === normalizedNewInsight) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // Stores a single subjective insight for a given user (by hashed master key) in the database.
-    static async storeInsight(hashedMasterKey, insight) {
+    static async storeInsight(hashedMasterKey, insightData) {
        //console.log('Storing individual insight for masterkey:', hashedMasterKey);
 
-        // ADDED: Clean the insight by removing trailing period if present
-        let cleanedInsight = insight;
+        const payload = typeof insightData === 'string'
+            ? { insight: insightData, category: 'other', confidence: 0.5 }
+            : {
+                insight: String(insightData.insight || '').trim(),
+                category: String(insightData.category || 'other').trim() || 'other',
+                confidence: Number(insightData.confidence || 0) || 0,
+                relatedConversationId: insightData.relatedConversationId || null
+            };
+
+        let cleanedInsight = this.cleanThinkingContent(payload.insight || '').trim();
         if (cleanedInsight.endsWith('.')) {
-            cleanedInsight = cleanedInsight.slice(0, -1);
-           //console.log('Removed trailing period from insight:', cleanedInsight);
+            cleanedInsight = cleanedInsight.slice(0, -1).trim();
+        }
+        if (!cleanedInsight) {
+            return false;
+        }
+
+        if (await this.findDuplicateInsight(hashedMasterKey, cleanedInsight)) {
+           //console.log('Duplicate insight detected, skipping save:', cleanedInsight);
+            return false;
         }
 
         const db = await PaiperworkDB.getDatabase(hashedMasterKey);
         const timestamp = new Date().toISOString();
         const insightId = crypto.randomUUID();
 
-        // Encrypt insight before storage
         const encryptedInsight = await PaiperworkDB.encrypt(hashedMasterKey, cleanedInsight);
 
         db.run(`
         INSERT INTO subjective_insights_${hashedMasterKey}
-        (insight_id, insight_content, timestamp)
-        VALUES (?, ?, ?)
-    `, [insightId, JSON.stringify(encryptedInsight), timestamp]);
+        (insight_id, insight_type, insight_content, confidence, timestamp, related_conversation_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `, [insightId, payload.category, JSON.stringify(encryptedInsight), payload.confidence, timestamp, payload.relatedConversationId]);
 
         await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
        //console.log('Individual insight stored successfully');
@@ -240,42 +336,21 @@ class SubjectiveInteractions {
     static async storeInsights(hashedMasterKey, insights) {
        //console.log('Storing insights for masterkey:', hashedMasterKey);
 
-        // Clean the insight by removing trailing period and surrounding quotes
-        let cleanedInsight = insights;
+        const insightArray = Array.isArray(insights) ? insights : [insights];
+        let storedCount = 0;
 
-        // Remove trailing period if present
-        if (cleanedInsight.endsWith('.')) {
-            cleanedInsight = cleanedInsight.slice(0, -1);
-           //console.log('Removed trailing period from insight:', cleanedInsight);
+        for (const item of insightArray) {
+            if (!item) continue;
+
+            const payload = typeof item === 'string'
+                ? { insight: item, category: 'other', confidence: 0.5 }
+                : item;
+
+            const saved = await this.storeInsight(hashedMasterKey, payload);
+            if (saved) storedCount += 1;
         }
 
-        // Remove surrounding quotes if present
-        if (cleanedInsight.startsWith('"') && cleanedInsight.endsWith('"')) {
-            cleanedInsight = cleanedInsight.slice(1, -1);
-           //console.log('Removed surrounding quotes from insight:', cleanedInsight);
-        }
-
-        const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-        const timestamp = new Date().toISOString();
-        const insightId = crypto.randomUUID();
-
-        // Encrypt insights before storage - USE CLEANED VERSION
-        const encryptedInsights = await PaiperworkDB.encrypt(hashedMasterKey, cleanedInsight);
-
-        db.run(`
-            INSERT INTO subjective_insights_${hashedMasterKey}
-            (insight_id, insight_content, timestamp)
-            VALUES (?, ?, ?)
-        `, [insightId, JSON.stringify(encryptedInsights), timestamp]);
-
-        await PaiperworkDB.saveToStorage(db.export(), hashedMasterKey);
-       //console.log('Insights stored successfully');
-
-        if (window.OllamaAPI && typeof window.OllamaAPI.notifyInsightsChanged === 'function') {
-            window.OllamaAPI.notifyInsightsChanged(hashedMasterKey);
-        }
-
-        return true;
+        return storedCount > 0;
     }
 
     // Displays a visual indicator to show that insight generation is in progress.

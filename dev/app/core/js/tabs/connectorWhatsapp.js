@@ -242,6 +242,38 @@ class ConnectorWhatsapp {
         return String(window.whatsappSelectedMode || 'personal').trim().toLowerCase() === 'bot';
     }
 
+    _isWhatsappModelLocked() {
+        if (window.connectorsTab && typeof window.connectorsTab.whatsappModelLocked !== 'undefined') {
+            return window.connectorsTab.whatsappModelLocked === true;
+        }
+
+        return window.whatsappModelLocked === true || String(window.whatsappModelLocked || '').trim().toLowerCase() === 'true';
+    }
+
+    async _getWhatsappModelLockState() {
+        if (this._isWhatsappModelLocked()) {
+            return true;
+        }
+
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        const dbHandle = window.PaiperworkDB || (typeof PaiperworkDB !== 'undefined' ? PaiperworkDB : null);
+        if (!hashedMasterKey || !dbHandle || typeof dbHandle.getWhatsappModelLock !== 'function') {
+            return false;
+        }
+
+        try {
+            const locked = await dbHandle.getWhatsappModelLock(hashedMasterKey);
+            window.whatsappModelLocked = !!locked;
+            if (window.connectorsTab) {
+                window.connectorsTab.whatsappModelLocked = !!locked;
+            }
+            return !!locked;
+        } catch (error) {
+            console.warn('[ConnectorWhatsapp][models] Failed to read WhatsApp model lock state', error);
+            return false;
+        }
+    }
+
     _isWhatsappGroupChatId(chatId) {
         return /@g\.us\s*$/i.test(String(chatId || '').trim());
     }
@@ -2038,6 +2070,7 @@ class ConnectorWhatsapp {
 
         const botPrefix = '🤖 ';
         const { modelSelector, models } = await this._loadWhatsappAvailableModels();
+        const modelLocked = await this._getWhatsappModelLockState();
 
         if (!modelSelector || !Array.isArray(models) || models.length === 0) {
             const unavailableText = await this._getLocalizedLangText(
@@ -2082,11 +2115,17 @@ class ConnectorWhatsapp {
             const currentTitle = await this._getLocalizedLangText(language, 'whatsappModelsCurrentModel', 'Current model');
             const noLocalText = await this._getLocalizedLangText(language, 'whatsappModelsNoLocal', 'No local models available.');
             const noCloudText = await this._getLocalizedLangText(language, 'whatsappModelsNoCloud', 'No cloud models available.');
-            const tipText = await this._getLocalizedLangText(
-                language,
-                'whatsappModelsListTip',
-                'Reply with "Use Gemma4 Local" or "Use Gemma4 Cloud" to switch models.'
-            );
+            const tipText = modelLocked
+                ? await this._getLocalizedLangText(
+                    language,
+                    'whatsappModelsLockedTip',
+                    'AI model changes are locked. Disable "Lock AI model" in Connectors to allow switching.'
+                )
+                : await this._getLocalizedLangText(
+                    language,
+                    'whatsappModelsListTip',
+                    'Reply with "Use Gemma4 Local" or "Use Gemma4 Cloud" to switch models.'
+                );
             const currentMarker = await this._getLocalizedLangText(language, 'whatsappModelsCurrentMarker', 'current');
 
             const formatModels = (items, emptyText) => {
@@ -2126,6 +2165,16 @@ class ConnectorWhatsapp {
                 'Tell me which model to use, for example: "Use Gemma4 Local".'
             );
             await this.postWhatsappText(replyTarget || phone, `${botPrefix}${missingNameText}`);
+            return true;
+        }
+
+        if (modelLocked) {
+            const lockedText = await this._getLocalizedLangText(
+                language,
+                'whatsappModelsSwitchLocked',
+                'AI model changes are locked right now. Disable "Lock AI model" in Connectors to allow switching.'
+            );
+            await this.postWhatsappText(replyTarget || phone, `${botPrefix}${lockedText}`);
             return true;
         }
 
@@ -3142,7 +3191,7 @@ class ConnectorWhatsapp {
 
     startIncomingPolling() {
         if (this.incomingPollInterval) return;
-        console.log('ConnectorWhatsapp: startIncomingPolling');
+        //console.log('ConnectorWhatsapp: startIncomingPolling');
         this._pollWhatsappIncomingMessages().catch(err => console.warn('ConnectorWhatsapp: initial poll failed', err));
         this.incomingPollInterval = setInterval(() => {
             this._pollWhatsappIncomingMessages().catch(err => console.warn('ConnectorWhatsapp: poll failed', err));

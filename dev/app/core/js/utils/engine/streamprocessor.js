@@ -2180,6 +2180,12 @@ class StreamProcessor {
         );
         thinkingElements.forEach(el => el.remove());
 
+        // 1b. Remove transient UI controls so persisted assistant HTML matches delete/export logic.
+        const transientUiElements = clone.querySelectorAll(
+            '.message-actions, .copy-response-container, .cancel-note, .code-copy-btn, .code-copy-with-lines-btn, .toggle-line-numbers, .code-run-btn, .line-numbers'
+        );
+        transientUiElements.forEach(el => el.remove());
+
         // 2. Remove empty divs and paragraphs that might remain after thinking removal
         const emptyElements = clone.querySelectorAll('div:empty, p:empty, span:empty');
         emptyElements.forEach(el => el.remove());

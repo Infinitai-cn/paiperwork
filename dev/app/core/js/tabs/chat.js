@@ -71,6 +71,21 @@ class Chat {
 
     }
 
+    generateConversationMessageId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+
+        return `msg_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+    }
+
+    createConversationMessageIds() {
+        return {
+            userMessageId: this.generateConversationMessageId(),
+            assistantMessageId: this.generateConversationMessageId()
+        };
+    }
+
     isCloudAuthFailureError(error) {
         const message = String(error?.message || '').toLowerCase();
         const directStatus = Number(error?.status || error?.statusCode || error?.response?.status || NaN);
@@ -306,7 +321,7 @@ class Chat {
        //console.log('Chat DEBUG: Starting enhanceSystemPromptWithInsights');
        //console.log('Chat DEBUG: Input system prompt type:', typeof systemPromptText);
        //console.log('Chat DEBUG: Input system prompt length:',
-        // systemPromptText ? systemPromptText.length : 0);
+        //systemPromptText ? systemPromptText.length : 0);
 
 
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
@@ -563,12 +578,12 @@ class Chat {
 
         // Check if document questioning mode is active (specific document)
         const activeDocumentId = activeDocumentConversation?.documentId || localStorage.getItem('ragQuestioningDocumentId');
-        console.info('[Chat][debug] handleSendButtonClick scope state', {
+        /*console.info('[Chat][debug] handleSendButtonClick scope state', {
             conversationScopeKey,
             activeDocumentConversation,
             activeDocumentId,
             whatsappPendingReplyChatId: this.whatsappPendingReplyChatId || null
-        });
+        });*/
 
         // Prioritize document questioning mode over global document search
         if (isDocumentsTabActive && !activeDocumentId) {
@@ -740,6 +755,9 @@ class Chat {
         userDiv.style.alignSelf = 'flex-end';
         userDiv.style.alignItems = 'flex-end';
         userDiv.style.textAlign = 'right';
+
+        const conversationMessageIds = this.createConversationMessageIds();
+        userDiv.dataset.messageId = conversationMessageIds.userMessageId;
 
         userDiv.innerHTML = `<div class="message-bubble">${prompt}</div>`;
 
@@ -992,17 +1010,18 @@ class Chat {
 
             // Check if web search is enabled
             const webSearchEnabled = document.getElementById('web-search').classList.contains('active');
-            console.info('[Chat][debug] response routing state', {
+            /*console.info('[Chat][debug] response routing state', {
                 conversationScopeKey,
                 scopedDocument,
                 documentId,
                 documentName,
                 webSearchEnabled,
                 isDocumentsTabSelected
-            });
+            });*/
 
             const aiDiv = document.createElement('div');
             aiDiv.className = 'assistant-message';
+            aiDiv.dataset.messageId = conversationMessageIds.assistantMessageId;
             aiReplies.appendChild(aiDiv);
 
             const streamProcessor = new StreamProcessor();
@@ -1263,7 +1282,8 @@ class Chat {
                             prompt,
                             aiResponse,
                             forceNewGroup,
-                            window.currentConversationGroup
+                            window.currentConversationGroup,
+                            conversationMessageIds
                         );
 
                         if (window.forceNewConversationGroup) {
@@ -1296,7 +1316,8 @@ class Chat {
                             prompt,
                             aiResponse,
                             forceNewGroup,
-                            window.currentConversationGroup
+                            window.currentConversationGroup,
+                            conversationMessageIds
                         );
                     }
 
@@ -1537,12 +1558,14 @@ class Chat {
                                     prompt,
                                     streamProcessor.getCleanResponseHTML(),
                                     forceNewGroup,
-                                    window.currentConversationGroup
+                                    window.currentConversationGroup,
+                                    conversationMessageIds
                                 );
 
                                 // Handle insights if enabled
                                 const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                                if (settings.insights_enabled === 'true' && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
+                                const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
+                                if (insightsEnabled && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
                                     const insights = await SubjectiveInteractions.analyzeUserMessage(prompt, promptInput, sendButton);
                                     await SubjectiveInteractions.storeInsights(hashedMasterKey, insights);
                                 }
@@ -1584,7 +1607,8 @@ class Chat {
                                                     prompt,
                                                     streamProcessor.getCleanResponseHTML(),
                                                     forceNewGroup,
-                                                    window.currentConversationGroup
+                                                    window.currentConversationGroup,
+                                                    conversationMessageIds
                                                 );
 
                                                 if (window.currentConversationGroup) {
@@ -1622,7 +1646,8 @@ class Chat {
                                                     prompt,
                                                     streamProcessor.getCleanResponseHTML(),
                                                     forceNewGroup,
-                                                    window.currentConversationGroup
+                                                    window.currentConversationGroup,
+                                                    conversationMessageIds
                                                 );
 
                                                 if (window.currentConversationGroup) {
@@ -1725,11 +1750,11 @@ class Chat {
 
                 if (documentId) {
                     // RAG only
-                    console.info('[Chat][debug] entering document-specific RAG branch', {
+                    /*console.info('[Chat][debug] entering document-specific RAG branch', {
                         conversationScopeKey,
                         documentId,
                         documentName
-                    });
+                    });*/
                    //console.log('Chat: Using document-specific RAG for document ID:', documentId);
 
                     // Get document context
@@ -1851,12 +1876,14 @@ class Chat {
                         prompt,
                         streamProcessor.getCleanResponseHTML(),
                         forceNewGroup,
-                        window.currentConversationGroup
+                        window.currentConversationGroup,
+                        conversationMessageIds
                     );
 
                     // Handle insights if enabled
                     const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                    if (settings.insights_enabled === 'true' && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
+                    const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
+                    if (insightsEnabled && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
                         const insights = await SubjectiveInteractions.analyzeUserMessage(prompt, promptInput, sendButton);
                         await SubjectiveInteractions.storeInsights(hashedMasterKey, insights);
                     }
@@ -1987,7 +2014,8 @@ class Chat {
                                         prompt,
                                         streamProcessor.getCleanResponseHTML(),
                                         forceNewGroup,
-                                        window.currentConversationGroup
+                                        window.currentConversationGroup,
+                                        conversationMessageIds
                                     );
 
                                     if (window.forceNewConversationGroup) {
@@ -2000,7 +2028,8 @@ class Chat {
                                     }
                                     // Handle insights if enabled
                                     const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                                    if (settings.insights_enabled === 'true' && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
+                                    const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
+                                    if (insightsEnabled && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
                                         const insights = await SubjectiveInteractions.analyzeUserMessage(prompt, promptInput, sendButton);
                                         await SubjectiveInteractions.storeInsights(hashedMasterKey, insights);
                                     }
@@ -2059,7 +2088,8 @@ class Chat {
                                         prompt,
                                         streamProcessor.getCleanResponseHTML(),
                                         forceNewGroup,
-                                        window.currentConversationGroup
+                                        window.currentConversationGroup,
+                                        conversationMessageIds
                                     );
 
                                     if (window.forceNewConversationGroup) {
@@ -2070,7 +2100,8 @@ class Chat {
                                         await this.refreshConversationListIfNeeded(hashedMasterKey, window.currentConversationGroup);
                                     }
                                     const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                                    if (settings.insights_enabled === 'true' && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
+                                    const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
+                                    if (insightsEnabled && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
                                         const insights = await SubjectiveInteractions.analyzeUserMessage(prompt, promptInput, sendButton);
                                         await SubjectiveInteractions.storeInsights(hashedMasterKey, insights);
                                     }
@@ -2914,6 +2945,11 @@ class Chat {
                     const aiReplies = document.querySelector('.ai-replies');
                     const aiDiv = document.createElement('div');
                     aiDiv.className = 'assistant-message';
+                    const regenerateMessageIds = {
+                        userMessageId: userMessage?.dataset?.messageId || null,
+                        assistantMessageId: this.generateConversationMessageId()
+                    };
+                    aiDiv.dataset.messageId = regenerateMessageIds.assistantMessageId;
                     aiReplies.appendChild(aiDiv);
 
                     const streamProcessor = new StreamProcessor();
@@ -2948,7 +2984,8 @@ class Chat {
                             originalPrompt,
                             aiResponse,
                             false,
-                            window.currentConversationGroup
+                            window.currentConversationGroup,
+                            regenerateMessageIds
                         );
                     }
                 }
@@ -2992,6 +3029,11 @@ class Chat {
         const aiReplies = document.querySelector('.ai-replies');
         const aiDiv = document.createElement('div');
         aiDiv.className = 'assistant-message';
+        const imageResponseMessageIds = {
+            userMessageId: null,
+            assistantMessageId: this.generateConversationMessageId()
+        };
+        aiDiv.dataset.messageId = imageResponseMessageIds.assistantMessageId;
         aiReplies.appendChild(aiDiv);
 
         const streamProcessor = new StreamProcessor();
@@ -3035,7 +3077,8 @@ class Chat {
                                     originalPrompt,
                                     aiResponse,
                                     false,
-                                    window.currentConversationGroup
+                                    window.currentConversationGroup,
+                                    imageResponseMessageIds
                                 );
 
                                 // Update context
@@ -3082,7 +3125,8 @@ class Chat {
                                     originalPrompt,
                                     aiResponse,
                                     false,
-                                    window.currentConversationGroup
+                                    window.currentConversationGroup,
+                                    imageResponseMessageIds
                                 );
 
                                 if (data.context) {
@@ -3223,19 +3267,30 @@ class Chat {
                 }
             }
 
+            const cleanAssistantContentForDeletion = (html) => {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html || '';
+
+                const transientElements = tempDiv.querySelectorAll(
+                    '.message-actions, .copy-response-container, .cancel-note, .code-copy-btn, .code-copy-with-lines-btn, .toggle-line-numbers, .code-run-btn, .line-numbers, [style*="display: none"], [style*="visibility: hidden"]'
+                );
+                transientElements.forEach(el => el.remove());
+
+                return (tempDiv.innerText || tempDiv.textContent || '')
+                    .normalize('NFKC')
+                    .replace(/\r\n/g, '\n')
+                    .replace(/\u00a0/g, ' ')
+                    .replace(/[ \t]+/g, ' ')
+                    .replace(/\n{2,}/g, '\n')
+                    .replace(/[ \t]*\n[ \t]*/g, '\n')
+                    .trim();
+            };
+
             // Extract assistant content more reliably
             if (assistantMessage) {
                 const responseContainer = assistantMessage.querySelector('.ai-response-container');
                 if (responseContainer) {
-                    // Create a clone to avoid modifying the original
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = responseContainer.innerHTML;
-
-                    // Remove action buttons and other UI elements for cleaner matching
-                    const actionsToRemove = tempDiv.querySelectorAll('.message-actions, .copy-response-container, .cancel-note');
-                    actionsToRemove.forEach(el => el.remove());
-
-                    assistantContent = tempDiv.textContent.trim();
+                    assistantContent = cleanAssistantContentForDeletion(responseContainer.innerHTML);
                 }
             }
 
@@ -3256,17 +3311,59 @@ class Chat {
 
             // Remove from database
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-            if (hashedMasterKey && (userContent || assistantContent)) {
+            const userMessageId = userMessage?.dataset?.messageId || null;
+            const assistantMessageId = assistantMessage?.dataset?.messageId || null;
+            if (hashedMasterKey && (userMessageId || assistantMessageId || userContent || assistantContent)) {
                 try {
-                    const deletionSuccess = await PaiperworkDB.deleteConversationPair(
-                        hashedMasterKey,
-                        userContent,
-                        assistantContent,
-                        {
-                            conversationGroup: window.currentConversationGroup || null,
-                            requirePair: Boolean(userContent && assistantContent)
-                        }
-                    );
+                    let deletionSuccess = false;
+                    const deletionOptions = {
+                        conversationGroup: window.currentConversationGroup || null
+                    };
+
+                    if (userMessageId || assistantMessageId) {
+                        deletionSuccess = await PaiperworkDB.deleteConversationPairByIds(
+                            hashedMasterKey,
+                            userMessageId,
+                            assistantMessageId,
+                            deletionOptions
+                        );
+                    }
+
+                    if (!deletionSuccess && userContent && assistantContent) {
+                        deletionSuccess = await PaiperworkDB.deleteConversationPair(
+                            hashedMasterKey,
+                            userContent,
+                            assistantContent,
+                            {
+                                ...deletionOptions,
+                                requirePair: true
+                            }
+                        );
+                    }
+
+                    if (!deletionSuccess && userContent) {
+                        deletionSuccess = await PaiperworkDB.deleteConversationPair(
+                            hashedMasterKey,
+                            userContent,
+                            null,
+                            {
+                                ...deletionOptions,
+                                requirePair: false
+                            }
+                        );
+                    }
+
+                    if (!deletionSuccess && assistantContent) {
+                        deletionSuccess = await PaiperworkDB.deleteConversationPair(
+                            hashedMasterKey,
+                            null,
+                            assistantContent,
+                            {
+                                ...deletionOptions,
+                                requirePair: false
+                            }
+                        );
+                    }
 
                     if (!deletionSuccess) {
                         throw new Error('Database deletion failed with all strategies');
@@ -3341,37 +3438,16 @@ class Chat {
                 const currentGroupId = window.currentConversationGroup;
 
                 if (hashedMasterKey && currentGroupId) {
-                    // Double-check database state
-                   //console.log(`Checking database for remaining messages in group ${currentGroupId}`);
-
-                    const db = await PaiperworkDB.getDatabase(hashedMasterKey);
-                    if (db) {
-                        const result = db.exec(`
-                        SELECT COUNT(*) as count 
-                        FROM conversations_${hashedMasterKey} 
-                        WHERE conversation_group = ?
-                    `, [currentGroupId]);
-
-                        const messageCount = result[0]?.values[0]?.[0] || 0;
-                       //console.log(`Database shows ${messageCount} messages remaining in group ${currentGroupId}`);
-
-                        if (messageCount === 0) {
-                           //console.log('Group is empty in database, clearing current conversation group and refreshing list');
-
-                            // Clear the current conversation group
-                            window.currentConversationGroup = null;
-
-                            // Show welcome message for empty state
-                            if (window.chatTab && typeof window.chatTab.showWelcomeMessage === 'function') {
-                                window.chatTab.showWelcomeMessage();
-                            }
-
-                            // Refresh the conversation list to remove the empty group
-                            if (window.chatTab && typeof window.chatTab.loadSessionsList === 'function') {
-                               //console.log('Refreshing conversation list due to empty group');
-                                const updatedSessions = await window.chatTab.loadSessionsList(hashedMasterKey);
-                                window.chatTab.renderSessionsList(updatedSessions);
-                            }
+                    if (window.chatTab && typeof window.chatTab.deleteEmptyConversationGroupIfNoMessages === 'function') {
+                        await window.chatTab.deleteEmptyConversationGroupIfNoMessages(hashedMasterKey, currentGroupId);
+                    } else {
+                        window.currentConversationGroup = null;
+                        if (window.chatTab && typeof window.chatTab.showWelcomeMessage === 'function') {
+                            window.chatTab.showWelcomeMessage();
+                        }
+                        if (window.chatTab && typeof window.chatTab.loadSessionsList === 'function') {
+                            const updatedSessions = await window.chatTab.loadSessionsList(hashedMasterKey);
+                            window.chatTab.renderSessionsList(updatedSessions);
                         }
                     }
                 }

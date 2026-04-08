@@ -19,14 +19,14 @@ class OllamaAPI {
                 this._cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
                     ? window.ThinkingState.getEffectiveThinkingEnabled()
                     : ((localStorage.getItem('thinkingEnabledGptOss') === 'true') || (localStorage.getItem('thinkingEnabled') === 'true'));
-               //  //console.log('🧠 OllamaAPI: Thinking state changed via storage event:', this._cachedThinkingEnabled);
+                //console.log('🧠 OllamaAPI: Thinking state changed via storage event:', this._cachedThinkingEnabled);
             }
         });
 
         // Listen for custom events when thinking is toggled in same tab
         window.addEventListener('thinkingStateChanged', (e) => {
             this._cachedThinkingEnabled = e.detail.enabled;
-           //  //console.log('🧠 OllamaAPI: Thinking state changed via custom event:', this._cachedThinkingEnabled);
+           //console.log('🧠 OllamaAPI: Thinking state changed via custom event:', this._cachedThinkingEnabled);
         });
     }
     static totalTokensUsed = 0;
@@ -62,12 +62,12 @@ class OllamaAPI {
     static invalidateSystemPromptCache(hashedMasterKey, reason = 'manual') {
         if (hashedMasterKey) {
             this.systemPromptCache.delete(hashedMasterKey);
-            console.info('[PromptCache] invalidated', { hashedMasterKey: 'present', reason });
+            //console.info('[PromptCache] invalidated', { hashedMasterKey: 'present', reason });
             return;
         }
 
         this.systemPromptCache.clear();
-        console.info('[PromptCache] invalidated all', { reason });
+        //console.info('[PromptCache] invalidated all', { reason });
     }
 
     static notifySystemPromptChanged(hashedMasterKey) {
@@ -84,15 +84,15 @@ class OllamaAPI {
 
     static createStreamProcessorForRouting(isCloudRouting, existingProcessor = null) {
         if (existingProcessor instanceof StreamProcessor) {
-            console.info('[StreamRouting] Reusing StreamProcessor for display', {
-                source: isCloudRouting ? 'cloud' : 'local'
-            });
+            //console.info('[StreamRouting] Reusing StreamProcessor for display', {
+                //source: isCloudRouting ? 'cloud' : 'local'
+            //});
             return existingProcessor;
         }
 
-        console.info('[StreamRouting] Creating StreamProcessor for display', {
-            source: isCloudRouting ? 'cloud' : 'local'
-        });
+        //console.info('[StreamRouting] Creating StreamProcessor for display', {
+            //source: isCloudRouting ? 'cloud' : 'local'
+        //});
         return new StreamProcessor();
     }
 
@@ -531,10 +531,10 @@ class OllamaAPI {
     static async loadOllamaModels() {
         const modelSelector = document.getElementById('model-selector');
         const onlineMode = this.isOnlineDeploymentMode();
-       //  //console.log('Loading Ollama models...');
+       //console.log('Loading Ollama models...');
 
         try {
-           //  //console.log('Fetching local and cloud Ollama models...');
+           //console.log('Fetching local and cloud Ollama models...');
             const cloudApiKey = await this.getStoredCloudApiKey();
 
             const fetchLocalTagsWithRetry = async () => {
@@ -780,7 +780,7 @@ class OllamaAPI {
 
         // First try exact match
         if (window.MODEL_PARAMETERS[baseModelName]) {
-           //  //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (exact match)`);
+           //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (exact match)`);
             return window.MODEL_PARAMETERS[baseModelName];
         }
 
@@ -790,7 +790,7 @@ class OllamaAPI {
         // Then look for most specific prefix match
         for (const prefix of sortedKeys) {
             if (baseModelName.startsWith(prefix)) {
-               //  //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (matched prefix ${prefix})`);
+               //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (matched prefix ${prefix})`);
                 return window.MODEL_PARAMETERS[prefix];
             }
         }
@@ -798,13 +798,13 @@ class OllamaAPI {
         // Finally, try substring match as fallback
         for (const key of sortedKeys) {
             if (baseModelName.includes(key)) {
-               //  //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (matched substring ${key})`);
+               //console.log(`OllamaAPI: Using custom parameters for ${baseModelName} (matched substring ${key})`);
                 return window.MODEL_PARAMETERS[key];
             }
         }
 
         // No match found, return empty object (use Ollama defaults)
-       //  //console.log(`OllamaAPI: No custom parameters for ${baseModelName}, using defaults`);
+       //console.log(`OllamaAPI: No custom parameters for ${baseModelName}, using defaults`);
         return {};
     }
     // Fetches metadata for a given model from the Ollama API.
@@ -830,13 +830,13 @@ class OllamaAPI {
                         headers: routing.headers,
                         body: JSON.stringify({ model: routing.modelName || modelName, keep_alive: '-1s', stream: false, prompt: '' })
                     });
-                   //  //console.log('OllamaAPI: Autoload response status:', loadResp.status, 'ok?', loadResp.ok);
+                   //console.log('OllamaAPI: Autoload response status:', loadResp.status, 'ok?', loadResp.ok);
                     if (loadResp.status === 429) {
                         console.warn('OllamaAPI: Autoload skipped due to rate limit (429)');
                     }
                     try {
                         const bodyText = await loadResp.text();
-                       //  //console.log('OllamaAPI: Autoload response body (trimmed):', bodyText ? (bodyText.length > 1000 ? bodyText.substring(0, 1000) + '...[truncated]' : bodyText) : '<empty>');
+                       //console.log('OllamaAPI: Autoload response body (trimmed):', bodyText ? (bodyText.length > 1000 ? bodyText.substring(0, 1000) + '...[truncated]' : bodyText) : '<empty>');
                     } catch (e) {
                         // ignore
                     }
@@ -947,7 +947,7 @@ class OllamaAPI {
 
             const attemptFetch = async (attempt) => {
                 try {
-                   //  //console.log(`OllamaAPI: Fetching metadata for ${modelName} (attempt ${attempt})`);
+                   //console.log(`OllamaAPI: Fetching metadata for ${modelName} (attempt ${attempt})`);
                     const targetName = routing.modelName || modelName;
                     const payloadCandidates = [
                         { name: targetName },
@@ -1009,7 +1009,7 @@ class OllamaAPI {
     // `forceThink` can be used by callers to explicitly enable/disable native "think"
     // behavior for a single request. `null` means respect the user/global setting.
     static async sendToOllama(userPrompt, systemPrompt, contextSize, previousContext = null, abortSignal = null, requestId = null, streamProcessor = null, forceThink = null) {
-       //  //console.log('Normal OllamaAPI: Sending to Ollama...');
+       //console.log('Normal OllamaAPI: Sending to Ollama...');
 
         const modelSelector = document.getElementById('model-selector');
         const selectedModel = modelSelector.value;
@@ -1046,18 +1046,18 @@ class OllamaAPI {
         // Add thinking parameter for Ollama 0.9.0+ native thinking support
         if (supportsNativeThinking && thinkingEnabled) {
             jsonPost.think = true;
-           //  //console.log('🧠 OllamaAPI: ✅ SET think=true in request payload');
+           //console.log('🧠 OllamaAPI: ✅ SET think=true in request payload');
         } else if (supportsNativeThinking && !thinkingEnabled) {
             jsonPost.think = false;
-           //  //console.log('🧠 OllamaAPI: ✅ SET think=false in request payload');
+           //console.log('🧠 OllamaAPI: ✅ SET think=false in request payload');
         } else {
-           //  //console.log('🧠 OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
+           //console.log('🧠 OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
         }
 
         if (isVisualModel) {
             // First check if we have real images saved from the previous message
             if (window.currentMessageImages && window.currentMessageImages.length > 0) {
-               //  //console.log(`OllamaAPI: Using ${window.currentMessageImages.length} saved real images from previous message`);
+               //console.log(`OllamaAPI: Using ${window.currentMessageImages.length} saved real images from previous message`);
 
                 const savedImages = window.currentMessageImages.map(img => {
                     let imgData = img.src || img;
@@ -1071,10 +1071,10 @@ class OllamaAPI {
                 OllamaAPI.lastUsedImages = [...savedImages];
             }
             else if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
-               //  //console.log(`OllamaAPI: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
+               //console.log(`OllamaAPI: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
                 jsonPost.images = [...OllamaAPI.lastUsedImages];
             } else {
-               //  //console.log(`OllamaAPI: No images used yet, not adding any images`);
+               //console.log(`OllamaAPI: No images used yet, not adding any images`);
             }
         }
 
@@ -1130,7 +1130,7 @@ class OllamaAPI {
                 fetchOptions.signal = abortSignal;
             }
 
-           //  //console.log('🧠 OllamaAPI: Sending request with thinking support:', !!jsonPost.think);
+           //console.log('🧠 OllamaAPI: Sending request with thinking support:', !!jsonPost.think);
 
             const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
 
@@ -1151,7 +1151,7 @@ class OllamaAPI {
 
             // If we have a stream processor, we need to handle the response here
             if (streamProcessor) {
-               //  //console.log('🧠 OllamaAPI: Processing response with StreamProcessor');
+               //console.log('🧠 OllamaAPI: Processing response with StreamProcessor');
 
                 streamProcessor.thinkingMode = {
                     active: false,
@@ -1252,13 +1252,13 @@ class OllamaAPI {
                                     //  CRITICAL FIX: Check if we need to start native thinking mode
                                     // Even if we don't have thinking data yet, we might need to prepare the container
                                     if (currentThinkingEnabled && supportsNativeThinking && !streamProcessor.thinkingMode.isNative) {
-                                       //  //console.log('🧠 OllamaAPI: Initializing native thinking mode for upcoming data');
+                                       //console.log('🧠 OllamaAPI: Initializing native thinking mode for upcoming data');
                                         streamProcessor.startNativeThinkingMode();
                                     }
 
                                     // 🧠 Enhanced: Handle native thinking data with detailed logging
                                     if (data.thinking && supportsNativeThinking && currentThinkingEnabled) {
-                                       //  //console.log('🧠 OllamaAPI: Processing thinking data chunk, length:', data.thinking.length);
+                                       //console.log('🧠 OllamaAPI: Processing thinking data chunk, length:', data.thinking.length);
 
                                         //  ADD: Call processThinking method if it exists
                                         if (streamProcessor.processThinking) {
@@ -1268,9 +1268,9 @@ class OllamaAPI {
                                             streamProcessor.processChunk(data.thinking);
                                         }
                                     } else if (data.thinking && supportsNativeThinking && !currentThinkingEnabled) {
-                                       //  //console.log('🧠 OllamaAPI: Skipping thinking data - thinking disabled');
+                                       //console.log('🧠 OllamaAPI: Skipping thinking data - thinking disabled');
                                     } else if (data.thinking && !supportsNativeThinking) {
-                                       //  //console.log('🧠 OllamaAPI: Skipping thinking data - model not supported');
+                                       //console.log('🧠 OllamaAPI: Skipping thinking data - model not supported');
                                     }
 
                                     // Handle regular response data
@@ -1494,11 +1494,11 @@ class OllamaAPI {
             console.error('Ollama connection error:', error);
 
             if (error.name === 'AbortError') {
-               //  //console.log('🧠 OllamaAPI: Request was aborted by user');
+               //console.log('🧠 OllamaAPI: Request was aborted by user');
 
                 // If we have a stream processor and thinking is active, cancel it
                 if (streamProcessor && streamProcessor.thinkingMode.active) {
-                   //  //console.log('🧠 OllamaAPI: Cancelling active thinking mode due to abort');
+                   //console.log('🧠 OllamaAPI: Cancelling active thinking mode due to abort');
                     streamProcessor.cancelThinkingMode();
                 }
 
@@ -1615,13 +1615,13 @@ class OllamaAPI {
         forceNewGroup = null,
         targetConversationGroup = null
     ) {
-       //  //console.log('Websearch OllamaAPI: Sending to Ollama...');
+       //console.log('Websearch OllamaAPI: Sending to Ollama...');
         const progressBar = document.getElementById('progress-bar');
         progressBar.classList.add('active', 'indeterminate');
 
         // Track if we have an abort controller
         if (abortSignal) {
-           //  //console.log('WebSearch has abort signal, adding listener');
+           //console.log('WebSearch has abort signal, adding listener');
         }
 
         // Create an artificial response object to return
@@ -1835,7 +1835,7 @@ class OllamaAPI {
 
             // Log the query received from Ollama that we'll use for the web search
             try {
-               //  //console.log('Ollama generated websearch query:', generatedQuery);
+               //console.log('Ollama generated websearch query:', generatedQuery);
             } catch (e) {
                 // ignore console errors in unusual environments
             }
@@ -1852,7 +1852,7 @@ class OllamaAPI {
 
             // Debug log which query will actually be used for WebSearch
             try {
-               //  //console.log('Using search query for WebSearch.smartSearch:', searchQueryToUse);
+               //console.log('Using search query for WebSearch.smartSearch:', searchQueryToUse);
             } catch (e) {}
 
             // Pass the isDocumentWebSearch flag to WebSearch.smartSearch
@@ -1889,21 +1889,21 @@ class OllamaAPI {
             let webSearchContext = '';
             try {
                 // Use the actual prompt as the search query
-               //  //console.log(`Performing web search for query: "${prompt}"`);
+               //console.log(`Performing web search for query: "${prompt}"`);
 
                 if (webSearchResults && webSearchResults.items && webSearchResults.items.length > 0) {
                     webSearchContext = WebSearch.formatSearchResults(webSearchResults, isDocumentWebSearch);
-                   //  //console.log('Web search found results:', webSearchResults.items.length);
+                   //console.log('Web search found results:', webSearchResults.items.length);
                     // Log the first result for debugging
                     if (webSearchResults.items[0]) {
-                       //  //console.log('First result:', {
+                       //console.log('First result:', {
                         //  title: webSearchResults.items[0].title,
                         //  link: webSearchResults.items[0].link,
                         //   snippet: webSearchResults.items[0].snippet?.substring(0, 100) + '...'
                         //   });
                     }
                 } else {
-                   //  //console.log('Web search found no results');
+                   //console.log('Web search found no results');
                     webSearchContext = 'Web search found no relevant results for this query.';
                 }
             } catch (searchError) {
@@ -1933,7 +1933,7 @@ class OllamaAPI {
 
             }
 
-           //  //console.log('Enhanced prompt created with web search results');
+           //console.log('Enhanced prompt created with web search results');
 
             // Set up UI
             const aiReplies = document.querySelector('.ai-replies');
@@ -1964,7 +1964,7 @@ class OllamaAPI {
             //  ALSO: Update StreamProcessor's cache if it exists
             if (streamProcessor) {
                 streamProcessor._cachedThinkingEnabled = thinkingEnabled;
-               //  //console.log('🧠 WebSearch OllamaAPI: Updated StreamProcessor cache to:', thinkingEnabled);
+               //console.log('🧠 WebSearch OllamaAPI: Updated StreamProcessor cache to:', thinkingEnabled);
             }
 
             /*console.log('🧠 WebSearch OllamaAPI: Fresh thinking state check:', {
@@ -2028,10 +2028,10 @@ class OllamaAPI {
             }
 
             // Log the request details for debugging
-           //  //console.log('Sending Ollama request with:');
-           //  //console.log('- Model:', selectedModel);
-           //  //console.log('- Context size:', contextSize);
-           //  //console.log('- Has abort signal:', !!abortSignal);
+           //console.log('Sending Ollama request with:');
+           //console.log('- Model:', selectedModel);
+           //console.log('- Context size:', contextSize);
+           //console.log('- Has abort signal:', !!abortSignal);
 
             // Check if this is a visual model
             const isVisualModel = await OllamaAPI.isVisualModel(selectedModel);
@@ -2055,12 +2055,12 @@ class OllamaAPI {
             //  ADD THINKING SUPPORT: Add thinking parameter for Ollama 0.9.0+ native thinking support
             if (supportsNativeThinking && thinkingEnabled) {
                 requestBody.think = true;
-               //  //console.log('🧠 WebSearch OllamaAPI: ✅ SET think=true in request payload');
+               //console.log('🧠 WebSearch OllamaAPI: ✅ SET think=true in request payload');
             } else if (supportsNativeThinking && !thinkingEnabled) {
                 requestBody.think = false;
-               //  //console.log('🧠 WebSearch OllamaAPI: ✅ SET think=false in request payload');
+               //console.log('🧠 WebSearch OllamaAPI: ✅ SET think=false in request payload');
             } else {
-               //  //console.log('🧠 WebSearch OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
+               //console.log('🧠 WebSearch OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
             }
 
             //  LOG THE FINAL REQUEST PAYLOAD (excluding sensitive data):
@@ -2074,10 +2074,10 @@ class OllamaAPI {
 
             if (isVisualModel) {
                 if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
-                   //  //console.log(`OllamaAPI WebSearch: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
+                   //console.log(`OllamaAPI WebSearch: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
                     requestBody.images = [...OllamaAPI.lastUsedImages];
                 } else {
-                   //  //console.log(`OllamaAPI WebSearch: No images used yet, not adding any images`);
+                   //console.log(`OllamaAPI WebSearch: No images used yet, not adding any images`);
                 }
             }
 
@@ -2102,7 +2102,7 @@ class OllamaAPI {
                 fetchOptions.signal = abortSignal;
             }
 
-           //  //console.log('OllamaAPI WebSearch: Fetch options include signal:', !!fetchOptions.signal);
+           //console.log('OllamaAPI WebSearch: Fetch options include signal:', !!fetchOptions.signal);
 
             const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
 
@@ -2112,10 +2112,10 @@ class OllamaAPI {
             }
 
             // Add additional logging right after the fetch call
-           //  //console.log('Fetch request sent with abort signal:', !!abortSignal);
+           //console.log('Fetch request sent with abort signal:', !!abortSignal);
             if (!response || !response.ok) {
                 if (abortSignal && abortSignal.aborted) {
-                   //  //console.log('Request was aborted during fetch');
+                   //console.log('Request was aborted during fetch');
                     throw new Error('Request was aborted');
                 }
                 throw new Error(`Failed to get response from Ollama: ${response ? response.status : 'No response'}`);
@@ -2127,7 +2127,7 @@ class OllamaAPI {
                 return;
             }
 
-           //  //console.log('🧠 WebSearch OllamaAPI: Processing response with StreamProcessor');
+           //console.log('🧠 WebSearch OllamaAPI: Processing response with StreamProcessor');
 
             //  INITIALIZE THINKING MODE: Reset thinking mode for this stream
             streamProcessor.thinkingMode = {
@@ -2150,7 +2150,7 @@ class OllamaAPI {
             // Process the stream
             while (true) {
                 if (abortSignal && abortSignal.aborted) {
-                   //  //console.log('Abort signal detected during stream processing - breaking out of read loop');
+                   //console.log('Abort signal detected during stream processing - breaking out of read loop');
                     break;
                 }
                 const { value, done } = await reader.read();
@@ -2195,13 +2195,13 @@ class OllamaAPI {
                             //  CRITICAL FIX: Check if we need to start native thinking mode
                             // Even if we don't have thinking data yet, we might need to prepare the container
                             if (currentThinkingEnabled && supportsNativeThinking && !streamProcessor.thinkingMode.isNative) {
-                               //  //console.log('🧠 WebSearch OllamaAPI: Initializing native thinking mode for upcoming data');
+                               //console.log('🧠 WebSearch OllamaAPI: Initializing native thinking mode for upcoming data');
                                 streamProcessor.startNativeThinkingMode();
                             }
 
                             // 🧠 Enhanced: Handle native thinking data with detailed logging
                             if (data.thinking && supportsNativeThinking && currentThinkingEnabled) {
-                               //  //console.log('🧠 WebSearch OllamaAPI: Processing thinking data chunk, length:', data.thinking.length);
+                               //console.log('🧠 WebSearch OllamaAPI: Processing thinking data chunk, length:', data.thinking.length);
 
                                 //  ADD: Call processThinking method if it exists
                                 if (streamProcessor.processThinking) {
@@ -2211,9 +2211,9 @@ class OllamaAPI {
                                     streamProcessor.processChunk(data.thinking);
                                 }
                             } else if (data.thinking && supportsNativeThinking && !currentThinkingEnabled) {
-                               //  //console.log('🧠 WebSearch OllamaAPI: Skipping thinking data - thinking disabled');
+                               //console.log('🧠 WebSearch OllamaAPI: Skipping thinking data - thinking disabled');
                             } else if (data.thinking && !supportsNativeThinking) {
-                               //  //console.log('🧠 WebSearch OllamaAPI: Skipping thinking data - model not supported');
+                               //console.log('🧠 WebSearch OllamaAPI: Skipping thinking data - model not supported');
                             }
 
                             if (data.done) {
@@ -2346,11 +2346,11 @@ class OllamaAPI {
             console.error('Error sending to Ollama with web search:', error);
 
             if (error.name === 'AbortError') {
-               //  //console.log('Request was aborted by user');
+               //console.log('Request was aborted by user');
 
                 // If we have a stream processor and thinking is active, cancel it
                 if (streamProcessor && streamProcessor.thinkingMode.active) {
-                   //  //console.log('🧠 WebSearch OllamaAPI: Cancelling active thinking mode due to abort');
+                   //console.log('🧠 WebSearch OllamaAPI: Cancelling active thinking mode due to abort');
                     streamProcessor.cancelThinkingMode();
                 }
 
@@ -2373,20 +2373,20 @@ class OllamaAPI {
     }
     // Sends a prompt with image data to the Ollama API for visual models, handles single and multi-image cases.
     static async sendToOllamaWithImage(userPrompt, systemPrompt, contextSize, imageData, previousContext = null, abortSignal = null, requestId = null, multiImages = null, modelOverride = null) {
-       //  //console.log('Picture OllamaAPI: Sending to Ollama...');
+       //console.log('Picture OllamaAPI: Sending to Ollama...');
         try {
             // Use the model override if provided, otherwise fall back to selectors
             let selectedModel;
             if (modelOverride) {
                 selectedModel = modelOverride;
-               //  //console.log('OllamaAPI: Using provided model override:', selectedModel);
+               //console.log('OllamaAPI: Using provided model override:', selectedModel);
             } else if (window.artworksTab && window.artworksTab.artworksInstance && window.artworksTab.artworksInstance.selectedModel) {
                 selectedModel = window.artworksTab.artworksInstance.selectedModel;
-               //  //console.log('OllamaAPI: Using artwork tab model:', selectedModel);
+               //console.log('OllamaAPI: Using artwork tab model:', selectedModel);
             } else {
                 const modelSelector = document.getElementById('model-selector');
                 selectedModel = modelSelector.value;
-               //  //console.log('OllamaAPI: Using chat tab model:', selectedModel);
+               //console.log('OllamaAPI: Using chat tab model:', selectedModel);
             }
             const modelParams = this.getModelParameters(selectedModel);
             const localContextPayload = window.currentCheckpoint?.lastContext || OllamaAPI.previousContext;
@@ -2406,7 +2406,7 @@ class OllamaAPI {
             };
 
             if (multiImages && Array.isArray(multiImages) && multiImages.length > 0) {
-               //  //console.log(`OllamaAPI: Preparing multi-image request with ${multiImages.length} images`);
+               //console.log(`OllamaAPI: Preparing multi-image request with ${multiImages.length} images`);
 
                 // Make sure we have the cleanedImageBase64Array
                 if (!window.cleanedImageBase64Array || window.cleanedImageBase64Array.length === 0) {
@@ -2422,7 +2422,7 @@ class OllamaAPI {
 
             } else if (imageData && typeof imageData === 'string' && imageData.trim().length > 0) {
                 // Single image mode
-               //  //console.log('OllamaAPI: Preparing single image request for model:', selectedModel);
+               //console.log('OllamaAPI: Preparing single image request for model:', selectedModel);
 
                 // Store the cleaned base64 image if we don't have it already
                 if (!window.cleanedImageBase64) {
@@ -2448,7 +2448,7 @@ class OllamaAPI {
             } else {
                 // No image data provided but we're in visual mode
                 if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
-                   //  //console.log(`OllamaAPI Image: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
+                   //console.log(`OllamaAPI Image: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
                     jsonPost.images = [...OllamaAPI.lastUsedImages];
                 } else {
                     console.error('OllamaAPI: No valid image data provided for visual model');
@@ -2457,7 +2457,7 @@ class OllamaAPI {
             }
 
             // Rest of method for sending request
-           //  //console.log('OllamaAPI: Sending image request with abort signal:', !!abortSignal);
+           //console.log('OllamaAPI: Sending image request with abort signal:', !!abortSignal);
             const routing = await this.getApiRoutingForModel(selectedModel);
             jsonPost.model = routing.modelName || jsonPost.model;
             const isCloudRouting = routing.source === 'cloud';
@@ -2487,8 +2487,8 @@ class OllamaAPI {
                 fetchOptions.signal = abortSignal;
             }
 
-           //  //console.log('OllamaAPI: Fetch options include signal:', !!fetchOptions.signal);
-           //  //console.log(`OllamaAPI: Sending request with ${jsonPost.images.length} images`);
+           //console.log('OllamaAPI: Fetch options include signal:', !!fetchOptions.signal);
+           //console.log(`OllamaAPI: Sending request with ${jsonPost.images.length} images`);
 
             const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
 
@@ -2497,7 +2497,7 @@ class OllamaAPI {
                 // Use setTimeout to ensure this happens after processing completes
                 setTimeout(() => {
                     if (window.chat && typeof window.chat.resetImageData === 'function') {
-                       //  //console.log('OllamaAPI: Resetting image data for visual models');
+                       //console.log('OllamaAPI: Resetting image data for visual models');
                         window.chat.resetImageData();
                     }
                 }, 100);
@@ -2524,7 +2524,7 @@ class OllamaAPI {
             console.error('OllamaAPI: Error sending image:', error);
 
             if (error.name === 'AbortError') {
-               //  //console.log('OllamaAPI: Request was aborted by user');
+               //console.log('OllamaAPI: Request was aborted by user');
                 throw error; // Rethrow so the caller knows it was aborted
             }
 
@@ -2538,29 +2538,29 @@ class OllamaAPI {
     }
 
     static updateContextRemaining(usedContext) {
-       //  //console.log('Context used:', usedContext);
+       //console.log('Context used:', usedContext);
         const totalContextSize = parseInt(document.getElementById('context-selector').value);
-       //  //console.log('Total context available:', totalContextSize);
+       //console.log('Total context available:', totalContextSize);
 
         const percentRemaining = Math.max(0, Math.round(((totalContextSize - usedContext) / totalContextSize) * 100));
-       //  //console.log('Calculated percent remaining:', percentRemaining);
+       //console.log('Calculated percent remaining:', percentRemaining);
 
         const contextLabel = document.getElementById('context-remaining-label');
         if (contextLabel) {
             contextLabel.textContent = Lang.get('ollamaContextRemaining', { percent: percentRemaining });
-           //  //console.log('Updated context label to:', contextLabel.textContent);
+           //console.log('Updated context label to:', contextLabel.textContent);
 
             if (percentRemaining <= 20) {
                 contextLabel.style.color = 'orange';
-               //  //console.log('Context warning: Orange');
+               //console.log('Context warning: Orange');
             }
             if (percentRemaining <= 10) {
                 contextLabel.style.color = 'red';
-               //  //console.log('Context warning: Red');
+               //console.log('Context warning: Red');
             }
             if (percentRemaining <= 0) {
                 this.contextLimitReached = true;
-               //  //console.log('Context limit reached');
+               //console.log('Context limit reached');
 
                 // Instead of waiting for an alert later, handle it here gracefully
                 this.handleContextLimitReached();
@@ -2660,10 +2660,10 @@ class OllamaAPI {
             contextLabel.textContent = Lang.get('ollamaContextRemaining', { percent: 100 });
         }
 
-       //  //console.log('Context reset complete');
+       //console.log('Context reset complete');
     }
     static async buildCompleteSystemPrompt(hashedMasterKey, basePrompt = '') {
-       //  //console.log('OllamaAPI DEBUG: Building complete system prompt with temporal awareness and language enforcement...');
+       //console.log('OllamaAPI DEBUG: Building complete system prompt with temporal awareness and language enforcement...');
 
         let formattedBasePrompt = basePrompt?.trim() || '';
         const hasProvidedBasePrompt = !!formattedBasePrompt;
@@ -2751,7 +2751,7 @@ class OllamaAPI {
         // ADD LANGUAGE ENFORCEMENT: Prefer WhatsApp incoming language when available.
         let languageEnforcement = '';
         try {
-           //  //console.log('OllamaAPI DEBUG: Adding language enforcement...');
+           //console.log('OllamaAPI DEBUG: Adding language enforcement...');
 
             const normalizedLangCode = this.getLanguageCode(languageCode || 'en');
             const userLanguage = this.getLanguageDisplayName(languageCode || 'en');
@@ -2760,7 +2760,7 @@ class OllamaAPI {
             // Include the language code as secondary information for clarity.
             languageEnforcement = `Always respond in ${userLanguage} (${normalizedLangCode}). Match the user's language and communication style. If the user writes in ${userLanguage}, respond in ${userLanguage}. `;
 
-           //  //console.log('OllamaAPI DEBUG: Language enforcement added for:', normalizedLangCode, userLanguage);
+           //console.log('OllamaAPI DEBUG: Language enforcement added for:', normalizedLangCode, userLanguage);
         } catch (error) {
             console.error('OllamaAPI: Error adding language enforcement:', error);
             // Continue without language enforcement if there's an error
@@ -2782,11 +2782,11 @@ class OllamaAPI {
         // LOAD INSIGHTS: Always load insights from database
         let insightsString = '';
         try {
-           //  //console.log('OllamaAPI DEBUG: Loading insights from database (always loaded regardless of toggle)...');
+           //console.log('OllamaAPI DEBUG: Loading insights from database (always loaded regardless of toggle)...');
             const insights = await SubjectiveInteractions.loadInsights(hashedMasterKey);
 
             if (insights && insights.length > 0) {
-               //  //console.log('OllamaAPI DEBUG: Found insights in database:', insights.length);
+               //console.log('OllamaAPI DEBUG: Found insights in database:', insights.length);
 
                 // Clean quotes from insights before joining
                 const cleanedInsights = insights.map(insight => insight.replace(/^"|"$/g, ''));
@@ -2801,9 +2801,9 @@ class OllamaAPI {
                 // Ensure space after punctuation
                 insightsString += ' ';
 
-               //  //console.log('OllamaAPI DEBUG: Insights added to system prompt:', insightsString.substring(0, 100) + '...');
+               //console.log('OllamaAPI DEBUG: Insights added to system prompt:', insightsString.substring(0, 100) + '...');
             } else {
-               //  //console.log('OllamaAPI DEBUG: No insights found in database');
+               //console.log('OllamaAPI DEBUG: No insights found in database');
             }
         } catch (error) {
             console.error('OllamaAPI: Error loading insights:', error);
@@ -2827,17 +2827,17 @@ class OllamaAPI {
             console.warn('OllamaAPI: error applying gpt-oss reasoning prefix', e);
         }
 
-        console.log('OllamaAPI DEBUG: Final system prompt components:', {
+        /*console.log('OllamaAPI DEBUG: Final system prompt components:', {
             basePromptLength: formattedBasePrompt.length,
             languageEnforcementLength: languageEnforcement.length,
             insightsLength: insightsString.length,
             temporalContextLength: temporalContext.length,
             finalLength: finalPrompt.length
-        });
+        });*/
 
         // Enhanced logging to show what's actually in the final prompt
-         console.log('OllamaAPI DEBUG: Complete system prompt with language enforcement + insights:');
-         console.log(finalPrompt);
+         //console.log('OllamaAPI DEBUG: Complete system prompt with language enforcement + insights:');
+         //console.log(finalPrompt);
 
         const finalResult = finalPromptWithReasoning.trim();
         //console.log('OllamaAPI: buildCompleteSystemPrompt final system prompt length:', finalResult.length);
@@ -3070,10 +3070,10 @@ class OllamaAPI {
         };
     }
     static async buildContextFromConversations(conversations) {
-       //  //console.log('OllamaAPI: Building context from conversations:', conversations.length);
+       //console.log('OllamaAPI: Building context from conversations:', conversations.length);
 
         if (!conversations || conversations.length === 0) {
-           //  //console.log('OllamaAPI: No conversations provided, resetting context');
+           //console.log('OllamaAPI: No conversations provided, resetting context');
             this.previousContext = [];
             return [];
         }
@@ -3082,7 +3082,7 @@ class OllamaAPI {
             // Get the system prompt with insights and temporal context
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             const systemPrompt = await this.buildCompleteSystemPrompt(hashedMasterKey);
-           //  //console.log('OllamaAPI: Got enhanced system prompt for context building');
+           //console.log('OllamaAPI: Got enhanced system prompt for context building');
 
             // Format messages in the way Ollama expects
             const messages = conversations.map(conv => ({
@@ -3098,7 +3098,7 @@ class OllamaAPI {
             const routing = await this.getApiRoutingForModel(modelSelector.value);
 
             // Make a direct API call to build context without generating a visible response
-           //  //console.log('OllamaAPI: Making API call to initialize context');
+           //console.log('OllamaAPI: Making API call to initialize context');
             const response = await fetch(`${routing.baseUrl}/generate`, {
                 method: 'POST',
                 headers: routing.headers,
@@ -3126,7 +3126,7 @@ class OllamaAPI {
             // Store both the context and conversations
             if (result && result.context) {
                 this.previousContext = result.context;
-               //  //console.log('OllamaAPI: Context built successfully with',
+               //console.log('OllamaAPI: Context built successfully with',
                 //  this.previousContext.length, 'tokens');
             } else {
                 console.warn('OllamaAPI: No context returned from Ollama');
@@ -3455,7 +3455,7 @@ class OllamaAPI {
 
             // Handle abort errors specially
             if (error.name === 'AbortError') {
-               //  //console.log('Continuation was cancelled by user');
+               //console.log('Continuation was cancelled by user');
 
                 // If there's a cleanup function for incomplete responses, call it
                 if (window.cleanupIncompleteResponses && typeof window.cleanupIncompleteResponses === 'function') {
@@ -3616,7 +3616,7 @@ class OllamaAPI {
             Continue the conversation naturally from this point.`;
 
                 // Log how much context we're including
-               //  //console.log(`OllamaAPI: Creating continuation with ${contextData.includedMessages} messages (${contextData.totalTokens} tokens)`);
+               //console.log(`OllamaAPI: Creating continuation with ${contextData.includedMessages} messages (${contextData.totalTokens} tokens)`);
 
                 // 6. Send the continuation prompt to Ollama
                 const success = await OllamaAPI.continuePreviousConversation(continuationPrompt, contextData.includedMessages);
@@ -3666,7 +3666,7 @@ class OllamaAPI {
         continuationDiv.appendChild(continueButton);
         setTimeout(() => {
             continuationDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
-           //  //console.log('Scrolled to continue button to ensure visibility');
+           //console.log('Scrolled to continue button to ensure visibility');
         }, 150);
         return continuationDiv;
     }
@@ -3685,7 +3685,7 @@ class OllamaAPI {
                     const aiReplies = document.querySelector('.ai-replies');
                     if (aiReplies) {
                         aiReplies.scrollTop = aiReplies.scrollHeight + 100;
-                       //  //console.log('Scroll executed, height:', aiReplies.scrollHeight);
+                       //console.log('Scroll executed, height:', aiReplies.scrollHeight);
                     }
                 });
             });
@@ -3733,12 +3733,12 @@ class OllamaAPI {
 
     static isVisualModel(modelName) {
         if (!this.visualModels) {
-           //  //console.log('OllamaAPI: Visual models list not loaded yet');
+           //console.log('OllamaAPI: Visual models list not loaded yet');
             return false;
         }
 
         if (!modelName) {
-           //  //console.log('OllamaAPI: No model name provided to isVisualModel');
+           //console.log('OllamaAPI: No model name provided to isVisualModel');
             return false;
         }
 
@@ -3763,12 +3763,12 @@ class OllamaAPI {
                 )
             );
             if (isMatch) {
-               //  //console.log(`OllamaAPI: Match found! '${visualModel}' matched model '${modelName}'`);
+               //console.log(`OllamaAPI: Match found! '${visualModel}' matched model '${modelName}'`);
             }
             return isMatch;
         });
 
-       //  //console.log(`OllamaAPI: Model '${modelName}' is visual:`, isVisual);
+       //console.log(`OllamaAPI: Model '${modelName}' is visual:`, isVisual);
         return isVisual;
     }
 }
@@ -3777,7 +3777,7 @@ window.OllamaAPI = OllamaAPI;
     try {
         // Pre-load the visual models list when the file loads
         await OllamaAPI.loadVisualModels();
-       //  //console.log('OllamaAPI: Visual models preloaded:', OllamaAPI.visualModels);
+       //console.log('OllamaAPI: Visual models preloaded:', OllamaAPI.visualModels);
     } catch (error) {
         console.error('OllamaAPI: Failed to preload visual models:', error);
     }
