@@ -197,6 +197,9 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         whatsappModelsUnavailable: "Ich konnte die Modellliste im Moment nicht laden.",
         whatsappModelsProviderLocal: "Lokal",
         whatsappModelsProviderCloud: "Cloud",
+        orchestratorWorkingTitle: "Orchestrator arbeitet",
+        orchestratorWorkingMessage: "Die eingehende WhatsApp-Anfrage wird geroutet. Bitte warten...",
+        disconnectServer: "Server trennen",
 
         // Context and Memory Management
         contextChangeWarning: "Das Ändern des Kontexts wird das aktuelle Kurzzeitgedächtnis zurücksetzen. Das Langzeitgedächtnis in der Datenbank bleibt erhalten.",

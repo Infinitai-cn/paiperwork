@@ -95,8 +95,143 @@ class ConnectorWhatsapp {
         this._whatsappPresenceChatId = '';
         this._whatsappPresenceKeepAliveTimer = null;
         this._whatsappPresenceKeepAliveIntervalMs = 8000;
+        this._orchestratorModalActiveCount = 0;
         this._whatsappPendingDocSelection = {}; // keyed by normalized phone
         this._whatsappPendingPresentationSelection = {}; // keyed by normalized phone
+    }
+
+    _ensureWhatsappOrchestratorModalStyles() {
+        if (document.getElementById('whatsapp-orchestrator-modal-styles')) {
+            return;
+        }
+
+        const style = document.createElement('style');
+        style.id = 'whatsapp-orchestrator-modal-styles';
+        style.textContent = `
+            @keyframes whatsapp-orchestrator-spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    _showWhatsappOrchestratorModal() {
+        if (typeof document === 'undefined' || !document.body) return;
+
+        this._orchestratorModalActiveCount += 1;
+        if (this._orchestratorModalActiveCount > 1) {
+            return;
+        }
+
+        this._ensureWhatsappOrchestratorModalStyles();
+
+        const existing = document.getElementById('whatsapp-orchestrator-modal');
+        if (existing) {
+            existing.style.display = 'flex';
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.id = 'whatsapp-orchestrator-modal';
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.zIndex = '10030';
+        overlay.style.background = 'var(--modal-overlay-bg, rgba(30, 30, 30, 0.7))';
+        overlay.style.backdropFilter = 'blur(4px)';
+        overlay.style.webkitBackdropFilter = 'blur(4px)';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+
+        const modal = document.createElement('div');
+        modal.style.width = 'min(420px, calc(100vw - 32px))';
+        modal.style.minHeight = '220px';
+        modal.style.maxHeight = 'calc(100vh - 32px)';
+        modal.style.background = 'var(--presentation-modal-bg, var(--panel-background, #222426))';
+        modal.style.border = '1px solid var(--border-color, #404040)';
+        modal.style.borderRadius = '12px';
+        modal.style.boxShadow = '0 8px 32px rgba(0,0,0,0.2)';
+        modal.style.padding = '22px';
+        modal.style.boxSizing = 'border-box';
+        modal.style.overflowY = 'auto';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.gap = '14px';
+        modal.style.textAlign = 'center';
+
+        const spinner = document.createElement('div');
+        spinner.style.width = '28px';
+        spinner.style.height = '28px';
+        spinner.style.border = '3px solid var(--wa-modal-spinner-track, #c4c4c4)';
+        spinner.style.borderTopColor = 'var(--wa-modal-spinner-accent, #0b74de)';
+        spinner.style.borderRadius = '50%';
+        spinner.style.animation = 'whatsapp-orchestrator-spin 0.9s linear infinite';
+
+        const title = document.createElement('div');
+        title.textContent = (window.Lang && typeof Lang.get === 'function' && Lang.get('orchestratorWorkingTitle')) || 'Orchestrator working';
+        title.style.fontSize = '16px';
+        title.style.fontWeight = '600';
+        title.style.color = 'var(--text-color, #ffffff)';
+
+        const description = document.createElement('div');
+        description.textContent = (window.Lang && typeof Lang.get === 'function' && Lang.get('orchestratorWorkingMessage')) || 'Routing the incoming WhatsApp request. Please wait...';
+        description.style.fontSize = '13px';
+        description.style.lineHeight = '1.45';
+        description.style.color = 'var(--wa-modal-status-color, #d1d5db)';
+
+        const disconnectBtn = document.createElement('button');
+        disconnectBtn.id = 'whatsapp-orchestrator-disconnect';
+        disconnectBtn.textContent = (window.Lang && typeof Lang.get === 'function' && Lang.get('disconnectServer')) || 'Disconnect server';
+        disconnectBtn.style.marginTop = '10px';
+        disconnectBtn.style.minWidth = '190px';
+        disconnectBtn.style.padding = '10px 18px';
+        disconnectBtn.style.background = 'var(--wa-modal-disconnect-btn-bg, #d97706)';
+        disconnectBtn.style.color = 'var(--wa-modal-disconnect-btn-text, #ffffff)';
+        disconnectBtn.style.border = 'none';
+        disconnectBtn.style.borderRadius = '6px';
+        disconnectBtn.style.cursor = 'pointer';
+        disconnectBtn.style.fontSize = '14px';
+        disconnectBtn.style.fontWeight = '600';
+        disconnectBtn.addEventListener('click', async () => {
+            if (!window.connectorsTab || typeof window.connectorsTab.stopWhatsappServer !== 'function') {
+                return;
+            }
+
+            disconnectBtn.disabled = true;
+            disconnectBtn.style.opacity = '0.7';
+            disconnectBtn.style.cursor = 'not-allowed';
+
+            try {
+                await window.connectorsTab.stopWhatsappServer();
+            } catch (err) {
+                console.warn('ConnectorWhatsapp: orchestrator modal disconnect server failed', err);
+                disconnectBtn.disabled = false;
+                disconnectBtn.style.opacity = '1';
+                disconnectBtn.style.cursor = 'pointer';
+            }
+        });
+
+        modal.appendChild(spinner);
+        modal.appendChild(title);
+        modal.appendChild(description);
+        modal.appendChild(disconnectBtn);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+    }
+
+    _hideWhatsappOrchestratorModal() {
+        this._orchestratorModalActiveCount = Math.max(0, this._orchestratorModalActiveCount - 1);
+        if (this._orchestratorModalActiveCount > 0) {
+            return;
+        }
+
+        const overlay = document.getElementById('whatsapp-orchestrator-modal');
+        if (overlay && overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+        }
     }
 
     _normalizeWhatsappIdentity(value) {
@@ -3282,6 +3417,7 @@ class ConnectorWhatsapp {
                 if (typeof OllamaAPI === 'undefined' || !OllamaAPI.OrchestratorCall) {
                     console.warn('[ConnectorWhatsapp][orchestrator] OllamaAPI.OrchestratorCall not available - skipping orchestration');
                 } else {
+                    this._showWhatsappOrchestratorModal();
                     routingSession = await this._beginWhatsappModelRoutingSession(normalizedPhone, phoneContext);
                     const orchestratorContext = this._normalizeWhatsappOrchestratorTurns(this._getWhatsappOrchestratorContext(normalizedPhone) || []);
                     orchText = await OllamaAPI.OrchestratorCall(cleaned, systemPrompt, contextSize, orchestratorContext, null, `wa_orch_${Date.now()}`, null);
@@ -3289,6 +3425,7 @@ class ConnectorWhatsapp {
             } catch (e) {
                 console.error('[ConnectorWhatsapp][orchestrator] Orchestrator call failed', e);
             } finally {
+                this._hideWhatsappOrchestratorModal();
                 try {
                     await this._endWhatsappModelRoutingSession(routingSession);
                 } catch (sessionErr) {

@@ -1627,10 +1627,14 @@ class ConnectorsTab {
             modal.style.top = '50%';
             modal.style.transform = 'translate(-50%, -50%)';
             modal.style.width = '360px';
+            modal.style.maxWidth = 'calc(100vw - 24px)';
             modal.style.background = 'var(--modal-background, white)';
             modal.style.color = 'var(--text-color, #111111)';
             modal.style.border = '1px solid var(--border-color, #ccc)';
             modal.style.padding = '12px';
+            modal.style.boxSizing = 'border-box';
+            modal.style.maxHeight = 'calc(100vh - 32px)';
+            modal.style.overflowY = 'auto';
             modal.style.zIndex = '9999';
             modal.style.boxShadow = 'var(--wa-modal-shadow, 0 4px 20px rgba(0,0,0,0.15))';
             modal.style.borderRadius = '12px';
