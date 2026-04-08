@@ -182,10 +182,14 @@ func (service serviceMessage) DeleteMessage(ctx context.Context, request domainM
 	// We do not perform full message history syncing with WhatsApp in this app, so app state
 	// notification failures here can be considered part of the WhatsApp sync layer rather than
 	// our own persisted chat sync.
-	if err = client.SendAppState(ctx, patchInfo); err != nil {
-		// ignore app state sync failures for message delete in WhatsApp.
-		// We do not sync WhatsApp messages through the app state channel.
-		// return err
+	if config.WhatsappAppStateSyncEnabled {
+		if err = client.SendAppState(ctx, patchInfo); err != nil {
+			// ignore app state sync failures for message delete in WhatsApp.
+			// We do not sync WhatsApp messages through the app state channel.
+			// return err
+		}
+	} else {
+		// App state sync is disabled for this deployment; skip WhatsApp app state notification.
 	}
 	return nil
 }
@@ -243,10 +247,14 @@ func (service serviceMessage) StarMessage(ctx context.Context, request domainMes
 	// This is not part of our chat/message sync model, so if the underlying
 	// WhatsApp app state layer reports missing keys or notification sync errors,
 	// it should not be interpreted as our app failing to sync messages.
-	if err = client.SendAppState(ctx, patchInfo); err != nil {
-		// ignore app state sync failures for message star in WhatsApp.
-		// We do not sync WhatsApp messages through the app state channel.
-		// return err
+	if config.WhatsappAppStateSyncEnabled {
+		if err = client.SendAppState(ctx, patchInfo); err != nil {
+			// ignore app state sync failures for message star in WhatsApp.
+			// We do not sync WhatsApp messages through the app state channel.
+			// return err
+		}
+	} else {
+		// App state sync is disabled for this deployment; skip WhatsApp app state notification.
 	}
 	return nil
 }

@@ -277,6 +277,94 @@ presentationKeymap.terms = [...new Set([
     ...Object.values(presentationKeymap.actions).flat()
 ])];
 
+const artifactKeymap = {
+    intent: [
+        'miniapp', 'miniapps', 'mini app', 'mini apps', 'mini-app', 'mini-apps',
+        'mini application', 'mini applications', 'mini-application', 'mini-applications',
+        'artifact', 'artifacts', 'artefact', 'artefacts',
+        'html miniapp', 'html miniapps', 'html mini app', 'html mini apps', 'html mini-app', 'html mini-apps',
+        'html artifact', 'html artifacts', 'web miniapp', 'web miniapps', 'web mini app', 'web mini apps', 'web mini-app', 'web mini-apps',
+        'miniaplicacion', 'miniaplicaciones', 'miniaplicación', 'miniaplicaciones', 'mini app', 'mini apps', 'mini-app', 'mini-apps', 'artefacto', 'artefactos',
+        'miniaplicacao', 'miniaplicacoes', 'miniaplicação', 'miniaplicações', 'mini app', 'mini apps', 'mini-app', 'mini-apps', 'artefato', 'artefatos',
+        'mini application', 'mini applications', 'mini-application', 'mini-applications', 'mini app', 'mini apps', 'mini-app', 'mini-apps', 'artefact', 'artefacts',
+        'mini anwendung', 'mini anwendungen', 'mini-anwendung', 'mini-anwendungen', 'mini app', 'mini apps', 'mini-app', 'mini-apps', 'miniapp', 'miniapps', 'artefakt', 'artefakte',
+        'mini applicazione', 'mini applicazioni', 'mini-applicazione', 'mini-applicazioni', 'mini app', 'mini apps', 'mini-app', 'mini-apps', 'miniapp', 'miniapps', 'artefatto', 'artefatti',
+        'мини-приложение', 'мини-приложения', 'мини приложение', 'мини приложения', 'миниапп', 'миниаппы', 'артефакт', 'артефакты',
+        '迷你应用', '迷你应用程序', '小应用', '小程序', '工件', '网页小应用',
+        'ミニアプリ', 'ミニアプリケーション', '小さなアプリ', 'アーティファクト',
+        '미니앱', '미니앱들', '미니 앱', '미니 앱들', '미니어플', '아티팩트'
+    ],
+    actions: {
+        create: [
+            'create', 'make', 'build', 'generate', 'prepare', 'craft', 'design',
+            'crear', 'hacer', 'generar', 'preparar', 'disenar', 'diseñar',
+            'criar', 'fazer', 'gerar', 'preparar', 'montar',
+            'creer', 'créer', 'generer', 'générer', 'preparer', 'préparer', 'concevoir',
+            'erstellen', 'machen', 'generieren', 'vorbereiten', 'entwerfen',
+            'creare', 'fare', 'generare', 'preparare', 'progettare',
+            'создать', 'сделать', 'сгенерировать', 'подготовить',
+            '创建', '生成', '制作', '构建',
+            '作成', '生成', '作る', '構築',
+            '만들어', '생성', '작성', '구성'
+        ],
+        browse: [
+            'show', 'list', 'open', 'browse', 'view', 'find', 'choose', 'select', 'pick',
+            'mostrar', 'lista', 'listar', 'abrir', 'ver', 'buscar', 'elige', 'elegir', 'seleccionar', 'mostrarme', 'muéstrame',
+            'mostrar', 'listar', 'abrir', 'ver', 'procurar', 'buscar', 'escolher', 'selecionar', 'mostra-me',
+            'afficher', 'lister', 'ouvrir', 'parcourir', 'voir', 'chercher', 'choisir', 'selectionner', 'sélectionner', 'montre-moi',
+            'zeigen', 'auflisten', 'offnen', 'öffnen', 'durchsuchen', 'ansehen', 'finden', 'auswahlen', 'auswählen', 'zeig', 'zeig mir',
+            'mostrare', 'elencare', 'aprire', 'sfogliare', 'vedere', 'cercare', 'scegliere', 'selezionare', 'mostrami',
+            'показать', 'список', 'перечислить', 'открыть', 'просмотреть', 'найти', 'выбрать',
+            '查看', '显示', '列出', '打开', '浏览', '选择', '查找',
+            '表示', '一覧', '開く', '閲覧', '確認', '選択', '探す',
+            '보여', '목록', '열기', '찾아', '선택', '확인'
+        ],
+        send: [
+            'send', 'share', 'deliver', 'export', 'send me',
+            'enviar', 'enviame', 'envíame', 'mandar', 'mandame', 'mándame', 'compartir',
+            'enviar', 'envia-me', 'manda-me', 'partilhar', 'compartilhar',
+            'envoyer', 'envoie-moi', 'partager',
+            'senden', 'sende mir', 'teilen',
+            'inviare', 'inviami', 'condividere',
+            'отправить', 'поделиться',
+            '发送', '分享',
+            '送信', '共有',
+            '보내', '전송', '공유'
+        ]
+    },
+    savedCues: [
+        'saved miniapp', 'saved miniapps', 'saved artifact', 'saved artifacts', 'existing miniapp', 'existing miniapps', 'my miniapp', 'my miniapps', 'my artifact', 'my artifacts',
+        'miniaplicacion guardada', 'miniaplicación guardada', 'miniaplicaciones guardadas', 'artefacto guardado', 'artefactos guardados', 'mi miniaplicacion', 'mi miniaplicación', 'mis miniaplicaciones', 'mi artefacto', 'mis artefactos',
+        'miniaplicacao guardada', 'miniaplicação guardada', 'miniaplicacoes guardadas', 'miniaplicações guardadas', 'artefato guardado', 'artefatos guardados', 'minha miniaplicacao', 'minha miniaplicação', 'minhas miniaplicações', 'meu artefato', 'meus artefatos',
+        'miniapp enregistree', 'miniapp enregistrée', 'miniapps enregistrees', 'miniapps enregistrées', 'artefact enregistre', 'artefact enregistré', 'artefacts enregistres', 'artefacts enregistrés', 'ma miniapp', 'mes miniapps', 'mon artefact', 'mes artefacts',
+        'gespeicherte mini app', 'gespeicherte mini-app', 'gespeicherte miniapps', 'gespeichertes artefakt', 'gespeicherte artefakte', 'meine miniapp', 'meine miniapps', 'mein artefakt', 'meine artefakte',
+        'mini app salvata', 'miniapp salvata', 'miniapp salvate', 'artefatto salvato', 'artefatti salvati', 'la mia miniapp', 'le mie miniapp', 'il mio artefatto', 'i miei artefatti',
+        'сохраненное мини-приложение', 'сохраненные мини-приложения', 'сохраненный артефакт', 'сохраненные артефакты', 'мое мини-приложение', 'мои мини-приложения',
+        '已保存的迷你应用', '已保存的小应用', '已保存的工件', '我的迷你应用', '我的工件',
+        '保存済みのミニアプリ', '保存済みのアーティファクト', '自分のミニアプリ', '自分のアーティファクト',
+        '저장된 미니앱', '저장된 미니 앱', '저장된 아티팩트', '내 미니앱', '내 아티팩트'
+    ],
+    webCues: [
+        'use internet', 'use the internet', 'use web', 'use the web', 'with web search', 'using web search', 'search the web', 'search online', 'use online sources',
+        'usa internet', 'usa el internet', 'usa la web', 'con busqueda web', 'con búsqueda web', 'buscar en la web', 'usa fuentes en linea', 'usa fuentes en línea',
+        'usa internet', 'usa a internet', 'usa a web', 'com pesquisa web', 'pesquisar na web', 'usa fontes online',
+        'utilise internet', 'utiliser internet', 'utilise le web', 'avec recherche web', 'chercher sur le web', 'utilise des sources en ligne',
+        'nutze internet', 'nutze das internet', 'nutze das web', 'mit websuche', 'im web suchen', 'online quellen nutzen',
+        'usa internet', 'usa il web', 'con ricerca web', 'cerca sul web', 'usa fonti online',
+        'используй интернет', 'используй веб', 'с веб-поиском', 'ищи в интернете', 'используй онлайн источники',
+        '使用互联网', '使用网络', '使用网页搜索', '联网搜索', '使用在线资料',
+        'インターネットを使って', 'ウェブを使って', 'ウェブ検索を使って', 'オンラインで検索して', 'オンライン情報を使って',
+        '인터넷을 사용해서', '웹을 사용해서', '웹 검색을 사용해서', '온라인에서 검색해서', '온라인 자료를 사용해서'
+    ]
+};
+
+artifactKeymap.terms = [...new Set([
+    ...artifactKeymap.intent,
+    ...artifactKeymap.savedCues,
+    ...artifactKeymap.webCues,
+    ...Object.values(artifactKeymap.actions).flat()
+])];
+
 const modelKeymap = {
     nouns: [
         'model', 'models', 'my model', 'my models', 'installed model', 'installed models', 'available model', 'available models', 'ai model', 'ai models',
@@ -375,6 +463,39 @@ modelKeymap.terms = [...new Set([
     ...Object.values(modelKeymap.providers).flat()
 ])];
 
+const chatKeymap = {
+    actions: {
+        regenerate: [
+            'regenerate', 'retry', 'try again', 'send again', 'repeat that', 'repeat last', 'do it again',
+            'regenerar', 'reintentar', 'intentar de nuevo', 'repite eso', 'repetir eso', 'repite el ultimo', 'repite el último', 'hazlo de nuevo',
+            'regenerar', 'tentar novamente', 'reenviar', 'repete isso', 'repetir isso', 'repete o ultimo', 'repete o último', 'faz de novo',
+            'regenerer', 'régénérer', 'reessayer', 'réessayer', 'renvoyer', 'repete ca', 'répète ça', 'repeter', 'répéter', 'refais',
+            'regenerieren', 'erneut versuchen', 'wiederholen', 'nochmal', 'noch einmal', 'erneut senden',
+            'rigenera', 'riprova', 'invia di nuovo', 'ripeti', 'ripeti questo', 'rifallo',
+            'повтори', 'попробуй снова', 'регенерируй', 'отправь снова',
+            '重新生成', '重试', '再试一次', '再来一次', '重新发送',
+            '再生成', 'やり直し', 'もう一度', '再送',
+            '다시 생성', '다시 시도', '한 번 더', '다시 보내'
+        ]
+    },
+    fillers: [
+        'please', 'pls', 'plz',
+        'por favor',
+        's il vous plait', 's il te plait',
+        'bitte',
+        'per favore',
+        'пожалуйста',
+        '请',
+        'お願いします',
+        '제발'
+    ]
+};
+
+chatKeymap.terms = [...new Set([
+    ...Object.values(chatKeymap.actions).flat(),
+    ...chatKeymap.fillers
+])];
+
 window.Keymaps = {
     dataViz: {
         intent: [
@@ -435,5 +556,7 @@ window.Keymaps = {
     research: researchKeymap,
     document: documentKeymap,
     presentation: presentationKeymap,
-    model: modelKeymap
+    artifact: artifactKeymap,
+    model: modelKeymap,
+    chat: chatKeymap
 };

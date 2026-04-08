@@ -39,6 +39,7 @@ var (
 	WhatsappWebhookEvents             []string         // Whitelist of events to forward to webhook (empty = all events)
 	WhatsappAutoRejectCall                     = false // Auto-reject incoming calls
 	WhatsappLogLevel                           = "ERROR"
+	WhatsappAppStateSyncEnabled                = false // Disable WhatsApp app state sync for user WhatsApp state. We do not plan to sync user WhatsApp state in this deployment.
 	// Optional values to link preferred pair device from the external user database.
 	WhatsappPreferredDeviceID            = ""
 	WhatsappPreferredDeviceMeta          = ""

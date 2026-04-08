@@ -37,7 +37,11 @@ func handler(ctx context.Context, instance *DeviceInstance, rawEvt any) {
 	case *events.DeleteForMe:
 		handleDeleteForMe(ctx, evt, chatStorageRepo, instance.JID(), client)
 	case *events.AppStateSyncComplete:
-		handleAppStateSyncComplete(ctx, client, evt)
+		// AppState sync completion is only meaningful when WhatsApp app-state sync is enabled.
+		// We do not plan to sync user WhatsApp state in this deployment, so ignore these events.
+		if config.WhatsappAppStateSyncEnabled {
+			handleAppStateSyncComplete(ctx, client, evt)
+		}
 	case *events.PairSuccess:
 		handlePairSuccess(ctx, evt)
 	case *events.LoggedOut:
@@ -63,7 +67,12 @@ func handler(ctx context.Context, instance *DeviceInstance, rawEvt any) {
 			log.Infof("Skipping HistorySync event because history sync is disabled")
 		}
 	case *events.AppState:
-		handleAppState(ctx, evt)
+		// AppState events belong to WhatsApp's internal state sync machinery.
+		// We do not use WhatsApp app-state sync for user sync in Paiperwork,
+		// so ignore these events to avoid noisy sync-related processing.
+		if config.WhatsappAppStateSyncEnabled {
+			handleAppState(ctx, evt)
+		}
 	case *events.GroupInfo:
 		handleGroupInfo(ctx, evt, instance.JID(), client)
 	case *events.JoinedGroup:

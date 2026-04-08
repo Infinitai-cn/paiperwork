@@ -1,5 +1,5 @@
 const ORCHESTRATOR_SYSTEM_PROMPT = `You are an internal routing assistant for Paiperwork.
-Your job is to decide whether an incoming user message should be handled by the normal chat flow ("chat"), by the chat+websearch flow ("chat+websearch"), by document-check ("document-check"), by the research workflow ("research"), or by the promptable SlideForge presentation workflow ("presentation").
+Your job is to decide whether an incoming user message should be handled by the normal chat flow ("chat"), by the chat+websearch flow ("chat+websearch"), by document-check ("document-check"), by the research workflow ("research"), by the promptable SlideForge presentation workflow ("presentation"), or by the Artifacts miniapp workflow ("artifact").
 
 Instructions:
 - Do NOT produce natural chat replies. Under no circumstances generate conversational text as output.
@@ -27,6 +27,20 @@ Instructions:
         - Português: "Cria uma apresentação com este texto: ..." => presentation
         - English: "Show my saved presentations" => presentation
         - English: "Send my saved Mercedes presentation" => presentation
+    - Artifact command examples:
+        - English: "Create one pinball game miniapp" => artifact
+        - English: "Generate one beautiful moving wallpaper miniapp using internet" => artifact
+        - English: "Show my saved miniapps" => artifact
+        - English: "Send my saved pinball miniapp" => artifact
+        - Español: "Crea una miniaplicación de pinball" => artifact
+        - Français: "Crée une miniapp de flipper" => artifact
+        - Deutsch: "Erstelle eine Mini-App als Pinball-Spiel" => artifact
+        - Italiano: "Crea una miniapp flipper" => artifact
+        - Português: "Cria uma miniaplicação de papel de parede animado" => artifact
+        - Русский: "Создай мини-приложение пинбол" => artifact
+        - 中文: "创建一个弹球迷你应用" => artifact
+        - 日本語: "ピンボールのミニアプリを作成" => artifact
+        - 한국어: "핀볼 미니앱을 만들어줘" => artifact
     - Model-management command examples:
         - English: "Show me my models" → chat
         - English: "What model is selected now?" → chat
@@ -41,6 +55,10 @@ Instructions:
 - If user requests planning, comparative analysis, research reports, or deep investigation in any language, prefer "research".
 - If user asks to create, generate, build, or prepare a presentation or slide deck from provided text/content, prefer "presentation".
 - If user asks to list, browse, view, choose, or send an existing saved presentation, also prefer "presentation".
+- If user asks to create, generate, build, or prepare a miniapp / mini application / artifact / HTML mini app, prefer "artifact".
+- If user asks to list, browse, view, choose, or send an existing saved miniapp / artifact, also prefer "artifact".
+- Treat localized equivalents and spacing variants of "artifact", "miniapp", "mini-app", and "mini app" as the same artifact intent across all supported languages.
+- Requests to make the miniapp richer with web/internet/search context should still stay on "artifact", not "chat+websearch".
 - For ambiguous conversational text in any language, default to "chat".
 - Decide ONLY one tool per request; do not emit multiple tool values.
 - Ignore any internal "thinking" markers or tags (for example: <think>...</think>, <thinking>...</thinking>, and text like "🤖 Thinking..."). Treat those as not part of the user's request.
@@ -80,6 +98,9 @@ Output: { "tool": "research", "query": "latest trends in electric vehicle batter
 Input: "Create a presentation with this text: Our 2026 roadmap focuses on AI automation, cloud cost controls, and customer expansion across Europe."
 Output: { "tool": "presentation", "document": "", "confidence": 0.95, "reason": "User explicitly requested a slide presentation from provided text.", "language": "English", "think": false }
 
+Input: "Create one pinball game miniapp very beautiful"
+Output: { "tool": "artifact", "document": "", "confidence": 0.95, "reason": "User explicitly requested an HTML miniapp artifact.", "language": "English", "think": false }
+
 Output ONLY valid JSON and nothing else. Do NOT include markdown fence markers (three backticks) or any additional explanation. Do NOT emit code blocks. If your response is not strictly valid JSON, return:
 {"tool":"chat","document":"","confidence":0.9,"reason":"Unable to parse intent as JSON"}
 
@@ -98,6 +119,7 @@ class ConnectorWhatsapp {
         this._orchestratorModalActiveCount = 0;
         this._whatsappPendingDocSelection = {}; // keyed by normalized phone
         this._whatsappPendingPresentationSelection = {}; // keyed by normalized phone
+        this._whatsappPendingArtifactSelection = {}; // keyed by normalized phone
     }
 
     _ensureWhatsappOrchestratorModalStyles() {
@@ -464,6 +486,25 @@ class ConnectorWhatsapp {
     _clearPendingPresentationSelection(phone) {
         const key = String(phone || '').replace(/@.*$/g, '').trim();
         delete this._whatsappPendingPresentationSelection[key];
+    }
+
+    _getPendingArtifactSelection(phone) {
+        const key = String(phone || '').replace(/@.*$/g, '').trim();
+        return this._whatsappPendingArtifactSelection[key] || null;
+    }
+
+    _setPendingArtifactSelection(phone, selectionInfo) {
+        const key = String(phone || '').replace(/@.*$/g, '').trim();
+        if (!selectionInfo) {
+            delete this._whatsappPendingArtifactSelection[key];
+            return;
+        }
+        this._whatsappPendingArtifactSelection[key] = selectionInfo;
+    }
+
+    _clearPendingArtifactSelection(phone) {
+        const key = String(phone || '').replace(/@.*$/g, '').trim();
+        delete this._whatsappPendingArtifactSelection[key];
     }
 
     _isActiveDocumentModeFor(documentId) {
@@ -1464,6 +1505,38 @@ class ConnectorWhatsapp {
         return intentMatch && (createMatch || sourceCueMatch || browseMatch || sendMatch || savedCueMatch);
     }
 
+    _isArtifactIntent(text) {
+        if (!text || !window.Keymaps || !window.Keymaps.artifact) return false;
+
+        const keymap = window.Keymaps.artifact;
+        const hasArtifactNoun = this._textMatchesDocumentKeymapTokens(text, keymap.intent || []);
+        if (!hasArtifactNoun) return false;
+
+        return this._textMatchesDocumentKeymapTokens(text, this._getArtifactKeymapTokens('actions.create'));
+    }
+
+    _isSavedArtifactIntent(text) {
+        const normalized = this._normalizeDocumentIntentKeymapText(text);
+        if (!normalized) return false;
+
+        const savedCueTokens = this._getArtifactKeymapTokens('savedCues');
+        const browseTokens = this._getArtifactKeymapTokens('actions.browse');
+        const sendTokens = this._getArtifactKeymapTokens('actions.send');
+        const intentTokens = this._getArtifactKeymapTokens('intent');
+
+        const hasSavedCue = this._textMatchesDocumentKeymapTokens(normalized, savedCueTokens);
+        const hasArtifactNoun = this._textMatchesDocumentKeymapTokens(normalized, intentTokens);
+        const hasBrowseAction = this._textMatchesDocumentKeymapTokens(normalized, browseTokens);
+        const hasSendAction = this._textMatchesDocumentKeymapTokens(normalized, sendTokens);
+
+        return hasSavedCue || (hasArtifactNoun && (hasBrowseAction || hasSendAction) && !this._isArtifactIntent(text));
+    }
+
+    _artifactRequestWantsWebSearch(text) {
+        if (!text || !window.Keymaps || !window.Keymaps.artifact) return false;
+        return this._textMatchesDocumentKeymapTokens(text, this._getArtifactKeymapTokens('webCues'));
+    }
+
     _extractPresentationRequestParts(text) {
         const normalized = this._normalizeWhatsappResearchReportText(text);
         if (!normalized) {
@@ -1567,6 +1640,35 @@ class ConnectorWhatsapp {
         return [...new Set(collected.map(token => String(token || '').trim()).filter(Boolean))];
     }
 
+    _getArtifactKeymapConfig() {
+        const keymap = window.Keymaps && window.Keymaps.artifact;
+        return keymap || {
+            intent: [],
+            actions: {},
+            savedCues: [],
+            webCues: [],
+            terms: []
+        };
+    }
+
+    _getArtifactKeymapTokens(...paths) {
+        const keymap = this._getArtifactKeymapConfig();
+        const collected = [];
+
+        for (const path of paths) {
+            const segments = String(path || '').split('.').filter(Boolean);
+            let value = keymap;
+            for (const segment of segments) {
+                value = value && value[segment];
+            }
+            if (Array.isArray(value)) {
+                collected.push(...value);
+            }
+        }
+
+        return [...new Set(collected.map(token => String(token || '').trim()).filter(Boolean))];
+    }
+
     _getModelKeymapConfig() {
         const keymap = window.Keymaps && window.Keymaps.model;
         return keymap || {
@@ -1580,6 +1682,33 @@ class ConnectorWhatsapp {
 
     _getModelKeymapTokens(...paths) {
         const keymap = this._getModelKeymapConfig();
+        const collected = [];
+
+        for (const path of paths) {
+            const segments = String(path || '').split('.').filter(Boolean);
+            let value = keymap;
+            for (const segment of segments) {
+                value = value && value[segment];
+            }
+            if (Array.isArray(value)) {
+                collected.push(...value);
+            }
+        }
+
+        return [...new Set(collected.map(token => String(token || '').trim()).filter(Boolean))];
+    }
+
+    _getChatKeymapConfig() {
+        const keymap = window.Keymaps && window.Keymaps.chat;
+        return keymap || {
+            actions: {},
+            fillers: [],
+            terms: []
+        };
+    }
+
+    _getChatKeymapTokens(...paths) {
+        const keymap = this._getChatKeymapConfig();
         const collected = [];
 
         for (const path of paths) {
@@ -1637,6 +1766,85 @@ class ConnectorWhatsapp {
         }
 
         return candidate.replace(/\s+/g, ' ').trim();
+    }
+
+    _normalizeWhatsappRegenerateCommand(text) {
+        const normalized = this._normalizeDocumentIntentKeymapText(text);
+        if (!normalized) return '';
+
+        return this._removeKeymapTokensFromNormalizedText(normalized, this._getChatKeymapTokens('fillers'));
+    }
+
+    _isWhatsappRegenerateIntent(text) {
+        const normalizedCommand = this._normalizeWhatsappRegenerateCommand(text);
+        if (!normalizedCommand) return false;
+
+        return this._getChatKeymapTokens('actions.regenerate')
+            .some(token => this._normalizeDocumentIntentKeymapText(token) === normalizedCommand);
+    }
+
+    _getWhatsappLastUserPrompt(phoneContext, excludedTexts = []) {
+        const turns = this._normalizeWhatsappConversationTurns(phoneContext && phoneContext.conversationTurns ? phoneContext.conversationTurns : [], 50);
+        if (!turns.length) return '';
+
+        const excludedNormalized = new Set(
+            excludedTexts
+                .map(text => this._normalizeDocumentIntentKeymapText(text))
+                .filter(Boolean)
+        );
+
+        for (let index = turns.length - 1; index >= 0; index -= 1) {
+            const turn = turns[index];
+            if (!turn || turn.role !== 'user') continue;
+
+            const text = String(turn.text || '').trim();
+            if (!text) continue;
+
+            const normalizedText = this._normalizeDocumentIntentKeymapText(text);
+            if (!normalizedText || excludedNormalized.has(normalizedText)) continue;
+            if (this._isWhatsappRegenerateIntent(text)) continue;
+
+            return text;
+        }
+
+        return '';
+    }
+
+    async _resolveWhatsappEffectivePrompt(msg, phoneContext = null) {
+        const originalText = String(msg && msg.body ? msg.body : '').trim();
+        if (!originalText) {
+            return {
+                effectiveText: '',
+                phoneContext: phoneContext || null,
+                regenerateRequested: false,
+                missingPreviousPrompt: false,
+                originalText: ''
+            };
+        }
+
+        if (!this._isWhatsappRegenerateIntent(originalText)) {
+            return {
+                effectiveText: originalText,
+                phoneContext: phoneContext || null,
+                regenerateRequested: false,
+                missingPreviousPrompt: false,
+                originalText
+            };
+        }
+
+        const normalizedPhone = this._getWhatsappIncomingThreadKey(msg);
+        const resolvedPhoneContext = (phoneContext && typeof phoneContext === 'object')
+            ? phoneContext
+            : ((await this._getWhatsappPhoneContext(normalizedPhone)) || {});
+        const previousPrompt = this._getWhatsappLastUserPrompt(resolvedPhoneContext, [originalText]);
+
+        return {
+            effectiveText: previousPrompt || '',
+            phoneContext: resolvedPhoneContext,
+            regenerateRequested: true,
+            missingPreviousPrompt: !previousPrompt,
+            originalText
+        };
     }
 
     _detectWhatsappRequestedModelProvider(text) {
@@ -2639,6 +2847,249 @@ class ConnectorWhatsapp {
         return `${cleaned || 'slideforge-presentation'}.html`;
     }
 
+    _sanitizeWhatsappArtifactFilename(title) {
+        const cleaned = String(title || 'artifact-miniapp')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 80);
+        return `${cleaned || 'artifact-miniapp'}.html`;
+    }
+
+    async _getSavedArtifactsForWhatsapp() {
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (!hashedMasterKey || typeof PaiperworkDB === 'undefined' || typeof PaiperworkDB.getArtifacts !== 'function') {
+            console.warn('[ConnectorWhatsapp][artifact] Saved artifacts unavailable', {
+                hasHashedMasterKey: !!hashedMasterKey,
+                hasDbApi: typeof PaiperworkDB !== 'undefined',
+                hasListFn: typeof PaiperworkDB !== 'undefined' && typeof PaiperworkDB.getArtifacts === 'function'
+            });
+            return [];
+        }
+
+        const items = await PaiperworkDB.getArtifacts(hashedMasterKey);
+        const normalizedItems = Array.isArray(items) ? items : [];
+        const sendableItems = [];
+
+        if (typeof PaiperworkDB.loadArtifactHtml === 'function') {
+            for (const item of normalizedItems) {
+                const html = await PaiperworkDB.loadArtifactHtml(hashedMasterKey, item && item.id);
+                const htmlLength = String(html || '').trim().length;
+                if (htmlLength > 0) {
+                    sendableItems.push(item);
+                    continue;
+                }
+
+                console.warn('[ConnectorWhatsapp][artifact] Skipping unsendable saved artifact for WhatsApp list', {
+                    id: item && item.id,
+                    title: item && item.title ? item.title : '',
+                    hashedMasterKeyPrefix: hashedMasterKey.slice(0, 8)
+                });
+            }
+        }
+
+        const itemsForWhatsapp = typeof PaiperworkDB.loadArtifactHtml === 'function'
+            ? sendableItems
+            : normalizedItems;
+
+        console.info('[ConnectorWhatsapp][artifact] Loaded saved artifacts', {
+            count: itemsForWhatsapp.length,
+            hashedMasterKeyPrefix: hashedMasterKey.slice(0, 8),
+            ids: itemsForWhatsapp.map(item => item && item.id).filter(Boolean)
+        });
+        return itemsForWhatsapp;
+    }
+
+    _extractSavedArtifactSelectionCandidate(input) {
+        const rawInput = this._normalizeWhatsappResearchReportText(input);
+        if (!rawInput) {
+            return '';
+        }
+
+        let candidate = rawInput;
+        const sendTokens = this._getArtifactKeymapTokens('actions.send');
+        const browseTokens = this._getArtifactKeymapTokens('actions.browse');
+        const savedCues = this._getArtifactKeymapTokens('savedCues');
+        const intentTokens = this._getArtifactKeymapTokens('intent');
+
+        const removablePrefixes = [...new Set([...sendTokens, ...browseTokens])]
+            .map(token => String(token || '').trim())
+            .filter(Boolean)
+            .sort((left, right) => right.length - left.length);
+
+        for (const token of removablePrefixes) {
+            const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            candidate = candidate.replace(new RegExp(`^${escapedToken}\\s+`, 'i'), '');
+        }
+
+        candidate = candidate.replace(/^(?:me|the|my|this|that|to\s+me|for\s+me)\s+/i, '');
+        candidate = candidate.replace(/^(?:el|la|los|las|mi|mis|para\s+mi)\s+/i, '');
+        candidate = candidate.replace(/^(?:o|a|os|as|minha|minhas|meu|meus|para\s+mim)\s+/i, '');
+        candidate = candidate.replace(/^(?:le|la|les|ma|mes|moi|pour\s+moi)\s+/i, '');
+        candidate = candidate.replace(/^(?:der|die|das|den|dem|mein|meine|meinen|fur\s+mich|für\s+mich)\s+/i, '');
+        candidate = candidate.replace(/^(?:il|lo|la|gli|le|mia|mie|mio|miei|per\s+me)\s+/i, '');
+        candidate = candidate.replace(/^(?:эт[ао]|мой|моя|мои|мне)\s+/i, '');
+
+        const removableSuffixes = [...new Set([...savedCues, ...intentTokens])]
+            .map(token => String(token || '').trim())
+            .filter(Boolean)
+            .sort((left, right) => right.length - left.length);
+
+        for (const token of removableSuffixes) {
+            const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            candidate = candidate.replace(new RegExp(`\\s+${escapedToken}$`, 'i'), '');
+        }
+
+        candidate = candidate.replace(/^[-:,.\s]+|[-:,.\s]+$/g, '').trim();
+        return candidate || rawInput;
+    }
+
+    _matchSavedArtifactSelection(input, artifacts = []) {
+        const rawInput = String(input || '').trim();
+        if (!rawInput || !Array.isArray(artifacts) || artifacts.length === 0) {
+            return null;
+        }
+
+        const selectionCandidate = this._extractSavedArtifactSelectionCandidate(rawInput);
+        const numericChoice = Number(selectionCandidate);
+        if (!Number.isNaN(numericChoice) && Number.isFinite(numericChoice) && numericChoice >= 1 && numericChoice <= artifacts.length) {
+            return artifacts[numericChoice - 1];
+        }
+
+        const normalize = (value) => this._normalizeDocumentIntentKeymapText(value);
+        const compact = (value) => normalize(value).replace(/\s+/g, '');
+        const normalizedInput = normalize(selectionCandidate);
+        const compactInput = compact(selectionCandidate);
+
+        if (!normalizedInput) {
+            return null;
+        }
+
+        let match = artifacts.find(item => {
+            const normalizedTitle = normalize(item.title || '');
+            return normalizedTitle && normalizedTitle === normalizedInput;
+        });
+
+        if (!match) {
+            match = artifacts.find(item => {
+                const normalizedTitle = normalize(item.title || '');
+                const compactTitle = compact(item.title || '');
+                return normalizedTitle.includes(normalizedInput)
+                    || (compactInput && compactTitle.includes(compactInput));
+            });
+        }
+
+        return match || null;
+    }
+
+    async _sendSavedArtifactToWhatsapp(phone, artifactItem, language = null) {
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (!phone || !artifactItem || !hashedMasterKey) {
+            console.warn('[ConnectorWhatsapp][artifact] Saved artifact send blocked', {
+                hasPhone: !!phone,
+                hasArtifactItem: !!artifactItem,
+                hasHashedMasterKey: !!hashedMasterKey
+            });
+            return false;
+        }
+
+        if (typeof PaiperworkDB === 'undefined' || typeof PaiperworkDB.loadArtifactHtml !== 'function') {
+            console.warn('[ConnectorWhatsapp][artifact] Saved artifact send unavailable: DB loader missing');
+            return false;
+        }
+
+        const html = await PaiperworkDB.loadArtifactHtml(hashedMasterKey, artifactItem.id);
+        const normalizedHtml = String(html || '').trim();
+        if (!normalizedHtml) {
+            console.warn('[ConnectorWhatsapp][artifact] Saved artifact HTML was empty', {
+                id: artifactItem.id,
+                title: artifactItem.title || '',
+                hashedMasterKeyPrefix: hashedMasterKey.slice(0, 8)
+            });
+            return false;
+        }
+
+        const title = String(artifactItem.title || 'Artifact Miniapp').trim() || 'Artifact Miniapp';
+        const filename = this._sanitizeWhatsappArtifactFilename(title);
+        const blob = new Blob([normalizedHtml], { type: 'text/html' });
+        await this.postWhatsappFile(phone, blob, filename, `🤖 ${title}`);
+
+        const sentText = await this._getLocalizedLangText(
+            language,
+            'whatsappArtifactSavedSent',
+            'Saved miniapp sent as an HTML file.'
+        );
+        await this.postWhatsappText(phone, `🤖 ${sentText}`);
+        return true;
+    }
+
+    async _handleWhatsappSavedArtifacts(phone, requestText, language = null) {
+        const artifacts = await this._getSavedArtifactsForWhatsapp();
+        const botPrefix = '🤖 ';
+        const pendingSelection = this._getPendingArtifactSelection(phone);
+        const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
+
+        if (!artifacts.length) {
+            this._clearPendingArtifactSelection(phone);
+            const emptyText = await this._getLocalizedLangText(
+                language,
+                'whatsappArtifactSavedEmpty',
+                'No saved miniapps are currently available.'
+            );
+            await this.postWhatsappText(phone, `${botPrefix}${emptyText}`);
+            return true;
+        }
+
+        const trySelection = pendingSelection
+            ? this._matchSavedArtifactSelection(normalizedRequest, pendingSelection.items || artifacts)
+            : this._matchSavedArtifactSelection(normalizedRequest, artifacts);
+
+        if (trySelection) {
+            const selectionItems = Array.isArray(pendingSelection && pendingSelection.items) && pendingSelection.items.length
+                ? pendingSelection.items
+                : artifacts.slice(0, 10);
+            this._setPendingArtifactSelection(phone, { items: selectionItems });
+            const sendingText = await this._getLocalizedLangText(
+                language,
+                'whatsappArtifactSendingSaved',
+                'Sending saved miniapp: {title}',
+                { title: trySelection.title || 'Miniapp' }
+            );
+            await this.postWhatsappText(phone, `${botPrefix}${sendingText}`);
+            const sent = await this._sendSavedArtifactToWhatsapp(phone, trySelection, language);
+            if (!sent) {
+                const failedText = await this._getLocalizedLangText(
+                    language,
+                    'whatsappArtifactSavedSendFailed',
+                    'Failed to load or send the selected saved miniapp.'
+                );
+                await this.postWhatsappText(phone, `${botPrefix}${failedText}`);
+            }
+            return true;
+        }
+
+        const shouldList = this._isSavedArtifactIntent(normalizedRequest) || !!pendingSelection;
+        if (shouldList) {
+            const listItems = artifacts.slice(0, 10);
+            this._setPendingArtifactSelection(phone, { items: listItems });
+            const names = listItems.map((item, index) => `${index + 1}. ${item.title || 'Miniapp'}`).join('\n');
+            const promptText = await this._getLocalizedLangText(
+                language,
+                'whatsappArtifactChooseSavedPrompt',
+                'Choose from the saved miniapps:'
+            );
+            const tipText = await this._getLocalizedLangText(
+                language,
+                'whatsappArtifactChooseSavedTip',
+                'To receive one, reply with "Send me <miniapp name>" or "Send me <number>".'
+            );
+            await this.postWhatsappText(phone, `${botPrefix}${promptText}\n${names}\n${tipText}`);
+            return true;
+        }
+
+        return false;
+    }
+
     async _waitForWhatsappUi(checkFn, timeoutMs = 5000, intervalMs = 50) {
         const timeoutAt = Date.now() + timeoutMs;
         while (Date.now() < timeoutAt) {
@@ -2976,6 +3427,48 @@ class ConnectorWhatsapp {
         }, 7000, 100);
     }
 
+    async _ensureArtifactsReady() {
+        if (window.tabLoader && typeof window.tabLoader.loadTabScripts === 'function') {
+            try {
+                await window.tabLoader.loadTabScripts('artifacts');
+            } catch (loadErr) {
+                console.warn('[ConnectorWhatsapp][artifact] Failed to load artifacts tab scripts', loadErr);
+            }
+        }
+
+        try {
+            const artifactsTabButton = document.querySelector('.tab-button[data-tab="artifacts"]');
+            if (artifactsTabButton && !artifactsTabButton.classList.contains('active')) {
+                artifactsTabButton.click();
+            }
+        } catch (_err) {
+        }
+
+        if (window.artifactsTab && typeof window.artifactsTab.initialize === 'function') {
+            try {
+                window.artifactsTab.initialize();
+            } catch (artifactsTabErr) {
+                console.warn('[ConnectorWhatsapp][artifact] artifactsTab.initialize failed', artifactsTabErr);
+            }
+        }
+
+        if (window.ArtifactsWindow && typeof window.ArtifactsWindow.open === 'function') {
+            try {
+                window.ArtifactsWindow.open();
+            } catch (artifactOpenErr) {
+                console.warn('[ConnectorWhatsapp][artifact] ArtifactsWindow.open failed', artifactOpenErr);
+            }
+        }
+
+        return this._waitForWhatsappUi(() => {
+            if (!window.ArtifactsWindow || !window.ArtifactsWindow.overlay) {
+                return null;
+            }
+
+            return window.ArtifactsWindow;
+        }, 7000, 100);
+    }
+
     _closeWhatsappPromptablePresentationWindow() {
         try {
             if (window.PromptedPresentationWorkflow && typeof window.PromptedPresentationWorkflow.close === 'function') {
@@ -2983,6 +3476,16 @@ class ConnectorWhatsapp {
             }
         } catch (closeErr) {
             console.warn('[ConnectorWhatsapp][presentation] Failed to close promptable presentation window', closeErr);
+        }
+    }
+
+    _closeWhatsappArtifactsWindow() {
+        try {
+            if (window.ArtifactsWindow && typeof window.ArtifactsWindow.close === 'function') {
+                window.ArtifactsWindow.close();
+            }
+        } catch (closeErr) {
+            console.warn('[ConnectorWhatsapp][artifact] Failed to close artifacts window', closeErr);
         }
     }
 
@@ -3006,6 +3509,32 @@ class ConnectorWhatsapp {
         });
 
         console.info('[ConnectorWhatsapp][presentation] Promptable presentation autosaved', {
+            id: saveResult && saveResult.id ? saveResult.id : null,
+            title: saveResult && saveResult.title ? saveResult.title : String(title || '').trim(),
+            htmlLength: saveResult && saveResult.html ? saveResult.html.length : String(htmlContent || '').trim().length
+        });
+
+        return saveResult;
+    }
+
+    async _saveWhatsappArtifactToLibrary(htmlContent, title = '', prompt = '') {
+        const workflow = window.ArtifactsWindow;
+
+        if (!workflow || typeof workflow.saveArtifactToLibrary !== 'function') {
+            console.warn('[ConnectorWhatsapp][artifact] Artifact autosave unavailable', {
+                hasWorkflow: !!workflow,
+                hasSaveMethod: !!(workflow && typeof workflow.saveArtifactToLibrary === 'function')
+            });
+            return null;
+        }
+
+        const saveResult = await workflow.saveArtifactToLibrary({
+            htmlContent,
+            title,
+            prompt
+        });
+
+        console.info('[ConnectorWhatsapp][artifact] Artifact autosaved', {
             id: saveResult && saveResult.id ? saveResult.id : null,
             title: saveResult && saveResult.title ? saveResult.title : String(title || '').trim(),
             htmlLength: saveResult && saveResult.html ? saveResult.html.length : String(htmlContent || '').trim().length
@@ -3103,6 +3632,15 @@ class ConnectorWhatsapp {
         }
     }
 
+    async _generateWhatsappArtifactHtml(requestText, useWebSearch = false) {
+        const workflow = window.ArtifactsWindow;
+        if (!workflow || typeof workflow.generateArtifactHtmlFromPrompt !== 'function') {
+            throw new Error('Artifacts workflow is unavailable.');
+        }
+
+        return workflow.generateArtifactHtmlFromPrompt(requestText, { useWebSearch });
+    }
+
     async _handleWhatsappPromptablePresentation(phone, requestText, language = null) {
         if (!phone) return false;
 
@@ -3183,6 +3721,78 @@ class ConnectorWhatsapp {
                 language,
                 'presentationFailed',
                 'Presentation generation failed. Please try again later.'
+            );
+            await this.postWhatsappText(phone, `🤖 ${failedText}`);
+            return false;
+        }
+    }
+
+    async _handleWhatsappArtifact(phone, requestText, language = null) {
+        if (!phone) return false;
+
+        const shouldUseSavedArtifactFlow = this._isSavedArtifactIntent(requestText)
+            || (!!this._getPendingArtifactSelection(phone) && !this._isArtifactIntent(requestText));
+
+        if (shouldUseSavedArtifactFlow) {
+            return this._handleWhatsappSavedArtifacts(phone, requestText, language);
+        }
+
+        const workflow = await this._ensureArtifactsReady();
+        if (!workflow) {
+            const unavailableText = await this._getLocalizedLangText(
+                language,
+                'whatsappArtifactNotAvailable',
+                'Artifacts miniapp generation is not available right now. Please try again later.'
+            );
+            await this.postWhatsappText(phone, `🤖 ${unavailableText}`);
+            return false;
+        }
+
+        this._clearPendingArtifactSelection(phone);
+
+        const useWebSearch = this._artifactRequestWantsWebSearch(requestText);
+        const creatingText = await this._getLocalizedLangText(
+            language,
+            useWebSearch ? 'whatsappArtifactCreatingWithWeb' : 'whatsappArtifactCreating',
+            useWebSearch
+                ? 'Creating your miniapp with web research to enrich it...'
+                : 'Creating your miniapp...'
+        );
+        await this.postWhatsappText(phone, `🤖 ${creatingText}`);
+
+        try {
+            const artifactResult = await this._generateWhatsappArtifactHtml(requestText, useWebSearch);
+            const normalizedHtml = String(artifactResult && artifactResult.html ? artifactResult.html : '').trim();
+            if (!normalizedHtml) {
+                throw new Error('Artifact HTML was empty.');
+            }
+
+            const title = String(artifactResult && artifactResult.title ? artifactResult.title : '').trim() || 'Artifact Miniapp';
+            const filename = this._sanitizeWhatsappArtifactFilename(title);
+            const saveResult = await this._saveWhatsappArtifactToLibrary(normalizedHtml, title, requestText);
+            if (!saveResult || !saveResult.id) {
+                throw new Error('Artifact autosave failed.');
+            }
+
+            const blob = new Blob([normalizedHtml], { type: 'text/html' });
+            await this.postWhatsappFile(phone, blob, filename, `🤖 ${title}`);
+
+            this._closeWhatsappArtifactsWindow();
+
+            const sentText = await this._getLocalizedLangText(
+                language,
+                'whatsappArtifactSent',
+                'Miniapp created, saved, and sent as an HTML file.'
+            );
+            await this.postWhatsappText(phone, `🤖 ${sentText}`);
+            return true;
+        } catch (err) {
+            console.error('ConnectorWhatsapp: _handleWhatsappArtifact failed', err);
+            this._closeWhatsappArtifactsWindow();
+            const failedText = await this._getLocalizedLangText(
+                language,
+                'whatsappArtifactFailed',
+                'Miniapp generation failed. Please try again later.'
             );
             await this.postWhatsappText(phone, `🤖 ${failedText}`);
             return false;
@@ -3445,7 +4055,21 @@ class ConnectorWhatsapp {
             if (!msg || !msg.body) return msg;
 
             const original = String(msg.body || '');
-            const cleaned = this._stripThinkingContent(original);
+            const cleanedOriginal = this._stripThinkingContent(original);
+            const normalizedPhone = this._getWhatsappIncomingThreadKey(msg);
+            let phoneContext = (await this._getWhatsappPhoneContext(normalizedPhone)) || {};
+            const promptResolution = await this._resolveWhatsappEffectivePrompt(
+                { ...msg, body: cleanedOriginal },
+                phoneContext
+            );
+            if (promptResolution && promptResolution.phoneContext) {
+                phoneContext = promptResolution.phoneContext;
+            }
+
+            const effectiveInput = promptResolution && promptResolution.effectiveText
+                ? promptResolution.effectiveText
+                : cleanedOriginal;
+            const cleaned = this._stripThinkingContent(effectiveInput);
             const routingIntentText = this._getWhatsappRoutingIntentText(cleaned);
             const shortInput = cleaned.length > 200 ? cleaned.substring(0, 200) + '...' : cleaned;
             console.info('[ConnectorWhatsapp][orchestrator] Sanitized input:', shortInput);
@@ -3454,10 +4078,26 @@ class ConnectorWhatsapp {
             const systemPrompt = ORCHESTRATOR_SYSTEM_PROMPT;
             const contextSize = (document.getElementById('context-selector') && document.getElementById('context-selector').value) || '8192';
 
-            const normalizedPhone = this._getWhatsappIncomingThreadKey(msg);
+            msg.whatsappRegenerate = {
+                requested: !!(promptResolution && promptResolution.regenerateRequested),
+                missingPreviousPrompt: !!(promptResolution && promptResolution.missingPreviousPrompt),
+                originalCommand: promptResolution && promptResolution.regenerateRequested ? cleanedOriginal : '',
+                reusedPrompt: promptResolution && promptResolution.regenerateRequested ? cleaned : ''
+            };
+
+            if (msg.whatsappRegenerate.missingPreviousPrompt) {
+                msg.orchestrator = {
+                    tool: 'chat',
+                    confidence: 1,
+                    reason: 'regenerate_requested_without_previous_prompt',
+                    language: this._detectLanguage(cleanedOriginal) || 'English'
+                };
+                return msg;
+            }
+
             this._appendWhatsappOrchestratorContext(normalizedPhone, { role: 'user', text: cleaned });
-            let phoneContext = (await this._getWhatsappPhoneContext(normalizedPhone)) || {};
             phoneContext = (await this._appendWhatsappPhoneConversationTurn(normalizedPhone, { role: 'user', text: cleaned }, phoneContext)) || phoneContext;
+            msg.body = cleaned;
 
             // We currently rely on the orchestrator model only (system prompt guidance) to select tool.
             let orchText = '';
@@ -3499,6 +4139,8 @@ class ConnectorWhatsapp {
                     let toolNormalized = 'chat';
                     if (toolRaw.includes('research')) {
                         toolNormalized = 'research';
+                    } else if (toolRaw.includes('artifact') || toolRaw.includes('miniapp') || toolRaw.includes('mini app')) {
+                        toolNormalized = 'artifact';
                     } else if (toolRaw.includes('presentation') || toolRaw.includes('slideforge') || toolRaw.includes('slide deck') || toolRaw.includes('slides') || toolRaw.includes('deck')) {
                         toolNormalized = 'presentation';
                     } else if (toolRaw.includes('dataviz') || toolRaw.includes('visualization') || toolRaw.includes('graph') || toolRaw.includes('chart')) {
@@ -3531,6 +4173,9 @@ class ConnectorWhatsapp {
                     if (decision.tool === 'chat' && this._isDataVizIntent(routingIntentText) && !this._isPresentationIntent(routingIntentText)) {
                         decision.tool = 'dataviz';
                         decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected dataviz intent via keymap fallback.';
+                    } else if (decision.tool === 'chat' && (this._isArtifactIntent(routingIntentText) || this._isSavedArtifactIntent(routingIntentText))) {
+                        decision.tool = 'artifact';
+                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected artifact intent via keymap fallback.';
                     } else if (decision.tool === 'chat' && this._isPresentationIntent(routingIntentText)) {
                         decision.tool = 'presentation';
                         decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected presentation intent via keymap fallback.';
@@ -4147,6 +4792,17 @@ class ConnectorWhatsapp {
             let docModeActive = this._isWhatsappDocumentScopeActive(normalizedPhone);
 
             const userText = String(msg?.body || '').trim();
+            const regenerateState = msg && msg.whatsappRegenerate ? msg.whatsappRegenerate : null;
+            if (regenerateState && regenerateState.requested && regenerateState.missingPreviousPrompt) {
+                const missingPromptLanguage = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(userText) || 'English';
+                const noPromptText = await this._getLocalizedLangText(
+                    missingPromptLanguage,
+                    'whatsappRegenerateMissingPrompt',
+                    'Sorry, I could not find a previous prompt to reuse yet. Send a normal message first, then ask me to regenerate it.'
+                );
+                await this.postWhatsappText(replyTarget, `🤖 ${noPromptText}`);
+                return;
+            }
             const routingIntentText = this._getWhatsappRoutingIntentText(userText);
             let phoneContext = (await this._getWhatsappPhoneContext(normalizedPhone)) || {};
             const inferredLanguage = this._detectLanguage(routingIntentText || userText);
@@ -4179,6 +4835,10 @@ class ConnectorWhatsapp {
             // force dataviz routing.
             if ((!orchTool || orchTool === 'chat') && this._isDataVizIntent(routingIntentText) && !this._isPresentationIntent(routingIntentText)) {
                 orchTool = 'dataviz';
+            }
+
+            if ((!orchTool || orchTool === 'chat') && (this._isArtifactIntent(routingIntentText) || this._isSavedArtifactIntent(routingIntentText))) {
+                orchTool = 'artifact';
             }
 
             if ((!orchTool || orchTool === 'chat') && this._isPresentationIntent(routingIntentText)) {
@@ -4272,6 +4932,15 @@ class ConnectorWhatsapp {
                     window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
                 }
                 await this._handleWhatsappDataViz(normalizedPhone, chartType, userText, resolvedLanguage);
+                return;
+            }
+
+            if (orchTool === 'artifact') {
+                if (window.chatInstance) {
+                    window.chatInstance.whatsappPendingReplyChatId = replyTarget;
+                    window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
+                }
+                await this._handleWhatsappArtifact(normalizedPhone, userText, resolvedLanguage);
                 return;
             }
 
@@ -4622,6 +5291,42 @@ class ConnectorWhatsapp {
         return normalizedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
     }
 
+    async _sendWhatsappReplyUnavailableMessage(chatId, language) {
+        const unavailableText = await this._getLocalizedLangText(
+            language,
+            'whatsappReplyUnavailable',
+            'Sorry, I could not send the AI reply this time. Please try again in a moment.'
+        );
+
+        if (typeof this.postWhatsappText === 'function') {
+            await this.postWhatsappText(chatId, `🤖 ${unavailableText}`);
+        }
+    }
+
+    async _isWhatsappReplyPlaceholderText(text, language) {
+        const normalized = this._normalizeWhatsappReplyText(text)
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!normalized) {
+            return true;
+        }
+
+        const phrases = await Promise.all([
+            this._getLocalizedLangText(language, 'generationCancelled', '[Generation cancelled]'),
+            this._getLocalizedLangText(language, 'generationCancelledBeforeStart', 'Generation cancelled before it started. Please try again.'),
+            this._getLocalizedLangText(language, 'regenerateMessage', 'Regenerate'),
+            this._getLocalizedLangText(language, 'tryAgain', 'Try Again')
+        ]);
+
+        const normalizedPhrases = phrases
+            .map(value => this._normalizeWhatsappReplyText(value).toLowerCase().replace(/\s+/g, ' ').trim())
+            .filter(Boolean);
+
+        const stripped = normalizedPhrases.reduce((acc, phrase) => acc.split(phrase).join(' ').trim(), normalized);
+        return stripped.length === 0;
+    }
+
     // Send the assistant's most recent response to the given phone (multi-part: text/code/attachments)
     async maybeSendWhatsappReply(chatId) {
         try {
@@ -4636,13 +5341,18 @@ class ConnectorWhatsapp {
             if (assistantMessages.length === 0) return;
 
             const lastMessage = assistantMessages[assistantMessages.length - 1];
+            if (lastMessage.classList.contains('cancelled-message') || lastMessage.querySelector('.cancel-note')) {
+                await this._sendWhatsappReplyUnavailableMessage(targetPhone, language);
+                return;
+            }
+
             const responseContainer = lastMessage.querySelector('.ai-response-container') || lastMessage;
             if (!responseContainer) return;
 
             const clone = responseContainer.cloneNode(true);
 
             // Remove nods to thinking and UI controls.
-            clone.querySelectorAll('.thinking-mode-container, .thinking-summary, .thinking-transition, [data-thinking], [class*="thinking-"], .message-actions, .copy-response-container, .copy-button, .regenerate-button, .delete-button').forEach(el => el.remove());
+            clone.querySelectorAll('.thinking-mode-container, .thinking-summary, .thinking-transition, [data-thinking], [class*="thinking-"], .message-actions, .copy-response-container, .copy-button, .regenerate-button, .regenerate-inline-button, .delete-button, .cancel-note, .user-regenerate-container, .continue-conversation-button-container').forEach(el => el.remove());
 
             const _decodeSavedBackup = (commentText) => {
                 try {
@@ -4692,13 +5402,36 @@ class ConnectorWhatsapp {
             }
             if (textBuffer && textBuffer.trim()) segments.push({ type: 'text', text: textBuffer });
 
-            if (!segments || segments.length === 0) return;
+            if (!segments || segments.length === 0) {
+                await this._sendWhatsappReplyUnavailableMessage(targetPhone, language);
+                return;
+            }
+
+            const meaningfulSegments = [];
+            for (const seg of segments) {
+                if (!seg) continue;
+                if (seg.type === 'text') {
+                    const content = this._normalizeWhatsappReplyText(seg.text || '');
+                    if (!content || await this._isWhatsappReplyPlaceholderText(content, language)) {
+                        continue;
+                    }
+                    meaningfulSegments.push({ ...seg, text: content });
+                    continue;
+                }
+
+                meaningfulSegments.push(seg);
+            }
+
+            if (meaningfulSegments.length === 0) {
+                await this._sendWhatsappReplyUnavailableMessage(targetPhone, language);
+                return;
+            }
 
             // Ensure presence start is posted
             try { await this._startWhatsappPresenceKeepAlive(targetPhone); } catch (_) { }
 
             let firstMessage = true;
-            for (const seg of segments) {
+            for (const seg of meaningfulSegments) {
                 if (!seg) continue;
                 if (seg.type === 'text') {
                     let content = this._normalizeWhatsappReplyText(seg.text || '');
