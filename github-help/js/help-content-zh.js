@@ -3012,6 +3012,9 @@ window.helpContent = {
                 <p><strong>Paiperwork：</strong>完成后，请回复 <code>不用了</code>、<code>不用</code> 或 <code>完成了</code> 来关闭研究模式。</p>
                 <p><strong>Paiperwork：</strong>您想继续完善这项研究吗？</p>
                 <p><strong>用户：</strong><code>添加 &lt;额外研究补充&gt;</code></p>
+                <p><strong>Paiperwork：</strong>带有额外补充的研究已开始。</p>
+                <p><strong>Paiperwork：</strong>已发送完善后的研究结果。</p>
+                <p><strong>Paiperwork：</strong>您想继续完善这项研究吗？</p>
                 <p><strong>用户：</strong><code>完成了</code>、<code>不用了</code>、<code>不用</code></p>
                 <p><strong>Paiperwork：</strong>好的，研究后续模式已关闭。</p>
 

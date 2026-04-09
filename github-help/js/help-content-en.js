@@ -3047,6 +3047,9 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> When you are done, reply with <code>no</code>, <code>no thanks</code>, or <code>I am finished</code> to close research mode.</p>
                 <p><strong>Paiperwork:</strong> Do you want to continue refining this research?</p>
                 <p><strong>User:</strong> <code>Add &lt;extra research refinement&gt;</code></p>
+                <p><strong>Paiperwork:</strong> Research with extra refinement started.</p>
+                <p><strong>Paiperwork:</strong> Refined research delivered.</p>
+                <p><strong>Paiperwork:</strong> Do you want to continue refining this research?</p>
                 <p><strong>User:</strong> <code>I am finished</code>, <code>no</code>, <code>No thanks</code></p>
                 <p><strong>Paiperwork:</strong> Okay, research follow-up mode is closed.</p>
 
