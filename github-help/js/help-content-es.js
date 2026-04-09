@@ -3025,6 +3025,9 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> Cuando termines, responde con <code>no</code>, <code>no gracias</code> o <code>ya terminé</code> para cerrar el modo de investigación.</p>
                 <p><strong>Paiperwork:</strong> ¿Quieres seguir refinando esta investigación?</p>
                 <p><strong>Usuario:</strong> <code>Agregar &lt;refinamiento adicional de investigación&gt;</code></p>
+                <p><strong>Paiperwork:</strong> La investigación con el refinamiento adicional ha comenzado.</p>
+                <p><strong>Paiperwork:</strong> Investigación refinada entregada.</p>
+                <p><strong>Paiperwork:</strong> ¿Quieres seguir refinando esta investigación?</p>
                 <p><strong>Usuario:</strong> <code>ya terminé</code>, <code>no</code>, <code>no gracias</code></p>
                 <p><strong>Paiperwork:</strong> De acuerdo, el modo de seguimiento de investigación está cerrado.</p>
 

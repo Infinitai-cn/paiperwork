@@ -3008,6 +3008,9 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> Quando terminar, responda com <code>não</code>, <code>não obrigado</code> ou <code>já terminei</code> para fechar o modo de pesquisa.</p>
                 <p><strong>Paiperwork:</strong> Quer continuar a refinar esta pesquisa?</p>
                 <p><strong>Utilizador:</strong> <code>Adicionar &lt;refinamento extra da pesquisa&gt;</code></p>
+                <p><strong>Paiperwork:</strong> A pesquisa com refinamento extra foi iniciada.</p>
+                <p><strong>Paiperwork:</strong> Pesquisa refinada entregue.</p>
+                <p><strong>Paiperwork:</strong> Quer continuar a refinar esta pesquisa?</p>
                 <p><strong>Utilizador:</strong> <code>já terminei</code>, <code>não</code>, <code>não obrigado</code></p>
                 <p><strong>Paiperwork:</strong> Certo, o modo de seguimento da pesquisa foi fechado.</p>
 
