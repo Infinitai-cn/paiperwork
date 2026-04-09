@@ -1327,13 +1327,52 @@ class PromptedPresentationWorkflow {
 		}
 
 		const promise = (async () => {
+			this.promptableImageFetchIntervalMs = Number.isFinite(this.promptableImageFetchIntervalMs)
+				? this.promptableImageFetchIntervalMs
+				: 350;
+			this.promptableImageFetchBackoffMs = Number.isFinite(this.promptableImageFetchBackoffMs)
+				? this.promptableImageFetchBackoffMs
+				: 1500;
+
+			const sleep = (ms) => new Promise((resolve, reject) => {
+				const timer = setTimeout(resolve, Math.max(0, ms || 0));
+				if (abortSignal) {
+					abortSignal.addEventListener('abort', () => {
+						clearTimeout(timer);
+						reject(new DOMException('Aborted', 'AbortError'));
+					}, { once: true });
+				}
+			});
+
+			const waitForFetchTurn = async () => {
+				const now = Date.now();
+				const nextAllowedAt = Number(this.promptableImageNextFetchAt || 0);
+				if (nextAllowedAt > now) {
+					await sleep(nextAllowedAt - now);
+				}
+				this.promptableImageNextFetchAt = Date.now() + this.promptableImageFetchIntervalMs;
+			};
+
 			const fetchUrl = this.getPromptableImageFetchUrl(value, false);
-			const response = await fetch(fetchUrl, { signal: abortSignal });
-			if (!response.ok) {
-				throw new Error(`Image fetch failed with status ${response.status}`);
+			let lastError = null;
+			for (let attempt = 0; attempt < 2; attempt += 1) {
+				await waitForFetchTurn();
+				const response = await fetch(fetchUrl, { signal: abortSignal });
+				if (response.ok) {
+					const blob = await response.blob();
+					return await this.readPromptableBlobAsDataUrl(blob);
+				}
+
+				lastError = new Error(`Image fetch failed with status ${response.status}`);
+				if (response.status !== 429 || attempt >= 1) {
+					throw lastError;
+				}
+
+				this.promptableImageNextFetchAt = Date.now() + this.promptableImageFetchBackoffMs;
+				await sleep(this.promptableImageFetchBackoffMs);
 			}
-			const blob = await response.blob();
-			return await this.readPromptableBlobAsDataUrl(blob);
+
+			throw lastError || new Error('Image fetch failed');
 		})();
 
 		this.promptableImageDataUrlCache.set(value, promise);
@@ -1560,6 +1599,8 @@ class PromptedPresentationWorkflow {
 			'For every slide image, include a concise descriptive alt text or data-image-query that names the ideal photo subject for that specific slide.',
 			'If you include external image URLs, use only direct image file URLs that return image bytes, not HTML page URLs. NEVER use those images as slide backgrounds.',
 			'ALWAYS use all text content provided by the user in the exact same order as provided; do not reorder any part of the text.',
+			'When the user does not specify an exact slide count, infer a suitable count from the source structure and amount of content.',
+			'Do not collapse substantial multi-section source material into only 2 slides. Use one cover slide plus enough content slides to cover the major sections and key details.',
 			'Respect the exact number of slides requested by the user.',
 			'Output MUST be only one HTML document and nothing else.',
 			'Do not output markdown fences, explanations, or notes.',
@@ -1580,6 +1621,8 @@ class PromptedPresentationWorkflow {
 			'For every slide image, include a concise descriptive alt text or data-image-query that names the ideal photo subject for that specific slide.',
 			'If you include external image URLs, use only direct image file URLs that return image bytes, not HTML page URLs. NEVER use those images as slide backgrounds.',
 			'ALWAYS use all text content provided by the user in the exact same order as provided; do not reorder any part of the text.',
+			'When the user does not specify an exact slide count, infer a suitable count from the source structure and amount of content.',
+			'Do not collapse substantial multi-section source material into only 2 slides. Use one cover slide plus enough content slides to cover the major sections and key details.',
 			'Respect the exact number of slides requested by the user.',
 			'Output MUST be only one HTML document and nothing else.',
 			'Do not output markdown fences, explanations, or notes.',
@@ -2382,13 +2425,61 @@ class PromptedPresentationWorkflow {
 		return this.buildUserPromptWithExtra(slideCount, sourceText, '', false);
 	}
 
+	static buildAutoSlideCountGuidance(sourceText) {
+		const text = String(sourceText || '').trim();
+		if (!text) {
+			return {
+				targetSlides: 4,
+				minimumSlides: 3
+			};
+		}
+
+		const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+		const paragraphs = text.split(/\n\s*\n+/).map(part => part.trim()).filter(Boolean);
+		const wordCount = (text.match(/\S+/g) || []).length;
+		const markdownHeadingCount = lines.filter(line => /^#{1,6}\s+/.test(line)).length;
+		const numberedSectionCount = lines.filter(line => /^\d+(?:\.\d+)*\.?\s+/.test(line)).length;
+		const bulletCount = lines.filter(line => /^([\-*•]|\d+[.)])\s+/.test(line)).length;
+		const tableLineCount = lines.filter(line => /\|/.test(line)).length;
+
+		const structuralEstimate = Math.max(
+			markdownHeadingCount,
+			numberedSectionCount,
+			Math.ceil(bulletCount / 4),
+			tableLineCount >= 3 ? 2 : 0
+		);
+		const contentEstimate = Math.ceil(wordCount / 120);
+		const paragraphEstimate = Math.ceil(paragraphs.length / 2);
+
+		const targetSlides = Math.max(4, Math.min(12, Math.max(contentEstimate, paragraphEstimate, structuralEstimate + 1, 4)));
+		const minimumSlides = Math.max(3, Math.min(targetSlides, targetSlides - 1));
+
+		return {
+			targetSlides,
+			minimumSlides
+		};
+	}
+
 	static buildUserPromptWithExtra(slideCount, sourceText, extraRequestText, removeWebSearchMentions = false) {
+		const resolvedSlideCount = Number(slideCount);
+		const hasExplicitSlideCount = Number.isFinite(resolvedSlideCount) && resolvedSlideCount > 0;
+		const autoSlideGuidance = hasExplicitSlideCount ? null : this.buildAutoSlideCountGuidance(sourceText);
 		const parts = [
-			`Create a presentation with exactly ${slideCount} slides.`
+			hasExplicitSlideCount
+				? `Create a presentation with exactly ${resolvedSlideCount} slides.`
+				: `Create a presentation with an appropriate number of slides based on the request and source material. If the request explicitly asks for a specific slide count, follow it exactly. Otherwise, choose the number of slides needed to cover the topic well without padding. For this source, target around ${autoSlideGuidance.targetSlides} slides and do not use fewer than ${autoSlideGuidance.minimumSlides} slides unless the source is genuinely minimal.`
 		];
+
+		if (!hasExplicitSlideCount && autoSlideGuidance) {
+			parts.push(
+				`Auto slide-count guidance: use 1 cover slide plus enough content slides to cover the major sections in order. This source should usually produce around ${autoSlideGuidance.targetSlides} slides, with a practical minimum of ${autoSlideGuidance.minimumSlides}.`
+			);
+		}
 
 		if (extraRequestText && String(extraRequestText).trim()) {
 			parts.push(
+				'Keep everything else the same as the provided source material and existing presentation requirements unless the extra request explicitly changes it.',
+				'Do not rewrite, compress, or drift the underlying content beyond the requested modifications. Preserve the same topic coverage, detail level, structure, and order unless the extra request explicitly asks otherwise.',
 				'Apply the following extra presentation requests first (style/layout/image treatment):',
 				String(extraRequestText).trim()
 			);
@@ -3357,18 +3448,23 @@ class PromptedPresentationWorkflow {
 		}
 
 		const promptPayload = userText;
-		console.log('[PromptedPresentationWorkflow] generatePresentationHtml payload', {
-			mode,
-			model,
-			promptLength: String(promptPayload || '').length,
-			promptPreview: String(promptPayload || '').slice(0, 600)
-		});
+		const systemPrompt = mode === 'pdf'
+			? this.buildPdfPresentationSystemPrompt()
+			: this.buildArtisticPresentationSystemPrompt();
+		console.log(
+			`[PromptedPresentationWorkflow] generatePresentationHtml payload\n${JSON.stringify({
+				mode,
+				model,
+				promptLength: String(promptPayload || '').length,
+				prompt: String(promptPayload || ''),
+				systemLength: String(systemPrompt || '').length,
+				system: String(systemPrompt || '')
+			}, null, 2)}`
+		);
 
 		const requestBody = {
 			model,
-			system: mode === 'pdf'
-				? this.buildPdfPresentationSystemPrompt()
-				: this.buildArtisticPresentationSystemPrompt(),
+			system: systemPrompt,
 			prompt: promptPayload,
 			stream: true,
 			options: {},

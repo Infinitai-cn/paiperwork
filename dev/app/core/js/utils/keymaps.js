@@ -261,20 +261,20 @@ const presentationKeymap = {
         '저장된 프레젠테이션', '내 프레젠테이션'
     ],
     webCues: [
-        'use internet', 'use the internet', 'use web', 'use the web', 'with web search', 'using web search', 'search the web', 'search online', 'use online sources',
+        'use internet', 'use internet search', 'use the internet', 'use web', 'use the web', 'with web search', 'using web search', 'search the web', 'search online', 'use online sources',
         'use online references', 'use internet sources', 'look on the web', 'look online', 'browse the web for sources', 'with internet research',
-        'usa internet', 'usa el internet', 'usa la web', 'usa búsqueda web', 'con búsqueda web', 'busca en la web', 'busca en internet', 'usa fuentes en línea',
+        'usa internet', 'usa el internet', 'usa la web', 'usa busqueda de internet', 'usa búsqueda de internet', 'usa búsqueda web', 'con búsqueda web', 'busca en la web', 'busca en internet', 'usa fuentes en línea',
         'usa referencias en línea', 'con investigación web',
-        'usa internet', 'usa a internet', 'usa a web', 'usa pesquisa web', 'com pesquisa web', 'pesquisa na web', 'pesquisa online', 'usa fontes online',
+        'usa internet', 'usa a internet', 'usa a web', 'usa pesquisa na internet', 'usa pesquisa web', 'com pesquisa web', 'pesquisa na web', 'pesquisa online', 'usa fontes online',
         'usa referências online', 'com pesquisa na internet',
-        'utilise internet', 'utilise la recherche web', 'avec recherche web', 'recherche sur le web', 'cherche en ligne', 'utilise des sources en ligne',
+        'utilise internet', 'utilise la recherche internet', 'utilise la recherche web', 'avec recherche web', 'recherche sur le web', 'cherche en ligne', 'utilise des sources en ligne',
         'avec recherche internet',
-        'nutze das internet', 'nutze websuche', 'mit websuche', 'im web suchen', 'online suchen', 'nutze online-quellen', 'nutze internetquellen',
-        'usa internet', 'usa il web', 'usa la ricerca web', 'con ricerca web', 'cerca sul web', 'cerca online', 'usa fonti online', 'usa fonti internet',
-        'используй интернет', 'используй веб-поиск', 'с веб-поиском', 'ищи в интернете', 'используй онлайн-источники',
-        '使用互联网', '使用网络搜索', '用网页搜索', '搜索网络', '在线搜索', '使用在线来源',
-        'ウェブ検索を使う', 'インターネットを使う', 'ウェブで検索', 'オンラインで検索', 'オンライン情報を使う',
-        '웹 검색 사용', '인터넷 사용', '웹에서 검색', '온라인 검색', '온라인 출처 사용'
+        'nutze das internet', 'nutze internetsuche', 'nutze websuche', 'mit websuche', 'im web suchen', 'online suchen', 'nutze online-quellen', 'nutze internetquellen',
+        'usa internet', 'usa il web', 'usa la ricerca internet', 'usa la ricerca web', 'con ricerca web', 'cerca sul web', 'cerca online', 'usa fonti online', 'usa fonti internet',
+        'используй интернет', 'используй поиск в интернете', 'используй веб-поиск', 'с веб-поиском', 'ищи в интернете', 'используй онлайн-источники',
+        '使用互联网', '使用互联网搜索', '使用网络搜索', '用网页搜索', '搜索网络', '在线搜索', '使用在线来源',
+        'ウェブ検索を使う', 'インターネット検索を使う', 'インターネットを使う', 'ウェブで検索', 'オンラインで検索', 'オンライン情報を使う',
+        '웹 검색 사용', '인터넷 검색 사용', '인터넷 사용', '웹에서 검색', '온라인 검색', '온라인 출처 사용'
     ],
     followUpCloseCues: commonFollowUpCloseCues,
     followUpContinueCues: commonFollowUpContinueCues,
@@ -453,16 +453,16 @@ const modelKeymap = {
             '내 모델 보여줘', '모델 목록', '사용 가능한 모델', '설치된 모델'
         ],
         use: [
-            'use', 'use model', 'switch to', 'switch model to', 'switch the model to', 'change to', 'change model to', 'change the model to', 'set model to', 'set the model to', 'select', 'choose',
-            'usar', 'usar modelo', 'usa', 'cambiar a', 'cambia a', 'cambiar el modelo a', 'cambia el modelo a', 'poner modelo', 'poner el modelo en', 'seleccionar', 'elige',
-            'usar', 'usar modelo', 'usa', 'mudar para', 'mudar o modelo para', 'trocar para', 'trocar o modelo para', 'definir modelo', 'definir o modelo para', 'selecionar', 'escolher',
-            'utiliser', 'utiliser le modele', 'utiliser le modèle', 'passer a', 'passer à', 'passer le modele a', 'passer le modèle à', 'changer pour', 'changer le modele pour', 'changer le modèle pour', 'definir le modele', 'définir le modèle', 'selectionner', 'sélectionner', 'choisir',
-            'verwende', 'nutze', 'benutze', 'modell verwenden', 'wechsle zu', 'wechsel zu', 'wechsle das modell zu', 'wechsel das modell zu', 'andere das modell zu', 'ändere das modell zu', 'setze modell auf', 'setze das modell auf', 'auswahlen', 'auswählen', 'wahlen', 'wählen',
-            'usa', 'usa modello', 'passa a', 'passa il modello a', 'cambia a', 'cambia il modello a', 'imposta il modello', 'imposta il modello su', 'seleziona', 'scegli',
-            'используй', 'используй модель', 'переключи на', 'смени на', 'выбери', 'установи модель',
-            '使用', '使用模型', '切换到', '改用', '选择', '设为模型',
-            '使う', 'モデルを使う', '切り替え', '変更して', '選択',
-            '사용', '모델 사용', '바꿔', '전환', '선택', '모델로 설정'
+            'use', 'use model', 'switch to', 'switch model to', 'switch the model to', 'switch the current model to', 'change to', 'change model to', 'change the model to', 'change current model to', 'change the current model to', 'set model to', 'set the model to', 'set the current model to', 'select', 'choose',
+            'usar', 'usar modelo', 'usa', 'cambiar a', 'cambia a', 'cambiar el modelo a', 'cambia el modelo a', 'cambiar el modelo actual a', 'cambia el modelo actual a', 'poner modelo', 'poner el modelo en', 'poner el modelo actual en', 'seleccionar', 'elige',
+            'usar', 'usar modelo', 'usa', 'mudar para', 'mudar o modelo para', 'mudar o modelo atual para', 'trocar para', 'trocar o modelo para', 'trocar o modelo atual para', 'definir modelo', 'definir o modelo para', 'definir o modelo atual para', 'selecionar', 'escolher',
+            'utiliser', 'utiliser le modele', 'utiliser le modèle', 'passer a', 'passer à', 'passer le modele a', 'passer le modèle à', 'passer le modèle actuel à', 'changer pour', 'changer le modele pour', 'changer le modèle pour', 'changer le modèle actuel pour', 'definir le modele', 'définir le modèle', 'définir le modèle actuel', 'selectionner', 'sélectionner', 'choisir',
+            'verwende', 'nutze', 'benutze', 'modell verwenden', 'wechsle zu', 'wechsel zu', 'wechsle das modell zu', 'wechsel das modell zu', 'wechsle das aktuelle modell zu', 'wechsel das aktuelle modell zu', 'andere das modell zu', 'ändere das modell zu', 'ändere das aktuelle modell zu', 'setze modell auf', 'setze das modell auf', 'setze das aktuelle modell auf', 'auswahlen', 'auswählen', 'wahlen', 'wählen',
+            'usa', 'usa modello', 'passa a', 'passa il modello a', 'passa il modello attuale a', 'cambia a', 'cambia il modello a', 'cambia il modello attuale a', 'imposta il modello', 'imposta il modello su', 'imposta il modello attuale su', 'seleziona', 'scegli',
+            'используй', 'используй модель', 'переключи на', 'переключи текущую модель на', 'смени на', 'смени текущую модель на', 'выбери', 'установи модель', 'установи текущую модель на',
+            '使用', '使用模型', '切换到', '把当前模型切换到', '将当前模型切换到', '改用', '把当前模型改为', '将当前模型改为', '选择', '设为模型', '把当前模型设为',
+            '使う', 'モデルを使う', '切り替え', '現在のモデルを切り替えて', '現在のモデルを変更して', '現在のモデルを', '変更して', '選択',
+            '사용', '모델 사용', '바꿔', '현재 모델을', '현재 모델을 변경해', '현재 모델을 바꿔', '전환', '선택', '모델로 설정'
         ]
     },
     providers: {
