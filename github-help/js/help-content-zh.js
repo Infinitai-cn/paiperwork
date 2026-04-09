@@ -6,7 +6,7 @@ window.helpContent = {
             "欢迎使用 Paiperwork，这是一个专注于数据隐私和易用性的 Ollama 安全网页界面。这个面向专业人士的助手提供生产力功能，同时保持您的数据本地化和受保护。",
             "您可以在自己的电脑上下载并本地运行模型；如果设备无法承载本地模型，也可以使用云模型。使用云模型需要先在 ollama.com 登录并创建一个 API 密钥。首次使用云模型时，Paiperwork 会请求该密钥，并将其加密存储在您的本地数据库中。",
             "使用 Ollama 云模型的详细步骤：1）从 https://infinitai-cn.github.io/paiperwork/ 下载 Paiperwork。2）解压文件。2.1）如果你无法打开 Paiperwork，请检查安全设置并允许其执行。在 Windows 上点击 More info 按钮；在 macOS 上到系统设置的隐私与安全中允许。3）访问 https://ollama.com 并创建账号。4）下载并安装 Ollama。5）在 Ollama 账号中打开 Settings。6）打开 Usage 查看剩余免费额度（很重要）。7）打开 Keys，点击 Add API key，再点击 Generate API key，并复制生成的密钥。8）将该密钥保存在电脑上的文本文件中。9）运行 Paiperwork（Mac、Windows 或 Linux）。10）输入主密钥后，在 Chat 选项卡点击 Manage Cloud API key，添加你的 Ollama API 密钥。11）现在你就可以使用 Ollama 的免费云模型。",
-            "在线模式（<a href=\"https://huggingface.co/spaces/Infinitai/Paiperwork\" target=\"_blank\" rel=\"noopener noreferrer\">Hugginface spaces</a>）提示：由于本地运行要求，Documents、Translate 和 Models 标签页在在线模式下会被禁用。当你在本地电脑运行 Paiperwork 时，这些标签页会启用。"
+            "在线模式（<a href=\"https://huggingface.co/spaces/Infinitai/Paiperwork\" target=\"_blank\" rel=\"noopener noreferrer\">Hugginface spaces</a>）提示：由于本地环境要求，Documents、Translate、Models 和 Connectors 这四个选项卡在在线模式下会被禁用。仅当您在电脑上本地运行 Paiperwork 时，这些选项卡才会启用。"
         ],
         articles: [
             {
@@ -2913,6 +2913,155 @@ window.helpContent = {
                 <div class="note">
                     <p><strong>警告：</strong>数据库重置是不可逆的，将删除您的所有数据。始终先导出重要信息。</p>
                 </div>
+            `,
+            }
+        ],
+    },
+
+    connectors: {
+        title: "连接器",
+        intro: [
+            "注意：出于用户安全和隐私原因，托管在 Huggingface 上的 Paiperwork 在线版本不包含 WhatsApp 功能。",
+            "连接器用于把 Paiperwork 与 WhatsApp 配对。连接器请求只会使用 Paiperwork 内部已有的资源，不会访问您的操作系统、内存、硬盘或任意外部文件。",
+            "如果要接收传入的 WhatsApp 消息，请保持运行 Paiperwork 的浏览器标签页处于激活状态，并确保电脑不会进入睡眠。注意：如果您使用的是 Paiperwork 的 Huggingface Spaces 版本，服务器可能会因闲置而停止运行（Huggingface 规则）。",
+            "文档、研究、演示文稿和工件工作流可能会进入专用的后续模式。请使用对应的退出短语来结束该模式。"
+        ],
+        articles: [
+            {
+                id: "connectors-pairing",
+                title: "配对与模式",
+                content: `
+                <p>在启动服务器之前，先打开连接器选项卡并选择模式。</p>
+                <ol>
+                    <li><strong>个人模式：</strong>连接您自己的 WhatsApp 账号，与自己进行私密对话。</li>
+                    <li><strong>机器人模式：</strong>在您的 WhatsApp 联系人列表中的人可以与已配对的 Paiperwork 实例对话。除非您明确想这样做，否则建议使用单独的号码。<br><strong>2.1.</strong> 您可以在 Chat 选项卡中修改 System Prompt，从而提升用户与机器人的交互体验。<br><strong>2.2.</strong> 您联系人列表中的任何 WhatsApp 用户都可以访问已启用的连接器功能，以及可通过连接器访问的已存储文档。</li>
+                </ol>
+                <p>点击 <strong>Start server</strong>，首次配对时扫描二维码。您可以随时停止服务器，这会停止双向消息路由。</p>
+                <p>如果您想彻底解除 Paiperwork 配对，请在手机 WhatsApp 的 <strong>Linked devices</strong> 中操作。</p>
+            `,
+            },
+            {
+                id: "connectors-models-chat",
+                title: "模型选择与聊天",
+                content: `
+                <p>连接成功后，WhatsApp 会使用聊天选项卡中当前选定的模型。</p>
+                <p>您可以直接在 WhatsApp 聊天中查看当前启用的 AI 模型，并在那里切换模型。</p>
+                <h4>常用模型命令</h4>
+                <ul>
+                    <li><code>现在选择的模型</code></li>
+                    <li><code>显示我的模型</code></li>
+                    <li><code>把当前模型改为 &lt;模型名称&gt;</code></li>
+                    <li><code>使用 &lt;模型名称&gt;</code></li>
+                </ul>
+                <p>如果您不希望通过 WhatsApp 切换模型，请在连接器选项卡中点击 <strong>Lock AI model</strong>。</p>
+                <p>聊天部分可让您像平时一样通过 WhatsApp 与 AI 模型交流。需要网页搜索时，可使用 <code>搜索互联网</code> 或 <code>在线查找</code> 之类的短语。如果响应包含 HTML，Paiperwork 会把它作为可点击的 HTML 文件返回，便于预览或下载。</p>
+                <h4>聊天使用示例</h4>
+                <ul>
+                    <li><code>你好</code></li>
+                    <li><code>解释 OLED 和 Mini LED 的差异</code></li>
+                </ul>
+            `,
+            },
+            {
+                id: "connectors-workflows",
+                title: "文档、图表、研究、演示文稿与工件",
+                content: `
+                <h4>文档</h4>
+                <p>您可以针对已导入的文档提问，或请求生成摘要。文档名称不需要完全精确。</p>
+                <p>此功能要求您已在文档选项卡中安装并选择本地嵌入模型。</p>
+                <ul>
+                    <li><code>查看 文档</code></li>
+                    <li><code>我想查看一个文档，但我不记得名称</code></li>
+                    <li><code>我想问文档问题</code></li>
+                    <li><code>总结 &lt;文档名称&gt;</code></li>
+                    <li><code>&lt;文档名称&gt; 解释</code></li>
+                    <li><code>&lt;文档名称&gt; 总结并创建演示文稿</code></li>
+                </ul>
+                <p>要退出文档后续模式，请使用 <code>退出文档模式</code> 或 <code>完成了</code>。</p>
+                <h5>交互示例</h5>
+                <p><strong>用户：</strong><code>&lt;文档名称&gt; 总结</code></p>
+                <p><strong>Paiperwork：</strong>已提供文档总结。</p>
+                <p><strong>Paiperwork：</strong>您想继续处理这个文档吗？</p>
+                <p><strong>用户：</strong><code>是，创建演示文稿</code></p>
+                <p><strong>Paiperwork：</strong>正在创建可提示的 SlideForge 演示文稿...</p>
+                <p><strong>Paiperwork：</strong>演示文稿已创建，并作为 HTML 文件发送。</p>
+                <p><strong>Paiperwork：</strong>您想继续修改这个演示文稿吗？</p>
+                <p><strong>用户：</strong><code>不用了</code></p>
+                <p><strong>Paiperwork：</strong>好的，演示文稿后续模式已关闭。</p>
+
+                <h4>图表</h4>
+                <p>您可以请求 Paiperwork 支持的图表。图表创建完成后，会发送到您的 WhatsApp 对话中。</p>
+                <ul>
+                    <li><code>创建一个示例饼图</code></li>
+                    <li><code>创建一个示例雷达图</code></li>
+                    <li><code>创建一个柱状图</code></li>
+                </ul>
+                <p>如果您想要真实图表而不是演示图表，请提供自己的数据。</p>
+
+                <h4>研究</h4>
+                <p>您可以让 Paiperwork 为您研究某个主题。标准报告通常约为 1000 到 1500 字，因此可能需要一些时间。</p>
+                <ul>
+                    <li><code>研究 电动车电池的最新趋势 并总结初创公司的机会</code></li>
+                    <li><code>创建一份关于澳大利亚房价的报告</code></li>
+                    <li><code>创建一份关于英格兰天气的报告</code></li>
+                    <li><code>再添加天气对海滩客流的影响</code></li>
+                </ul>
+                <p>要关闭研究后续模式，请回复 <code>不用了</code>、<code>不用</code> 或 <code>完成了</code>。</p>
+                <h5>交互示例</h5>
+                <p><strong>Paiperwork：</strong>已开始针对 <code>&lt;研究主题&gt;</code> 的研究。正在收集信息...</p>
+                <p><strong>Paiperwork：</strong>完成后，请回复 <code>不用了</code>、<code>不用</code> 或 <code>完成了</code> 来关闭研究模式。</p>
+                <p><strong>Paiperwork：</strong>您想继续完善这项研究吗？</p>
+                <p><strong>用户：</strong><code>添加 &lt;额外研究补充&gt;</code></p>
+                <p><strong>用户：</strong><code>完成了</code>、<code>不用了</code>、<code>不用</code></p>
+                <p><strong>Paiperwork：</strong>好的，研究后续模式已关闭。</p>
+
+                <h4>演示文稿</h4>
+                <p>您可以通过提供源文本来创建演示文稿。除非您明确指定页数，否则 Paiperwork 会根据内容量估算幻灯片数量。</p>
+                <ul>
+                    <li><code>用这段文字 创建演示文稿: &lt;演示文稿文本&gt;</code></li>
+                    <li><code>使用以下文本 创建演示文稿: &lt;演示文稿文本&gt;</code></li>
+                    <li><code>制作关于欧洲电动车政策的幻灯片，使用互联网搜索，7 幻灯片</code></li>
+                    <li><code>列出 我的演示文稿</code></li>
+                    <li><code>发送 &lt;演示文稿名称&gt;</code></li>
+                </ul>
+                <h5>交互示例</h5>
+                <p><strong>用户：</strong><code>创建一个关于太阳系及其行星的演示文稿，在线搜索。</code></p>
+                <p><strong>Paiperwork：</strong>正在使用网页搜索创建可提示的 SlideForge 演示文稿...</p>
+                <p><strong>Paiperwork：</strong>演示文稿已创建，并作为 HTML 文件发送。</p>
+                <p><strong>Paiperwork：</strong>您想继续修改这个演示文稿吗？</p>
+                <p><strong>用户：</strong><code>是，把第 3 张幻灯片的背景改成蓝色主题</code></p>
+
+                <h4>工件</h4>
+                <p>您可以直接通过 WhatsApp 请求创建各种类型的工件或 HTML 迷你应用。</p>
+                <ul>
+                    <li><code>创建一个放松的动态壁纸迷你应用，带不同噪声和低频振荡器，使用网页搜索</code></li>
+                    <li><code>创建 Galaga 游戏工件</code></li>
+                    <li><code>创建一个迷你应用来查找在线电视台</code></li>
+                    <li><code>创建一个 mp3 player 工件</code></li>
+                    <li><code>显示 我的迷你应用</code></li>
+                    <li><code>显示 我的工件</code></li>
+                    <li><code>发送 &lt;工件名称&gt; 迷你应用</code></li>
+                    <li><code>发送 &lt;工件名称&gt; 工件</code></li>
+                </ul>
+                <h5>交互示例</h5>
+                <p><strong>Paiperwork：</strong>您想继续修改这个迷你应用吗？</p>
+                <p><strong>用户：</strong><code>是，修改背景</code></p>
+                <p><strong>Paiperwork：</strong>您想继续修改这个迷你应用吗？</p>
+                <p><strong>用户：</strong><code>不用了</code></p>
+                <p><strong>Paiperwork：</strong>好的，工件修改模式已关闭。</p>
+            `,
+            },
+            {
+                id: "connectors-notes",
+                title: "运行说明与限制",
+                content: `
+                <ul>
+                    <li>目前还不支持把文件和图片直接发送给 AI 模型。</li>
+                    <li>文档工作流需要在文档选项卡中选择一个本地嵌入模型。</li>
+                    <li>Paiperwork 会使用内部编排器来判断每条 WhatsApp 请求应该调用哪种连接器功能。</li>
+                    <li>如果您刷新浏览器，传入消息会保持暂停状态，直到您再次打开连接器选项卡。这是为了避免意外打扰本地用户。</li>
+                    <li>通过 WhatsApp 生成的演示文稿和工件会作为 HTML 文件发回。之后您可以在 Paiperwork 中打开它们进行更深入的手动编辑。</li>
+                </ul>
             `,
             }
         ],

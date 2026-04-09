@@ -2913,4 +2913,156 @@ window.helpContent = {
             }
         ],
     },
+
+    connectors: {
+        title: "Conectores",
+        intro: [
+            "Nota: a versão online do Paiperwork alojada no Huggingface não inclui a funcionalidade de WhatsApp por motivos de segurança e privacidade dos utilizadores.",
+            "Os conectores ligam o Paiperwork ao WhatsApp. Os pedidos usam apenas recursos já disponíveis dentro do Paiperwork e não acedem ao sistema operativo, memória, disco rígido nem a ficheiros externos arbitrários.",
+            "Para receber mensagens de WhatsApp, mantenha ativa a aba do navegador onde o Paiperwork está a correr e evite que o computador entre em suspensão. Nota: se usar a versão do Paiperwork no Huggingface Spaces, o servidor pode parar devido à inatividade (regras do Huggingface).",
+            "Documentos, pesquisas, apresentações e artefatos podem abrir um modo de seguimento dedicado. Permaneça nesse modo até o fechar com a frase de saída correspondente."
+        ],
+        articles: [
+            {
+                id: "connectors-pairing",
+                title: "Emparelhamento e Modos",
+                content: `
+                <p>Abra a aba Conectores e escolha primeiro um modo antes de iniciar o servidor.</p>
+                <ol>
+                    <li><strong>Modo pessoal:</strong> liga a sua própria conta de WhatsApp e fala consigo mesmo num fluxo privado.</li>
+                    <li><strong>Modo bot:</strong> pessoas que o têm na lista de contactos do WhatsApp podem falar com a instância emparelhada do Paiperwork. Use um número separado, a menos que queira explicitamente este comportamento na sua conta principal.<br><strong>2.1.</strong> Pode melhorar a experiência de uso ao interagir com o bot modificando o System Prompt na aba Chat.<br><strong>2.2.</strong> Qualquer utilizador de WhatsApp na sua lista de contactos poderá aceder às funções do conector ativadas e aos documentos armazenados disponíveis através do conector.</li>
+                </ol>
+                <p>Clique em <strong>Start server</strong> e leia o código QR na primeira vez que emparelhar. Pode parar o servidor a qualquer momento, o que interrompe o encaminhamento de mensagens nos dois sentidos.</p>
+                <p>Se quiser remover totalmente a ligação do Paiperwork, faça isso no seu telefone em WhatsApp, em <strong>Linked devices</strong>.</p>
+            `,
+            },
+            {
+                id: "connectors-models-chat",
+                title: "Seleção de Modelo e Chat",
+                content: `
+                <p>Depois de ligado, o WhatsApp usa o modelo atualmente selecionado na aba Chat.</p>
+                <p>Pode verificar qual modelo de IA está ativo e mudá-lo diretamente a partir da sua conversa no WhatsApp.</p>
+                <h4>Comandos úteis de modelo</h4>
+                <ul>
+                    <li><code>qual modelo está selecionado</code></li>
+                    <li><code>mostra meus modelos</code></li>
+                    <li><code>mudar o modelo atual para &lt;nome do modelo&gt;</code></li>
+                    <li><code>usa &lt;nome do modelo&gt;</code></li>
+                </ul>
+                <p>Se não quiser permitir mudanças de modelo pelo WhatsApp, ative <strong>Lock AI model</strong> na aba Conectores.</p>
+                <p>No chat, pode falar com o seu modelo de IA como de costume pelo WhatsApp. Use expressões como <code>pesquisar na internet</code> ou <code>procurar online</code> quando quiser pesquisa web. Se uma resposta contiver HTML, o Paiperwork devolve-a como ficheiro HTML clicável para pré-visualização ou download.</p>
+                <h4>Exemplos de uso no chat</h4>
+                <ul>
+                    <li><code>olá</code></li>
+                    <li><code>explica a diferença entre OLED e Mini LED</code></li>
+                </ul>
+            `,
+            },
+            {
+                id: "connectors-workflows",
+                title: "Documentos, Gráficos, Pesquisa, Apresentações e Artefatos",
+                content: `
+                <h4>Documentos</h4>
+                <p>Pode fazer perguntas sobre um documento importado ou pedir um resumo. Os nomes dos documentos não precisam de ser exatos.</p>
+                <p>Esta funcionalidade exige que tenha um modelo de embeddings local instalado e selecionado na aba Documentos.</p>
+                <ul>
+                    <li><code>mostrar documentos</code></li>
+                    <li><code>quero ver um documento mas não lembro o nome</code></li>
+                    <li><code>quero fazer uma pergunta a um documento</code></li>
+                    <li><code>resumir &lt;nome do documento&gt;</code></li>
+                    <li><code>&lt;nome do documento&gt; explicar</code></li>
+                    <li><code>&lt;nome do documento&gt; resumo e criar uma apresentação</code></li>
+                </ul>
+                <p>Para sair do modo de seguimento de documentos, use <code>sair do modo documento</code> ou <code>já terminei</code>.</p>
+                <h5>Interações</h5>
+                <p><strong>Utilizador:</strong> <code>&lt;nome do documento&gt; resumo</code></p>
+                <p><strong>Paiperwork:</strong> Resumo do documento fornecido.</p>
+                <p><strong>Paiperwork:</strong> Quer continuar a trabalhar com este documento?</p>
+                <p><strong>Utilizador:</strong> <code>Sim, criar uma apresentação</code></p>
+                <p><strong>Paiperwork:</strong> A criar uma apresentação promptable do SlideForge...</p>
+                <p><strong>Paiperwork:</strong> Apresentação criada e enviada como ficheiro HTML.</p>
+                <p><strong>Paiperwork:</strong> Quer fazer mais alterações nesta apresentação?</p>
+                <p><strong>Utilizador:</strong> <code>Não</code></p>
+                <p><strong>Paiperwork:</strong> Certo, o modo de seguimento da apresentação foi fechado.</p>
+
+                <h4>Gráficos</h4>
+                <p>Pode pedir gráficos suportados pelo Paiperwork. Assim que o gráfico for criado, ele é enviado para a sua conversa no WhatsApp.</p>
+                <ul>
+                    <li><code>criar um pie chart</code></li>
+                    <li><code>criar um radar chart</code></li>
+                    <li><code>criar um bar chart sobre vendas por trimestre</code></li>
+                </ul>
+                <p>Forneça os seus próprios dados se quiser um gráfico real em vez de uma demonstração.</p>
+
+                <h4>Pesquisa</h4>
+                <p>Pode pedir ao Paiperwork para pesquisar um tema por si. Os relatórios padrão costumam ter entre 1000 e 1500 palavras, por isso pode demorar algum tempo.</p>
+                <ul>
+                    <li><code>investigar as últimas tendências em baterias para veículos elétricos e resumir oportunidades para startups</code></li>
+                    <li><code>investigar preços de casas na austrália</code></li>
+                    <li><code>criar um relatório sobre o clima em inglaterra</code></li>
+                    <li><code>adiciona também o impacto do clima na afluência às praias</code></li>
+                </ul>
+                <p>Para fechar o modo de seguimento de pesquisa, responda <code>não</code>, <code>não obrigado</code> ou <code>já terminei</code>.</p>
+                <h5>Interações</h5>
+                <p><strong>Paiperwork:</strong> A pesquisa começou para <code>&lt;tópico de pesquisa&gt;</code>. A recolher informações...</p>
+                <p><strong>Paiperwork:</strong> Quando terminar, responda com <code>não</code>, <code>não obrigado</code> ou <code>já terminei</code> para fechar o modo de pesquisa.</p>
+                <p><strong>Paiperwork:</strong> Quer continuar a refinar esta pesquisa?</p>
+                <p><strong>Utilizador:</strong> <code>Adicionar &lt;refinamento extra da pesquisa&gt;</code></p>
+                <p><strong>Paiperwork:</strong> A pesquisa com refinamento extra foi iniciada.</p>
+                <p><strong>Paiperwork:</strong> Pesquisa refinada entregue.</p>
+                <p><strong>Paiperwork:</strong> Quer continuar a refinar esta pesquisa?</p>
+                <p><strong>Utilizador:</strong> <code>já terminei</code>, <code>não</code>, <code>não obrigado</code></p>
+                <p><strong>Paiperwork:</strong> Certo, o modo de seguimento da pesquisa foi fechado.</p>
+
+                <h4>Apresentações</h4>
+                <p>Pode criar apresentações fornecendo o texto de base. O Paiperwork estima o número de slides pela quantidade de conteúdo, a menos que indique explicitamente uma quantidade.</p>
+                <ul>
+                    <li><code>com o seguinte texto criar uma apresentação: &lt;texto da apresentação&gt;</code></li>
+                    <li><code>com este texto criar uma apresentação: &lt;texto da apresentação&gt;</code></li>
+                    <li><code>faz-me slides sobre a política europeia de veículos elétricos, usa pesquisa web, 7 slides</code></li>
+                    <li><code>listar minhas apresentações</code></li>
+                    <li><code>envia-me &lt;nome da apresentação&gt;</code></li>
+                </ul>
+                <h5>Interações</h5>
+                <p><strong>Utilizador:</strong> <code>Cria uma apresentação sobre o sistema solar e os seus planetas, pesquisa online.</code></p>
+                <p><strong>Paiperwork:</strong> A criar uma apresentação promptable do SlideForge com pesquisa web...</p>
+                <p><strong>Paiperwork:</strong> Apresentação criada e enviada como ficheiro HTML.</p>
+                <p><strong>Paiperwork:</strong> Quer fazer mais alterações nesta apresentação?</p>
+                <p><strong>Utilizador:</strong> <code>Sim, muda o fundo do slide 3 para tema azul</code></p>
+
+                <h4>Artefatos</h4>
+                <p>Pode pedir artefatos ou mini apps HTML de muitos tipos diretamente pelo WhatsApp.</p>
+                <ul>
+                    <li><code>criar uma mini app de papel de parede animado relaxante com diferentes ruídos e osciladores de baixa frequência, com pesquisa web</code></li>
+                    <li><code>criar artefato galaga</code></li>
+                    <li><code>criar uma mini app para encontrar canais de tv online</code></li>
+                    <li><code>criar um artefato mp3 player</code></li>
+                    <li><code>mostra-me minhas mini apps</code></li>
+                    <li><code>mostra-me meus artefatos</code></li>
+                    <li><code>envia-me &lt;nome do artefato&gt; mini app</code></li>
+                    <li><code>envia-me &lt;nome do artefato&gt; artefato</code></li>
+                </ul>
+                <h5>Interações</h5>
+                <p><strong>Paiperwork:</strong> Quer fazer mais modificações nesta mini app?</p>
+                <p><strong>Utilizador:</strong> <code>Sim, muda o fundo</code></p>
+                <p><strong>Paiperwork:</strong> Quer fazer mais modificações nesta mini app?</p>
+                <p><strong>Utilizador:</strong> <code>Não</code></p>
+                <p><strong>Paiperwork:</strong> Certo, o modo de modificação de artefatos foi fechado.</p>
+            `,
+            },
+            {
+                id: "connectors-notes",
+                title: "Notas Operacionais e Limites",
+                content: `
+                <ul>
+                    <li>Enviar ficheiros e imagens para o modelo de IA ainda não é suportado.</li>
+                    <li>Os fluxos de documentos exigem um modelo de embeddings local selecionado na aba Documentos.</li>
+                    <li>O Paiperwork usa um orquestrador interno para decidir que função do conector deve usar em cada pedido de WhatsApp.</li>
+                    <li>Se atualizar o navegador, as mensagens recebidas permanecem em pausa até abrir novamente a aba Conectores. Isto é intencional para evitar spam inesperado ao utilizador local.</li>
+                    <li>As apresentações e os artefatos gerados a partir do WhatsApp são enviados como ficheiros HTML. Depois pode abri-los no Paiperwork para edições manuais mais profundas.</li>
+                </ul>
+            `,
+            }
+        ],
+    },
 };

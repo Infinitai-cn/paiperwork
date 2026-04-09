@@ -96,6 +96,22 @@
         --wa-modal-spinner-track: #5b6470;
         --wa-modal-spinner-accent: #7db5ff;
 
+        /* Artworks progress modal (dark theme defaults) */
+        --artwork-progress-overlay-bg: rgba(10, 15, 22, 0.62);
+        --artwork-progress-bg: #22262d;
+        --artwork-progress-border: #3a4351;
+        --artwork-progress-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
+        --artwork-progress-header-bg: #28303a;
+        --artwork-progress-header-border: #3a4351;
+        --artwork-progress-title: #eef4ff;
+        --artwork-progress-text: #d7e0ec;
+        --artwork-progress-muted: #9aa7b8;
+        --artwork-progress-close-color: #c7d2e2;
+        --artwork-progress-close-hover-bg: rgba(125, 181, 255, 0.14);
+        --artwork-progress-close-hover-color: #ffffff;
+        --artwork-progress-spinner-track: rgba(125, 181, 255, 0.18);
+        --artwork-progress-spinner-accent: var(--accent-color, #7db5ff);
+
     /* SlideForge modal & controls (dark theme defaults) */
     --presentation-loading-border: rgba(255,255,255,0.06);
     --presentation-loading-accent: var(--accent-color, #4f46e5);
@@ -228,6 +244,22 @@
         --wa-modal-close-btn-text: #ffffff;
         --wa-modal-spinner-track: #c4c4c4;
         --wa-modal-spinner-accent: #0b74de;
+
+        /* Artworks progress modal (light theme defaults) */
+        --artwork-progress-overlay-bg: rgba(15, 23, 42, 0.26);
+        --artwork-progress-bg: #ffffff;
+        --artwork-progress-border: #dbe4f0;
+        --artwork-progress-shadow: 0 16px 36px rgba(15, 23, 42, 0.14);
+        --artwork-progress-header-bg: #f8fafc;
+        --artwork-progress-header-border: #e2e8f0;
+        --artwork-progress-title: #1e293b;
+        --artwork-progress-text: #334155;
+        --artwork-progress-muted: #64748b;
+        --artwork-progress-close-color: #64748b;
+        --artwork-progress-close-hover-bg: rgba(100, 116, 139, 0.12);
+        --artwork-progress-close-hover-color: #1e293b;
+        --artwork-progress-spinner-track: rgba(79, 70, 229, 0.16);
+        --artwork-progress-spinner-accent: var(--accent-color, #4f46e5);
 
     /* SlideForge modal & controls (light theme defaults) */
     --presentation-loading-border: rgba(0,0,0,0.06);
