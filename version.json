@@ -1,5 +1,5 @@
 {
-    "version": "1.2.5",
+    "version": "1.2.4",
     "releaseDate": "2026-04-07",
     "notes": "<p>New Whatsapp integration, use your local install as a remote Paiperwork workstation.</p><p><strong>Updated database functionalities.</p><p><strong>More bug fixes.</p>",
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
