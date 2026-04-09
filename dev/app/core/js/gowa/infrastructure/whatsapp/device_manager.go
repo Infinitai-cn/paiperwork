@@ -135,6 +135,86 @@ func (m *DeviceManager) RemoveDevice(id string) {
 	}
 }
 
+func deviceAccountKey(deviceID, jid string) string {
+	candidate := strings.TrimSpace(jid)
+	if candidate == "" {
+		candidate = strings.TrimSpace(deviceID)
+	}
+	if candidate == "" {
+		return ""
+	}
+	if at := strings.Index(candidate, "@"); at >= 0 {
+		candidate = candidate[:at]
+	}
+	if colon := strings.Index(candidate, ":"); colon >= 0 {
+		candidate = candidate[:colon]
+	}
+	return strings.TrimSpace(candidate)
+}
+
+func (m *DeviceManager) pruneStaleRecordsForLoggedInInstance(current *DeviceInstance) {
+	if m == nil || m.storage == nil || current == nil {
+		return
+	}
+
+	current.UpdateStateFromClient()
+	if !current.IsLoggedIn() {
+		return
+	}
+
+	currentID := strings.TrimSpace(current.ID())
+	currentJID := strings.TrimSpace(current.JID())
+	accountKey := deviceAccountKey(currentID, currentJID)
+	if currentID == "" || accountKey == "" {
+		return
+	}
+
+	records, err := m.storage.ListDeviceRecords()
+	if err != nil {
+		logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to list device records while pruning stale entries for %s", currentID)
+		return
+	}
+
+	staleIDs := make([]string, 0)
+	for _, rec := range records {
+		if rec == nil {
+			continue
+		}
+		recordID := strings.TrimSpace(rec.DeviceID)
+		if recordID == "" || recordID == currentID {
+			continue
+		}
+		if deviceAccountKey(recordID, rec.JID) == accountKey {
+			staleIDs = append(staleIDs, recordID)
+		}
+	}
+
+	if len(staleIDs) == 0 {
+		return
+	}
+
+	for _, staleID := range staleIDs {
+		if inst, ok := m.GetDevice(staleID); ok && inst != nil {
+			if cli := inst.GetClient(); cli != nil {
+				cli.EnableAutoReconnect = false
+				cli.Disconnect()
+			}
+		}
+
+		if err := m.storage.DeleteDeviceData(staleID); err != nil {
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete stale device data for %s", staleID)
+		}
+		if err := m.storage.DeleteDeviceRecord(staleID); err != nil {
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete stale device record for %s", staleID)
+		}
+
+		m.mu.Lock()
+		delete(m.devices, staleID)
+		m.mu.Unlock()
+		logrus.Infof("[DEVICE_MANAGER] pruned stale device entry %s after %s became the active logged-in device", staleID, currentID)
+	}
+}
+
 // PurgeDevice cleanly logs out a device, removes its persisted records (store/keys),
 // deletes its chatstorage data, and removes it from the in-memory registry.
 func (m *DeviceManager) PurgeDevice(ctx context.Context, deviceID string) error {

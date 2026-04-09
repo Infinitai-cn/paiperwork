@@ -3090,51 +3090,46 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
                 summaryLength: cleanFinalSummary ? cleanFinalSummary.length : 0
             });
             if (shouldSendToWhatsapp && (window.connectors && typeof window.connectors.postWhatsappText === 'function')) {
-                (async () => {
-                    try {
-                        const phone = String(options.sendToPhone).replace(/@.*$/g, '');
-                        console.info('[DocumentsTab][debug] Sending summary to WhatsApp', {
-                            documentId,
-                            documentTitle,
-                            phone
-                        });
-                        let textToSend = cleanFinalSummary || finalSummaryText || '';
-                        if (!textToSend) return;
-                        // Convert markdown links to plain text + URL so WhatsApp clients can click
-                        textToSend = textToSend.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, '$1 ($2)');
-                        // Preserve raw URLs; no change required (WhatsApp auto-links them)
-                        // Remove markdown heading and bold/italic characters to keep the WA output clean
-                        textToSend = textToSend.replace(/#+\s*/g, ' ').replace(/\*/g, '').replace(/_+/g, '').trim();
-                        // Collapse excessive blank lines
-                        textToSend = textToSend.replace(/\n{3,}/g, '\n\n').trim();
-                        const header = `🤖 Summary of "${documentTitle}":\n\n`;
-                        const MAX_CHUNK = 1500;
-                        let payload = header + textToSend;
-                        while (payload.length > 0) {
-                            let chunk = payload.slice(0, MAX_CHUNK);
-                            if (payload.length > MAX_CHUNK) {
-                                // try to cut at last newline or space to avoid breaking words
-                                const lastNl = chunk.lastIndexOf('\n');
-                                const lastSp = chunk.lastIndexOf(' ');
-                                const cutAt = Math.max(lastNl, lastSp);
-                                if (cutAt > Math.floor(MAX_CHUNK * 0.6)) {
-                                    chunk = chunk.slice(0, cutAt);
-                                }
+                const phone = String(options.sendToPhone).replace(/@.*$/g, '');
+                console.info('[DocumentsTab][debug] Sending summary to WhatsApp', {
+                    documentId,
+                    documentTitle,
+                    phone
+                });
+                let textToSend = cleanFinalSummary || finalSummaryText || '';
+                if (textToSend) {
+                    // Convert markdown links to plain text + URL so WhatsApp clients can click
+                    textToSend = textToSend.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, '$1 ($2)');
+                    // Preserve raw URLs; no change required (WhatsApp auto-links them)
+                    // Remove markdown heading and bold/italic characters to keep the WA output clean
+                    textToSend = textToSend.replace(/#+\s*/g, ' ').replace(/\*/g, '').replace(/_+/g, '').trim();
+                    // Collapse excessive blank lines
+                    textToSend = textToSend.replace(/\n{3,}/g, '\n\n').trim();
+                    const header = `🤖 Summary of "${documentTitle}":\n\n`;
+                    const MAX_CHUNK = 1500;
+                    let payload = header + textToSend;
+                    while (payload.length > 0) {
+                        let chunk = payload.slice(0, MAX_CHUNK);
+                        if (payload.length > MAX_CHUNK) {
+                            // try to cut at last newline or space to avoid breaking words
+                            const lastNl = chunk.lastIndexOf('\n');
+                            const lastSp = chunk.lastIndexOf(' ');
+                            const cutAt = Math.max(lastNl, lastSp);
+                            if (cutAt > Math.floor(MAX_CHUNK * 0.6)) {
+                                chunk = chunk.slice(0, cutAt);
                             }
-                            try {
-                                await window.connectors.postWhatsappText(phone, chunk);
-                            } catch (sendErr) {
-                                console.error('Failed to send summary chunk to WhatsApp', sendErr);
-                                break;
-                            }
-                            payload = payload.slice(chunk.length).trim();
-                            // small delay between messages
-                            await new Promise(r => setTimeout(r, 200));
                         }
-                    } catch (err) {
-                        console.error('Error sending summary to WhatsApp:', err);
+                        try {
+                            await window.connectors.postWhatsappText(phone, chunk);
+                        } catch (sendErr) {
+                            console.error('Failed to send summary chunk to WhatsApp', sendErr);
+                            break;
+                        }
+                        payload = payload.slice(chunk.length).trim();
+                        // small delay between messages
+                        await new Promise(r => setTimeout(r, 200));
                     }
-                })();
+                }
             }
         } catch (e) {
             console.error('Error in WhatsApp summary send block:', e);

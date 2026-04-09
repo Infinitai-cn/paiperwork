@@ -2400,6 +2400,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         noSlidesGenerated: 'AI returned no slides.',
         presentationNotAvailable: 'SlideForge promptable presentation is not available right now. Please try again later.',
         presentationCreating: 'Creating a promptable SlideForge presentation with {slides} slides...',
+        presentationCreatingWithWeb: 'Creating a promptable SlideForge presentation with {slides} slides using web search...',
         presentationSent: 'Presentation created and sent as an HTML file.',
         presentationFailed: 'Presentation generation failed. Please try again later.',
         presentationFollowUpQuestion: 'Do you want to make more changes to this presentation?',

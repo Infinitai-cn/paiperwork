@@ -196,7 +196,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 });
 
 function hideLocalOnlyTabsForCloudOnly() {
-    const localOnlyTabs = ['models', 'documents', 'translate'];
+    const localOnlyTabs = ['models', 'documents', 'translate', 'connectors'];
     let hiddenTabWasActive = false;
 
     localOnlyTabs.forEach((tabName) => {

@@ -7,6 +7,7 @@ import (
 	crand "crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"database/sql"
 	"embed"
 	"encoding/base64"
 	"encoding/hex"
@@ -148,10 +149,7 @@ func getPreferredWhatsappDeviceIDFromRequest(r *http.Request) string {
 		return deviceID
 	}
 
-	userKey := strings.TrimSpace(r.URL.Query().Get("user"))
-	if userKey == "" {
-		userKey = strings.TrimSpace(r.Header.Get("X-Paiperwork-User"))
-	}
+	userKey := resolveWhatsappUserKeyFromRequest(r)
 	if userKey == "" {
 		return ""
 	}
@@ -175,6 +173,45 @@ func getPreferredWhatsappDeviceIDFromRequest(r *http.Request) string {
 	}
 
 	return ""
+}
+
+func resolveWhatsappUserKeyFromRequest(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	userKey := strings.TrimSpace(r.URL.Query().Get("user"))
+	if userKey == "" {
+		userKey = strings.TrimSpace(r.Header.Get("X-Paiperwork-User"))
+	}
+	return userKey
+}
+
+func enforceWhatsappActiveUserAccess(w http.ResponseWriter, r *http.Request, requireGatewayRunning bool) (string, bool) {
+	userKey := resolveWhatsappUserKeyFromRequest(r)
+	activeWhatsappUserMu.RLock()
+	currentActiveUser := activeWhatsappUser
+	activeWhatsappUserMu.RUnlock()
+
+	if currentActiveUser == "" {
+		return userKey, true
+	}
+
+	if requireGatewayRunning && !isGatewayRunning() {
+		return userKey, true
+	}
+
+	if userKey != "" && userKey == currentActiveUser {
+		return userKey, true
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusConflict)
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"error":   "user mismatch",
+		"message": "WhatsApp gateway already active for another user. Stop and restart with current user key.",
+	})
+	return userKey, false
 }
 
 var whatsappGatewayLastLoginAttempt time.Time
@@ -334,6 +371,41 @@ func shouldAllowQrForPersistentDevice(client *http.Client, deviceID string) (boo
 	return true, "persistent-device-passive-gate"
 }
 
+func isWhatsappGatewayAlreadyLoggedInResponse(code, message string) bool {
+	combined := strings.ToLower(strings.TrimSpace(code + " " + message))
+	if combined == "" {
+		return false
+	}
+	if strings.Contains(combined, "already_logged_in") {
+		return true
+	}
+	return strings.Contains(combined, "already logged in")
+}
+
+func waitForWhatsappGatewayLoggedInStatus(client *http.Client, deviceID string, timeout time.Duration) (*whatsappGatewayStatus, error) {
+	deadline := time.Now().Add(timeout)
+	var lastStatus *whatsappGatewayStatus
+	for {
+		status, err := fetchWhatsappGatewayConnectionStatus(client, deviceID)
+		if err == nil {
+			lastStatus = status
+			if status != nil && status.LoggedIn {
+				return status, nil
+			}
+		}
+
+		if time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(350 * time.Millisecond)
+	}
+
+	if lastStatus != nil {
+		return lastStatus, nil
+	}
+	return fetchWhatsappGatewayConnectionStatus(client, deviceID)
+}
+
 func safeUserKeyForFilename(userKey string) string {
 	if userKey == "" {
 		return "default"
@@ -342,14 +414,224 @@ func safeUserKeyForFilename(userKey string) string {
 	return hex.EncodeToString(hash[:8])
 }
 
+func safeUserKeyForDBFilename(userKey string) string {
+	trimmed := strings.TrimSpace(userKey)
+	if trimmed == "" {
+		return "default"
+	}
+	var builder strings.Builder
+	builder.Grow(len(trimmed))
+	for _, r := range trimmed {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'):
+			builder.WriteRune(r)
+		case r == '-' || r == '_' || r == '.':
+			builder.WriteRune(r)
+		default:
+			builder.WriteRune('_')
+		}
+	}
+	result := strings.Trim(builder.String(), "._-")
+	if result == "" {
+		return safeUserKeyForFilename(userKey)
+	}
+	return result
+}
+
+func sqliteURIPath(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	trimmed = strings.Trim(trimmed, `"'`)
+	trimmed = strings.TrimPrefix(trimmed, "file:")
+	if idx := strings.Index(trimmed, "?"); idx >= 0 {
+		trimmed = trimmed[:idx]
+	}
+	return trimmed
+}
+
+func fileExists(path string) bool {
+	if strings.TrimSpace(path) == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func copyFileIfMissing(srcPath, dstPath string) error {
+	if srcPath == "" || dstPath == "" || fileExists(dstPath) {
+		return nil
+	}
+	data, err := os.ReadFile(srcPath)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dstPath, data, 0600)
+}
+
+func mergeSQLiteIntoTarget(targetPath, sourcePath string) error {
+	if targetPath == "" || sourcePath == "" || !fileExists(targetPath) || !fileExists(sourcePath) {
+		return nil
+	}
+
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", targetPath))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
+	if _, err = db.Exec("ATTACH DATABASE ? AS legacy", sourcePath); err != nil {
+		return err
+	}
+	defer func() {
+		_, _ = db.Exec("DETACH DATABASE legacy")
+	}()
+
+	rows, err := db.Query(`
+		SELECT name, COALESCE(sql, '')
+		FROM legacy.sqlite_master
+		WHERE type='table' AND name NOT LIKE 'sqlite_%'
+	`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var tableName, createSQL string
+		if err := rows.Scan(&tableName, &createSQL); err != nil {
+			return err
+		}
+		if strings.TrimSpace(tableName) == "" {
+			continue
+		}
+
+		if createSQL != "" {
+			createStmt := strings.Replace(createSQL, "CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ", 1)
+			if _, err := db.Exec(createStmt); err != nil {
+				log.Printf("prepareUserWhatsappStore: failed to ensure table %s before merge: %v", tableName, err)
+			}
+		}
+
+		columnRows, err := db.Query(fmt.Sprintf("PRAGMA legacy.table_info(%q)", tableName))
+		if err != nil {
+			return err
+		}
+		legacyColumns := make([]string, 0)
+		for columnRows.Next() {
+			var cid int
+			var name, colType string
+			var notNull, pk int
+			var defaultValue any
+			if err := columnRows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
+				columnRows.Close()
+				return err
+			}
+			legacyColumns = append(legacyColumns, name)
+		}
+		columnRows.Close()
+
+		targetColumnRows, err := db.Query(fmt.Sprintf("PRAGMA main.table_info(%q)", tableName))
+		if err != nil {
+			return err
+		}
+		targetColumns := make(map[string]struct{}, len(legacyColumns))
+		for targetColumnRows.Next() {
+			var cid int
+			var name, colType string
+			var notNull, pk int
+			var defaultValue any
+			if err := targetColumnRows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
+				targetColumnRows.Close()
+				return err
+			}
+			targetColumns[name] = struct{}{}
+		}
+		targetColumnRows.Close()
+
+		commonColumns := make([]string, 0, len(legacyColumns))
+		for _, name := range legacyColumns {
+			if _, ok := targetColumns[name]; ok {
+				commonColumns = append(commonColumns, fmt.Sprintf("%q", name))
+			}
+		}
+		if len(commonColumns) == 0 {
+			continue
+		}
+
+		stmt := fmt.Sprintf(
+			"INSERT OR REPLACE INTO main.%q (%s) SELECT %s FROM legacy.%q",
+			tableName,
+			strings.Join(commonColumns, ", "),
+			strings.Join(commonColumns, ", "),
+			tableName,
+		)
+		if _, err := db.Exec(stmt); err != nil {
+			log.Printf("prepareUserWhatsappStore: failed to merge table %s from %s: %v", tableName, filepath.Base(sourcePath), err)
+		}
+	}
+
+	return rows.Err()
+}
+
+func prepareUserWhatsappStore(userKey string) (string, string, error) {
+	targetBase := safeUserKeyForDBFilename(userKey)
+	targetPath := filepath.Join("storages", fmt.Sprintf("%s.whatsapp.db", targetBase))
+	targetURI := fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", targetPath)
+
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0700); err != nil {
+		return targetURI, targetURI, err
+	}
+
+	legacyPrimaryPath := sqliteURIPath(fmt.Sprintf("file:storages/whatsapp_%s.db?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", safeUserKeyForFilename(userKey)))
+	legacyKeysPath := sqliteURIPath(fmt.Sprintf("file:storages/whatsapp_keys_%s.db?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", safeUserKeyForFilename(userKey)))
+
+	if !fileExists(targetPath) {
+		baseSource := ""
+		switch {
+		case fileExists(legacyPrimaryPath):
+			baseSource = legacyPrimaryPath
+		case fileExists(legacyKeysPath):
+			baseSource = legacyKeysPath
+		}
+		if baseSource != "" {
+			if err := copyFileIfMissing(baseSource, targetPath); err != nil {
+				return targetURI, targetURI, err
+			}
+			log.Printf("prepareUserWhatsappStore: seeded Paiperwork WhatsApp DB for user=%s from legacy store %s", safeUserKeyForFilename(userKey), filepath.Base(baseSource))
+		}
+	}
+
+	if fileExists(targetPath) {
+		for _, legacyPath := range []string{legacyPrimaryPath, legacyKeysPath} {
+			if legacyPath == "" || legacyPath == targetPath || !fileExists(legacyPath) {
+				continue
+			}
+			if err := mergeSQLiteIntoTarget(targetPath, legacyPath); err != nil {
+				log.Printf("prepareUserWhatsappStore: failed to merge legacy store %s into %s: %v", filepath.Base(legacyPath), filepath.Base(targetPath), err)
+			}
+		}
+	}
+
+	return targetURI, targetURI, nil
+}
+
 func userWhatsappDBURI(userKey string) string {
-	suffix := safeUserKeyForFilename(userKey)
-	return fmt.Sprintf("file:storages/whatsapp_%s.db?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", suffix)
+	uri, _, err := prepareUserWhatsappStore(userKey)
+	if err != nil {
+		log.Printf("userWhatsappDBURI: failed to prepare Paiperwork WhatsApp DB for user=%s: %v", safeUserKeyForFilename(userKey), err)
+		return fmt.Sprintf("file:storages/%s.whatsapp.db?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", safeUserKeyForDBFilename(userKey))
+	}
+	return uri
 }
 
 func userWhatsappKeysDBURI(userKey string) string {
-	suffix := safeUserKeyForFilename(userKey)
-	return fmt.Sprintf("file:storages/whatsapp_keys_%s.db?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", suffix)
+	_, uri, err := prepareUserWhatsappStore(userKey)
+	if err != nil {
+		log.Printf("userWhatsappKeysDBURI: failed to prepare Paiperwork WhatsApp key DB for user=%s: %v", safeUserKeyForFilename(userKey), err)
+		return fmt.Sprintf("file:storages/%s.whatsapp.db?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", safeUserKeyForDBFilename(userKey))
+	}
+	return uri
 }
 
 func noCacheHandler(h http.Handler) http.Handler {
@@ -1418,24 +1700,10 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 	startRequested := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("start"))) == "true"
 	stopRequested := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("stop"))) == "true"
 	checkRequested := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("check"))) == "true"
-	userKey := strings.TrimSpace(r.URL.Query().Get("user"))
-	if userKey == "" {
-		userKey = strings.TrimSpace(r.Header.Get("X-Paiperwork-User"))
-	}
-
-	if userKey != "" {
-		activeWhatsappUserMu.RLock()
-		currentActiveUser := activeWhatsappUser
-		activeWhatsappUserMu.RUnlock()
-		if currentActiveUser != "" && currentActiveUser != userKey {
-			if isGatewayRunning() {
-				log.Printf("whatsappQrProxy: user mismatch active=%s requested=%s; returning 409", currentActiveUser, userKey)
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusConflict)
-				json.NewEncoder(w).Encode(map[string]any{"error": "user mismatch", "message": "WhatsApp gateway already active for another user. Stop and restart with current user key."})
-				return
-			}
-		}
+	userKey, allowed := enforceWhatsappActiveUserAccess(w, r, true)
+	if !allowed {
+		log.Printf("whatsappQrProxy: rejected access due to user mismatch requested=%s", userKey)
+		return
 	}
 
 	if stopRequested {
@@ -1488,17 +1756,17 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 		gatewayRunning := isGatewayRunning()
 		if !gatewayRunning {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{"connected": false, "loggedIn": false, "gatewayRunning": false})
+			json.NewEncoder(w).Encode(map[string]any{"connected": false, "loggedIn": false, "qrWithheld": false, "gatewayRunning": false})
 			return
 		}
 
 		status, err := fetchWhatsappGatewayStatus(&http.Client{Timeout: 5 * time.Second}, false, requestedDeviceID)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{"connected": false, "loggedIn": false, "gatewayRunning": gatewayRunning})
+			json.NewEncoder(w).Encode(map[string]any{"connected": false, "loggedIn": false, "qrWithheld": false, "gatewayRunning": gatewayRunning})
 			return
 		}
-		response := map[string]any{"connected": status.Connected, "loggedIn": status.LoggedIn, "gatewayRunning": gatewayRunning}
+		response := map[string]any{"connected": status.Connected, "loggedIn": status.LoggedIn, "qrWithheld": status.QRWithheld, "gatewayRunning": gatewayRunning}
 		if status.QRDataUrl != "" {
 			response["qrDataUrl"] = status.QRDataUrl
 		}
@@ -1511,7 +1779,7 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 		if isWhatsappManualStopActive() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusAccepted)
-			_ = json.NewEncoder(w).Encode(map[string]any{"status": "stopped", "gatewayRunning": false, "connected": false, "loggedIn": false, "message": "Manual stop in progress"})
+			_ = json.NewEncoder(w).Encode(map[string]any{"status": "stopped", "gatewayRunning": false, "connected": false, "loggedIn": false, "qrWithheld": false, "message": "Manual stop in progress"})
 			return
 		}
 
@@ -1532,11 +1800,11 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 				log.Printf("whatsappQrProxy: already-running status fetch failed: %v", err)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				_ = json.NewEncoder(w).Encode(map[string]any{"status": "already_running", "gatewayRunning": true, "connected": false, "loggedIn": false})
+				_ = json.NewEncoder(w).Encode(map[string]any{"status": "already_running", "gatewayRunning": true, "connected": false, "loggedIn": false, "qrWithheld": false})
 				return
 			}
 
-			response := map[string]any{"status": "already_running", "gatewayRunning": true, "connected": status.Connected, "loggedIn": status.LoggedIn}
+			response := map[string]any{"status": "already_running", "gatewayRunning": true, "connected": status.Connected, "loggedIn": status.LoggedIn, "qrWithheld": status.QRWithheld}
 			if status.QRDataUrl != "" {
 				response["qrDataUrl"] = status.QRDataUrl
 			}
@@ -1746,6 +2014,7 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"connected":      status.Connected,
 		"loggedIn":       status.LoggedIn,
+		"qrWithheld":     status.QRWithheld,
 		"gatewayRunning": isGatewayRunning(),
 		"qrDataUrl":      status.QRDataUrl,
 	})
@@ -1766,6 +2035,19 @@ func whatsappQrImageHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
+	}
+
+	if _, allowed := enforceWhatsappActiveUserAccess(w, r, true); !allowed {
+		return
+	}
+
+	requestedDeviceID := getPreferredWhatsappDeviceIDFromRequest(r)
+	if requestedDeviceID != "" || strings.TrimSpace(whatsappGatewayCachedQR) != "" {
+		status, err := fetchWhatsappGatewayStatus(&http.Client{Timeout: 5 * time.Second}, false, requestedDeviceID)
+		if err == nil && status != nil && status.QRWithheld {
+			http.Error(w, "qr-withheld", http.StatusNotFound)
+			return
+		}
 	}
 
 	// Prefer an explicit URL parameter if provided (used by the frontend
@@ -1947,9 +2229,10 @@ func whatsappDevicesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type whatsappGatewayStatus struct {
-	Connected bool   `json:"connected"`
-	LoggedIn  bool   `json:"loggedIn"`
-	QRDataUrl string `json:"qrDataUrl,omitempty"`
+	Connected  bool   `json:"connected"`
+	LoggedIn   bool   `json:"loggedIn"`
+	QRWithheld bool   `json:"qrWithheld,omitempty"`
+	QRDataUrl  string `json:"qrDataUrl,omitempty"`
 }
 
 func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, preferredDeviceID string) (*whatsappGatewayStatus, error) {
@@ -1997,12 +2280,15 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 		whatsappGatewayCachedBytesMu.Unlock()
 
 		if whatsappServerStarted {
-			if whatsappStartupTargetPhone == "" {
-				if inferred, err := inferWhatsappGatewayDevicePhoneByID(client, deviceID); err == nil && inferred != "" {
-					whatsappStartupTargetPhone = inferred
-				} else if err != nil {
-					log.Printf("fetchWhatsappGatewayStatus: cannot infer target phone: %v", err)
-				}
+			currentTargetPhone := ""
+			if inferred, err := inferWhatsappGatewayDevicePhoneByID(client, deviceID); err == nil && inferred != "" {
+				currentTargetPhone = inferred
+				whatsappStartupTargetPhone = inferred
+			} else if err != nil {
+				log.Printf("fetchWhatsappGatewayStatus: cannot infer target phone for device %s: %v", deviceID, err)
+			}
+			if currentTargetPhone == "" {
+				currentTargetPhone = whatsappStartupTargetPhone
 			}
 
 			shouldDispatchWelcome := false
@@ -2015,7 +2301,7 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 
 			if shouldDispatchWelcome {
 				log.Printf("fetchWhatsappGatewayStatus: queueing welcome message dispatch for device %s", deviceID)
-				go dispatchWhatsappWelcomeMessage(deviceID, whatsappStartupTargetPhone)
+				go dispatchWhatsappWelcomeMessage(deviceID, currentTargetPhone)
 			}
 			pairRequested = false
 		}
@@ -2034,11 +2320,11 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 			if shouldLogWhatsappGatewayWarmup(deviceID) {
 				log.Printf("fetchWhatsappGatewayStatus: startup warm-up active; withholding cached QR for device %s", deviceID)
 			}
-			return &whatsappGatewayStatus{Connected: false, LoggedIn: false}, nil
+			return &whatsappGatewayStatus{Connected: false, LoggedIn: false, QRWithheld: true}, nil
 		}
 		if !allowQrForPersistentDevice {
 			log.Printf("fetchWhatsappGatewayStatus: withholding cached QR for device %s (reason=%s)", deviceID, qrGateReason)
-			return &whatsappGatewayStatus{Connected: false, LoggedIn: false}, nil
+			return &whatsappGatewayStatus{Connected: false, LoggedIn: false, QRWithheld: true}, nil
 		}
 		if !startRequested {
 			log.Printf("fetchWhatsappGatewayStatus: using cached QR for device %s", deviceID)
@@ -2082,6 +2368,26 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 					} `json:"results"`
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&appLogin); err == nil {
+					if isWhatsappGatewayAlreadyLoggedInResponse(appLogin.Code, appLogin.Message) {
+						log.Printf("fetchWhatsappGatewayStatus: app/login reports already logged in for device %s; waiting for settled status", deviceID)
+						settledStatus, settledErr := waitForWhatsappGatewayLoggedInStatus(client, deviceID, 4*time.Second)
+						if settledErr == nil && settledStatus != nil && settledStatus.LoggedIn {
+							clearWhatsappGatewayWarmup(deviceID)
+							whatsappGatewayCachedQR = ""
+							clearWhatsappPairingProbeState(deviceID)
+							whatsappGatewayCachedBytesMu.Lock()
+							whatsappGatewayCachedQRBytes = nil
+							whatsappGatewayCachedQRContentType = ""
+							whatsappGatewayCachedBytesMu.Unlock()
+							log.Printf("fetchWhatsappGatewayStatus: settled already-logged-in status connected=%v loggedIn=%v", settledStatus.Connected, settledStatus.LoggedIn)
+							return settledStatus, nil
+						}
+						if settledErr != nil {
+							log.Printf("fetchWhatsappGatewayStatus: already-logged-in settle check failed: %v", settledErr)
+						} else if settledStatus != nil {
+							log.Printf("fetchWhatsappGatewayStatus: already-logged-in settle check still pending connected=%v loggedIn=%v", settledStatus.Connected, settledStatus.LoggedIn)
+						}
+					}
 					// Prefer inlined data URL QR (qr_data) when provided by the gateway
 					if appLogin.Results.QRData != "" {
 						qr := appLogin.Results.QRData
@@ -2122,11 +2428,11 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 							if shouldLogWhatsappGatewayWarmup(deviceID) {
 								log.Printf("fetchWhatsappGatewayStatus: startup warm-up active; QR generated but withheld for device %s", deviceID)
 							}
-							return &whatsappGatewayStatus{Connected: false, LoggedIn: false}, nil
+							return &whatsappGatewayStatus{Connected: false, LoggedIn: false, QRWithheld: true}, nil
 						}
 						if !allowQrForPersistentDevice {
 							log.Printf("fetchWhatsappGatewayStatus: QR generated but withheld for device %s (reason=%s)", deviceID, qrGateReason)
-							return &whatsappGatewayStatus{Connected: false, LoggedIn: false}, nil
+							return &whatsappGatewayStatus{Connected: false, LoggedIn: false, QRWithheld: true}, nil
 						}
 						log.Printf("fetchWhatsappGatewayStatus: got QR data from app/login (inlined data URL)")
 						return &whatsappGatewayStatus{Connected: false, QRDataUrl: qr}, nil
@@ -2177,11 +2483,11 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 						}
 						if holdQrDuringWarmup {
 							log.Printf("fetchWhatsappGatewayStatus: startup warm-up active; QR link generated but withheld for device %s", deviceID)
-							return &whatsappGatewayStatus{Connected: false, LoggedIn: false}, nil
+							return &whatsappGatewayStatus{Connected: false, LoggedIn: false, QRWithheld: true}, nil
 						}
 						if !allowQrForPersistentDevice {
 							log.Printf("fetchWhatsappGatewayStatus: QR link generated but withheld for device %s (reason=%s)", deviceID, qrGateReason)
-							return &whatsappGatewayStatus{Connected: false, LoggedIn: false}, nil
+							return &whatsappGatewayStatus{Connected: false, LoggedIn: false, QRWithheld: true}, nil
 						}
 						log.Printf("fetchWhatsappGatewayStatus: got QR link from app/login: %s", qrRefForLog(qr))
 						return &whatsappGatewayStatus{Connected: false, QRDataUrl: qr}, nil
@@ -2957,10 +3263,24 @@ func whatsappGatewayInfoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if _, allowed := enforceWhatsappActiveUserAccess(w, r, false); !allowed {
+		return
+	}
+
 	gatewayRunning := isGatewayRunning()
 	websocketReady := false
+	connected := false
+	loggedIn := false
 	if gatewayRunning {
 		websocketReady = isWhatsappGatewayWebsocketReady()
+		client := &http.Client{Timeout: 4 * time.Second}
+		requestedDeviceID := getPreferredWhatsappDeviceIDFromRequest(r)
+		if deviceID, err := ensureWhatsappGatewayDevice(client, requestedDeviceID); err == nil && strings.TrimSpace(deviceID) != "" {
+			if status, serr := fetchWhatsappGatewayConnectionStatus(client, deviceID); serr == nil && status != nil {
+				connected = status.Connected
+				loggedIn = status.LoggedIn
+			}
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -2969,6 +3289,8 @@ func whatsappGatewayInfoHandler(w http.ResponseWriter, r *http.Request) {
 		"gatewayMode":    "embedded",
 		"gatewayRunning": gatewayRunning,
 		"websocketReady": websocketReady,
+		"connected":      connected,
+		"loggedIn":       loggedIn,
 		"serverStarted":  whatsappServerStarted,
 		"timestamp":      time.Now().Format(time.RFC3339),
 	})
@@ -3008,6 +3330,10 @@ func whatsappSessionExportHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if _, allowed := enforceWhatsappActiveUserAccess(w, r, true); !allowed {
 		return
 	}
 
@@ -3052,6 +3378,10 @@ func whatsappSessionImportHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if _, allowed := enforceWhatsappActiveUserAccess(w, r, true); !allowed {
 		return
 	}
 
@@ -3116,6 +3446,10 @@ func whatsappSessionClearHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if _, allowed := enforceWhatsappActiveUserAccess(w, r, true); !allowed {
 		return
 	}
 
@@ -5151,6 +5485,12 @@ func main() {
 	// is reachable) and immediately before login attempts. This avoids
 	// logging errors when the gateway is not yet running.
 
+	shutdownGateway := func(reason string) {
+		if err := stopGateway(); err != nil {
+			log.Printf("Gateway shutdown failed during %s: %v", reason, err)
+		}
+	}
+
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 
@@ -5158,13 +5498,12 @@ func main() {
 	case err := <-serverErrors:
 		if err != nil && err != http.ErrServerClosed {
 			log.Printf("Server error: %v", err)
-			// Attempt to stop bundled gateway if it was started
-			stopBundledGateway()
+			shutdownGateway("server error")
 			// Do not force OS exit on local server errors; allow the process to cleanly stop
 			return
 		}
 		log.Printf("Server closed cleanly")
-		stopBundledGateway()
+		shutdownGateway("server closed cleanly")
 		return
 	case sig := <-sigCh:
 		log.Printf("Received signal %v, shutting down...", sig)
@@ -5174,6 +5513,6 @@ func main() {
 			log.Printf("Server shutdown failed: %v; forcing close", err)
 			_ = server.Close()
 		}
-		stopBundledGateway()
+		shutdownGateway("signal shutdown")
 	}
 }

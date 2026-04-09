@@ -812,6 +812,7 @@ class ConnectorWhatsapp {
             currentPrompt: currentPrompt || basePrompt,
             sourceText,
             refinements,
+            useWebSearch: !!session.useWebSearch,
             title: String(session.title || '').trim(),
             documentId: String(session.documentId || '').trim(),
             documentName: String(session.documentName || '').trim(),
@@ -848,6 +849,56 @@ class ConnectorWhatsapp {
 
     async _clearWhatsappFollowUpSession(phone, existingPhoneContext = null) {
         return this._setWhatsappFollowUpSession(phone, null, existingPhoneContext);
+    }
+
+    _getWhatsappDocumentSummaryMemory(phoneContext = null) {
+        const memory = phoneContext && typeof phoneContext === 'object' ? phoneContext.documentSummaryMemory : null;
+        if (!memory || typeof memory !== 'object') {
+            return null;
+        }
+
+        const sourceText = this._normalizeWhatsappResearchReportText(memory.sourceText || '');
+        if (!sourceText) {
+            return null;
+        }
+
+        return {
+            documentId: String(memory.documentId || '').trim(),
+            documentName: String(memory.documentName || '').trim(),
+            title: String(memory.title || '').trim(),
+            sourceText,
+            updatedAt: String(memory.updatedAt || '').trim()
+        };
+    }
+
+    async _setWhatsappDocumentSummaryMemory(phone, summaryMemory, existingPhoneContext = null) {
+        const normalizedPhone = String(phone || '').replace(/@.*$/g, '').trim();
+        if (!normalizedPhone) return existingPhoneContext || null;
+
+        const phoneContext = (existingPhoneContext && typeof existingPhoneContext === 'object')
+            ? { ...existingPhoneContext }
+            : ((await this._getWhatsappPhoneContext(normalizedPhone)) || {});
+
+        if (!summaryMemory) {
+            delete phoneContext.documentSummaryMemory;
+        } else {
+            const normalizedMemory = this._getWhatsappDocumentSummaryMemory({ documentSummaryMemory: summaryMemory });
+            if (normalizedMemory) {
+                phoneContext.documentSummaryMemory = {
+                    ...normalizedMemory,
+                    updatedAt: new Date().toISOString()
+                };
+            } else {
+                delete phoneContext.documentSummaryMemory;
+            }
+        }
+
+        await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
+        return phoneContext;
+    }
+
+    async _clearWhatsappDocumentSummaryMemory(phone, existingPhoneContext = null) {
+        return this._setWhatsappDocumentSummaryMemory(phone, null, existingPhoneContext);
     }
 
     _getWhatsappWorkflowFollowUpKeymapTokens(kind, cueType) {
@@ -1121,7 +1172,13 @@ class ConnectorWhatsapp {
 
     async _handleWhatsappFollowUpSessionClose(phone, language = null, phoneContext = null) {
         const session = this._getWhatsappFollowUpSession(phoneContext);
-        const updatedContext = await this._clearWhatsappFollowUpSession(phone, phoneContext);
+        let updatedContext = phoneContext;
+        if (session && session.kind === 'document-summary') {
+            this._exitWhatsappDocumentScope(phone);
+            this._clearPendingDocSelection(phone);
+            updatedContext = (await this._clearWhatsappDocumentSummaryMemory(phone, updatedContext)) || updatedContext;
+        }
+        updatedContext = await this._clearWhatsappFollowUpSession(phone, updatedContext);
         const keyMap = {
             research: ['researchFollowUpClosed', 'Okay, research follow-up mode is closed.'],
             presentation: ['presentationFollowUpClosed', 'Okay, presentation follow-up mode is closed.'],
@@ -1314,11 +1371,15 @@ class ConnectorWhatsapp {
     _composeWhatsappPresentationRequest(requestText, phoneContext = null, options = {}) {
         const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
         const mergedPrompt = this._normalizeWhatsappResearchReportText(options && options.mergedPrompt ? options.mergedPrompt : '');
+        const allowDocumentSummaryMemoryFollowUp = !!(options && options.allowDocumentSummaryMemoryFollowUp);
         const extracted = this._extractPresentationRequestParts(normalizedRequest);
         const session = this._getWhatsappFollowUpSession(phoneContext);
+        const summaryMemory = this._getWhatsappDocumentSummaryMemory(phoneContext);
         const canonicalSource = session && (session.sourceText || session.currentPrompt || session.basePrompt)
             ? this._normalizeWhatsappResearchReportText(session.sourceText || session.currentPrompt || session.basePrompt)
-            : '';
+            : ((summaryMemory && summaryMemory.sourceText)
+                ? this._normalizeWhatsappResearchReportText(summaryMemory.sourceText)
+                : '');
         const isFollowUp = !!(
             session
             && session.kind === 'presentation'
@@ -1326,6 +1387,71 @@ class ConnectorWhatsapp {
             && !this._isSavedPresentationIntent(normalizedRequest)
             && this._isWhatsappPresentationFollowUpIntent(normalizedRequest, phoneContext, 'presentation')
         );
+
+        const isDocumentSummaryPresentationFollowUp = !!(
+            session
+            && session.kind === 'document-summary'
+            && canonicalSource
+            && !this._presentationRequestHasExplicitSourceText(normalizedRequest)
+            && this._isPresentationIntent(normalizedRequest)
+            && !this._isSavedPresentationIntent(normalizedRequest)
+        );
+
+        const isDocumentSummaryMemoryPresentationFollowUp = !!(
+            !isDocumentSummaryPresentationFollowUp
+            && allowDocumentSummaryMemoryFollowUp
+            && summaryMemory
+            && canonicalSource
+            && !this._presentationRequestHasExplicitSourceText(normalizedRequest)
+            && this._isPresentationIntent(normalizedRequest)
+            && !this._isSavedPresentationIntent(normalizedRequest)
+            && (!session || session.kind !== 'presentation')
+        );
+
+        if (isDocumentSummaryPresentationFollowUp) {
+            const followUpPrompt = mergedPrompt || normalizedRequest;
+            console.log('[ConnectorWhatsapp][presentation] Using cached document summary for presentation follow-up', {
+                summaryLength: canonicalSource.length,
+                summaryPreview: canonicalSource.slice(0, 600),
+                extraRequestText: followUpPrompt,
+                extraRequestLength: followUpPrompt.length
+            });
+            return {
+                sourceText: canonicalSource,
+                extraRequestText: followUpPrompt,
+                isFollowUp: true,
+                basePrompt: canonicalSource,
+                currentPrompt: followUpPrompt,
+                currentSourceText: canonicalSource,
+                refinements: followUpPrompt ? [followUpPrompt] : [],
+                session,
+                usedMergedPrompt: !!mergedPrompt,
+                deriveCoverFromSourceSummary: true
+            };
+        }
+
+        if (isDocumentSummaryMemoryPresentationFollowUp) {
+            const followUpPrompt = mergedPrompt || normalizedRequest;
+            console.log('[ConnectorWhatsapp][presentation] Using cached document summary memory after workflow switch', {
+                summaryLength: canonicalSource.length,
+                summaryPreview: canonicalSource.slice(0, 600),
+                extraRequestText: followUpPrompt,
+                extraRequestLength: followUpPrompt.length,
+                documentName: summaryMemory && summaryMemory.documentName ? summaryMemory.documentName : ''
+            });
+            return {
+                sourceText: canonicalSource,
+                extraRequestText: followUpPrompt,
+                isFollowUp: true,
+                basePrompt: canonicalSource,
+                currentPrompt: followUpPrompt,
+                currentSourceText: canonicalSource,
+                refinements: followUpPrompt ? [followUpPrompt] : [],
+                session,
+                usedMergedPrompt: !!mergedPrompt,
+                deriveCoverFromSourceSummary: true
+            };
+        }
 
         if (!isFollowUp) {
             const sourceText = mergedPrompt || extracted.sourceText || normalizedRequest;
@@ -2067,6 +2193,7 @@ class ConnectorWhatsapp {
                 closeAfterComplete: summaryOptions.closeAfterComplete
             });
             const summaryText = await summaryFn(match.id, match.name, hashedMasterKey, summaryOptions);
+            const normalizedSummaryText = this._normalizeWhatsappResearchReportText(typeof summaryText === 'string' ? summaryText : '');
             console.info('[ConnectorWhatsapp][debug] _executeDocumentSummary summary result', {
                 workflow: summaryOptions.workflow,
                 resultType: typeof summaryText,
@@ -2074,10 +2201,17 @@ class ConnectorWhatsapp {
                 truthy: !!summaryText
             });
             if (!suppressWhatsappSummarySend && phone && match && match.id && match.name) {
+                await this._setWhatsappDocumentSummaryMemory(phone, {
+                    documentId: match.id,
+                    documentName: match.name,
+                    title: match.name,
+                    sourceText: normalizedSummaryText
+                });
                 await this._setWhatsappFollowUpSession(phone, {
                     kind: 'document-summary',
                     active: true,
                     awaitingFollowUpConfirmation: true,
+                    sourceText: normalizedSummaryText,
                     documentId: match.id,
                     documentName: match.name,
                     title: match.name
@@ -2722,6 +2856,11 @@ class ConnectorWhatsapp {
     _artifactRequestWantsWebSearch(text) {
         if (!text || !window.Keymaps || !window.Keymaps.artifact) return false;
         return this._textMatchesDocumentKeymapTokens(text, this._getArtifactKeymapTokens('webCues'));
+    }
+
+    _presentationRequestWantsWebSearch(text) {
+        if (!text || !window.Keymaps || !window.Keymaps.presentation) return false;
+        return this._textMatchesDocumentKeymapTokens(text, this._getPresentationKeymapTokens('webCues'));
     }
 
     _extractPresentationRequestParts(text) {
@@ -4748,7 +4887,7 @@ class ConnectorWhatsapp {
         return saveResult;
     }
 
-    async _generateWhatsappPromptablePresentationHtml(sourceText, slideCount, extraRequestText = '') {
+    async _generateWhatsappPromptablePresentationHtml(sourceText, slideCount, extraRequestText = '', options = {}) {
         const workflow = window.PromptedPresentationWorkflow;
         if (!workflow || typeof workflow.generatePresentationHtml !== 'function') {
             throw new Error('Promptable presentation workflow is unavailable.');
@@ -4761,6 +4900,18 @@ class ConnectorWhatsapp {
 
         const sanitizedExtraRequestText = this._normalizeWhatsappResearchReportText(extraRequestText);
         const clampedSlideCount = Math.max(1, Math.min(20, Number(slideCount) || 5));
+        const deriveCoverFromSourceSummary = !!(options && options.deriveCoverFromSourceSummary);
+        const useWebSearch = !!(options && options.useWebSearch);
+
+        console.log('[ConnectorWhatsapp][presentation] Sending source text to PromptedPresentationWorkflow', {
+            slideCount: clampedSlideCount,
+            useWebSearch,
+            sourceLength: sanitizedSourceText.length,
+            sourcePreview: sanitizedSourceText.slice(0, 600),
+            extraRequestLength: sanitizedExtraRequestText.length,
+            extraRequestPreview: sanitizedExtraRequestText.slice(0, 300),
+            deriveCoverFromSourceSummary
+        });
 
         workflow.savedSourceText = sanitizedSourceText;
         workflow.savedExtraRequestText = sanitizedExtraRequestText;
@@ -4776,13 +4927,24 @@ class ConnectorWhatsapp {
             workflow.updateTextActionButtons();
         }
 
-        const prompt = sanitizedExtraRequestText
+        let prompt = sanitizedExtraRequestText
             ? workflow.buildUserPromptWithExtra(clampedSlideCount, sanitizedSourceText, sanitizedExtraRequestText)
             : workflow.buildUserPrompt(clampedSlideCount, sanitizedSourceText);
+
+        if (deriveCoverFromSourceSummary) {
+            prompt = [
+                'For this presentation only, derive the cover slide title and subtitle from the source summary content itself.',
+                'Do not use orchestration wrappers, filenames by themselves, or phrases such as "Create a presentation" or "based on the content of" as the cover title or subtitle unless the summary explicitly centers on those words.',
+                'Write a concise presentation-ready title and a subtitle that reflect the summary\'s actual topic and main takeaway.',
+                '',
+                prompt
+            ].join('\n');
+        }
 
         const abortController = new AbortController();
         const timeoutMs = 5 * 60 * 1000;
         let timeoutTriggered = false;
+        const previousWebSearchState = !!workflow.isPromptableWebSearchEnabled;
         const timeoutId = setTimeout(() => {
             timeoutTriggered = true;
             try {
@@ -4791,6 +4953,13 @@ class ConnectorWhatsapp {
             }
         }, timeoutMs);
         workflow.currentAbortController = abortController;
+        if (useWebSearch && typeof workflow.ensureWebSearchModuleLoaded === 'function') {
+            await workflow.ensureWebSearchModuleLoaded();
+        }
+        workflow.isPromptableWebSearchEnabled = useWebSearch;
+        if (typeof workflow.updatePromptableWebSearchUiState === 'function') {
+            workflow.updatePromptableWebSearchUiState();
+        }
         if (typeof workflow.setRequestProgressVisible === 'function') {
             workflow.setRequestProgressVisible(true);
         }
@@ -4831,6 +5000,7 @@ class ConnectorWhatsapp {
                 workflow.setRequestProgressVisible(false);
             }
             workflow.currentAbortController = null;
+            workflow.isPromptableWebSearchEnabled = previousWebSearchState;
             if (typeof workflow.updatePromptableWebSearchUiState === 'function') {
                 workflow.updatePromptableWebSearchUiState();
             }
@@ -4877,27 +5047,53 @@ class ConnectorWhatsapp {
         }
 
         const presentationPromptResolution = this._composeWhatsappPresentationRequest(originalRequestText, phoneContext, {
-            mergedPrompt: orchestratorMergedPrompt
+            mergedPrompt: orchestratorMergedPrompt,
+            allowDocumentSummaryMemoryFollowUp: !!(options && options.allowDocumentSummaryMemoryFollowUp)
         });
+        const activePresentationSession = this._getWhatsappFollowUpSession(phoneContext);
         const effectiveSourceText = presentationPromptResolution && presentationPromptResolution.sourceText
             ? presentationPromptResolution.sourceText
             : (orchestratorMergedPrompt || this._normalizeWhatsappResearchReportText(originalRequestText));
         const extraRequestText = presentationPromptResolution && typeof presentationPromptResolution.extraRequestText === 'string'
             ? presentationPromptResolution.extraRequestText
             : '';
+        const useWebSearch = this._presentationRequestWantsWebSearch(originalRequestText)
+            || !!(activePresentationSession && activePresentationSession.kind === 'presentation' && activePresentationSession.useWebSearch);
         const slideCount = this._estimatePromptablePresentationSlides(effectiveSourceText);
+
+        console.log('[ConnectorWhatsapp][presentation] Resolved WhatsApp presentation request', {
+            phone,
+            useWebSearch,
+            sourceLength: String(effectiveSourceText || '').length,
+            sourcePreview: String(effectiveSourceText || '').slice(0, 600),
+            extraRequestLength: String(extraRequestText || '').length,
+            extraRequestPreview: String(extraRequestText || '').slice(0, 300),
+            isFollowUp: !!(presentationPromptResolution && presentationPromptResolution.isFollowUp),
+            usedMergedPrompt: !!(presentationPromptResolution && presentationPromptResolution.usedMergedPrompt),
+            deriveCoverFromSourceSummary: !!(presentationPromptResolution && presentationPromptResolution.deriveCoverFromSourceSummary)
+        });
         this._clearPendingPresentationSelection(phone);
 
         const creatingText = await this._getLocalizedLangText(
             language,
-            'presentationCreating',
-            'Creating a promptable SlideForge presentation with {slides} slides...',
+            useWebSearch ? 'presentationCreatingWithWeb' : 'presentationCreating',
+            useWebSearch
+                ? 'Creating a promptable SlideForge presentation with {slides} slides using web search...'
+                : 'Creating a promptable SlideForge presentation with {slides} slides...',
             { slides: slideCount }
         );
         await this.postWhatsappText(phone, `🤖 ${creatingText}`);
 
         try {
-            const htmlContent = await this._generateWhatsappPromptablePresentationHtml(effectiveSourceText, slideCount, extraRequestText);
+            const htmlContent = await this._generateWhatsappPromptablePresentationHtml(
+                effectiveSourceText,
+                slideCount,
+                extraRequestText,
+                {
+                    deriveCoverFromSourceSummary: !!(presentationPromptResolution && presentationPromptResolution.deriveCoverFromSourceSummary),
+                    useWebSearch
+                }
+            );
             const normalizedHtml = String(htmlContent || '').trim();
             if (!normalizedHtml) {
                 throw new Error('Promptable presentation HTML was empty.');
@@ -4933,6 +5129,7 @@ class ConnectorWhatsapp {
                 refinements: presentationPromptResolution && Array.isArray(presentationPromptResolution.refinements)
                     ? presentationPromptResolution.refinements
                     : [],
+                useWebSearch,
                 title
             }, phoneContext)) || phoneContext;
 
@@ -6276,11 +6473,14 @@ class ConnectorWhatsapp {
                     if (docModeAction && docModeAction.action === 'exit') {
                         this._exitWhatsappDocumentScope(normalizedPhone);
                         this._clearPendingDocSelection(normalizedPhone);
+                        phoneContext = (await this._clearWhatsappDocumentSummaryMemory(normalizedPhone, phoneContext)) || phoneContext;
+                        phoneContext = (await this._clearWhatsappFollowUpSession(normalizedPhone, phoneContext)) || phoneContext;
                         pendingDoc = null;
                         docModeActive = false;
                     } else if (docModeAction && (docModeAction.action === 'enter' || docModeAction.action === 'switch') && docModeAction.match && docModeAction.match.documentId) {
                         explicitDocumentSwitch = true;
                         orchTool = 'document-check';
+                        phoneContext = (await this._clearWhatsappDocumentSummaryMemory(normalizedPhone, phoneContext)) || phoneContext;
                         pendingDoc = {
                             id: docModeAction.match.documentId,
                             name: docModeAction.match.documentName
@@ -6561,6 +6761,7 @@ class ConnectorWhatsapp {
             }
 
             const activeFollowUpSession = this._getWhatsappFollowUpSession(phoneContext);
+            let allowDocumentSummaryMemoryFollowUp = false;
             const followUpToolMap = {
                 research: 'research',
                 presentation: 'presentation',
@@ -6570,6 +6771,7 @@ class ConnectorWhatsapp {
                 const explicitSwitchTarget = this._detectWhatsappExplicitWorkflowTarget(routingIntentText || userText, orchTool);
                 const explicitSwitch = !!explicitSwitchTarget && explicitSwitchTarget !== followUpToolMap[activeFollowUpSession.kind];
                 if (explicitSwitch) {
+                    allowDocumentSummaryMemoryFollowUp = activeFollowUpSession.kind === 'document-summary' && explicitSwitchTarget === 'presentation';
                     phoneContext = (await this._clearWhatsappFollowUpSession(normalizedPhone, phoneContext)) || phoneContext;
                 }
             }
@@ -6627,7 +6829,8 @@ class ConnectorWhatsapp {
                 }
                 await this._handleWhatsappPromptablePresentation(normalizedPhone, userText, resolvedLanguage, {
                     orchestratorMergedPrompt: msg?.orchestrator?.mergedPrompt || '',
-                    originalRequestText: userText
+                    originalRequestText: userText,
+                    allowDocumentSummaryMemoryFollowUp
                 });
                 return;
             }

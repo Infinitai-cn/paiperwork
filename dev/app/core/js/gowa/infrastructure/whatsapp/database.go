@@ -2,6 +2,7 @@ package whatsapp
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -59,7 +60,19 @@ func initDatabase(ctx context.Context, dbLog waLog.Logger, DBURI string) (*sqlst
 	DBURI = strings.Trim(DBURI, `"'`)
 
 	if strings.HasPrefix(DBURI, "file:") {
-		return sqlstore.New(ctx, "sqlite3", DBURI, dbLog)
+		sqlDB, err := sql.Open("sqlite3", DBURI)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open sqlite database: %w", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+		sqlDB.SetMaxIdleConns(1)
+
+		container := sqlstore.NewWithDB(sqlDB, "sqlite3", dbLog)
+		if err := container.Upgrade(ctx); err != nil {
+			_ = sqlDB.Close()
+			return nil, fmt.Errorf("failed to upgrade sqlite database: %w", err)
+		}
+		return container, nil
 	} else if strings.HasPrefix(DBURI, "postgres:") {
 		return sqlstore.New(ctx, "postgres", DBURI, dbLog)
 	}

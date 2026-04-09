@@ -210,7 +210,12 @@ func ReinitializeWhatsAppComponents(ctx context.Context, chatStorageRepo domainC
 	newDB := InitWaDB(ctx, config.DBURI)
 	var newKeysDB *sqlstore.Container
 	if config.DBKeysURI != "" {
-		newKeysDB = InitWaDB(ctx, config.DBKeysURI)
+		if config.DBKeysURI == config.DBURI {
+			newKeysDB = newDB
+			logrus.Info("[CLEANUP] Reusing primary WhatsApp DB container for keys store")
+		} else {
+			newKeysDB = InitWaDB(ctx, config.DBKeysURI)
+		}
 	}
 	newCli := InitWaCLI(ctx, newDB, newKeysDB, chatStorageRepo)
 

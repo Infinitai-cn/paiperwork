@@ -2545,11 +2545,47 @@ class PaiperworkDB {
                 }
             }
 
-            // Update database version to 22 (includes stable conversation message identifiers)
+            // Version 23: Ensure dedicated WhatsApp role DB tables exist for device/session persistence.
+            if (currentVersion < 23) {
+                try {
+                    const whatsappDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                            masterkey_hash TEXT PRIMARY KEY,
+                            whatsapp_device_id TEXT,
+                            whatsapp_device_meta TEXT,
+                            whatsapp_mode TEXT DEFAULT ''
+                        )
+                    `);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_phone_contexts (
+                            phone TEXT PRIMARY KEY,
+                            context TEXT
+                        )
+                    `);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_session_bundles (
+                            device_id TEXT PRIMARY KEY,
+                            session_blob TEXT,
+                            metadata_blob TEXT,
+                            updated_at TEXT
+                        )
+                    `);
+
+                    await this.saveWhatsappRoleSqlDatabase(whatsappDb, hashedMasterKey);
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error ensuring whatsapp role DB tables', error);
+                }
+            }
+
+			// Update database version to 23 (includes WhatsApp role DB schema hardening)
             if (currentVersion === 0) {
-                db.run('INSERT INTO db_version (version) VALUES (22)');
+				db.run('INSERT INTO db_version (version) VALUES (23)');
             } else {
-                db.run('UPDATE db_version SET version = 22');
+				db.run('UPDATE db_version SET version = 23');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
