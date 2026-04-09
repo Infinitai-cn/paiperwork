@@ -794,6 +794,7 @@ class ConnectorWhatsapp {
         const basePrompt = this._normalizeWhatsappResearchReportText(session.basePrompt || '');
         const currentPrompt = this._normalizeWhatsappResearchReportText(session.currentPrompt || '');
         const sourceText = this._normalizeWhatsappResearchReportText(session.sourceText || '');
+        const explicitSlideCount = Number(session.explicitSlideCount);
         const refinements = Array.isArray(session.refinements)
             ? session.refinements
                 .map(item => this._normalizeWhatsappResearchReportText(item))
@@ -812,6 +813,9 @@ class ConnectorWhatsapp {
             currentPrompt: currentPrompt || basePrompt,
             sourceText,
             refinements,
+            explicitSlideCount: Number.isFinite(explicitSlideCount) && explicitSlideCount > 0
+                ? Math.max(1, Math.min(20, explicitSlideCount))
+                : null,
             useWebSearch: !!session.useWebSearch,
             title: String(session.title || '').trim(),
             documentId: String(session.documentId || '').trim(),
@@ -1373,7 +1377,15 @@ class ConnectorWhatsapp {
         const mergedPrompt = this._normalizeWhatsappResearchReportText(options && options.mergedPrompt ? options.mergedPrompt : '');
         const allowDocumentSummaryMemoryFollowUp = !!(options && options.allowDocumentSummaryMemoryFollowUp);
         const extracted = this._extractPresentationRequestParts(normalizedRequest);
+        const hasExplicitSourceText = !!(extracted && extracted.explicitSourceText);
+        const effectiveMergedPrompt = hasExplicitSourceText ? '' : mergedPrompt;
         const session = this._getWhatsappFollowUpSession(phoneContext);
+        const routingIntentText = this._getWhatsappRoutingIntentText(normalizedRequest) || normalizedRequest;
+        const requestedSlideCount = this._extractExplicitPresentationSlideCount(normalizedRequest)
+            || this._extractExplicitPresentationSlideCount(routingIntentText)
+            || this._extractExplicitPresentationSlideCount(extracted && extracted.extraRequestText ? extracted.extraRequestText : '');
+        const sessionSlideCount = this._getPresentationSessionSlideCount(session);
+        const resolvedSlideCount = requestedSlideCount || sessionSlideCount;
         const summaryMemory = this._getWhatsappDocumentSummaryMemory(phoneContext);
         const canonicalSource = session && (session.sourceText || session.currentPrompt || session.basePrompt)
             ? this._normalizeWhatsappResearchReportText(session.sourceText || session.currentPrompt || session.basePrompt)
@@ -1409,7 +1421,7 @@ class ConnectorWhatsapp {
         );
 
         if (isDocumentSummaryPresentationFollowUp) {
-            const followUpPrompt = mergedPrompt || normalizedRequest;
+            const followUpPrompt = effectiveMergedPrompt || normalizedRequest;
             console.log('[ConnectorWhatsapp][presentation] Using cached document summary for presentation follow-up', {
                 summaryLength: canonicalSource.length,
                 summaryPreview: canonicalSource.slice(0, 600),
@@ -1419,19 +1431,20 @@ class ConnectorWhatsapp {
             return {
                 sourceText: canonicalSource,
                 extraRequestText: followUpPrompt,
+                explicitSlideCount: resolvedSlideCount,
                 isFollowUp: true,
                 basePrompt: canonicalSource,
                 currentPrompt: followUpPrompt,
                 currentSourceText: canonicalSource,
                 refinements: followUpPrompt ? [followUpPrompt] : [],
                 session,
-                usedMergedPrompt: !!mergedPrompt,
+                usedMergedPrompt: !!effectiveMergedPrompt,
                 deriveCoverFromSourceSummary: true
             };
         }
 
         if (isDocumentSummaryMemoryPresentationFollowUp) {
-            const followUpPrompt = mergedPrompt || normalizedRequest;
+            const followUpPrompt = effectiveMergedPrompt || normalizedRequest;
             console.log('[ConnectorWhatsapp][presentation] Using cached document summary memory after workflow switch', {
                 summaryLength: canonicalSource.length,
                 summaryPreview: canonicalSource.slice(0, 600),
@@ -1442,50 +1455,40 @@ class ConnectorWhatsapp {
             return {
                 sourceText: canonicalSource,
                 extraRequestText: followUpPrompt,
+                explicitSlideCount: resolvedSlideCount,
                 isFollowUp: true,
                 basePrompt: canonicalSource,
                 currentPrompt: followUpPrompt,
                 currentSourceText: canonicalSource,
                 refinements: followUpPrompt ? [followUpPrompt] : [],
                 session,
-                usedMergedPrompt: !!mergedPrompt,
+                usedMergedPrompt: !!effectiveMergedPrompt,
                 deriveCoverFromSourceSummary: true
             };
         }
 
         if (!isFollowUp) {
-            const sourceText = mergedPrompt || extracted.sourceText || normalizedRequest;
+            const sourceText = extracted.sourceText || effectiveMergedPrompt || normalizedRequest;
             return {
                 sourceText,
                 extraRequestText: extracted.extraRequestText || '',
+                explicitSlideCount: requestedSlideCount,
                 isFollowUp: false,
                 basePrompt: extracted.sourceText || normalizedRequest,
                 currentPrompt: sourceText,
                 currentSourceText: sourceText,
                 refinements: [],
                 session,
-                usedMergedPrompt: !!mergedPrompt
+                usedMergedPrompt: !!effectiveMergedPrompt
             };
         }
 
         const refinements = Array.isArray(session.refinements) ? [...session.refinements, normalizedRequest] : [normalizedRequest];
-        if (mergedPrompt) {
-            return {
-                sourceText: mergedPrompt,
-                extraRequestText: '',
-                isFollowUp: true,
-                basePrompt: session.basePrompt || canonicalSource,
-                currentPrompt: mergedPrompt,
-                currentSourceText: mergedPrompt,
-                refinements,
-                session,
-                usedMergedPrompt: true
-            };
-        }
 
         return {
             sourceText: canonicalSource || session.basePrompt,
             extraRequestText: refinements.join('\n'),
+            explicitSlideCount: resolvedSlideCount,
             isFollowUp: true,
             basePrompt: session.basePrompt,
             currentPrompt: refinements.join('\n'),
@@ -2866,26 +2869,33 @@ class ConnectorWhatsapp {
     _extractPresentationRequestParts(text) {
         const normalized = this._normalizeWhatsappResearchReportText(text);
         if (!normalized) {
-            return { sourceText: '', extraRequestText: '' };
+            return { sourceText: '', extraRequestText: '', explicitSourceText: false };
         }
 
         const delimiterPatterns = [
-            /(?:with|using|from|based on)\s+(?:the following|this|provided)?\s*(?:text|content|material|notes|script)\s*[:\-]\s*([\s\S]+)/i,
-            /(?:con|usando|a partir de)\s+(?:el siguiente|este)?\s*(?:texto|contenido)\s*[:\-]\s*([\s\S]+)/i,
-            /(?:com|usando|a partir de)\s+(?:o seguinte|este)?\s*(?:texto|conteudo|conteúdo)\s*[:\-]\s*([\s\S]+)/i,
-            /(?:avec|en utilisant|a partir de|à partir de)\s+(?:le texte suivant|ce texte|ce contenu)?\s*[:\-]\s*([\s\S]+)/i,
-            /(?:mit|aus)\s+(?:diesem|folgendem)?\s*(?:text|inhalt)\s*[:\-]\s*([\s\S]+)/i,
-            /(?:con|usando|da)\s+(?:questo|il seguente)?\s*(?:testo|contenuto)\s*[:\-]\s*([\s\S]+)/i,
-            /(?:使用以下文本|用这段文字|根据这段文字|提供的文本)\s*[:：\-]\s*([\s\S]+)/i,
-            /(?:次のテキストを使って|このテキストで|この文章から|提供されたテキスト)\s*[:：\-]\s*([\s\S]+)/i,
-            /(?:이 텍스트로|다음 텍스트로|제공한 텍스트로|제공된 내용으로)\s*[:：\-]\s*([\s\S]+)/i
+            /(?:with|using|from|based on)\s+(?:the following|this|provided)?\s*(?:text|content|material|notes|script)(?:\s*,\s*[^:\n]{1,120})?\s*[:\-]\s*([\s\S]+)/i,
+            /(?:con|usando|a partir de)\s+(?:el siguiente|este)?\s*(?:texto|contenido)(?:\s*,\s*[^:\n]{1,120})?\s*[:\-]\s*([\s\S]+)/i,
+            /(?:com|usando|a partir de)\s+(?:o seguinte|este)?\s*(?:texto|conteudo|conteúdo)(?:\s*,\s*[^:\n]{1,120})?\s*[:\-]\s*([\s\S]+)/i,
+            /(?:avec|en utilisant|a partir de|à partir de)\s+(?:le texte suivant|ce texte|ce contenu)?(?:\s*,\s*[^:\n]{1,120})?\s*[:\-]\s*([\s\S]+)/i,
+            /(?:mit|aus)\s+(?:diesem|folgendem)?\s*(?:text|inhalt)(?:\s*,\s*[^:\n]{1,120})?\s*[:\-]\s*([\s\S]+)/i,
+            /(?:con|usando|da)\s+(?:questo|il seguente)?\s*(?:testo|contenuto)(?:\s*,\s*[^:\n]{1,120})?\s*[:\-]\s*([\s\S]+)/i,
+            /(?:使用以下文本|用这段文字|根据这段文字|提供的文本)(?:\s*，\s*[^：\n]{1,120})?\s*[:：\-]\s*([\s\S]+)/i,
+            /(?:次のテキストを使って|このテキストで|この文章から|提供されたテキスト)(?:\s*、\s*[^：\n]{1,120})?\s*[:：\-]\s*([\s\S]+)/i,
+            /(?:이 텍스트로|다음 텍스트로|제공한 텍스트로|제공된 내용으로)(?:\s*,\s*[^:\n]{1,120})?\s*[:：\-]\s*([\s\S]+)/i
         ];
 
         for (const pattern of delimiterPatterns) {
             const match = normalized.match(pattern);
             const extracted = match && match[1] ? this._normalizeWhatsappResearchReportText(match[1]) : '';
             if (extracted && extracted.length >= 40) {
-                return { sourceText: extracted, extraRequestText: '' };
+                const headerText = match && Number.isFinite(match.index)
+                    ? this._normalizeWhatsappResearchReportText(normalized.slice(0, match.index))
+                    : '';
+                return {
+                    sourceText: extracted,
+                    extraRequestText: headerText || '',
+                    explicitSourceText: true
+                };
             }
         }
 
@@ -2894,11 +2904,42 @@ class ConnectorWhatsapp {
             const header = String(lines[0] || '').trim();
             const remainder = this._normalizeWhatsappResearchReportText(lines.slice(1).join('\n'));
             if (this._isPresentationIntent(header) && remainder.length >= 40) {
-                return { sourceText: remainder, extraRequestText: '' };
+                return {
+                    sourceText: remainder,
+                    extraRequestText: header,
+                    explicitSourceText: true
+                };
             }
         }
 
-        return { sourceText: normalized, extraRequestText: '' };
+        return { sourceText: normalized, extraRequestText: '', explicitSourceText: false };
+    }
+
+    _extractExplicitPresentationSlideCount(text) {
+        const normalized = this._normalizeWhatsappResearchReportText(text);
+        if (!normalized) return null;
+
+        const slidePatterns = [
+            /\b(?:exactly|about|around|roughly|approximately|approx\.?|at least|at most|up to|hasta|alrededor de|aproximadamente|exactamente|environ|circa|etwa|ungefähr)?\s*(\d{1,2})\s*(?:-|\s)*(?:slides?|slide\s*deck|slide\s*decks|decks?|diapositivas?|folien|dias|幻灯片|投影片|スライド|슬라이드)\b/i,
+            /\b(?:presentation|presentations|slideforge|deck|slidedeck|slide deck|presentacion|presentación|diapositivas|praesentation|präsentation|folien|apresentacao|apresentação|演示文稿|简报|簡報)\b[^\n.!?]{0,40}?\b(?:with|using|having|make it|make|create|build|generate|prepare|de|con|com|mit|avec)?\s*(\d{1,2})\s*(?:-|\s)*(?:slides?|diapositivas?|folien|dias|幻灯片|投影片|スライド|슬라이드)\b/i
+        ];
+
+        for (const pattern of slidePatterns) {
+            const match = normalized.match(pattern);
+            const parsedCount = match && match[1] ? parseInt(match[1], 10) : NaN;
+            if (Number.isFinite(parsedCount) && parsedCount > 0) {
+                return Math.max(1, Math.min(20, parsedCount));
+            }
+        }
+
+        return null;
+    }
+
+    _getPresentationSessionSlideCount(session) {
+        const parsedCount = Number(session && session.explicitSlideCount);
+        return Number.isFinite(parsedCount) && parsedCount > 0
+            ? Math.max(1, Math.min(20, parsedCount))
+            : null;
     }
 
     _getWhatsappRoutingIntentText(text) {
@@ -2908,15 +2949,15 @@ class ConnectorWhatsapp {
         }
 
         const headerDelimiterPatterns = [
-            /^(.*?)(?:with|using|from|based on)\s+(?:the following|this|provided)?\s*(?:text|content|material|notes|script)\s*[:\-][\s\S]*$/i,
-            /^(.*?)(?:con|usando|a partir de)\s+(?:el siguiente|este)?\s*(?:texto|contenido)\s*[:\-][\s\S]*$/i,
-            /^(.*?)(?:com|usando|a partir de)\s+(?:o seguinte|este)?\s*(?:texto|conteudo|conteúdo)\s*[:\-][\s\S]*$/i,
-            /^(.*?)(?:avec|en utilisant|a partir de|à partir de)\s+(?:le texte suivant|ce texte|ce contenu)?\s*[:\-][\s\S]*$/i,
-            /^(.*?)(?:mit|aus)\s+(?:diesem|folgendem)?\s*(?:text|inhalt)\s*[:\-][\s\S]*$/i,
-            /^(.*?)(?:con|usando|da)\s+(?:questo|il seguente)?\s*(?:testo|contenuto)\s*[:\-][\s\S]*$/i,
-            /^(.*?)(?:使用以下文本|用这段文字|根据这段文字|提供的文本)\s*[:：\-][\s\S]*$/i,
-            /^(.*?)(?:次のテキストを使って|このテキストで|この文章から|提供されたテキスト)\s*[:：\-][\s\S]*$/i,
-            /^(.*?)(?:이 텍스트로|다음 텍스트로|제공한 텍스트로|제공된 내용으로)\s*[:：\-][\s\S]*$/i
+            /^(.*?)(?:with|using|from|based on)\s+(?:the following|this|provided)?\s*(?:text|content|material|notes|script)(?:\s*,\s*[^:\n]{1,120})?\s*[:\-][\s\S]*$/i,
+            /^(.*?)(?:con|usando|a partir de)\s+(?:el siguiente|este)?\s*(?:texto|contenido)(?:\s*,\s*[^:\n]{1,120})?\s*[:\-][\s\S]*$/i,
+            /^(.*?)(?:com|usando|a partir de)\s+(?:o seguinte|este)?\s*(?:texto|conteudo|conteúdo)(?:\s*,\s*[^:\n]{1,120})?\s*[:\-][\s\S]*$/i,
+            /^(.*?)(?:avec|en utilisant|a partir de|à partir de)\s+(?:le texte suivant|ce texte|ce contenu)?(?:\s*,\s*[^:\n]{1,120})?\s*[:\-][\s\S]*$/i,
+            /^(.*?)(?:mit|aus)\s+(?:diesem|folgendem)?\s*(?:text|inhalt)(?:\s*,\s*[^:\n]{1,120})?\s*[:\-][\s\S]*$/i,
+            /^(.*?)(?:con|usando|da)\s+(?:questo|il seguente)?\s*(?:testo|contenuto)(?:\s*,\s*[^:\n]{1,120})?\s*[:\-][\s\S]*$/i,
+            /^(.*?)(?:使用以下文本|用这段文字|根据这段文字|提供的文本)(?:\s*，\s*[^：\n]{1,120})?\s*[:：\-][\s\S]*$/i,
+            /^(.*?)(?:次のテキストを使って|このテキストで|この文章から|提供されたテキスト)(?:\s*、\s*[^：\n]{1,120})?\s*[:：\-][\s\S]*$/i,
+            /^(.*?)(?:이 텍스트로|다음 텍스트로|제공한 텍스트로|제공된 내용으로)(?:\s*,\s*[^:\n]{1,120})?\s*[:：\-][\s\S]*$/i
         ];
 
         for (const pattern of headerDelimiterPatterns) {
@@ -4104,82 +4145,6 @@ class ConnectorWhatsapp {
         return false;
     }
 
-    _estimatePromptablePresentationSlides(sourceText) {
-        const text = this._normalizeWhatsappResearchReportText(sourceText);
-        if (!text) return 5;
-
-        const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
-        const paragraphs = text.split(/\n\s*\n+/).map(part => part.trim()).filter(Boolean);
-        const wordCount = (text.match(/\S+/g) || []).length;
-        const sentenceCount = (text.match(/[.!?]+(?=\s|$)/g) || []).length || Math.max(1, paragraphs.length);
-        const bulletCount = lines.filter(line => /^([\-*•]|\d+[.)])\s+/.test(line)).length;
-        const headingCount = lines.filter(line => this._isPresentationHeadingCandidate(line)).length;
-        const sectionAnchorCount = lines.filter(line => this._isPresentationSectionAnchor(line)).length;
-        const denseParagraphCount = paragraphs.filter(paragraph => ((paragraph.match(/\S+/g) || []).length >= 120)).length;
-
-        const lengthEstimate = Math.ceil(wordCount / 110);
-        const sentenceEstimate = Math.ceil(sentenceCount / 5);
-        const structureEstimate = Math.ceil(
-            (headingCount * 1.4)
-            + (sectionAnchorCount * 1.25)
-            + (bulletCount / 4)
-            + (paragraphs.length * 0.55)
-            + (denseParagraphCount * 0.75)
-        );
-
-        let slideEstimate = Math.max(lengthEstimate, sentenceEstimate, structureEstimate, 3);
-
-        if (headingCount >= 3) {
-            slideEstimate = Math.max(slideEstimate, headingCount + Math.ceil(bulletCount / 6));
-        }
-
-        if (sectionAnchorCount >= 2) {
-            slideEstimate = Math.max(slideEstimate, sectionAnchorCount + Math.ceil(paragraphs.length / 2));
-        }
-
-        return Math.max(3, Math.min(15, slideEstimate || 5));
-    }
-
-    _isPresentationHeadingCandidate(line) {
-        const candidate = String(line || '').trim();
-        if (!candidate) return false;
-        if (/^([\-*•]|\d+[.)])\s+/.test(candidate)) return false;
-        if (candidate.length > 90) return false;
-
-        const wordCount = (candidate.match(/\S+/g) || []).length;
-        if (wordCount === 0 || wordCount > 10) return false;
-
-        if (/^#{1,6}\s+/.test(candidate)) return true;
-        if (/:$/.test(candidate)) return true;
-        if (/^[A-Z0-9\s&:/\-]{4,}$/.test(candidate)) return true;
-        if (/^(?:[A-Z][^.!?\n]+)$/.test(candidate) && wordCount <= 8) return true;
-
-        return false;
-    }
-
-    _isPresentationSectionAnchor(line) {
-        const candidate = this._normalizeDocumentIntentKeymapText(line);
-        if (!candidate) return false;
-
-        const sectionAnchors = window.Keymaps
-            && window.Keymaps.presentation
-            && Array.isArray(window.Keymaps.presentation.sectionAnchors)
-            ? window.Keymaps.presentation.sectionAnchors
-            : [];
-
-        if (!sectionAnchors.length) return false;
-
-        return sectionAnchors.some(anchor => {
-            const normalizedAnchor = this._normalizeDocumentIntentKeymapText(anchor);
-            if (!normalizedAnchor) return false;
-
-            return candidate === normalizedAnchor
-                || candidate.startsWith(normalizedAnchor + ':')
-                || candidate.startsWith(normalizedAnchor + ' -')
-                || candidate.includes(' ' + normalizedAnchor + ' ');
-        });
-    }
-
     _sanitizeWhatsappPresentationFilename(title) {
         const cleaned = String(title || 'slideforge-presentation')
             .toLowerCase()
@@ -4833,6 +4798,45 @@ class ConnectorWhatsapp {
         }
     }
 
+    async _resolveUniqueWhatsappPromptablePresentationTitle(title = '') {
+        const baseTitle = String(title || '').trim() || 'Untitled presentation';
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (!hashedMasterKey || typeof PaiperworkDB === 'undefined' || typeof PaiperworkDB.getPromptablePresentations !== 'function') {
+            return baseTitle;
+        }
+
+        const items = await PaiperworkDB.getPromptablePresentations(hashedMasterKey);
+        const existingTitles = Array.isArray(items)
+            ? items.map(item => String(item && item.title ? item.title : '').trim()).filter(Boolean)
+            : [];
+        const lowerBaseTitle = baseTitle.toLocaleLowerCase();
+        const hasExactBaseTitle = existingTitles.some(existingTitle => existingTitle.toLocaleLowerCase() === lowerBaseTitle);
+
+        if (!hasExactBaseTitle) {
+            return baseTitle;
+        }
+
+        const escapedBaseTitle = baseTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const numberedTitlePattern = new RegExp(`^${escapedBaseTitle}\\s+(\\d+)$`, 'i');
+        let maxSuffix = 0;
+
+        for (const existingTitle of existingTitles) {
+            if (existingTitle.toLocaleLowerCase() === lowerBaseTitle) {
+                continue;
+            }
+
+            const numberedMatch = existingTitle.match(numberedTitlePattern);
+            if (!numberedMatch) continue;
+
+            const parsedSuffix = parseInt(numberedMatch[1], 10);
+            if (Number.isFinite(parsedSuffix) && parsedSuffix > maxSuffix) {
+                maxSuffix = parsedSuffix;
+            }
+        }
+
+        return `${baseTitle} ${maxSuffix + 1}`;
+    }
+
     async _saveWhatsappPromptablePresentationToLibrary(htmlContent, title = '') {
         const workflow = window.PromptedPresentationWorkflow;
 
@@ -4844,9 +4848,11 @@ class ConnectorWhatsapp {
             return null;
         }
 
+        const uniqueTitle = await this._resolveUniqueWhatsappPromptablePresentationTitle(title);
+
         const saveResult = await workflow.savePresentationToLibrary({
             htmlContent,
-            title,
+            title: uniqueTitle,
             mode: 'html',
             promptForName: false,
             showAlerts: false
@@ -4854,7 +4860,7 @@ class ConnectorWhatsapp {
 
         console.info('[ConnectorWhatsapp][presentation] Promptable presentation autosaved', {
             id: saveResult && saveResult.id ? saveResult.id : null,
-            title: saveResult && saveResult.title ? saveResult.title : String(title || '').trim(),
+            title: saveResult && saveResult.title ? saveResult.title : uniqueTitle,
             htmlLength: saveResult && saveResult.html ? saveResult.html.length : String(htmlContent || '').trim().length
         });
 
@@ -4887,7 +4893,7 @@ class ConnectorWhatsapp {
         return saveResult;
     }
 
-    async _generateWhatsappPromptablePresentationHtml(sourceText, slideCount, extraRequestText = '', options = {}) {
+    async _generateWhatsappPromptablePresentationHtml(sourceText, slideCount = null, extraRequestText = '', options = {}) {
         const workflow = window.PromptedPresentationWorkflow;
         if (!workflow || typeof workflow.generatePresentationHtml !== 'function') {
             throw new Error('Promptable presentation workflow is unavailable.');
@@ -4899,12 +4905,16 @@ class ConnectorWhatsapp {
         }
 
         const sanitizedExtraRequestText = this._normalizeWhatsappResearchReportText(extraRequestText);
-        const clampedSlideCount = Math.max(1, Math.min(20, Number(slideCount) || 5));
+        const parsedSlideCount = Number(slideCount);
+        const clampedSlideCount = Number.isFinite(parsedSlideCount) && parsedSlideCount > 0
+            ? Math.max(1, Math.min(20, parsedSlideCount))
+            : null;
         const deriveCoverFromSourceSummary = !!(options && options.deriveCoverFromSourceSummary);
         const useWebSearch = !!(options && options.useWebSearch);
 
         console.log('[ConnectorWhatsapp][presentation] Sending source text to PromptedPresentationWorkflow', {
             slideCount: clampedSlideCount,
+            slideCountMode: clampedSlideCount ? 'explicit' : 'auto',
             useWebSearch,
             sourceLength: sanitizedSourceText.length,
             sourcePreview: sanitizedSourceText.slice(0, 600),
@@ -4920,7 +4930,7 @@ class ConnectorWhatsapp {
         } else {
             workflow.selectedPresentationMode = 'html';
         }
-        if (workflow.slideCountSelector) {
+        if (workflow.slideCountSelector && clampedSlideCount) {
             workflow.slideCountSelector.value = String(clampedSlideCount);
         }
         if (typeof workflow.updateTextActionButtons === 'function') {
@@ -4942,7 +4952,7 @@ class ConnectorWhatsapp {
         }
 
         const abortController = new AbortController();
-        const timeoutMs = 5 * 60 * 1000;
+        const timeoutMs = 10 * 60 * 1000;
         let timeoutTriggered = false;
         const previousWebSearchState = !!workflow.isPromptableWebSearchEnabled;
         const timeoutId = setTimeout(() => {
@@ -4989,7 +4999,7 @@ class ConnectorWhatsapp {
             return workflow.currentPresentationHtml || htmlContent;
         } catch (err) {
             if (timeoutTriggered) {
-                const timeoutError = new Error('Promptable presentation generation timed out after 5 minutes.');
+                const timeoutError = new Error('Promptable presentation generation timed out after 10 minutes.');
                 timeoutError.code = 'PROMPTABLE_PRESENTATION_TIMEOUT';
                 throw timeoutError;
             }
@@ -5027,9 +5037,12 @@ class ConnectorWhatsapp {
         let phoneContext = (await this._getWhatsappPhoneContext(phone)) || {};
         const orchestratorMergedPrompt = this._normalizeWhatsappResearchReportText(options && options.orchestratorMergedPrompt ? options.orchestratorMergedPrompt : '');
         const originalRequestText = this._normalizeWhatsappResearchReportText(options && options.originalRequestText ? options.originalRequestText : requestText);
+        const hasExplicitSourceText = this._presentationRequestHasExplicitSourceText(originalRequestText);
 
-        const shouldUseSavedPresentationFlow = this._isSavedPresentationIntent(originalRequestText)
-            || (!!this._getPendingPresentationSelection(phone) && !this._presentationRequestHasExplicitSourceText(originalRequestText));
+        const shouldUseSavedPresentationFlow = !hasExplicitSourceText && (
+            this._isSavedPresentationIntent(originalRequestText)
+            || !!this._getPendingPresentationSelection(phone)
+        );
 
         if (shouldUseSavedPresentationFlow) {
             return this._handleWhatsappSavedPresentations(phone, originalRequestText, language);
@@ -5057,13 +5070,15 @@ class ConnectorWhatsapp {
         const extraRequestText = presentationPromptResolution && typeof presentationPromptResolution.extraRequestText === 'string'
             ? presentationPromptResolution.extraRequestText
             : '';
+        const explicitSlideCount = this._getPresentationSessionSlideCount({
+            explicitSlideCount: presentationPromptResolution && presentationPromptResolution.explicitSlideCount
+        });
         const useWebSearch = this._presentationRequestWantsWebSearch(originalRequestText)
             || !!(activePresentationSession && activePresentationSession.kind === 'presentation' && activePresentationSession.useWebSearch);
-        const slideCount = this._estimatePromptablePresentationSlides(effectiveSourceText);
-
         console.log('[ConnectorWhatsapp][presentation] Resolved WhatsApp presentation request', {
             phone,
             useWebSearch,
+            explicitSlideCount,
             sourceLength: String(effectiveSourceText || '').length,
             sourcePreview: String(effectiveSourceText || '').slice(0, 600),
             extraRequestLength: String(extraRequestText || '').length,
@@ -5078,16 +5093,15 @@ class ConnectorWhatsapp {
             language,
             useWebSearch ? 'presentationCreatingWithWeb' : 'presentationCreating',
             useWebSearch
-                ? 'Creating a promptable SlideForge presentation with {slides} slides using web search...'
-                : 'Creating a promptable SlideForge presentation with {slides} slides...',
-            { slides: slideCount }
+                ? 'Creating a promptable SlideForge presentation using web search...'
+                : 'Creating a promptable SlideForge presentation...',
         );
         await this.postWhatsappText(phone, `🤖 ${creatingText}`);
 
         try {
             const htmlContent = await this._generateWhatsappPromptablePresentationHtml(
                 effectiveSourceText,
-                slideCount,
+                explicitSlideCount,
                 extraRequestText,
                 {
                     deriveCoverFromSourceSummary: !!(presentationPromptResolution && presentationPromptResolution.deriveCoverFromSourceSummary),
@@ -5129,6 +5143,7 @@ class ConnectorWhatsapp {
                 refinements: presentationPromptResolution && Array.isArray(presentationPromptResolution.refinements)
                     ? presentationPromptResolution.refinements
                     : [],
+                explicitSlideCount,
                 useWebSearch,
                 title
             }, phoneContext)) || phoneContext;
@@ -5606,7 +5621,15 @@ class ConnectorWhatsapp {
                 if (typeof OllamaAPI === 'undefined' || !OllamaAPI.OrchestratorCall) {
                     console.warn('[ConnectorWhatsapp][orchestrator] OllamaAPI.OrchestratorCall not available - skipping orchestration');
                 } else {
+                    const presenceTarget = this._getWhatsappIncomingReplyTarget(msg) || normalizedPhone;
                     this._showWhatsappOrchestratorModal();
+                    if (this._isWhatsappBotMode() && typeof this.postWhatsappPresence === 'function') {
+                        try {
+                            await this._startWhatsappPresenceKeepAlive(presenceTarget);
+                        } catch (presenceErr) {
+                            console.warn('[ConnectorWhatsapp][orchestrator] Failed to start presence keepalive for orchestrator modal', presenceErr);
+                        }
+                    }
                     routingSession = await this._beginWhatsappModelRoutingSession(normalizedPhone, phoneContext);
                     const orchestratorContext = this._normalizeWhatsappOrchestratorTurns(this._getWhatsappOrchestratorContext(normalizedPhone) || []);
                     orchText = await OllamaAPI.OrchestratorCall(orchestratorInput, systemPrompt, contextSize, orchestratorContext, null, `wa_orch_${Date.now()}`, null);
