@@ -642,8 +642,9 @@ class PromptedPresentationWorkflow {
 	}
 
 	static async saveHtmlToDisk(title, htmlContent) {
+		const standaloneHtml = await this.buildStandalonePromptableHtml(htmlContent || '');
 		const filename = `${this.sanitizeHtmlFilename(title)}.html`;
-		const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+		const blob = new Blob([standaloneHtml], { type: 'text/html;charset=utf-8' });
 
 		if (window && typeof window.showSaveFilePicker === 'function') {
 			try {
@@ -1039,7 +1040,7 @@ class PromptedPresentationWorkflow {
 		}
 
 		const htmlSource = htmlContent == null ? this.currentPresentationHtml : htmlContent;
-		const htmlToSave = this.normalizePromptableNavigationHtml(String(htmlSource || '').trim());
+		const htmlToSave = await this.buildStandalonePromptableHtml(String(htmlSource || '').trim());
 		if (!htmlToSave) {
 			console.error('[PromptablePresentation] Save blocked: no current presentation HTML available', {
 				hasCurrentPresentationHtml: !!this.currentPresentationHtml,
@@ -1224,6 +1225,309 @@ class PromptedPresentationWorkflow {
 		return Number.isFinite(value) ? value : 8192;
 	}
 
+	static getPromptableImageProxyBaseUrl(useAbsolute = true) {
+		const proxyPath = '/api/proxy/fetch-image?url=';
+		if (!useAbsolute || typeof window === 'undefined' || !window.location || !/^https?:$/i.test(window.location.protocol || '')) {
+			return proxyPath;
+		}
+		return `${window.location.origin}${proxyPath}`;
+	}
+
+	static isPromptableProxyImageUrl(rawUrl) {
+		const value = String(rawUrl || '').trim();
+		if (!value) {
+			return false;
+		}
+
+		if (value.includes('/api/proxy/fetch-image?url=')) {
+			return true;
+		}
+
+		if (typeof window !== 'undefined' && window.location && /^https?:$/i.test(window.location.protocol || '')) {
+			return value.startsWith(`${window.location.origin}/api/proxy/fetch-image?url=`);
+		}
+
+		return false;
+	}
+
+	static buildPromptableProxiedImageUrl(rawUrl, useAbsolute = true) {
+		const value = String(rawUrl || '').trim();
+		if (!value || /^data:|^blob:/i.test(value)) {
+			return value;
+		}
+
+		if (!/^https?:\/\//i.test(value) || this.isPromptableProxyImageUrl(value)) {
+			return value;
+		}
+
+		if (typeof window !== 'undefined' && window.location && /^https?:$/i.test(window.location.protocol || '')) {
+			try {
+				const parsed = new URL(value, window.location.origin);
+				if (parsed.origin === window.location.origin) {
+					return parsed.toString();
+				}
+			} catch (_error) {
+				// Fall through to proxy rewriting.
+			}
+		}
+
+		return `${this.getPromptableImageProxyBaseUrl(useAbsolute)}${encodeURIComponent(value)}`;
+	}
+
+	static async readPromptableBlobAsDataUrl(blob) {
+		return await new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onloadend = () => resolve(reader.result || '');
+			reader.onerror = reject;
+			reader.readAsDataURL(blob);
+		});
+	}
+
+	static getPromptableImageFetchUrl(rawUrl, useAbsolute = false) {
+		const value = String(rawUrl || '').trim();
+		if (!value || /^data:|^blob:/i.test(value)) {
+			return value;
+		}
+
+		if (this.isPromptableProxyImageUrl(value)) {
+			return value;
+		}
+
+		if (!/^https?:\/\//i.test(value)) {
+			return value;
+		}
+
+		if (typeof window !== 'undefined' && window.location && /^https?:$/i.test(window.location.protocol || '')) {
+			try {
+				const parsed = new URL(value, window.location.origin);
+				if (parsed.origin === window.location.origin) {
+					return parsed.toString();
+				}
+			} catch (_error) {
+				// Fall through to proxy fetch.
+			}
+		}
+
+		return this.buildPromptableProxiedImageUrl(value, useAbsolute);
+	}
+
+	static async fetchPromptableImageAsDataUrl(rawUrl, abortSignal = null) {
+		const value = String(rawUrl || '').trim();
+		if (!value) {
+			return '';
+		}
+
+		if (/^data:/i.test(value)) {
+			return value;
+		}
+
+		this.promptableImageDataUrlCache = this.promptableImageDataUrlCache || new Map();
+		if (this.promptableImageDataUrlCache.has(value)) {
+			return await this.promptableImageDataUrlCache.get(value);
+		}
+
+		const promise = (async () => {
+			const fetchUrl = this.getPromptableImageFetchUrl(value, false);
+			const response = await fetch(fetchUrl, { signal: abortSignal });
+			if (!response.ok) {
+				throw new Error(`Image fetch failed with status ${response.status}`);
+			}
+			const blob = await response.blob();
+			return await this.readPromptableBlobAsDataUrl(blob);
+		})();
+
+		this.promptableImageDataUrlCache.set(value, promise);
+		try {
+			return await promise;
+		} catch (error) {
+			this.promptableImageDataUrlCache.delete(value);
+			throw error;
+		}
+	}
+
+	static normalizePromptableImageQueryCandidate(rawValue) {
+		const value = String(rawValue || '').replace(/\s+/g, ' ').trim();
+		if (!value || value.length < 3 || /^https?:\/\//i.test(value)) {
+			return '';
+		}
+
+		const lowered = value.toLowerCase();
+		if (['image', 'photo', 'picture', 'illustration', 'graphic'].includes(lowered)) {
+			return '';
+		}
+
+		return value.slice(0, 140);
+	}
+
+	static findPromptableSlideContextElement(imageElement) {
+		let current = imageElement ? imageElement.parentElement : null;
+		while (current && current !== current.ownerDocument?.body) {
+			const tagName = String(current.tagName || '').toLowerCase();
+			const className = String(current.className || '').toLowerCase();
+			const id = String(current.id || '').toLowerCase();
+			if (
+				tagName === 'section'
+				|| tagName === 'article'
+				|| current.hasAttribute('data-slide')
+				|| className.includes('slide')
+				|| id.includes('slide')
+				|| className.includes('swiper-slide')
+			) {
+				return current;
+			}
+			current = current.parentElement;
+		}
+		return imageElement?.ownerDocument?.body || null;
+	}
+
+	static extractPromptableImageSearchQueries(imageElement) {
+		const queries = [];
+		const pushQuery = (value) => {
+			const normalized = this.normalizePromptableImageQueryCandidate(value);
+			if (!normalized || queries.includes(normalized)) {
+				return;
+			}
+			queries.push(normalized);
+		};
+
+		if (!imageElement) {
+			return queries;
+		}
+
+		pushQuery(imageElement.getAttribute('data-image-query'));
+		pushQuery(imageElement.getAttribute('data-search-query'));
+		pushQuery(imageElement.getAttribute('alt'));
+		pushQuery(imageElement.getAttribute('title'));
+
+		const slideElement = this.findPromptableSlideContextElement(imageElement);
+		if (slideElement) {
+			const heading = slideElement.querySelector('h1, h2, h3, h4, header h1, header h2, header h3');
+			pushQuery(heading ? heading.textContent : '');
+			const subheading = slideElement.querySelector('h5, h6, p, li');
+			const subheadingText = String(subheading ? subheading.textContent : '').replace(/\s+/g, ' ').trim();
+			if (heading && subheadingText) {
+				pushQuery(`${heading.textContent} ${subheadingText}`);
+			}
+
+			const fullText = String(slideElement.textContent || '').replace(/\s+/g, ' ').trim();
+			if (fullText) {
+				pushQuery(fullText.split(/[.!?]/)[0]);
+			}
+		}
+
+		return queries.slice(0, 5);
+	}
+
+	static async resolvePromptableImageDataUrl(imageElement, abortSignal = null) {
+		if (!imageElement) {
+			return '';
+		}
+
+		const currentSrc = String(imageElement.getAttribute('src') || imageElement.currentSrc || '').trim();
+		if (/^data:/i.test(currentSrc)) {
+			return currentSrc;
+		}
+
+		const queries = this.extractPromptableImageSearchQueries(imageElement);
+		for (const query of queries) {
+			let urls = [];
+			try {
+				urls = await this.searchPromptableImageUrls(query, 8);
+			} catch (_searchError) {
+				continue;
+			}
+
+			for (const url of urls) {
+				try {
+					const dataUrl = await this.fetchPromptableImageAsDataUrl(url, abortSignal);
+					if (dataUrl) {
+						imageElement.setAttribute('data-image-query', query);
+						return dataUrl;
+					}
+				} catch (_fetchError) {
+					// Try next candidate.
+				}
+			}
+		}
+
+		if (currentSrc) {
+			try {
+				return await this.fetchPromptableImageAsDataUrl(currentSrc, abortSignal);
+			} catch (_currentSrcError) {
+				// Keep the original reference unchanged if both search and fetch fail.
+			}
+		}
+
+		return '';
+	}
+
+	static async inlinePromptablePresentationImages(documentRef, abortSignal = null) {
+		if (!documentRef || typeof documentRef.querySelectorAll !== 'function') {
+			return;
+		}
+
+		const images = Array.from(documentRef.querySelectorAll('img'));
+		for (const imageElement of images) {
+			if (!imageElement) {
+				continue;
+			}
+
+			try {
+				const dataUrl = await this.resolvePromptableImageDataUrl(imageElement, abortSignal);
+				if (!dataUrl) {
+					continue;
+				}
+				imageElement.setAttribute('src', dataUrl);
+				imageElement.removeAttribute('srcset');
+			} catch (_inlineError) {
+				// Leave the existing image reference unchanged if embedding fails.
+			}
+		}
+	}
+
+	static serializePromptableDocument(documentRef) {
+		if (!documentRef || !documentRef.documentElement) {
+			return '';
+		}
+
+		let doctype = '';
+		if (documentRef.doctype && documentRef.doctype.name) {
+			doctype = `<!DOCTYPE ${documentRef.doctype.name}`;
+			if (documentRef.doctype.publicId) {
+				doctype += ` PUBLIC \"${documentRef.doctype.publicId}\"`;
+			}
+			if (documentRef.doctype.systemId) {
+				doctype += `${documentRef.doctype.publicId ? '' : ' SYSTEM'} \"${documentRef.doctype.systemId}\"`;
+			}
+			doctype += '>';
+		}
+
+		const body = documentRef.documentElement.outerHTML;
+		return doctype ? `${doctype}\n${body}` : body;
+	}
+
+	static async buildStandalonePromptableHtml(htmlContent, abortSignal = null) {
+		const normalizedHtml = this.normalizePromptableNavigationHtml(htmlContent || '');
+		if (!normalizedHtml) {
+			return '';
+		}
+
+		let documentRef = null;
+		try {
+			const parser = new DOMParser();
+			documentRef = parser.parseFromString(normalizedHtml, 'text/html');
+		} catch (_error) {
+			return normalizedHtml;
+		}
+
+		if (!documentRef || !documentRef.body) {
+			return normalizedHtml;
+		}
+
+		await this.inlinePromptablePresentationImages(documentRef, abortSignal);
+		return this.serializePromptableDocument(documentRef);
+	}
+
 	static async buildPresentationRoutingAndOptions(model, baseOptions = {}) {
 		let routing = await OllamaAPI.getApiRoutingForModel(model);
 
@@ -1252,7 +1556,9 @@ class PromptedPresentationWorkflow {
 			'Your job is to produce a visually rich presentation as a single, self-contained HTML document.',
             'The first slide is always the main title and subtitle slide.',
             'Create differentiated and visually appealing differentiated backgrounds for each slide using SVG that effectively communicate the provided content.',
-			'Use online image URLs (https://...) from pixabay.com with pexels.com as fallback to enrich slides, NEVER use them as backgrounds. this images must always match the slide content and be relevant to the topic.',
+			'Use one topical content image per slide and make the image choice different for each slide topic.',
+			'For every slide image, include a concise descriptive alt text or data-image-query that names the ideal photo subject for that specific slide.',
+			'If you include external image URLs, use only direct image file URLs that return image bytes, not HTML page URLs. NEVER use those images as slide backgrounds.',
 			'ALWAYS use all text content provided by the user in the exact same order as provided; do not reorder any part of the text.',
 			'Respect the exact number of slides requested by the user.',
 			'Output MUST be only one HTML document and nothing else.',
@@ -1270,7 +1576,9 @@ class PromptedPresentationWorkflow {
 			'Your job is to produce a visually rich presentation as a single, self-contained HTML document.',
             'The first slide is always the main title and subtitle slide.',
             'Create differentiated and visually appealing differentiated backgrounds for each slide using SVG that effectively communicate the provided content.',
-			'Use online image URLs (https://...) from pixabay.com with pexels.com as fallback to enrich slides, NEVER use them as backgrounds. this images must always match the slide content and be relevant to the topic.',
+			'Use one topical content image per slide and make the image choice different for each slide topic.',
+			'For every slide image, include a concise descriptive alt text or data-image-query that names the ideal photo subject for that specific slide.',
+			'If you include external image URLs, use only direct image file URLs that return image bytes, not HTML page URLs. NEVER use those images as slide backgrounds.',
 			'ALWAYS use all text content provided by the user in the exact same order as provided; do not reorder any part of the text.',
 			'Respect the exact number of slides requested by the user.',
 			'Output MUST be only one HTML document and nothing else.',
@@ -2428,21 +2736,7 @@ class PromptedPresentationWorkflow {
 			return this.currentPresentationHtml || '';
 		}
 
-		const doc = frame.contentDocument;
-		let doctype = '';
-		if (doc.doctype && doc.doctype.name) {
-			doctype = `<!DOCTYPE ${doc.doctype.name}`;
-			if (doc.doctype.publicId) {
-				doctype += ` PUBLIC \"${doc.doctype.publicId}\"`;
-			}
-			if (doc.doctype.systemId) {
-				doctype += `${doc.doctype.publicId ? '' : ' SYSTEM'} \"${doc.doctype.systemId}\"`;
-			}
-			doctype += '>';
-		}
-
-		const body = doc.documentElement.outerHTML;
-		return doctype ? `${doctype}\n${body}` : body;
+		return this.serializePromptableDocument(frame.contentDocument);
 	}
 
 	static syncPromptableCurrentHtmlFromFrame(frame = null) {
@@ -2514,6 +2808,7 @@ class PromptedPresentationWorkflow {
 			if (!/^https?:\/\//i.test(String(url || '').trim())) {
 				return;
 			}
+			const proxiedUrl = this.buildPromptableProxiedImageUrl(url, true);
 			const thumbBtn = document.createElement('button');
 			thumbBtn.type = 'button';
 			thumbBtn.style.padding = '0';
@@ -2525,7 +2820,7 @@ class PromptedPresentationWorkflow {
 			thumbBtn.style.height = '74px';
 
 			const img = document.createElement('img');
-			img.src = url;
+			img.src = proxiedUrl || url;
 			img.alt = 'search-result';
 			img.style.width = '100%';
 			img.style.height = '100%';
@@ -2533,7 +2828,7 @@ class PromptedPresentationWorkflow {
 
 			thumbBtn.appendChild(img);
 			thumbBtn.addEventListener('click', () => {
-				this.replacePromptableSelectedImage(url);
+				void this.replacePromptableSelectedImage(url);
 			});
 
 			this.promptableImageEditorResults.appendChild(thumbBtn);
@@ -2595,7 +2890,7 @@ class PromptedPresentationWorkflow {
 		}
 	}
 
-	static replacePromptableSelectedImage(url) {
+	static async replacePromptableSelectedImage(url) {
 		if (!this.promptableSelectedImage || !url) {
 			this.updatePromptableImageEditorStatus(
 				window.Lang
@@ -2607,7 +2902,7 @@ class PromptedPresentationWorkflow {
 		}
 
 		const normalizedUrl = String(url || '').trim();
-		if (!/^https?:\/\//i.test(normalizedUrl)) {
+		if (!/^https?:\/\//i.test(normalizedUrl) && !/^data:/i.test(normalizedUrl)) {
 			this.updatePromptableImageEditorStatus(
 				window.Lang
 					? (Lang.get('promptableDirectLinkOnly') || 'Only direct image links (http/https) are allowed.')
@@ -2625,9 +2920,25 @@ class PromptedPresentationWorkflow {
 			this.promptableImageOriginalSrcById[imageId] = this.promptableSelectedImage.getAttribute('src') || this.promptableSelectedImage.currentSrc || '';
 		}
 
-		this.promptableSelectedImage.setAttribute('src', normalizedUrl);
+		this.updatePromptableImageEditorStatus(
+			window.Lang ? (Lang.get('searchingImagesLabel') || 'Searching images...') : 'Searching images...',
+			'info'
+		);
+
+		let dataUrl = normalizedUrl;
+		try {
+			dataUrl = await this.fetchPromptableImageAsDataUrl(normalizedUrl);
+		} catch (error) {
+			this.updatePromptableImageEditorStatus(
+				String(error && error.message ? error.message : error),
+				'error'
+			);
+			return;
+		}
+
+		this.promptableSelectedImage.setAttribute('src', dataUrl);
 		this.promptableSelectedImage.removeAttribute('srcset');
-		this.promptableSelectedImage.src = normalizedUrl;
+		this.promptableSelectedImage.src = dataUrl;
 		this.syncPromptableCurrentHtmlFromFrame(this.promptableEditingFrame);
 
 		this.updatePromptableImageEditorStatus(
@@ -3046,6 +3357,12 @@ class PromptedPresentationWorkflow {
 		}
 
 		const promptPayload = userText;
+		console.log('[PromptedPresentationWorkflow] generatePresentationHtml payload', {
+			mode,
+			model,
+			promptLength: String(promptPayload || '').length,
+			promptPreview: String(promptPayload || '').slice(0, 600)
+		});
 
 		const requestBody = {
 			model,
@@ -3088,7 +3405,7 @@ class PromptedPresentationWorkflow {
 			if (!htmlResponse) {
 				throw new Error('Model returned an empty HTML response.');
 			}
-			return this.normalizePromptableNavigationHtml(htmlResponse);
+			return await this.buildStandalonePromptableHtml(htmlResponse, abortSignal);
 		}
 
 		const reader = response.body.getReader();
@@ -3164,7 +3481,7 @@ class PromptedPresentationWorkflow {
 			throw new Error('Model returned an empty HTML response.');
 		}
 
-		return this.normalizePromptableNavigationHtml(htmlResponse);
+		return await this.buildStandalonePromptableHtml(htmlResponse, abortSignal);
 	}
 
 	static open({ onClose } = {}) {

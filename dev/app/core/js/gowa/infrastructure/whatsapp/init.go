@@ -35,7 +35,7 @@ var (
 )
 
 func syncKeysDevice(ctx context.Context, db, keysDB *sqlstore.Container) {
-	if keysDB == nil {
+	if db == nil || keysDB == nil || db == keysDB {
 		return
 	}
 

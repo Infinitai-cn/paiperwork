@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -167,16 +168,13 @@ func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
 	}
 	primaryDB, secondaryDB := getStoreContainers()
 	syncKeysDevice(ctx, primaryDB, secondaryDB)
-
-	// Fresh pairing path: send welcome immediately after PairSuccess so users
-	// don't need a stop/start cycle before receiving the first greeting.
-	go sendWelcomeAfterPairSuccess(evt)
 }
 
-func sendWelcomeAfterPairSuccess(evt *events.PairSuccess) {
+func sendWelcomeAfterPairSuccess(ctx context.Context, evt *events.PairSuccess) {
 	if evt == nil {
 		return
 	}
+	client := ClientFromContext(ctx)
 
 	jid := strings.TrimSpace(evt.ID.String())
 	if jid == "" {
@@ -197,8 +195,19 @@ func sendWelcomeAfterPairSuccess(evt *events.PairSuccess) {
 		return
 	}
 
-	// Allow the session to settle before sending the first outgoing message.
-	time.Sleep(2500 * time.Millisecond)
+	// PairSuccess can fire slightly before the client is fully send-ready.
+	// Wait for the local client state to settle so we don't trip the
+	// "you are not logged in" middleware path on the first welcome send.
+	for attempt := 1; attempt <= 8; attempt++ {
+		if client != nil && client.Store != nil && client.Store.ID != nil && client.IsConnected() && client.IsLoggedIn() {
+			break
+		}
+		if attempt == 8 {
+			logrus.Warnf("[WELCOME] skipping PairSuccess welcome for phone=%s because client is not fully logged in yet", phone)
+			return
+		}
+		time.Sleep(1 * time.Second)
+	}
 
 	payload := map[string]string{
 		"phone":   phone,
@@ -225,7 +234,8 @@ func sendWelcomeAfterPairSuccess(evt *events.PairSuccess) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		logrus.Warnf("[WELCOME] send returned status=%d after PairSuccess phone=%s", resp.StatusCode, phone)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		logrus.Warnf("[WELCOME] send returned status=%d after PairSuccess phone=%s body=%s", resp.StatusCode, phone, strings.TrimSpace(string(bodyBytes)))
 		return
 	}
 
@@ -284,6 +294,10 @@ func handleConnectionEvents(_ context.Context, client *whatsmeow.Client, instanc
 					log.Warnf("Failed to persist device record for %s: %v", instance.ID(), err)
 				}
 			}
+		}
+
+		if dm := GetDeviceManager(); dm != nil {
+			dm.pruneStaleRecordsForLoggedInInstance(instance)
 		}
 	}
 	if len(client.Store.PushName) == 0 {

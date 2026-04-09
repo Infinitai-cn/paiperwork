@@ -125,9 +125,6 @@ class ConnectorsTab {
         this._loadSavedWhatsappDeviceInfo().then(info => {
             if (info && info.deviceId) {
                 this.savedWhatsappDeviceId = info.deviceId;
-                this._syncPreferredWhatsappDeviceWithServer(true).catch(err => {
-                    console.warn('ConnectorsTab: initial _syncPreferredWhatsappDeviceWithServer failed', err);
-                });
             }
         }).catch(err => {
             console.warn('ConnectorsTab: initial _loadSavedWhatsappDeviceInfo failed', err);
@@ -141,7 +138,7 @@ class ConnectorsTab {
             const status = await this.refreshWhatsappPairButton({ check: true });
             if (status && status.gatewayRunning) {
                 this.serverStarted = true;
-                const alreadyPaired = !!(status.connected || status.loggedIn);
+                const alreadyPaired = !!status.loggedIn;
                 this.setWhatsappPairButtonState(alreadyPaired);
                 if (!alreadyPaired) {
                     this.openWhatsappPairModal();
@@ -167,6 +164,24 @@ class ConnectorsTab {
         this.whatsappManualStopRequested = false;
         this.whatsappRequestGeneration += 1;
         return this.whatsappRequestGeneration;
+    }
+
+    _getWhatsappUserScopedHeaders(extraHeaders = null) {
+        const headers = { ...(extraHeaders || {}) };
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (hashedMasterKey) {
+            headers['X-Paiperwork-User'] = hashedMasterKey;
+        }
+        return headers;
+    }
+
+    _appendWhatsappUserScope(params) {
+        const resolvedParams = params instanceof URLSearchParams ? params : new URLSearchParams(params || '');
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (hashedMasterKey) {
+            resolvedParams.set('user', hashedMasterKey);
+        }
+        return resolvedParams;
     }
 
     _isWhatsappRequestActive(requestGeneration, allowDuringManualStop = false) {
@@ -599,10 +614,17 @@ class ConnectorsTab {
             const body = await res.json();
             const devices = Array.isArray(body.results) ? body.results : (Array.isArray(body) ? body : []);
             //console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo devices', devices);
-            const connectedDevice = devices.find(d => d.state === 'logged_in' || d.state === 'connected');
+            const connectedDevice = devices.find(d => d.state === 'logged_in');
             if (!connectedDevice || !connectedDevice.id) {
                 //console.log('ConnectorsTab: _saveCurrentWhatsappDeviceInfo found no connected device');
                 return;
+            }
+
+            const previousDeviceId = String(this.savedWhatsappDeviceId || '').trim();
+            const nextDeviceId = String(connectedDevice.id || '').trim();
+            if (previousDeviceId && nextDeviceId && previousDeviceId !== nextDeviceId) {
+                await this._clearSavedWhatsappSessionBundle(previousDeviceId);
+                this.whatsappSessionImportedForDevice = null;
             }
 
             await dbHandle.saveWhatsappDeviceInfo(hashedMasterKey, connectedDevice.id, {
@@ -762,9 +784,10 @@ class ConnectorsTab {
             if (resolvedDeviceId) {
                 params.set('device_id', resolvedDeviceId);
             }
+            this._appendWhatsappUserScope(params);
             await fetch('/api/whatsapp/session?' + params.toString(), {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
+                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' })
             });
         } catch (err) {
             console.warn('ConnectorsTab: _clearWhatsappRuntimeSession failed', err);
@@ -787,9 +810,10 @@ class ConnectorsTab {
 
             const params = new URLSearchParams();
             params.set('device_id', resolvedDeviceId);
+            this._appendWhatsappUserScope(params);
             const response = await fetch('/api/whatsapp/session/export?' + params.toString(), {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
+                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' })
             });
             if (!response.ok) {
                 return false;
@@ -842,7 +866,7 @@ class ConnectorsTab {
 
             const response = await fetch('/api/whatsapp/session/import', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     device_id: resolvedDeviceId,
                     session: stored.session
@@ -1220,7 +1244,11 @@ class ConnectorsTab {
 
         while (Date.now() < deadline) {
             try {
-                const res = await fetch('/api/whatsapp/gateway-info', { cache: 'no-store' });
+                const params = this._appendWhatsappUserScope(new URLSearchParams());
+                const res = await fetch('/api/whatsapp/gateway-info?' + params.toString(), {
+                    cache: 'no-store',
+                    headers: this._getWhatsappUserScopedHeaders()
+                });
                 if (res.ok) {
                     const data = await res.json();
                     if (!data || data.gatewayRunning !== true) {
@@ -1239,7 +1267,11 @@ class ConnectorsTab {
 
     async _fetchWhatsappGatewayInfo() {
         try {
-            const res = await fetch('/api/whatsapp/gateway-info', { cache: 'no-store' });
+            const params = this._appendWhatsappUserScope(new URLSearchParams());
+            const res = await fetch('/api/whatsapp/gateway-info?' + params.toString(), {
+                cache: 'no-store',
+                headers: this._getWhatsappUserScopedHeaders()
+            });
             if (!res.ok) {
                 return null;
             }
@@ -1248,6 +1280,22 @@ class ConnectorsTab {
             console.warn('ConnectorsTab: gateway-info fetch failed', err);
             return null;
         }
+    }
+
+    async _closeWhatsappPairModalIfGatewayRecovered(modal, requestGeneration, source = 'gateway-info') {
+        const gatewayInfo = await this._fetchWhatsappGatewayInfo();
+        if (!this._isWhatsappRequestActive(requestGeneration)) {
+            return false;
+        }
+        if (gatewayInfo && gatewayInfo.gatewayRunning && gatewayInfo.loggedIn) {
+            console.log('ConnectorsTab: closing QR modal after recovered gateway login', {
+                source,
+                gatewayInfo
+            });
+            this._completeWhatsappPairingFlow(modal, source);
+            return true;
+        }
+        return false;
     }
 
     _showNoModelSelectedModal(message) {
@@ -1311,9 +1359,10 @@ class ConnectorsTab {
         this._cancelWhatsappAsyncWork({ manualStop: true });
         this.whatsappWebsocketShouldReconnect = false;
         try {
-            const res = await fetch('/api/whatsapp/qr?stop=true', {
+            const stopParams = this._appendWhatsappUserScope(new URLSearchParams({ stop: 'true' }));
+            const res = await fetch('/api/whatsapp/qr?' + stopParams.toString(), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
             });
             if (!res.ok) {
                 console.warn('ConnectorsTab: stop Whatsapp server failed', await res.text());
@@ -1360,29 +1409,21 @@ class ConnectorsTab {
             if (options.start) params.set('start', 'true');
             if (options.check) params.set('check', 'true');
 
-            if (this.savedWhatsappDeviceId) {
-                params.set('device_id', this.savedWhatsappDeviceId);
-            } else {
+            let candidateSavedDeviceId = String(this.savedWhatsappDeviceId || '').trim();
+            if (!candidateSavedDeviceId) {
                 const info = await this._loadSavedWhatsappDeviceInfo();
                 if (info && info.deviceId) {
-                    this.savedWhatsappDeviceId = info.deviceId;
-                    params.set('device_id', info.deviceId);
+                    candidateSavedDeviceId = String(info.deviceId || '').trim();
+                    this.savedWhatsappDeviceId = candidateSavedDeviceId;
                 }
+            }
+            if (candidateSavedDeviceId) {
+                params.set('device_id', candidateSavedDeviceId);
             }
 
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             if (hashedMasterKey) {
                 params.set('user', hashedMasterKey);
-            }
-            if (hashedMasterKey && window.PaiperworkDB && typeof window.PaiperworkDB.getWhatsappDeviceInfo === 'function') {
-                try {
-                    const info = await window.PaiperworkDB.getWhatsappDeviceInfo(hashedMasterKey);
-                    if (info && info.deviceId) {
-                        params.set('device_id', info.deviceId);
-                    }
-                } catch (err) {
-                    console.warn('ConnectorsTab: failed to read saved Whatsapp device info', err);
-                }
             }
 
             const url = `/api/whatsapp/qr?${params.toString()}`;
@@ -1486,12 +1527,13 @@ class ConnectorsTab {
 
             await this.setWhatsappPairButtonState(isPaired);
             if (isPaired) {
-                this.whatsappSessionImportedForDevice = this.savedWhatsappDeviceId || null;
+				if (shouldSaveDevice) {
+					await this._saveCurrentWhatsappDeviceInfo();
+				}
+				this.whatsappSessionImportedForDevice = this.savedWhatsappDeviceId || null;
                 this.whatsappStalePreferredDeviceCleared = null;
-                await this._syncPreferredWhatsappDeviceWithServer(isPaired);
-                if (shouldSaveDevice) {
-                    await this._saveCurrentWhatsappDeviceInfo();
-                } else {
+				if (!shouldSaveDevice) {
+					await this._syncPreferredWhatsappDeviceWithServer(isPaired);
                     //console.log('ConnectorsTab: refreshWhatsappPairButton deferring device save until connected', { data });
                 }
             } else if (shouldClearDeviceInfo) {
@@ -1953,7 +1995,8 @@ class ConnectorsTab {
                     }
                     try {
                         const qrContainer = document.getElementById('wa-qr-container');
-                        const proxyUrl = '/api/whatsapp/qr-image?ts=' + Date.now();
+                        const proxyParams = this._appendWhatsappUserScope(new URLSearchParams({ ts: String(Date.now()) }));
+                        const proxyUrl = '/api/whatsapp/qr-image?' + proxyParams.toString();
                         const blob = await this._fetchProxiedQrBlob(proxyUrl);
                         if (!this._isWhatsappRequestActive(requestGeneration)) {
                             return;
@@ -1992,12 +2035,32 @@ class ConnectorsTab {
                     return;
                 }
 
+                if (data.qrWithheld) {
+                    this.setWhatsappModalPhase('starting', 'Recovering WhatsApp session, please wait...');
+                    const qrContainer = document.getElementById('wa-qr-container');
+                    if (qrContainer) {
+                        qrContainer.innerHTML = '';
+                    }
+                    this.clearWhatsappQrCountdown();
+                    return;
+                }
+
+                if (!data.loggedIn && !data.qrDataUrl && data.gatewayRunning) {
+                    const recovered = await this._closeWhatsappPairModalIfGatewayRecovered(modal, requestGeneration, 'poll:gateway-info-recovered');
+                    if (recovered) {
+                        return;
+                    }
+                }
+
                 if (this.isPaired) {
                     this._completeWhatsappPairingFlow(modal, 'poll:post-connected-check');
                     return;
                 }
 
                 let qrUrl = data.qrDataUrl || data.qr;
+                if (data.qrWithheld) {
+                    qrUrl = '';
+                }
                 if (!qrUrl && data.gatewayRunning && !data.connected && !data.loggedIn) {
                     // In startup edge-cases, check-only polling can return running status
                     // without QR payload. Re-trigger a start/check request to force QR generation.
@@ -2005,7 +2068,7 @@ class ConnectorsTab {
                     const refreshed = await this.refreshWhatsappPairButton({ start: true, check: true, requestGeneration });
                     if (refreshed) {
                         data = refreshed;
-                        qrUrl = data.qrDataUrl || data.qr;
+                        qrUrl = data.qrWithheld ? '' : (data.qrDataUrl || data.qr);
                     }
                 }
 
@@ -2016,6 +2079,13 @@ class ConnectorsTab {
                 if (this.isPaired || data.loggedIn) {
                     this._completeWhatsappPairingFlow(modal, 'poll:before-render-qr');
                     return;
+                }
+
+                if (!qrUrl && data.gatewayRunning) {
+                    const recovered = await this._closeWhatsappPairModalIfGatewayRecovered(modal, requestGeneration, 'poll:before-stale-qr-render');
+                    if (recovered) {
+                        return;
+                    }
                 }
 
                 if (!qrUrl) {
@@ -2098,7 +2168,8 @@ class ConnectorsTab {
                             qrContainer.appendChild(img);
                         } else {
                             // Try server-cached proxied blob first (fast, accurate).
-                            const proxyUrl = '/api/whatsapp/qr-image?ts=' + Date.now();
+                            const proxyParams = this._appendWhatsappUserScope(new URLSearchParams({ ts: String(Date.now()) }));
+                            const proxyUrl = '/api/whatsapp/qr-image?' + proxyParams.toString();
                             //console.log('ConnectorsTab: fetching proxied QR at', proxyUrl);
                             try {
                                 const blob = await this._fetchProxiedQrBlob(proxyUrl);
@@ -2122,7 +2193,11 @@ class ConnectorsTab {
                                     // Fallback: let the browser fetch the proxied URL
                                     // directly (this will surface server-side errors
                                     // via the image onerror handler).
-                                    const directProxy = '/api/whatsapp/qr-image?url=' + encodeURIComponent(currentQr) + '&ts=' + Date.now();
+                                    const directProxyParams = this._appendWhatsappUserScope(new URLSearchParams({
+                                        url: currentQr,
+                                        ts: String(Date.now())
+                                    }));
+                                    const directProxy = '/api/whatsapp/qr-image?' + directProxyParams.toString();
                                     img.onload = () => {
                                         //console.log('ConnectorsTab: direct-proxy QR image loaded');
                                         try { this.lastQrDataUrl = currentQr; this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}
@@ -2138,7 +2213,11 @@ class ConnectorsTab {
                             } catch (err) {
                                 console.warn('ConnectorsTab: error fetching proxied QR', err);
                                 // Final fallback: try direct image URL via proxy
-                                const directProxy = '/api/whatsapp/qr-image?url=' + encodeURIComponent(currentQr) + '&ts=' + Date.now();
+                                const directProxyParams = this._appendWhatsappUserScope(new URLSearchParams({
+                                    url: currentQr,
+                                    ts: String(Date.now())
+                                }));
+                                const directProxy = '/api/whatsapp/qr-image?' + directProxyParams.toString();
                                 img.onload = () => {
                                     //console.log('ConnectorsTab: direct-proxy QR image loaded after fetch error');
                                     try { this.lastQrDataUrl = currentQr; this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}

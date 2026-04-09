@@ -260,6 +260,22 @@ const presentationKeymap = {
         '保存済みのプレゼン', '保存済みのプレゼンテーション', '自分のプレゼン',
         '저장된 프레젠테이션', '내 프레젠테이션'
     ],
+    webCues: [
+        'use internet', 'use the internet', 'use web', 'use the web', 'with web search', 'using web search', 'search the web', 'search online', 'use online sources',
+        'use online references', 'use internet sources', 'look on the web', 'look online', 'browse the web for sources', 'with internet research',
+        'usa internet', 'usa el internet', 'usa la web', 'usa búsqueda web', 'con búsqueda web', 'busca en la web', 'busca en internet', 'usa fuentes en línea',
+        'usa referencias en línea', 'con investigación web',
+        'usa internet', 'usa a internet', 'usa a web', 'usa pesquisa web', 'com pesquisa web', 'pesquisa na web', 'pesquisa online', 'usa fontes online',
+        'usa referências online', 'com pesquisa na internet',
+        'utilise internet', 'utilise la recherche web', 'avec recherche web', 'recherche sur le web', 'cherche en ligne', 'utilise des sources en ligne',
+        'avec recherche internet',
+        'nutze das internet', 'nutze websuche', 'mit websuche', 'im web suchen', 'online suchen', 'nutze online-quellen', 'nutze internetquellen',
+        'usa internet', 'usa il web', 'usa la ricerca web', 'con ricerca web', 'cerca sul web', 'cerca online', 'usa fonti online', 'usa fonti internet',
+        'используй интернет', 'используй веб-поиск', 'с веб-поиском', 'ищи в интернете', 'используй онлайн-источники',
+        '使用互联网', '使用网络搜索', '用网页搜索', '搜索网络', '在线搜索', '使用在线来源',
+        'ウェブ検索を使う', 'インターネットを使う', 'ウェブで検索', 'オンラインで検索', 'オンライン情報を使う',
+        '웹 검색 사용', '인터넷 사용', '웹에서 검색', '온라인 검색', '온라인 출처 사용'
+    ],
     followUpCloseCues: commonFollowUpCloseCues,
     followUpContinueCues: commonFollowUpContinueCues,
     workflows: {
@@ -302,6 +318,7 @@ presentationKeymap.terms = [...new Set([
     ...presentationKeymap.intent,
     ...presentationKeymap.sourceCues,
     ...presentationKeymap.savedCues,
+    ...presentationKeymap.webCues,
     ...presentationKeymap.workflows.summaryToPresentation,
     ...presentationKeymap.sectionAnchors,
     ...Object.values(presentationKeymap.actions).flat()

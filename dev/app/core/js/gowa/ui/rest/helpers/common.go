@@ -49,6 +49,12 @@ func StopAutoConnectAfterBooting() {
 	autoConnectAfterBootCtx = nil
 }
 
+func IsAutoConnectAfterBootingActive() bool {
+	autoConnectAfterBootMu.Lock()
+	defer autoConnectAfterBootMu.Unlock()
+	return autoConnectAfterBootCtx != nil && autoConnectAfterBootCtx.Err() == nil
+}
+
 func sleepWithContext(ctx context.Context, wait time.Duration) bool {
 	if wait <= 0 {
 		return ctx == nil || ctx.Err() == nil
@@ -77,6 +83,7 @@ func looksLikePersistentSessionDeviceID(deviceID string) bool {
 
 func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 	ctx := resetAutoConnectAfterBootContext()
+	defer StopAutoConnectAfterBooting()
 	logrus.Info("auto-connect: begin auto connect after booting")
 	if service == nil {
 		logrus.Warn("auto-connect skipped: appUsecase is nil")
@@ -249,11 +256,6 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 					if isConnected && isLoggedIn {
 						logrus.Infof("auto-connect: device %s is now fully connected and logged in", device.Device)
 						hasFullyLoggedInDevice = true
-						// Allow local state to settle before sending welcome text.
-						go func(deviceID string) {
-							time.Sleep(2 * time.Second)
-							sendWhatsappWelcomeText(deviceID)
-						}(device.Device)
 						break
 					}
 

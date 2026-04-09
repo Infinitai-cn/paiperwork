@@ -444,7 +444,12 @@ func initApp() {
 	whatsappDB := whatsapp.InitWaDB(ctx, config.DBURI)
 	var keysDB *sqlstore.Container
 	if config.DBKeysURI != "" {
-		keysDB = whatsapp.InitWaDB(ctx, config.DBKeysURI)
+		if config.DBKeysURI == config.DBURI {
+			keysDB = whatsappDB
+			logrus.Infof("initApp: reusing primary WhatsApp DB container for keys store")
+		} else {
+			keysDB = whatsapp.InitWaDB(ctx, config.DBKeysURI)
+		}
 	}
 
 	whatsappCli = whatsapp.InitWaCLI(ctx, whatsappDB, keysDB, chatStorageRepo)
