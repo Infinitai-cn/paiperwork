@@ -2914,5 +2914,157 @@ window.helpContent = {
         ],
     },
 
+    connectors: {
+        title: "Verbindungen",
+        intro: [
+            "Hinweis: Die online auf Huggingface gehostete Version von Paiperwork enthält aus Gründen der Sicherheit und Privatsphäre der Nutzer keine WhatsApp-Funktionalität.",
+            "Verbindungen koppeln Paiperwork mit WhatsApp. Anfragen verwenden nur Ressourcen, die bereits in Paiperwork vorhanden sind, und greifen nicht auf Betriebssystem, Speicher, Festplatte oder beliebige externe Dateien zu.",
+            "Damit eingehende WhatsApp-Nachrichten ankommen, muss der Browser-Tab mit Paiperwork aktiv bleiben und der Computer wach bleiben. Hinweis: Wenn Sie die Huggingface-Spaces-Version von Paiperwork verwenden, kann der Server wegen Inaktivität stoppen (Huggingface-Regeln).",
+            "Dokumente, Recherchen, Präsentationen und Artefakte können einen speziellen Nachverfolgungsmodus öffnen. Bleiben Sie in diesem Modus, bis Sie ihn mit dem passenden Beendigungsbefehl schließen."
+        ],
+        articles: [
+            {
+                id: "connectors-pairing",
+                title: "Kopplung und Modi",
+                content: `
+                <p>Öffnen Sie den Tab Verbindungen und wählen Sie zuerst einen Modus, bevor Sie den Server starten.</p>
+                <ol>
+                    <li><strong>Persönlicher Modus:</strong> Sie verbinden Ihr eigenes WhatsApp-Konto und sprechen privat mit sich selbst.</li>
+                    <li><strong>Bot-Modus:</strong> Personen aus Ihrer WhatsApp-Kontaktliste können mit der gekoppelten Paiperwork-Instanz sprechen. Verwenden Sie am besten eine separate Nummer, außer Sie möchten dieses Verhalten ausdrücklich mit Ihrem Hauptkonto.<br><strong>2.1.</strong> Sie können die Nutzererfahrung mit dem Bot verbessern, indem Sie den System Prompt im Chat-Tab anpassen.<br><strong>2.2.</strong> Jeder WhatsApp-Nutzer in Ihrer Kontaktliste kann auf aktivierte Connector-Funktionen und auf gespeicherte Dokumente zugreifen, die über den Connector verfügbar sind.</li>
+                </ol>
+                <p>Klicken Sie auf <strong>Start server</strong> und scannen Sie beim ersten Koppeln den QR-Code. Sie können den Server jederzeit stoppen, wodurch die Nachrichtenweiterleitung in beide Richtungen endet.</p>
+                <p>Wenn Sie die Paiperwork-Kopplung vollständig entfernen möchten, tun Sie dies auf Ihrem Telefon in WhatsApp unter <strong>Linked devices</strong>.</p>
+            `,
+            },
+            {
+                id: "connectors-models-chat",
+                title: "Modellauswahl und Chat",
+                content: `
+                <p>Nach der Verbindung verwendet WhatsApp das Modell, das aktuell im Chat-Tab ausgewählt ist.</p>
+                <p>Sie können direkt in Ihrem WhatsApp-Chat prüfen, welches KI-Modell aktiv ist, und es dort auch wechseln.</p>
+                <h4>Nützliche Modellbefehle</h4>
+                <ul>
+                    <li><code>welches modell ist ausgewählt</code></li>
+                    <li><code>zeige meine modelle</code></li>
+                    <li><code>ändere das aktuelle modell zu &lt;modellname&gt;</code></li>
+                    <li><code>nutze &lt;modellname&gt;</code></li>
+                </ul>
+                <p>Wenn WhatsApp keine Modelle wechseln soll, aktivieren Sie im Verbindungen-Tab <strong>Lock AI model</strong>.</p>
+                <p>Im Chat können Sie wie gewohnt mit Ihrem KI-Modell über WhatsApp sprechen. Verwenden Sie Formulierungen wie <code>im internet suchen</code> oder <code>online suchen</code>, wenn Sie eine Websuche möchten. Wenn eine Antwort HTML enthält, sendet Paiperwork sie als anklickbare HTML-Datei zur Vorschau oder zum Download zurück.</p>
+                <h4>Chat-Beispiele</h4>
+                <ul>
+                    <li><code>hallo</code></li>
+                    <li><code>erkläre den unterschied zwischen OLED und Mini LED</code></li>
+                </ul>
+            `,
+            },
+            {
+                id: "connectors-workflows",
+                title: "Dokumente, Diagramme, Recherche, Präsentationen und Artefakte",
+                content: `
+                <h4>Dokumente</h4>
+                <p>Sie können Fragen zu einem importierten Dokument stellen oder eine Zusammenfassung anfordern. Dokumentnamen müssen nicht exakt sein.</p>
+                <p>Für diese Funktion muss im Tab Dokumente ein lokales Embedding-Modell installiert und ausgewählt sein.</p>
+                <ul>
+                    <li><code>dokumente durchsuchen</code></li>
+                    <li><code>ich möchte ein dokument prüfen, aber ich erinnere mich nicht an den namen</code></li>
+                    <li><code>ich möchte eine frage zu einem dokument stellen</code></li>
+                    <li><code>&lt;dokumentname&gt; zusammenfassen</code></li>
+                    <li><code>&lt;dokumentname&gt; beschreiben</code></li>
+                    <li><code>&lt;dokumentname&gt; zusammenfassung und präsentation</code></li>
+                </ul>
+                <p>Zum Verlassen des Dokument-Nachverfolgungsmodus verwenden Sie <code>dokumentmodus verlassen</code> oder <code>ich bin fertig</code>.</p>
+                <h5>Interaktionen</h5>
+                <p><strong>Nutzer:</strong> <code>&lt;dokumentname&gt; zusammenfassung</code></p>
+                <p><strong>Paiperwork:</strong> Dokumentzusammenfassung bereitgestellt.</p>
+                <p><strong>Paiperwork:</strong> Möchten Sie mit diesem Dokument weiterarbeiten?</p>
+                <p><strong>Nutzer:</strong> <code>Ja, erstelle eine präsentation</code></p>
+                <p><strong>Paiperwork:</strong> Erstelle eine promptable SlideForge-Präsentation...</p>
+                <p><strong>Paiperwork:</strong> Präsentation erstellt und als HTML-Datei gesendet.</p>
+                <p><strong>Paiperwork:</strong> Möchten Sie weitere Änderungen an dieser Präsentation vornehmen?</p>
+                <p><strong>Nutzer:</strong> <code>Nein</code></p>
+                <p><strong>Paiperwork:</strong> Okay, der Präsentations-Nachverfolgungsmodus ist geschlossen.</p>
+
+                <h4>Diagramme</h4>
+                <p>Sie können von Paiperwork unterstützte Diagramme anfordern. Sobald das Diagramm erstellt ist, wird es an Ihre WhatsApp-Konversation gesendet.</p>
+                <ul>
+                    <li><code>erstelle ein pie chart</code></li>
+                    <li><code>erstelle ein radar chart</code></li>
+                    <li><code>erstelle ein bar chart über quartalsumsätze</code></li>
+                </ul>
+                <p>Geben Sie eigene Daten an, wenn Sie statt einer Demo ein echtes Diagramm erzeugen möchten.</p>
+
+                <h4>Recherche</h4>
+                <p>Sie können Paiperwork bitten, ein Thema für Sie zu recherchieren. Standardberichte haben meist etwa 1000 bis 1500 Wörter, daher kann das etwas dauern.</p>
+                <ul>
+                    <li><code>recherchieren die neuesten trends bei batterien für elektrofahrzeuge und analysieren chancen für startups</code></li>
+                    <li><code>recherchieren wohnungspreise in australien</code></li>
+                    <li><code>erstellen einen bericht über das wetter in england</code></li>
+                    <li><code>füge auch die auswirkung des wetters auf strandbesuche hinzu</code></li>
+                </ul>
+                <p>Zum Schließen des Recherche-Nachverfolgungsmodus antworten Sie mit <code>nein</code>, <code>nein danke</code> oder <code>ich bin fertig</code>.</p>
+                <h5>Interaktionen</h5>
+                <p><strong>Paiperwork:</strong> Die Recherche zu <code>&lt;recherchethema&gt;</code> hat begonnen. Erkenntnisse werden gesammelt...</p>
+                <p><strong>Paiperwork:</strong> Wenn Sie fertig sind, antworten Sie mit <code>nein</code>, <code>nein danke</code> oder <code>ich bin fertig</code>, um den Recherchemodus zu schließen.</p>
+                <p><strong>Paiperwork:</strong> Möchten Sie diese Recherche weiter verfeinern?</p>
+                <p><strong>Nutzer:</strong> <code>Füge &lt;zusätzliche recherche-verfeinerung&gt; hinzu</code></p>
+                <p><strong>Paiperwork:</strong> Die Recherche mit zusätzlicher Verfeinerung wurde gestartet.</p>
+                <p><strong>Paiperwork:</strong> Verfeinerte Recherche wurde geliefert.</p>
+                <p><strong>Paiperwork:</strong> Möchten Sie diese Recherche weiter verfeinern?</p>
+                <p><strong>Nutzer:</strong> <code>ich bin fertig</code>, <code>nein</code>, <code>nein danke</code></p>
+                <p><strong>Paiperwork:</strong> Okay, der Recherche-Nachverfolgungsmodus ist geschlossen.</p>
+
+                <h4>Präsentationen</h4>
+                <p>Sie können Präsentationen erstellen, indem Sie den Ausgangstext bereitstellen. Paiperwork schätzt die Anzahl der Folien anhand der Inhaltsmenge, sofern Sie keine konkrete Folienzahl angeben.</p>
+                <ul>
+                    <li><code>mit diesem text eine präsentation erstellen: &lt;präsentationstext&gt;</code></li>
+                    <li><code>mit folgendem text eine präsentation erstellen: &lt;präsentationstext&gt;</code></li>
+                    <li><code>erstelle folien zur europäischen ev-politik, nutze websuche, 7 slides</code></li>
+                    <li><code>liste meine präsentationen</code></li>
+                    <li><code>sende mir &lt;präsentationsname&gt;</code></li>
+                </ul>
+                <h5>Interaktionen</h5>
+                <p><strong>Nutzer:</strong> <code>Erstelle eine präsentation über das sonnensystem und seine planeten, online suchen.</code></p>
+                <p><strong>Paiperwork:</strong> Erstelle eine promptable SlideForge-Präsentation mit Websuche...</p>
+                <p><strong>Paiperwork:</strong> Präsentation erstellt und als HTML-Datei gesendet.</p>
+                <p><strong>Paiperwork:</strong> Möchten Sie weitere Änderungen an dieser Präsentation vornehmen?</p>
+                <p><strong>Nutzer:</strong> <code>Ja, ändere den hintergrund in folie 3 zu blauem thema</code></p>
+
+                <h4>Artefakte</h4>
+                <p>Sie können direkt über WhatsApp Artefakte oder HTML-Mini-Apps vieler Arten anfordern.</p>
+                <ul>
+                    <li><code>erstelle eine entspannende animierte wallpaper mini app mit verschiedenen geräuschen und low frequency oscillators, mit websuche</code></li>
+                    <li><code>erstelle galaga artefakt</code></li>
+                    <li><code>erstelle eine mini app, um online tv-stationen zu finden</code></li>
+                    <li><code>erstelle ein mp3 player artefakt</code></li>
+                    <li><code>zeig mir meine mini apps</code></li>
+                    <li><code>zeig mir meine artefakte</code></li>
+                    <li><code>sende mir &lt;artefaktname&gt; mini app</code></li>
+                    <li><code>sende mir &lt;artefaktname&gt; artefakt</code></li>
+                </ul>
+                <h5>Interaktionen</h5>
+                <p><strong>Paiperwork:</strong> Möchten Sie weitere Änderungen an dieser Mini-App vornehmen?</p>
+                <p><strong>Nutzer:</strong> <code>Ja, ändere den hintergrund</code></p>
+                <p><strong>Paiperwork:</strong> Möchten Sie weitere Änderungen an dieser Mini-App vornehmen?</p>
+                <p><strong>Nutzer:</strong> <code>Nein</code></p>
+                <p><strong>Paiperwork:</strong> Okay, der Artefakt-Änderungsmodus ist geschlossen.</p>
+            `,
+            },
+            {
+                id: "connectors-notes",
+                title: "Betriebshinweise und Grenzen",
+                content: `
+                <ul>
+                    <li>Das Senden von Dateien und Bildern an das KI-Modell wird derzeit noch nicht unterstützt.</li>
+                    <li>Dokument-Workflows erfordern ein lokal ausgewähltes Embedding-Modell im Dokumente-Tab.</li>
+                    <li>Paiperwork verwendet einen internen Orchestrator, um für jede WhatsApp-Anfrage die passende Connector-Funktion auszuwählen.</li>
+                    <li>Wenn Sie den Browser aktualisieren, bleiben eingehende Nachrichten pausiert, bis Sie den Verbindungen-Tab erneut öffnen. Das ist beabsichtigt, damit lokale Nutzer nicht unerwartet gespammt werden.</li>
+                    <li>Präsentationen und Artefakte aus WhatsApp werden als HTML-Dateien zurückgesendet. Später können Sie sie in Paiperwork öffnen und manuell weiter bearbeiten.</li>
+                </ul>
+            `,
+            }
+        ],
+    },
+
 
 };

@@ -50,13 +50,13 @@ const documentKeymap = {
             '질문', '물어', '설명', '묘사'
         ],
         exit: [
-            'exit document mode', 'leave document mode', 'stop document mode', 'disable document mode', 'back to normal chat', 'regular chat',
-            'salir del modo documento', 'dejar modo documento', 'volver al chat normal',
-            'sair do modo documento', 'voltar ao chat normal',
-            'quitter le mode document', 'revenir au chat normal',
-            'dokumentmodus verlassen', 'zuruck zum normalen chat', 'zurück zum normalen chat',
+            'exit document mode', 'leave document mode', 'stop document mode', 'disable document mode', 'finish document mode', 'back to normal chat', 'regular chat',
+            'salir del modo documento', 'dejar modo documento', 'terminar modo documento', 'volver al chat normal',
+            'sair do modo documento', 'terminar modo documento', 'voltar ao chat normal',
+            'quitter le mode document', 'terminer le mode document', 'revenir au chat normal',
+            'dokumentmodus verlassen', 'dokumentmodus beenden', 'zuruck zum normalen chat', 'zurück zum normalen chat',
             'uscire dalla modalita documento', 'uscire dalla modalità documento', 'torna alla chat normale',
-            '退出文档模式', '返回普通聊天',
+            '退出文档模式', '结束文档模式', '返回普通聊天',
             'ドキュメントモードを終了', '通常チャットに戻る',
             '문서 모드 종료', '일반 채팅으로 돌아가기'
         ]

@@ -9,7 +9,7 @@ window.helpContent = {
                 "Welcome to Paiperwork, a secure web interface for Ollama that prioritizes data privacy and ease of use. This professional-focused assistant offers productivity features while keeping your data local and protected.",
                 "You can either download and run models locally on your computer, or use cloud models if your hardware cannot handle local models. Cloud models require signing in on ollama.com and creating an API key. On first cloud model use, Paiperwork will ask for this key and store it encrypted in your local database.",
                 "Detailed instructions to use Ollama cloud models: 1) Download Paiperwork from https://infinitai-cn.github.io/paiperwork/. 2) Unzip the file. 2.1) If you cannot open Paiperwork, check your security settings to allow execution. On Windows, click the More info button. On macOS, open Privacy & Security in Settings. 3) Go to https://ollama.com and create an account. 4) Download and install Ollama. 5) In your Ollama account, open Settings. 6) Open Usage to check how much free usage is left (important). 7) Open Keys, click Add API key, then Generate API key, and copy the generated key. 8) Save the key in a text file on your computer. 9) Run Paiperwork (Mac, Windows, or Linux). 10) Enter a master key, then in the Chat tab click Manage Cloud API key and add your Ollama API key. 11) You can now use Ollama free cloud models.",
-                "Online mode (<a href=\"https://huggingface.co/spaces/Infinitai/Paiperwork\" target=\"_blank\" rel=\"noopener noreferrer\">Hugginface spaces</a>) notice: Due to local requirements, the Documents, Translate, and Models tabs are disabled in online mode. These tabs are enabled when running Paiperwork on your computer."
+                "Online mode (<a href=\"https://huggingface.co/spaces/Infinitai/Paiperwork\" target=\"_blank\" rel=\"noopener noreferrer\">Hugginface spaces</a>) notice: Due to local requirements, the Documents, Translate, Models, and Connectors tabs are disabled in online mode. These tabs are enabled when running Paiperwork on your computer."
             ],
         articles: [
             {
@@ -2940,14 +2940,163 @@ window.helpContent = {
                 <p>If persistent issues occur and normal maintenance doesn't help:</p>
                 <ol>
                     <li>Export any important conversations or documents first</li>
-                    <li>Return to the welcome screen</li>
-                    <li>Click "Delete All Information" to reset the database</li>
-                    <li>This will remove all data and create a fresh database</li>
+                    <li>Click "Delete All Information" to delete the database</li>
+                    <li>This will remove all data and create a fresh database, now you can try importing your saved database</li>
                 </ol>
+                <p>you can use this function to safely delete all your information from the browser if you require it</p>
                 
                 <div class="note">
                     <p><strong>Warning:</strong> Database reset is irreversible and will delete all your data. Always export important information first.</p>
                 </div>
+            `,
+            }
+        ],
+    },
+
+    connectors: {
+        title: "Connectors",
+        intro: [
+            "Note: The Paiperwork online version hosted on Huggingface does not include WhatsApp functionality for user safety and privacy reasons.",
+            "Connectors pair Paiperwork with WhatsApp. Requests only use resources already available inside Paiperwork and do not access your operating system, memory, hard disk, or arbitrary external files.",
+            "To receive incoming WhatsApp messages, keep the Paiperwork browser tab active and keep your computer awake. Note: If you use Huggingface Spaces version of Paiperwork, the server may stop due to inactivity (Huggingface rules).",
+            "Documents, research, presentations, and artifacts can open a dedicated follow-up mode. Stay in that mode until you close it with the corresponding exit cue."
+        ],
+        articles: [
+            {
+                id: "connectors-pairing",
+                title: "Pairing and Modes",
+                content: `
+                <p>Open the Connectors tab and choose a mode before starting the server.</p>
+                <ol>
+                    <li><strong>Personal mode:</strong> Connect your own WhatsApp account and talk with yourself in a private workflow.</li>
+                    <li><strong>Bot mode:</strong> People in your WhatsApp contact list can talk to the paired Paiperwork instance. Use a separate phone number unless you explicitly want your main account to behave this way.<br><strong>2.1.</strong> You can enhance the user experience interacting with the bot by modifying the system prompt in the Chat tab.<br><strong>2.2.</strong> Any WhatsApp user in your contact list can access enabled connector functions and stored documents that are available through the connector.</li>
+                </ol>
+                <p>Click <strong>Start server</strong>, then scan the QR code the first time you pair. You can stop the server at any time, which stops message routing in both directions.</p>
+                <p>If you want to fully remove the Paiperwork pairing, do it from your phone in WhatsApp under <strong>Linked devices</strong>.</p>
+            `,
+            },
+            {
+                id: "connectors-models-chat",
+                title: "Model Selection and Chat",
+                content: `
+                <p>Once connected, WhatsApp uses the model currently selected in the Chat tab.</p>
+                <p>You can check which AI model is currently active and change it directly from your WhatsApp chat.</p>
+                <h4>Useful model commands</h4>
+                <ul>
+                    <li><code>What model is selected now?</code></li>
+                    <li><code>Show me my models</code></li>
+                    <li><code>Change the current model to &lt;model name&gt;</code></li>
+                    <li><code>Use &lt;model name&gt;</code></li>
+                </ul>
+                <p>If you do not want WhatsApp to change models, press <strong>Lock AI model</strong> in the Connectors tab.</p>
+                <p>Chat lets you talk with your AI model as usual from WhatsApp. Use phrases like <code>search internet</code> or <code>find online</code> when you want web search. If a response contains HTML, Paiperwork sends it back as a clickable HTML file for preview or download.</p>
+                <h4>Chat usage examples</h4>
+                <ul>
+                    <li><code>Hello</code></li>
+                    <li><code>Explain the difference between OLED and Mini LED</code></li>
+                </ul>
+            `,
+            },
+            {
+                id: "connectors-workflows",
+                title: "Documents, Charts, Research, Presentations, and Artifacts",
+                content: `
+                <h4>Documents</h4>
+                <p>You can ask questions about an imported document or request a summary. Document names do not need to be exact.</p>
+                <p>A local embedding model must be installed and selected in the Documents tab for this feature.</p>
+                <ul>
+                    <li><code>I want to check my documents</code></li>
+                    <li><code>I want to check a document but I do not remember the name</code></li>
+                    <li><code>I want to make a question to a document</code></li>
+                    <li><code>&lt;document name&gt; and your question</code></li>
+                    <li><code>Summarize &lt;document name&gt;</code></li>
+                    <li><code>&lt;document name&gt; summarize and create a presentation</code></li>
+                </ul>
+                <p>To leave document follow-up mode, use <code>exit document mode</code> or <code>I am finished</code>.</p>
+                <h5>Interactions</h5>
+                <p><strong>User:</strong> <code>&lt;document name&gt; summary</code></p>
+                <p><strong>Paiperwork:</strong> Document summary provided.</p>
+                <p><strong>Paiperwork:</strong> Do you want to keep working with this document?</p>
+                <p><strong>User:</strong> <code>Yes, create presentation</code></p>
+                <p><strong>Paiperwork:</strong> Creating a promptable SlideForge presentation...</p>
+                <p><strong>Paiperwork:</strong> Presentation created and sent as an HTML file.</p>
+                <p><strong>Paiperwork:</strong> Do you want to make more changes to this presentation?</p>
+                <p><strong>User:</strong> <code>No</code></p>
+                <p><strong>Paiperwork:</strong> Okay, presentation follow-up mode is closed.</p>
+
+                <h4>Charts</h4>
+                <p>You can request charts supported by Paiperwork. Once created, the chart is sent to your WhatsApp conversation.</p>
+                <ul>
+                    <li><code>Create a sample pie chart</code></li>
+                    <li><code>Create a demo radar chart</code></li>
+                    <li><code>Create a bar chart about sales by quarter</code></li>
+                </ul>
+                <p>Provide your own data if you want a real chart instead of a demo.</p>
+
+                <h4>Research</h4>
+                <p>You can ask Paiperwork to research a topic for you. Standard reports are usually around 1000 to 1500 words, so this may take some time.</p>
+                <ul>
+                    <li><code>Research the latest trends in electric vehicle batteries and summarize opportunities for startups</code></li>
+                    <li><code>Research home prices in Australia</code></li>
+                    <li><code>Create a report about the weather in England</code></li>
+                    <li><code>Add the impact of the weather on beach attendance</code></li>
+                </ul>
+                <p>To close research follow-up mode, reply with <code>no</code>, <code>no thanks</code>, or <code>I am finished</code>.</p>
+                <h5>Interactions</h5>
+                <p><strong>Paiperwork:</strong> Research has started for <code>&lt;research topic&gt;</code>. Gathering insights...</p>
+                <p><strong>Paiperwork:</strong> When you are done, reply with <code>no</code>, <code>no thanks</code>, or <code>I am finished</code> to close research mode.</p>
+                <p><strong>Paiperwork:</strong> Do you want to continue refining this research?</p>
+                <p><strong>User:</strong> <code>Add &lt;extra research refinement&gt;</code></p>
+                <p><strong>User:</strong> <code>I am finished</code>, <code>no</code>, <code>No thanks</code></p>
+                <p><strong>Paiperwork:</strong> Okay, research follow-up mode is closed.</p>
+
+                <h4>Presentations</h4>
+                <p>You can create presentations by providing the source text. Paiperwork estimates the number of slides from the amount of content unless you explicitly request a slide count.</p>
+                <ul>
+                    <li><code>Create a presentation with the following text: &lt;presentation text&gt;</code></li>
+                    <li><code>Use the following text to create a presentation: &lt;presentation text&gt;</code></li>
+                    <li><code>Make me slides on European EV policy, use internet search, make it 7 slides</code></li>
+                    <li><code>List my presentations</code></li>
+                    <li><code>Send me &lt;presentation name&gt;</code></li>
+                </ul>
+                <h5>Interactions</h5>
+                <p><strong>User:</strong> <code>Create a presentation about the Solar system and its planets, search online.</code></p>
+                <p><strong>Paiperwork:</strong> Creating a promptable SlideForge presentation using web search...</p>
+                <p><strong>Paiperwork:</strong> Presentation created and sent as an HTML file.</p>
+                <p><strong>Paiperwork:</strong> Do you want to make more changes to this presentation?</p>
+                <p><strong>User:</strong> <code>Yes, change the background in slide 3 to blue theme</code></p>
+
+                <h4>Artifacts</h4>
+                <p>You can request artifacts or HTML mini apps of many kinds directly from WhatsApp.</p>
+                <ul>
+                    <li><code>Create one relaxing animated wallpaper mini app with different noises and low frequency oscillators, with web search</code></li>
+                    <li><code>Create Galaga game artifact</code></li>
+                    <li><code>Create one mini app to find online TV stations</code></li>
+                    <li><code>Create one mp3 player artifact</code></li>
+                    <li><code>Show me my mini apps</code></li>
+                    <li><code>Show me my artifacts</code></li>
+                    <li><code>Send me &lt;artifact name&gt; mini app</code></li>
+                    <li><code>Send me &lt;artifact name&gt; artifact</code></li>
+                </ul>
+                <h5>Interactions</h5>
+                <p><strong>Paiperwork:</strong> Do you want to make further modifications to this miniapp?</p>
+                <p><strong>User:</strong> <code>Yes, change the background</code></p>
+                <p><strong>Paiperwork:</strong> Do you want to make further modifications to this miniapp?</p>
+                <p><strong>User:</strong> <code>No</code></p>
+                <p><strong>Paiperwork:</strong> Okay, artifact modification mode is closed.</p>
+            `,
+            },
+            {
+                id: "connectors-notes",
+                title: "Operational Notes and Limits",
+                content: `
+                <ul>
+                    <li>Sending files and images to the AI model is not supported yet.</li>
+                    <li>Document workflows require a local embedding model selected in the Documents tab.</li>
+                    <li>Paiperwork uses an internal orchestrator to decide which connector function to use for each WhatsApp request.</li>
+                    <li>If you refresh the browser, incoming messages stay paused until you open the Connectors tab again. This is intentional so local users do not get spammed unexpectedly.</li>
+                    <li>Presentations and artifacts generated from WhatsApp are sent back as HTML files. You can later open them in Paiperwork for deeper manual edits.</li>
+                </ul>
             `,
             }
         ],

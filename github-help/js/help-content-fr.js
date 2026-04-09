@@ -6,7 +6,7 @@ window.helpContent = {
             "Bienvenue dans Paiperwork, une interface web sécurisée pour Ollama qui privilégie la confidentialité des données et la facilité d'utilisation. Cet assistant axé sur les professionnels offre des fonctionnalités de productivité tout en gardant vos données locales et protégées.",
             "Vous pouvez telecharger et executer des modeles localement sur votre ordinateur, ou utiliser des modeles cloud si votre machine ne peut pas gerer des modeles locaux. Les modeles cloud necessitent une connexion sur ollama.com et la creation d'une cle API. Lors de la premiere utilisation d'un modele cloud, Paiperwork demandera cette cle et la stockera chiffree dans votre base de donnees locale.",
             "Instructions detaillees pour utiliser les modeles cloud Ollama : 1) Telechargez Paiperwork depuis https://infinitai-cn.github.io/paiperwork/. 2) Decompressez le fichier. 2.1) Si vous ne pouvez pas ouvrir Paiperwork, verifiez les parametres de securite pour autoriser son execution. Sous Windows, cliquez sur le bouton More info. Sous macOS, ouvrez Confidentialite et securite dans les Reglages. 3) Allez sur https://ollama.com et creez votre compte. 4) Telechargez et installez Ollama. 5) Dans votre compte Ollama, ouvrez Settings. 6) Ouvrez Usage pour verifier le credit gratuit restant (important). 7) Ouvrez Keys, cliquez sur Add API key, puis sur Generate API key, et copiez la cle generee. 8) Enregistrez la cle dans un fichier texte sur votre ordinateur. 9) Lancez Paiperwork (Mac, Windows ou Linux). 10) Saisissez une cle maitre puis, dans l'onglet Chat, cliquez sur Manage Cloud API key et ajoutez votre cle API Ollama. 11) Vous pouvez maintenant utiliser les modeles cloud gratuits d'Ollama.",
-            "Avis mode en ligne (<a href=\"https://huggingface.co/spaces/Infinitai/Paiperwork\" target=\"_blank\" rel=\"noopener noreferrer\">Hugginface spaces</a>) : En raison de contraintes locales, les onglets Documents, Translate et Models sont desactives en mode en ligne. Ces onglets sont actives lorsque vous executez Paiperwork localement sur votre ordinateur."
+            "Avis mode en ligne (<a href=\"https://huggingface.co/spaces/Infinitai/Paiperwork\" target=\"_blank\" rel=\"noopener noreferrer\">Hugginface spaces</a>) : En raison des exigences locales, les onglets Documents, Translate, Models et Connectors sont desactives en mode en ligne. Ces onglets sont actives lorsque vous executez Paiperwork sur votre ordinateur."
         ],
         articles: [
             {
@@ -2904,6 +2904,155 @@ window.helpContent = {
                 <div class="note">
                     <p><strong>Avertissement :</strong> La réinitialisation de base de données est irréversible et supprimera toutes vos données. Exportez toujours les informations importantes d'abord.</p>
                 </div>
+            `,
+            }
+        ],
+    },
+
+    connectors: {
+        title: "Connecteurs",
+        intro: [
+            "Remarque : la version en ligne de Paiperwork hébergée sur Huggingface n'inclut pas la fonctionnalité WhatsApp pour des raisons de sécurité et de confidentialité des utilisateurs.",
+            "Les connecteurs relient Paiperwork à WhatsApp. Les requêtes n'utilisent que les ressources déjà disponibles dans Paiperwork et n'accèdent pas à votre système d'exploitation, à la mémoire, au disque dur ni à des fichiers externes arbitraires.",
+            "Pour recevoir les messages WhatsApp entrants, gardez actif l'onglet du navigateur qui exécute Paiperwork et empêchez l'ordinateur de se mettre en veille. Remarque : si vous utilisez la version Huggingface Spaces de Paiperwork, le serveur peut s'arrêter en raison de l'inactivité (règles Huggingface).",
+            "Les documents, recherches, présentations et artefacts peuvent ouvrir un mode de suivi dédié. Restez dans ce mode jusqu'à sa fermeture avec la commande de sortie appropriée."
+        ],
+        articles: [
+            {
+                id: "connectors-pairing",
+                title: "Appairage et Modes",
+                content: `
+                <p>Ouvrez l'onglet Connecteurs et choisissez d'abord un mode avant de démarrer le serveur.</p>
+                <ol>
+                    <li><strong>Mode personnel :</strong> vous connectez votre propre compte WhatsApp et vous discutez avec vous-même dans un flux privé.</li>
+                    <li><strong>Mode bot :</strong> les personnes présentes dans votre liste de contacts WhatsApp peuvent parler à l'instance Paiperwork appairée. Utilisez de préférence un numéro séparé, sauf si vous voulez explicitement ce comportement sur votre compte principal.<br><strong>2.1.</strong> Vous pouvez améliorer l'expérience utilisateur avec le bot en modifiant le System Prompt dans l'onglet Chat.<br><strong>2.2.</strong> Tout utilisateur WhatsApp présent dans votre liste de contacts pourra accéder aux fonctions du connecteur activées et aux documents stockés disponibles via le connecteur.</li>
+                </ol>
+                <p>Cliquez sur <strong>Start server</strong>, puis scannez le code QR lors du premier appairage. Vous pouvez arrêter le serveur à tout moment, ce qui stoppe le routage des messages dans les deux sens.</p>
+                <p>Si vous souhaitez supprimer complètement le lien avec Paiperwork, faites-le depuis votre téléphone dans WhatsApp sous <strong>Linked devices</strong>.</p>
+            `,
+            },
+            {
+                id: "connectors-models-chat",
+                title: "Sélection du Modèle et Chat",
+                content: `
+                <p>Une fois connecté, WhatsApp utilise le modèle actuellement sélectionné dans l'onglet Chat.</p>
+                <p>Vous pouvez vérifier quel modèle d'IA est actif et le changer directement depuis votre discussion WhatsApp.</p>
+                <h4>Commandes utiles pour les modèles</h4>
+                <ul>
+                    <li><code>quel modèle est sélectionné</code></li>
+                    <li><code>montre-moi mes modèles</code></li>
+                    <li><code>changer le modèle actuel pour &lt;nom du modèle&gt;</code></li>
+                    <li><code>utiliser le modèle &lt;nom du modèle&gt;</code></li>
+                </ul>
+                <p>Si vous ne voulez pas autoriser le changement de modèle depuis WhatsApp, activez <strong>Lock AI model</strong> dans l'onglet Connecteurs.</p>
+                <p>Le chat vous permet d'échanger normalement avec votre modèle d'IA depuis WhatsApp. Utilisez des expressions comme <code>recherche internet</code> ou <code>chercher en ligne</code> lorsque vous voulez une recherche web. Si une réponse contient du HTML, Paiperwork la renvoie comme fichier HTML cliquable pour aperçu ou téléchargement.</p>
+                <h4>Exemples d'utilisation du chat</h4>
+                <ul>
+                    <li><code>bonjour</code></li>
+                    <li><code>explique la différence entre OLED et Mini LED</code></li>
+                </ul>
+            `,
+            },
+            {
+                id: "connectors-workflows",
+                title: "Documents, Graphiques, Recherche, Présentations et Artefacts",
+                content: `
+                <h4>Documents</h4>
+                <p>Vous pouvez poser des questions sur un document importé ou demander un résumé. Les noms de documents n'ont pas besoin d'être exacts.</p>
+                <p>Cette fonction nécessite qu'un modèle d'embeddings local soit installé et sélectionné dans l'onglet Documents.</p>
+                <ul>
+                    <li><code>parcourir documents</code></li>
+                    <li><code>je veux voir un document mais je ne me souviens pas du nom</code></li>
+                    <li><code>je veux poser une question sur un document</code></li>
+                    <li><code>résumer &lt;nom du document&gt;</code></li>
+                    <li><code>&lt;nom du document&gt; expliquer</code></li>
+                    <li><code>&lt;nom du document&gt; résumé et présentation</code></li>
+                </ul>
+                <p>Pour quitter le mode de suivi des documents, utilisez <code>quitter le mode document</code> ou <code>j'ai fini</code>.</p>
+                <h5>Interactions</h5>
+                <p><strong>Utilisateur :</strong> <code>&lt;nom du document&gt; résumé</code></p>
+                <p><strong>Paiperwork :</strong> Résumé du document fourni.</p>
+                <p><strong>Paiperwork :</strong> Voulez-vous continuer à travailler avec ce document ?</p>
+                <p><strong>Utilisateur :</strong> <code>Oui, créer une présentation</code></p>
+                <p><strong>Paiperwork :</strong> Création d'une présentation SlideForge pilotable...</p>
+                <p><strong>Paiperwork :</strong> Présentation créée et envoyée comme fichier HTML.</p>
+                <p><strong>Paiperwork :</strong> Voulez-vous apporter d'autres modifications à cette présentation ?</p>
+                <p><strong>Utilisateur :</strong> <code>Non</code></p>
+                <p><strong>Paiperwork :</strong> D'accord, le mode de suivi de présentation est fermé.</p>
+
+                <h4>Graphiques</h4>
+                <p>Vous pouvez demander des graphiques pris en charge par Paiperwork. Une fois créé, le graphique est envoyé dans votre conversation WhatsApp.</p>
+                <ul>
+                    <li><code>créer un pie chart</code></li>
+                    <li><code>créer un radar chart</code></li>
+                    <li><code>créer un bar chart sur les ventes par trimestre</code></li>
+                </ul>
+                <p>Fournissez vos propres données si vous voulez un vrai graphique au lieu d'une démo.</p>
+
+                <h4>Recherche</h4>
+                <p>Vous pouvez demander à Paiperwork d'effectuer une recherche sur un sujet pour vous. Les rapports standard font généralement entre 1000 et 1500 mots, cela peut donc prendre un peu de temps.</p>
+                <ul>
+                    <li><code>recherche les dernières tendances des batteries pour véhicules électriques et résumer les opportunités pour les startups</code></li>
+                    <li><code>recherche les prix des logements en australie</code></li>
+                    <li><code>créer un rapport sur la météo en angleterre</code></li>
+                    <li><code>ajoute aussi l'impact de la météo sur la fréquentation des plages</code></li>
+                </ul>
+                <p>Pour fermer le mode de suivi de recherche, répondez <code>non</code>, <code>non merci</code> ou <code>j'ai fini</code>.</p>
+                <h5>Interactions</h5>
+                <p><strong>Paiperwork :</strong> La recherche a commencé pour <code>&lt;sujet de recherche&gt;</code>. Collecte des informations...</p>
+                <p><strong>Paiperwork :</strong> Quand vous avez terminé, répondez avec <code>non</code>, <code>non merci</code> ou <code>j'ai fini</code> pour fermer le mode recherche.</p>
+                <p><strong>Paiperwork :</strong> Voulez-vous continuer à affiner cette recherche ?</p>
+                <p><strong>Utilisateur :</strong> <code>Ajoute &lt;raffinement de recherche supplémentaire&gt;</code></p>
+                <p><strong>Utilisateur :</strong> <code>j'ai fini</code>, <code>non</code>, <code>non merci</code></p>
+                <p><strong>Paiperwork :</strong> D'accord, le mode de suivi de recherche est fermé.</p>
+
+                <h4>Présentations</h4>
+                <p>Vous pouvez créer des présentations en fournissant le texte source. Paiperwork estime le nombre de diapositives à partir de la quantité de contenu, sauf si vous indiquez explicitement un nombre de diapositives.</p>
+                <ul>
+                    <li><code>avec le texte suivant créer une présentation : &lt;texte de présentation&gt;</code></li>
+                    <li><code>avec ce texte créer une présentation : &lt;texte de présentation&gt;</code></li>
+                    <li><code>crée-moi des slides sur la politique européenne des véhicules électriques, utilise la recherche web, 7 slides</code></li>
+                    <li><code>liste mes présentations</code></li>
+                    <li><code>envoie-moi &lt;nom de la présentation&gt;</code></li>
+                </ul>
+                <h5>Interactions</h5>
+                <p><strong>Utilisateur :</strong> <code>Crée une présentation sur le système solaire et ses planètes, cherche en ligne.</code></p>
+                <p><strong>Paiperwork :</strong> Création d'une présentation SlideForge pilotable avec recherche web...</p>
+                <p><strong>Paiperwork :</strong> Présentation créée et envoyée comme fichier HTML.</p>
+                <p><strong>Paiperwork :</strong> Voulez-vous apporter d'autres modifications à cette présentation ?</p>
+                <p><strong>Utilisateur :</strong> <code>Oui, change le fond de la diapositive 3 en thème bleu</code></p>
+
+                <h4>Artefacts</h4>
+                <p>Vous pouvez demander directement depuis WhatsApp des artefacts ou mini-apps HTML de toutes sortes.</p>
+                <ul>
+                    <li><code>crée une mini app de fond d'écran animé relaxant avec différents bruits et des oscillateurs de basse fréquence, avec recherche web</code></li>
+                    <li><code>créer artefact galaga</code></li>
+                    <li><code>crée une mini app pour trouver des chaînes tv en ligne</code></li>
+                    <li><code>créer un artefact mp3 player</code></li>
+                    <li><code>montre-moi mes mini apps</code></li>
+                    <li><code>montre-moi mes artefacts</code></li>
+                    <li><code>envoie-moi &lt;nom de l'artefact&gt; mini app</code></li>
+                    <li><code>envoie-moi &lt;nom de l'artefact&gt; artefact</code></li>
+                </ul>
+                <h5>Interactions</h5>
+                <p><strong>Paiperwork :</strong> Voulez-vous apporter d'autres modifications à cette mini app ?</p>
+                <p><strong>Utilisateur :</strong> <code>Oui, change le fond</code></p>
+                <p><strong>Paiperwork :</strong> Voulez-vous apporter d'autres modifications à cette mini app ?</p>
+                <p><strong>Utilisateur :</strong> <code>Non</code></p>
+                <p><strong>Paiperwork :</strong> D'accord, le mode de modification d'artefact est fermé.</p>
+            `,
+            },
+            {
+                id: "connectors-notes",
+                title: "Notes de Fonctionnement et Limites",
+                content: `
+                <ul>
+                    <li>L'envoi de fichiers et d'images au modèle d'IA n'est pas encore pris en charge.</li>
+                    <li>Les flux documents nécessitent un modèle d'embeddings local sélectionné dans l'onglet Documents.</li>
+                    <li>Paiperwork utilise un orchestrateur interne pour décider quelle fonction du connecteur employer pour chaque requête WhatsApp.</li>
+                    <li>Si vous actualisez le navigateur, les messages entrants restent en pause jusqu'à ce que vous rouvriez l'onglet Connecteurs. C'est intentionnel afin d'éviter tout spam inattendu pour l'utilisateur local.</li>
+                    <li>Les présentations et artefacts générés depuis WhatsApp sont renvoyés comme fichiers HTML. Vous pourrez ensuite les ouvrir dans Paiperwork pour des retouches manuelles plus poussées.</li>
+                </ul>
             `,
             }
         ],
