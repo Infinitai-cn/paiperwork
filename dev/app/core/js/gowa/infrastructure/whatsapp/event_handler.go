@@ -162,9 +162,18 @@ func handleAppStateSyncComplete(_ context.Context, client *whatsmeow.Client, evt
 }
 
 func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
+	result := map[string]any{
+		"jid": evt.ID.String(),
+	}
+	if inst, ok := DeviceFromContext(ctx); ok && inst != nil {
+		if deviceID := strings.TrimSpace(inst.ID()); deviceID != "" {
+			result["device_id"] = deviceID
+		}
+	}
 	websocket.Broadcast <- websocket.BroadcastMessage{
 		Code:    "LOGIN_SUCCESS",
 		Message: fmt.Sprintf("Successfully pair with %s", evt.ID.String()),
+		Result:  result,
 	}
 	primaryDB, secondaryDB := getStoreContainers()
 	syncKeysDevice(ctx, primaryDB, secondaryDB)
@@ -266,9 +275,12 @@ func handleLoggedOut(ctx context.Context, instance *DeviceInstance, chatStorageR
 	instance.TriggerLoggedOut()
 
 	websocket.Broadcast <- websocket.BroadcastMessage{
-		Code:    "LOGOUT_COMPLETE",
+		Code:    "REMOTE_LOGOUT",
 		Message: "Remote logout cleanup completed - device removed from server",
-		Result:  map[string]string{"device_id": deviceID},
+		Result: map[string]string{
+			"device_id": deviceID,
+			"reason":    "remote_logout",
+		},
 	}
 }
 

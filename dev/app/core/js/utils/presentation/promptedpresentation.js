@@ -1696,8 +1696,8 @@ class PromptedPresentationWorkflow {
 				? (window.Lang ? (Lang.get('webSearchStateOn') || 'Web ON') : 'Web ON')
 				: (window.Lang ? (Lang.get('webSearchStateOff') || 'Web OFF') : 'Web OFF');
 			this.webSearchStateLabel.style.color = this.isPromptableWebSearchEnabled
-				? 'var(--presentation-export-bg, var(--accent-color, #4f46e5))'
-				: 'var(--text-color, #ffffff)';
+				? 'var(--presentation-web-state-active-color, var(--accent-color, #4f46e5))'
+				: 'var(--presentation-web-state-inactive-color, var(--text-color, #ffffff))';
 			this.webSearchStateLabel.style.opacity = this.isPromptableWebSearchEnabled ? '1' : '0.75';
 		}
 	}
