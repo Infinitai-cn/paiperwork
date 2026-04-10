@@ -3033,6 +3033,7 @@ window.helpContent = {
 
                 <h4>Presentaciones</h4>
                 <p>Puedes crear presentaciones proporcionando el texto base. Paiperwork estima el número de diapositivas según la cantidad de contenido, salvo que indiques una cantidad concreta.</p>
+                <div class="note"><p><strong>Nota:</strong> Las apps de WhatsApp para teléfono, tablet y ordenador restringen la ejecución de código por motivos de seguridad, por lo que las presentaciones pueden no mostrarse allí. Usa WhatsApp Web para poder descargarlas a tu ordenador y verlas correctamente.</p></div>
                 <ul>
                     <li><code>crear una presentación con el siguiente texto: &lt;texto de la presentación&gt;</code></li>
                     <li><code>usar el siguiente texto para crear una presentación: &lt;texto de la presentación&gt;</code></li>
@@ -3049,6 +3050,7 @@ window.helpContent = {
 
                 <h4>Artefactos</h4>
                 <p>Puedes solicitar artefactos o mini apps HTML de muchos tipos directamente desde WhatsApp.</p>
+                <div class="note"><p><strong>Nota:</strong> Las apps de WhatsApp para teléfono, tablet y ordenador restringen la ejecución de código por motivos de seguridad, por lo que las mini apps pueden no mostrarse ni ejecutarse allí. Usa WhatsApp Web para poder descargarlas a tu ordenador y utilizarlas correctamente.</p></div>
                 <ul>
                     <li><code>crear una mini app de fondo animado relajante con distintos ruidos y osciladores de baja frecuencia, con búsqueda web</code></li>
                     <li><code>crear artefacto del juego Galaga</code></li>

@@ -304,6 +304,18 @@ func handleConnectionEvents(_ context.Context, client *whatsmeow.Client, instanc
 		return
 	}
 
+	if client.IsConnected() && client.IsLoggedIn() {
+		deviceID := ""
+		if instance != nil {
+			deviceID = instance.ID()
+		}
+		websocket.Broadcast <- websocket.BroadcastMessage{
+			Code:    "LOGGED_IN",
+			Message: fmt.Sprintf("WhatsApp connected for device %s", deviceID),
+			Result:  map[string]any{"device_id": deviceID},
+		}
+	}
+
 	// Send configured presence when connecting and when the pushname is changed.
 	// This makes sure that outgoing messages always have the right pushname.
 	sendConfiguredPresence(context.Background(), client)

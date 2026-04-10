@@ -13,7 +13,10 @@ class ConnectorsTab {
         this.qrCountdownSeconds = 0;
         this.qrRefreshNoticeTimeout = null;
         this.lastQrDataUrl = '';
+        this.lastQrSignature = '';
         this.lastQrTimestamp = 0;
+        this.whatsappQrTTL = 20000;
+        this.whatsappQrWaitingForRefresh = false;
         this._currentQrObjectUrl = null;
         this.whatsappRequestGeneration = 0;
         this.whatsappPendingFetchControllers = new Set();
@@ -21,6 +24,8 @@ class ConnectorsTab {
         this.whatsappManualStopRequested = false;
         this.whatsappWebsocketShouldReconnect = false;
         this.whatsappPairModalDismissed = false;
+        this.whatsappRestartBlockedUntil = 0;
+        this.whatsappRestartCooldownTimer = null;
         // Incoming WhatsApp polling state (messages from gateway)
         this.incomingPollInterval = null;
         this.incomingPollIntervalMs = 2500;
@@ -184,6 +189,39 @@ class ConnectorsTab {
         return resolvedParams;
     }
 
+    async _syncWhatsappLoginSuccessToServer(maxAttempts = 6) {
+        const resolvedDeviceId = String(this.savedWhatsappDeviceId || '').trim();
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+            try {
+                const params = this._appendWhatsappUserScope(new URLSearchParams({ check: 'true' }));
+                if (resolvedDeviceId) {
+                    params.set('device_id', resolvedDeviceId);
+                }
+
+                const response = await fetch(`/api/whatsapp/qr?${params.toString()}`, {
+                    headers: this._getWhatsappUserScopedHeaders(),
+                    cache: 'no-store'
+                });
+
+                if (response.ok) {
+                    const data = await response.json().catch(() => null);
+                    if (data && data.loggedIn) {
+                        return true;
+                    }
+                }
+            } catch (err) {
+                console.warn('ConnectorsTab: post-login whatsapp sync failed', { attempt, err });
+            }
+
+            if (attempt < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        return false;
+    }
+
     _isWhatsappRequestActive(requestGeneration, allowDuringManualStop = false) {
         if (typeof requestGeneration === 'number' && requestGeneration !== this.whatsappRequestGeneration) {
             return false;
@@ -216,6 +254,87 @@ class ConnectorsTab {
         }
     }
 
+    _clearWhatsappRestartCooldownTimer() {
+        if (this.whatsappRestartCooldownTimer) {
+            clearTimeout(this.whatsappRestartCooldownTimer);
+            this.whatsappRestartCooldownTimer = null;
+        }
+    }
+
+    _isWhatsappRestartBlocked() {
+        return !!(this.whatsappRestartBlockedUntil && Date.now() < this.whatsappRestartBlockedUntil);
+    }
+
+    _setWhatsappRestartBlocked(ms = 0) {
+        this._clearWhatsappRestartCooldownTimer();
+        if (!(ms > 0)) {
+            this.whatsappRestartBlockedUntil = 0;
+            return;
+        }
+
+        this.whatsappRestartBlockedUntil = Date.now() + ms;
+        this.whatsappRestartCooldownTimer = setTimeout(() => {
+            this.whatsappRestartCooldownTimer = null;
+            this.whatsappRestartBlockedUntil = 0;
+            this.setWhatsappPairButtonState(this.isPaired);
+        }, ms);
+    }
+
+    _handleWhatsappManualStopInProgress(message = 'Manual stop in progress') {
+        this.serverStarted = false;
+        this.serverStarting = false;
+        this.serverStopping = false;
+        this.isPaired = false;
+        this._setWhatsappRestartBlocked(5000);
+        this.closeWhatsappPairModal();
+        this.stopPolling();
+        this.stopWhatsappModalCountdown();
+        this.clearWhatsappQrCountdown();
+        this.setWhatsappPairButtonState(false);
+        this.setWhatsappModalStatus(message);
+    }
+
+    _getWhatsappQrSignature(data, qrUrl) {
+        const normalizedQr = String(qrUrl || '').trim();
+        const qrTimestamp = Number(data && data.qrTimestamp);
+        if (normalizedQr && Number.isFinite(qrTimestamp) && qrTimestamp > 0) {
+            return `${normalizedQr}::${qrTimestamp}`;
+        }
+        return normalizedQr;
+    }
+
+    _syncWhatsappQrTTL(data = null) {
+        const qrDuration = Number(data && data.qrDuration);
+        if (Number.isFinite(qrDuration) && qrDuration > 0) {
+            this.whatsappQrTTL = qrDuration * 1000;
+            return;
+        }
+
+        if (!(this.whatsappQrTTL > 0)) {
+            this.whatsappQrTTL = 20000;
+        }
+    }
+
+    _getWhatsappQrIssuedAt(data = null) {
+        const qrTimestamp = Number(data && data.qrTimestamp);
+        if (Number.isFinite(qrTimestamp) && qrTimestamp > 0) {
+            return qrTimestamp;
+        }
+
+        return Date.now();
+    }
+
+    _logWhatsappQrUpdate(kind, data = null, qrUrl = '') {
+        const payload = {
+            kind: String(kind || 'update'),
+            qrTimestamp: Number(data && data.qrTimestamp) || 0,
+            qrDuration: Number(data && data.qrDuration) || 0,
+            qrSource: String(qrUrl || '').startsWith('data:') ? 'data-url' : 'proxy-url'
+        };
+
+        console.info('ConnectorsTab: WhatsApp QR update', payload);
+    }
+
     setWhatsappPairButtonState(isPaired) {
         //console.log('ConnectorsTab: setWhatsappPairButtonState', { isPaired });
         if (!this.whatsappButton) {
@@ -229,7 +348,7 @@ class ConnectorsTab {
 
         // Initialize QR countdown timer state
         if (typeof this.whatsappQrTTL === 'undefined') {
-            this.whatsappQrTTL = 120000; // 2 minutes
+            this.whatsappQrTTL = 20000;
         }
         if (typeof this.qrCountdownTimer === 'undefined') {
             this.qrCountdownTimer = null;
@@ -257,6 +376,10 @@ class ConnectorsTab {
             this.whatsappButton.textContent = 'Stop server';
             this.whatsappButton.title = 'Stop server';
             this.whatsappButton.disabled = false;
+        } else if (this._isWhatsappRestartBlocked()) {
+            this.whatsappButton.textContent = 'Please wait...';
+            this.whatsappButton.title = 'Please wait before starting the server again';
+            this.whatsappButton.disabled = true;
         } else if (this.serverStarting) {
             this.whatsappButton.textContent = Lang.get('serverStartingButton') || 'Starting server...';
             this.whatsappButton.title = Lang.get('serverStartingButton') || 'Starting server...';
@@ -1071,7 +1194,7 @@ class ConnectorsTab {
         if (!countdownDiv) return;
 
         if (remainingMs <= 0) {
-            countdownDiv.textContent = 'QR code expired';
+            countdownDiv.textContent = 'QR code expired, waiting for refresh...';
             countdownDiv.style.display = 'block';
             return;
         }
@@ -1108,8 +1231,15 @@ class ConnectorsTab {
             const elapsed = Date.now() - this.lastQrTimestamp;
             const remaining = this.whatsappQrTTL - elapsed;
             if (remaining <= 0) {
+                if (!this.whatsappQrWaitingForRefresh) {
+                    this.whatsappQrWaitingForRefresh = true;
+                    this.setWhatsappModalRefreshNote('Waiting for a refreshed QR code...');
+                }
                 this.setWhatsappQrCountdown(0);
-                this.clearWhatsappQrCountdown();
+                if (this.qrCountdownTimer) {
+                    clearInterval(this.qrCountdownTimer);
+                    this.qrCountdownTimer = null;
+                }
                 return;
             }
             this.setWhatsappQrCountdown(remaining);
@@ -1178,6 +1308,11 @@ class ConnectorsTab {
 
     async startWhatsappServer() {
         //console.log('ConnectorsTab: startWhatsappServer called');
+
+        if (this._isWhatsappRestartBlocked()) {
+            this.setWhatsappPairButtonState(false);
+            return;
+        }
 
         // Model selection guard: require an AI model selected in Chat Tab before starting.
         const modelSelector = document.getElementById('model-selector');
@@ -1377,6 +1512,7 @@ class ConnectorsTab {
         this.serverStarting = false;
         this.serverStopping = false;
         this.whatsappPairModalDismissed = false;
+        this._setWhatsappRestartBlocked(5000);
         this.isPaired = false;
         this.closeWhatsappPairModal();
         this.stopWhatsappWebsocketListener();
@@ -1464,6 +1600,14 @@ class ConnectorsTab {
             if (!this._isWhatsappRequestActive(requestGeneration)) {
                 return null;
             }
+
+            this._syncWhatsappQrTTL(data);
+
+            if (data && data.status === 'stopped' && typeof data.message === 'string' && data.message.toLowerCase().includes('manual stop')) {
+                this._handleWhatsappManualStopInProgress(data.message);
+                return data;
+            }
+
             //console.log('ConnectorsTab: refreshWhatsappPairButton data', data);
 
             await this._maybeClearStalePreferredDeviceOnQrFallback(data);
@@ -1625,6 +1769,9 @@ class ConnectorsTab {
                 if (code === 'LOGIN_SUCCESS' || code === 'LOGGED_IN') {
                     //console.log('ConnectorsTab: whatsapp event indicates paired', payload);
                     this._completeWhatsappPairingFlow(null, 'websocket:' + code);
+                    this._syncWhatsappLoginSuccessToServer().catch(err => {
+                        console.warn('ConnectorsTab: post-login whatsapp backend sync failed', err);
+                    });
                     if (typeof this._saveCurrentWhatsappDeviceInfo === 'function') {
                         this._saveCurrentWhatsappDeviceInfo().catch(err => {
                             console.warn('ConnectorsTab: save device info after websocket LOGIN_SUCCESS failed', err);
@@ -1844,7 +1991,7 @@ class ConnectorsTab {
 
         // Reset any cached QR URL so the poller always inserts a fresh
         // image into the modal (avoids stale/duplicate QR interference).
-        try { this.lastQrDataUrl = ''; this.lastQrTimestamp = 0; } catch (_) {}
+        try { this.lastQrDataUrl = ''; this.lastQrSignature = ''; this.lastQrTimestamp = 0; } catch (_) {}
         this.setWhatsappModalRefreshNote('');
 
         // Add close button handler
@@ -1919,7 +2066,7 @@ class ConnectorsTab {
         let pollCount = 0;
         let unavailablePollCount = 0;
         const maxPolls = 20; // 60 seconds * 20 = 20 minutes max
-        const qrTTL = 120000; // 2 minutes
+        const qrTTL = this.whatsappQrTTL || 20000;
 
         const pollQr = async () => {
             if (!this._isWhatsappRequestActive(requestGeneration)) {
@@ -2107,11 +2254,18 @@ class ConnectorsTab {
                     }
                     this.setWhatsappModalPhase('qr');
                     const currentQr = qrUrl;
-                    const isNewQr = currentQr !== this.lastQrDataUrl;
+                    const currentQrIssuedAt = this._getWhatsappQrIssuedAt(data);
+                    const currentQrSignature = this._getWhatsappQrSignature(data, currentQr);
+                    const isNewQr = currentQrSignature !== this.lastQrSignature;
 
                     if (isNewQr) {
+                        const updateKind = this.lastQrSignature ? 'refreshed' : 'initial';
                         this.lastQrDataUrl = currentQr;
-                        this.lastQrTimestamp = Date.now();
+                        this.lastQrSignature = currentQrSignature;
+                        this.lastQrTimestamp = currentQrIssuedAt;
+                        this.whatsappQrWaitingForRefresh = false;
+                        this._logWhatsappQrUpdate(updateKind, data, currentQr);
+                        this.setWhatsappModalRefreshNote(updateKind === 'refreshed' ? 'QR code refreshed.' : '');
                         this.startWhatsappQrCountdown();
                     } else if (!this.qrCountdownTimer && this.lastQrTimestamp) {
                         // Ensure countdown continues after accidental timer stop.
@@ -2141,7 +2295,7 @@ class ConnectorsTab {
                             qrContainer.innerHTML = placeholderHTML;
                             const link = document.getElementById('wa-qr-link');
                             if (link) link.href = currentQr;
-                            try { this.lastQrDataUrl = ''; this.lastQrTimestamp = 0; } catch (_) {}
+                            try { this.lastQrDataUrl = ''; this.lastQrSignature = ''; this.lastQrTimestamp = 0; this.whatsappQrWaitingForRefresh = false; } catch (_) {}
                             if (this.whatsappQrRetryTimeout) {
                                 clearTimeout(this.whatsappQrRetryTimeout);
                             }
@@ -2157,7 +2311,7 @@ class ConnectorsTab {
                             try { if (this._currentQrObjectUrl) URL.revokeObjectURL(this._currentQrObjectUrl); } catch (_) {}
                             img.onload = () => {
                                 //console.log('ConnectorsTab: inline QR data URL loaded');
-                                try { this.lastQrDataUrl = currentQr; this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}
+                                try { this.lastQrDataUrl = currentQr; this.lastQrSignature = currentQrSignature; this.lastQrTimestamp = currentQrIssuedAt; this.startWhatsappQrCountdown(); } catch (_) {}
                                 this.setWhatsappModalStartStatus(false);
                             };
                             img.onerror = (e) => {
@@ -2179,7 +2333,7 @@ class ConnectorsTab {
                                     this._currentQrObjectUrl = obj;
                                     img.onload = () => {
                                         //console.log('ConnectorsTab: proxied QR image loaded');
-                                        try { this.lastQrDataUrl = currentQr; this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}
+                                        try { this.lastQrDataUrl = currentQr; this.lastQrSignature = currentQrSignature; this.lastQrTimestamp = currentQrIssuedAt; this.startWhatsappQrCountdown(); } catch (_) {}
                                         this.setWhatsappModalStartStatus(false);
                                     };
                                     img.onerror = (e) => {
@@ -2200,7 +2354,7 @@ class ConnectorsTab {
                                     const directProxy = '/api/whatsapp/qr-image?' + directProxyParams.toString();
                                     img.onload = () => {
                                         //console.log('ConnectorsTab: direct-proxy QR image loaded');
-                                        try { this.lastQrDataUrl = currentQr; this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}
+                                        try { this.lastQrDataUrl = currentQr; this.lastQrSignature = currentQrSignature; this.lastQrTimestamp = currentQrIssuedAt; this.startWhatsappQrCountdown(); } catch (_) {}
                                         this.setWhatsappModalStartStatus(false);
                                     };
                                     img.onerror = (e) => {
@@ -2220,7 +2374,7 @@ class ConnectorsTab {
                                 const directProxy = '/api/whatsapp/qr-image?' + directProxyParams.toString();
                                 img.onload = () => {
                                     //console.log('ConnectorsTab: direct-proxy QR image loaded after fetch error');
-                                    try { this.lastQrDataUrl = currentQr; this.lastQrTimestamp = Date.now(); this.startWhatsappQrCountdown(); } catch (_) {}
+                                    try { this.lastQrDataUrl = currentQr; this.lastQrSignature = currentQrSignature; this.lastQrTimestamp = currentQrIssuedAt; this.startWhatsappQrCountdown(); } catch (_) {}
                                     this.setWhatsappModalStartStatus(false);
                                 };
                                 img.onerror = (e) => {
@@ -2236,11 +2390,11 @@ class ConnectorsTab {
             }
 
                 if (this.lastQrDataUrl && Date.now() - this.lastQrTimestamp > qrTTL) {
-                    this.stopPolling();
-                    const statusDiv = document.getElementById('wa-status');
-                    if (statusDiv) {
-                        statusDiv.textContent = 'QR code expired. Please try again.';
+                    if (!this.whatsappQrWaitingForRefresh) {
+                        this.whatsappQrWaitingForRefresh = true;
+                        this.setWhatsappModalRefreshNote('Waiting for a refreshed QR code...');
                     }
+                    this.setWhatsappQrCountdown(0);
                 }
 
             } catch (err) {

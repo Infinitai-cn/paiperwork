@@ -3020,6 +3020,7 @@ window.helpContent = {
 
                 <h4>演示文稿</h4>
                 <p>您可以通过提供源文本来创建演示文稿。除非您明确指定页数，否则 Paiperwork 会根据内容量估算幻灯片数量。</p>
+                <div class="note"><p><strong>注意：</strong>WhatsApp 的手机、平板和电脑应用出于安全原因会限制代码执行，因此演示文稿可能无法在这些应用中正常显示。请使用 WhatsApp Web，将其下载到您的电脑后再正确查看。</p></div>
                 <ul>
                     <li><code>用这段文字 创建演示文稿: &lt;演示文稿文本&gt;</code></li>
                     <li><code>使用以下文本 创建演示文稿: &lt;演示文稿文本&gt;</code></li>
@@ -3036,6 +3037,7 @@ window.helpContent = {
 
                 <h4>工件</h4>
                 <p>您可以直接通过 WhatsApp 请求创建各种类型的工件或 HTML 迷你应用。</p>
+                <div class="note"><p><strong>注意：</strong>WhatsApp 的手机、平板和电脑应用出于安全原因会限制代码执行，因此迷你应用可能无法在这些应用中正常显示或运行。请使用 WhatsApp Web，将其下载到您的电脑后再正确查看和使用。</p></div>
                 <ul>
                     <li><code>创建一个放松的动态壁纸迷你应用，带不同噪声和低频振荡器，使用网页搜索</code></li>
                     <li><code>创建 Galaga 游戏工件</code></li>

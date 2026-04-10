@@ -243,7 +243,7 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 						}
 						logrus.Warnf("auto-connect login attempt %d failed for device %s: %v", attempt, device.Device, loginErr)
 					} else {
-						logrus.Debugf("auto-connect login attempt %d for device %s succeeded (qr_duration=%d)", attempt, device.Device, loginResp.Duration)
+						logrus.Debugf("auto-connect login attempt %d for device %s succeeded (qr_duration=%d)", attempt, device.Device, int64(loginResp.Duration/time.Second))
 					}
 
 					isConnected, isLoggedIn, statusErr = service.Status(ctx, device.Device)

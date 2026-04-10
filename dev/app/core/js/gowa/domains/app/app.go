@@ -58,4 +58,5 @@ type LoginResponse struct {
 	Duration  time.Duration `json:"duration"`
 	Code      string        `json:"code"`
 	ImageData string        `json:"image_data,omitempty"`
+	IssuedAt  int64         `json:"issued_at,omitempty"`
 }
