@@ -213,6 +213,10 @@ func buildOptionalFields(ctx context.Context, client *whatsmeow.Client, evt *eve
 		payload["view_once"] = true
 	}
 
+	if mentions := extractMentionedJIDs(ctx, client, msg); len(mentions) > 0 {
+		payload["mentions"] = mentions
+	}
+
 	if utils.BuildForwarded(evt) {
 		payload["forwarded"] = true
 	}
@@ -224,6 +228,47 @@ func buildOptionalFields(ctx context.Context, client *whatsmeow.Client, evt *eve
 	buildOtherMessageTypes(msg, payload)
 
 	return nil
+}
+
+func extractMentionedJIDs(ctx context.Context, client *whatsmeow.Client, msg *waE2E.Message) []string {
+	if msg == nil {
+		return nil
+	}
+
+	seen := make(map[string]struct{})
+	mentions := make([]string, 0, 4)
+	appendMentions := func(jids []string) {
+		for _, rawJID := range jids {
+			jid, err := types.ParseJID(rawJID)
+			if err != nil {
+				continue
+			}
+			normalized := NormalizeJIDFromLID(ctx, jid, client).ToNonAD().String()
+			if normalized == "" {
+				continue
+			}
+			if _, exists := seen[normalized]; exists {
+				continue
+			}
+			seen[normalized] = struct{}{}
+			mentions = append(mentions, normalized)
+		}
+	}
+
+	if extended := msg.GetExtendedTextMessage(); extended != nil && extended.ContextInfo != nil {
+		appendMentions(extended.ContextInfo.GetMentionedJID())
+	}
+	if image := msg.GetImageMessage(); image != nil && image.ContextInfo != nil {
+		appendMentions(image.ContextInfo.GetMentionedJID())
+	}
+	if video := msg.GetVideoMessage(); video != nil && video.ContextInfo != nil {
+		appendMentions(video.ContextInfo.GetMentionedJID())
+	}
+	if document := msg.GetDocumentMessage(); document != nil && document.ContextInfo != nil {
+		appendMentions(document.ContextInfo.GetMentionedJID())
+	}
+
+	return mentions
 }
 
 func buildMediaFields(ctx context.Context, client *whatsmeow.Client, msg *waE2E.Message, payload map[string]any) error {
