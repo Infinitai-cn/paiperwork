@@ -3016,6 +3016,7 @@ window.helpContent = {
 
                 <h4>Präsentationen</h4>
                 <p>Sie können Präsentationen erstellen, indem Sie den Ausgangstext bereitstellen. Paiperwork schätzt die Anzahl der Folien anhand der Inhaltsmenge, sofern Sie keine konkrete Folienzahl angeben.</p>
+                <div class="note"><p><strong>Hinweis:</strong> Die WhatsApp-Apps auf Telefon, Tablet und Computer beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Präsentationen dort möglicherweise nicht angezeigt. Verwenden Sie WhatsApp Web, damit Sie sie auf Ihren Computer herunterladen und korrekt ansehen können.</p></div>
                 <ul>
                     <li><code>mit diesem text eine präsentation erstellen: &lt;präsentationstext&gt;</code></li>
                     <li><code>mit folgendem text eine präsentation erstellen: &lt;präsentationstext&gt;</code></li>
@@ -3032,6 +3033,7 @@ window.helpContent = {
 
                 <h4>Artefakte</h4>
                 <p>Sie können direkt über WhatsApp Artefakte oder HTML-Mini-Apps vieler Arten anfordern.</p>
+                <div class="note"><p><strong>Hinweis:</strong> Die WhatsApp-Apps auf Telefon, Tablet und Computer beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Mini-Apps dort möglicherweise nicht angezeigt oder ausgeführt. Verwenden Sie WhatsApp Web, damit Sie sie auf Ihren Computer herunterladen und korrekt nutzen können.</p></div>
                 <ul>
                     <li><code>erstelle eine entspannende animierte wallpaper mini app mit verschiedenen geräuschen und low frequency oscillators, mit websuche</code></li>
                     <li><code>erstelle galaga artefakt</code></li>

@@ -2,6 +2,7 @@ package rest
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	domainApp "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/app"
@@ -79,8 +80,9 @@ func (handler *App) Login(c *fiber.Ctx) error {
 	}
 
 	results := map[string]any{
-		"device_id":   device.ID(),
-		"qr_duration": response.Duration,
+		"device_id":    device.ID(),
+		"qr_duration":  int64(response.Duration / time.Second),
+		"qr_timestamp": response.IssuedAt,
 	}
 	// Prefer inlined QR image data when provided (data URL base64 PNG)
 	if response.ImageData != "" {

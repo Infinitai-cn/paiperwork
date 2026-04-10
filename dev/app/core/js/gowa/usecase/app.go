@@ -62,6 +62,7 @@ func (service *serviceApp) Login(ctx context.Context, deviceID string) (response
 	qrCtx, qrCancel := context.WithTimeout(context.Background(), 3*time.Minute)
 
 	chImage := make(chan string, 1) // Buffered to prevent goroutine leak
+	qrEventCount := 0
 	logrus.Debugf("[LOGIN][%s] requesting QR channel", deviceID)
 	ch, err := client.GetQRChannel(qrCtx)
 	if err != nil {
@@ -84,8 +85,11 @@ func (service *serviceApp) Login(ctx context.Context, deviceID string) (response
 		defer close(chImage) // Ensure channel is closed when done
 		for evt := range ch {
 			response.Code = evt.Code
-			response.Duration = evt.Timeout / time.Second / 2
+			response.Duration = 20 * time.Second
 			if evt.Event == "code" {
+				response.IssuedAt = time.Now().UnixMilli()
+				qrEventCount++
+				logrus.Infof("[LOGIN][%s] QR event issued seq=%d issued_at=%d valid_for=%ds", deviceID, qrEventCount, response.IssuedAt, int64(response.Duration/time.Second))
 				// Generate PNG in-memory and return as base64 data URL so
 				// the gateway does not write QR images to disk.
 				png, perr := qrcode.Encode(evt.Code, qrcode.Medium, 512)

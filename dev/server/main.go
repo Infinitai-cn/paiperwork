@@ -62,6 +62,7 @@ var whatsappManualStopUntil time.Time
 
 var welcomeSentForDevice = map[string]bool{}
 var welcomePendingForDevice = map[string]bool{}
+var welcomeLastSentAtForDevice = map[string]time.Time{}
 var welcomeMu sync.Mutex
 var pairRequested bool
 var whatsappServerStarted bool
@@ -101,7 +102,7 @@ var whatsappModeMu sync.RWMutex
 
 var whatsappGatewayCachedQR string
 var whatsappGatewayCachedQRTimestamp time.Time
-var whatsappGatewayQRTTL = 120 * time.Second
+var whatsappGatewayQRTTL = 20 * time.Second
 
 // Cached QR image bytes + content-type to avoid repeatedly fetching transient
 // gateway PNGs that may disappear quickly. Protected by whatsappGatewayCachedBytesMu.
@@ -1716,6 +1717,7 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 		welcomeMu.Lock()
 		welcomeSentForDevice = map[string]bool{}
 		welcomePendingForDevice = map[string]bool{}
+		welcomeLastSentAtForDevice = map[string]time.Time{}
 		welcomeMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"status": "stopped"})
@@ -1767,8 +1769,14 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		response := map[string]any{"connected": status.Connected, "loggedIn": status.LoggedIn, "qrWithheld": status.QRWithheld, "gatewayRunning": gatewayRunning}
+		if status.QRDuration > 0 {
+			response["qrDuration"] = status.QRDuration
+		}
 		if status.QRDataUrl != "" {
 			response["qrDataUrl"] = status.QRDataUrl
+			if status.QRTimestamp > 0 {
+				response["qrTimestamp"] = status.QRTimestamp
+			}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(response)
@@ -1805,8 +1813,14 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			response := map[string]any{"status": "already_running", "gatewayRunning": true, "connected": status.Connected, "loggedIn": status.LoggedIn, "qrWithheld": status.QRWithheld}
+			if status.QRDuration > 0 {
+				response["qrDuration"] = status.QRDuration
+			}
 			if status.QRDataUrl != "" {
 				response["qrDataUrl"] = status.QRDataUrl
+				if status.QRTimestamp > 0 {
+					response["qrTimestamp"] = status.QRTimestamp
+				}
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
@@ -2017,6 +2031,8 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 		"qrWithheld":     status.QRWithheld,
 		"gatewayRunning": isGatewayRunning(),
 		"qrDataUrl":      status.QRDataUrl,
+		"qrTimestamp":    status.QRTimestamp,
+		"qrDuration":     status.QRDuration,
 	})
 }
 
@@ -2229,10 +2245,12 @@ func whatsappDevicesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type whatsappGatewayStatus struct {
-	Connected  bool   `json:"connected"`
-	LoggedIn   bool   `json:"loggedIn"`
-	QRWithheld bool   `json:"qrWithheld,omitempty"`
-	QRDataUrl  string `json:"qrDataUrl,omitempty"`
+	Connected   bool   `json:"connected"`
+	LoggedIn    bool   `json:"loggedIn"`
+	QRWithheld  bool   `json:"qrWithheld,omitempty"`
+	QRDataUrl   string `json:"qrDataUrl,omitempty"`
+	QRTimestamp int64  `json:"qrTimestamp,omitempty"`
+	QRDuration  int64  `json:"qrDuration,omitempty"`
 }
 
 func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, preferredDeviceID string) (*whatsappGatewayStatus, error) {
@@ -2293,7 +2311,9 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 
 			shouldDispatchWelcome := false
 			welcomeMu.Lock()
-			if !welcomeSentForDevice[deviceID] && !welcomePendingForDevice[deviceID] {
+			lastSentAt := welcomeLastSentAtForDevice[deviceID]
+			welcomeCooldownElapsed := lastSentAt.IsZero() || time.Since(lastSentAt) > 30*time.Second
+			if !welcomePendingForDevice[deviceID] && welcomeCooldownElapsed {
 				welcomePendingForDevice[deviceID] = true
 				shouldDispatchWelcome = true
 			}
@@ -2328,13 +2348,13 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 		}
 		if !startRequested {
 			log.Printf("fetchWhatsappGatewayStatus: using cached QR for device %s", deviceID)
-			return &whatsappGatewayStatus{Connected: false, QRDataUrl: whatsappGatewayCachedQR}, nil
+			return &whatsappGatewayStatus{Connected: false, QRDataUrl: whatsappGatewayCachedQR, QRTimestamp: whatsappGatewayCachedQRTimestamp.UnixMilli(), QRDuration: int64(whatsappGatewayQRTTL / time.Second)}, nil
 		}
 
 		// If startRequested but too soon, keep same QR and avoid throttled login storm.
 		if time.Since(whatsappGatewayLastLoginAttempt) < whatsappGatewayLoginCooldown {
 			log.Printf("fetchWhatsappGatewayStatus: refresh requested but login cooldown active (%.0fs left)", whatsappGatewayLoginCooldown.Seconds()-time.Since(whatsappGatewayLastLoginAttempt).Seconds())
-			return &whatsappGatewayStatus{Connected: false, QRDataUrl: whatsappGatewayCachedQR}, nil
+			return &whatsappGatewayStatus{Connected: false, QRDataUrl: whatsappGatewayCachedQR, QRTimestamp: whatsappGatewayCachedQRTimestamp.UnixMilli(), QRDuration: int64(whatsappGatewayQRTTL / time.Second)}, nil
 		}
 	}
 
@@ -2361,10 +2381,11 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 					Code    string `json:"code"`
 					Message string `json:"message"`
 					Results struct {
-						DeviceID   string `json:"device_id"`
-						QRLink     string `json:"qr_link"`
-						QRData     string `json:"qr_data"`
-						QRDuration int    `json:"qr_duration"`
+						DeviceID    string `json:"device_id"`
+						QRLink      string `json:"qr_link"`
+						QRData      string `json:"qr_data"`
+						QRDuration  int    `json:"qr_duration"`
+						QRTimestamp int64  `json:"qr_timestamp"`
 					} `json:"results"`
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&appLogin); err == nil {
@@ -2391,8 +2412,12 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 					// Prefer inlined data URL QR (qr_data) when provided by the gateway
 					if appLogin.Results.QRData != "" {
 						qr := appLogin.Results.QRData
+						qrIssuedAt := appLogin.Results.QRTimestamp
+						if qrIssuedAt <= 0 {
+							qrIssuedAt = time.Now().UnixMilli()
+						}
 						whatsappGatewayCachedQR = qr
-						whatsappGatewayCachedQRTimestamp = time.Now()
+						whatsappGatewayCachedQRTimestamp = time.UnixMilli(qrIssuedAt)
 
 						// If the gateway provided a base64 data URL, decode and cache bytes for fast proxying
 						if strings.HasPrefix(qr, "data:") {
@@ -2434,8 +2459,8 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 							log.Printf("fetchWhatsappGatewayStatus: QR generated but withheld for device %s (reason=%s)", deviceID, qrGateReason)
 							return &whatsappGatewayStatus{Connected: false, LoggedIn: false, QRWithheld: true}, nil
 						}
-						log.Printf("fetchWhatsappGatewayStatus: got QR data from app/login (inlined data URL)")
-						return &whatsappGatewayStatus{Connected: false, QRDataUrl: qr}, nil
+						log.Printf("fetchWhatsappGatewayStatus: got QR data from app/login (inlined data URL) issued_at=%d ttl=%ds", qrIssuedAt, int64(whatsappGatewayQRTTL/time.Second))
+						return &whatsappGatewayStatus{Connected: false, QRDataUrl: qr, QRTimestamp: whatsappGatewayCachedQRTimestamp.UnixMilli(), QRDuration: int64(whatsappGatewayQRTTL / time.Second)}, nil
 					}
 
 					if appLogin.Results.QRLink != "" {
@@ -2443,8 +2468,12 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 						if strings.HasPrefix(qr, "/") {
 							qr = "http://127.0.0.1:3000" + qr
 						}
+						qrIssuedAt := appLogin.Results.QRTimestamp
+						if qrIssuedAt <= 0 {
+							qrIssuedAt = time.Now().UnixMilli()
+						}
 						whatsappGatewayCachedQR = qr
-						whatsappGatewayCachedQRTimestamp = time.Now()
+						whatsappGatewayCachedQRTimestamp = time.UnixMilli(qrIssuedAt)
 
 						// Try to fetch and cache the QR image bytes immediately so the
 						// main server can proxy the binary even if the gateway later
@@ -2489,8 +2518,8 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 							log.Printf("fetchWhatsappGatewayStatus: QR link generated but withheld for device %s (reason=%s)", deviceID, qrGateReason)
 							return &whatsappGatewayStatus{Connected: false, LoggedIn: false, QRWithheld: true}, nil
 						}
-						log.Printf("fetchWhatsappGatewayStatus: got QR link from app/login: %s", qrRefForLog(qr))
-						return &whatsappGatewayStatus{Connected: false, QRDataUrl: qr}, nil
+						log.Printf("fetchWhatsappGatewayStatus: got QR link from app/login: %s issued_at=%d ttl=%ds", qrRefForLog(qr), qrIssuedAt, int64(whatsappGatewayQRTTL/time.Second))
+						return &whatsappGatewayStatus{Connected: false, QRDataUrl: qr, QRTimestamp: whatsappGatewayCachedQRTimestamp.UnixMilli(), QRDuration: int64(whatsappGatewayQRTTL / time.Second)}, nil
 					}
 				}
 			} else {
@@ -2514,6 +2543,7 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 					welcomeMu.Lock()
 					delete(welcomeSentForDevice, deviceID)
 					delete(welcomePendingForDevice, deviceID)
+					delete(welcomeLastSentAtForDevice, deviceID)
 					welcomeMu.Unlock()
 					whatsappGatewayCachedQR = ""
 					whatsappGatewayCachedBytesMu.Lock()
@@ -2542,7 +2572,7 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 	}
 	if whatsappGatewayCachedQR != "" && time.Since(whatsappGatewayCachedQRTimestamp) < whatsappGatewayQRTTL {
 		log.Printf("fetchWhatsappGatewayStatus: using cached QR for device %s", deviceID)
-		return &whatsappGatewayStatus{Connected: false, QRDataUrl: whatsappGatewayCachedQR}, nil
+		return &whatsappGatewayStatus{Connected: false, QRDataUrl: whatsappGatewayCachedQR, QRTimestamp: whatsappGatewayCachedQRTimestamp.UnixMilli(), QRDuration: int64(whatsappGatewayQRTTL / time.Second)}, nil
 	}
 
 	log.Printf("fetchWhatsappGatewayStatus: no QR available, status connected=%v", status.Connected)
@@ -2831,6 +2861,7 @@ func resetWhatsappGatewayDevice(client *http.Client, deviceID string) error {
 
 	welcomeMu.Lock()
 	delete(welcomeSentForDevice, deviceID)
+	delete(welcomeLastSentAtForDevice, deviceID)
 	welcomeMu.Unlock()
 
 	return nil
@@ -3531,6 +3562,7 @@ func whatsappUnpairHandler(w http.ResponseWriter, r *http.Request) {
 
 	welcomeMu.Lock()
 	delete(welcomeSentForDevice, deviceID)
+	delete(welcomeLastSentAtForDevice, deviceID)
 	welcomeMu.Unlock()
 	pairRequested = false
 
@@ -3945,6 +3977,7 @@ func dispatchWhatsappWelcomeMessage(deviceID, initialTargetPhone string) {
 			} else {
 				welcomeMu.Lock()
 				welcomeSentForDevice[deviceID] = true
+				welcomeLastSentAtForDevice[deviceID] = time.Now()
 				welcomeMu.Unlock()
 				log.Printf("dispatchWhatsappWelcomeMessage: welcome message sent to %s for device %s", targetPhone, deviceID)
 				return
@@ -4045,6 +4078,7 @@ func resetGatewayRuntimeState(preserveStartupWindow bool) {
 
 	welcomeMu.Lock()
 	welcomeSentForDevice = map[string]bool{}
+	welcomeLastSentAtForDevice = map[string]time.Time{}
 	welcomeMu.Unlock()
 
 	whatsappGatewayCachedQR = ""
