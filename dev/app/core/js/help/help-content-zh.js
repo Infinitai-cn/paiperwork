@@ -2934,7 +2934,7 @@ window.helpContent = {
                 <p>在启动服务器之前，先打开连接器选项卡并选择模式。</p>
                 <ol>
                     <li><strong>个人模式：</strong>连接您自己的 WhatsApp 账号，与自己进行私密对话。</li>
-                    <li><strong>机器人模式：</strong>在您的 WhatsApp 联系人列表中的人可以与已配对的 Paiperwork 实例对话。除非您明确想这样做，否则建议使用单独的号码。<br><strong>2.1.</strong> 您可以在 Chat 选项卡中修改 System Prompt，从而提升用户与机器人的交互体验。<br><strong>2.2.</strong> 您联系人列表中的任何 WhatsApp 用户都可以访问已启用的连接器功能，以及可通过连接器访问的已存储文档。</li>
+                    <li><strong>机器人模式：</strong>在您的 WhatsApp 联系人列表中的人可以与已配对的 Paiperwork 实例对话。除非您明确想这样做，否则建议使用单独的号码。<br><strong>2.1.</strong> 您可以在 Chat 选项卡中修改 System Prompt，从而提升用户与机器人的交互体验。<br><strong>2.2.</strong> 您联系人列表中的任何 WhatsApp 用户都可以访问已启用的连接器功能，以及可通过连接器访问的已存储文档。<br><strong>2.3.</strong> 为了避免滥用和垃圾信息，您不能从 Paiperwork 主动向 WhatsApp 用户发起消息。<br><strong>2.4.</strong> 如果您在机器人模式下关闭服务器，所有待处理的用户消息都会排队等待下次服务器启动，然后逐条处理。如果您想跳过这些消息，请以个人模式启动服务器；除您发给自己的消息外，所有传入消息都会被忽略。</li>
                 </ol>
                 <p>点击 <strong>Start server</strong>，首次配对时扫描二维码。您可以随时停止服务器，这会停止双向消息路由。</p>
                 <p>如果您想彻底解除 Paiperwork 配对，请在手机 WhatsApp 的 <strong>Linked devices</strong> 中操作。</p>
