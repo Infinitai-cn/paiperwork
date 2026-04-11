@@ -2555,6 +2555,8 @@ class PaiperworkDB {
                             masterkey_hash TEXT PRIMARY KEY,
                             whatsapp_device_id TEXT,
                             whatsapp_device_meta TEXT,
+                            whatsapp_preferred_device_id TEXT,
+                            whatsapp_preferred_device_meta TEXT,
                             whatsapp_mode TEXT DEFAULT ''
                         )
                     `);
@@ -2581,11 +2583,67 @@ class PaiperworkDB {
                 }
             }
 
-			// Update database version to 23 (includes WhatsApp role DB schema hardening)
+            // Version 24: Add dedicated preferred WhatsApp device fields to whatsapp role DB.
+            if (currentVersion < 24) {
+                try {
+                    const whatsappDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                            masterkey_hash TEXT PRIMARY KEY,
+                            whatsapp_device_id TEXT,
+                            whatsapp_device_meta TEXT,
+                            whatsapp_preferred_device_id TEXT,
+                            whatsapp_preferred_device_meta TEXT,
+                            whatsapp_mode TEXT DEFAULT '',
+                            whatsapp_model_locked TEXT DEFAULT 'false'
+                        )
+                    `);
+
+                    const columnCheck = whatsappDb.exec(`PRAGMA table_info(whatsapp_settings)`);
+                    const settingsColumns = columnCheck[0]?.values || [];
+                    const hasPreferredDeviceId = settingsColumns.some(col => col[1] === 'whatsapp_preferred_device_id');
+                    const hasPreferredDeviceMeta = settingsColumns.some(col => col[1] === 'whatsapp_preferred_device_meta');
+                    if (!hasPreferredDeviceId) {
+                        whatsappDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_preferred_device_id TEXT`);
+                    }
+                    if (!hasPreferredDeviceMeta) {
+                        whatsappDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_preferred_device_meta TEXT`);
+                    }
+
+                    const row = whatsappDb.exec(`
+                        SELECT whatsapp_device_id, whatsapp_device_meta, whatsapp_preferred_device_id, whatsapp_preferred_device_meta
+                        FROM whatsapp_settings
+                        WHERE masterkey_hash = ?
+                        LIMIT 1
+                    `, [hashedMasterKey]);
+
+                    if (row && row[0] && row[0].values && row[0].values.length) {
+                        const currentDeviceId = row[0].values[0][0] || '';
+                        const currentDeviceMeta = row[0].values[0][1] || '';
+                        const currentPreferredDeviceId = row[0].values[0][2] || '';
+                        const currentPreferredDeviceMeta = row[0].values[0][3] || '';
+
+                        if ((!currentPreferredDeviceId || !String(currentPreferredDeviceId).trim()) && currentDeviceId) {
+                            whatsappDb.run(`
+                                UPDATE whatsapp_settings
+                                SET whatsapp_preferred_device_id = ?, whatsapp_preferred_device_meta = ?
+                                WHERE masterkey_hash = ?
+                            `, [currentDeviceId, currentPreferredDeviceMeta || currentDeviceMeta || '', hashedMasterKey]);
+                        }
+                    }
+
+                    await this.saveWhatsappRoleSqlDatabase(whatsappDb, hashedMasterKey);
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error adding whatsapp preferred device fields to whatsapp role DB', error);
+                }
+            }
+
+			// Update database version to 24 (includes preferred WhatsApp device fields in whatsapp role DB)
             if (currentVersion === 0) {
-				db.run('INSERT INTO db_version (version) VALUES (23)');
+				db.run('INSERT INTO db_version (version) VALUES (24)');
             } else {
-				db.run('UPDATE db_version SET version = 23');
+				db.run('UPDATE db_version SET version = 24');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
@@ -4299,9 +4357,19 @@ class PaiperworkDB {
                     masterkey_hash TEXT PRIMARY KEY,
                     whatsapp_device_id TEXT,
                     whatsapp_device_meta TEXT,
+                    whatsapp_preferred_device_id TEXT,
+                    whatsapp_preferred_device_meta TEXT,
                     whatsapp_mode TEXT DEFAULT ''
                 )
             `);
+
+            const settingsColumns = sqlDb.exec(`PRAGMA table_info(whatsapp_settings)`)[0]?.values || [];
+            if (!settingsColumns.some(col => col[1] === 'whatsapp_preferred_device_id')) {
+                sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_preferred_device_id TEXT`);
+            }
+            if (!settingsColumns.some(col => col[1] === 'whatsapp_preferred_device_meta')) {
+                sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_preferred_device_meta TEXT`);
+            }
 
             sqlDb.run(`INSERT OR IGNORE INTO whatsapp_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
             sqlDb.run(`
@@ -4431,6 +4499,8 @@ class PaiperworkDB {
                     masterkey_hash TEXT PRIMARY KEY,
                     whatsapp_device_id TEXT,
                     whatsapp_device_meta TEXT,
+                    whatsapp_preferred_device_id TEXT,
+                    whatsapp_preferred_device_meta TEXT,
                     whatsapp_mode TEXT DEFAULT ''
                 )
             `);
@@ -4517,6 +4587,8 @@ class PaiperworkDB {
                     masterkey_hash TEXT PRIMARY KEY,
                     whatsapp_device_id TEXT,
                     whatsapp_device_meta TEXT,
+                    whatsapp_preferred_device_id TEXT,
+                    whatsapp_preferred_device_meta TEXT,
                     whatsapp_mode TEXT
                 )
             `);
@@ -4559,6 +4631,8 @@ class PaiperworkDB {
                     masterkey_hash TEXT PRIMARY KEY,
                     whatsapp_device_id TEXT,
                     whatsapp_device_meta TEXT,
+                    whatsapp_preferred_device_id TEXT,
+                    whatsapp_preferred_device_meta TEXT,
                     whatsapp_mode TEXT DEFAULT '',
                     whatsapp_model_locked TEXT DEFAULT 'false'
                 )
@@ -4598,6 +4672,8 @@ class PaiperworkDB {
                     masterkey_hash TEXT PRIMARY KEY,
                     whatsapp_device_id TEXT,
                     whatsapp_device_meta TEXT,
+                    whatsapp_preferred_device_id TEXT,
+                    whatsapp_preferred_device_meta TEXT,
                     whatsapp_mode TEXT DEFAULT ''
                 )
             `);
@@ -4644,6 +4720,8 @@ class PaiperworkDB {
                     masterkey_hash TEXT PRIMARY KEY,
                     whatsapp_device_id TEXT,
                     whatsapp_device_meta TEXT,
+                    whatsapp_preferred_device_id TEXT,
+                    whatsapp_preferred_device_meta TEXT,
                     whatsapp_mode TEXT DEFAULT '',
                     whatsapp_model_locked TEXT DEFAULT 'false'
                 )
@@ -4682,6 +4760,8 @@ class PaiperworkDB {
                     masterkey_hash TEXT PRIMARY KEY,
                     whatsapp_device_id TEXT,
                     whatsapp_device_meta TEXT,
+                    whatsapp_preferred_device_id TEXT,
+                    whatsapp_preferred_device_meta TEXT,
                     whatsapp_mode TEXT DEFAULT ''
                 )
             `);
@@ -4695,6 +4775,144 @@ class PaiperworkDB {
             return true;
         } catch (error) {
             console.error('Error clearing Whatsapp device info:', error);
+            return false;
+        }
+    }
+
+    static async saveWhatsappPreferredDeviceInfo(hashedMasterKey, deviceId, metadata = '') {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const encryptedDeviceId = deviceId ? await this.encrypt(hashedMasterKey, String(deviceId)) : '';
+            const encryptedMeta = metadata ? await this.encrypt(hashedMasterKey, JSON.stringify(metadata)) : '';
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    whatsapp_device_id TEXT,
+                    whatsapp_device_meta TEXT,
+                    whatsapp_preferred_device_id TEXT,
+                    whatsapp_preferred_device_meta TEXT,
+                    whatsapp_mode TEXT DEFAULT '',
+                    whatsapp_model_locked TEXT DEFAULT 'false'
+                )
+            `);
+
+            const settingsColumns = sqlDb.exec(`PRAGMA table_info(whatsapp_settings)`)[0]?.values || [];
+            if (!settingsColumns.some(col => col[1] === 'whatsapp_preferred_device_id')) {
+                sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_preferred_device_id TEXT`);
+            }
+            if (!settingsColumns.some(col => col[1] === 'whatsapp_preferred_device_meta')) {
+                sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_preferred_device_meta TEXT`);
+            }
+
+            sqlDb.run(`INSERT OR IGNORE INTO whatsapp_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
+            sqlDb.run(`
+                UPDATE whatsapp_settings
+                SET whatsapp_preferred_device_id = ?, whatsapp_preferred_device_meta = ?
+                WHERE masterkey_hash = ?
+            `, [JSON.stringify(encryptedDeviceId), JSON.stringify(encryptedMeta), hashedMasterKey]);
+
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error saving Whatsapp preferred device info:', error);
+            return false;
+        }
+    }
+
+    static async getWhatsappPreferredDeviceInfo(hashedMasterKey) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return null;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    whatsapp_device_id TEXT,
+                    whatsapp_device_meta TEXT,
+                    whatsapp_preferred_device_id TEXT,
+                    whatsapp_preferred_device_meta TEXT,
+                    whatsapp_mode TEXT DEFAULT '',
+                    whatsapp_model_locked TEXT DEFAULT 'false'
+                )
+            `);
+
+            const settingsColumns = sqlDb.exec(`PRAGMA table_info(whatsapp_settings)`)[0]?.values || [];
+            if (!settingsColumns.some(col => col[1] === 'whatsapp_preferred_device_id')) {
+                sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_preferred_device_id TEXT`);
+            }
+            if (!settingsColumns.some(col => col[1] === 'whatsapp_preferred_device_meta')) {
+                sqlDb.run(`ALTER TABLE whatsapp_settings ADD COLUMN whatsapp_preferred_device_meta TEXT`);
+            }
+
+            const row = sqlDb.exec(`SELECT whatsapp_preferred_device_id, whatsapp_preferred_device_meta FROM whatsapp_settings WHERE masterkey_hash = ? LIMIT 1`, [hashedMasterKey]);
+            if (!row || !row[0] || !row[0].values || !row[0].values.length) {
+                return null;
+            }
+
+            const encryptedDeviceId = row[0].values[0][0] || '';
+            const encryptedMeta = row[0].values[0][1] || '';
+            let deviceId = '';
+            let meta = '';
+
+            if (encryptedDeviceId) {
+                try {
+                    deviceId = await this.decrypt(hashedMasterKey, encryptedDeviceId);
+                } catch (_e) {
+                    deviceId = '';
+                }
+            }
+            if (encryptedMeta) {
+                try {
+                    const decrypted = await this.decrypt(hashedMasterKey, encryptedMeta);
+                    meta = decrypted ? JSON.parse(decrypted) : '';
+                } catch (_e) {
+                    meta = '';
+                }
+            }
+
+            if (!deviceId && (!meta || Object.keys(meta).length === 0)) {
+                return null;
+            }
+
+            return { deviceId, meta };
+        } catch (error) {
+            console.error('Error getting Whatsapp preferred device info:', error);
+            return null;
+        }
+    }
+
+    static async clearWhatsappPreferredDeviceInfo(hashedMasterKey) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return false;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    whatsapp_device_id TEXT,
+                    whatsapp_device_meta TEXT,
+                    whatsapp_preferred_device_id TEXT,
+                    whatsapp_preferred_device_meta TEXT,
+                    whatsapp_mode TEXT DEFAULT '',
+                    whatsapp_model_locked TEXT DEFAULT 'false'
+                )
+            `);
+            sqlDb.run(`
+                UPDATE whatsapp_settings
+                SET whatsapp_preferred_device_id = '', whatsapp_preferred_device_meta = ''
+                WHERE masterkey_hash = ?
+            `, [hashedMasterKey]);
+
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error clearing Whatsapp preferred device info:', error);
             return false;
         }
     }
