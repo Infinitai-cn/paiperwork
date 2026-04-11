@@ -105,53 +105,6 @@ func (c *Client) IsConfigured() bool {
 	return c.BaseURL != "" && c.APIToken != "" && c.AccountID != 0 && c.InboxID != 0
 }
 
-// doRequest executes an HTTP request with common headers and error handling.
-// It marshals the payload to JSON (if provided), sets auth headers, executes the request,
-// and decodes the response into result (if provided).
-func (c *Client) doRequest(method, endpoint string, payload interface{}, result interface{}) ([]byte, error) {
-	var body io.Reader
-	if payload != nil {
-		jsonPayload, err := json.Marshal(payload)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal payload: %w", err)
-		}
-		body = bytes.NewBuffer(jsonPayload)
-	}
-
-	req, err := http.NewRequest(method, endpoint, body)
-	if err != nil {
-		return nil, err
-	}
-
-	if payload != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	req.Header.Set("api_access_token", c.APIToken)
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return bodyBytes, fmt.Errorf("request failed: status %d body %s", resp.StatusCode, string(bodyBytes))
-	}
-
-	if result != nil && len(bodyBytes) > 0 {
-		if err := json.Unmarshal(bodyBytes, result); err != nil {
-			return bodyBytes, fmt.Errorf("failed to decode response: %w", err)
-		}
-	}
-
-	return bodyBytes, nil
-}
-
 func (c *Client) FindContactByIdentifier(identifier string, isGroup bool) (*Contact, error) {
 	endpoint := fmt.Sprintf("%s/api/v1/accounts/%d/contacts/search", c.BaseURL, c.AccountID)
 	logrus.Debugf("Chatwoot: Finding contact by identifier endpoint=%s identifier=%s isGroup=%v", endpoint, identifier, isGroup)

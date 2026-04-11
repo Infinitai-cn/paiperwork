@@ -10,6 +10,7 @@ import (
 
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
@@ -33,6 +34,35 @@ var (
 	log           waLog.Logger
 	startupTime   = time.Now().Unix()
 )
+
+func purgeStoreDevicesForFreshPair(ctx context.Context, container *sqlstore.Container, label string) {
+	if container == nil {
+		return
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			log.Warnf("InitWaCLI: fresh-pair startup skipped %s store purge because the container is not initialized: %v", label, recovered)
+		}
+	}()
+
+	devices, err := container.GetAllDevices(ctx)
+	if err != nil {
+		log.Warnf("InitWaCLI: fresh-pair startup failed to enumerate %s store devices: %v", label, err)
+		return
+	}
+
+	for _, device := range devices {
+		if device == nil || device.ID == nil {
+			continue
+		}
+		maskedDeviceID := logmask.MaskPhoneNumber(device.ID.String())
+		if err := container.DeleteDevice(ctx, device); err != nil {
+			log.Warnf("InitWaCLI: fresh-pair startup failed to delete %s store device %s: %v", label, maskedDeviceID, err)
+			continue
+		}
+		log.Infof("InitWaCLI: fresh-pair startup deleted %s store device %s", label, maskedDeviceID)
+	}
+}
 
 func syncKeysDevice(ctx context.Context, db, keysDB *sqlstore.Container) {
 	if db == nil || keysDB == nil || db == keysDB {
@@ -73,6 +103,18 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 		log.Infof("InitWaCLI: storeContainer is nil, skipping WhatsApp client init")
 		return nil
 	}
+	// Fresh-pair startup still needs a live device manager so /devices and
+	// health-check routes work before any persisted client is recovered.
+	InitializeDeviceManager(storeContainer, keysStoreContainer, chatStorageRepo)
+
+	if IsFreshPairStartupRequested() {
+		purgeStoreDevicesForFreshPair(ctx, storeContainer, "primary")
+		if keysStoreContainer != nil && keysStoreContainer != storeContainer {
+			purgeStoreDevicesForFreshPair(ctx, keysStoreContainer, "keys")
+		}
+		log.Infof("InitWaCLI: fresh-pair startup requested; skipping persisted store device recovery")
+		return nil
+	}
 
 	log.Infof("InitWaCLI: attempting WhatsApp client init using DB container %p", storeContainer)
 
@@ -111,6 +153,10 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 	}
 
 	if err != nil {
+		purgeStoreDevicesForFreshPair(ctx, storeContainer, "primary")
+		if keysStoreContainer != nil && keysStoreContainer != storeContainer {
+			purgeStoreDevicesForFreshPair(ctx, keysStoreContainer, "keys")
+		}
 		log.Errorf("InitWaCLI: failed to get device after retries: %v", err)
 		return nil
 	}
@@ -118,7 +164,7 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 	if device == nil {
 		log.Warnf("No device found in WhatsApp DB")
 		if config.WhatsappPreferredDeviceID != "" {
-			log.Infof("Trying preferred device ID from config: %s", config.WhatsappPreferredDeviceID)
+			log.Infof("Trying preferred device ID from config: %s", logmask.MaskPhoneNumber(config.WhatsappPreferredDeviceID))
 			// Here we cannot directly create a nina device; we continue with nil and allow /devices endpoints to handle.
 		}
 		return nil
@@ -144,10 +190,10 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 		device.Sessions = innerStore
 		if primaryDB != nil {
 			device.PreKeys = sqlstore.NewSQLStore(primaryDB, *device.ID)
-			log.Infof("InitWaCLI: prekeys store is configured on primary DB %p for device %s", primaryDB, device.ID.String())
+			log.Infof("InitWaCLI: prekeys store is configured on primary DB %p for device %s", primaryDB, logmask.MaskPhoneNumber(device.ID.String()))
 		} else {
 			device.PreKeys = store.NoopDevice.PreKeys
-			log.Warnf("InitWaCLI: primary DB is nil; using Noop prekeys store for device %s", device.ID.String())
+			log.Warnf("InitWaCLI: primary DB is nil; using Noop prekeys store for device %s", logmask.MaskPhoneNumber(device.ID.String()))
 		}
 		device.SenderKeys = innerStore
 		device.MsgSecrets = innerStore

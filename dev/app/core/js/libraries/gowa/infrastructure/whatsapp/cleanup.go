@@ -212,7 +212,7 @@ func ReinitializeWhatsAppComponents(ctx context.Context, chatStorageRepo domainC
 	if config.DBKeysURI != "" {
 		if config.DBKeysURI == config.DBURI {
 			newKeysDB = newDB
-			logrus.Info("[CLEANUP] Reusing primary WhatsApp DB container for keys store")
+			logrus.Info("[CLEANUP] Reusing Paiperwork primary WhatsApp DB container for keys store")
 		} else {
 			newKeysDB = InitWaDB(ctx, config.DBKeysURI)
 		}

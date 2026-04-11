@@ -14,6 +14,7 @@ import (
 
 	domainApp "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/app"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
 	"github.com/sirupsen/logrus"
 	"go.mau.fi/whatsmeow"
 )
@@ -85,6 +86,10 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 	ctx := resetAutoConnectAfterBootContext()
 	defer StopAutoConnectAfterBooting()
 	logrus.Info("auto-connect: begin auto connect after booting")
+	if whatsapp.IsFreshPairStartupRequested() {
+		logrus.Info("auto-connect skipped: fresh-pair startup requested")
+		return
+	}
 	if service == nil {
 		logrus.Warn("auto-connect skipped: appUsecase is nil")
 		return
@@ -162,13 +167,14 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 	candidates := make([]autoconnectCandidate, 0, len(devices))
 	hasFullyLoggedInDevice := false
 	for _, device := range devices {
+		maskedDeviceID := logmask.MaskPhoneNumber(device.Device)
 		if ctx.Err() != nil {
 			logrus.Info("auto-connect: cancelled before preflight status checks completed")
 			return
 		}
 		isConnected, isLoggedIn, statusErr := service.Status(ctx, device.Device)
 		if statusErr != nil {
-			logrus.Warnf("auto-connect preflight status check failed for device %s: %v", device.Device, statusErr)
+			logrus.Warnf("auto-connect preflight status check failed for device %s: %v", maskedDeviceID, statusErr)
 		}
 		if isConnected && isLoggedIn {
 			hasFullyLoggedInDevice = true
@@ -187,35 +193,36 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 			return
 		}
 		device := candidate.device
+		maskedDeviceID := logmask.MaskPhoneNumber(device.Device)
 
 		if hasFullyLoggedInDevice && !candidate.loggedIn && !looksLikePersistentSessionDeviceID(device.Device) {
-			logrus.Infof("auto-connect: skipping placeholder candidate %s because another device is already fully logged in", device.Device)
+			logrus.Infof("auto-connect: skipping placeholder candidate %s because another device is already fully logged in", maskedDeviceID)
 			continue
 		}
 
 		func() {
 			defer func() {
 				if recovered := recover(); recovered != nil {
-					logrus.Errorf("auto-connect: recovered panic while processing device %s: %v", device.Device, recovered)
+					logrus.Errorf("auto-connect: recovered panic while processing device %s: %v", maskedDeviceID, recovered)
 				}
 			}()
 
-			logrus.Infof("auto-connect: attempting to reconnect device %s", device.Device)
+			logrus.Infof("auto-connect: attempting to reconnect device %s", maskedDeviceID)
 			err := service.Reconnect(ctx, device.Device)
 			if err != nil {
 				if ctx.Err() != nil {
 					logrus.Info("auto-connect: cancelled during reconnect")
 					return
 				}
-				logrus.Warnf("auto-connect failed for device %s: %v", device.Device, err)
+				logrus.Warnf("auto-connect failed for device %s: %v", maskedDeviceID, err)
 				return
 			}
 
 			isConnected, isLoggedIn, statusErr := service.Status(ctx, device.Device)
 			if statusErr != nil {
-				logrus.Warnf("auto-connect status check failed for device %s: %v", device.Device, statusErr)
+				logrus.Warnf("auto-connect status check failed for device %s: %v", maskedDeviceID, statusErr)
 			} else {
-				logrus.Debugf("auto-connect status for %s: connected=%v loggedIn=%v", device.Device, isConnected, isLoggedIn)
+				logrus.Debugf("auto-connect status for %s: connected=%v loggedIn=%v", maskedDeviceID, isConnected, isLoggedIn)
 			}
 
 			if isConnected && !isLoggedIn {
@@ -226,7 +233,7 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 						logrus.Info("auto-connect: cancelled during login retry loop")
 						return
 					}
-					logrus.Debugf("auto-connect: login attempt %d/%d for device %s", attempt, maxLoginRetry, device.Device)
+					logrus.Debugf("auto-connect: login attempt %d/%d for device %s", attempt, maxLoginRetry, maskedDeviceID)
 					loginResp, loginErr := service.Login(ctx, device.Device)
 					if loginErr != nil {
 						if ctx.Err() != nil {
@@ -234,27 +241,27 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 							return
 						}
 						if loginErr.Error() == "your session have been saved, please wait to connect 2 second and refresh again" || loginErr.Error() == "SESSION_SAVED_ERROR" {
-							logrus.Debugf("auto-connect login attempt %d for device %s: session warming up, pause 5s", attempt, device.Device)
+							logrus.Debugf("auto-connect login attempt %d for device %s: session warming up, pause 5s", attempt, maskedDeviceID)
 							if !sleepWithContext(ctx, 5*time.Second) {
 								logrus.Info("auto-connect: cancelled during session warmup wait")
 								return
 							}
 							continue
 						}
-						logrus.Warnf("auto-connect login attempt %d failed for device %s: %v", attempt, device.Device, loginErr)
+						logrus.Warnf("auto-connect login attempt %d failed for device %s: %v", attempt, maskedDeviceID, loginErr)
 					} else {
-						logrus.Debugf("auto-connect login attempt %d for device %s succeeded (qr_duration=%d)", attempt, device.Device, int64(loginResp.Duration/time.Second))
+						logrus.Debugf("auto-connect login attempt %d for device %s succeeded (qr_duration=%d)", attempt, maskedDeviceID, int64(loginResp.Duration/time.Second))
 					}
 
 					isConnected, isLoggedIn, statusErr = service.Status(ctx, device.Device)
 					if statusErr != nil {
-						logrus.Warnf("auto-connect status check failed after login for device %s: %v", device.Device, statusErr)
+						logrus.Warnf("auto-connect status check failed after login for device %s: %v", maskedDeviceID, statusErr)
 					} else {
-						logrus.Debugf("auto-connect status for %s after login attempt %d: connected=%v loggedIn=%v", device.Device, attempt, isConnected, isLoggedIn)
+						logrus.Debugf("auto-connect status for %s after login attempt %d: connected=%v loggedIn=%v", maskedDeviceID, attempt, isConnected, isLoggedIn)
 					}
 
 					if isConnected && isLoggedIn {
-						logrus.Infof("auto-connect: device %s is now fully connected and logged in", device.Device)
+						logrus.Infof("auto-connect: device %s is now fully connected and logged in", maskedDeviceID)
 						hasFullyLoggedInDevice = true
 						break
 					}
@@ -270,7 +277,7 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 				hasFullyLoggedInDevice = true
 			}
 
-			logrus.Infof("auto-connected device %s", device.Device)
+			logrus.Infof("auto-connected device %s", maskedDeviceID)
 		}()
 	}
 	logrus.Info("auto-connect: completed auto connect after booting")

@@ -126,8 +126,9 @@ func initEnvConfig() {
 		config.PathStorages = ""
 		config.WhatsappAutoDownloadMedia = false
 		config.ChatStorageURI = "file::memory:?cache=shared&_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
-		config.DBURI = "file::memory:?cache=shared&_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
-		config.DBKeysURI = "file::memory:?cache=shared&_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
+		if strings.TrimSpace(config.DBKeysURI) == "" {
+			config.DBKeysURI = config.DBURI
+		}
 	}
 	if envPrefID := viper.GetString("whatsapp_preferred_device_id"); envPrefID != "" {
 		config.WhatsappPreferredDeviceID = envPrefID
@@ -441,12 +442,18 @@ func initApp() {
 	chatStorageRepo = chatstorage.NewStorageRepository(chatStorageDB)
 	chatStorageRepo.InitializeSchema()
 
+	effectiveKeysURI := config.DBKeysURI
+	if effectiveKeysURI == "" {
+		effectiveKeysURI = config.DBURI
+	}
+	logrus.Info("initApp: using Paiperwork WhatsApp DB")
+
 	whatsappDB := whatsapp.InitWaDB(ctx, config.DBURI)
 	var keysDB *sqlstore.Container
 	if config.DBKeysURI != "" {
 		if config.DBKeysURI == config.DBURI {
 			keysDB = whatsappDB
-			logrus.Infof("initApp: reusing primary WhatsApp DB container for keys store")
+			logrus.Infof("initApp: reusing Paiperwork primary WhatsApp DB container for keys store")
 		} else {
 			keysDB = whatsapp.InitWaDB(ctx, config.DBKeysURI)
 		}

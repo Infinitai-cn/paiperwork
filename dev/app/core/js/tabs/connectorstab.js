@@ -43,6 +43,7 @@ class ConnectorsTab {
         this.savedWhatsappDeviceId = null;
         this.savedWhatsappDevices = [];
         this.whatsappFreshPairRequested = false;
+        this.whatsappFreshPairDeviceId = null;
         this.whatsappSessionImportedForDevice = null;
         this.whatsappSessionRestoreStatus = '';
         this.whatsappStalePreferredDeviceCleared = null;
@@ -194,6 +195,9 @@ class ConnectorsTab {
 
     _setWhatsappFreshPairRequested(isFreshPair) {
         this.whatsappFreshPairRequested = !!isFreshPair;
+        if (!this.whatsappFreshPairRequested) {
+            this.whatsappFreshPairDeviceId = null;
+        }
     }
 
     async _setWhatsappPreferredDeviceOnServer(deviceId = '', meta = '') {
@@ -265,6 +269,12 @@ class ConnectorsTab {
             return directDeviceId;
         }
         if (result) {
+            // Prefer jid (the real paired JID e.g. "861...@s.whatsapp.net") over
+            // device_id (the old placeholder UUID that gowa discards after pairing).
+            const jid = String(result.jid || result.JID || '').trim();
+            if (jid) {
+                return jid;
+            }
             return String(result.device_id || result.deviceId || '').trim();
         }
         return '';
@@ -487,14 +497,14 @@ class ConnectorsTab {
             this.whatsappPairNewDeviceButton.style.padding = '12px 16px';
             this.whatsappPairNewDeviceButton.style.borderRadius = '8px';
             this.whatsappPairNewDeviceButton.style.fontWeight = '600';
-            this.whatsappPairNewDeviceButton.disabled = this.serverStarted || this.serverStopping || this.serverStarting || this._isWhatsappRestartBlocked() || !this.whatsappMode;
+            this.whatsappPairNewDeviceButton.disabled = this.serverStarted || this.serverStopping || this.serverStarting || !this.whatsappMode;
             if (this.whatsappPairNewDeviceButton.disabled) {
                 this.whatsappPairNewDeviceButton.style.backgroundColor = '#c4c4ca';
                 this.whatsappPairNewDeviceButton.style.color = '#575f6b';
                 this.whatsappPairNewDeviceButton.style.cursor = 'not-allowed';
             } else {
-                this.whatsappPairNewDeviceButton.style.backgroundColor = '';
-                this.whatsappPairNewDeviceButton.style.color = '';
+                this.whatsappPairNewDeviceButton.style.backgroundColor = '#fef3a6';
+                this.whatsappPairNewDeviceButton.style.color = '#5b4300';
                 this.whatsappPairNewDeviceButton.style.cursor = 'pointer';
             }
         }
@@ -845,6 +855,58 @@ class ConnectorsTab {
         return normalized;
     }
 
+    async _loadPreferredWhatsappDeviceInfo() {
+        try {
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+            const dbHandle = await this._getPaiperworkDBHandle();
+            const hasFn = dbHandle && typeof dbHandle.getWhatsappPreferredDeviceInfo === 'function';
+            if (!hashedMasterKey || !dbHandle || !hasFn) {
+                return null;
+            }
+
+            if (typeof dbHandle.initializeDatabase === 'function') {
+                await dbHandle.initializeDatabase(hashedMasterKey);
+            }
+
+            return await dbHandle.getWhatsappPreferredDeviceInfo(hashedMasterKey);
+        } catch (err) {
+            console.warn('ConnectorsTab: _loadPreferredWhatsappDeviceInfo failed', err);
+            return null;
+        }
+    }
+
+    async _savePreferredWhatsappDeviceInfo(deviceId, metadata = '') {
+        try {
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+            const dbHandle = await this._getPaiperworkDBHandle();
+            const hasFn = dbHandle && typeof dbHandle.saveWhatsappPreferredDeviceInfo === 'function';
+            if (!hashedMasterKey || !dbHandle || !hasFn) {
+                return false;
+            }
+
+            return !!(await dbHandle.saveWhatsappPreferredDeviceInfo(hashedMasterKey, deviceId, metadata));
+        } catch (err) {
+            console.warn('ConnectorsTab: _savePreferredWhatsappDeviceInfo failed', err);
+            return false;
+        }
+    }
+
+    async _clearPreferredWhatsappDeviceInfo() {
+        try {
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+            const dbHandle = await this._getPaiperworkDBHandle();
+            const hasFn = dbHandle && typeof dbHandle.clearWhatsappPreferredDeviceInfo === 'function';
+            if (!hashedMasterKey || !dbHandle || !hasFn) {
+                return false;
+            }
+
+            return !!(await dbHandle.clearWhatsappPreferredDeviceInfo(hashedMasterKey));
+        } catch (err) {
+            console.warn('ConnectorsTab: _clearPreferredWhatsappDeviceInfo failed', err);
+            return false;
+        }
+    }
+
     _buildWhatsappDeviceInfoPayload(selectedDeviceId, devices, fallbackMeta = null) {
         const normalizedDevices = Array.isArray(devices)
             ? devices.map(entry => this._sanitizeWhatsappDeviceCatalogEntry(entry)).filter(Boolean)
@@ -890,6 +952,12 @@ class ConnectorsTab {
         const payload = this._buildWhatsappDeviceInfoPayload(selectedDeviceId, devices, fallbackMeta);
         const saveResult = await dbHandle.saveWhatsappDeviceInfo(hashedMasterKey, payload.deviceId, payload.meta);
         if (saveResult) {
+            const preferredSaveResult = payload.deviceId
+                ? await this._savePreferredWhatsappDeviceInfo(payload.deviceId, payload.meta)
+                : await this._clearPreferredWhatsappDeviceInfo();
+            if (!preferredSaveResult && payload.deviceId) {
+                console.warn('ConnectorsTab: failed to persist preferred WhatsApp device info');
+            }
             this._applyWhatsappDeviceCatalogState(payload);
         }
         return !!saveResult;
@@ -1060,10 +1128,10 @@ class ConnectorsTab {
             let currentEntries = [...entries];
             const overlay = document.createElement('div');
             overlay.id = 'wa-device-chooser-modal';
-            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;z-index:100001;padding:16px;';
+            overlay.style.cssText = 'position:fixed;inset:0;background:var(--modal-overlay-bg, rgba(15,23,42,0.55));display:flex;align-items:center;justify-content:center;z-index:100001;padding:16px;';
 
             const dialog = document.createElement('div');
-            dialog.style.cssText = 'width:min(520px,100%);max-height:min(80vh,720px);overflow:auto;background:var(--card-bg,#fff);color:var(--text-color,#111);border:1px solid var(--border-color,#d0d7de);border-radius:14px;box-shadow:0 18px 55px rgba(15,23,42,0.22);padding:18px;';
+            dialog.style.cssText = 'width:min(520px,100%);max-height:min(80vh,720px);overflow:auto;background:var(--card-bg,#fff);color:var(--text-color,#111);border:1px solid var(--border-color,#d0d7de);border-radius:14px;box-shadow:var(--wa-modal-shadow, 0 18px 55px rgba(15,23,42,0.22));padding:18px;';
 
             const title = document.createElement('h3');
             title.textContent = 'Choose a saved WhatsApp device';
@@ -1094,12 +1162,14 @@ class ConnectorsTab {
 
                 currentEntries.forEach(entry => {
                     const label = this._formatWhatsappSavedDeviceLabel(entry);
-                    const card = document.createElement('div');
-                    card.style.cssText = 'display:flex;flex-direction:column;gap:10px;width:100%;padding:14px 16px;border:1px solid var(--border-color,#d0d7de);border-radius:12px;background:var(--modal-background,#fff);';
+                    const item = document.createElement('div');
+                    item.style.cssText = 'display:flex;flex-direction:column;gap:8px;width:100%;';
 
-                    const selectButton = document.createElement('button');
-                    selectButton.type = 'button';
-                    selectButton.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:4px;width:100%;border:none;background:transparent;cursor:pointer;text-align:left;padding:0;';
+                    const card = document.createElement('div');
+                    card.tabIndex = 0;
+                    card.setAttribute('role', 'button');
+                    card.setAttribute('aria-label', `Select ${label.primary}`);
+                    card.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:4px;box-sizing:border-box;width:100%;padding:14px 16px;border:1px solid var(--border-color,#d0d7de);border-radius:12px;background:var(--panel-background, var(--card-bg,#fff));color:var(--text-color,#111);cursor:pointer;text-align:left;transition:border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;';
 
                     const primary = document.createElement('span');
                     primary.textContent = label.primary;
@@ -1109,14 +1179,60 @@ class ConnectorsTab {
                     secondary.textContent = label.secondary || `Device ID: ${label.deviceId}`;
                     secondary.style.cssText = 'font-size:12px;color:var(--wa-modal-muted,#5b6573);line-height:1.4;';
 
-                    selectButton.appendChild(primary);
-                    selectButton.appendChild(secondary);
-                    selectButton.addEventListener('click', () => finish(label.deviceId));
+                    card.appendChild(primary);
+                    card.appendChild(secondary);
+                    card.addEventListener('click', () => finish(label.deviceId));
+                    card.addEventListener('keydown', (event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            finish(label.deviceId);
+                        }
+                    });
+                    card.addEventListener('mouseenter', () => {
+                        card.style.borderColor = 'var(--accent-color, #4f46e5)';
+                        card.style.background = 'var(--hover-background, var(--panel-background, var(--card-bg,#fff)))';
+                        card.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--accent-color, #4f46e5) 18%, transparent)';
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        card.style.borderColor = 'var(--border-color,#d0d7de)';
+                        card.style.background = 'var(--panel-background, var(--card-bg,#fff))';
+                        card.style.boxShadow = 'none';
+                    });
+                    card.addEventListener('focus', () => {
+                        card.style.borderColor = 'var(--accent-color, #4f46e5)';
+                        card.style.background = 'var(--hover-background, var(--panel-background, var(--card-bg,#fff)))';
+                        card.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--accent-color, #4f46e5) 20%, transparent)';
+                    });
+                    card.addEventListener('blur', () => {
+                        card.style.borderColor = 'var(--border-color,#d0d7de)';
+                        card.style.background = 'var(--panel-background, var(--card-bg,#fff))';
+                        card.style.boxShadow = 'none';
+                    });
 
                     const deleteButton = document.createElement('button');
                     deleteButton.type = 'button';
                     deleteButton.textContent = 'Delete from saved devices';
-                    deleteButton.style.cssText = 'align-self:flex-start;padding:8px 12px;border:none;border-radius:9px;background:#fee2e2;color:#991b1b;cursor:pointer;font-weight:600;font-size:12px;';
+                    deleteButton.style.cssText = 'align-self:flex-start;margin-left:2px;padding:8px 12px;border:1px solid var(--danger-color, #dc3545);border-radius:9px;background:transparent;color:var(--danger-color, #dc3545);cursor:pointer;font-weight:600;font-size:12px;transition:background-color 120ms ease, color 120ms ease, border-color 120ms ease;';
+                    deleteButton.addEventListener('mouseenter', () => {
+                        deleteButton.style.background = 'var(--danger-color, #dc3545)';
+                        deleteButton.style.color = 'var(--accent-text, #ffffff)';
+                        deleteButton.style.borderColor = 'var(--danger-color, #dc3545)';
+                    });
+                    deleteButton.addEventListener('mouseleave', () => {
+                        deleteButton.style.background = 'transparent';
+                        deleteButton.style.color = 'var(--danger-color, #dc3545)';
+                        deleteButton.style.borderColor = 'var(--danger-color, #dc3545)';
+                    });
+                    deleteButton.addEventListener('focus', () => {
+                        deleteButton.style.background = 'var(--danger-color, #dc3545)';
+                        deleteButton.style.color = 'var(--accent-text, #ffffff)';
+                        deleteButton.style.borderColor = 'var(--danger-color, #dc3545)';
+                    });
+                    deleteButton.addEventListener('blur', () => {
+                        deleteButton.style.background = 'transparent';
+                        deleteButton.style.color = 'var(--danger-color, #dc3545)';
+                        deleteButton.style.borderColor = 'var(--danger-color, #dc3545)';
+                    });
                     deleteButton.addEventListener('click', async (event) => {
                         event.preventDefault();
                         event.stopPropagation();
@@ -1155,9 +1271,9 @@ class ConnectorsTab {
                         }
                     });
 
-                    card.appendChild(selectButton);
-                    card.appendChild(deleteButton);
-                    list.appendChild(card);
+                    item.appendChild(card);
+                    item.appendChild(deleteButton);
+                    list.appendChild(item);
                 });
             };
 
@@ -1169,7 +1285,7 @@ class ConnectorsTab {
             const cancel = document.createElement('button');
             cancel.type = 'button';
             cancel.textContent = 'Cancel';
-            cancel.style.cssText = 'padding:10px 14px;border:none;border-radius:10px;background:#e5e7eb;color:#111;cursor:pointer;font-weight:600;';
+            cancel.style.cssText = 'padding:10px 14px;border:1px solid var(--border-color,#d0d7de);border-radius:10px;background:var(--button-secondary-bg, var(--panel-background, #e5e7eb));color:var(--button-secondary-text, var(--text-color, #111));cursor:pointer;font-weight:600;';
             cancel.addEventListener('click', () => finish(null));
 
             footer.appendChild(cancel);
@@ -1234,13 +1350,18 @@ class ConnectorsTab {
             }
 
             const info = await dbHandle.getWhatsappDeviceInfo(hashedMasterKey);
+            const preferredInfo = await this._loadPreferredWhatsappDeviceInfo();
             if (!info) {
                 //console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo no WhatsApp device info found');
             } else {
                 //console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo retrieved info', info);
             }
 
-            this._applyWhatsappDeviceCatalogState(info);
+            const normalized = this._applyWhatsappDeviceCatalogState(info);
+            const preferredDeviceId = String(preferredInfo && preferredInfo.deviceId ? preferredInfo.deviceId : '').trim();
+            if (preferredDeviceId && normalized.devices.some(entry => entry.deviceId === preferredDeviceId)) {
+                this.savedWhatsappDeviceId = preferredDeviceId;
+            }
 
             return info;
         } catch (err) {
@@ -1316,6 +1437,7 @@ class ConnectorsTab {
                 return;
             }
             await dbHandle.clearWhatsappDeviceInfo(hashedMasterKey);
+            await this._clearPreferredWhatsappDeviceInfo();
             this.savedWhatsappDeviceId = null;
             this.savedWhatsappDevices = [];
             if (this.whatsappUnpairButton) {
@@ -1366,14 +1488,21 @@ class ConnectorsTab {
     async _clearStoredPreferredWhatsappDeviceReferences(deviceId = null, reason = 'device-reset') {
         try {
             const resolvedDeviceId = String(deviceId || this.savedWhatsappDeviceId || '').trim();
-            if (!resolvedDeviceId) {
-                await this._clearPreferredWhatsappDeviceOnServer(reason);
+            const info = await this._loadSavedWhatsappDeviceInfo();
+            const normalized = this._normalizeWhatsappDeviceCatalog(info);
+
+            await this._clearPreferredWhatsappDeviceOnServer(reason);
+
+            if (!normalized.devices.length) {
                 await this._clearSavedWhatsappDeviceInfo();
             } else {
-                await this._removeSavedWhatsappDevice(resolvedDeviceId, {
-                    reason,
-                    selectReplacement: 'none'
-                });
+                const saveResult = await this._writeWhatsappDeviceCatalog('', normalized.devices, normalized.meta);
+                if (!saveResult) {
+                    console.warn('ConnectorsTab: failed to clear selected WhatsApp device while preserving saved catalog', {
+                        reason,
+                        deviceId: resolvedDeviceId || null
+                    });
+                }
             }
             if (resolvedDeviceId) {
                 this.whatsappStalePreferredDeviceCleared = resolvedDeviceId;
@@ -1617,6 +1746,18 @@ class ConnectorsTab {
         }
 
         return this._isWhatsappQrGraceActive();
+    }
+
+    _getWhatsappQrWithheldStatusMessage(data = null) {
+        if (data && data.qrWithheld && this.savedWhatsappDeviceId) {
+            return 'Saved WhatsApp device found. Waiting for a confirmed reconnect result before showing a QR code. If you unpaired it from the phone, remove it from saved devices or use Pair new device.';
+        }
+
+        if (this.savedWhatsappDeviceId) {
+            return 'Recovering saved WhatsApp session, please wait...';
+        }
+
+        return 'Recovering WhatsApp session, please wait...';
     }
 
     setWhatsappModalStatus(message, whiteText = false) {
@@ -1904,16 +2045,12 @@ class ConnectorsTab {
     }
 
     async startWhatsappFreshPairing() {
-        if (this._isWhatsappRestartBlocked()) {
-            this.setWhatsappPairButtonState(false);
-            return;
-        }
-
         if (!this._ensureWhatsappModelSelected()) {
             return;
         }
 
         this._setWhatsappFreshPairRequested(true);
+        this.whatsappFreshPairDeviceId = null;
         await this._setWhatsappPreferredDeviceOnServer('', '');
 
         if (this.serverStarted) {
@@ -2120,7 +2257,6 @@ class ConnectorsTab {
         this.stopWhatsappModalCountdown();
         this.setWhatsappPairButtonState(false);
         this.setWhatsappModalStatus('WhatsApp server stopped.');
-        this.setWhatsappMode(null);
     }
 
     async refreshWhatsappPairButton(options = { start: false, check: true }) {
@@ -2145,8 +2281,17 @@ class ConnectorsTab {
             if (options.start) params.set('start', 'true');
             if (options.check) params.set('check', 'true');
             const freshPairRequested = !!options.freshPair || this.whatsappFreshPairRequested;
+            const activeFreshPairDeviceId = String(this.whatsappFreshPairDeviceId || '').trim();
+            if (freshPairRequested) {
+                params.set('fresh_pair', 'true');
+            }
 
-            let candidateSavedDeviceId = String(this.savedWhatsappDeviceId || '').trim();
+            let candidateSavedDeviceId = '';
+            if (freshPairRequested) {
+                candidateSavedDeviceId = activeFreshPairDeviceId;
+            } else {
+                candidateSavedDeviceId = String(this.savedWhatsappDeviceId || '').trim();
+            }
             if (!freshPairRequested && !candidateSavedDeviceId) {
                 const info = await this._loadSavedWhatsappDeviceInfo();
                 if (info && info.deviceId) {
@@ -2154,7 +2299,7 @@ class ConnectorsTab {
                     this.savedWhatsappDeviceId = candidateSavedDeviceId;
                 }
             }
-            if (!freshPairRequested && candidateSavedDeviceId) {
+            if (candidateSavedDeviceId) {
                 params.set('device_id', candidateSavedDeviceId);
             }
 
@@ -2204,7 +2349,14 @@ class ConnectorsTab {
 
             const responseDeviceId = String((data && (data.deviceId || data.device_id)) || '').trim();
             if (responseDeviceId) {
-                this.savedWhatsappDeviceId = responseDeviceId;
+                if (freshPairRequested) {
+                    this.whatsappFreshPairDeviceId = responseDeviceId;
+                    if (data && data.loggedIn) {
+                        this.savedWhatsappDeviceId = responseDeviceId;
+                    }
+                } else {
+                    this.savedWhatsappDeviceId = responseDeviceId;
+                }
             }
 
             this._syncWhatsappQrTTL(data);
@@ -2254,6 +2406,8 @@ class ConnectorsTab {
             } else if (data.gatewayRunning) {
                 if (data.loggedIn) {
                     modalStatus = 'WhatsApp connected.';
+                } else if (data.qrWithheld) {
+                    modalStatus = this._getWhatsappQrWithheldStatusMessage(data);
                 } else if (data.qrDataUrl) {
                     modalStatus = 'Gateway running, scan QR code in the window.';
                 } else {
@@ -2287,10 +2441,9 @@ class ConnectorsTab {
                     //console.log('ConnectorsTab: refreshWhatsappPairButton deferring device save until connected', { data });
                 }
             } else if (shouldClearDeviceInfo) {
-                // Only clear stored device when we are sure the gateway had started and
-                // WhatsApp status is non-running/unpaired, otherwise keep the existing value
-                // for auto-reconnect recovery.
-                await this._clearSavedWhatsappDeviceInfo();
+                // Preserve the saved catalog across stop/unpaired transitions so users can
+                // choose among previously paired devices on the next start.
+                await this._clearStoredPreferredWhatsappDeviceReferences(this.savedWhatsappDeviceId || null, 'gateway-stopped-unpaired');
             } else {
                 //console.log('ConnectorsTab: refreshWhatsappPairButton not clearing saved device info (startup/unconfirmed state)', { data, serverStarted: this.serverStarted });
             }
@@ -2377,6 +2530,11 @@ class ConnectorsTab {
                     if (eventDeviceId) {
                         this.savedWhatsappDeviceId = eventDeviceId;
                         this.whatsappStalePreferredDeviceCleared = null;
+                        // Immediately tell the server the new paired JID so subsequent
+                        // status polls use the correct device and not any stale saved device.
+                        this._setWhatsappPreferredDeviceOnServer(eventDeviceId, '').catch(err => {
+                            console.warn('ConnectorsTab: failed to set preferred device after LOGIN_SUCCESS', err);
+                        });
                     }
                     //console.log('ConnectorsTab: whatsapp event indicates paired', payload);
                     this._completeWhatsappPairingFlow(null, 'websocket:' + code);
@@ -2790,7 +2948,7 @@ class ConnectorsTab {
                 }
 
                 if (data.qrWithheld) {
-                    this.setWhatsappModalPhase('starting', 'Recovering WhatsApp session, please wait...');
+                    this.setWhatsappModalPhase('starting', this._getWhatsappQrWithheldStatusMessage(data));
                     const qrContainer = document.getElementById('wa-qr-container');
                     if (qrContainer) {
                         qrContainer.innerHTML = '';
@@ -2843,7 +3001,10 @@ class ConnectorsTab {
                 }
 
                 if (!qrUrl) {
-                    this.setWhatsappModalPhase('starting', 'Server starting, please wait...');
+                    const noQrStatus = data.qrWithheld
+                        ? this._getWhatsappQrWithheldStatusMessage(data)
+                        : 'Server starting, please wait...';
+                    this.setWhatsappModalPhase('starting', noQrStatus);
                 }
 
                 const qrLogPreview = !qrUrl
@@ -2856,7 +3017,7 @@ class ConnectorsTab {
                 // mixed-content/CORS problems when the frontend is served over HTTPS.
                 if (qrUrl) {
                     if (this._shouldDelayWhatsappQrRender(data)) {
-                        this.setWhatsappModalPhase('starting', 'Recovering WhatsApp session, please wait...');
+                        this.setWhatsappModalPhase('starting', this._getWhatsappQrWithheldStatusMessage(data));
                         return;
                     }
                     this.setWhatsappModalPhase('qr');

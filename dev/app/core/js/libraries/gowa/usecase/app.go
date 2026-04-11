@@ -12,6 +12,7 @@ import (
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
 	pkgError "github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/error"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/ui/websocket"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/validations"
 	_ "github.com/mattn/go-sqlite3"
@@ -37,21 +38,22 @@ func NewAppService(chatStorageRepo domainChatStorage.IChatStorageRepository, dev
 }
 
 func (service *serviceApp) Login(ctx context.Context, deviceID string) (response domainApp.LoginResponse, err error) {
-	logrus.Infof("[LOGIN][%s] start", deviceID)
+	maskedDeviceID := logmask.MaskPhoneNumber(deviceID)
+	logrus.Infof("[LOGIN][%s] start", maskedDeviceID)
 	instance, client, err := service.ensureClient(ctx, deviceID)
 	if err != nil {
-		logrus.Errorf("[LOGIN][%s] ensureClient failed: %v", deviceID, err)
+		logrus.Errorf("[LOGIN][%s] ensureClient failed: %v", maskedDeviceID, err)
 		return response, err
 	}
 
 	if client.IsLoggedIn() {
-		logrus.Infof("[LOGIN][%s] already logged in", deviceID)
+		logrus.Infof("[LOGIN][%s] already logged in", maskedDeviceID)
 		instance.UpdateStateFromClient()
 		return response, pkgError.ErrAlreadyLoggedIn
 	}
 
 	// Disconnect first to ensure QR flow starts cleanly.
-	logrus.Debugf("[LOGIN][%s] disconnecting client before QR flow", deviceID)
+	logrus.Debugf("[LOGIN][%s] disconnecting client before QR flow", maskedDeviceID)
 	client.Disconnect()
 
 	// Use a detached context for the QR channel so the pairing session
@@ -63,12 +65,12 @@ func (service *serviceApp) Login(ctx context.Context, deviceID string) (response
 
 	chImage := make(chan string, 1) // Buffered to prevent goroutine leak
 	qrEventCount := 0
-	logrus.Debugf("[LOGIN][%s] requesting QR channel", deviceID)
+	logrus.Debugf("[LOGIN][%s] requesting QR channel", maskedDeviceID)
 	ch, err := client.GetQRChannel(qrCtx)
 	if err != nil {
 		qrCancel()
 		if errors.Is(err, whatsmeow.ErrQRStoreContainsID) {
-			logrus.Infof("[LOGIN][%s] GetQRChannel skipped, session exists", deviceID)
+			logrus.Infof("[LOGIN][%s] GetQRChannel skipped, session exists", maskedDeviceID)
 			_ = client.Connect()
 			instance.UpdateStateFromClient()
 			if client.IsLoggedIn() {
@@ -76,7 +78,7 @@ func (service *serviceApp) Login(ctx context.Context, deviceID string) (response
 			}
 			return response, pkgError.ErrSessionSaved
 		}
-		logrus.Errorf("[LOGIN][%s] GetQRChannel failed: %v", deviceID, err)
+		logrus.Errorf("[LOGIN][%s] GetQRChannel failed: %v", maskedDeviceID, err)
 		return response, pkgError.ErrQrChannel
 	}
 
@@ -89,12 +91,12 @@ func (service *serviceApp) Login(ctx context.Context, deviceID string) (response
 			if evt.Event == "code" {
 				response.IssuedAt = time.Now().UnixMilli()
 				qrEventCount++
-				logrus.Infof("[LOGIN][%s] QR event issued seq=%d issued_at=%d valid_for=%ds", deviceID, qrEventCount, response.IssuedAt, int64(response.Duration/time.Second))
+				logrus.Infof("[LOGIN][%s] QR event issued seq=%d issued_at=%d valid_for=%ds", maskedDeviceID, qrEventCount, response.IssuedAt, int64(response.Duration/time.Second))
 				// Generate PNG in-memory and return as base64 data URL so
 				// the gateway does not write QR images to disk.
 				png, perr := qrcode.Encode(evt.Code, qrcode.Medium, 512)
 				if perr != nil {
-					logrus.Errorf("[LOGIN][%s] Error when encode qr to PNG: %v", deviceID, perr)
+					logrus.Errorf("[LOGIN][%s] Error when encode qr to PNG: %v", maskedDeviceID, perr)
 					continue
 				}
 				b64 := base64.StdEncoding.EncodeToString(png)
@@ -102,31 +104,31 @@ func (service *serviceApp) Login(ctx context.Context, deviceID string) (response
 				select {
 				case chImage <- dataURL:
 				case <-qrCtx.Done():
-					logrus.Debugf("[LOGIN][%s] QR context canceled while sending QR data", deviceID)
+					logrus.Debugf("[LOGIN][%s] QR context canceled while sending QR data", maskedDeviceID)
 					return
 				}
 			} else if evt.Event == "success" {
-				logrus.Infof("[LOGIN][%s] QR event success received", deviceID)
+				logrus.Infof("[LOGIN][%s] QR event success received", maskedDeviceID)
 				return
 			} else if evt.Error != nil {
-				logrus.Errorf("[LOGIN][%s] error when get qrCode %s %v", deviceID, evt.Event, evt.Error)
+				logrus.Errorf("[LOGIN][%s] error when get qrCode %s %v", maskedDeviceID, evt.Event, evt.Error)
 			} else {
-				logrus.Warnf("[LOGIN][%s] non-error QR event %s with nil error", deviceID, evt.Event)
+				logrus.Warnf("[LOGIN][%s] non-error QR event %s with nil error", maskedDeviceID, evt.Event)
 			}
 		}
 	}()
 
-	logrus.Debugf("[LOGIN][%s] connecting client", deviceID)
+	logrus.Debugf("[LOGIN][%s] connecting client", maskedDeviceID)
 	if err = client.Connect(); err != nil {
 		qrCancel()
-		logrus.Errorf("[LOGIN][%s] client.Connect failed: %v", deviceID, err)
+		logrus.Errorf("[LOGIN][%s] client.Connect failed: %v", maskedDeviceID, err)
 		return response, pkgError.ErrReconnect
 	}
 
-	logrus.Debugf("[LOGIN][%s] client connected", deviceID)
+	logrus.Debugf("[LOGIN][%s] client connected", maskedDeviceID)
 	instance.UpdateStateFromClient()
 
-	logrus.Infof("[LOGIN][%s] login returned connected=%v loggedIn=%v", deviceID, client.IsConnected(), client.IsLoggedIn())
+	logrus.Infof("[LOGIN][%s] login returned connected=%v loggedIn=%v", maskedDeviceID, client.IsConnected(), client.IsLoggedIn())
 
 	// Wait for QR image with timeout to prevent hanging
 	select {
@@ -168,7 +170,7 @@ func (service *serviceApp) LoginWithCode(ctx context.Context, deviceID string, p
 		}
 	}
 
-	logrus.Infof("[LOGIN_CODE][%s] Starting phone pairing for number: %s", deviceID, phoneNumber)
+	logrus.Infof("[LOGIN_CODE][%s] Starting phone pairing for number: %s", logmask.MaskPhoneNumber(deviceID), logmask.MaskPhoneNumber(phoneNumber))
 	loginCode, err = client.PairPhone(ctx, phoneNumber, true, whatsmeow.PairClientChrome, "Chrome (Linux)")
 	if err != nil {
 		logrus.Errorf("Error when pairing phone: %s", err.Error())
@@ -186,7 +188,7 @@ func (service *serviceApp) Logout(ctx context.Context, deviceID string) error {
 	}
 
 	if err := service.deviceManager.PurgeDevice(ctx, deviceID); err != nil {
-		logrus.WithError(err).Warnf("[LOGOUT][%s] purge completed with warnings", deviceID)
+		logrus.WithError(err).Warnf("[LOGOUT][%s] purge completed with warnings", logmask.MaskPhoneNumber(deviceID))
 		return err
 	}
 
@@ -211,7 +213,8 @@ func (service *serviceApp) Logout(ctx context.Context, deviceID string) error {
 }
 
 func (service *serviceApp) Reconnect(ctx context.Context, deviceID string) (err error) {
-	logrus.Infof("[RECONNECT][%s] begin", deviceID)
+	maskedDeviceID := logmask.MaskPhoneNumber(deviceID)
+	logrus.Infof("[RECONNECT][%s] begin", maskedDeviceID)
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -220,32 +223,32 @@ func (service *serviceApp) Reconnect(ctx context.Context, deviceID string) (err 
 	}
 	instance, client, err := service.ensureClient(ctx, deviceID)
 	if err != nil {
-		logrus.Errorf("[RECONNECT][%s] ensureClient failed: %v", deviceID, err)
+		logrus.Errorf("[RECONNECT][%s] ensureClient failed: %v", maskedDeviceID, err)
 		return err
 	}
 
 	if client.Store == nil || client.Store.ID == nil {
-		logrus.Warnf("[RECONNECT][%s] device %s is not logged in (session deleted)", deviceID, deviceID)
+		logrus.Warnf("[RECONNECT][%s] device %s is not logged in (session deleted)", maskedDeviceID, maskedDeviceID)
 		return fmt.Errorf("device %s is not logged in (session deleted)", deviceID)
 	}
 
-	logrus.Debugf("[RECONNECT][%s] disconnecting client", deviceID)
+	logrus.Debugf("[RECONNECT][%s] disconnecting client", maskedDeviceID)
 	client.Disconnect()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
-	logrus.Debugf("[RECONNECT][%s] connecting client", deviceID)
+	logrus.Debugf("[RECONNECT][%s] connecting client", maskedDeviceID)
 	err = client.Connect()
 	if err != nil {
-		logrus.Errorf("[RECONNECT][%s] Connect failed: %v", deviceID, err)
+		logrus.Errorf("[RECONNECT][%s] Connect failed: %v", maskedDeviceID, err)
 		return err
 	}
 
-	logrus.Debugf("[RECONNECT][%s] updating state from client", deviceID)
+	logrus.Debugf("[RECONNECT][%s] updating state from client", maskedDeviceID)
 	instance.UpdateStateFromClient()
 
-	logrus.Infof("[RECONNECT][%s] completed connected=%v loggedIn=%v", deviceID, client.IsConnected(), client.IsLoggedIn())
+	logrus.Infof("[RECONNECT][%s] completed connected=%v loggedIn=%v", maskedDeviceID, client.IsConnected(), client.IsLoggedIn())
 	return nil
 }
 

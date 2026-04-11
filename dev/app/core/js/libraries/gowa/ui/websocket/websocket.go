@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
 	"github.com/sirupsen/logrus"
 
 	domainApp "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/app"
@@ -72,9 +73,61 @@ func RunHub() {
 			handleUnregister(conn)
 
 		case message := <-Broadcast:
-			logrus.Println("message received:", message)
+			logrus.Printf("message received: code=%s message=%s result=%v", message.Code, logmask.MaskTextPhones(message.Message), sanitizeBroadcastResultForLog(message.Result))
 			broadcastMessage(message)
 		}
+	}
+}
+
+func sanitizeBroadcastResultForLog(result any) any {
+	switch value := result.(type) {
+	case map[string]any:
+		cloned := make(map[string]any, len(value))
+		for key, item := range value {
+			if shouldMaskBroadcastKey(key) {
+				if str, ok := item.(string); ok {
+					cloned[key] = logmask.MaskPhoneNumber(str)
+					continue
+				}
+			}
+			cloned[key] = sanitizeBroadcastResultForLog(item)
+		}
+		return cloned
+	case map[string]string:
+		cloned := make(map[string]string, len(value))
+		for key, item := range value {
+			if shouldMaskBroadcastKey(key) {
+				cloned[key] = logmask.MaskPhoneNumber(item)
+				continue
+			}
+			cloned[key] = logmask.MaskTextPhones(item)
+		}
+		return cloned
+	case []any:
+		cloned := make([]any, len(value))
+		for idx, item := range value {
+			cloned[idx] = sanitizeBroadcastResultForLog(item)
+		}
+		return cloned
+	case []string:
+		cloned := make([]string, len(value))
+		for idx, item := range value {
+			cloned[idx] = logmask.MaskTextPhones(item)
+		}
+		return cloned
+	case string:
+		return logmask.MaskTextPhones(value)
+	default:
+		return result
+	}
+}
+
+func shouldMaskBroadcastKey(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "device_id", "device", "phone", "phone_number", "jid", "chat_id", "from":
+		return true
+	default:
+		return false
 	}
 }
 

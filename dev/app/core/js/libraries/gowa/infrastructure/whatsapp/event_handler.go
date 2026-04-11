@@ -1,12 +1,8 @@
 package whatsapp
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -14,6 +10,7 @@ import (
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
 	domainDevice "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/device"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/ui/websocket"
 	"github.com/sirupsen/logrus"
 	"go.mau.fi/whatsmeow"
@@ -162,102 +159,34 @@ func handleAppStateSyncComplete(_ context.Context, client *whatsmeow.Client, evt
 }
 
 func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
+	pairedDeviceID := strings.TrimSpace(evt.ID.String())
+	pairedJID := strings.TrimSpace(evt.ID.ToNonAD().String())
 	result := map[string]any{
-		"jid": evt.ID.String(),
+		"jid": pairedDeviceID,
 	}
 	if inst, ok := DeviceFromContext(ctx); ok && inst != nil {
+		oldDeviceID := strings.TrimSpace(inst.ID())
+		if dm := GetDeviceManager(); dm != nil && pairedDeviceID != "" {
+			if promoted := dm.PromoteDeviceIdentity(oldDeviceID, pairedDeviceID, pairedJID); promoted != nil {
+				inst = promoted
+			}
+		}
 		if deviceID := strings.TrimSpace(inst.ID()); deviceID != "" {
 			result["device_id"] = deviceID
 		}
+	} else if pairedDeviceID != "" {
+		result["device_id"] = pairedDeviceID
 	}
 	websocket.Broadcast <- websocket.BroadcastMessage{
 		Code:    "LOGIN_SUCCESS",
-		Message: fmt.Sprintf("Successfully pair with %s", evt.ID.String()),
+		Message: fmt.Sprintf("Successfully pair with %s", pairedDeviceID),
 		Result:  result,
 	}
-	primaryDB, secondaryDB := getStoreContainers()
-	syncKeysDevice(ctx, primaryDB, secondaryDB)
-}
-
-func sendWelcomeAfterPairSuccess(ctx context.Context, evt *events.PairSuccess) {
-	if evt == nil {
-		return
-	}
-	client := ClientFromContext(ctx)
-
-	jid := strings.TrimSpace(evt.ID.String())
-	if jid == "" {
-		return
-	}
-
-	// Extract phone from PairSuccess JID like "8618...:35@s.whatsapp.net".
-	phone := jid
-	if at := strings.Index(phone, "@"); at > 0 {
-		phone = phone[:at]
-	}
-	if colon := strings.Index(phone, ":"); colon > 0 {
-		phone = phone[:colon]
-	}
-	phone = strings.TrimSpace(phone)
-	if phone == "" {
-		logrus.Warnf("[WELCOME] PairSuccess phone extraction failed for jid=%q", jid)
-		return
-	}
-
-	// PairSuccess can fire slightly before the client is fully send-ready.
-	// Wait for the local client state to settle so we don't trip the
-	// "you are not logged in" middleware path on the first welcome send.
-	for attempt := 1; attempt <= 8; attempt++ {
-		if client != nil && client.Store != nil && client.Store.ID != nil && client.IsConnected() && client.IsLoggedIn() {
-			break
-		}
-		if attempt == 8 {
-			logrus.Warnf("[WELCOME] skipping PairSuccess welcome for phone=%s because client is not fully logged in yet", phone)
-			return
-		}
-		time.Sleep(1 * time.Second)
-	}
-
-	payload := map[string]string{
-		"phone":   phone,
-		"message": "👋 Paiperwork is now connected and ready to chat.",
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		logrus.Warnf("[WELCOME] marshal failed after PairSuccess: %v", err)
-		return
-	}
-
-	req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:3000/send/message", bytes.NewReader(body))
-	if err != nil {
-		logrus.Warnf("[WELCOME] request create failed after PairSuccess: %v", err)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
-	if err != nil {
-		logrus.Warnf("[WELCOME] send failed after PairSuccess phone=%s: %v", phone, err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		logrus.Warnf("[WELCOME] send returned status=%d after PairSuccess phone=%s body=%s", resp.StatusCode, phone, strings.TrimSpace(string(bodyBytes)))
-		return
-	}
-
-	masked := phone
-	if len(masked) > 4 {
-		masked = strings.Repeat("*", len(masked)-4) + masked[len(masked)-4:]
-	}
-	logrus.Infof("[WELCOME] welcome message sent after PairSuccess to %s", masked)
 }
 
 func handleLoggedOut(ctx context.Context, instance *DeviceInstance, chatStorageRepo domainChatStorage.IChatStorageRepository) {
 	_ = ctx
-	logrus.Warnf("[REMOTE_LOGOUT] Received LoggedOut event for device %s - user logged out from phone", instance.ID())
+	logrus.Warnf("[REMOTE_LOGOUT] Received LoggedOut event for device %s - user logged out from phone", logmask.MaskPhoneNumber(instance.ID()))
 
 	if client := instance.GetClient(); client != nil {
 		client.Disconnect()
@@ -291,6 +220,15 @@ func handleConnectionEvents(_ context.Context, client *whatsmeow.Client, instanc
 	if instance != nil {
 		instance.UpdateStateFromClient()
 
+		if dm := GetDeviceManager(); dm != nil && client.Store != nil && client.Store.ID != nil {
+			if pairedDeviceID := strings.TrimSpace(client.Store.ID.String()); pairedDeviceID != "" {
+				pairedJID := strings.TrimSpace(client.Store.ID.ToNonAD().String())
+				if promoted := dm.PromoteDeviceIdentity(instance.ID(), pairedDeviceID, pairedJID); promoted != nil {
+					instance = promoted
+				}
+			}
+		}
+
 		// Persist updated JID/DisplayName to database after successful connection
 		// Skip if instance.ID looks like a JID (auto-created device) to avoid recreating deleted duplicates
 		if repo := instance.GetChatStorage(); repo != nil && !strings.Contains(instance.ID(), "@") {
@@ -318,13 +256,19 @@ func handleConnectionEvents(_ context.Context, client *whatsmeow.Client, instanc
 
 	if client.IsConnected() && client.IsLoggedIn() {
 		deviceID := ""
+		jid := ""
 		if instance != nil {
 			deviceID = instance.ID()
+			jid = instance.JID()
+		}
+		if deviceID == "" && client.Store != nil && client.Store.ID != nil {
+			deviceID = client.Store.ID.String()
+			jid = client.Store.ID.ToNonAD().String()
 		}
 		websocket.Broadcast <- websocket.BroadcastMessage{
 			Code:    "LOGGED_IN",
 			Message: fmt.Sprintf("WhatsApp connected for device %s", deviceID),
-			Result:  map[string]any{"device_id": deviceID},
+			Result:  map[string]any{"device_id": deviceID, "jid": jid},
 		}
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
 	domainDevice "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/device"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
 	fiberUtils "github.com/gofiber/fiber/v2/utils"
 	"github.com/sirupsen/logrus"
 	"go.mau.fi/whatsmeow"
@@ -135,6 +136,67 @@ func (m *DeviceManager) RemoveDevice(id string) {
 	}
 }
 
+func (m *DeviceManager) PromoteDeviceIdentity(oldID, newID, newJID string) *DeviceInstance {
+	if m == nil {
+		return nil
+	}
+
+	trimmedOldID := strings.TrimSpace(oldID)
+	trimmedNewID := strings.TrimSpace(newID)
+	trimmedNewJID := strings.TrimSpace(newJID)
+	if trimmedNewID == "" {
+		trimmedNewID = trimmedNewJID
+	}
+	if trimmedNewJID == "" {
+		trimmedNewJID = trimmedNewID
+	}
+	if trimmedOldID == "" || trimmedNewID == "" {
+		return nil
+	}
+
+	m.mu.Lock()
+	inst, ok := m.devices[trimmedOldID]
+	if !ok || inst == nil {
+		inst = m.devices[trimmedNewID]
+	}
+	if inst == nil {
+		m.mu.Unlock()
+		return nil
+	}
+
+	delete(m.devices, trimmedOldID)
+	m.devices[trimmedNewID] = inst
+	m.mu.Unlock()
+
+	storageDeviceID := trimmedNewJID
+	if storageDeviceID == "" {
+		storageDeviceID = trimmedNewID
+	}
+
+	inst.mu.Lock()
+	inst.id = trimmedNewID
+	inst.jid = trimmedNewJID
+	inst.chatStorageRepo = newDeviceChatStorage(storageDeviceID, m.storage)
+	inst.mu.Unlock()
+
+	if m.storage != nil {
+		if trimmedOldID != trimmedNewID {
+			_ = m.storage.DeleteDeviceRecord(trimmedOldID)
+			_ = m.storage.DeleteDeviceData(trimmedOldID)
+		}
+		_ = m.storage.SaveDeviceRecord(&domainChatStorage.DeviceRecord{
+			DeviceID:    trimmedNewID,
+			DisplayName: inst.DisplayName(),
+			JID:         trimmedNewJID,
+			CreatedAt:   inst.CreatedAt(),
+			UpdatedAt:   time.Now(),
+		})
+	}
+
+	logrus.Infof("[DEVICE_MANAGER] promoted device placeholder %s to paired device %s", logmask.MaskPhoneNumber(trimmedOldID), logmask.MaskPhoneNumber(trimmedNewID))
+	return inst
+}
+
 func deviceAccountKey(deviceID, jid string) string {
 	candidate := strings.TrimSpace(jid)
 	if candidate == "" {
@@ -150,6 +212,82 @@ func deviceAccountKey(deviceID, jid string) string {
 		candidate = candidate[:colon]
 	}
 	return strings.TrimSpace(candidate)
+}
+
+func persistedDeviceRecordKey(deviceID, jid string) string {
+	if key := deviceAccountKey(deviceID, jid); key != "" {
+		return strings.ToLower(key)
+	}
+	if trimmedJID := strings.TrimSpace(jid); trimmedJID != "" {
+		return strings.ToLower(trimmedJID)
+	}
+	return strings.ToLower(strings.TrimSpace(deviceID))
+}
+
+func deviceRecordFromStoreDevice(dev *store.Device) *domainChatStorage.DeviceRecord {
+	if dev == nil || dev.ID == nil {
+		return nil
+	}
+
+	deviceID := strings.TrimSpace(dev.ID.String())
+	jid := strings.TrimSpace(dev.ID.ToNonAD().String())
+	if deviceID == "" && jid == "" {
+		return nil
+	}
+
+	return &domainChatStorage.DeviceRecord{
+		DeviceID: deviceID,
+		JID:      jid,
+	}
+}
+
+func mergePersistedDeviceRecords(registry []*domainChatStorage.DeviceRecord, storeDevices []*store.Device) ([]*domainChatStorage.DeviceRecord, []*domainChatStorage.DeviceRecord) {
+	merged := make([]*domainChatStorage.DeviceRecord, 0, len(registry)+len(storeDevices))
+	backfilled := make([]*domainChatStorage.DeviceRecord, 0)
+	seen := make(map[string]struct{}, len(registry)+len(storeDevices))
+
+	appendRecord := func(rec *domainChatStorage.DeviceRecord) bool {
+		if rec == nil {
+			return false
+		}
+		key := persistedDeviceRecordKey(rec.DeviceID, rec.JID)
+		if key == "" {
+			return false
+		}
+		if _, exists := seen[key]; exists {
+			return false
+		}
+		seen[key] = struct{}{}
+		merged = append(merged, rec)
+		return true
+	}
+
+	for _, rec := range registry {
+		appendRecord(rec)
+	}
+
+	for _, dev := range storeDevices {
+		rec := deviceRecordFromStoreDevice(dev)
+		if rec == nil {
+			continue
+		}
+		if appendRecord(rec) {
+			backfilled = append(backfilled, rec)
+		}
+	}
+
+	return merged, backfilled
+}
+
+func countStoreDevices(devices []*store.Device) int {
+	count := 0
+	for _, dev := range devices {
+		if dev == nil || dev.ID == nil {
+			continue
+		}
+		count++
+	}
+	return count
 }
 
 func (m *DeviceManager) pruneStaleRecordsForLoggedInInstance(current *DeviceInstance) {
@@ -358,7 +496,7 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 		m.initted = true
 	})
 
-	// Log preferred device sourced via PaiperworkDB/ENV for no-disk recovery.
+	// Log preferred device sourced via Paiperwork-managed state / env for no-disk recovery.
 	preferredByConfig := strings.TrimSpace(config.WhatsappPreferredDeviceID)
 	preferredByEnv := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID"))
 	if preferredByEnv == "" {
@@ -366,14 +504,32 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 	}
 
 	if preferredByConfig != "" {
-		logrus.Infof("[DEVICE_MANAGER] preferred device candidate from config: %s", preferredByConfig)
+		logrus.Infof("[DEVICE_MANAGER] preferred device candidate from config: %s", logmask.MaskPhoneNumber(preferredByConfig))
 	}
 	if preferredByEnv != "" {
-		logrus.Infof("[DEVICE_MANAGER] preferred device candidate from env: %s", preferredByEnv)
+		logrus.Infof("[DEVICE_MANAGER] preferred device candidate from env: %s", logmask.MaskPhoneNumber(preferredByEnv))
 	}
 	if preferredByConfig == "" && preferredByEnv == "" {
-		logrus.Info("[DEVICE_MANAGER] no preferred device candidate available (PaiperworkDB/ENV)")
+		logrus.Info("[DEVICE_MANAGER] no preferred device candidate available (Paiperwork-managed state/env)")
 	}
+
+	if IsFreshPairStartupRequested() {
+		m.mu.Lock()
+		m.devices = make(map[string]*DeviceInstance)
+		m.mu.Unlock()
+		logrus.Info("[DEVICE_MANAGER] fresh-pair startup requested; skipping persisted device recovery from Paiperwork DB")
+		return nil
+	}
+
+	storeDevices, storeErr := m.store.GetAllDevices(ctx)
+	if storeErr != nil {
+		if config.NoDisk {
+			logrus.WithError(storeErr).Warn("[DEVICE_MANAGER] failed to enumerate Paiperwork WhatsApp store devices during startup reconciliation")
+		} else {
+			return storeErr
+		}
+	}
+	storeDeviceCount := countStoreDevices(storeDevices)
 
 	// Load from persisted registry (optional). In no-disk mode we still log, but we will not enforce as authoritative.
 	if m.storage != nil {
@@ -381,15 +537,27 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 		if err != nil {
 			logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to load device registry")
 		} else {
-			logrus.Infof("[DEVICE_MANAGER] discovered %d device records in registry", len(records))
-			for _, rec := range records {
+			reconciledRecords := records
+			if storeErr == nil {
+				var backfilledRecords []*domainChatStorage.DeviceRecord
+				reconciledRecords, backfilledRecords = mergePersistedDeviceRecords(records, storeDevices)
+				for _, rec := range backfilledRecords {
+					if saveErr := m.storage.SaveDeviceRecord(rec); saveErr != nil {
+						logrus.WithError(saveErr).Warnf("[DEVICE_MANAGER] failed to backfill registry record for Paiperwork DB device %s", logmask.MaskPhoneNumber(rec.DeviceID))
+					}
+				}
+				logrus.Infof("[DEVICE_MANAGER] discovered %d device records in Paiperwork DB for reconciliation (registry=%d store=%d)", len(reconciledRecords), len(records), storeDeviceCount)
+			} else {
+				logrus.Infof("[DEVICE_MANAGER] discovered %d device records in registry (Paiperwork store unavailable)", len(records))
+			}
+			for _, rec := range reconciledRecords {
 				if rec == nil {
 					continue
 				}
-				logrus.Infof("[DEVICE_MANAGER] registry device: id=%q jid=%q", rec.DeviceID, rec.JID)
+				logrus.Infof("[DEVICE_MANAGER] registry device: id=%q jid=%q", logmask.MaskPhoneNumber(rec.DeviceID), logmask.MaskPhoneNumber(rec.JID))
 			}
 			if !config.NoDisk {
-				m.loadFromRegistry(records)
+				m.loadFromRegistry(reconciledRecords)
 			} else {
 				logrus.Info("[DEVICE_MANAGER] NoDisk mode: skipping device registry apply")
 			}
@@ -401,14 +569,8 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 		return nil
 	}
 
-	// Load from WhatsMeow store
-	devices, err := m.store.GetAllDevices(ctx)
-	if err != nil {
-		return err
-	}
-
-	logrus.Infof("[DEVICE_MANAGER] discovered %d device records in store", len(devices))
-	for _, dev := range devices {
+	logrus.Infof("[DEVICE_MANAGER] discovered %d device records in store", storeDeviceCount)
+	for _, dev := range storeDevices {
 		if dev == nil || dev.ID == nil {
 			continue
 		}
@@ -438,7 +600,7 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 
 		// Match orphaned device with this JID
 		if orphanDevice != nil {
-			logrus.Infof("[DEVICE_MANAGER] matching orphaned device %s with JID %s", orphanDevice.ID(), jid)
+			logrus.Infof("[DEVICE_MANAGER] matching orphaned device %s with JID %s", logmask.MaskPhoneNumber(orphanDevice.ID()), logmask.MaskPhoneNumber(jid))
 			orphanDevice.mu.Lock()
 			orphanDevice.jid = jid
 			orphanDevice.mu.Unlock()
@@ -514,7 +676,7 @@ func (m *DeviceManager) loadFromRegistry(records []*domainChatStorage.DeviceReco
 			m.mu.Lock()
 			delete(m.devices, existingByJID.ID())
 			m.mu.Unlock()
-			logrus.Infof("[DEVICE_MANAGER] replacing in-memory device %s with registry device %s", existingByJID.ID(), rec.DeviceID)
+			logrus.Infof("[DEVICE_MANAGER] replacing in-memory device %s with registry device %s", logmask.MaskPhoneNumber(existingByJID.ID()), logmask.MaskPhoneNumber(rec.DeviceID))
 		}
 
 		// Create device instance
@@ -714,11 +876,11 @@ func (m *DeviceManager) configureKeysStore(ctx context.Context, device *store.De
 	// PreKeys are sensitive to container lifecycle; keep them on primary store for reliability.
 	if m.store != nil {
 		device.PreKeys = sqlstore.NewSQLStore(m.store, *device.ID)
-		log.Infof("configureKeysStore: prekeys are now on primary DB %p for device %s", m.store, device.ID.String())
+		log.Infof("configureKeysStore: prekeys are now on primary DB %p for device %s", m.store, logmask.MaskPhoneNumber(device.ID.String()))
 	} else {
 		// If we don't have m.store for whatever reason, fallback to a noop prekey store to avoid panic.
 		device.PreKeys = store.NoopDevice.PreKeys
-		log.Warnf("configureKeysStore: primary store missing; using Noop prekeys for device %s", device.ID.String())
+		log.Warnf("configureKeysStore: primary store missing; using Noop prekeys for device %s", logmask.MaskPhoneNumber(device.ID.String()))
 	}
 	device.SenderKeys = innerStore
 	device.MsgSecrets = innerStore
