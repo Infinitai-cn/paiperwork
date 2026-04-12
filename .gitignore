@@ -4,4 +4,5 @@ paiperwork.code-workspace
 .vscode
 paiperwork.mdconfig.env
 .config.env
+**/config.env
 **/storages/
