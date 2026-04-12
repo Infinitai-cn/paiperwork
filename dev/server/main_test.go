@@ -183,6 +183,60 @@ func TestShouldPruneNoDiskGatewayPlaceholder(t *testing.T) {
 	}
 }
 
+func TestResolveExistingNoDiskGatewayDevice(t *testing.T) {
+	tests := []struct {
+		name              string
+		ids               []string
+		preferredDeviceID string
+		statusByID        map[string]*whatsappGatewayStatus
+		want              string
+	}{
+		{
+			name:              "prefers explicit selected device over another logged in device",
+			ids:               []string{"8618520165968:55@s.whatsapp.net", "8619802087305:13@s.whatsapp.net"},
+			preferredDeviceID: "8618520165968:55@s.whatsapp.net",
+			statusByID: map[string]*whatsappGatewayStatus{
+				"8618520165968:55@s.whatsapp.net": {Connected: false, LoggedIn: false},
+				"8619802087305:13@s.whatsapp.net": {Connected: true, LoggedIn: true},
+			},
+			want: "8618520165968:55@s.whatsapp.net",
+		},
+		{
+			name: "falls back to logged in device when no preferred device selected",
+			ids:  []string{"device-a", "device-b"},
+			statusByID: map[string]*whatsappGatewayStatus{
+				"device-b": {Connected: true, LoggedIn: true},
+			},
+			want: "device-b",
+		},
+		{
+			name:              "falls back to logged in device when preferred device is absent",
+			ids:               []string{"device-a", "device-b"},
+			preferredDeviceID: "missing-device",
+			statusByID: map[string]*whatsappGatewayStatus{
+				"device-b": {Connected: true, LoggedIn: true},
+			},
+			want: "device-b",
+		},
+		{
+			name:              "returns empty when no devices qualify",
+			ids:               []string{"device-a"},
+			preferredDeviceID: "",
+			statusByID:        map[string]*whatsappGatewayStatus{},
+			want:              "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveExistingNoDiskGatewayDevice(tt.ids, tt.preferredDeviceID, tt.statusByID)
+			if got != tt.want {
+				t.Fatalf("resolveExistingNoDiskGatewayDevice() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestClassifyQrEligibilityByLoginFailure(t *testing.T) {
 	tests := []struct {
 		name           string

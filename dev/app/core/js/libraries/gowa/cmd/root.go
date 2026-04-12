@@ -55,6 +55,15 @@ var (
 	deviceUsecase     domainDevice.IDeviceUsecase
 )
 
+func isLocalGowaStorageURI(uri string) bool {
+	trimmed := strings.TrimSpace(strings.Trim(uri, `"'`))
+	if trimmed == "" {
+		return false
+	}
+	lower := strings.ToLower(trimmed)
+	return strings.Contains(lower, "storages/whatsapp.db") || strings.Contains(lower, "storages/chatstorage.db") || strings.HasPrefix(lower, "file::memory")
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Short: "Send free whatsapp API",
@@ -119,15 +128,21 @@ func initEnvConfig() {
 		config.DBKeysURI = envDBKEYSURI
 	}
 	if envNoDisk := os.Getenv("PAIPERWORK_NO_DISK"); strings.ToLower(envNoDisk) == "true" {
+		paiperworkDBURI := strings.TrimSpace(os.Getenv("PAIPERWORK_DB_URI"))
+		if paiperworkDBURI == "" {
+			logrus.Fatal("PAIPERWORK_NO_DISK requires PAIPERWORK_DB_URI; refusing to fall back to local or in-memory gowa databases")
+		}
 		config.NoDisk = true
 		config.PathQrCode = ""
 		config.PathSendItems = ""
 		config.PathMedia = ""
 		config.PathStorages = ""
 		config.WhatsappAutoDownloadMedia = false
-		config.ChatStorageURI = "file::memory:?cache=shared&_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
-		if strings.TrimSpace(config.DBKeysURI) == "" {
-			config.DBKeysURI = config.DBURI
+		config.DBURI = paiperworkDBURI
+		config.DBKeysURI = paiperworkDBURI
+		config.ChatStorageURI = paiperworkDBURI
+		if envKeysURI := strings.TrimSpace(os.Getenv("PAIPERWORK_DB_KEYS_URI")); envKeysURI != "" && envKeysURI != paiperworkDBURI {
+			logrus.Warn("PAIPERWORK_NO_DISK forcing keys DB to reuse PAIPERWORK_DB_URI to keep a single Paiperwork DB source of truth")
 		}
 	}
 	if envPrefID := viper.GetString("whatsapp_preferred_device_id"); envPrefID != "" {
@@ -366,6 +381,14 @@ func initFlags() {
 
 func initChatStorage() (*sql.DB, error) {
 	connStr := config.ChatStorageURI
+	if config.NoDisk {
+		if strings.TrimSpace(config.DBURI) == "" {
+			return nil, fmt.Errorf("no-disk mode requires PAIPERWORK_DB_URI for chat storage")
+		}
+		if strings.TrimSpace(connStr) != strings.TrimSpace(config.DBURI) {
+			return nil, fmt.Errorf("no-disk mode requires chat storage to reuse PAIPERWORK_DB_URI")
+		}
+	}
 	if strings.Contains(connStr, "?") {
 		connStr += "&_journal_mode=WAL&_busy_timeout=5000"
 	} else {
@@ -423,7 +446,14 @@ func initApp() {
 		// _ = os.RemoveAll("statics/media")
 		// _ = os.RemoveAll("storages")
 
-		logrus.Info("No-disk mode enabled: skipping folder creation; preserving existing storage folders")
+		if strings.TrimSpace(config.DBURI) == "" {
+			logrus.Fatal("initApp: PAIPERWORK_NO_DISK is enabled but PAIPERWORK_DB_URI is empty")
+		}
+		if isLocalGowaStorageURI(config.DBURI) || isLocalGowaStorageURI(config.ChatStorageURI) || (strings.TrimSpace(config.DBKeysURI) != "" && isLocalGowaStorageURI(config.DBKeysURI)) {
+			logrus.Fatalf("initApp: no-disk mode forbids local gowa storage URIs (db=%q keys=%q chat=%q)", config.DBURI, config.DBKeysURI, config.ChatStorageURI)
+		}
+
+		logrus.Infof("No-disk mode enabled: reusing Paiperwork DB for WhatsApp store, keys, and chat storage")
 	} else {
 		err = utils.CreateFolder(config.PathQrCode, config.PathSendItems, config.PathStorages, config.PathMedia)
 		if err != nil {
@@ -442,21 +472,13 @@ func initApp() {
 	chatStorageRepo = chatstorage.NewStorageRepository(chatStorageDB)
 	chatStorageRepo.InitializeSchema()
 
-	effectiveKeysURI := config.DBKeysURI
-	if effectiveKeysURI == "" {
-		effectiveKeysURI = config.DBURI
-	}
 	logrus.Info("initApp: using Paiperwork WhatsApp DB")
 
 	whatsappDB := whatsapp.InitWaDB(ctx, config.DBURI)
 	var keysDB *sqlstore.Container
-	if config.DBKeysURI != "" {
-		if config.DBKeysURI == config.DBURI {
-			keysDB = whatsappDB
-			logrus.Infof("initApp: reusing Paiperwork primary WhatsApp DB container for keys store")
-		} else {
-			keysDB = whatsapp.InitWaDB(ctx, config.DBKeysURI)
-		}
+	if config.DBURI != "" {
+		keysDB = whatsappDB
+		logrus.Infof("initApp: reusing Paiperwork primary WhatsApp DB container for keys store")
 	}
 
 	whatsappCli = whatsapp.InitWaCLI(ctx, whatsappDB, keysDB, chatStorageRepo)

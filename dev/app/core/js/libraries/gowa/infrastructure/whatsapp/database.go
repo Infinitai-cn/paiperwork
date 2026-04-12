@@ -7,12 +7,32 @@ import (
 	"strings"
 
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
+	"github.com/sirupsen/logrus"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
 
+func isForbiddenNoDiskURI(uri string) bool {
+	trimmed := strings.TrimSpace(strings.Trim(uri, `"'`))
+	if trimmed == "" {
+		return false
+	}
+	lower := strings.ToLower(trimmed)
+	return strings.Contains(lower, "storages/whatsapp.db") || strings.Contains(lower, "storages/chatstorage.db") || strings.HasPrefix(lower, "file::memory")
+}
+
 // InitWaDB initializes the WhatsApp database connection
 func InitWaDB(ctx context.Context, DBURI string) *sqlstore.Container {
+	if config.NoDisk {
+		trimmed := strings.TrimSpace(strings.Trim(DBURI, `"'`))
+		if trimmed == "" {
+			logrus.Fatal("InitWaDB: no-disk mode requires a Paiperwork DB URI")
+		}
+		if isForbiddenNoDiskURI(trimmed) {
+			logrus.Fatalf("InitWaDB: no-disk mode forbids local or in-memory gowa database URIs: %s", trimmed)
+		}
+	}
+
 	log = waLog.Stdout("Main", config.WhatsappLogLevel, true)
 	dbLog := waLog.Stdout("Database", config.WhatsappLogLevel, true)
 

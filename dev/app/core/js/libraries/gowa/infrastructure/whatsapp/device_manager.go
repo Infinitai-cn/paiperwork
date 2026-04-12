@@ -43,6 +43,28 @@ func NewDeviceManager(store *sqlstore.Container, keys *sqlstore.Container, chatS
 	}
 }
 
+func preferredDeviceCandidateID() string {
+	if preferredByConfig := strings.TrimSpace(config.WhatsappPreferredDeviceID); preferredByConfig != "" {
+		return preferredByConfig
+	}
+	if preferredByEnv := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")); preferredByEnv != "" {
+		return preferredByEnv
+	}
+	return strings.TrimSpace(os.Getenv("WHATSAPP_PREFERRED_DEVICE_ID"))
+}
+
+func matchesPreferredDeviceCandidate(deviceID, preferredDeviceID string) bool {
+	trimmedDeviceID := strings.TrimSpace(deviceID)
+	trimmedPreferredDeviceID := strings.TrimSpace(preferredDeviceID)
+	if trimmedDeviceID == "" || trimmedPreferredDeviceID == "" {
+		return false
+	}
+	if strings.EqualFold(trimmedDeviceID, trimmedPreferredDeviceID) {
+		return true
+	}
+	return deviceAccountKey(trimmedDeviceID, "") != "" && deviceAccountKey(trimmedDeviceID, "") == deviceAccountKey(trimmedPreferredDeviceID, "")
+}
+
 func (m *DeviceManager) AddDevice(instance *DeviceInstance) {
 	if instance == nil || instance.ID() == "" {
 		return
@@ -473,9 +495,19 @@ func (m *DeviceManager) ListDevices() []*DeviceInstance {
 		result = append(result, instance)
 	}
 
-	// Sort by CreatedAt ascending (oldest first) for stable UI ordering.
-	// Use ID as tie-breaker when CreatedAt is equal.
+	preferredDeviceID := preferredDeviceCandidateID()
+
+	// Sort by preferred device first, then CreatedAt ascending (oldest first)
+	// for stable UI ordering. Use ID as tie-breaker when CreatedAt is equal.
 	slices.SortFunc(result, func(a, b *DeviceInstance) int {
+		aPreferred := matchesPreferredDeviceCandidate(a.ID(), preferredDeviceID)
+		bPreferred := matchesPreferredDeviceCandidate(b.ID(), preferredDeviceID)
+		if aPreferred != bPreferred {
+			if aPreferred {
+				return -1
+			}
+			return 1
+		}
 		if cmp := a.CreatedAt().Compare(b.CreatedAt()); cmp != 0 {
 			return cmp
 		}
