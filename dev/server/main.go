@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
-	"embed"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -40,12 +39,6 @@ import (
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
-
-//go:embed gowa_embed/index.html
-var gowaEmbedIndex embed.FS
-
-//go:embed gowa_embed/*
-var gowaEmbedViews embed.FS
 
 var adminAuditMutex sync.Mutex
 var gatewayStartMutex sync.Mutex
