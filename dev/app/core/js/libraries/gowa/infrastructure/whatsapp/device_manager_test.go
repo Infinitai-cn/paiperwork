@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
 	_ "github.com/mattn/go-sqlite3"
 	"go.mau.fi/whatsmeow/proto/waAdv"
@@ -51,6 +52,31 @@ func TestListDevices_SortsByCreatedAtAscending(t *testing.T) {
 		if result[2].ID() != "device-c" {
 			t.Errorf("iteration %d: expected third device to be device-c, got %s", i, result[2].ID())
 		}
+	}
+}
+
+func TestListDevices_PrefersSelectedDeviceFirst(t *testing.T) {
+	t.Setenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID", "8619802087305:13@s.whatsapp.net")
+	originalPreferred := config.WhatsappPreferredDeviceID
+	config.WhatsappPreferredDeviceID = ""
+	t.Cleanup(func() {
+		config.WhatsappPreferredDeviceID = originalPreferred
+	})
+
+	manager := &DeviceManager{
+		devices: make(map[string]*DeviceInstance),
+	}
+
+	now := time.Now()
+	manager.devices["8618520165968:57@s.whatsapp.net"] = &DeviceInstance{id: "8618520165968:57@s.whatsapp.net", createdAt: now}
+	manager.devices["8619802087305:13@s.whatsapp.net"] = &DeviceInstance{id: "8619802087305:13@s.whatsapp.net", createdAt: now.Add(1 * time.Hour)}
+
+	result := manager.ListDevices()
+	if len(result) != 2 {
+		t.Fatalf("expected 2 devices, got %d", len(result))
+	}
+	if got := result[0].ID(); got != "8619802087305:13@s.whatsapp.net" {
+		t.Fatalf("expected preferred device first, got %s", got)
 	}
 }
 

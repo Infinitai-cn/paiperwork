@@ -40,12 +40,6 @@ func GetDB() *sqlstore.Container {
 	return db
 }
 
-func getStoreContainers() (*sqlstore.Container, *sqlstore.Container) {
-	globalStateMu.RLock()
-	defer globalStateMu.RUnlock()
-	return db, keysDB
-}
-
 func ResetStateOnShutdown() {
 	StopAutoReconnectChecker()
 	globalStateMu.Lock()

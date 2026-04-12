@@ -27,6 +27,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -36,6 +37,8 @@ import (
 	config "github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	whatsappInfra "github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
 	restHelpers "github.com/aldinokemal/go-whatsapp-web-multidevice/ui/rest/helpers"
+	"go.mau.fi/whatsmeow/store/sqlstore"
+	waLog "go.mau.fi/whatsmeow/util/log"
 )
 
 //go:embed gowa_embed/index.html
@@ -258,6 +261,206 @@ func savePreferredWhatsappDeviceToDB(userKey, deviceID, meta string) error {
 	`, strings.TrimSpace(deviceID), strings.TrimSpace(meta))
 
 	return err
+}
+
+type persistedWhatsappDeviceEntry struct {
+	ID          string `json:"id"`
+	PhoneNumber string `json:"phone_number,omitempty"`
+	DisplayName string `json:"display_name,omitempty"`
+	State       string `json:"state"`
+	JID         string `json:"jid,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
+}
+
+func persistedWhatsappDeviceAccountKey(deviceID, jid string) string {
+	candidate := strings.TrimSpace(jid)
+	if candidate == "" {
+		candidate = strings.TrimSpace(deviceID)
+	}
+	if candidate == "" {
+		return ""
+	}
+	if at := strings.Index(candidate, "@"); at >= 0 {
+		candidate = candidate[:at]
+	}
+	if colon := strings.Index(candidate, ":"); colon >= 0 {
+		candidate = candidate[:colon]
+	}
+	return strings.TrimSpace(strings.ToLower(candidate))
+}
+
+func persistedWhatsappDeviceKey(deviceID, jid string) string {
+	if key := persistedWhatsappDeviceAccountKey(deviceID, jid); key != "" {
+		return key
+	}
+	trimmedJID := strings.TrimSpace(strings.ToLower(jid))
+	if trimmedJID != "" {
+		return trimmedJID
+	}
+	return strings.TrimSpace(strings.ToLower(deviceID))
+}
+
+func mergePersistedWhatsappDeviceEntry(entries map[string]persistedWhatsappDeviceEntry, order *[]string, entry persistedWhatsappDeviceEntry) {
+	entry.ID = strings.TrimSpace(entry.ID)
+	entry.JID = strings.TrimSpace(entry.JID)
+	entry.PhoneNumber = normalizeWhatsappIdentity(entry.PhoneNumber)
+	entry.DisplayName = strings.TrimSpace(entry.DisplayName)
+	entry.State = strings.TrimSpace(entry.State)
+	entry.CreatedAt = strings.TrimSpace(entry.CreatedAt)
+	if entry.State == "" {
+		entry.State = "disconnected"
+	}
+	if entry.PhoneNumber == "" {
+		entry.PhoneNumber = normalizeWhatsappIdentity(entry.JID)
+	}
+	if entry.ID == "" && entry.JID == "" {
+		return
+	}
+
+	key := persistedWhatsappDeviceKey(entry.ID, entry.JID)
+	if key == "" {
+		return
+	}
+
+	current, exists := entries[key]
+	if !exists {
+		entries[key] = entry
+		*order = append(*order, key)
+		return
+	}
+
+	if current.ID == "" {
+		current.ID = entry.ID
+	}
+	if current.JID == "" {
+		current.JID = entry.JID
+	}
+	if current.PhoneNumber == "" {
+		current.PhoneNumber = entry.PhoneNumber
+	}
+	if current.DisplayName == "" {
+		current.DisplayName = entry.DisplayName
+	}
+	if current.CreatedAt == "" {
+		current.CreatedAt = entry.CreatedAt
+	}
+	if current.State == "" || current.State == "disconnected" {
+		current.State = entry.State
+	}
+	entries[key] = current
+}
+
+func loadPersistedWhatsappDevicesFromDB(userKey string) ([]persistedWhatsappDeviceEntry, error) {
+	if strings.TrimSpace(userKey) == "" {
+		return []persistedWhatsappDeviceEntry{}, nil
+	}
+
+	dbPath := sqliteURIPath(userWhatsappDBURI(userKey))
+	if strings.TrimSpace(dbPath) == "" {
+		return []persistedWhatsappDeviceEntry{}, nil
+	}
+
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath))
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+
+	entries := make(map[string]persistedWhatsappDeviceEntry)
+	order := make([]string, 0)
+
+	rows, err := db.Query(`
+		SELECT COALESCE(device_id, ''), COALESCE(display_name, ''), COALESCE(jid, ''), COALESCE(CAST(created_at AS TEXT), '')
+		FROM devices
+		ORDER BY created_at ASC, device_id ASC
+	`)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "no such table") {
+			rows = nil
+		} else {
+			return nil, err
+		}
+	}
+	if rows != nil {
+		defer rows.Close()
+		for rows.Next() {
+			var deviceID, displayName, jid, createdAt string
+			if err := rows.Scan(&deviceID, &displayName, &jid, &createdAt); err != nil {
+				return nil, err
+			}
+			mergePersistedWhatsappDeviceEntry(entries, &order, persistedWhatsappDeviceEntry{
+				ID:          deviceID,
+				DisplayName: displayName,
+				PhoneNumber: normalizeWhatsappIdentity(jid),
+				State:       "disconnected",
+				JID:         jid,
+				CreatedAt:   createdAt,
+			})
+		}
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+	}
+
+	dbLog := waLog.Stdout("PersistedDeviceList", config.WhatsappLogLevel, true)
+	storeContainer := sqlstore.NewWithDB(db, "sqlite3", dbLog)
+	if err := storeContainer.Upgrade(context.Background()); err == nil {
+		storeDevices, storeErr := storeContainer.GetAllDevices(context.Background())
+		if storeErr != nil {
+			log.Printf("loadPersistedWhatsappDevicesFromDB: failed to enumerate store devices for user=%s: %v", safeUserKeyForFilename(userKey), storeErr)
+		} else {
+			for _, dev := range storeDevices {
+				if dev == nil || dev.ID == nil {
+					continue
+				}
+				mergePersistedWhatsappDeviceEntry(entries, &order, persistedWhatsappDeviceEntry{
+					ID:          strings.TrimSpace(dev.ID.String()),
+					DisplayName: strings.TrimSpace(firstNonEmptyString(dev.BusinessName, dev.PushName)),
+					PhoneNumber: normalizeWhatsappIdentity(dev.ID.ToNonAD().String()),
+					State:       "disconnected",
+					JID:         strings.TrimSpace(dev.ID.ToNonAD().String()),
+				})
+			}
+		}
+	}
+
+	devices := make([]persistedWhatsappDeviceEntry, 0, len(entries))
+	for _, key := range order {
+		entry, ok := entries[key]
+		if !ok {
+			continue
+		}
+		devices = append(devices, entry)
+	}
+
+	sort.SliceStable(devices, func(i, j int) bool {
+		leftCreated := strings.TrimSpace(devices[i].CreatedAt)
+		rightCreated := strings.TrimSpace(devices[j].CreatedAt)
+		if leftCreated != rightCreated {
+			if leftCreated == "" {
+				return false
+			}
+			if rightCreated == "" {
+				return true
+			}
+			return leftCreated < rightCreated
+		}
+		return devices[i].ID < devices[j].ID
+	})
+
+	return devices, nil
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func getPreferredWhatsappDeviceIDFromRequest(r *http.Request) string {
@@ -1959,10 +2162,13 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if stopRequested {
-		markWhatsappManualStopWindow(5 * time.Second)
+		markWhatsappManualStopWindow(30 * time.Second)
 		_ = stopGateway()
 		pairRequested = false
 		os.Unsetenv(whatsappFreshPairStartupEnv)
+		os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
+		os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
+		config.WhatsappPreferredDeviceID = ""
 		activeWhatsappUserMu.Lock()
 		activeWhatsappUser = ""
 		activeWhatsappUserMu.Unlock()
@@ -2480,24 +2686,40 @@ func whatsappDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	userKey := resolveWhatsappUserKeyFromRequest(r)
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get("http://127.0.0.1:3000/devices")
-	if err != nil {
-		log.Printf("whatsappDevicesHandler: failed to query gateway devices: %v", err)
-		http.Error(w, "gateway-unavailable", http.StatusServiceUnavailable)
-		return
+	if err == nil && resp != nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
+				log.Printf("whatsappDevicesHandler: copy failed: %v", copyErr)
+			}
+			return
+		}
+		log.Printf("whatsappDevicesHandler: gateway returned status %d, falling back to persisted Paiperwork devices", resp.StatusCode)
+	} else if err != nil {
+		log.Printf("whatsappDevicesHandler: failed to query gateway devices, falling back to persisted Paiperwork devices: %v", err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("whatsappDevicesHandler: gateway returned status %d", resp.StatusCode)
+
+	persistedDevices, persistedErr := loadPersistedWhatsappDevicesFromDB(userKey)
+	if persistedErr != nil {
+		log.Printf("whatsappDevicesHandler: failed to load persisted Paiperwork devices for user=%s: %v", safeUserKeyForFilename(userKey), persistedErr)
 		http.Error(w, "gateway-unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if _, copyErr := io.Copy(w, resp.Body); copyErr != nil {
-		log.Printf("whatsappDevicesHandler: copy failed: %v", copyErr)
+	if err := json.NewEncoder(w).Encode(map[string]any{
+		"status":  200,
+		"code":    "SUCCESS",
+		"message": "Fetch persisted device success",
+		"results": persistedDevices,
+	}); err != nil {
+		log.Printf("whatsappDevicesHandler: failed to encode persisted device response: %v", err)
 	}
 }
 
@@ -2945,6 +3167,26 @@ func shouldPruneNoDiskGatewayPlaceholder(deviceID, preferredDeviceID string, det
 	return strings.TrimSpace(details.JID) == ""
 }
 
+func resolveExistingNoDiskGatewayDevice(ids []string, preferredDeviceID string, candidateStatus map[string]*whatsappGatewayStatus) string {
+	trimmedPreferred := strings.TrimSpace(preferredDeviceID)
+	if trimmedPreferred != "" {
+		for _, id := range ids {
+			if strings.TrimSpace(id) == trimmedPreferred {
+				return trimmedPreferred
+			}
+		}
+	}
+
+	for _, id := range ids {
+		status := candidateStatus[id]
+		if status != nil && status.Connected && status.LoggedIn {
+			return id
+		}
+	}
+
+	return ""
+}
+
 func clearWhatsappGatewayTransientState(deviceID string) {
 	whatsappGatewayCachedQR = ""
 	whatsappGatewayCachedBytesMu.Lock()
@@ -3065,16 +3307,6 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 			return ids, nil
 		}
 
-		pickLoggedInNoDiskDevice := func(ids []string) string {
-			for _, id := range ids {
-				status, serr := fetchWhatsappGatewayConnectionStatus(client, id)
-				if serr == nil && status != nil && status.Connected && status.LoggedIn {
-					return id
-				}
-			}
-			return ""
-		}
-
 		noDiskDeviceIDs, idsErr := listNoDiskDevices()
 		candidateDetails := make(map[string]*whatsappGatewayDeviceDetails, len(noDiskDeviceIDs))
 		candidateStatus := make(map[string]*whatsappGatewayStatus, len(noDiskDeviceIDs))
@@ -3087,11 +3319,11 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 			}
 		}
 		if idsErr == nil && len(noDiskDeviceIDs) > 0 {
-			if loggedInID := pickLoggedInNoDiskDevice(noDiskDeviceIDs); loggedInID != "" {
-				if preferredDeviceID != "" && strings.TrimSpace(preferredDeviceID) != loggedInID {
-					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode preferring already logged-in device %s over preferred candidate %s", loggedInID, strings.TrimSpace(preferredDeviceID))
+			if resolvedID := resolveExistingNoDiskGatewayDevice(noDiskDeviceIDs, trimmedPreferred, candidateStatus); resolvedID != "" {
+				if trimmedPreferred != "" && trimmedPreferred != resolvedID {
+					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode preferring already logged-in device %s over preferred candidate %s", resolvedID, trimmedPreferred)
 				}
-				return loggedInID, nil
+				return resolvedID, nil
 			}
 		}
 
