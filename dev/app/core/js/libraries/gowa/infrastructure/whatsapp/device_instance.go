@@ -1,6 +1,7 @@
 package whatsapp
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -26,9 +27,11 @@ type DeviceInstance struct {
 func NewDeviceInstance(deviceID string, client *whatsmeow.Client, chatStorageRepo domainChatStorage.IChatStorageRepository) *DeviceInstance {
 	jid := ""
 	display := ""
+	phone := ""
 	if client != nil && client.Store != nil && client.Store.ID != nil {
 		jid = client.Store.ID.ToNonAD().String()
 		display = client.Store.PushName
+		phone = normalizePhoneFromJID(jid)
 	}
 
 	return &DeviceInstance{
@@ -37,6 +40,7 @@ func NewDeviceInstance(deviceID string, client *whatsmeow.Client, chatStorageRep
 		chatStorageRepo: chatStorageRepo,
 		state:           domainDevice.DeviceStateDisconnected,
 		displayName:     display,
+		phoneNumber:     phone,
 		jid:             jid,
 		createdAt:       time.Now(),
 	}
@@ -151,8 +155,45 @@ func (d *DeviceInstance) UpdateStateFromClient() domainDevice.DeviceState {
 func (d *DeviceInstance) refreshIdentityLocked() {
 	if d.client != nil && d.client.Store != nil && d.client.Store.ID != nil {
 		d.jid = d.client.Store.ID.ToNonAD().String()
-		d.displayName = d.client.Store.PushName
+		d.displayName = firstNonEmptyIdentityValue(d.client.Store.PushName, d.client.Store.BusinessName)
+		d.phoneNumber = normalizePhoneFromJID(d.jid)
 	}
+}
+
+func (d *DeviceInstance) SetIdentityMetadata(displayName, phoneNumber, jid string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if strings.TrimSpace(displayName) != "" {
+		d.displayName = strings.TrimSpace(displayName)
+	}
+	if strings.TrimSpace(phoneNumber) != "" {
+		d.phoneNumber = strings.TrimSpace(phoneNumber)
+	}
+	if strings.TrimSpace(jid) != "" {
+		d.jid = strings.TrimSpace(jid)
+		if d.phoneNumber == "" {
+			d.phoneNumber = normalizePhoneFromJID(d.jid)
+		}
+	}
+}
+
+func firstNonEmptyIdentityValue(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func normalizePhoneFromJID(jid string) string {
+	trimmed := strings.TrimSpace(jid)
+	if trimmed == "" {
+		return ""
+	}
+	withoutDomain := strings.Split(trimmed, "@")[0]
+	return strings.Split(withoutDomain, ":")[0]
 }
 
 func (d *DeviceInstance) SetOnLoggedOut(callback func(deviceID string)) {

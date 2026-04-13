@@ -50,6 +50,9 @@ class ConnectorsTab {
         this.whatsappModalPhase = 'starting';
         this.whatsappQrGraceUntil = 0;
         this.whatsappQrGraceMs = 5000;
+        this._boundWhatsappPairingWindowCloseHandler = () => {
+            this._handleWhatsappPairingWindowClose();
+        };
     }
 
     initialize() {
@@ -94,6 +97,11 @@ class ConnectorsTab {
         }
 
         this.isInitialized = true;
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('beforeunload', this._boundWhatsappPairingWindowCloseHandler);
+            window.addEventListener('pagehide', this._boundWhatsappPairingWindowCloseHandler);
+        }
     }
 
     setupWhatsappButton() {
@@ -124,7 +132,7 @@ class ConnectorsTab {
         }
         if (this.whatsappPairNewDeviceButton) {
             this.whatsappPairNewDeviceButton.addEventListener('click', async () => {
-                if (this.serverStopping || this.serverStarted) {
+                if (this._isWhatsappPairNewDeviceBlocked()) {
                     return;
                 }
                 await this.startWhatsappFreshPairing();
@@ -238,6 +246,91 @@ class ConnectorsTab {
         }
     }
 
+    _getWhatsappStopRequestUrl() {
+        const stopParams = this._appendWhatsappUserScope(new URLSearchParams({ stop: 'true' }));
+        return '/api/whatsapp/qr?' + stopParams.toString();
+    }
+
+    async _requestWhatsappServerStop(options = {}) {
+        const { keepalive = false } = options;
+        const stopUrl = this._getWhatsappStopRequestUrl();
+        const headers = this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' });
+        return fetch(stopUrl, {
+            method: 'POST',
+            headers,
+            keepalive: !!keepalive
+        });
+    }
+
+    _teardownWhatsappPairModalUi() {
+        this.whatsappPairModalDismissed = true;
+        this.closeWhatsappPairModal();
+        try {
+            if (this._currentQrObjectUrl) {
+                URL.revokeObjectURL(this._currentQrObjectUrl);
+                this._currentQrObjectUrl = null;
+            }
+        } catch (_) {}
+        this.stopPolling();
+        this.stopWhatsappModalCountdown();
+        this.clearWhatsappQrCountdown();
+    }
+
+    async _cancelWhatsappPairingAndStopServer(source = 'modal-close') {
+        console.log('ConnectorsTab: _cancelWhatsappPairingAndStopServer', {
+            source,
+            serverStarted: this.serverStarted,
+            serverStarting: this.serverStarting,
+            serverStopping: this.serverStopping,
+            isPaired: this.isPaired
+        });
+
+        this._teardownWhatsappPairModalUi();
+
+        if (this.serverStarted || this.serverStarting || this.serverStopping) {
+            await this.stopWhatsappServer();
+            return;
+        }
+
+        this.setWhatsappPairButtonState(this.isPaired);
+    }
+
+    _handleWhatsappPairingWindowClose() {
+        if (this.isPaired) {
+            return;
+        }
+
+        const modal = document.getElementById('wa-pair-modal');
+        if (!modal) {
+            return;
+        }
+
+        if (!(this.serverStarted || this.serverStarting || this.serverStopping)) {
+            return;
+        }
+
+        this.whatsappPairModalDismissed = true;
+        this.whatsappWebsocketShouldReconnect = false;
+        this.stopPolling();
+        this.stopWhatsappModalCountdown();
+
+        const stopUrl = this._getWhatsappStopRequestUrl();
+        try {
+            if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+                navigator.sendBeacon(stopUrl, new Blob([], { type: 'application/json' }));
+                return;
+            }
+        } catch (_) {}
+
+        try {
+            fetch(stopUrl, {
+                method: 'POST',
+                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
+                keepalive: true
+            }).catch(() => {});
+        } catch (_) {}
+    }
+
     _getWhatsappSelectedModel() {
         const modelSelector = document.getElementById('model-selector');
         return modelSelector && modelSelector.value ? String(modelSelector.value).trim() : '';
@@ -307,6 +400,39 @@ class ConnectorsTab {
         return withoutDomain.includes(':') ? withoutDomain.split(':')[0] : withoutDomain;
     }
 
+    async _persistWhatsappDeviceFromLoginEvent(payload) {
+        const eventDeviceId = this._resolveWhatsappEventDeviceId(payload);
+        if (!eventDeviceId) {
+            return false;
+        }
+
+        const result = payload && payload.result && typeof payload.result === 'object'
+            ? payload.result
+            : (payload && payload.Result && typeof payload.Result === 'object' ? payload.Result : {});
+        const rawJid = String(result.jid || result.JID || eventDeviceId || '').trim();
+        const phoneNumber = String(result.phone_number || result.phoneNumber || '').trim() || this._normalizeWhatsappDeviceIdentity(rawJid);
+        const displayName = String(
+            result.display_name
+            || result.displayName
+            || result.push_name
+            || result.pushName
+            || ''
+        ).trim();
+
+        const metadata = { state: 'logged_in' };
+        if (phoneNumber) {
+            metadata.phone_number = phoneNumber;
+        }
+        if (displayName) {
+            metadata.display_name = displayName;
+        }
+        if (rawJid) {
+            metadata.jid = rawJid;
+        }
+
+        return this._upsertSavedWhatsappDevice(eventDeviceId, metadata);
+    }
+
     _resolveSavedWhatsappCatalogDeviceId(deviceId = null) {
         const requested = String(deviceId || '').trim();
         if (!requested) {
@@ -356,8 +482,43 @@ class ConnectorsTab {
         return Array.isArray(this.savedWhatsappDevices) && this.savedWhatsappDevices.length > 1;
     }
 
-    async _syncWhatsappLoginSuccessToServer(deviceId = null, maxAttempts = 6) {
-        const resolvedDeviceId = String(deviceId || this.savedWhatsappDeviceId || '').trim();
+    async _syncWhatsappLoginSuccessToServer(deviceOrPayload = null, maxAttempts = 6) {
+        const payload = deviceOrPayload && typeof deviceOrPayload === 'object' ? deviceOrPayload : null;
+        const resolvedDeviceId = String(
+            (payload && (payload.deviceId || payload.device_id || this._resolveWhatsappEventDeviceId(payload)))
+            || deviceOrPayload
+            || this.savedWhatsappDeviceId
+            || ''
+        ).trim();
+        const result = payload && payload.result && typeof payload.result === 'object'
+            ? payload.result
+            : (payload && payload.Result && typeof payload.Result === 'object' ? payload.Result : null);
+        const resolvedPhoneNumber = String(
+            (result && (result.phone_number || result.phoneNumber))
+            || (payload && (payload.phone_number || payload.phoneNumber))
+            || ''
+        ).trim();
+
+        const sendDbSync = async () => {
+            const syncPayload = {};
+            if (resolvedDeviceId) {
+                syncPayload.device_id = resolvedDeviceId;
+            }
+            if (resolvedPhoneNumber) {
+                syncPayload.phone_number = resolvedPhoneNumber;
+            }
+            await fetch('/api/whatsapp/db-sync', {
+                method: 'POST',
+                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify(syncPayload)
+            });
+        };
+
+        try {
+            await sendDbSync();
+        } catch (syncErr) {
+            console.warn('ConnectorsTab: immediate whatsapp db-sync after login failed', syncErr);
+        }
 
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
             try {
@@ -374,6 +535,11 @@ class ConnectorsTab {
                 if (response.ok) {
                     const data = await response.json().catch(() => null);
                     if (data && data.loggedIn) {
+                        try {
+                            await sendDbSync();
+                        } catch (syncErr) {
+                            console.warn('ConnectorsTab: whatsapp db-sync after login failed', syncErr);
+                        }
                         return true;
                     }
                 }
@@ -430,6 +596,15 @@ class ConnectorsTab {
 
     _isWhatsappRestartBlocked() {
         return !!(this.whatsappRestartBlockedUntil && Date.now() < this.whatsappRestartBlockedUntil);
+    }
+
+    _isWhatsappPairNewDeviceBlocked() {
+        return !!(
+            this.serverStarted
+            || this.serverStopping
+            || this.serverStarting
+            || this._isWhatsappRestartBlocked()
+        );
     }
 
     _setWhatsappRestartBlocked(ms = 0) {
@@ -573,7 +748,14 @@ class ConnectorsTab {
             this.whatsappPairNewDeviceButton.style.padding = '12px 16px';
             this.whatsappPairNewDeviceButton.style.borderRadius = '8px';
             this.whatsappPairNewDeviceButton.style.fontWeight = '600';
-            this.whatsappPairNewDeviceButton.disabled = this.serverStarted || this.serverStopping || this.serverStarting || !this.whatsappMode;
+            this.whatsappPairNewDeviceButton.disabled = this._isWhatsappPairNewDeviceBlocked() || !this.whatsappMode;
+            if (this._isWhatsappRestartBlocked()) {
+                this.whatsappPairNewDeviceButton.textContent = 'Please wait...';
+                this.whatsappPairNewDeviceButton.title = 'Please wait before pairing a new device';
+            } else {
+                this.whatsappPairNewDeviceButton.textContent = 'Pair new device';
+                this.whatsappPairNewDeviceButton.title = 'Pair a new WhatsApp device';
+            }
             if (this.whatsappPairNewDeviceButton.disabled) {
                 this.whatsappPairNewDeviceButton.style.backgroundColor = '#c4c4ca';
                 this.whatsappPairNewDeviceButton.style.color = '#575f6b';
@@ -814,10 +996,26 @@ class ConnectorsTab {
         if (!hashedMasterKey) return;
 
         const deviceInfo = await this._loadSavedWhatsappDeviceInfo();
-        if (!deviceInfo) return;
+        if (!deviceInfo) {
+            try {
+                await this._clearPreferredWhatsappDeviceOnServer('no-saved-devices');
+            } catch (clearErr) {
+                console.warn('ConnectorsTab: _syncPreferredWhatsappDeviceWithServer clear failed', clearErr);
+            }
+            return;
+        }
 
         const normalized = this._normalizeWhatsappDeviceCatalog(deviceInfo);
         const selectedDeviceId = String(normalized.selectedDeviceId || '').trim();
+
+        if (!normalized.devices.length) {
+            try {
+                await this._clearPreferredWhatsappDeviceOnServer('no-saved-devices');
+            } catch (clearErr) {
+                console.warn('ConnectorsTab: _syncPreferredWhatsappDeviceWithServer empty-catalog clear failed', clearErr);
+            }
+            return;
+        }
 
         const deviceValue = (isPaired || !!selectedDeviceId) ? selectedDeviceId : '';
         const metaValue = (isPaired || !!normalized.meta) ? JSON.stringify(normalized.meta || {}) : '';
@@ -864,13 +1062,14 @@ class ConnectorsTab {
             return null;
         }
 
-        const rawJid = String(entry.jid || '').trim();
-        const normalizedPhone = String(entry.phone_number || '').trim() || this._normalizeWhatsappDeviceIdentity(rawJid);
+        const rawJid = String(entry.jid || (deviceId.includes('@') ? deviceId : '')).trim();
+        const normalizedPhone = String(entry.phone_number || '').trim() || this._normalizeWhatsappDeviceIdentity(rawJid || deviceId);
 
         return {
             deviceId,
+            jid: rawJid,
             phone_number: normalizedPhone,
-            display_name: String(entry.display_name || entry.name || '').trim(),
+            display_name: String(entry.display_name || entry.displayName || entry.push_name || entry.pushName || entry.name || '').trim(),
             alias: String(entry.alias || '').trim(),
             state: String(entry.state || '').trim(),
             created_at: String(entry.created_at || entry.createdAt || '').trim(),
@@ -1235,7 +1434,6 @@ class ConnectorsTab {
         }
 
         if (previousSelectedDeviceId && previousSelectedDeviceId !== resolvedDeviceId && shouldSelect) {
-            await this._clearSavedWhatsappSessionBundle(previousSelectedDeviceId);
             this.whatsappSessionImportedForDevice = null;
         }
 
@@ -1540,13 +1738,9 @@ class ConnectorsTab {
     }
 
     async _chooseSavedWhatsappDeviceForStart() {
-        const authoritative = await this._fetchAuthoritativeWhatsappDevicesFromServer();
-        const preferredInfo = await this._loadPreferredWhatsappDeviceInfo();
-        const authoritativeInfo = this._composeWhatsappDeviceInfoWithAuthoritativeDevices(null, preferredInfo, authoritative.devices);
-        const normalized = this._normalizeWhatsappDeviceCatalog(authoritativeInfo);
+        const { normalized } = await this._readSavedWhatsappDeviceCatalogFromDb();
         const devices = Array.isArray(normalized && normalized.devices) ? normalized.devices : [];
         console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart resolved devices', {
-            authoritativeAvailable: authoritative.available,
             deviceCount: devices.length,
             savedWhatsappDeviceId: this.savedWhatsappDeviceId,
             deviceIds: devices.map(entry => entry.deviceId)
@@ -1604,31 +1798,26 @@ class ConnectorsTab {
 
             const info = await dbHandle.getWhatsappDeviceInfo(hashedMasterKey);
             const preferredInfo = await this._loadPreferredWhatsappDeviceInfo();
-            const authoritative = await this._fetchAuthoritativeWhatsappDevicesFromServer();
             if (!info) {
                 //console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo no WhatsApp device info found');
             } else {
                 //console.log('ConnectorsTab: _loadSavedWhatsappDeviceInfo retrieved info', info);
             }
 
-            const resolvedInfo = authoritative.available
-                ? this._composeWhatsappDeviceInfoWithAuthoritativeDevices(info, preferredInfo, authoritative.devices)
-                : info;
-            const normalized = this._applyWhatsappDeviceCatalogState(resolvedInfo);
+            const normalized = this._applyWhatsappDeviceCatalogState(info);
             const preferredDeviceId = String(preferredInfo && preferredInfo.deviceId ? preferredInfo.deviceId : '').trim();
-            if (authoritative.available) {
-                const localNormalized = this._normalizeWhatsappDeviceCatalog(info);
-                if (!this._sameWhatsappDeviceCatalogEntries(localNormalized.devices, normalized.devices)) {
-                    await this._writeWhatsappDeviceCatalog(normalized.selectedDeviceId || '', normalized.devices, normalized.meta);
-                }
-            }
-            if (normalized.devices.length > 1) {
-                this.savedWhatsappDeviceId = null;
-            } else if (preferredDeviceId && normalized.devices.some(entry => entry.deviceId === preferredDeviceId)) {
+            const selectedDeviceId = String(normalized.selectedDeviceId || '').trim();
+            if (preferredDeviceId && normalized.devices.some(entry => entry.deviceId === preferredDeviceId)) {
                 this.savedWhatsappDeviceId = preferredDeviceId;
+            } else if (selectedDeviceId && normalized.devices.some(entry => entry.deviceId === selectedDeviceId)) {
+                this.savedWhatsappDeviceId = selectedDeviceId;
+            } else if (normalized.devices.length === 1 && normalized.devices[0] && normalized.devices[0].deviceId) {
+                this.savedWhatsappDeviceId = normalized.devices[0].deviceId;
+            } else {
+                this.savedWhatsappDeviceId = null;
             }
 
-            return resolvedInfo;
+            return info;
         } catch (err) {
             console.warn('ConnectorsTab: _loadSavedWhatsappDeviceInfo failed', err);
             return null;
@@ -1692,12 +1881,24 @@ class ConnectorsTab {
                 return;
             }
 
-            await this._upsertSavedWhatsappDevice(resolvedConnectedDeviceId, {
-                phone_number: connectedDevice.phone_number || '',
-                display_name: connectedDevice.display_name || '',
-                state: connectedDevice.state || '',
-                created_at: connectedDevice.created_at || ''
-            });
+            const metadata = {};
+            if (connectedDevice.phone_number) {
+                metadata.phone_number = connectedDevice.phone_number;
+            }
+            if (connectedDevice.display_name) {
+                metadata.display_name = connectedDevice.display_name;
+            }
+            if (connectedDevice.jid) {
+                metadata.jid = connectedDevice.jid;
+            }
+            if (connectedDevice.state) {
+                metadata.state = connectedDevice.state;
+            }
+            if (connectedDevice.created_at) {
+                metadata.created_at = connectedDevice.created_at;
+            }
+
+            await this._upsertSavedWhatsappDevice(resolvedConnectedDeviceId, metadata);
             try {
                 await this._captureWhatsappSessionBundle(resolvedConnectedDeviceId);
             } catch (captureErr) {
@@ -1935,6 +2136,7 @@ class ConnectorsTab {
             const stored = await dbHandle.getWhatsappSessionBundle(hashedMasterKey, resolvedDeviceId);
             if (!stored || !stored.session || typeof stored.session !== 'object') {
                 this.setWhatsappSessionRestoreStatus('Session restore: no saved session found.');
+                await this._enableWhatsappFreshPairFallback('missing-saved-session-bundle');
                 return false;
             }
 
@@ -1950,6 +2152,7 @@ class ConnectorsTab {
             if (!response.ok) {
                 console.warn('ConnectorsTab: _restoreWhatsappSessionBundleIfNeeded import failed', await response.text());
                 this.setWhatsappSessionRestoreStatus('Session restore: import failed, QR may be required.');
+                await this._enableWhatsappFreshPairFallback('session-import-failed');
                 return false;
             }
 
@@ -1961,6 +2164,39 @@ class ConnectorsTab {
             this.setWhatsappSessionRestoreStatus('Session restore: error, QR fallback active.');
             return false;
         }
+    }
+
+    async _enableWhatsappFreshPairFallback(reason = 'session-restore-unavailable') {
+        if (this.whatsappFreshPairRequested) {
+            return;
+        }
+
+        this._setWhatsappFreshPairRequested(true);
+        this.whatsappFreshPairDeviceId = null;
+        this.whatsappSessionImportedForDevice = null;
+
+        try {
+            await this._setWhatsappPreferredDeviceOnServer('', '');
+        } catch (err) {
+            console.warn('ConnectorsTab: _enableWhatsappFreshPairFallback failed to clear preferred device', err);
+        }
+
+        try {
+            await this._clearPreferredWhatsappDeviceInfo();
+        } catch (err) {
+            console.warn('ConnectorsTab: _enableWhatsappFreshPairFallback failed to clear local preferred device', err);
+        }
+
+        try {
+            await this._clearWhatsappRuntimeSession(this.savedWhatsappDeviceId || null);
+        } catch (err) {
+            console.warn('ConnectorsTab: _enableWhatsappFreshPairFallback failed to clear runtime session', err);
+        }
+
+        console.log('ConnectorsTab: _enableWhatsappFreshPairFallback', {
+            reason,
+            savedWhatsappDeviceId: this.savedWhatsappDeviceId
+        });
     }
 
     _collectWhatsappEventText(payload) {
@@ -2527,11 +2763,7 @@ class ConnectorsTab {
         this._cancelWhatsappAsyncWork({ manualStop: true });
         this.whatsappWebsocketShouldReconnect = false;
         try {
-            const stopParams = this._appendWhatsappUserScope(new URLSearchParams({ stop: 'true' }));
-            const res = await fetch('/api/whatsapp/qr?' + stopParams.toString(), {
-                method: 'POST',
-                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
-            });
+            const res = await this._requestWhatsappServerStop();
             if (!res.ok) {
                 console.warn('ConnectorsTab: stop Whatsapp server failed', await res.text());
             }
@@ -2590,7 +2822,11 @@ class ConnectorsTab {
             }
             if (!freshPairRequested && !candidateSavedDeviceId) {
                 const info = await this._loadSavedWhatsappDeviceInfo();
-                if (this._hasMultipleSavedWhatsappDevices()) {
+                const normalizedInfo = this._normalizeWhatsappDeviceCatalog(info);
+                if (normalizedInfo.selectedDeviceId) {
+                    candidateSavedDeviceId = String(normalizedInfo.selectedDeviceId || '').trim();
+                    this.savedWhatsappDeviceId = candidateSavedDeviceId;
+                } else if (this._hasMultipleSavedWhatsappDevices()) {
                     candidateSavedDeviceId = '';
                 } else if (info && info.deviceId) {
                     candidateSavedDeviceId = String(info.deviceId || '').trim();
@@ -2652,7 +2888,9 @@ class ConnectorsTab {
                     if (data && data.loggedIn) {
                         this.savedWhatsappDeviceId = responseDeviceId;
                     }
-                } else {
+                } else if (candidateSavedDeviceId) {
+                    this.savedWhatsappDeviceId = responseDeviceId;
+                } else if (data && data.loggedIn) {
                     this.savedWhatsappDeviceId = responseDeviceId;
                 }
             }
@@ -2691,7 +2929,7 @@ class ConnectorsTab {
             // Only attempt session import once gateway is actually running.
             // This avoids calling session import during passive tab checks
             // when the embedded gateway has not been started yet.
-            if (!freshPairRequested && !isPaired && !this.serverStarting && data.gatewayRunning && this.savedWhatsappDeviceId) {
+            if (!freshPairRequested && !isPaired && data.gatewayRunning && this.savedWhatsappDeviceId) {
                 await this._restoreWhatsappSessionBundleIfNeeded();
             }
 
@@ -2834,15 +3072,23 @@ class ConnectorsTab {
                             console.warn('ConnectorsTab: failed to set preferred device after LOGIN_SUCCESS', err);
                         });
                     }
+                    this._persistWhatsappDeviceFromLoginEvent(payload).catch(err => {
+                        console.warn('ConnectorsTab: failed to persist device after websocket LOGIN_SUCCESS', err);
+                    });
                     //console.log('ConnectorsTab: whatsapp event indicates paired', payload);
                     this._completeWhatsappPairingFlow(null, 'websocket:' + code);
-                    this._syncWhatsappLoginSuccessToServer(eventDeviceId || null).catch(err => {
+                    this._syncWhatsappLoginSuccessToServer(payload).catch(err => {
                         console.warn('ConnectorsTab: post-login whatsapp backend sync failed', err);
                     });
                     if (typeof this._saveCurrentWhatsappDeviceInfo === 'function') {
 						this._saveCurrentWhatsappDeviceInfo(eventDeviceId || this.savedWhatsappDeviceId || null).catch(err => {
                             console.warn('ConnectorsTab: save device info after websocket LOGIN_SUCCESS failed', err);
                         });
+						setTimeout(() => {
+							this._saveCurrentWhatsappDeviceInfo(eventDeviceId || this.savedWhatsappDeviceId || null).catch(err => {
+								console.warn('ConnectorsTab: delayed save device info after websocket LOGIN_SUCCESS failed', err);
+							});
+						}, 5000);
                     }
                     this._captureWhatsappSessionBundle(eventDeviceId || null).catch(err => {
                         console.warn('ConnectorsTab: capture session after websocket LOGIN_SUCCESS failed', err);
@@ -3028,8 +3274,9 @@ class ConnectorsTab {
         // Create modal content
         modal.innerHTML = `
             <div class="wa-pair-modal-content">
-                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px;">
                     <h2 id="wa-modal-title" style="margin: 0; font-size: 18px; font-weight: 600;">Pair WhatsApp</h2>
+                    <button id="wa-close-modal-x" type="button" aria-label="Close pairing" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--border-color, #ccc);border-radius:999px;background:var(--panel-background, #f3f4f6);color:var(--text-color, #111111);cursor:pointer;font-size:20px;line-height:1;">&times;</button>
                 </div>
                 <div id="wa-start-status" style="display: none; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: #0b74de; margin-bottom: 8px;">
                     <div class="wa-loading-spinner" style="width: 16px; height: 16px; border: 3px solid var(--wa-modal-spinner-track, #c4c4c4); border-top-color: var(--wa-modal-spinner-accent, #0b74de); border-top-left-radius: 50%; border-radius: 50%; margin: 0; animation: wa-spin 0.9s linear infinite;"></div>
@@ -3066,16 +3313,18 @@ class ConnectorsTab {
         const closeBtn = document.getElementById('wa-close-modal');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
-                this.whatsappPairModalDismissed = true;
-                document.body.removeChild(modal);
-                try { if (this._currentQrObjectUrl) { URL.revokeObjectURL(this._currentQrObjectUrl); this._currentQrObjectUrl = null; } } catch (_) {}
-                if (this.serverStarted || this.serverStarting) {
-                    this.serverStarted = true;
-                    this.serverStarting = false;
-                    this.setWhatsappPairButtonState(this.isPaired);
-                }
-                this.stopPolling();
-                this.stopWhatsappModalCountdown();
+                this._cancelWhatsappPairingAndStopServer('modal-close-button').catch(err => {
+                    console.warn('ConnectorsTab: failed to stop WhatsApp server after modal close', err);
+                });
+            });
+        }
+
+        const closeModalX = document.getElementById('wa-close-modal-x');
+        if (closeModalX) {
+            closeModalX.addEventListener('click', () => {
+                this._cancelWhatsappPairingAndStopServer('modal-close-x').catch(err => {
+                    console.warn('ConnectorsTab: failed to stop WhatsApp server after modal x close', err);
+                });
             });
         }
 

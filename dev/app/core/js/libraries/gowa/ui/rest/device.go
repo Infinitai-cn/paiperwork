@@ -1,7 +1,10 @@
 package rest
 
 import (
+	"strings"
+
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/domains/device"
+	pkgError "github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/error"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
 	"github.com/gofiber/fiber/v2"
 )
@@ -28,9 +31,40 @@ func InitRestDevice(app fiber.Router, service device.IDeviceUsecase) Device {
 	return rest
 }
 
+func deviceErrorResponse(c *fiber.Ctx, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if ge, ok := err.(pkgError.GenericError); ok {
+		return c.Status(ge.StatusCode()).JSON(utils.ResponseData{
+			Status:  ge.StatusCode(),
+			Code:    ge.ErrCode(),
+			Message: ge.Error(),
+		})
+	}
+
+	message := strings.TrimSpace(err.Error())
+	if strings.Contains(strings.ToLower(message), "not found") {
+		return c.Status(fiber.StatusNotFound).JSON(utils.ResponseData{
+			Status:  fiber.StatusNotFound,
+			Code:    "DEVICE_NOT_FOUND",
+			Message: message,
+		})
+	}
+
+	return c.Status(fiber.StatusInternalServerError).JSON(utils.ResponseData{
+		Status:  fiber.StatusInternalServerError,
+		Code:    "INTERNAL_SERVER_ERROR",
+		Message: message,
+	})
+}
+
 func (handler *Device) ListDevices(c *fiber.Ctx) error {
 	devices, err := handler.Service.ListDevices(c.UserContext())
-	utils.PanicIfNeeded(err)
+	if err != nil {
+		return deviceErrorResponse(c, err)
+	}
 
 	return c.JSON(utils.ResponseData{
 		Status:  200,
@@ -43,7 +77,9 @@ func (handler *Device) ListDevices(c *fiber.Ctx) error {
 func (handler *Device) GetDevice(c *fiber.Ctx) error {
 	deviceID := c.Params("device_id")
 	device, err := handler.Service.GetDevice(c.UserContext(), deviceID)
-	utils.PanicIfNeeded(err)
+	if err != nil {
+		return deviceErrorResponse(c, err)
+	}
 
 	return c.JSON(utils.ResponseData{
 		Status:  200,
@@ -68,7 +104,9 @@ func (handler *Device) AddDevice(c *fiber.Ctx) error {
 	}
 
 	device, err := handler.Service.AddDevice(c.UserContext(), req.DeviceID)
-	utils.PanicIfNeeded(err)
+	if err != nil {
+		return deviceErrorResponse(c, err)
+	}
 
 	result := map[string]any{
 		"id":           device.ID,
@@ -89,7 +127,9 @@ func (handler *Device) AddDevice(c *fiber.Ctx) error {
 func (handler *Device) RemoveDevice(c *fiber.Ctx) error {
 	deviceID := c.Params("device_id")
 	err := handler.Service.RemoveDevice(c.UserContext(), deviceID)
-	utils.PanicIfNeeded(err)
+	if err != nil {
+		return deviceErrorResponse(c, err)
+	}
 
 	return c.JSON(utils.ResponseData{
 		Status:  200,
@@ -102,7 +142,9 @@ func (handler *Device) RemoveDevice(c *fiber.Ctx) error {
 func (handler *Device) LoginDevice(c *fiber.Ctx) error {
 	deviceID := c.Params("device_id")
 	err := handler.Service.LoginDevice(c.UserContext(), deviceID)
-	utils.PanicIfNeeded(err)
+	if err != nil {
+		return deviceErrorResponse(c, err)
+	}
 
 	return c.JSON(utils.ResponseData{
 		Status:  200,
@@ -115,7 +157,9 @@ func (handler *Device) LoginDevice(c *fiber.Ctx) error {
 func (handler *Device) LoginDeviceWithCode(c *fiber.Ctx) error {
 	deviceID := c.Params("device_id")
 	code, err := handler.Service.LoginDeviceWithCode(c.UserContext(), deviceID, c.Query("phone"))
-	utils.PanicIfNeeded(err)
+	if err != nil {
+		return deviceErrorResponse(c, err)
+	}
 
 	return c.JSON(utils.ResponseData{
 		Status:  200,
@@ -131,7 +175,9 @@ func (handler *Device) LoginDeviceWithCode(c *fiber.Ctx) error {
 func (handler *Device) LogoutDevice(c *fiber.Ctx) error {
 	deviceID := c.Params("device_id")
 	err := handler.Service.LogoutDevice(c.UserContext(), deviceID)
-	utils.PanicIfNeeded(err)
+	if err != nil {
+		return deviceErrorResponse(c, err)
+	}
 
 	return c.JSON(utils.ResponseData{
 		Status:  200,
@@ -144,7 +190,9 @@ func (handler *Device) LogoutDevice(c *fiber.Ctx) error {
 func (handler *Device) ReconnectDevice(c *fiber.Ctx) error {
 	deviceID := c.Params("device_id")
 	err := handler.Service.ReconnectDevice(c.UserContext(), deviceID)
-	utils.PanicIfNeeded(err)
+	if err != nil {
+		return deviceErrorResponse(c, err)
+	}
 
 	return c.JSON(utils.ResponseData{
 		Status:  200,
@@ -157,7 +205,9 @@ func (handler *Device) ReconnectDevice(c *fiber.Ctx) error {
 func (handler *Device) Status(c *fiber.Ctx) error {
 	deviceID := c.Params("device_id")
 	isConnected, isLoggedIn, err := handler.Service.GetStatus(c.UserContext(), deviceID)
-	utils.PanicIfNeeded(err)
+	if err != nil {
+		return deviceErrorResponse(c, err)
+	}
 
 	return c.JSON(utils.ResponseData{
 		Status:  200,

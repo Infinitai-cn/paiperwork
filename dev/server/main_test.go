@@ -445,7 +445,7 @@ func TestWhatsappPreferredDeviceHandlerClearsEnvOnEmptyPost(t *testing.T) {
 	}
 }
 
-func TestPreferredWhatsappDevicePersistsToDB(t *testing.T) {
+func TestPreferredWhatsappDeviceDoesNotPersistToDiskInMemoryMode(t *testing.T) {
 	oldWD, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("os.Getwd() failed: %v", err)
@@ -471,8 +471,8 @@ func TestPreferredWhatsappDevicePersistsToDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadPreferredWhatsappDeviceFromDB() failed: %v", err)
 	}
-	if gotID != "15551234567:9@s.whatsapp.net" || gotMeta != "db-meta" {
-		t.Fatalf("loadPreferredWhatsappDeviceFromDB() = (%q, %q), want (%q, %q)", gotID, gotMeta, "15551234567:9@s.whatsapp.net", "db-meta")
+	if gotID != "" || gotMeta != "" {
+		t.Fatalf("loadPreferredWhatsappDeviceFromDB() = (%q, %q), want empty values in in-memory mode", gotID, gotMeta)
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/whatsapp/qr?user=db-user", nil)
@@ -481,8 +481,8 @@ func TestPreferredWhatsappDevicePersistsToDB(t *testing.T) {
 	preferredWhatsappDeviceMu.Unlock()
 
 	resolvedID := getPreferredWhatsappDeviceIDFromRequest(req)
-	if resolvedID != "15551234567:9@s.whatsapp.net" {
-		t.Fatalf("getPreferredWhatsappDeviceIDFromRequest() = %q, want %q", resolvedID, "15551234567:9@s.whatsapp.net")
+	if resolvedID != "" {
+		t.Fatalf("getPreferredWhatsappDeviceIDFromRequest() = %q, want empty without in-memory preferred-device sync", resolvedID)
 	}
 
 	if err := savePreferredWhatsappDeviceToDB("db-user", "", ""); err != nil {
