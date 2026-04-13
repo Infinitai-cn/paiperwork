@@ -169,7 +169,22 @@ func qrRefForLog(qr string) string {
 	return compactLogValue(trimmed, 200)
 }
 
+func useInMemoryPaiperworkWhatsappRuntime() bool {
+	return true
+}
+
+func inMemoryPaiperworkWhatsappDBURI(userKey string) string {
+	name := safeUserKeyForDBFilename(userKey)
+	if name == "" {
+		name = "default"
+	}
+	return fmt.Sprintf("file:paiperwork-whatsapp-%s?mode=memory&cache=shared&_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", name)
+}
+
 func loadPreferredWhatsappDeviceFromDB(userKey string) (deviceID string, meta string, err error) {
+	if useInMemoryPaiperworkWhatsappRuntime() {
+		return "", "", nil
+	}
 	if strings.TrimSpace(userKey) == "" {
 		return "", "", nil
 	}
@@ -216,6 +231,9 @@ func loadPreferredWhatsappDeviceFromDB(userKey string) (deviceID string, meta st
 }
 
 func savePreferredWhatsappDeviceToDB(userKey, deviceID, meta string) error {
+	if useInMemoryPaiperworkWhatsappRuntime() {
+		return nil
+	}
 	if strings.TrimSpace(userKey) == "" {
 		return nil
 	}
@@ -344,6 +362,9 @@ func mergePersistedWhatsappDeviceEntry(entries map[string]persistedWhatsappDevic
 }
 
 func loadPersistedWhatsappDevicesFromDB(userKey string) ([]persistedWhatsappDeviceEntry, error) {
+	if useInMemoryPaiperworkWhatsappRuntime() {
+		return []persistedWhatsappDeviceEntry{}, nil
+	}
 	if strings.TrimSpace(userKey) == "" {
 		return []persistedWhatsappDeviceEntry{}, nil
 	}
@@ -1036,6 +1057,9 @@ func prepareUserWhatsappStore(userKey string) (string, string, error) {
 }
 
 func userWhatsappDBURI(userKey string) string {
+	if useInMemoryPaiperworkWhatsappRuntime() {
+		return inMemoryPaiperworkWhatsappDBURI(userKey)
+	}
 	uri, _, err := prepareUserWhatsappStore(userKey)
 	if err != nil {
 		log.Printf("userWhatsappDBURI: failed to prepare Paiperwork WhatsApp DB for user=%s: %v", safeUserKeyForFilename(userKey), err)
@@ -1045,6 +1069,9 @@ func userWhatsappDBURI(userKey string) string {
 }
 
 func userWhatsappKeysDBURI(userKey string) string {
+	if useInMemoryPaiperworkWhatsappRuntime() {
+		return inMemoryPaiperworkWhatsappDBURI(userKey)
+	}
 	_, uri, err := prepareUserWhatsappStore(userKey)
 	if err != nil {
 		log.Printf("userWhatsappKeysDBURI: failed to prepare Paiperwork WhatsApp key DB for user=%s: %v", safeUserKeyForFilename(userKey), err)
@@ -2239,6 +2266,11 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if startRequested {
+		if isWhatsappManualStopActive() {
+			log.Printf("whatsappQrProxy: explicit start request clearing manual stop window")
+			markWhatsappManualStopWindow(0)
+		}
+
 		if isWhatsappManualStopActive() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusAccepted)
@@ -4088,13 +4120,44 @@ func whatsappDbSyncHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Add explicit in-memory persistence/OPFS sync steps for Whatsapp state if needed.
-	// For now this endpoint acts as a no-op hook, acknowledged by the frontend or shutdown logic.
+	if _, allowed := enforceWhatsappActiveUserAccess(w, r, true); !allowed {
+		return
+	}
+
+	type whatsappDbSyncRequest struct {
+		DeviceID    string `json:"device_id"`
+		PhoneNumber string `json:"phone_number"`
+	}
+
+	request := whatsappDbSyncRequest{}
+	_ = json.NewDecoder(io.LimitReader(r.Body, 16*1024)).Decode(&request)
+	deviceID := strings.TrimSpace(request.DeviceID)
+	phoneNumber := strings.TrimSpace(request.PhoneNumber)
+	if phoneNumber != "" {
+		whatsappStartupTargetPhone = phoneNumber
+	}
+
+	queuedWelcome := false
+	if deviceID != "" {
+		welcomeMu.Lock()
+		lastSentAt := welcomeLastSentAtForDevice[deviceID]
+		welcomeCooldownElapsed := lastSentAt.IsZero() || time.Since(lastSentAt) > 30*time.Second
+		if !welcomePendingForDevice[deviceID] && welcomeCooldownElapsed {
+			welcomePendingForDevice[deviceID] = true
+			queuedWelcome = true
+		}
+		welcomeMu.Unlock()
+
+		if queuedWelcome {
+			log.Printf("whatsappDbSyncHandler: queueing welcome dispatch for device %s", maskPhoneForLog(deviceID))
+			go dispatchWhatsappWelcomeMessage(deviceID, phoneNumber)
+		}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]any{"synced": true, "message": "whatsapp db sync hook executed"})
+	_ = json.NewEncoder(w).Encode(map[string]any{"synced": true, "queuedWelcome": queuedWelcome, "message": "whatsapp db sync hook executed"})
 }
 
 func whatsappSessionExportHandler(w http.ResponseWriter, r *http.Request) {
@@ -4784,11 +4847,36 @@ func sendWhatsappText(chatID, text string) error {
 // tryStartBundledGateway attempts to locate and start a bundled gateway binary.
 // It is best-effort and returns an error if no candidate binary exists or start fails.
 func isGatewayRunning() bool {
+	embeddedGowaMutex.Lock()
+	embeddedStarted := embeddedGowaStarted
+	embeddedGowaMutex.Unlock()
+	if embeddedStarted {
+		starting, lastAttempt := snapshotGatewayStartState()
+		if isGatewayReady() || starting {
+			return true
+		}
+		if !lastAttempt.IsZero() && time.Since(lastAttempt) < 10*time.Second {
+			return true
+		}
+		if isLocalGatewayResponsive(350 * time.Millisecond) {
+			return true
+		}
+
+		embeddedGowaMutex.Lock()
+		staleEmbedded := embeddedGowaStarted
+		if staleEmbedded {
+			embeddedGowaStarted = false
+			whatsappServerStarted = false
+		}
+		embeddedGowaMutex.Unlock()
+		if staleEmbedded {
+			log.Printf("isGatewayRunning: cleared stale embedded gowa state after local gateway became unreachable")
+		}
+		return false
+	}
+
 	gatewayMu.Lock()
 	defer gatewayMu.Unlock()
-	if embeddedGowaStarted {
-		return true
-	}
 	if gatewayCmd == nil {
 		return false
 	}
@@ -4796,6 +4884,19 @@ func isGatewayRunning() bool {
 		return false
 	}
 	return true
+}
+
+func isLocalGatewayResponsive(timeout time.Duration) bool {
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Get("http://127.0.0.1:3000/health")
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			return true
+		}
+	}
+
+	return isWhatsappGatewayWebsocketReady()
 }
 
 func isWhatsappGatewayWebsocketReady() bool {
@@ -4856,6 +4957,17 @@ func waitForGatewayStopped(timeout time.Duration) {
 	}
 }
 
+func waitForLocalGatewayShutdown(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if !isLocalGatewayResponsive(250 * time.Millisecond) {
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return !isLocalGatewayResponsive(250 * time.Millisecond)
+}
+
 func stopGateway() error {
 	// if we are running embedded gowa, attempt a graceful shutdown.
 	embeddedGowaMutex.Lock()
@@ -4867,8 +4979,11 @@ func stopGateway() error {
 			log.Printf("stopGateway: error shutting down embedded gowa: %v", err)
 			return err
 		}
+		if !waitForLocalGatewayShutdown(5 * time.Second) {
+			log.Printf("stopGateway: embedded gowa listener did not shut down cleanly before timeout; forcing runtime state reset")
+		}
 		// Wait for the embedded gowa goroutine to fully exit before resetting runtime state.
-		waitForGatewayStopped(10 * time.Second)
+		waitForGatewayStopped(2 * time.Second)
 		resetGatewayRuntimeState(false)
 		whatsappInfra.ResetStateOnShutdown()
 		return nil

@@ -82,6 +82,23 @@ func looksLikePersistentSessionDeviceID(deviceID string) bool {
 	return strings.Contains(strings.TrimSpace(deviceID), "@")
 }
 
+func normalizeDeviceSelectionIdentity(deviceID string) string {
+	trimmed := strings.ToLower(strings.TrimSpace(deviceID))
+	if trimmed == "" {
+		return ""
+	}
+	withoutDomain := strings.Split(trimmed, "@")[0]
+	return strings.Split(withoutDomain, ":")[0]
+}
+
+func preferredAutoConnectDeviceID() string {
+	preferred := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID"))
+	if preferred == "" {
+		preferred = strings.TrimSpace(os.Getenv("WHATSAPP_PREFERRED_DEVICE_ID"))
+	}
+	return preferred
+}
+
 func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 	ctx := resetAutoConnectAfterBootContext()
 	defer StopAutoConnectAfterBooting()
@@ -100,6 +117,8 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 		return
 	}
 	devices, err := service.FetchDevices(ctx)
+	preferredDeviceID := preferredAutoConnectDeviceID()
+	preferredSelectionKey := normalizeDeviceSelectionIdentity(preferredDeviceID)
 	if err != nil {
 		if ctx.Err() != nil {
 			logrus.Info("auto-connect: cancelled while fetching devices")
@@ -155,6 +174,22 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 		if len(devices) == 0 {
 			return
 		}
+
+		if preferredSelectionKey != "" {
+			preferredDevices := make([]domainApp.DevicesResponse, 0, 1)
+			for _, device := range devices {
+				if normalizeDeviceSelectionIdentity(device.Device) == preferredSelectionKey {
+					preferredDevices = append(preferredDevices, device)
+				}
+			}
+			if len(preferredDevices) > 0 {
+				devices = preferredDevices
+				logrus.Infof("auto-connect: restricting reconnect attempts to preferred device %s", logmask.MaskPhoneNumber(preferredDeviceID))
+			} else if preferredDeviceID != "" {
+				devices = []domainApp.DevicesResponse{{Device: preferredDeviceID, Name: "preferred"}}
+				logrus.Infof("auto-connect: forcing preferred reconnect candidate %s even though fetch-devices did not return an exact match", logmask.MaskPhoneNumber(preferredDeviceID))
+			}
+		}
 	}
 
 	type autoconnectCandidate struct {
@@ -200,6 +235,11 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 			continue
 		}
 
+		if preferredSelectionKey != "" && normalizeDeviceSelectionIdentity(device.Device) != preferredSelectionKey {
+			logrus.Infof("auto-connect: skipping non-selected device %s while preferred device %s remains active", maskedDeviceID, logmask.MaskPhoneNumber(preferredDeviceID))
+			continue
+		}
+
 		func() {
 			defer func() {
 				if recovered := recover(); recovered != nil {
@@ -215,6 +255,10 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 					return
 				}
 				logrus.Warnf("auto-connect failed for device %s: %v", maskedDeviceID, err)
+				if preferredSelectionKey != "" && normalizeDeviceSelectionIdentity(device.Device) == preferredSelectionKey {
+					logrus.Infof("auto-connect: preferred device %s remains selected after reconnect failure; not falling through to other saved devices", maskedDeviceID)
+					return
+				}
 				return
 			}
 
@@ -228,6 +272,7 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 			if isConnected && !isLoggedIn {
 				// Keep calling Login until fully connected and logged-in, or until max retries.
 				const maxLoginRetry = 6
+				selectedDeviceOnly := preferredSelectionKey != "" && normalizeDeviceSelectionIdentity(device.Device) == preferredSelectionKey
 				for attempt := 1; attempt <= maxLoginRetry; attempt++ {
 					if ctx.Err() != nil {
 						logrus.Info("auto-connect: cancelled during login retry loop")
@@ -240,15 +285,18 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 							logrus.Info("auto-connect: cancelled during login attempt")
 							return
 						}
-						if loginErr.Error() == "your session have been saved, please wait to connect 2 second and refresh again" || loginErr.Error() == "SESSION_SAVED_ERROR" {
+						if loginErr.Error() == "you are already logged in." {
+							logrus.Infof("auto-connect login attempt %d for device %s reports already logged in", attempt, maskedDeviceID)
+						} else if loginErr.Error() == "your session have been saved, please wait to connect 2 second and refresh again" || loginErr.Error() == "SESSION_SAVED_ERROR" {
 							logrus.Debugf("auto-connect login attempt %d for device %s: session warming up, pause 5s", attempt, maskedDeviceID)
 							if !sleepWithContext(ctx, 5*time.Second) {
 								logrus.Info("auto-connect: cancelled during session warmup wait")
 								return
 							}
 							continue
+						} else {
+							logrus.Warnf("auto-connect login attempt %d failed for device %s: %v", attempt, maskedDeviceID, loginErr)
 						}
-						logrus.Warnf("auto-connect login attempt %d failed for device %s: %v", attempt, maskedDeviceID, loginErr)
 					} else {
 						logrus.Debugf("auto-connect login attempt %d for device %s succeeded (qr_duration=%d)", attempt, maskedDeviceID, int64(loginResp.Duration/time.Second))
 					}
@@ -258,6 +306,11 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 						logrus.Warnf("auto-connect status check failed after login for device %s: %v", maskedDeviceID, statusErr)
 					} else {
 						logrus.Debugf("auto-connect status for %s after login attempt %d: connected=%v loggedIn=%v", maskedDeviceID, attempt, isConnected, isLoggedIn)
+					}
+
+					if selectedDeviceOnly && attempt == maxLoginRetry && !(isConnected && isLoggedIn) {
+						logrus.Infof("auto-connect: selected device %s did not reach logged-in state after login retries; not falling through to other devices", maskedDeviceID)
+						return
 					}
 
 					if isConnected && isLoggedIn {

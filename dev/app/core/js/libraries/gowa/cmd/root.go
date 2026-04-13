@@ -61,7 +61,16 @@ func isLocalGowaStorageURI(uri string) bool {
 		return false
 	}
 	lower := strings.ToLower(trimmed)
-	return strings.Contains(lower, "storages/whatsapp.db") || strings.Contains(lower, "storages/chatstorage.db") || strings.HasPrefix(lower, "file::memory")
+	return strings.Contains(lower, "storages/whatsapp.db") || strings.Contains(lower, "storages/chatstorage.db")
+}
+
+func isInMemoryGowaStorageURI(uri string) bool {
+	trimmed := strings.TrimSpace(strings.Trim(uri, `"'`))
+	if trimmed == "" {
+		return false
+	}
+	lower := strings.ToLower(trimmed)
+	return strings.HasPrefix(lower, "file::memory") || strings.Contains(lower, "mode=memory")
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -129,8 +138,8 @@ func initEnvConfig() {
 	}
 	if envNoDisk := os.Getenv("PAIPERWORK_NO_DISK"); strings.ToLower(envNoDisk) == "true" {
 		paiperworkDBURI := strings.TrimSpace(os.Getenv("PAIPERWORK_DB_URI"))
-		if paiperworkDBURI == "" {
-			logrus.Fatal("PAIPERWORK_NO_DISK requires PAIPERWORK_DB_URI; refusing to fall back to local or in-memory gowa databases")
+		if paiperworkDBURI == "" || !isInMemoryGowaStorageURI(paiperworkDBURI) {
+			paiperworkDBURI = "file:paiperwork-whatsapp-nodisk?mode=memory&cache=shared&_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000"
 		}
 		config.NoDisk = true
 		config.PathQrCode = ""
@@ -142,7 +151,7 @@ func initEnvConfig() {
 		config.DBKeysURI = paiperworkDBURI
 		config.ChatStorageURI = paiperworkDBURI
 		if envKeysURI := strings.TrimSpace(os.Getenv("PAIPERWORK_DB_KEYS_URI")); envKeysURI != "" && envKeysURI != paiperworkDBURI {
-			logrus.Warn("PAIPERWORK_NO_DISK forcing keys DB to reuse PAIPERWORK_DB_URI to keep a single Paiperwork DB source of truth")
+			logrus.Warn("PAIPERWORK_NO_DISK forcing keys DB to reuse the same in-memory gowa runtime DB")
 		}
 	}
 	if envPrefID := viper.GetString("whatsapp_preferred_device_id"); envPrefID != "" {
@@ -383,10 +392,13 @@ func initChatStorage() (*sql.DB, error) {
 	connStr := config.ChatStorageURI
 	if config.NoDisk {
 		if strings.TrimSpace(config.DBURI) == "" {
-			return nil, fmt.Errorf("no-disk mode requires PAIPERWORK_DB_URI for chat storage")
+			return nil, fmt.Errorf("no-disk mode requires an in-memory gowa DB URI for chat storage")
 		}
 		if strings.TrimSpace(connStr) != strings.TrimSpace(config.DBURI) {
-			return nil, fmt.Errorf("no-disk mode requires chat storage to reuse PAIPERWORK_DB_URI")
+			return nil, fmt.Errorf("no-disk mode requires chat storage to reuse the same in-memory gowa DB URI")
+		}
+		if !isInMemoryGowaStorageURI(connStr) {
+			return nil, fmt.Errorf("no-disk mode requires an in-memory gowa DB URI, got %q", connStr)
 		}
 	}
 	if strings.Contains(connStr, "?") {
@@ -447,13 +459,16 @@ func initApp() {
 		// _ = os.RemoveAll("storages")
 
 		if strings.TrimSpace(config.DBURI) == "" {
-			logrus.Fatal("initApp: PAIPERWORK_NO_DISK is enabled but PAIPERWORK_DB_URI is empty")
+			logrus.Fatal("initApp: PAIPERWORK_NO_DISK is enabled but no in-memory gowa DB URI was configured")
+		}
+		if !isInMemoryGowaStorageURI(config.DBURI) || !isInMemoryGowaStorageURI(config.ChatStorageURI) || (strings.TrimSpace(config.DBKeysURI) != "" && !isInMemoryGowaStorageURI(config.DBKeysURI)) {
+			logrus.Fatalf("initApp: no-disk mode requires in-memory gowa storage URIs only (db=%q keys=%q chat=%q)", config.DBURI, config.DBKeysURI, config.ChatStorageURI)
 		}
 		if isLocalGowaStorageURI(config.DBURI) || isLocalGowaStorageURI(config.ChatStorageURI) || (strings.TrimSpace(config.DBKeysURI) != "" && isLocalGowaStorageURI(config.DBKeysURI)) {
 			logrus.Fatalf("initApp: no-disk mode forbids local gowa storage URIs (db=%q keys=%q chat=%q)", config.DBURI, config.DBKeysURI, config.ChatStorageURI)
 		}
 
-		logrus.Infof("No-disk mode enabled: reusing Paiperwork DB for WhatsApp store, keys, and chat storage")
+		logrus.Infof("No-disk mode enabled: using in-memory gowa runtime DB for WhatsApp store, keys, and chat storage")
 	} else {
 		err = utils.CreateFolder(config.PathQrCode, config.PathSendItems, config.PathStorages, config.PathMedia)
 		if err != nil {

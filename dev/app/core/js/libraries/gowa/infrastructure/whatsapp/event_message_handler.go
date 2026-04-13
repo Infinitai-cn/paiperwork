@@ -16,6 +16,15 @@ import (
 )
 
 func handleMessage(ctx context.Context, evt *events.Message, chatStorageRepo domainChatStorage.IChatStorageRepository, client *whatsmeow.Client) {
+	if evt != nil && evt.Info.IsFromMe {
+		if inst, ok := DeviceFromContext(ctx); ok && inst != nil {
+			pushName := strings.TrimSpace(evt.Info.PushName)
+			if pushName != "" {
+				inst.SetIdentityMetadata(pushName, "", "")
+			}
+		}
+	}
+
 	// Log message metadata
 	metaParts := buildMessageMetaParts(evt)
 	log.Infof("Received message %s from %s (%s): %+v",

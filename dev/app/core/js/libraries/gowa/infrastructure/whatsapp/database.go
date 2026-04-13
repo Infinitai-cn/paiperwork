@@ -18,7 +18,16 @@ func isForbiddenNoDiskURI(uri string) bool {
 		return false
 	}
 	lower := strings.ToLower(trimmed)
-	return strings.Contains(lower, "storages/whatsapp.db") || strings.Contains(lower, "storages/chatstorage.db") || strings.HasPrefix(lower, "file::memory")
+	return strings.Contains(lower, "storages/whatsapp.db") || strings.Contains(lower, "storages/chatstorage.db")
+}
+
+func isInMemoryNoDiskURI(uri string) bool {
+	trimmed := strings.TrimSpace(strings.Trim(uri, `"'`))
+	if trimmed == "" {
+		return false
+	}
+	lower := strings.ToLower(trimmed)
+	return strings.HasPrefix(lower, "file::memory") || strings.Contains(lower, "mode=memory")
 }
 
 // InitWaDB initializes the WhatsApp database connection
@@ -26,10 +35,13 @@ func InitWaDB(ctx context.Context, DBURI string) *sqlstore.Container {
 	if config.NoDisk {
 		trimmed := strings.TrimSpace(strings.Trim(DBURI, `"'`))
 		if trimmed == "" {
-			logrus.Fatal("InitWaDB: no-disk mode requires a Paiperwork DB URI")
+			logrus.Fatal("InitWaDB: no-disk mode requires an in-memory gowa DB URI")
 		}
 		if isForbiddenNoDiskURI(trimmed) {
-			logrus.Fatalf("InitWaDB: no-disk mode forbids local or in-memory gowa database URIs: %s", trimmed)
+			logrus.Fatalf("InitWaDB: no-disk mode forbids local file-backed gowa database URIs: %s", trimmed)
+		}
+		if !isInMemoryNoDiskURI(trimmed) {
+			logrus.Fatalf("InitWaDB: no-disk mode requires an in-memory gowa database URI: %s", trimmed)
 		}
 	}
 

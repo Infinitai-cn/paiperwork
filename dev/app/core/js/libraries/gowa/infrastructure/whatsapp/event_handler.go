@@ -162,7 +162,8 @@ func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
 	pairedDeviceID := strings.TrimSpace(evt.ID.String())
 	pairedJID := strings.TrimSpace(evt.ID.ToNonAD().String())
 	result := map[string]any{
-		"jid": pairedDeviceID,
+		"jid":          pairedJID,
+		"phone_number": normalizePhoneFromJID(pairedJID),
 	}
 	if inst, ok := DeviceFromContext(ctx); ok && inst != nil {
 		oldDeviceID := strings.TrimSpace(inst.ID())
@@ -173,6 +174,14 @@ func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
 		}
 		if deviceID := strings.TrimSpace(inst.ID()); deviceID != "" {
 			result["device_id"] = deviceID
+		}
+		displayName := resolveDeviceDisplayName(ctx, inst, evt.ID.ToNonAD())
+		if displayName != "" {
+			inst.SetIdentityMetadata(displayName, normalizePhoneFromJID(pairedJID), pairedJID)
+			result["display_name"] = displayName
+		}
+		if phoneNumber := strings.TrimSpace(inst.PhoneNumber()); phoneNumber != "" {
+			result["phone_number"] = phoneNumber
 		}
 	} else if pairedDeviceID != "" {
 		result["device_id"] = pairedDeviceID
@@ -213,7 +222,7 @@ func handleLoggedOut(ctx context.Context, instance *DeviceInstance, chatStorageR
 	}
 }
 
-func handleConnectionEvents(_ context.Context, client *whatsmeow.Client, instance *DeviceInstance) {
+func handleConnectionEvents(ctx context.Context, client *whatsmeow.Client, instance *DeviceInstance) {
 	if client == nil {
 		return
 	}
@@ -250,31 +259,101 @@ func handleConnectionEvents(_ context.Context, client *whatsmeow.Client, instanc
 			dm.pruneStaleRecordsForLoggedInInstance(instance)
 		}
 	}
-	if len(client.Store.PushName) == 0 {
-		return
-	}
 
 	if client.IsConnected() && client.IsLoggedIn() {
 		deviceID := ""
 		jid := ""
+		displayName := firstNonEmptyIdentityValue(client.Store.PushName, client.Store.BusinessName)
+		phoneNumber := ""
 		if instance != nil {
 			deviceID = instance.ID()
 			jid = instance.JID()
+			displayName = firstNonEmptyIdentityValue(instance.DisplayName(), displayName)
+			if strings.TrimSpace(instance.PhoneNumber()) != "" {
+				phoneNumber = strings.TrimSpace(instance.PhoneNumber())
+			}
 		}
 		if deviceID == "" && client.Store != nil && client.Store.ID != nil {
 			deviceID = client.Store.ID.String()
 			jid = client.Store.ID.ToNonAD().String()
 		}
+		if displayName == "" && client.Store != nil && client.Store.ID != nil {
+			displayName = resolveDeviceDisplayName(ctx, instance, client.Store.ID.ToNonAD())
+		}
+		if phoneNumber == "" {
+			phoneNumber = normalizePhoneFromJID(jid)
+		}
+		if instance != nil {
+			instance.SetIdentityMetadata(displayName, phoneNumber, jid)
+		}
+		result := map[string]any{"device_id": deviceID, "jid": jid}
+		if displayName != "" {
+			result["display_name"] = displayName
+		}
+		if phoneNumber != "" {
+			result["phone_number"] = phoneNumber
+		}
 		websocket.Broadcast <- websocket.BroadcastMessage{
 			Code:    "LOGGED_IN",
 			Message: fmt.Sprintf("WhatsApp connected for device %s", deviceID),
-			Result:  map[string]any{"device_id": deviceID, "jid": jid},
+			Result:  result,
 		}
 	}
 
 	// Send configured presence when connecting and when the pushname is changed.
 	// This makes sure that outgoing messages always have the right pushname.
 	sendConfiguredPresence(context.Background(), client)
+}
+
+func resolveDeviceDisplayName(ctx context.Context, instance *DeviceInstance, ownJID types.JID) string {
+	if instance != nil {
+		if displayName := strings.TrimSpace(instance.DisplayName()); displayName != "" {
+			return displayName
+		}
+		client := instance.GetClient()
+		if client == nil || ownJID.IsEmpty() {
+			return ""
+		}
+		if contactName := resolveContactName(ctx, client, ownJID); contactName != "" {
+			return contactName
+		}
+		if userInfoName := resolveUserInfoName(ctx, client, ownJID); userInfoName != "" {
+			return userInfoName
+		}
+	}
+	return ""
+}
+
+func resolveContactName(ctx context.Context, client *whatsmeow.Client, jid types.JID) string {
+	if client == nil || client.Store == nil || jid.IsEmpty() {
+		return ""
+	}
+	contact, err := client.Store.Contacts.GetContact(ctx, jid)
+	if err != nil || !contact.Found {
+		return ""
+	}
+	return firstNonEmptyIdentityValue(contact.FullName, contact.PushName, contact.BusinessName)
+}
+
+func resolveUserInfoName(ctx context.Context, client *whatsmeow.Client, jid types.JID) string {
+	if client == nil || jid.IsEmpty() {
+		return ""
+	}
+	resp, err := client.GetUserInfo(ctx, []types.JID{jid})
+	if err != nil {
+		return ""
+	}
+	for candidateJID, info := range resp {
+		if candidateJID.ToNonAD().String() != jid.ToNonAD().String() {
+			continue
+		}
+		if info.VerifiedName != nil && info.VerifiedName.Details != nil {
+			if verifiedName := strings.TrimSpace(info.VerifiedName.Details.GetVerifiedName()); verifiedName != "" {
+				return verifiedName
+			}
+		}
+	}
+	return ""
 }
 
 func handleStreamReplaced(_ context.Context) {

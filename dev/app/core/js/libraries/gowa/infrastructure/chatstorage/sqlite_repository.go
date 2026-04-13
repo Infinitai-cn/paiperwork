@@ -27,13 +27,36 @@ func NewStorageRepository(db *sql.DB) domainChatStorage.IChatStorageRepository {
 	return &SQLiteRepository{db: db}
 }
 
+func isSQLiteLockedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "database is locked") || strings.Contains(message, "database table is locked") || strings.Contains(message, "database schema is locked")
+}
+
+func (r *SQLiteRepository) execWithRetry(query string, args ...any) (sql.Result, error) {
+	var (
+		result sql.Result
+		err    error
+	)
+	for attempt := 0; attempt < 5; attempt++ {
+		result, err = r.db.Exec(query, args...)
+		if !isSQLiteLockedError(err) {
+			return result, err
+		}
+		time.Sleep(time.Duration(attempt+1) * 25 * time.Millisecond)
+	}
+	return result, err
+}
+
 // StoreChat creates or updates a chat
 func (r *SQLiteRepository) StoreChat(chat *domainChatStorage.Chat) error {
 	now := time.Now()
 	chat.UpdatedAt = now
 
 	// Try update first, then insert if no rows affected (cross-db compatible)
-	result, err := r.db.Exec(`
+	result, err := r.execWithRetry(`
 		UPDATE chats SET name = ?, last_message_time = ?, ephemeral_expiration = ?, updated_at = ?, archived = ?
 		WHERE jid = ? AND device_id = ?
 	`, chat.Name, chat.LastMessageTime, chat.EphemeralExpiration, chat.UpdatedAt, chat.Archived, chat.JID, chat.DeviceID)
@@ -43,7 +66,7 @@ func (r *SQLiteRepository) StoreChat(chat *domainChatStorage.Chat) error {
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
-		_, err = r.db.Exec(`
+		_, err = r.execWithRetry(`
 			INSERT INTO chats (jid, device_id, name, last_message_time, ephemeral_expiration, created_at, updated_at, archived)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		`, chat.JID, chat.DeviceID, chat.Name, chat.LastMessageTime, chat.EphemeralExpiration, now, chat.UpdatedAt, chat.Archived)
