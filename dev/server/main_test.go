@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	config "github.com/aldinokemal/go-whatsapp-web-multidevice/config"
+	uiWebsocket "github.com/aldinokemal/go-whatsapp-web-multidevice/ui/websocket"
 )
 
 func resetWhatsappPairingProbeStateForTests() {
@@ -237,6 +238,63 @@ func TestResolveExistingNoDiskGatewayDevice(t *testing.T) {
 	}
 }
 
+func TestResolveWhatsappWelcomeCandidateFromBroadcast(t *testing.T) {
+	tests := []struct {
+		name        string
+		message     uiWebsocket.BroadcastMessage
+		wantDevice  string
+		wantPhone   string
+		wantMatched bool
+	}{
+		{
+			name: "matches logged in broadcast",
+			message: uiWebsocket.BroadcastMessage{
+				Code: "LOGGED_IN",
+				Result: map[string]any{
+					"device_id":    "15551234567:23@s.whatsapp.net",
+					"phone_number": "15551234567",
+				},
+			},
+			wantDevice:  "15551234567:23@s.whatsapp.net",
+			wantPhone:   "15551234567",
+			wantMatched: true,
+		},
+		{
+			name: "ignores login success broadcast",
+			message: uiWebsocket.BroadcastMessage{
+				Code: "LOGIN_SUCCESS",
+				Result: map[string]any{
+					"device_id": "placeholder-id",
+				},
+			},
+			wantMatched: false,
+		},
+		{
+			name: "ignores missing device id",
+			message: uiWebsocket.BroadcastMessage{
+				Code:   "LOGGED_IN",
+				Result: map[string]any{"phone_number": "15551234567"},
+			},
+			wantMatched: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deviceID, phoneNumber, ok := resolveWhatsappWelcomeCandidateFromBroadcast(tt.message)
+			if ok != tt.wantMatched {
+				t.Fatalf("resolveWhatsappWelcomeCandidateFromBroadcast() matched=%v, want %v", ok, tt.wantMatched)
+			}
+			if deviceID != tt.wantDevice {
+				t.Fatalf("resolveWhatsappWelcomeCandidateFromBroadcast() deviceID=%q, want %q", deviceID, tt.wantDevice)
+			}
+			if phoneNumber != tt.wantPhone {
+				t.Fatalf("resolveWhatsappWelcomeCandidateFromBroadcast() phoneNumber=%q, want %q", phoneNumber, tt.wantPhone)
+			}
+		})
+	}
+}
+
 func TestClassifyQrEligibilityByLoginFailure(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -442,6 +500,29 @@ func TestWhatsappPreferredDeviceHandlerClearsEnvOnEmptyPost(t *testing.T) {
 	}
 	if stored["device_id"] != "" {
 		t.Fatalf("stored device_id = %q, want empty", stored["device_id"])
+	}
+}
+
+func TestCanonicalizePreferredWhatsappDeviceIDRejectsMalformedValue(t *testing.T) {
+	got := canonicalizePreferredWhatsappDeviceID("test-user", "8618520165968@s.whatsapp.netnet")
+	if got != "" {
+		t.Fatalf("canonicalizePreferredWhatsappDeviceID() = %q, want empty", got)
+	}
+}
+
+func TestWhatsappPreferredDeviceHandlerRejectsMalformedPreferredDevice(t *testing.T) {
+	preferredWhatsappDeviceMu.Lock()
+	preferredWhatsappDevice = make(map[string]map[string]string)
+	preferredWhatsappDeviceMu.Unlock()
+
+	body := strings.NewReader(`{"device_id":"8618520165968@s.whatsapp.netnet","meta":""}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/whatsapp/preferred-device?user=test-user", body)
+	res := httptest.NewRecorder()
+
+	whatsappPreferredDeviceHandler(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("whatsappPreferredDeviceHandler() status = %d, want %d", res.Code, http.StatusBadRequest)
 	}
 }
 

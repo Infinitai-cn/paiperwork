@@ -3101,6 +3101,7 @@ window.helpContent = {
                     <li>Paiperwork uses an internal orchestrator to decide which connector function to use for each WhatsApp request.</li>
                     <li>If you refresh the browser, incoming messages stay paused until you open the Connectors tab again. This is intentional so local users do not get spammed unexpectedly.</li>
                     <li>Presentations and artifacts generated from WhatsApp are sent back as HTML files. You can later open them in Paiperwork for deeper manual edits.</li>
+                    <li>By default, Paiperwork isolates WhatsApp connector state per Master Key user so saved sessions, device state, and queued runtime data do not leak between different Master Key users on the same machine.</li>
                 </ul>
             `,
             }

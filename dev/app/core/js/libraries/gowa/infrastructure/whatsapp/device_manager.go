@@ -186,6 +186,19 @@ func (m *DeviceManager) PromoteDeviceIdentity(oldID, newID, newJID string) *Devi
 		return nil
 	}
 
+	currentInstanceID := strings.TrimSpace(inst.ID())
+	currentInstanceJID := strings.TrimSpace(inst.JID())
+	currentAccountKey := deviceAccountKey(currentInstanceID, currentInstanceJID)
+	targetAccountKey := deviceAccountKey(trimmedNewID, trimmedNewJID)
+	if currentAccountKey != "" && targetAccountKey != "" && currentAccountKey != targetAccountKey {
+		m.mu.Unlock()
+		logrus.Warnf("[DEVICE_MANAGER] refusing cross-account promotion old_id=%s old_jid=%s new_id=%s new_jid=%s", logmask.MaskPhoneNumber(currentInstanceID), logmask.MaskPhoneNumber(currentInstanceJID), logmask.MaskPhoneNumber(trimmedNewID), logmask.MaskPhoneNumber(trimmedNewJID))
+		if existing, ok := m.devices[trimmedNewID]; ok && existing != nil {
+			return existing
+		}
+		return nil
+	}
+
 	delete(m.devices, trimmedOldID)
 	m.devices[trimmedNewID] = inst
 	m.mu.Unlock()
@@ -446,6 +459,91 @@ func (m *DeviceManager) PurgeDevice(ctx context.Context, deviceID string) error 
 
 	// Remove from registry last
 	m.RemoveDevice(deviceID)
+	return firstErr
+}
+
+// PurgeLoggedOutDevice removes persisted state for a device that was already
+// logged out remotely from the phone, without attempting another logout call.
+func (m *DeviceManager) PurgeLoggedOutDevice(ctx context.Context, deviceID string) error {
+	if deviceID == "" {
+		return fmt.Errorf("device id is required")
+	}
+
+	logrus.Infof("[DEVICE_MANAGER] PurgeLoggedOutDevice begin device=%s", logmask.MaskPhoneNumber(deviceID))
+
+	var firstErr error
+	recordErr := func(err error) {
+		if err != nil {
+			firstErr = errors.Join(firstErr, err)
+		}
+	}
+
+	registryFound := false
+	storeFound := false
+	storeDeleted := false
+	keysFound := false
+	keysDeleted := false
+	chatStorageDeleted := false
+
+	if inst, ok := m.GetDevice(deviceID); ok && inst != nil {
+		registryFound = true
+		if cli := inst.GetClient(); cli != nil {
+			cli.EnableAutoReconnect = false
+			cli.Disconnect()
+		}
+	}
+
+	if m.storage != nil {
+		if err := m.storage.DeleteDeviceData(deviceID); err != nil {
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete chatstorage for remotely logged-out device %s", deviceID)
+			recordErr(err)
+		} else {
+			chatStorageDeleted = true
+		}
+	}
+
+	if m.store != nil {
+		if devices, err := m.store.GetAllDevices(ctx); err != nil {
+			logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to enumerate devices for remote logout purge")
+			recordErr(err)
+		} else {
+			for _, dev := range devices {
+				if dev != nil && dev.ID != nil && dev.ID.String() == deviceID {
+					storeFound = true
+					if err := m.store.DeleteDevice(ctx, dev); err != nil {
+						logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete remotely logged-out device %s from store", deviceID)
+						recordErr(err)
+					} else {
+						storeDeleted = true
+					}
+					break
+				}
+			}
+		}
+	}
+
+	if m.keys != nil && m.keys != m.store {
+		if devices, err := m.keys.GetAllDevices(ctx); err != nil {
+			logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to enumerate keys devices for remote logout purge")
+			recordErr(err)
+		} else {
+			for _, dev := range devices {
+				if dev != nil && dev.ID != nil && dev.ID.String() == deviceID {
+					keysFound = true
+					if err := m.keys.DeleteDevice(ctx, dev); err != nil {
+						logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete remotely logged-out device %s from keys store", deviceID)
+						recordErr(err)
+					} else {
+						keysDeleted = true
+					}
+					break
+				}
+			}
+		}
+	}
+
+	m.RemoveDevice(deviceID)
+	logrus.Infof("[DEVICE_MANAGER] PurgeLoggedOutDevice complete device=%s registry_found=%v chatstorage_deleted=%v store_found=%v store_deleted=%v keys_found=%v keys_deleted=%v err=%v", logmask.MaskPhoneNumber(deviceID), registryFound, chatStorageDeleted, storeFound, storeDeleted, keysFound, keysDeleted, firstErr)
 	return firstErr
 }
 
@@ -803,7 +901,9 @@ func (m *DeviceManager) EnsureClient(ctx context.Context, deviceID string) (*Dev
 	})
 
 	inst.SetOnLoggedOut(func(deviceID string) {
-		m.RemoveDevice(deviceID)
+		if err := m.PurgeLoggedOutDevice(context.Background(), deviceID); err != nil {
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] remote logout purge completed with warnings for %s", deviceID)
+		}
 	})
 
 	inst.SetClient(client)

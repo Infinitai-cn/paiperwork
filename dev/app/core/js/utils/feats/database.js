@@ -2,6 +2,7 @@ class PaiperworkDB {
 
     static DB_BUNDLE_FORMAT = 'paiperwork-db-bundle-v2';
     static LEGACY_DB_BUNDLE_FORMAT = 'paiperwork-db-bundle-v1';
+    static WHATSAPP_LOOKUP_PREFIX = 'lookup_v1:';
 
     static dbInitialized = false;
     static initializationPromise = null;
@@ -2467,12 +2468,13 @@ class PaiperworkDB {
                             const encDeviceID = row[0].values[0][0] || '';
                             const encDeviceMeta = row[0].values[0][1] || '';
                             const mode = row[0].values[0][2] || '';
+                            const encMode = mode ? JSON.stringify(await this.encrypt(hashedMasterKey, String(mode))) : '';
 
                             whatsappDb.run(`
                                 INSERT OR REPLACE INTO whatsapp_settings
                                 (masterkey_hash, whatsapp_device_id, whatsapp_device_meta, whatsapp_mode)
                                 VALUES (?, ?, ?, ?)
-                            `, [hashedMasterKey, encDeviceID, encDeviceMeta, mode]);
+                            `, [hashedMasterKey, encDeviceID, encDeviceMeta, encMode]);
                         }
                     }
 
@@ -2485,10 +2487,11 @@ class PaiperworkDB {
                         if (rows && rows[0] && rows[0].values && rows[0].values.length) {
                             for (const [phone, context] of rows[0].values) {
                                 if (!phone) continue;
+                                const lookupPhone = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_phone_context', String(phone).replace(/@.*$/g, '').trim());
                                 whatsappDb.run(`
                                     INSERT OR REPLACE INTO whatsapp_phone_contexts (phone, context)
                                     VALUES (?, ?)
-                                `, [phone, context || '']);
+                                `, [lookupPhone || phone, context || '']);
                             }
                         }
                     }
@@ -2639,11 +2642,124 @@ class PaiperworkDB {
                 }
             }
 
-			// Update database version to 24 (includes preferred WhatsApp device fields in whatsapp role DB)
+            // Version 25: Create dedicated encrypted WhatsApp device registry table.
+            if (currentVersion < 25) {
+                try {
+                    const whatsappDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_device_registry (
+                            device_id TEXT PRIMARY KEY,
+                            entry_blob TEXT,
+                            updated_at TEXT
+                        )
+                    `);
+
+                    await this.saveWhatsappRoleSqlDatabase(whatsappDb, hashedMasterKey);
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error creating whatsapp device registry table', error);
+                }
+            }
+
+            // Version 26: Encrypt legacy plaintext WhatsApp settings inside the whatsapp role DB.
+            if (currentVersion < 26) {
+                try {
+                    const whatsappDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_settings (
+                            masterkey_hash TEXT PRIMARY KEY,
+                            whatsapp_device_id TEXT,
+                            whatsapp_device_meta TEXT,
+                            whatsapp_preferred_device_id TEXT,
+                            whatsapp_preferred_device_meta TEXT,
+                            whatsapp_mode TEXT DEFAULT '',
+                            whatsapp_model_locked TEXT DEFAULT 'false'
+                        )
+                    `);
+
+                    const row = whatsappDb.exec(`
+                        SELECT whatsapp_mode, whatsapp_model_locked
+                        FROM whatsapp_settings
+                        WHERE masterkey_hash = ?
+                        LIMIT 1
+                    `, [hashedMasterKey]);
+
+                    if (row && row[0] && row[0].values && row[0].values.length) {
+                        const currentMode = String(row[0].values[0][0] || '').trim();
+                        const currentLocked = String(row[0].values[0][1] || '').trim();
+
+                        let nextMode = currentMode;
+                        let nextLocked = currentLocked;
+                        let shouldSave = false;
+
+                        if (currentMode === 'personal' || currentMode === 'bot') {
+                            nextMode = JSON.stringify(await this.encrypt(hashedMasterKey, currentMode));
+                            shouldSave = true;
+                        }
+
+                        if (currentLocked === 'true' || currentLocked === 'false') {
+                            nextLocked = JSON.stringify(await this.encrypt(hashedMasterKey, currentLocked));
+                            shouldSave = true;
+                        }
+
+                        if (shouldSave) {
+                            whatsappDb.run(`
+                                UPDATE whatsapp_settings
+                                SET whatsapp_mode = ?, whatsapp_model_locked = ?
+                                WHERE masterkey_hash = ?
+                            `, [nextMode, nextLocked, hashedMasterKey]);
+                            await this.saveWhatsappRoleSqlDatabase(whatsappDb, hashedMasterKey);
+                        }
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error encrypting legacy WhatsApp settings in role DB', error);
+                }
+            }
+
+            // Version 27: Replace plaintext WhatsApp role DB lookup keys with master-key-scoped hashes.
+            if (currentVersion < 27) {
+                try {
+                    const whatsappDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_phone_contexts (
+                            phone TEXT PRIMARY KEY,
+                            context TEXT
+                        )
+                    `);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_device_registry (
+                            device_id TEXT PRIMARY KEY,
+                            entry_blob TEXT,
+                            updated_at TEXT
+                        )
+                    `);
+
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_session_bundles (
+                            device_id TEXT PRIMARY KEY,
+                            session_blob TEXT,
+                            metadata_blob TEXT,
+                            updated_at TEXT
+                        )
+                    `);
+
+                    const lookupMigrated = await this.migrateWhatsappLookupKeys(hashedMasterKey, whatsappDb);
+                    if (lookupMigrated) {
+                        await this.saveWhatsappRoleSqlDatabase(whatsappDb, hashedMasterKey);
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error hashing WhatsApp role DB lookup keys', error);
+                }
+            }
+
+			// Update database version to 27 (includes hashed WhatsApp role DB lookup keys)
             if (currentVersion === 0) {
-				db.run('INSERT INTO db_version (version) VALUES (24)');
+				db.run('INSERT INTO db_version (version) VALUES (27)');
             } else {
-				db.run('UPDATE db_version SET version = 24');
+				db.run('UPDATE db_version SET version = 27');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
@@ -3473,6 +3589,99 @@ class PaiperworkDB {
         const hashedMasterKey = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
        //console.log('Hash generated:', hashedMasterKey);
         return hashedMasterKey;
+    }
+
+    static isHashedWhatsappLookupKey(value) {
+        return String(value || '').startsWith(this.WHATSAPP_LOOKUP_PREFIX);
+    }
+
+    static async hashScopedLookupKey(hashedMasterKey, scope, rawValue) {
+        const normalizedValue = String(rawValue || '').trim();
+        if (!hashedMasterKey || !scope || !normalizedValue) {
+            return '';
+        }
+
+        const encoder = new TextEncoder();
+        const data = encoder.encode(`${hashedMasterKey}:${scope}:${normalizedValue}`);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return this.WHATSAPP_LOOKUP_PREFIX + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    static async migrateWhatsappLookupKeys(hashedMasterKey, whatsappDb) {
+        if (!hashedMasterKey || !whatsappDb) {
+            return false;
+        }
+
+        let mutated = false;
+
+        const phoneRows = whatsappDb.exec(`SELECT phone, context FROM whatsapp_phone_contexts`);
+        if (phoneRows && phoneRows[0] && Array.isArray(phoneRows[0].values)) {
+            for (const [storedPhone, context] of phoneRows[0].values) {
+                const rawPhone = String(storedPhone || '').trim();
+                if (!rawPhone || this.isHashedWhatsappLookupKey(rawPhone)) {
+                    continue;
+                }
+                const normalizedPhone = rawPhone.replace(/@.*$/g, '').trim();
+                const lookupPhone = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_phone_context', normalizedPhone);
+                if (!lookupPhone) {
+                    continue;
+                }
+                whatsappDb.run(`INSERT OR REPLACE INTO whatsapp_phone_contexts (phone, context) VALUES (?, ?)`, [lookupPhone, context || '']);
+                whatsappDb.run(`DELETE FROM whatsapp_phone_contexts WHERE phone = ?`, [rawPhone]);
+                mutated = true;
+            }
+        }
+
+        const deviceRows = whatsappDb.exec(`SELECT device_id, entry_blob, updated_at FROM whatsapp_device_registry`);
+        if (deviceRows && deviceRows[0] && Array.isArray(deviceRows[0].values)) {
+            for (const [storedDeviceId, entryBlob, updatedAt] of deviceRows[0].values) {
+                const rawDeviceId = String(storedDeviceId || '').trim();
+                if (!rawDeviceId || this.isHashedWhatsappLookupKey(rawDeviceId)) {
+                    continue;
+                }
+
+                let nextDeviceId = rawDeviceId;
+                try {
+                    const decrypted = await this.decrypt(hashedMasterKey, entryBlob);
+                    const parsed = decrypted ? JSON.parse(decrypted) : null;
+                    const parsedDeviceId = String((parsed && (parsed.deviceId || parsed.device_id)) || '').trim();
+                    if (parsedDeviceId) {
+                        nextDeviceId = parsedDeviceId;
+                    }
+                } catch (_e) {
+                    // Fall back to the legacy plaintext key if the blob cannot be parsed.
+                }
+
+                const deviceLookup = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_device_registry', nextDeviceId);
+                if (!deviceLookup) {
+                    continue;
+                }
+                whatsappDb.run(`INSERT OR REPLACE INTO whatsapp_device_registry (device_id, entry_blob, updated_at) VALUES (?, ?, ?)`, [deviceLookup, entryBlob || '', updatedAt || new Date().toISOString()]);
+                whatsappDb.run(`DELETE FROM whatsapp_device_registry WHERE device_id = ?`, [rawDeviceId]);
+                mutated = true;
+            }
+        }
+
+        const sessionRows = whatsappDb.exec(`SELECT device_id, session_blob, metadata_blob, updated_at FROM whatsapp_session_bundles`);
+        if (sessionRows && sessionRows[0] && Array.isArray(sessionRows[0].values)) {
+            for (const [storedDeviceId, sessionBlob, metadataBlob, updatedAt] of sessionRows[0].values) {
+                const rawDeviceId = String(storedDeviceId || '').trim();
+                if (!rawDeviceId || this.isHashedWhatsappLookupKey(rawDeviceId)) {
+                    continue;
+                }
+
+                const deviceLookup = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_session_bundle', rawDeviceId);
+                if (!deviceLookup) {
+                    continue;
+                }
+                whatsappDb.run(`INSERT OR REPLACE INTO whatsapp_session_bundles (device_id, session_blob, metadata_blob, updated_at) VALUES (?, ?, ?, ?)`, [deviceLookup, sessionBlob || '', metadataBlob || '', updatedAt || new Date().toISOString()]);
+                whatsappDb.run(`DELETE FROM whatsapp_session_bundles WHERE device_id = ?`, [rawDeviceId]);
+                mutated = true;
+            }
+        }
+
+        return mutated;
     }
     // Deletes the database for a given master key hash from OPFS and IndexedDB.
     static async deleteDatabase(hashedMasterKey) {
@@ -4393,6 +4602,7 @@ class PaiperworkDB {
 
             await this.initializeDatabase(hashedMasterKey);
             const normalizedPhone = String(phone).replace(/@.*$/g, '').trim();
+            const lookupPhone = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_phone_context', normalizedPhone);
             const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
 
             sqlDb.run(`
@@ -4409,7 +4619,7 @@ class PaiperworkDB {
             sqlDb.run(`
                 INSERT OR REPLACE INTO whatsapp_phone_contexts (phone, context)
                 VALUES (?, ?)
-            `, [normalizedPhone, encryptedJson]);
+            `, [lookupPhone, encryptedJson]);
 
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
             return true;
@@ -4425,6 +4635,7 @@ class PaiperworkDB {
 
             await this.initializeDatabase(hashedMasterKey);
             const normalizedPhone = String(phone).replace(/@.*$/g, '').trim();
+            const lookupPhone = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_phone_context', normalizedPhone);
             const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
             if (!existingDb) return null;
 
@@ -4435,7 +4646,7 @@ class PaiperworkDB {
                     context TEXT
                 )
             `);
-            const rows = sqlDb.exec(`SELECT context FROM whatsapp_phone_contexts WHERE phone = ? LIMIT 1`, [normalizedPhone]);
+            const rows = sqlDb.exec(`SELECT context FROM whatsapp_phone_contexts WHERE phone = ? LIMIT 1`, [lookupPhone]);
             if (!rows || !rows[0] || !rows[0].values || !rows[0].values.length) {
                 return null;
             }
@@ -4478,7 +4689,9 @@ class PaiperworkDB {
             if (!existingDb) return false;
 
             const sqlDb = new this.SQL.Database(existingDb);
-            sqlDb.run(`DELETE FROM whatsapp_phone_contexts WHERE phone = ?`, [String(phone).replace(/@.*$/g, '').trim()]);
+            const normalizedPhone = String(phone).replace(/@.*$/g, '').trim();
+            const lookupPhone = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_phone_context', normalizedPhone);
+            sqlDb.run(`DELETE FROM whatsapp_phone_contexts WHERE phone = ?`, [lookupPhone]);
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
             return true;
         } catch (error) {
@@ -4580,6 +4793,7 @@ class PaiperworkDB {
         try {
             await this.initializeDatabase(hashedMasterKey);
             const normalizedMode = mode === 'personal' || mode === 'bot' ? mode : '';
+            const encryptedMode = normalizedMode ? await this.encrypt(hashedMasterKey, normalizedMode) : '';
             const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
 
             sqlDb.run(`
@@ -4609,7 +4823,7 @@ class PaiperworkDB {
                 UPDATE whatsapp_settings
                 SET whatsapp_mode = ?
                 WHERE masterkey_hash = ?
-            `, [normalizedMode, hashedMasterKey]);
+            `, [JSON.stringify(encryptedMode), hashedMasterKey]);
 
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
             //console.log('PaiperworkDB: saveWhatsappMode succeeded', { hashedMasterKey, normalizedMode });
@@ -4624,6 +4838,7 @@ class PaiperworkDB {
         try {
             await this.initializeDatabase(hashedMasterKey);
             const normalizedLocked = String(locked).toLowerCase() === 'true' ? 'true' : 'false';
+            const encryptedLocked = await this.encrypt(hashedMasterKey, normalizedLocked);
             const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
 
             sqlDb.run(`
@@ -4650,7 +4865,7 @@ class PaiperworkDB {
                 UPDATE whatsapp_settings
                 SET whatsapp_model_locked = ?
                 WHERE masterkey_hash = ?
-            `, [normalizedLocked, hashedMasterKey]);
+            `, [JSON.stringify(encryptedLocked), hashedMasterKey]);
 
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
             return true;
@@ -4701,7 +4916,28 @@ class PaiperworkDB {
                 return normalized;
             }
 
-            return row[0].values[0][0] || null;
+            const storedMode = row[0].values[0][0] || '';
+            if (!storedMode) {
+                return null;
+            }
+
+            try {
+                const decryptedMode = await this.decrypt(hashedMasterKey, storedMode);
+                const normalized = decryptedMode === 'personal' || decryptedMode === 'bot' ? decryptedMode : '';
+                if (normalized) {
+                    return normalized;
+                }
+            } catch (_e) {
+                // Fall through to plaintext handling for backward compatibility.
+            }
+
+            const normalizedPlaintext = storedMode === 'personal' || storedMode === 'bot' ? storedMode : '';
+            if (!normalizedPlaintext) {
+                return null;
+            }
+
+            await this.saveWhatsappMode(hashedMasterKey, normalizedPlaintext);
+            return normalizedPlaintext;
         } catch (error) {
             console.error('Error getting Whatsapp mode:', error);
             return null;
@@ -4741,7 +4977,19 @@ class PaiperworkDB {
                 return false;
             }
 
-            return String(row[0].values[0][0] || '').trim().toLowerCase() === 'true';
+            const storedLocked = String(row[0].values[0][0] || '').trim();
+            if (!storedLocked) {
+                return false;
+            }
+
+            try {
+                const decryptedLocked = await this.decrypt(hashedMasterKey, storedLocked);
+                return String(decryptedLocked || '').trim().toLowerCase() === 'true';
+            } catch (_e) {
+                const normalizedPlaintext = storedLocked.toLowerCase() === 'true';
+                await this.saveWhatsappModelLock(hashedMasterKey, normalizedPlaintext);
+                return normalizedPlaintext;
+            }
         } catch (error) {
             console.error('Error getting Whatsapp model lock:', error);
             return false;
@@ -4917,10 +5165,129 @@ class PaiperworkDB {
         }
     }
 
+    static async saveWhatsappDeviceCatalog(hashedMasterKey, devices = []) {
+        try {
+            if (!hashedMasterKey) return false;
+            await this.initializeDatabase(hashedMasterKey);
+
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_device_registry (
+                    device_id TEXT PRIMARY KEY,
+                    entry_blob TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            sqlDb.run(`DELETE FROM whatsapp_device_registry`);
+
+            const normalizedDevices = Array.isArray(devices) ? devices : [];
+            for (const rawEntry of normalizedDevices) {
+                const entry = rawEntry && typeof rawEntry === 'object' ? rawEntry : null;
+                const deviceId = String((entry && (entry.deviceId || entry.device_id)) || '').trim();
+                if (!deviceId) {
+                    continue;
+                }
+                const deviceLookup = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_device_registry', deviceId);
+
+                const encryptedEntry = await this.encrypt(hashedMasterKey, JSON.stringify({
+                    ...entry,
+                    deviceId
+                }));
+
+                sqlDb.run(`
+                    INSERT OR REPLACE INTO whatsapp_device_registry (device_id, entry_blob, updated_at)
+                    VALUES (?, ?, ?)
+                `, [deviceLookup, JSON.stringify(encryptedEntry), new Date().toISOString()]);
+            }
+
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error saving WhatsApp device catalog:', error);
+            return false;
+        }
+    }
+
+    static async getWhatsappDeviceCatalog(hashedMasterKey) {
+        try {
+            if (!hashedMasterKey) return [];
+            await this.initializeDatabase(hashedMasterKey);
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return [];
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_device_registry (
+                    device_id TEXT PRIMARY KEY,
+                    entry_blob TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            const rows = sqlDb.exec(`
+                SELECT device_id, entry_blob
+                FROM whatsapp_device_registry
+                ORDER BY updated_at DESC, device_id ASC
+            `);
+            if (!rows || !rows[0] || !rows[0].values || !rows[0].values.length) {
+                return [];
+            }
+
+            const devices = [];
+            for (const [deviceIdValue, entryBlob] of rows[0].values) {
+                const storedLookup = String(deviceIdValue || '').trim();
+                if (!storedLookup || !entryBlob) {
+                    continue;
+                }
+
+                try {
+                    const decrypted = await this.decrypt(hashedMasterKey, entryBlob);
+                    const parsed = decrypted ? JSON.parse(decrypted) : null;
+                    if (parsed && typeof parsed === 'object') {
+                        const parsedDeviceId = String((parsed.deviceId || parsed.device_id) || '').trim();
+                        devices.push({
+                            ...parsed,
+                            deviceId: parsedDeviceId || storedLookup
+                        });
+                    }
+                } catch (entryError) {
+                    console.warn('Error decoding WhatsApp device catalog entry:', entryError);
+                }
+            }
+
+            return devices;
+        } catch (error) {
+            console.error('Error getting WhatsApp device catalog:', error);
+            return [];
+        }
+    }
+
+    static async clearWhatsappDeviceCatalog(hashedMasterKey) {
+        try {
+            if (!hashedMasterKey) return false;
+            await this.initializeDatabase(hashedMasterKey);
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return true;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`DELETE FROM whatsapp_device_registry`);
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error clearing WhatsApp device catalog:', error);
+            return false;
+        }
+    }
+
     static async saveWhatsappSessionBundle(hashedMasterKey, deviceId, sessionBundle, metadata = {}) {
         try {
             if (!hashedMasterKey || !deviceId) return false;
             await this.initializeDatabase(hashedMasterKey);
+            const normalizedDeviceId = String(deviceId).trim();
+            const deviceLookup = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_session_bundle', normalizedDeviceId);
 
             const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
             sqlDb.run(`
@@ -4941,7 +5308,7 @@ class PaiperworkDB {
             sqlDb.run(`
                 INSERT OR REPLACE INTO whatsapp_session_bundles (device_id, session_blob, metadata_blob, updated_at)
                 VALUES (?, ?, ?, ?)
-            `, [String(deviceId), JSON.stringify(encryptedBundle), JSON.stringify(encryptedMeta), new Date().toISOString()]);
+            `, [deviceLookup, JSON.stringify(encryptedBundle), JSON.stringify(encryptedMeta), new Date().toISOString()]);
 
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
             return true;
@@ -4955,6 +5322,8 @@ class PaiperworkDB {
         try {
             if (!hashedMasterKey || !deviceId) return null;
             await this.initializeDatabase(hashedMasterKey);
+            const normalizedDeviceId = String(deviceId).trim();
+            const deviceLookup = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_session_bundle', normalizedDeviceId);
 
             const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
             if (!existingDb) return null;
@@ -4974,7 +5343,7 @@ class PaiperworkDB {
                 FROM whatsapp_session_bundles
                 WHERE device_id = ?
                 LIMIT 1
-            `, [String(deviceId)]);
+            `, [deviceLookup]);
             if (!row || !row[0] || !row[0].values || !row[0].values.length) {
                 return null;
             }
@@ -4992,7 +5361,7 @@ class PaiperworkDB {
             try { session = JSON.parse(sessionRaw); } catch (_e) {}
             try { metadata = JSON.parse(metadataRaw || '{}') || {}; } catch (_e) { metadata = {}; }
 
-            return { deviceId: String(deviceId), session, metadata, updatedAt };
+            return { deviceId: normalizedDeviceId, session, metadata, updatedAt };
         } catch (error) {
             console.error('Error getting WhatsApp session bundle:', error);
             return null;
@@ -5003,16 +5372,36 @@ class PaiperworkDB {
         try {
             if (!hashedMasterKey || !deviceId) return false;
             await this.initializeDatabase(hashedMasterKey);
+            const normalizedDeviceId = String(deviceId).trim();
+            const deviceLookup = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_session_bundle', normalizedDeviceId);
 
             const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
             if (!existingDb) return true;
 
             const sqlDb = new this.SQL.Database(existingDb);
-            sqlDb.run(`DELETE FROM whatsapp_session_bundles WHERE device_id = ?`, [String(deviceId)]);
+            sqlDb.run(`DELETE FROM whatsapp_session_bundles WHERE device_id = ?`, [deviceLookup]);
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
             return true;
         } catch (error) {
             console.error('Error clearing WhatsApp session bundle:', error);
+            return false;
+        }
+    }
+
+    static async clearAllWhatsappSessionBundles(hashedMasterKey) {
+        try {
+            if (!hashedMasterKey) return false;
+            await this.initializeDatabase(hashedMasterKey);
+
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) return true;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`DELETE FROM whatsapp_session_bundles`);
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error clearing all WhatsApp session bundles:', error);
             return false;
         }
     }

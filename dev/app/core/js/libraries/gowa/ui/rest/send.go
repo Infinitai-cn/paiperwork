@@ -1,6 +1,8 @@
 package rest
 
 import (
+	"log"
+
 	domainSend "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/send"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
@@ -34,6 +36,14 @@ func (controller *Send) SendText(c *fiber.Ctx) error {
 	utils.PanicIfNeeded(err)
 
 	utils.SanitizePhone(&request.Phone)
+	device := getDeviceFromCtx(c)
+	deviceID := ""
+	hasClient := false
+	if device != nil {
+		deviceID = device.ID()
+		hasClient = device.GetClient() != nil
+	}
+	log.Printf("gowa SendText: request phone=%s device_id=%s has_device=%v has_client=%v", request.Phone, deviceID, device != nil, hasClient)
 
 	response, err := controller.Service.SendText(whatsapp.ContextWithDevice(c.UserContext(), getDeviceFromCtx(c)), request)
 	utils.PanicIfNeeded(err)

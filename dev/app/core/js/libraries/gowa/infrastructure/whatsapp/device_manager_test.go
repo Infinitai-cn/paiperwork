@@ -305,3 +305,30 @@ func TestPromoteDeviceIdentity_RekeysPlaceholderToPairedDevice(t *testing.T) {
 		t.Fatalf("expected promoted device to be available under its paired device id")
 	}
 }
+
+func TestPromoteDeviceIdentity_RefusesCrossAccountPromotion(t *testing.T) {
+	dm := &DeviceManager{
+		devices: make(map[string]*DeviceInstance),
+	}
+
+	existing := NewDeviceInstance("8618520165968:66@s.whatsapp.net", nil, nil)
+	existing.SetIdentityMetadata("", "8618520165968", "8618520165968@s.whatsapp.net")
+	dm.devices[existing.ID()] = existing
+
+	placeholder := NewDeviceInstance("8619802087305:27@s.whatsapp.net", nil, nil)
+	dm.devices[placeholder.ID()] = placeholder
+
+	promoted := dm.PromoteDeviceIdentity("8618520165968:66@s.whatsapp.net", "8619802087305:27@s.whatsapp.net", "8619802087305@s.whatsapp.net")
+	if promoted != nil {
+		t.Fatalf("expected cross-account promotion to be refused")
+	}
+	if resolved, ok := dm.GetDevice("8618520165968:66@s.whatsapp.net"); !ok || resolved != existing {
+		t.Fatalf("expected original device identity to remain intact")
+	}
+	if resolved, ok := dm.GetDevice("8619802087305:27@s.whatsapp.net"); !ok || resolved != placeholder {
+		t.Fatalf("expected placeholder device to remain intact")
+	}
+	if existing.JID() != "8618520165968@s.whatsapp.net" {
+		t.Fatalf("expected original device JID to remain unchanged, got %q", existing.JID())
+	}
+}

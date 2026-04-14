@@ -11,6 +11,7 @@ import (
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
+	"github.com/sirupsen/logrus"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/store/sqlstore"
@@ -230,7 +231,9 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 	if dm != nil && instanceID != "" {
 		dm.EnsureDefault(instance)
 		instance.SetOnLoggedOut(func(deviceID string) {
-			dm.RemoveDevice(deviceID)
+			if err := dm.PurgeLoggedOutDevice(context.Background(), deviceID); err != nil {
+				logrus.WithError(err).Warnf("[DEVICE_MANAGER] remote logout purge completed with warnings for %s", deviceID)
+			}
 		})
 	}
 
