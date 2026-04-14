@@ -211,13 +211,13 @@ func TestResolveExistingNoDiskGatewayDevice(t *testing.T) {
 			want: "device-b",
 		},
 		{
-			name:              "falls back to logged in device when preferred device is absent",
+			name:              "does not fall back to another logged in device when preferred device is absent",
 			ids:               []string{"device-a", "device-b"},
 			preferredDeviceID: "missing-device",
 			statusByID: map[string]*whatsappGatewayStatus{
 				"device-b": {Connected: true, LoggedIn: true},
 			},
-			want: "device-b",
+			want: "",
 		},
 		{
 			name:              "returns empty when no devices qualify",

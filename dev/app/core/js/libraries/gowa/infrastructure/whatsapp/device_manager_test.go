@@ -319,8 +319,8 @@ func TestPromoteDeviceIdentity_RefusesCrossAccountPromotion(t *testing.T) {
 	dm.devices[placeholder.ID()] = placeholder
 
 	promoted := dm.PromoteDeviceIdentity("8618520165968:66@s.whatsapp.net", "8619802087305:27@s.whatsapp.net", "8619802087305@s.whatsapp.net")
-	if promoted != nil {
-		t.Fatalf("expected cross-account promotion to be refused")
+	if promoted != placeholder {
+		t.Fatalf("expected cross-account promotion to keep the existing target placeholder")
 	}
 	if resolved, ok := dm.GetDevice("8618520165968:66@s.whatsapp.net"); !ok || resolved != existing {
 		t.Fatalf("expected original device identity to remain intact")
