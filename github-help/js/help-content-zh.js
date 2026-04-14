@@ -2900,6 +2900,14 @@ window.helpContent = {
                     <li><strong>解决方案2：</strong>刷新浏览器并再次尝试清理</li>
                     <li><strong>解决方案3：</strong>清理后运行数据库优化</li>
                 </ul>
+
+                <h4>清除 WhatsApp 上下文</h4>
+                <p>如果长时间使用后 WhatsApp 回复开始变得臃肿，您可以只清除按手机保存的 WhatsApp 上下文，而无需删除数据库中的其他内容。</p>
+                <ol>
+                    <li>在数据库选项卡中点击“清除 WhatsApp 上下文”</li>
+                    <li>这会删除按手机保存的 WhatsApp 上下文记忆，并重置当前运行中的 WhatsApp 上下文</li>
+                    <li>已配对设备的信息会被保留，仍可在 Connectors 选项卡中通过“Delete paired device(s)”进行管理</li>
+                </ol>
                 
                 <h4>最后手段：数据库重置</h4>
                 <p>如果持续出现问题且正常维护无效：</p>

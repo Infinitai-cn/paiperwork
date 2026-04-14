@@ -529,6 +529,11 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 optimizeDatabase: "清理数据库",
                 exportDatabase: "导出数据库",
                 importDatabase: "导入数据库",
+                clearWhatsappPhoneContextsButton: "清除 WhatsApp 上下文",
+                clearWhatsappPhoneContextsConfirm: "这将永久删除所有已存储的按手机区分的 WhatsApp 上下文记忆。已配对设备的信息会被保留，仍可在 Connectors 选项卡中管理。是否继续？",
+                clearWhatsappPhoneContextsDeleting: "正在清除 WhatsApp 上下文...",
+                clearWhatsappPhoneContextsSuccess: "已清除 {count} 条 WhatsApp 上下文记录。",
+                clearWhatsappPhoneContextsFailed: "清除 WhatsApp 上下文失败。",
 
                 // Information Section
                 aboutDatabaseTitle: "关于您的数据库",

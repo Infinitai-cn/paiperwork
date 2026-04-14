@@ -539,6 +539,11 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         optimizeDatabase: "Datenbank bereinigen",
         exportDatabase: "Datenbank exportieren",
         importDatabase: "Datenbank importieren",
+        clearWhatsappPhoneContextsButton: "WhatsApp-Kontexte löschen",
+        clearWhatsappPhoneContextsConfirm: "Dadurch wird der gesamte gespeicherte WhatsApp-Kontext pro Telefon dauerhaft gelöscht. Informationen zu gekoppelten Geräten bleiben erhalten und können weiterhin im Connectors-Tab verwaltet werden. Fortfahren?",
+        clearWhatsappPhoneContextsDeleting: "WhatsApp-Kontexte werden gelöscht...",
+        clearWhatsappPhoneContextsSuccess: "{count} WhatsApp-Kontexteinträge wurden gelöscht.",
+        clearWhatsappPhoneContextsFailed: "WhatsApp-Kontexte konnten nicht gelöscht werden.",
 
         // Information Section
         aboutDatabaseTitle: "Über Ihre Datenbank",

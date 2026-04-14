@@ -2896,6 +2896,14 @@ window.helpContent = {
                     <li><strong>Solução 2:</strong> Atualize o navegador e tente limpar novamente</li>
                     <li><strong>Solução 3:</strong> Execute otimização da base de dados após limpeza</li>
                 </ul>
+
+                <h4>Limpar Contextos do WhatsApp</h4>
+                <p>Se as respostas do WhatsApp começarem a ficar pesadas após muito uso, pode limpar apenas os contextos do WhatsApp armazenados por telefone sem apagar o resto da sua base de dados.</p>
+                <ol>
+                    <li>Clique em "Limpar Contextos do WhatsApp" na aba Base de Dados</li>
+                    <li>Isto remove a memória de contexto do WhatsApp armazenada por telefone e reinicia o contexto ativo do WhatsApp em execução</li>
+                    <li>As informações dos dispositivos emparelhados são preservadas e continuam a poder ser geridas na aba Connectors com "Delete paired device(s)"</li>
+                </ol>
                 
                 <h4>Último Recurso: Reset da Base de Dados</h4>
                 <p>Se problemas persistentes ocorrem e a manutenção normal não ajuda:</p>

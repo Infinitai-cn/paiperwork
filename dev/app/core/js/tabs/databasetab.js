@@ -64,6 +64,9 @@ class DatabaseTab {
                                 <i class="fas fa-file-import"></i> ${Lang.get('importDatabase') || 'Import Database'}
                             </button>
                         </div>
+                        <button id="clear-whatsapp-phone-contexts" class="action-button warning" style="background-color: #c2410c; color: white; width: auto; min-width: 220px; text-align: center;">
+                            <i class="fas fa-eraser"></i> ${Lang.get('clearWhatsappPhoneContextsButton') || 'Clear WhatsApp Phone Contexts'}
+                        </button>
                         <button id="delete-all-databases" class="action-button warning" style="background-color: #b91c1c; color: white; width: auto; min-width: 220px; text-align: center;">
                             <i class="fas fa-trash"></i> ${Lang.get('deleteAllButton') || 'Delete All Information'}
                         </button>
@@ -95,6 +98,49 @@ class DatabaseTab {
         document.getElementById('export-database')?.addEventListener('click', () => this.exportDatabase());
         document.getElementById('import-database')?.addEventListener('click', () => this.openImportDialog());
         document.getElementById('import-database-file')?.addEventListener('change', (event) => this.importDatabase(event));
+
+        const clearWhatsappPhoneContextsBtn = document.getElementById('clear-whatsapp-phone-contexts');
+        if (clearWhatsappPhoneContextsBtn) {
+            clearWhatsappPhoneContextsBtn.addEventListener('click', async () => {
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+                if (!hashedMasterKey) {
+                    alert(Lang.get('securityNotLoggedIn') || 'Please log in before deleting databases');
+                    return;
+                }
+
+                const confirmed = confirm(
+                    Lang.get('clearWhatsappPhoneContextsConfirm')
+                    || 'This will permanently delete all stored WhatsApp per-phone context memory. Paired devices and the rest of your database will be preserved. Continue?'
+                );
+                if (!confirmed) return;
+
+                clearWhatsappPhoneContextsBtn.disabled = true;
+                const originalHtml = clearWhatsappPhoneContextsBtn.innerHTML;
+                clearWhatsappPhoneContextsBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${Lang.get('clearWhatsappPhoneContextsDeleting') || 'Clearing WhatsApp phone contexts...'}`;
+
+                try {
+                    const result = await PaiperworkDB.clearAllWhatsappPhoneContexts(hashedMasterKey);
+                    if (result && result.success) {
+                        if (window.connectors && typeof window.connectors.clearAllWhatsappPerPhoneRuntimeState === 'function') {
+                            window.connectors.clearAllWhatsappPerPhoneRuntimeState();
+                        }
+                        await this.refreshDatabaseStats();
+                        alert(
+                            Lang.get('clearWhatsappPhoneContextsSuccess', { count: Number(result.count || 0) })
+                            || `Cleared ${Number(result.count || 0)} WhatsApp phone context entries.`
+                        );
+                    } else {
+                        alert(Lang.get('clearWhatsappPhoneContextsFailed') || 'Failed to clear WhatsApp phone contexts.');
+                    }
+                } catch (err) {
+                    console.error('Error clearing WhatsApp phone contexts', err);
+                    alert(Lang.get('clearWhatsappPhoneContextsFailed') || 'Failed to clear WhatsApp phone contexts.');
+                } finally {
+                    clearWhatsappPhoneContextsBtn.disabled = false;
+                    clearWhatsappPhoneContextsBtn.innerHTML = originalHtml;
+                }
+            });
+        }
 
         // Delete all database content (user-level destructive action)
         const deleteAllBtn = document.getElementById('delete-all-databases');

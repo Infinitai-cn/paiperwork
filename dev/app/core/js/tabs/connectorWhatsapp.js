@@ -137,6 +137,7 @@ class ConnectorWhatsapp {
         this.incomingPollInterval = null;
         this.incomingPollIntervalMs = 2500;
         this.whatsappIncomingRetryQueue = [];
+        this._whatsappIncomingProcessing = false;
         this._whatsappPresenceStarted = false;
         this._whatsappPresenceChatId = '';
         this._whatsappPresenceKeepAliveTimer = null;
@@ -145,6 +146,154 @@ class ConnectorWhatsapp {
         this._whatsappPendingDocSelection = {}; // keyed by normalized phone
         this._whatsappPendingPresentationSelection = {}; // keyed by normalized phone
         this._whatsappPendingArtifactSelection = {}; // keyed by normalized phone
+        this._whatsappRequestSequence = 0;
+    }
+
+    _cloneWhatsappCheckpointState(checkpoint) {
+        if (!checkpoint || !Array.isArray(checkpoint.lastContext)) {
+            return null;
+        }
+
+        return {
+            ...checkpoint,
+            lastContext: this._cloneOllamaContextPayload(checkpoint.lastContext)
+        };
+    }
+
+    _createWhatsappRequestScope(phone, replyTarget, deviceId = '') {
+        const normalizedPhone = String(phone || '').replace(/@.*$/g, '').trim();
+        const normalizedReplyTarget = String(replyTarget || '').trim();
+        const normalizedDeviceId = String(deviceId || '').trim();
+        this._whatsappRequestSequence += 1;
+
+        return {
+            id: `wa_req_${Date.now()}_${this._whatsappRequestSequence}`,
+            phone: normalizedPhone,
+            replyTarget: normalizedReplyTarget,
+            deviceId: normalizedDeviceId
+        };
+    }
+
+    _cloneWhatsappQueueValue(value) {
+        if (value === null || value === undefined) {
+            return value;
+        }
+
+        try {
+            return JSON.parse(JSON.stringify(value));
+        } catch (_err) {
+            return value;
+        }
+    }
+
+    async _createWhatsappQueueSnapshot(msg) {
+        const normalizedPhone = this._getWhatsappIncomingThreadKey(msg);
+        if (!normalizedPhone) {
+            return null;
+        }
+
+        const phoneContext = (await this._getWhatsappPhoneContext(normalizedPhone)) || {};
+        return {
+            phone: normalizedPhone,
+            phoneContext: this._cloneWhatsappQueueValue(phoneContext),
+            orchestratorContext: this._cloneWhatsappQueueValue(this._getWhatsappOrchestratorContext(normalizedPhone) || []),
+            pendingDocSelection: this._cloneWhatsappQueueValue(this._getPendingDocSelection(normalizedPhone)),
+            pendingPresentationSelection: this._cloneWhatsappQueueValue(this._getPendingPresentationSelection(normalizedPhone)),
+            pendingArtifactSelection: this._cloneWhatsappQueueValue(this._getPendingArtifactSelection(normalizedPhone)),
+            activeDocumentScope: this._cloneWhatsappQueueValue(this._getWhatsappActiveDocumentScope(normalizedPhone)),
+            capturedAt: new Date().toISOString()
+        };
+    }
+
+    async _applyWhatsappQueueSnapshot(snapshot) {
+        if (!snapshot || !snapshot.phone) {
+            return null;
+        }
+
+        const normalizedPhone = String(snapshot.phone || '').replace(/@.*$/g, '').trim();
+        this._setWhatsappOrchestratorContext(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.orchestratorContext || []));
+        this._setPendingDocSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingDocSelection || null));
+        this._setPendingPresentationSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingPresentationSelection || null));
+        this._setPendingArtifactSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingArtifactSelection || null));
+
+        const activeDocumentScope = snapshot.activeDocumentScope && snapshot.activeDocumentScope.id
+            ? this._cloneWhatsappQueueValue(snapshot.activeDocumentScope)
+            : null;
+        if (activeDocumentScope && activeDocumentScope.id) {
+            await this._activateWhatsappDocumentScope(normalizedPhone, activeDocumentScope);
+        } else {
+            this._exitWhatsappDocumentScope(normalizedPhone);
+        }
+
+        return this._cloneWhatsappQueueValue(snapshot.phoneContext || {});
+    }
+
+    _setWhatsappActiveRequestScope(scope) {
+        if (typeof window === 'undefined') return;
+        if (!scope || !scope.id) {
+            delete window.__paiperworkWhatsappActiveRequest;
+            return;
+        }
+
+        window.__paiperworkWhatsappActiveRequest = { ...scope };
+    }
+
+    _clearWhatsappActiveRequestScope(scope = null) {
+        if (typeof window === 'undefined') return;
+        if (!window.__paiperworkWhatsappActiveRequest) return;
+        if (scope && scope.id && window.__paiperworkWhatsappActiveRequest.id !== scope.id) return;
+        delete window.__paiperworkWhatsappActiveRequest;
+    }
+
+    clearAllWhatsappPerPhoneRuntimeState() {
+        const knownPhones = new Set();
+        const collectPhone = (value) => {
+            const normalized = String(value || '').replace(/@.*$/g, '').trim();
+            if (normalized) {
+                knownPhones.add(normalized);
+            }
+        };
+
+        Object.keys(this._whatsappPendingDocSelection || {}).forEach(collectPhone);
+        Object.keys(this._whatsappPendingPresentationSelection || {}).forEach(collectPhone);
+        Object.keys(this._whatsappPendingArtifactSelection || {}).forEach(collectPhone);
+        Object.keys(window._whatsappOrchestratorContext || {}).forEach(collectPhone);
+
+        for (const queuedMsg of this.whatsappIncomingRetryQueue || []) {
+            collectPhone(this._getWhatsappIncomingThreadKey(queuedMsg));
+            collectPhone(queuedMsg?.__whatsappQueueSnapshot?.phone);
+        }
+
+        if (window.__paiperworkWhatsappActiveRequest?.phone) {
+            collectPhone(window.__paiperworkWhatsappActiveRequest.phone);
+        }
+
+        knownPhones.forEach(phone => {
+            this._clearPendingDocSelection(phone);
+            this._clearPendingPresentationSelection(phone);
+            this._clearPendingArtifactSelection(phone);
+            this._exitWhatsappDocumentScope(phone);
+        });
+
+        this._whatsappPendingDocSelection = {};
+        this._whatsappPendingPresentationSelection = {};
+        this._whatsappPendingArtifactSelection = {};
+        this.whatsappIncomingRetryQueue = [];
+        this._whatsappIncomingProcessing = false;
+        this._clearWhatsappPendingReplyContext();
+        this._clearWhatsappActiveRequestScope();
+        this._clearWhatsappPresenceKeepAliveTimer();
+        this._whatsappPresenceStarted = false;
+        this._whatsappPresenceChatId = '';
+        this._orchestratorModalActiveCount = 0;
+
+        if (typeof window !== 'undefined') {
+            window._whatsappOrchestratorContext = {};
+            delete window.__paiperworkWhatsappContextOverride;
+            delete window.whatsappIncomingLanguage;
+            delete window.whatsappIncomingLanguageSample;
+            delete window.__paiperworkWhatsappActiveRequest;
+        }
     }
 
     _ensureWhatsappOrchestratorModalStyles() {
@@ -2060,6 +2209,9 @@ class ConnectorWhatsapp {
         const previousGlobalContext = (typeof OllamaAPI !== 'undefined' && OllamaAPI)
             ? this._cloneOllamaContextPayload(OllamaAPI.previousContext)
             : null;
+        const previousGlobalCheckpoint = (typeof window !== 'undefined')
+            ? this._cloneWhatsappCheckpointState(window.currentCheckpoint)
+            : null;
         const previousOverride = (typeof window !== 'undefined' && window.__paiperworkWhatsappContextOverride)
             ? { ...window.__paiperworkWhatsappContextOverride }
             : null;
@@ -2071,6 +2223,11 @@ class ConnectorWhatsapp {
         }
 
         if (typeof window !== 'undefined') {
+            window.currentCheckpoint = routing.source === 'cloud'
+                ? null
+                : (routingState.localPreviousContext
+                    ? { lastContext: this._cloneOllamaContextPayload(routingState.localPreviousContext) }
+                    : null);
             window.__paiperworkWhatsappContextOverride = {
                 active: true,
                 phone: normalizedPhone,
@@ -2085,6 +2242,7 @@ class ConnectorWhatsapp {
             selectedModel,
             phoneContext: effectivePhoneContext,
             previousGlobalContext,
+            previousGlobalCheckpoint,
             previousOverride
         };
     }
@@ -2099,7 +2257,10 @@ class ConnectorWhatsapp {
 
         phoneContext.conversationTurns = this._buildWhatsappRoutingState(phoneContext, normalizedPhone).conversationTurns;
         if (session.source !== 'cloud' && typeof OllamaAPI !== 'undefined' && OllamaAPI) {
-            phoneContext.localPreviousContext = this._cloneOllamaContextPayload(OllamaAPI.previousContext);
+            const activeLocalContext = (typeof window !== 'undefined' && window.currentCheckpoint && Array.isArray(window.currentCheckpoint.lastContext))
+                ? window.currentCheckpoint.lastContext
+                : OllamaAPI.previousContext;
+            phoneContext.localPreviousContext = this._cloneOllamaContextPayload(activeLocalContext);
         }
 
         await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
@@ -2109,6 +2270,7 @@ class ConnectorWhatsapp {
         }
 
         if (typeof window !== 'undefined') {
+            window.currentCheckpoint = this._cloneWhatsappCheckpointState(session.previousGlobalCheckpoint);
             if (session.previousOverride) {
                 window.__paiperworkWhatsappContextOverride = session.previousOverride;
             } else {
@@ -6554,7 +6716,11 @@ class ConnectorWhatsapp {
             if (this.whatsappIncomingRetryQueue.length >= 20) {
                 this.whatsappIncomingRetryQueue.shift();
             }
-            this.whatsappIncomingRetryQueue.push(msg);
+            const queuedMsg = { ...msg };
+            if (!queuedMsg.__whatsappQueueSnapshot) {
+                queuedMsg.__whatsappQueueSnapshot = await this._createWhatsappQueueSnapshot(queuedMsg);
+            }
+            this.whatsappIncomingRetryQueue.push(queuedMsg);
         } catch (e) {
             console.warn('ConnectorWhatsapp: enqueueWhatsappIncomingMessage failed', e);
         }
@@ -6581,7 +6747,7 @@ class ConnectorWhatsapp {
         if (!msg) return;
 
         // If the UI is currently generating a response, queue this message for later.
-        const isBusy = window.isGenerating || (window.chat && window.chat.isGenerating);
+        const isBusy = this._whatsappIncomingProcessing || window.isGenerating || (window.chat && window.chat.isGenerating);
         if (isBusy) {
             console.info('[ConnectorWhatsapp] processWhatsappIncomingMessage: currently busy, enqueueing message');
             await this.enqueueWhatsappIncomingMessage(msg);
@@ -6589,14 +6755,23 @@ class ConnectorWhatsapp {
         }
 
         let shouldResetWebSearchMode = false;
+        let routingSession = null;
+        let requestScope = null;
+        this._whatsappIncomingProcessing = true;
 
         try {
             const normalizedPhone = this._getWhatsappIncomingThreadKey(msg);
             const replyTarget = this._getWhatsappIncomingReplyTarget(msg) || normalizedPhone;
+            requestScope = this._createWhatsappRequestScope(normalizedPhone, replyTarget, String(msg?.device_id || '').trim());
+            const queueSnapshot = msg && msg.__whatsappQueueSnapshot ? msg.__whatsappQueueSnapshot : null;
 
             if (this._isWhatsappBotMode() && typeof this.postWhatsappPresence === 'function') {
                 await this._ensureWhatsappPresenceStartedIfNeeded(replyTarget);
             }
+
+            let phoneContext = queueSnapshot
+                ? ((await this._applyWhatsappQueueSnapshot(queueSnapshot)) || {})
+                : null;
 
             let orchTool = msg && msg.orchestrator && msg.orchestrator.tool ? String(msg.orchestrator.tool).toLowerCase() : null;
             let pendingDoc = this._getPendingDocSelection(normalizedPhone);
@@ -6615,7 +6790,9 @@ class ConnectorWhatsapp {
                 return;
             }
             let routingIntentText = this._getWhatsappRoutingIntentText(userText);
-            let phoneContext = (await this._getWhatsappPhoneContext(normalizedPhone)) || {};
+            phoneContext = (phoneContext && typeof phoneContext === 'object')
+                ? phoneContext
+                : ((await this._getWhatsappPhoneContext(normalizedPhone)) || {});
             const inferredLanguage = this._detectLanguage(routingIntentText || userText);
 
             if (this._isWhatsappBotMode()) {
@@ -7040,8 +7217,8 @@ class ConnectorWhatsapp {
 
             // Start the standard send flow via Chat
             let sendPromise = null;
-            let routingSession = null;
             try {
+                this._setWhatsappActiveRequestScope(requestScope);
                 routingSession = await this._beginWhatsappModelRoutingSession(normalizedPhone, phoneContext);
                 if (window.chatInstance && typeof window.chatInstance.handleSendButtonClick === 'function') {
                     sendPromise = window.chatInstance.handleSendButtonClick();
@@ -7085,7 +7262,7 @@ class ConnectorWhatsapp {
             // Ask connectors to send the assistant reply back to the phone
             try {
                 if (typeof this.maybeSendWhatsappReply === 'function') {
-                    await this.maybeSendWhatsappReply(replyTarget);
+                    await this.maybeSendWhatsappReply(replyTarget, requestScope);
                 }
 
             } catch (e) {
@@ -7111,10 +7288,15 @@ class ConnectorWhatsapp {
             try { await this._postWhatsappPresenceStopIfNeeded(); } catch (_) {}
             try {
                 this._clearWhatsappPendingReplyContext();
+                this._clearWhatsappActiveRequestScope(requestScope);
                 if (window.chatInstance) {
                     window.chatInstance.documentConversationScopeKey = 'ui';
                 }
             } catch(_) {}
+            this._whatsappIncomingProcessing = false;
+            try {
+                await this.drainWhatsappIncomingQueue();
+            } catch (_) {}
         }
     }
 
@@ -7386,7 +7568,7 @@ class ConnectorWhatsapp {
     }
 
     // Send the assistant's most recent response to the given phone (multi-part: text/code/attachments)
-    async maybeSendWhatsappReply(chatId) {
+    async maybeSendWhatsappReply(chatId, requestScope = null) {
         try {
             const targetPhone = chatId || (window.chat && window.chat.whatsappPendingReplyChatId) || null;
             if (!targetPhone) return;
@@ -7395,7 +7577,10 @@ class ConnectorWhatsapp {
             const aiReplies = document.querySelector('.ai-replies');
             if (!aiReplies) return;
 
-            const assistantMessages = aiReplies.querySelectorAll('.assistant-message');
+            const assistantSelector = requestScope && requestScope.id
+                ? `.assistant-message[data-whatsapp-request-id="${String(requestScope.id).replace(/"/g, '\\"')}"]`
+                : '.assistant-message';
+            const assistantMessages = aiReplies.querySelectorAll(assistantSelector);
             if (assistantMessages.length === 0) return;
 
             const lastMessage = assistantMessages[assistantMessages.length - 1];

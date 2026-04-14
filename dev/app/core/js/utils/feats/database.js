@@ -4700,6 +4700,43 @@ class PaiperworkDB {
         }
     }
 
+    static async clearAllWhatsappPhoneContexts(hashedMasterKey) {
+        try {
+            if (!hashedMasterKey) {
+                return { success: false, count: 0 };
+            }
+
+            await this.initializeDatabase(hashedMasterKey);
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            if (!existingDb) {
+                return { success: true, count: 0 };
+            }
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_phone_contexts (
+                    phone TEXT PRIMARY KEY,
+                    context TEXT
+                )
+            `);
+
+            let count = 0;
+            try {
+                const row = sqlDb.exec(`SELECT COUNT(*) FROM whatsapp_phone_contexts`);
+                count = Number(row?.[0]?.values?.[0]?.[0] || 0);
+            } catch (_countErr) {
+                count = 0;
+            }
+
+            sqlDb.run(`DELETE FROM whatsapp_phone_contexts`);
+            await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return { success: true, count };
+        } catch (error) {
+            console.error('Error clearing all Whatsapp phone contexts:', error);
+            return { success: false, count: 0 };
+        }
+    }
+
     static async getWhatsappDeviceInfo(hashedMasterKey) {
         try {
             await this.initializeDatabase(hashedMasterKey);
