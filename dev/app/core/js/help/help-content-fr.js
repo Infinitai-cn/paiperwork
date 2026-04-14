@@ -2891,6 +2891,14 @@ window.helpContent = {
                     <li><strong>Solution 2 :</strong> Actualisez le navigateur et essayez de nettoyer à nouveau</li>
                     <li><strong>Solution 3 :</strong> Exécutez l'optimisation de base de données après le nettoyage</li>
                 </ul>
+
+                <h4>Effacer les contextes WhatsApp</h4>
+                <p>Si les réponses WhatsApp deviennent trop chargées après une longue utilisation, vous pouvez effacer uniquement les contextes WhatsApp stockés par téléphone sans supprimer le reste de votre base de données.</p>
+                <ol>
+                    <li>Cliquez sur "Effacer les contextes WhatsApp" dans l'onglet Base de données</li>
+                    <li>Cela supprime la mémoire de contexte WhatsApp stockée par téléphone et réinitialise le contexte WhatsApp actif en mémoire</li>
+                    <li>Les informations des appareils appairés sont conservées et peuvent toujours être gérées depuis l'onglet Connectors avec "Delete paired device(s)"</li>
+                </ol>
                 
                 <h4>Dernier recours : Réinitialisation de base de données</h4>
                 <p>Si des problèmes persistants se produisent et que la maintenance normale n'aide pas :</p>

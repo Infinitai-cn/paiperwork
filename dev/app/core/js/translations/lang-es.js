@@ -525,6 +525,11 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         optimizeDatabase: "Limpiar Base de Datos",
         exportDatabase: "Exportar Base de Datos",
         importDatabase: "Importar Base de Datos",
+        clearWhatsappPhoneContextsButton: "Borrar Contextos de WhatsApp",
+        clearWhatsappPhoneContextsConfirm: "Esto eliminará permanentemente toda la memoria de contexto de WhatsApp por teléfono. La información de los dispositivos emparejados se conservará y seguirá pudiendo gestionarse desde la pestaña Connectors. ¿Continuar?",
+        clearWhatsappPhoneContextsDeleting: "Borrando contextos de WhatsApp...",
+        clearWhatsappPhoneContextsSuccess: "Se borraron {count} entradas de contexto de WhatsApp.",
+        clearWhatsappPhoneContextsFailed: "No se pudieron borrar los contextos de WhatsApp.",
 
         // Information Section
         aboutDatabaseTitle: "Acerca de Su Base de Datos",

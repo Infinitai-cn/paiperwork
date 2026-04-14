@@ -697,6 +697,11 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         optimizeDatabase: "Limpar Base de Dados",
         exportDatabase: "Exportar Base de Dados",
         importDatabase: "Importar Base de Dados",
+        clearWhatsappPhoneContextsButton: "Limpar Contextos do WhatsApp",
+        clearWhatsappPhoneContextsConfirm: "Isto vai eliminar permanentemente toda a memória de contexto por telefone do WhatsApp. As informações de dispositivos emparelhados serão preservadas e continuarão a poder ser geridas no separador Connectors. Continuar?",
+        clearWhatsappPhoneContextsDeleting: "Limpando contextos do WhatsApp...",
+        clearWhatsappPhoneContextsSuccess: "Foram removidas {count} entradas de contexto do WhatsApp.",
+        clearWhatsappPhoneContextsFailed: "Falha ao limpar os contextos do WhatsApp.",
 
         // Information Section
         aboutDatabaseTitle: "Sobre a Sua Base de Dados",

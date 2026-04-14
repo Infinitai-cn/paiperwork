@@ -532,6 +532,11 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         optimizeDatabase: "Nettoyer la base de données",
         exportDatabase: "Exporter la base de donnees",
         importDatabase: "Importer la base de donnees",
+        clearWhatsappPhoneContextsButton: "Effacer les contextes WhatsApp",
+        clearWhatsappPhoneContextsConfirm: "Cela supprimera définitivement toute la mémoire de contexte WhatsApp par téléphone. Les informations des appareils appairés seront conservées et pourront toujours être gérées dans l'onglet Connectors. Continuer ?",
+        clearWhatsappPhoneContextsDeleting: "Effacement des contextes WhatsApp...",
+        clearWhatsappPhoneContextsSuccess: "{count} entrées de contexte WhatsApp ont été effacées.",
+        clearWhatsappPhoneContextsFailed: "Impossible d'effacer les contextes WhatsApp.",
 
         // Information Section
         aboutDatabaseTitle: "À propos de votre base de données",

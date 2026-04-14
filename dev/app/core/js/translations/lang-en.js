@@ -512,6 +512,11 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         optimizeDatabase: "Clean Database",
         exportDatabase: "Export Database",
         importDatabase: "Import Database",
+        clearWhatsappPhoneContextsButton: "Clear WhatsApp Contexts",
+        clearWhatsappPhoneContextsConfirm: "This will permanently delete all stored WhatsApp per-phone context memory. Paired device information will be preserved and can still be managed from the Connectors tab. Continue?",
+        clearWhatsappPhoneContextsDeleting: "Clearing WhatsApp contexts...",
+        clearWhatsappPhoneContextsSuccess: "Cleared {count} WhatsApp context entries.",
+        clearWhatsappPhoneContextsFailed: "Failed to clear WhatsApp contexts.",
 
         // Information Section
         aboutDatabaseTitle: "About Your Database",

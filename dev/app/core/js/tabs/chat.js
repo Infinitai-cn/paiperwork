@@ -747,6 +747,25 @@ class Chat {
         }
 
         const isGemma3 = modelSelector.value.toLowerCase().includes('gemma3');
+        const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
+            ? window.__paiperworkWhatsappActiveRequest
+            : null;
+        const applyWhatsappRequestMetadata = (element) => {
+            if (!element || !whatsappRequestScope || !whatsappRequestScope.id) {
+                return;
+            }
+
+            element.dataset.whatsappRequestId = whatsappRequestScope.id;
+            if (whatsappRequestScope.phone) {
+                element.dataset.whatsappPhone = whatsappRequestScope.phone;
+            }
+            if (whatsappRequestScope.replyTarget) {
+                element.dataset.whatsappReplyTarget = whatsappRequestScope.replyTarget;
+            }
+            if (whatsappRequestScope.deviceId) {
+                element.dataset.whatsappDeviceId = whatsappRequestScope.deviceId;
+            }
+        };
 
         const userDiv = document.createElement('div');
         userDiv.className = 'user-message';
@@ -758,6 +777,7 @@ class Chat {
 
         const conversationMessageIds = this.createConversationMessageIds();
         userDiv.dataset.messageId = conversationMessageIds.userMessageId;
+    applyWhatsappRequestMetadata(userDiv);
 
         userDiv.innerHTML = `<div class="message-bubble">${prompt}</div>`;
 
@@ -1058,6 +1078,7 @@ class Chat {
             const aiDiv = document.createElement('div');
             aiDiv.className = 'assistant-message';
             aiDiv.dataset.messageId = conversationMessageIds.assistantMessageId;
+            applyWhatsappRequestMetadata(aiDiv);
             aiReplies.appendChild(aiDiv);
 
             const streamProcessor = new StreamProcessor();

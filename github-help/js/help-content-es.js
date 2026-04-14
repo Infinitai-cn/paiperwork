@@ -2913,6 +2913,14 @@ window.helpContent = {
                     <li><strong>Solución 2:</strong> Actualiza el navegador e intenta limpiar de nuevo</li>
                     <li><strong>Solución 3:</strong> Ejecuta optimización de base de datos después de la limpieza</li>
                 </ul>
+
+                <h4>Borrar Contextos de WhatsApp</h4>
+                <p>Si las respuestas de WhatsApp empiezan a sentirse sobrecargadas tras un uso prolongado, puedes borrar solo los contextos de WhatsApp almacenados por teléfono sin eliminar el resto de tu base de datos.</p>
+                <ol>
+                    <li>Haz clic en "Borrar Contextos de WhatsApp" en la pestaña Base de Datos</li>
+                    <li>Esto elimina la memoria de contexto de WhatsApp almacenada por teléfono y restablece el contexto activo de WhatsApp en tiempo de ejecución</li>
+                    <li>La información de los dispositivos emparejados se conserva y sigue pudiendo gestionarse desde la pestaña Connectors con "Delete paired device(s)"</li>
+                </ol>
                 
                 <h4>Último Recurso: Reinicio de Base de Datos</h4>
                 <p>Si ocurren problemas persistentes y el mantenimiento normal no ayuda:</p>

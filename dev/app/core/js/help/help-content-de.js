@@ -2896,6 +2896,14 @@ window.helpContent = {
                     <li><strong>Lösung 2:</strong> Aktualisieren Sie den Browser und versuchen Sie erneut zu bereinigen</li>
                     <li><strong>Lösung 3:</strong> Führen Sie Datenbankoptimierung nach der Bereinigung durch</li>
                 </ul>
+
+                <h4>WhatsApp-Kontexte löschen</h4>
+                <p>Wenn WhatsApp-Antworten nach längerer Nutzung aufgebläht wirken, können Sie nur die gespeicherten WhatsApp-Kontexte pro Telefon löschen, ohne den Rest Ihrer Datenbank zu entfernen.</p>
+                <ol>
+                    <li>Klicken Sie im Datenbank-Tab auf "WhatsApp-Kontexte löschen"</li>
+                    <li>Dadurch werden die gespeicherten WhatsApp-Kontexte pro Telefon entfernt und der aktuelle WhatsApp-Laufzeitkontext zurückgesetzt</li>
+                    <li>Informationen zu gekoppelten Geräten bleiben erhalten und können weiterhin im Connectors-Tab mit "Delete paired device(s)" verwaltet werden</li>
+                </ol>
                 
                 <h4>Letzter Ausweg: Datenbank-Reset</h4>
                 <p>Wenn anhaltende Probleme auftreten und normale Wartung nicht hilft:</p>

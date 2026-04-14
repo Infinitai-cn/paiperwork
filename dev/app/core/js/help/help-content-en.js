@@ -2935,6 +2935,14 @@ window.helpContent = {
                     <li><strong>Solution 2:</strong> Refresh the browser and try cleaning again</li>
                     <li><strong>Solution 3:</strong> Run database optimization after cleanup</li>
                 </ul>
+
+                <h4>Clear WhatsApp Contexts</h4>
+                <p>If WhatsApp responses start feeling bloated after long use, you can clear only the stored per-phone WhatsApp contexts without deleting the rest of your database.</p>
+                <ol>
+                    <li>Click "Clear WhatsApp Contexts" in the Database tab</li>
+                    <li>This removes stored per-phone WhatsApp context memory and resets the live WhatsApp runtime context</li>
+                    <li>Paired device information is preserved and can still be managed from the Connectors tab with "Delete paired device(s)"</li>
+                </ol>
                 
                 <h4>Last Resort: Database Reset</h4>
                 <p>If persistent issues occur and normal maintenance doesn't help:</p>
