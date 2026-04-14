@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
 	"github.com/sirupsen/logrus"
@@ -26,7 +27,37 @@ var (
 	Register   = make(chan *websocket.Conn)
 	Broadcast  = make(chan BroadcastMessage)
 	Unregister = make(chan *websocket.Conn)
+
+	broadcastObserverMu sync.RWMutex
+	broadcastObservers  []func(BroadcastMessage)
 )
+
+func RegisterBroadcastObserver(observer func(BroadcastMessage)) {
+	if observer == nil {
+		return
+	}
+
+	broadcastObserverMu.Lock()
+	broadcastObservers = append(broadcastObservers, observer)
+	broadcastObserverMu.Unlock()
+}
+
+func notifyBroadcastObservers(message BroadcastMessage) {
+	broadcastObserverMu.RLock()
+	observers := append([]func(BroadcastMessage){}, broadcastObservers...)
+	broadcastObserverMu.RUnlock()
+
+	for _, observer := range observers {
+		func(fn func(BroadcastMessage)) {
+			defer func() {
+				if r := recover(); r != nil {
+					logrus.Warnf("broadcast observer panic: %v", r)
+				}
+			}()
+			fn(message)
+		}(observer)
+	}
+}
 
 func handleRegister(conn *websocket.Conn) {
 	Clients[conn] = client{}
@@ -74,6 +105,7 @@ func RunHub() {
 
 		case message := <-Broadcast:
 			logrus.Printf("message received: code=%s message=%s result=%v", message.Code, logmask.MaskTextPhones(message.Message), sanitizeBroadcastResultForLog(message.Result))
+			notifyBroadcastObservers(message)
 			broadcastMessage(message)
 		}
 	}

@@ -99,12 +99,32 @@ func preferredAutoConnectDeviceID() string {
 	return preferred
 }
 
+func activeWhatsappUserScope() string {
+	return strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_ACTIVE_USER"))
+}
+
+func newScopedWhatsappRequest(method, rawURL string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, rawURL, body)
+	if err != nil {
+		return nil, err
+	}
+	if userKey := activeWhatsappUserScope(); userKey != "" {
+		req.Header.Set("X-Paiperwork-User", userKey)
+	}
+	return req, nil
+}
+
 func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 	ctx := resetAutoConnectAfterBootContext()
 	defer StopAutoConnectAfterBooting()
 	logrus.Info("auto-connect: begin auto connect after booting")
 	if whatsapp.IsFreshPairStartupRequested() {
 		logrus.Info("auto-connect skipped: fresh-pair startup requested")
+		return
+	}
+	preferredDeviceID := preferredAutoConnectDeviceID()
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_EXPECT_SESSION_RESTORE")), "true") && strings.TrimSpace(preferredDeviceID) != "" {
+		logrus.Infof("auto-connect skipped: no-disk mode waiting for browser session restore for preferred device %s", logmask.MaskPhoneNumber(preferredDeviceID))
 		return
 	}
 	if service == nil {
@@ -117,7 +137,6 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 		return
 	}
 	devices, err := service.FetchDevices(ctx)
-	preferredDeviceID := preferredAutoConnectDeviceID()
 	preferredSelectionKey := normalizeDeviceSelectionIdentity(preferredDeviceID)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -138,20 +157,25 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 				logrus.Info("auto-connect: cancelled during preferred-device fallback")
 				return
 			}
-			prefResp, err := http.Get("http://127.0.0.1:3000/api/whatsapp/preferred-device")
+			prefReq, err := newScopedWhatsappRequest(http.MethodGet, "http://127.0.0.1:3000/api/whatsapp/preferred-device", nil)
 			if err != nil {
-				logrus.Warnf("auto-connect fallback preferred-device request failed: %v", err)
-			} else if prefResp.StatusCode == http.StatusOK {
-				var prefs map[string]map[string]string
-				if err := json.NewDecoder(prefResp.Body).Decode(&prefs); err == nil {
-					for _, record := range prefs {
-						if record != nil && strings.TrimSpace(record["device_id"]) != "" {
-							devices = append(devices, domainApp.DevicesResponse{Device: strings.TrimSpace(record["device_id"]), Name: record["meta"]})
-							break
+				logrus.Warnf("auto-connect fallback preferred-device request build failed: %v", err)
+			} else {
+				prefResp, err := http.DefaultClient.Do(prefReq)
+				if err != nil {
+					logrus.Warnf("auto-connect fallback preferred-device request failed: %v", err)
+				} else if prefResp.StatusCode == http.StatusOK {
+					var prefs map[string]map[string]string
+					if err := json.NewDecoder(prefResp.Body).Decode(&prefs); err == nil {
+						for _, record := range prefs {
+							if record != nil && strings.TrimSpace(record["device_id"]) != "" {
+								devices = append(devices, domainApp.DevicesResponse{Device: strings.TrimSpace(record["device_id"]), Name: record["meta"]})
+								break
+							}
 						}
 					}
+					prefResp.Body.Close()
 				}
-				prefResp.Body.Close()
 			}
 
 			if len(devices) == 0 {
@@ -229,6 +253,11 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 		}
 		device := candidate.device
 		maskedDeviceID := logmask.MaskPhoneNumber(device.Device)
+
+		if !looksLikePersistentSessionDeviceID(device.Device) {
+			logrus.Infof("auto-connect: skipping transient placeholder device %s until it is promoted to a paired JID", maskedDeviceID)
+			continue
+		}
 
 		if hasFullyLoggedInDevice && !candidate.loggedIn && !looksLikePersistentSessionDeviceID(device.Device) {
 			logrus.Infof("auto-connect: skipping placeholder candidate %s because another device is already fully logged in", maskedDeviceID)
@@ -397,7 +426,14 @@ func sendWhatsappWelcomeText(deviceID string) {
 		return
 	}
 
-	resp, err = client.Post("http://127.0.0.1:8182/api/whatsapp/send", "application/json", bytes.NewReader(bodyBytes))
+	request, err := newScopedWhatsappRequest(http.MethodPost, "http://127.0.0.1:8182/api/whatsapp/send", bytes.NewReader(bodyBytes))
+	if err != nil {
+		logrus.Warnf("sendWhatsappWelcomeText: failed to build welcome API request: %v", err)
+		return
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	resp, err = client.Do(request)
 	if err != nil {
 		logrus.Warnf("sendWhatsappWelcomeText: failed to send welcome via API: %v", err)
 		return

@@ -415,6 +415,16 @@ body {
     box-shadow: 0 8px 18px rgba(0, 123, 255, 0.3);
 }
 
+.connectors-mode-button-danger {
+    border-color: #b91c1c;
+    background: #d64545;
+    color: #ffffff;
+}
+
+.connectors-mode-button-danger:hover {
+    box-shadow: 0 8px 18px rgba(185, 28, 28, 0.28);
+}
+
 .whatsapp-unpair-button-container {
     margin-top: 12px;
     text-align: center;

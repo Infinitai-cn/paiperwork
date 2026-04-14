@@ -285,6 +285,15 @@ class ConnectorWhatsapp {
         return String(value || '').replace(/@.*$/g, '').trim();
     }
 
+    _getWhatsappUserScopedHeaders(extraHeaders = null) {
+        const headers = { ...(extraHeaders || {}) };
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (hashedMasterKey) {
+            headers['X-Paiperwork-User'] = hashedMasterKey;
+        }
+        return headers;
+    }
+
     _isWhatsappBotMode() {
         return String(window.whatsappSelectedMode || 'personal').trim().toLowerCase() === 'bot';
     }
@@ -354,6 +363,17 @@ class ConnectorWhatsapp {
         return `Conversation started by ${identity}`;
     }
 
+    _formatWhatsappPersonalThreadLabel(msg) {
+        const senderName = String(msg?.from_name || '').trim();
+        const chatPhone = this._normalizeWhatsappIdentity(msg?.chat_id || msg?.from || msg?.fromJid || '');
+        const devicePhone = this._normalizeWhatsappIdentity(msg?.device_id || '');
+        const displayPhone = chatPhone || devicePhone || 'Unknown device';
+        if (senderName && displayPhone) {
+            return `Personal WhatsApp conversation for ${senderName} (${displayPhone})`;
+        }
+        return `Personal WhatsApp conversation for ${displayPhone}`;
+    }
+
     _getResolvedWhatsappOutgoingTarget(chatId) {
         const requestedTarget = String(chatId || '').trim();
         if (!requestedTarget) return '';
@@ -373,6 +393,59 @@ class ConnectorWhatsapp {
         }
 
         return this._normalizeWhatsappIdentity(requestedTarget);
+    }
+
+    _getWhatsappPendingReplyDeviceId(chatId = '') {
+        const requestedTarget = String(chatId || '').trim();
+        const pendingReplyDeviceId = String(
+            window.chatInstance?.whatsappPendingReplyDeviceId
+            || window.chat?.whatsappPendingReplyDeviceId
+            || ''
+        ).trim();
+        if (!pendingReplyDeviceId) {
+            return '';
+        }
+
+        const pendingIdentityKey = this._normalizeWhatsappIdentity(
+            window.chatInstance?.whatsappPendingReplyIdentityKey
+            || window.chat?.whatsappPendingReplyIdentityKey
+            || ''
+        );
+        const normalizedRequestedTarget = this._normalizeWhatsappIdentity(requestedTarget);
+        if (!requestedTarget || !pendingIdentityKey || normalizedRequestedTarget === pendingIdentityKey) {
+            return pendingReplyDeviceId;
+        }
+        return '';
+    }
+
+    _getWhatsappOutgoingRequestUrl(basePath, chatId = '') {
+        const params = new URLSearchParams();
+        const pendingReplyDeviceId = this._getWhatsappPendingReplyDeviceId(chatId);
+        if (pendingReplyDeviceId && pendingReplyDeviceId.includes('@') && pendingReplyDeviceId.includes(':')) {
+            params.set('device_id', pendingReplyDeviceId);
+        }
+        const query = params.toString();
+        return query ? `${basePath}?${query}` : basePath;
+    }
+
+    _setWhatsappPendingReplyContext(replyTarget, normalizedPhone, deviceId = '') {
+        const targets = [window.chatInstance, window.chat].filter(Boolean);
+        const resolvedReplyTarget = String(replyTarget || '').trim() || null;
+        const resolvedIdentityKey = String(normalizedPhone || '').trim() || null;
+        const resolvedDeviceId = String(deviceId || '').trim() || null;
+        targets.forEach(target => {
+            target.whatsappPendingReplyChatId = resolvedReplyTarget;
+            target.whatsappPendingReplyIdentityKey = resolvedIdentityKey;
+            target.whatsappPendingReplyDeviceId = resolvedDeviceId;
+        });
+    }
+
+    _clearWhatsappPendingReplyContext() {
+        [window.chatInstance, window.chat].filter(Boolean).forEach(target => {
+            target.whatsappPendingReplyChatId = null;
+            target.whatsappPendingReplyIdentityKey = null;
+            target.whatsappPendingReplyDeviceId = null;
+        });
     }
 
     async _activateWhatsappConversationGroup(groupId, sessionPreview = 'Conversation') {
@@ -421,6 +494,7 @@ class ConnectorWhatsapp {
         const threadLabel = this._formatWhatsappBotThreadLabel(msg);
         let conversationGroup = Number(phoneContext.botConversationGroup || 0);
         let hasExistingGroup = false;
+        let createdNewGroup = false;
 
         if (conversationGroup > 0) {
             try {
@@ -448,6 +522,7 @@ class ConnectorWhatsapp {
 
             conversationGroup = Number(window.currentConversationGroup || 0);
             phoneContext.botConversationStartedAt = phoneContext.botConversationStartedAt || new Date().toISOString();
+            createdNewGroup = true;
         }
 
         phoneContext.botConversationGroup = conversationGroup;
@@ -455,11 +530,80 @@ class ConnectorWhatsapp {
         await this._setWhatsappPhoneContext(normalizedThreadKey, phoneContext);
 
         try {
-            if (window.chatInstance && typeof window.chatInstance.refreshConversationListIfNeeded === 'function') {
+            if (!createdNewGroup && window.chatInstance && typeof window.chatInstance.refreshConversationListIfNeeded === 'function') {
                 await window.chatInstance.refreshConversationListIfNeeded(hashedMasterKey, conversationGroup);
             }
         } catch (err) {
             console.warn('ConnectorWhatsapp: failed to refresh conversation list for bot thread', err);
+        }
+
+        await this._activateWhatsappConversationGroup(conversationGroup, threadLabel);
+        return phoneContext;
+    }
+
+    async _ensureWhatsappPersonalConversationThread(msg, threadKey, existingPhoneContext = null) {
+        if (this._isWhatsappBotMode()) {
+            return existingPhoneContext || null;
+        }
+
+        const normalizedThreadKey = this._normalizeWhatsappIdentity(threadKey);
+        if (!normalizedThreadKey) {
+            return existingPhoneContext || null;
+        }
+
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+        if (!hashedMasterKey) {
+            return existingPhoneContext || null;
+        }
+
+        const phoneContext = (existingPhoneContext && typeof existingPhoneContext === 'object')
+            ? { ...existingPhoneContext }
+            : ((await this._getWhatsappPhoneContext(normalizedThreadKey)) || {});
+
+        const threadLabel = this._formatWhatsappPersonalThreadLabel(msg);
+        let conversationGroup = Number(phoneContext.personalConversationGroup || 0);
+        let hasExistingGroup = false;
+        let createdNewGroup = false;
+
+        if (conversationGroup > 0) {
+            try {
+                const existingGroup = await PaiperworkDB.loadConversationsByGroup(hashedMasterKey, conversationGroup);
+                hasExistingGroup = !!(existingGroup && Array.isArray(existingGroup.conversations) && existingGroup.conversations.length > 0);
+            } catch (err) {
+                console.warn('ConnectorWhatsapp: failed to validate existing personal conversation group', err);
+            }
+        }
+
+        if (!hasExistingGroup) {
+            const bootstrapAssistantMessage = '<div class="ai-response-container whatsapp-thread-bootstrap" style="display:none" data-whatsapp-thread-bootstrap="true"></div>';
+            const created = await PaiperworkDB.storeConversationOnly(
+                hashedMasterKey,
+                threadLabel,
+                bootstrapAssistantMessage,
+                true,
+                null
+            );
+
+            if (!created || !window.currentConversationGroup) {
+                console.warn('ConnectorWhatsapp: failed to create personal conversation group', { threadKey: normalizedThreadKey });
+                return phoneContext;
+            }
+
+            conversationGroup = Number(window.currentConversationGroup || 0);
+            phoneContext.personalConversationStartedAt = phoneContext.personalConversationStartedAt || new Date().toISOString();
+            createdNewGroup = true;
+        }
+
+        phoneContext.personalConversationGroup = conversationGroup;
+        phoneContext.personalThreadLabel = threadLabel;
+        await this._setWhatsappPhoneContext(normalizedThreadKey, phoneContext);
+
+        try {
+            if (!createdNewGroup && window.chatInstance && typeof window.chatInstance.refreshConversationListIfNeeded === 'function') {
+                await window.chatInstance.refreshConversationListIfNeeded(hashedMasterKey, conversationGroup);
+            }
+        } catch (err) {
+            console.warn('ConnectorWhatsapp: failed to refresh conversation list for personal thread', err);
         }
 
         await this._activateWhatsappConversationGroup(conversationGroup, threadLabel);
@@ -4600,7 +4744,7 @@ class ConnectorWhatsapp {
 
     async postWhatsappImage(chatId, dataUrl, filename) {
         if (!chatId || !dataUrl) return;
-        const normalizedPhone = String(chatId).replace(/@.*$/g, '');
+        const normalizedPhone = this._getResolvedWhatsappOutgoingTarget(chatId);
         let blob = null;
         try {
             const response = await fetch(dataUrl);
@@ -4611,8 +4755,9 @@ class ConnectorWhatsapp {
             fd.append('phone', normalizedPhone);
             fd.append('image', blob, filename || 'chart.png');
 
-            await fetch('/api/whatsapp/send-image', {
+            await fetch(this._getWhatsappOutgoingRequestUrl('/api/whatsapp/send-image', chatId), {
                 method: 'POST',
+                headers: this._getWhatsappUserScopedHeaders(),
                 body: fd
             });
         } catch (err) {
@@ -5317,7 +5462,22 @@ class ConnectorWhatsapp {
 
     async _pollWhatsappIncomingMessages() {
         try {
-            const res = await fetch('/api/whatsapp/incoming/poll', { method: 'GET', headers: { 'Content-Type': 'application/json' }});
+            const res = await fetch('/api/whatsapp/incoming/poll', {
+                method: 'GET',
+                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' })
+            });
+            if (res.status === 409) {
+                const errorBody = await res.json().catch(() => ({}));
+                if (errorBody && String(errorBody.error || '').toLowerCase() === 'remote_logout') {
+                    if (window.connectorsTab && typeof window.connectorsTab._handleWhatsappRemoteLogout === 'function') {
+                        await window.connectorsTab._handleWhatsappRemoteLogout(
+                            String(errorBody.device_id || '').trim() || null,
+                            { force: true }
+                        );
+                    }
+                    return;
+                }
+            }
             if (!res.ok) {
                 return;
             }
@@ -5362,9 +5522,9 @@ class ConnectorWhatsapp {
         if (!chatId || !text) return;
         const normalizedPhone = this._getResolvedWhatsappOutgoingTarget(chatId);
         try {
-            await fetch('/api/whatsapp/send', {
+            await fetch(this._getWhatsappOutgoingRequestUrl('/api/whatsapp/send', chatId), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     phone: normalizedPhone,
                     message: text,
@@ -5380,9 +5540,9 @@ class ConnectorWhatsapp {
         if (!chatId || !action) return;
         const normalizedPhone = this._getResolvedWhatsappOutgoingTarget(chatId);
         try {
-            await fetch('/api/whatsapp/presence', {
+            await fetch(this._getWhatsappOutgoingRequestUrl('/api/whatsapp/presence', chatId), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ phone: normalizedPhone, action: action })
             });
         } catch (err) {
@@ -5413,8 +5573,9 @@ class ConnectorWhatsapp {
                 type: fileBlob && fileBlob.type ? fileBlob.type : ''
             });
 
-            const response = await fetch('/api/whatsapp/send-file', {
+            const response = await fetch(this._getWhatsappOutgoingRequestUrl('/api/whatsapp/send-file', chatId), {
                 method: 'POST',
+                headers: this._getWhatsappUserScopedHeaders(),
                 body: fd
             });
 
@@ -6459,6 +6620,8 @@ class ConnectorWhatsapp {
 
             if (this._isWhatsappBotMode()) {
                 phoneContext = (await this._ensureWhatsappBotConversationThread(msg, normalizedPhone, phoneContext)) || phoneContext;
+            } else {
+                phoneContext = (await this._ensureWhatsappPersonalConversationThread(msg, normalizedPhone, phoneContext)) || phoneContext;
             }
 
             let docModeAction = null;
@@ -6731,10 +6894,7 @@ class ConnectorWhatsapp {
             }
 
             if (this._isSummaryToPresentationWorkflowIntent(routingIntentText || userText)) {
-                if (window.chatInstance) {
-                    window.chatInstance.whatsappPendingReplyChatId = replyTarget;
-                    window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
-                }
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
 
                 const workflowHandled = await this._handleWhatsappSummaryToPresentationWorkflow(
                     normalizedPhone,
@@ -6797,10 +6957,7 @@ class ConnectorWhatsapp {
             }
 
             if (orchTool === 'dataviz' && chartType) {
-                if (window.chatInstance) {
-                    window.chatInstance.whatsappPendingReplyChatId = replyTarget;
-                    window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
-                }
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
                 await this._handleWhatsappDataViz(normalizedPhone, chartType, userText, resolvedLanguage);
                 return;
             }
@@ -6811,10 +6968,7 @@ class ConnectorWhatsapp {
                     mergedPrompt: String(msg?.orchestrator?.mergedPrompt || ''),
                     reason: msg?.orchestrator?.reason || ''
                 });
-                if (window.chatInstance) {
-                    window.chatInstance.whatsappPendingReplyChatId = replyTarget;
-                    window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
-                }
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
                 await this._handleWhatsappArtifact(normalizedPhone, userText, resolvedLanguage, {
                     orchestratorMergedPrompt: msg?.orchestrator?.mergedPrompt || '',
                     originalRequestText: userText
@@ -6823,10 +6977,7 @@ class ConnectorWhatsapp {
             }
 
             if (orchTool === 'presentation') {
-                if (window.chatInstance) {
-                    window.chatInstance.whatsappPendingReplyChatId = replyTarget;
-                    window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
-                }
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
                 await this._handleWhatsappPromptablePresentation(normalizedPhone, userText, resolvedLanguage, {
                     orchestratorMergedPrompt: msg?.orchestrator?.mergedPrompt || '',
                     originalRequestText: userText,
@@ -6844,10 +6995,7 @@ class ConnectorWhatsapp {
 
             if (shouldForceResearchWorkflow) {
                 try {
-                    if (window.chatInstance) {
-                        window.chatInstance.whatsappPendingReplyChatId = replyTarget;
-                        window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
-                    }
+                    this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
                     const reached = await this.handleOrchestratorResearch(msg);
                     if (reached) return;
                 } catch (e) {
@@ -6860,8 +7008,7 @@ class ConnectorWhatsapp {
                 let continueToChat = false;
                 try {
                     if (window.chatInstance && typeof window.chatInstance._handleOrchestratorDocumentCheck === 'function') {
-                        window.chatInstance.whatsappPendingReplyChatId = replyTarget;
-                        window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
+                        this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
                         const result = await window.chatInstance._handleOrchestratorDocumentCheck(msg);
                         continueToChat = result && result.continueToChat;
                     }
@@ -6871,9 +7018,8 @@ class ConnectorWhatsapp {
 
             // Mark pending reply target on chat instance for downstream flows
             try {
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
                 if (window.chatInstance) {
-                    window.chatInstance.whatsappPendingReplyChatId = replyTarget;
-                    window.chatInstance.whatsappPendingReplyIdentityKey = normalizedPhone;
                     window.chatInstance.documentConversationScopeKey = this._getWhatsappDocumentScopeKey(normalizedPhone);
                     console.info('[ConnectorWhatsapp][debug] assigned chat document scope', {
                         phone: normalizedPhone,
@@ -6964,9 +7110,8 @@ class ConnectorWhatsapp {
             } catch (_) {}
             try { await this._postWhatsappPresenceStopIfNeeded(); } catch (_) {}
             try {
+                this._clearWhatsappPendingReplyContext();
                 if (window.chatInstance) {
-                    window.chatInstance.whatsappPendingReplyChatId = null;
-                    window.chatInstance.whatsappPendingReplyIdentityKey = null;
                     window.chatInstance.documentConversationScopeKey = 'ui';
                 }
             } catch(_) {}

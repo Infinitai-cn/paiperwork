@@ -3057,6 +3057,7 @@ window.helpContent = {
                     <li>Paiperwork utilise un orchestrateur interne pour décider quelle fonction du connecteur employer pour chaque requête WhatsApp.</li>
                     <li>Si vous actualisez le navigateur, les messages entrants restent en pause jusqu'à ce que vous rouvriez l'onglet Connecteurs. C'est intentionnel afin d'éviter tout spam inattendu pour l'utilisateur local.</li>
                     <li>Les présentations et artefacts générés depuis WhatsApp sont renvoyés comme fichiers HTML. Vous pourrez ensuite les ouvrir dans Paiperwork pour des retouches manuelles plus poussées.</li>
+                    <li>Par défaut, Paiperwork isole l'état du connecteur WhatsApp par utilisateur de Master Key afin que les sessions enregistrées, l'état des appareils et les données d'exécution en file d'attente ne fuient pas entre différents utilisateurs de Master Key sur la même machine.</li>
                 </ul>
             `,
             }

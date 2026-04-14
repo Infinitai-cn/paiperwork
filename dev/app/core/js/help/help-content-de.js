@@ -3062,6 +3062,7 @@ window.helpContent = {
                     <li>Paiperwork verwendet einen internen Orchestrator, um für jede WhatsApp-Anfrage die passende Connector-Funktion auszuwählen.</li>
                     <li>Wenn Sie den Browser aktualisieren, bleiben eingehende Nachrichten pausiert, bis Sie den Verbindungen-Tab erneut öffnen. Das ist beabsichtigt, damit lokale Nutzer nicht unerwartet gespammt werden.</li>
                     <li>Präsentationen und Artefakte aus WhatsApp werden als HTML-Dateien zurückgesendet. Später können Sie sie in Paiperwork öffnen und manuell weiter bearbeiten.</li>
+                    <li>Standardmäßig isoliert Paiperwork den WhatsApp-Connector-Zustand pro Master-Key-Nutzer, sodass gespeicherte Sitzungen, Gerätezustand und zwischengespeicherte Laufzeitdaten nicht zwischen verschiedenen Master-Key-Nutzern auf demselben Computer durchsickern.</li>
                 </ul>
             `,
             }

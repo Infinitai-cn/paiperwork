@@ -3066,6 +3066,7 @@ window.helpContent = {
                     <li>Paiperwork 会使用内部编排器来判断每条 WhatsApp 请求应该调用哪种连接器功能。</li>
                     <li>如果您刷新浏览器，传入消息会保持暂停状态，直到您再次打开连接器选项卡。这是为了避免意外打扰本地用户。</li>
                     <li>通过 WhatsApp 生成的演示文稿和工件会作为 HTML 文件发回。之后您可以在 Paiperwork 中打开它们进行更深入的手动编辑。</li>
+                    <li>默认情况下，Paiperwork 会按 Master Key 用户隔离 WhatsApp 连接器状态，因此已保存的会话、设备状态和排队中的运行时数据不会在同一台电脑上的不同 Master Key 用户之间泄露。</li>
                 </ul>
             `,
             }
