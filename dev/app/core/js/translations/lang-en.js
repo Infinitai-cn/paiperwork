@@ -78,7 +78,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         whatsappDeleteAllPairedButton: "Delete paired device(s)",
         whatsappDeleteAllPairedButtonTitle: "Delete paired device(s)",
         whatsappDeleteAllPairedConfirm: "You are about to delete pairing information from Paiperwork, are you sure?",
-        whatsappDeleteAllPairedSuccess: "Paiperwork pairing data deleted. You can pair a new device now.",
+        whatsappDeleteAllPairedSuccess: "Paiperwork pairing data deleted. Click Start server to pair a new device now.",
         whatsappDeleteAllPairedFailed: "Failed to delete Paiperwork pairing data. See console logs.",
         artifactsDescription: "Artifacts are self contained html files that can be prompted to create any kind of functionality (sandboxed), Artifacts can be saved into the internal database or to downloads folder.",
         openArtifactsButton: "Open artifacts",
@@ -534,6 +534,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         databaseOpenStatus: "Open",
         databaseClosedStatus: "Closed",
         databaseCountLabel: "Count",
+        databaseSessionsLabel: "Sessions",
+        databaseContextsLabel: "Contexts",
         databaseCollectionsLabel: "Collections",
         images: "Images",
         documents: "Documents",
@@ -550,6 +552,10 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         databaseOptimized: "Database optimized successfully. Saved {size}.",
         databaseExported: "Database backup exported as Paiperwork-Backup.pwdb",
         databaseImportedReloading: "Database imported. Reloading and returning to welcome screen...",
+        databaseImportedReturnWarning: "Database imported successfully. Click OK to return to the welcome screen.",
+        databaseImportRolesImportedLabel: "Imported roles",
+        databaseImportRolesPreservedLabel: "Preserved local roles",
+        databaseImportRolesNone: "none",
 
         // Error Messages
         databaseOptimizeFailed: "Database optimization failed.",
@@ -558,7 +564,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         databaseError: "An error occurred while optimizing the database.",
         databaseNotAvailable: "Database not available",
         databaseExportFailed: "Database export failed.",
-        importDatabaseConfirm: "Importing a backup will replace your current local databases (main, rag, html, kb). Continue?",
+        importDatabaseConfirm: "Importing a backup will replace only the database roles included in the backup. Missing roles will be preserved locally. Continue?",
         databaseImportFailed: "Database import failed.",
 
         // ===== DOCUMENTS_TAB.JS =====
