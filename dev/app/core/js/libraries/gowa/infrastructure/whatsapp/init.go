@@ -27,13 +27,14 @@ type ExtractedMedia struct {
 
 // Global variables
 var (
-	globalStateMu sync.RWMutex
-	cli           *whatsmeow.Client
-	db            *sqlstore.Container // Add global database reference for cleanup
-	keysDB        *sqlstore.Container
-	deviceManager *DeviceManager
-	log           waLog.Logger
-	startupTime   = time.Now().Unix()
+	globalStateMu            sync.RWMutex
+	cli                      *whatsmeow.Client
+	db                       *sqlstore.Container // Add global database reference for cleanup
+	keysDB                   *sqlstore.Container
+	deviceManager            *DeviceManager
+	persistedChatStorageRepo domainChatStorage.IChatStorageRepository
+	log                      waLog.Logger
+	startupTime              = time.Now().Unix()
 )
 
 func purgeStoreDevicesForFreshPair(ctx context.Context, container *sqlstore.Container, label string) {

@@ -132,8 +132,13 @@ func StopAutoReconnectChecker() {
 func InitializeDeviceManager(storeContainer, keysStoreContainer *sqlstore.Container, chatStorageRepo domainChatStorage.IChatStorageRepository) *DeviceManager {
 	globalStateMu.Lock()
 	defer globalStateMu.Unlock()
+	persistedChatStorageRepo = chatStorageRepo
 	if deviceManager == nil {
 		deviceManager = NewDeviceManager(storeContainer, keysStoreContainer, chatStorageRepo)
+	} else {
+		deviceManager.store = storeContainer
+		deviceManager.keys = keysStoreContainer
+		deviceManager.storage = chatStorageRepo
 	}
 	return deviceManager
 }

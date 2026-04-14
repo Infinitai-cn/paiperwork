@@ -199,10 +199,6 @@ func (m *DeviceManager) PromoteDeviceIdentity(oldID, newID, newJID string) *Devi
 		return nil
 	}
 
-	delete(m.devices, trimmedOldID)
-	m.devices[trimmedNewID] = inst
-	m.mu.Unlock()
-
 	storageDeviceID := trimmedNewJID
 	if storageDeviceID == "" {
 		storageDeviceID = trimmedNewID
@@ -213,6 +209,10 @@ func (m *DeviceManager) PromoteDeviceIdentity(oldID, newID, newJID string) *Devi
 	inst.jid = trimmedNewJID
 	inst.chatStorageRepo = newDeviceChatStorage(storageDeviceID, m.storage)
 	inst.mu.Unlock()
+
+	delete(m.devices, trimmedOldID)
+	m.devices[trimmedNewID] = inst
+	m.mu.Unlock()
 
 	if m.storage != nil {
 		if trimmedOldID != trimmedNewID {
@@ -235,7 +235,20 @@ func (m *DeviceManager) PromoteDeviceIdentity(oldID, newID, newJID string) *Devi
 func deviceAccountKey(deviceID, jid string) string {
 	candidate := strings.TrimSpace(jid)
 	if candidate == "" {
-		candidate = strings.TrimSpace(deviceID)
+		trimmedDeviceID := strings.TrimSpace(deviceID)
+		if trimmedDeviceID != "" && !strings.Contains(trimmedDeviceID, "@") {
+			hasOnlyDigits := true
+			for _, r := range trimmedDeviceID {
+				if r < '0' || r > '9' {
+					hasOnlyDigits = false
+					break
+				}
+			}
+			if !hasOnlyDigits {
+				return ""
+			}
+		}
+		candidate = trimmedDeviceID
 	}
 	if candidate == "" {
 		return ""

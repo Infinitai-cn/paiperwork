@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
@@ -46,6 +48,9 @@ func submitWebhook(ctx context.Context, payload map[string]any, url string) erro
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Hub-Signature-256", fmt.Sprintf("sha256=%s", signature))
+	if userKey := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_ACTIVE_USER")); userKey != "" {
+		req.Header.Set("X-Paiperwork-User", userKey)
+	}
 
 	var attempt int
 	var maxAttempts = 5

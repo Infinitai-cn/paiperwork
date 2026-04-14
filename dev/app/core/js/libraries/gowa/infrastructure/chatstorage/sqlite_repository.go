@@ -634,6 +634,9 @@ func (r *SQLiteRepository) SaveDeviceRecord(record *domainChatStorage.DeviceReco
 		return fmt.Errorf("device record with id is required")
 	}
 
+	trimmedJID := strings.TrimSpace(record.JID)
+	record.JID = trimmedJID
+
 	now := time.Now()
 	if record.CreatedAt.IsZero() {
 		record.CreatedAt = now
@@ -642,7 +645,7 @@ func (r *SQLiteRepository) SaveDeviceRecord(record *domainChatStorage.DeviceReco
 
 	// Try update first, then insert if no rows affected (cross-db compatible)
 	result, err := r.db.Exec(`
-		UPDATE devices SET display_name = ?, jid = ?, updated_at = ?
+		UPDATE devices SET display_name = ?, jid = COALESCE(NULLIF(?, ''), jid), updated_at = ?
 		WHERE device_id = ?
 	`, record.DisplayName, record.JID, record.UpdatedAt, record.DeviceID)
 	if err != nil {

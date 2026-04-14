@@ -14,6 +14,101 @@ import (
 	"go.mau.fi/whatsmeow/store/sqlstore"
 )
 
+func purgeAllDevicesFromContainer(ctx context.Context, container *sqlstore.Container, label string) error {
+	if container == nil {
+		return nil
+	}
+
+	devices, err := container.GetAllDevices(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to enumerate %s devices: %w", label, err)
+	}
+
+	for _, device := range devices {
+		if device == nil || device.ID == nil {
+			continue
+		}
+		if err := container.DeleteDevice(ctx, device); err != nil {
+			return fmt.Errorf("failed to delete %s device %s: %w", label, device.ID.String(), err)
+		}
+		logrus.Infof("[CLEANUP] Deleted %s device %s", label, device.ID.String())
+	}
+
+	return nil
+}
+
+func clearPersistedChatStoragePairingData(logPrefix string, repo domainChatStorage.IChatStorageRepository) error {
+	if repo == nil {
+		return nil
+	}
+
+	if err := repo.TruncateAllDataWithLogging(logPrefix); err != nil {
+		return fmt.Errorf("failed to truncate chat storage: %w", err)
+	}
+
+	records, err := repo.ListDeviceRecords()
+	if err != nil {
+		return fmt.Errorf("failed to list persisted device records: %w", err)
+	}
+
+	for _, record := range records {
+		if record == nil {
+			continue
+		}
+		deviceID := strings.TrimSpace(record.DeviceID)
+		if deviceID == "" {
+			continue
+		}
+		if err := repo.DeleteDeviceData(deviceID); err != nil {
+			return fmt.Errorf("failed to delete chat storage for device %s: %w", deviceID, err)
+		}
+		if err := repo.DeleteDeviceRecord(deviceID); err != nil {
+			return fmt.Errorf("failed to delete persisted device record %s: %w", deviceID, err)
+		}
+		logrus.Infof("[%s] Deleted persisted device record %s", logPrefix, deviceID)
+	}
+
+	return nil
+}
+
+// ClearPersistedPairingData removes persisted WhatsApp pairing state from both
+// the WhatsMeow store containers and the Paiperwork chat storage registry.
+func ClearPersistedPairingData(logPrefix string) error {
+	globalStateMu.RLock()
+	currentDB := db
+	currentKeysDB := keysDB
+	currentRepo := persistedChatStorageRepo
+	globalStateMu.RUnlock()
+
+	ctx := context.Background()
+	var firstErr error
+
+	if err := purgeAllDevicesFromContainer(ctx, currentDB, "primary store"); err != nil {
+		logrus.Warnf("[%s] Failed to purge primary store devices: %v", logPrefix, err)
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	if currentKeysDB != nil && currentKeysDB != currentDB {
+		if err := purgeAllDevicesFromContainer(ctx, currentKeysDB, "keys store"); err != nil {
+			logrus.Warnf("[%s] Failed to purge keys store devices: %v", logPrefix, err)
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+
+	if err := clearPersistedChatStoragePairingData(logPrefix, currentRepo); err != nil {
+		logrus.Warnf("[%s] Failed to purge persisted chat storage pairing data: %v", logPrefix, err)
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	return firstErr
+}
+
 // CleanupDatabase removes the database file (SQLite) or deletes all devices (PostgreSQL) to prevent foreign key constraint issues
 func CleanupDatabase() error {
 	// Check if using PostgreSQL - for PostgreSQL we can use RLock since we're not closing connections
