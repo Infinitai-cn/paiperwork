@@ -1675,6 +1675,9 @@ func whatsappPreferredDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		delete(preferredWhatsappDevice, userKey)
+		os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
+		os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
+		config.WhatsappPreferredDeviceID = ""
 		maskedDevice := ""
 		if deletedDeviceID != "" {
 			if len(deletedDeviceID) > 8 {
@@ -5312,6 +5315,9 @@ func whatsappDeleteAllPairingDataHandler(w http.ResponseWriter, r *http.Request)
 	preferredWhatsappDeviceMu.Lock()
 	delete(preferredWhatsappDevice, trimmedUserKey)
 	preferredWhatsappDeviceMu.Unlock()
+	os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
+	os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
+	config.WhatsappPreferredDeviceID = ""
 
 	if err := savePreferredWhatsappDeviceToDB(trimmedUserKey, "", ""); err != nil {
 		log.Printf("whatsappDeleteAllPairingDataHandler: failed to clear preferred device for user=%s: %v", safeUserKeyForFilename(trimmedUserKey), err)

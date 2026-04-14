@@ -81,7 +81,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         whatsappDeleteAllPairedButton: "Excluir dispositivo(s) emparelhado(s)",
         whatsappDeleteAllPairedButtonTitle: "Excluir dispositivo(s) emparelhado(s)",
         whatsappDeleteAllPairedConfirm: "Voce esta prestes a excluir as informacoes de emparelhamento do Paiperwork, tem certeza?",
-        whatsappDeleteAllPairedSuccess: "Os dados de emparelhamento do Paiperwork foram excluidos. Agora voce pode emparelhar um novo dispositivo.",
+        whatsappDeleteAllPairedSuccess: "Os dados de emparelhamento do Paiperwork foram excluidos. Clique em Start server para emparelhar um novo dispositivo agora.",
         whatsappDeleteAllPairedFailed: "Falha ao excluir os dados de emparelhamento do Paiperwork. Verifique o console.",
         whatsappServerNotStartedCard: "Servidor WhatsApp não iniciado",
         whatsappNotPairedCard: "WhatsApp não emparelhado",
@@ -719,6 +719,8 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         databaseOpenStatus: "Aberta",
         databaseClosedStatus: "Fechada",
         databaseCountLabel: "Contagem",
+        databaseSessionsLabel: "Sessões",
+        databaseContextsLabel: "Contextos",
         databaseCollectionsLabel: "Coleções",
         images: "Imagens",
         documents: "Documentos",
@@ -735,6 +737,10 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         databaseOptimized: "Base de dados otimizada com sucesso. Poupou {size}.",
         databaseExported: "Backup exportado como Paiperwork-Backup.pwdb",
         databaseImportedReloading: "Base de dados importada. A recarregar e a voltar ao ecrã de boas-vindas...",
+        databaseImportedReturnWarning: "Base de dados importada com sucesso. Clique em OK para voltar ao ecrã de boas-vindas.",
+        databaseImportRolesImportedLabel: "Papéis importados",
+        databaseImportRolesPreservedLabel: "Papéis locais preservados",
+        databaseImportRolesNone: "nenhum",
 
         // Error Messages
         databaseOptimizeFailed: "A otimização da base de dados falhou.",
@@ -743,7 +749,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         databaseError: "Ocorreu um erro ao otimizar a base de dados.",
         databaseNotAvailable: "Base de dados não disponível",
         databaseExportFailed: "A exportacao da base de dados falhou.",
-        importDatabaseConfirm: "Importar um backup vai substituir as suas bases de dados locais atuais (main, rag, html, kb). Continuar?",
+        importDatabaseConfirm: "Importar um backup vai substituir apenas os papéis de base de dados incluídos no backup. Os papéis em falta serão preservados localmente. Continuar?",
         databaseImportFailed: "A importacao da base de dados falhou.",
 
         // ===== DOCUMENTS_TAB.JS =====

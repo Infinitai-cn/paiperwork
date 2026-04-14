@@ -80,7 +80,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 whatsappDeleteAllPairedButton: "删除已配对设备",
                 whatsappDeleteAllPairedButtonTitle: "删除已配对设备",
                 whatsappDeleteAllPairedConfirm: "您即将删除 Paiperwork 中的配对信息，确定继续吗？",
-                whatsappDeleteAllPairedSuccess: "Paiperwork 配对数据已删除。现在可以配对新设备。",
+                whatsappDeleteAllPairedSuccess: "Paiperwork 配对数据已删除。点击 Start server 立即配对新设备。",
                 whatsappDeleteAllPairedFailed: "删除 Paiperwork 配对数据失败。请查看控制台日志。",
                 artifactsDescription: "工件是自包含的 HTML 文件，可以通过提示创建任意功能（沙盒环境）。工件可以保存到内部数据库或下载文件夹。",
                 openArtifactsButton: "打开工件",
@@ -551,6 +551,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 databaseOpenStatus: "已打开",
                 databaseClosedStatus: "已关闭",
                 databaseCountLabel: "数量",
+                databaseSessionsLabel: "会话",
+                databaseContextsLabel: "上下文",
                 databaseCollectionsLabel: "集合",
                 images: "图片",
                 documents: "文档",
@@ -567,6 +569,10 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 databaseOptimized: "数据库优化成功。节省了{size}。",
                 databaseExported: "备份已导出为 Paiperwork-Backup.pwdb",
                 databaseImportedReloading: "数据库已导入。正在重新加载并返回欢迎页面...",
+                databaseImportedReturnWarning: "数据库导入成功。点击“确定”返回欢迎页面。",
+                databaseImportRolesImportedLabel: "已导入的角色",
+                databaseImportRolesPreservedLabel: "保留的本地角色",
+                databaseImportRolesNone: "无",
 
                 // Error Messages
                 databaseOptimizeFailed: "数据库优化失败。",
@@ -575,7 +581,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 databaseError: "优化数据库时发生错误。",
                 databaseNotAvailable: "数据库不可用",
                 databaseExportFailed: "数据库导出失败。",
-                importDatabaseConfirm: "导入备份将替换您当前的本地数据库（main、rag、html、kb）。是否继续？",
+                importDatabaseConfirm: "导入备份时，只会替换备份中包含的数据库角色。缺失的角色将保留在本地。是否继续？",
                 databaseImportFailed: "数据库导入失败。",
 
                 // ===== DOCUMENTS_TAB.JS =====

@@ -311,7 +311,7 @@ class DatabaseTab {
                         <div class="db-breakdown-card">
                             <div class="db-breakdown-title">WhatsApp</div>
                             <div class="db-breakdown-size">${breakdown.whatsapp?.formatted || '-'}</div>
-                            <div class="db-breakdown-meta">${openState.whatsapp ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseCountLabel') || 'Sessions'}: ${breakdown.whatsapp?.sessions || 0}</div>
+                            <div class="db-breakdown-meta">${openState.whatsapp ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseSessionsLabel') || 'Sessions'}: ${breakdown.whatsapp?.sessions || 0} | ${Lang.get('databaseContextsLabel') || 'Contexts'}: ${breakdown.whatsapp?.contexts || 0}</div>
                         </div>
                     </div>
                 </div>
@@ -463,7 +463,7 @@ class DatabaseTab {
 
         const confirmed = confirm(
             Lang.get('importDatabaseConfirm') ||
-            'Importing a backup will replace your current local databases (main, rag, presentations, artifacts, kb, images, whatsapp). Continue?'
+            'Importing a backup will replace only the database roles included in the backup. Missing roles will be preserved locally. Continue?'
         );
         if (!confirmed) {
             return;
@@ -478,12 +478,13 @@ class DatabaseTab {
             const importedRoles = Array.isArray(importResult?.importedRoles) && importResult.importedRoles.length
                 ? importResult.importedRoles
                 : ['main'];
+            const preservedRoles = Array.isArray(importResult?.preservedRoles)
+                ? importResult.preservedRoles
+                : [];
             const importedRolesText = importedRoles.join(', ');
-
-            this.showNotification(
-                'success',
-                `${Lang.get('databaseImportedReloading') || 'Database imported. Reloading and returning to welcome screen...'} (${importedRolesText})`
-            );
+            const preservedRolesText = preservedRoles.length
+                ? preservedRoles.join(', ')
+                : (Lang.get('databaseImportRolesNone') || 'none');
 
             await PaiperworkDB.closeAllDatabases(this.hashedMasterKey);
             try {
@@ -492,9 +493,11 @@ class DatabaseTab {
                 // Ignore session storage cleanup errors.
             }
 
-            setTimeout(() => {
-                window.location.href = '../welcome.html';
-            }, 800);
+            alert(
+                `${Lang.get('databaseImportedReturnWarning') || 'Database imported successfully. Click OK to return to the welcome screen.'}\n\n${Lang.get('databaseImportRolesImportedLabel') || 'Imported roles'}: ${importedRolesText}\n${Lang.get('databaseImportRolesPreservedLabel') || 'Preserved local roles'}: ${preservedRolesText}`
+            );
+
+            window.location.href = '../welcome.html';
         } catch (error) {
             console.error('Error importing database:', error);
             this.showNotification('error', error?.message || Lang.get('databaseImportFailed') || 'Database import failed.');

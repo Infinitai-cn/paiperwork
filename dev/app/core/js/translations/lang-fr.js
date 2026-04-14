@@ -81,7 +81,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         whatsappDeleteAllPairedButton: "Supprimer les appareils appaires",
         whatsappDeleteAllPairedButtonTitle: "Supprimer les appareils appaires",
         whatsappDeleteAllPairedConfirm: "Vous etes sur le point de supprimer les informations d'appairage de Paiperwork, etes-vous sur ?",
-        whatsappDeleteAllPairedSuccess: "Les donnees d'appairage Paiperwork ont ete supprimees. Vous pouvez maintenant appairer un nouvel appareil.",
+        whatsappDeleteAllPairedSuccess: "Les donnees d'appairage Paiperwork ont ete supprimees. Cliquez sur Start server pour appairer un nouvel appareil maintenant.",
         whatsappDeleteAllPairedFailed: "Echec de la suppression des donnees d'appairage Paiperwork. Consultez la console.",
         artifactsDescription: "Les artefacts sont des fichiers HTML autonomes qui peuvent etre prompts pour creer tout type de fonctionnalite (sandbox). Les artefacts peuvent etre enregistres dans la base de donnees interne ou dans le dossier de telechargement.",
         openArtifactsButton: "Ouvrir les artefacts",
@@ -554,6 +554,8 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         databaseOpenStatus: "Ouverte",
         databaseClosedStatus: "Fermée",
         databaseCountLabel: "Nombre",
+        databaseSessionsLabel: "Sessions",
+        databaseContextsLabel: "Contextes",
         databaseCollectionsLabel: "Collections",
         images: "Images",
         documents: "Documents",
@@ -570,6 +572,10 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         databaseOptimized: "Base de données optimisée avec succès. {size} économisé.",
         databaseExported: "Sauvegarde exportee sous Paiperwork-Backup.pwdb",
         databaseImportedReloading: "Base de donnees importee. Rechargement et retour a l'ecran d'accueil...",
+        databaseImportedReturnWarning: "Base de donnees importee avec succes. Cliquez sur OK pour revenir a l'ecran d'accueil.",
+        databaseImportRolesImportedLabel: "Roles importes",
+        databaseImportRolesPreservedLabel: "Roles locaux conserves",
+        databaseImportRolesNone: "aucun",
 
         // Error Messages
         databaseOptimizeFailed: "L'optimisation de la base de données a échoué.",
@@ -578,7 +584,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         databaseError: "Une erreur s'est produite lors de l'optimisation de la base de données.",
         databaseNotAvailable: "Base de données non disponible",
         databaseExportFailed: "Echec de l'export de la base de donnees.",
-        importDatabaseConfirm: "Importer une sauvegarde remplacera vos bases locales actuelles (main, rag, html, kb). Continuer ?",
+        importDatabaseConfirm: "Importer une sauvegarde remplacera uniquement les rôles de base de données inclus dans la sauvegarde. Les rôles absents seront conservés localement. Continuer ?",
         databaseImportFailed: "Echec de l'import de la base de donnees.",
 
         // ===== DOCUMENTS_TAB.JS =====

@@ -78,7 +78,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         whatsappDeleteAllPairedButton: "Gekoppelte Geraete loeschen",
         whatsappDeleteAllPairedButtonTitle: "Gekoppelte Geraete loeschen",
         whatsappDeleteAllPairedConfirm: "Du bist dabei, die Kopplungsinformationen aus Paiperwork zu loeschen. Bist du sicher?",
-        whatsappDeleteAllPairedSuccess: "Die Paiperwork-Kopplungsdaten wurden geloescht. Du kannst jetzt ein neues Geraet koppeln.",
+        whatsappDeleteAllPairedSuccess: "Die Paiperwork-Kopplungsdaten wurden geloescht. Klicke auf Start server, um jetzt ein neues Geraet zu koppeln.",
         whatsappDeleteAllPairedFailed: "Die Paiperwork-Kopplungsdaten konnten nicht geloescht werden. Sieh in die Konsole.",
         whatsappServerNotStartedCard: "WhatsApp-Server nicht gestartet",
         whatsappNotPairedCard: "WhatsApp nicht gekoppelt",
@@ -561,6 +561,8 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         databaseOpenStatus: "Geöffnet",
         databaseClosedStatus: "Geschlossen",
         databaseCountLabel: "Anzahl",
+        databaseSessionsLabel: "Sitzungen",
+        databaseContextsLabel: "Kontexte",
         databaseCollectionsLabel: "Sammlungen",
         images: "Bilder",
         documents: "Dokumente",
@@ -577,6 +579,10 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         databaseOptimized: "Datenbank erfolgreich optimiert. {size} gespart.",
         databaseExported: "Datenbanksicherung als Paiperwork-Backup.pwdb exportiert",
         databaseImportedReloading: "Datenbank importiert. Neu laden und zur Willkommensseite zuruckkehren...",
+        databaseImportedReturnWarning: "Datenbank erfolgreich importiert. Klicken Sie auf OK, um zur Willkommensseite zuruckzukehren.",
+        databaseImportRolesImportedLabel: "Importierte Rollen",
+        databaseImportRolesPreservedLabel: "Lokal beibehaltene Rollen",
+        databaseImportRolesNone: "keine",
 
         // Error Messages
         databaseOptimizeFailed: "Datenbankoptimierung fehlgeschlagen.",
@@ -585,7 +591,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         databaseError: "Ein Fehler ist beim Optimieren der Datenbank aufgetreten.",
         databaseNotAvailable: "Datenbank nicht verfügbar",
         databaseExportFailed: "Datenbankexport fehlgeschlagen.",
-        importDatabaseConfirm: "Beim Importieren einer Sicherung werden Ihre aktuellen lokalen Datenbanken ersetzt (main, rag, html, kb). Fortfahren?",
+        importDatabaseConfirm: "Beim Importieren einer Sicherung werden nur die im Backup enthaltenen Datenbankrollen ersetzt. Fehlende Rollen bleiben lokal erhalten. Fortfahren?",
         databaseImportFailed: "Datenbankimport fehlgeschlagen.",
 
         // ===== DOCUMENTS_TAB.JS =====

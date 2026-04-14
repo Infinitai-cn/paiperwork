@@ -527,6 +527,11 @@ class PaiperworkDB {
             this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
         }
 
+        const trackedDb = this.getTrackedOpenDatabase(hashedMasterKey, 'whatsapp');
+        if (trackedDb) {
+            return trackedDb;
+        }
+
         const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
         if (existingDb) {
             return new this.SQL.Database(existingDb);
@@ -827,6 +832,15 @@ class PaiperworkDB {
         try {
             let rawBytes = null;
             let bundleText = '';
+            const persistedRoles = ['main', 'rag', 'presentations', 'artifacts', 'kb', 'images', 'whatsapp'];
+
+            const existingRolesBeforeImport = [];
+            for (const role of persistedRoles) {
+                const existingBytes = await this.getExistingDatabase(hashedMasterKey, role);
+                if (existingBytes && existingBytes.byteLength > 0) {
+                    existingRolesBeforeImport.push(role);
+                }
+            }
 
             if (bundleInput instanceof Uint8Array) {
                 rawBytes = bundleInput;
@@ -840,7 +854,12 @@ class PaiperworkDB {
             if (rawBytes && this.validateSQLiteBytes(rawBytes)) {
                 await this.closeAllDatabases(hashedMasterKey);
                 await this.importDatabase(hashedMasterKey, rawBytes, 'main');
-                return { success: true, legacyMainOnly: true, importedRoles: ['main'] };
+                return {
+                    success: true,
+                    legacyMainOnly: true,
+                    importedRoles: ['main'],
+                    preservedRoles: existingRolesBeforeImport.filter(role => role !== 'main')
+                };
             }
 
             if (!bundleText && rawBytes) {
@@ -889,21 +908,12 @@ class PaiperworkDB {
 
             await this.closeAllDatabases(hashedMasterKey);
 
-            const persistedRoles = ['main', 'rag', 'presentations', 'artifacts', 'kb', 'images', 'whatsapp'];
-            if (isLegacyBundle) {
-                await this.deleteStoredDatabaseRole(hashedMasterKey, 'presentations');
-                await this.deleteStoredDatabaseRole(hashedMasterKey, 'artifacts');
-            }
-
             for (const role of persistedRoles) {
                 if (decoded[role]) {
                     const saved = await this.saveToStorage(decoded[role], hashedMasterKey, role);
                     if (!saved) {
                         throw new Error(`Could not import ${role} database`);
                     }
-                } else if (role !== 'main') {
-                    // Optional roles may not exist in older/online backups; remove stale local role DBs.
-                    await this.deleteStoredDatabaseRole(hashedMasterKey, role);
                 }
             }
 
@@ -932,12 +942,18 @@ class PaiperworkDB {
             await this.migrateImportedDatabaseSchema(hashedMasterKey);
 
             // Verify imported databases can be opened.
-            for (const role of [...new Set(importedRoles)]) {
+            const uniqueImportedRoles = [...new Set(importedRoles)];
+            for (const role of uniqueImportedRoles) {
                 const verifyDb = await this.getDatabase(hashedMasterKey, role, true);
                 verifyDb?.exec?.('SELECT 1');
             }
 
-            return { success: true, legacyMainOnly: false, importedRoles: [...new Set(importedRoles)] };
+            return {
+                success: true,
+                legacyMainOnly: false,
+                importedRoles: uniqueImportedRoles,
+                preservedRoles: existingRolesBeforeImport.filter(role => !uniqueImportedRoles.includes(role))
+            };
         } catch (error) {
             console.error('Error importing database bundle:', error);
             throw error;
@@ -4685,10 +4701,15 @@ class PaiperworkDB {
             if (!hashedMasterKey || !phone) return false;
 
             await this.initializeDatabase(hashedMasterKey);
-            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
-            if (!existingDb) return false;
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, false);
+            if (!sqlDb) return false;
 
-            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_phone_contexts (
+                    phone TEXT PRIMARY KEY,
+                    context TEXT
+                )
+            `);
             const normalizedPhone = String(phone).replace(/@.*$/g, '').trim();
             const lookupPhone = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_phone_context', normalizedPhone);
             sqlDb.run(`DELETE FROM whatsapp_phone_contexts WHERE phone = ?`, [lookupPhone]);
@@ -4707,12 +4728,11 @@ class PaiperworkDB {
             }
 
             await this.initializeDatabase(hashedMasterKey);
-            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
-            if (!existingDb) {
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, false);
+            if (!sqlDb) {
                 return { success: true, count: 0 };
             }
 
-            const sqlDb = new this.SQL.Database(existingDb);
             sqlDb.run(`
                 CREATE TABLE IF NOT EXISTS whatsapp_phone_contexts (
                     phone TEXT PRIMARY KEY,
@@ -5036,10 +5056,9 @@ class PaiperworkDB {
     static async clearWhatsappDeviceInfo(hashedMasterKey) {
         try {
             await this.initializeDatabase(hashedMasterKey);
-            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
-            if (!existingDb) return false;
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, false);
+            if (!sqlDb) return false;
 
-            const sqlDb = new this.SQL.Database(existingDb);
             sqlDb.run(`
                 CREATE TABLE IF NOT EXISTS whatsapp_settings (
                     masterkey_hash TEXT PRIMARY KEY,
@@ -5173,10 +5192,9 @@ class PaiperworkDB {
     static async clearWhatsappPreferredDeviceInfo(hashedMasterKey) {
         try {
             await this.initializeDatabase(hashedMasterKey);
-            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
-            if (!existingDb) return false;
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, false);
+            if (!sqlDb) return false;
 
-            const sqlDb = new this.SQL.Database(existingDb);
             sqlDb.run(`
                 CREATE TABLE IF NOT EXISTS whatsapp_settings (
                     masterkey_hash TEXT PRIMARY KEY,
@@ -5306,10 +5324,16 @@ class PaiperworkDB {
             if (!hashedMasterKey) return false;
             await this.initializeDatabase(hashedMasterKey);
 
-            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
-            if (!existingDb) return true;
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, false);
+            if (!sqlDb) return true;
 
-            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_device_registry (
+                    device_id TEXT PRIMARY KEY,
+                    entry_blob TEXT,
+                    updated_at TEXT
+                )
+            `);
             sqlDb.run(`DELETE FROM whatsapp_device_registry`);
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
             return true;
@@ -5412,10 +5436,17 @@ class PaiperworkDB {
             const normalizedDeviceId = String(deviceId).trim();
             const deviceLookup = await this.hashScopedLookupKey(hashedMasterKey, 'whatsapp_session_bundle', normalizedDeviceId);
 
-            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
-            if (!existingDb) return true;
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, false);
+            if (!sqlDb) return true;
 
-            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_session_bundles (
+                    device_id TEXT PRIMARY KEY,
+                    session_blob TEXT,
+                    metadata_blob TEXT,
+                    updated_at TEXT
+                )
+            `);
             sqlDb.run(`DELETE FROM whatsapp_session_bundles WHERE device_id = ?`, [deviceLookup]);
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
             return true;
@@ -5430,10 +5461,17 @@ class PaiperworkDB {
             if (!hashedMasterKey) return false;
             await this.initializeDatabase(hashedMasterKey);
 
-            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'whatsapp');
-            if (!existingDb) return true;
+            const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, false);
+            if (!sqlDb) return true;
 
-            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS whatsapp_session_bundles (
+                    device_id TEXT PRIMARY KEY,
+                    session_blob TEXT,
+                    metadata_blob TEXT,
+                    updated_at TEXT
+                )
+            `);
             sqlDb.run(`DELETE FROM whatsapp_session_bundles`);
             await this.saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey);
             return true;

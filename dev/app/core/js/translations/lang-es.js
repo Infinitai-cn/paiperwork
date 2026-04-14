@@ -77,7 +77,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         whatsappDeleteAllPairedButton: "Eliminar dispositivo(s) emparejado(s)",
         whatsappDeleteAllPairedButtonTitle: "Eliminar dispositivo(s) emparejado(s)",
         whatsappDeleteAllPairedConfirm: "Estas a punto de eliminar la informacion de emparejamiento de Paiperwork, estas seguro?",
-        whatsappDeleteAllPairedSuccess: "Los datos de emparejamiento de Paiperwork se eliminaron. Ahora puedes emparejar un dispositivo nuevo.",
+        whatsappDeleteAllPairedSuccess: "Los datos de emparejamiento de Paiperwork se eliminaron. Haz clic en Start server para emparejar un dispositivo nuevo ahora.",
         whatsappDeleteAllPairedFailed: "No se pudieron eliminar los datos de emparejamiento de Paiperwork. Revisa la consola.",
         artifactsDescription: "Los artefactos son archivos HTML autocontenidos que pueden solicitarse para crear cualquier tipo de funcionalidad (en sandbox). Los artefactos se pueden guardar en la base de datos interna o en la carpeta de descargas.",
         openArtifactsButton: "Abrir artefactos",
@@ -547,6 +547,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         databaseOpenStatus: "Abierta",
         databaseClosedStatus: "Cerrada",
         databaseCountLabel: "Cantidad",
+        databaseSessionsLabel: "Sesiones",
+        databaseContextsLabel: "Contextos",
         databaseCollectionsLabel: "Colecciones",
         images: "Imágenes",
         documents: "Documentos",
@@ -563,6 +565,10 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         databaseOptimized: "Base de datos optimizada exitosamente. Se ahorró {size}.",
         databaseExported: "Copia de seguridad exportada como Paiperwork-Backup.pwdb",
         databaseImportedReloading: "Base de datos importada. Recargando y volviendo a la pantalla de bienvenida...",
+        databaseImportedReturnWarning: "Base de datos importada correctamente. Haz clic en OK para volver a la pantalla de bienvenida.",
+        databaseImportRolesImportedLabel: "Roles importados",
+        databaseImportRolesPreservedLabel: "Roles locales conservados",
+        databaseImportRolesNone: "ninguno",
 
         // Error Messages
         databaseOptimizeFailed: "La optimización de la base de datos falló.",
@@ -571,7 +577,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         databaseError: "Ocurrió un error al optimizar la base de datos.",
         databaseNotAvailable: "Base de datos no disponible",
         databaseExportFailed: "La exportación de la base de datos falló.",
-        importDatabaseConfirm: "Importar una copia de seguridad reemplazara sus bases de datos locales actuales (main, rag, html, kb). Continuar?",
+        importDatabaseConfirm: "Importar una copia de seguridad reemplazará solo los roles de base de datos incluidos en la copia. Los roles ausentes se conservarán localmente. ¿Continuar?",
         databaseImportFailed: "La importación de la base de datos falló.",
 
         // ===== DOCUMENTS_TAB.JS =====

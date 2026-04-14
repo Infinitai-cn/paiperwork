@@ -1275,7 +1275,7 @@ class ConnectorsTab {
             this.whatsappRemoteLogoutNoticeShown = null;
             this.whatsappSessionImportedForDevice = null;
             this.whatsappSessionRestoreSkippedForDevice = null;
-            this._setWhatsappFreshPairRequested(false);
+            this._setWhatsappFreshPairRequested(true);
             this.whatsappFreshPairDeviceId = null;
             this.stopWhatsappWebsocketListener();
             this.stopPolling();
@@ -1283,7 +1283,7 @@ class ConnectorsTab {
             this.clearWhatsappQrCountdown();
             this.closeWhatsappPairModal();
             this.setWhatsappPairButtonState(false);
-            this.setWhatsappModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedSuccess')) || 'Paiperwork pairing data deleted. You can pair a new device now.');
+            this.setWhatsappModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedSuccess')) || 'Paiperwork pairing data deleted. Click Start server to pair a new device now.');
         } catch (err) {
             console.warn('ConnectorsTab: deleteAllPairedWhatsappDevices failed', err);
             this.setWhatsappModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedFailed')) || 'Failed to delete Paiperwork pairing data. See console logs.');
@@ -2371,6 +2371,12 @@ class ConnectorsTab {
     }
 
     async _chooseSavedWhatsappDeviceForStart() {
+        if (this.whatsappFreshPairRequested) {
+            console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart bypassing saved-device selection because fresh pairing is active');
+            this.savedWhatsappDeviceId = null;
+            return '';
+        }
+
         const { normalized } = await this._readSavedWhatsappDeviceCatalogFromDb();
         const devices = Array.isArray(normalized && normalized.devices) ? normalized.devices : [];
         console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart resolved devices', {
@@ -3489,10 +3495,14 @@ class ConnectorsTab {
             return;
         }
 
-        this._setWhatsappFreshPairRequested(false);
         const selectedStartDeviceId = await this._chooseSavedWhatsappDeviceForStart();
         if (selectedStartDeviceId === null) {
             return;
+        }
+
+        if (selectedStartDeviceId) {
+            this._setWhatsappFreshPairRequested(false);
+            this.whatsappFreshPairDeviceId = null;
         }
 
         await this._syncCurrentWhatsappModeSelection();
