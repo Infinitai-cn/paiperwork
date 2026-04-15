@@ -72,6 +72,26 @@ func TestIsReplayOrHistoricalMessageTrueForUnavailableResponse(t *testing.T) {
 	}
 }
 
+func TestIsReplayOrHistoricalMessageTrueForLinkedDeviceReplay(t *testing.T) {
+	evt := &events.Message{
+		Info: types.MessageInfo{
+			MessageSource: types.MessageSource{
+				Chat:     types.NewJID("123", types.DefaultUserServer),
+				Sender:   types.NewJID("123", types.DefaultUserServer),
+				IsFromMe: true,
+			},
+			ID:             "DEVICE_SENT_123",
+			Timestamp:      time.Date(2026, time.April, 15, 3, 5, 0, 0, time.UTC),
+			DeviceSentMeta: &types.DeviceSentMeta{},
+		},
+		Message: &waE2E.Message{Conversation: protoString("from another linked device")},
+	}
+
+	if !isReplayOrHistoricalMessage(evt) {
+		t.Fatal("expected linked-device replay event to be treated as replay/history")
+	}
+}
+
 func TestBuildEventPayloadIncludesIsFromMe(t *testing.T) {
 	evt := &events.Message{
 		Info: types.MessageInfo{
