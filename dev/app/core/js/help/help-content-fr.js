@@ -2988,6 +2988,15 @@ window.helpContent = {
                 <p><strong>Utilisateur :</strong> <code>Non</code></p>
                 <p><strong>Paiperwork :</strong> D'accord, le mode de suivi de présentation est fermé.</p>
 
+                <h5>Transformations de suivi pour résumés et réponses</h5>
+                <p>Après que Paiperwork a envoyé un résumé de document ou répondu à une question en mode document, vous pouvez lui demander de transformer le résultat mis en mémoire au lieu de relancer le flux du document.</p>
+                <ul>
+                    <li><code>Traduis le résumé en chinois</code></li>
+                    <li><code>Rends-le plus court</code></li>
+                    <li><code>Transforme-le en liste à puces</code></li>
+                    <li><code>Réécris cette réponse plus clairement</code></li>
+                </ul>
+
                 <h4>Graphiques</h4>
                 <p>Vous pouvez demander des graphiques pris en charge par Paiperwork. Une fois créé, le graphique est envoyé dans votre conversation WhatsApp.</p>
                 <ul>
@@ -3016,6 +3025,15 @@ window.helpContent = {
                 <p><strong>Paiperwork :</strong> Voulez-vous continuer à affiner cette recherche ?</p>
                 <p><strong>Utilisateur :</strong> <code>j'ai fini</code>, <code>non</code>, <code>non merci</code></p>
                 <p><strong>Paiperwork :</strong> D'accord, le mode de suivi de recherche est fermé.</p>
+
+                <h5>Transformations de suivi pour rapports de recherche</h5>
+                <p>Après la livraison d'un rapport de recherche, vous pouvez continuer à retravailler le texte mis en mémoire sans lancer une nouvelle recherche.</p>
+                <ul>
+                    <li><code>Traduis le rapport en espagnol</code></li>
+                    <li><code>Rends-le plus court</code></li>
+                    <li><code>Transforme-le en liste à puces</code></li>
+                    <li><code>Réécris-le comme note exécutive</code></li>
+                </ul>
 
                 <h4>Présentations</h4>
                 <p>Vous pouvez créer des présentations en fournissant le texte source. Paiperwork estime le nombre de diapositives à partir de la quantité de contenu, sauf si vous indiquez explicitement un nombre de diapositives.</p>
@@ -3053,6 +3071,19 @@ window.helpContent = {
                 <p><strong>Paiperwork :</strong> Voulez-vous apporter d'autres modifications à cette mini app ?</p>
                 <p><strong>Utilisateur :</strong> <code>Non</code></p>
                 <p><strong>Paiperwork :</strong> D'accord, le mode de modification d'artefact est fermé.</p>
+
+                <h4>Modes de suivi et commandes de sortie</h4>
+                <p>Paiperwork conserve le contexte du flux par téléphone. Lorsqu'une question de suivi apparaît, les commandes compatibles pour continuer incluent <code>oui</code>, <code>oui s'il vous plaît</code> et <code>continuer</code>. Les commandes compatibles pour fermer incluent <code>non</code>, <code>non merci</code> et <code>j'ai fini</code>. Pour les documents, vous pouvez aussi quitter le mode de questions avec <code>quitter le mode document</code>.</p>
+                <p>Le même flux de transformation de suivi fonctionne aussi après les résumés de documents, les rapports de recherche et les réponses renvoyées pendant le mode de questions sur document.</p>
+                <h5>Exemple d'interaction</h5>
+                <p><strong>Utilisateur :</strong> <code>&lt;nom du document&gt; résumé</code></p>
+                <p><strong>Paiperwork :</strong> Résumé du document fourni.</p>
+                <p><strong>Paiperwork :</strong> Voulez-vous continuer à travailler avec ce document ?</p>
+                <p><strong>Utilisateur :</strong> <code>Traduis le résumé en chinois</code></p>
+                <p><strong>Paiperwork :</strong> Traduction chinoise du résumé mis en mémoire fournie.</p>
+                <p><strong>Paiperwork :</strong> Voulez-vous continuer à travailler avec ce document ?</p>
+                <p><strong>Utilisateur :</strong> <code>Non</code></p>
+                <p><strong>Paiperwork :</strong> D'accord, le mode de suivi du document est fermé.</p>
             `,
             },
             {

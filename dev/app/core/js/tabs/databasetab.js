@@ -160,6 +160,9 @@ class DatabaseTab {
                 deleteAllBtn.textContent = Lang.get('securityDeleting') || 'Deleting...';
 
                 try {
+                    if (window.PaiperworkSessionReset && typeof window.PaiperworkSessionReset.stopWhatsappServerForSessionReset === 'function') {
+                        await window.PaiperworkSessionReset.stopWhatsappServerForSessionReset();
+                    }
                     const ok = await PaiperworkDB.deleteAllDatabases();
                     if (ok) {
                         alert(Lang.get('securityDataDeletedSuccess') || 'All data deleted successfully');
@@ -486,6 +489,9 @@ class DatabaseTab {
                 ? preservedRoles.join(', ')
                 : (Lang.get('databaseImportRolesNone') || 'none');
 
+            if (window.PaiperworkSessionReset && typeof window.PaiperworkSessionReset.stopWhatsappServerForSessionReset === 'function') {
+                await window.PaiperworkSessionReset.stopWhatsappServerForSessionReset();
+            }
             await PaiperworkDB.closeAllDatabases(this.hashedMasterKey);
             try {
                 sessionStorage.removeItem('hashedMasterKey');

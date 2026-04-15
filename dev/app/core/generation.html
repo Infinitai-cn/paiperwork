@@ -68,8 +68,7 @@
                 <div class="app-logo-container">
                     <img id="app-logo" src="images/Paiperwork-APP-light.png" alt="Paiperwork Logo" class="app-logo">
                 </div>
-                <button id="back-button" class="back-button"
-                    onclick="window.location.href='../welcome.html'">Back</button>
+                <button id="back-button" class="back-button">Back</button>
                 <div class="history-header">
                     <button class="new-conversation-btn">New Chat</button>
                 </div>
@@ -213,6 +212,20 @@
 
         <script>
 
+            async function navigateAfterStoppingWhatsapp(targetUrl, options = {}) {
+                const { clearSession = false } = options;
+
+                if (window.PaiperworkSessionReset && typeof window.PaiperworkSessionReset.stopWhatsappServerForSessionReset === 'function') {
+                    await window.PaiperworkSessionReset.stopWhatsappServerForSessionReset();
+                }
+
+                if (clearSession) {
+                    try { sessionStorage.clear(); } catch (_error) { /* ignore */ }
+                }
+
+                window.location.href = targetUrl;
+            }
+
             function setAppropriateImage() {
                 const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
                 const logoImg = document.getElementById('app-logo');
@@ -242,6 +255,13 @@
 
                 // Update all text content with error handling
                 updateElementText('back-button', 'backButton');
+
+                const backButton = document.getElementById('back-button');
+                if (backButton) {
+                    backButton.addEventListener('click', async () => {
+                        await navigateAfterStoppingWhatsapp('../welcome.html');
+                    });
+                }
 
                 // Update placeholder with error handling
                 const promptInput = document.getElementById('prompt-input');
@@ -313,9 +333,7 @@
                             const ok = await PaiperworkDB.deleteAllDatabases();
                             if (ok) {
                                 alert(Lang.get('securityDataDeletedSuccess') || 'All data deleted successfully');
-                                // Clear session storage (remove hashed master key) and redirect to index.html
-                                try { sessionStorage.clear(); } catch (e) { /* ignore */ }
-                                window.location.href = '../index.html';
+                                await navigateAfterStoppingWhatsapp('../index.html', { clearSession: true });
                             } else {
                                 alert(Lang.get('securityDeleteError') || 'Error deleting data');
                                 deleteAllBtn.disabled = false;

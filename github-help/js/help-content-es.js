@@ -3010,6 +3010,15 @@ window.helpContent = {
                 <p><strong>Usuario:</strong> <code>No</code></p>
                 <p><strong>Paiperwork:</strong> De acuerdo, el modo de seguimiento de presentación está cerrado.</p>
 
+                <h5>Transformaciones de seguimiento para resúmenes y respuestas</h5>
+                <p>Después de que Paiperwork envía un resumen de documento o responde una pregunta en modo documento, puedes pedirle que transforme el resultado en memoria en lugar de ejecutar otra vez el flujo del documento.</p>
+                <ul>
+                    <li><code>Traduce el resumen al chino</code></li>
+                    <li><code>Hazlo más corto</code></li>
+                    <li><code>Ponlo en viñetas</code></li>
+                    <li><code>Reescribe esa respuesta de forma más clara</code></li>
+                </ul>
+
                 <h4>Gráficos</h4>
                 <p>Puedes solicitar gráficos compatibles con Paiperwork. Cuando el gráfico se crea, se envía a tu conversación de WhatsApp.</p>
                 <ul>
@@ -3038,6 +3047,15 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> ¿Quieres seguir refinando esta investigación?</p>
                 <p><strong>Usuario:</strong> <code>ya terminé</code>, <code>no</code>, <code>no gracias</code></p>
                 <p><strong>Paiperwork:</strong> De acuerdo, el modo de seguimiento de investigación está cerrado.</p>
+
+                <h5>Transformaciones de seguimiento para informes de investigación</h5>
+                <p>Después de entregar un informe de investigación, puedes seguir refinando el texto en memoria sin iniciar una nueva investigación.</p>
+                <ul>
+                    <li><code>Traduce el informe al portugués</code></li>
+                    <li><code>Hazlo más corto</code></li>
+                    <li><code>Ponlo en viñetas</code></li>
+                    <li><code>Reescríbelo como resumen ejecutivo</code></li>
+                </ul>
 
                 <h4>Presentaciones</h4>
                 <p>Puedes crear presentaciones proporcionando el texto base. Paiperwork estima el número de diapositivas según la cantidad de contenido, salvo que indiques una cantidad concreta.</p>
@@ -3075,6 +3093,19 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> ¿Quieres hacer más modificaciones a esta mini app?</p>
                 <p><strong>Usuario:</strong> <code>No</code></p>
                 <p><strong>Paiperwork:</strong> De acuerdo, el modo de modificación de artefactos está cerrado.</p>
+
+                <h4>Modos de seguimiento y frases de salida</h4>
+                <p>Paiperwork mantiene el contexto del flujo por teléfono. Cuando aparezca una pregunta de seguimiento, las frases compatibles para continuar incluyen <code>sí</code>, <code>sí por favor</code> y <code>continuar</code>. Las frases compatibles para cerrar incluyen <code>no</code>, <code>no gracias</code> y <code>ya terminé</code>. En documentos también puedes salir del modo de preguntas con <code>salir del modo documento</code>.</p>
+                <p>El mismo flujo de transformación de seguimiento también funciona después de resúmenes de documentos, informes de investigación y respuestas dadas mientras el modo de preguntas sobre documentos está activo.</p>
+                <h5>Ejemplo de interacción</h5>
+                <p><strong>Usuario:</strong> <code>&lt;nombre del documento&gt; resumen</code></p>
+                <p><strong>Paiperwork:</strong> Resumen del documento proporcionado.</p>
+                <p><strong>Paiperwork:</strong> ¿Quieres seguir trabajando con este documento?</p>
+                <p><strong>Usuario:</strong> <code>Traduce el resumen al chino</code></p>
+                <p><strong>Paiperwork:</strong> Traducción al chino del resumen en memoria proporcionada.</p>
+                <p><strong>Paiperwork:</strong> ¿Quieres seguir trabajando con este documento?</p>
+                <p><strong>Usuario:</strong> <code>No</code></p>
+                <p><strong>Paiperwork:</strong> De acuerdo, el modo de seguimiento de documentos está cerrado.</p>
             `,
             },
             {

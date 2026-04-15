@@ -3032,6 +3032,15 @@ window.helpContent = {
                 <p><strong>User:</strong> <code>No</code></p>
                 <p><strong>Paiperwork:</strong> Okay, presentation follow-up mode is closed.</p>
 
+                <h5>Summary and Answer Follow-up Transformations</h5>
+                <p>After Paiperwork sends a document summary or answers a question in document mode, you can ask it to transform the cached result instead of rerunning the document workflow.</p>
+                <ul>
+                    <li><code>Translate the summary to Chinese</code></li>
+                    <li><code>Make it shorter</code></li>
+                    <li><code>Turn it into bullet points</code></li>
+                    <li><code>Rewrite that answer more clearly</code></li>
+                </ul>
+
                 <h4>Charts</h4>
                 <p>You can request charts supported by Paiperwork. Once created, the chart is sent to your WhatsApp conversation.</p>
                 <ul>
@@ -3060,6 +3069,15 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> Do you want to continue refining this research?</p>
                 <p><strong>User:</strong> <code>I am finished</code>, <code>no</code>, <code>No thanks</code></p>
                 <p><strong>Paiperwork:</strong> Okay, research follow-up mode is closed.</p>
+
+                <h5>Research Report Follow-up Transformations</h5>
+                <p>After a research report is delivered, you can keep refining the cached report text without starting a new research run.</p>
+                <ul>
+                    <li><code>Translate the report to Spanish</code></li>
+                    <li><code>Make it shorter</code></li>
+                    <li><code>Turn it into bullet points</code></li>
+                    <li><code>Rewrite it as an executive brief</code></li>
+                </ul>
 
                 <h4>Presentations</h4>
                 <p>You can create presentations by providing the source text. Paiperwork estimates the number of slides from the amount of content unless you explicitly request a slide count.</p>
@@ -3097,6 +3115,19 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> Do you want to make further modifications to this miniapp?</p>
                 <p><strong>User:</strong> <code>No</code></p>
                 <p><strong>Paiperwork:</strong> Okay, artifact modification mode is closed.</p>
+
+                <h4>Follow-up Modes and Exit Cues</h4>
+                <p>Paiperwork keeps workflow context per phone. When a follow-up question appears, supported continue cues include <code>yes</code>, <code>yes please</code>, and <code>continue</code>. Supported close cues include <code>no</code>, <code>no thanks</code>, and <code>I am finished</code>. For documents, you can also leave questioning mode with <code>exit document mode</code>.</p>
+                <p>The same follow-up transformation flow also works after document summaries, research reports, and answers returned while document questioning mode is active.</p>
+                <h5>Interaction Example</h5>
+                <p><strong>User:</strong> <code>&lt;document name&gt; summary</code></p>
+                <p><strong>Paiperwork:</strong> Document summary provided.</p>
+                <p><strong>Paiperwork:</strong> Do you want to keep working with this document?</p>
+                <p><strong>User:</strong> <code>Translate the summary to Chinese</code></p>
+                <p><strong>Paiperwork:</strong> Chinese translation of the cached summary provided.</p>
+                <p><strong>Paiperwork:</strong> Do you want to keep working with this document?</p>
+                <p><strong>User:</strong> <code>No</code></p>
+                <p><strong>Paiperwork:</strong> Okay, document follow-up mode is closed.</p>
             `,
             },
             {

@@ -2993,6 +2993,15 @@ window.helpContent = {
                 <p><strong>Nutzer:</strong> <code>Nein</code></p>
                 <p><strong>Paiperwork:</strong> Okay, der Präsentations-Nachverfolgungsmodus ist geschlossen.</p>
 
+                <h5>Nachverfolgungs-Transformationen für Zusammenfassungen und Antworten</h5>
+                <p>Nachdem Paiperwork eine Dokumentzusammenfassung gesendet oder im Dokumentmodus eine Frage beantwortet hat, können Sie die zwischengespeicherte Antwort umformen lassen, statt den Dokument-Workflow erneut zu starten.</p>
+                <ul>
+                    <li><code>Übersetze die Zusammenfassung ins Chinesische</code></li>
+                    <li><code>Mach sie kürzer</code></li>
+                    <li><code>Wandle sie in Stichpunkte um</code></li>
+                    <li><code>Formuliere diese Antwort klarer um</code></li>
+                </ul>
+
                 <h4>Diagramme</h4>
                 <p>Sie können von Paiperwork unterstützte Diagramme anfordern. Sobald das Diagramm erstellt ist, wird es an Ihre WhatsApp-Konversation gesendet.</p>
                 <ul>
@@ -3021,6 +3030,15 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> Möchten Sie diese Recherche weiter verfeinern?</p>
                 <p><strong>Nutzer:</strong> <code>ich bin fertig</code>, <code>nein</code>, <code>nein danke</code></p>
                 <p><strong>Paiperwork:</strong> Okay, der Recherche-Nachverfolgungsmodus ist geschlossen.</p>
+
+                <h5>Nachverfolgungs-Transformationen für Rechercheberichte</h5>
+                <p>Nachdem ein Recherchebericht geliefert wurde, können Sie den zwischengespeicherten Bericht weiter umformen, ohne eine neue Recherche zu starten.</p>
+                <ul>
+                    <li><code>Übersetze den Bericht ins Spanische</code></li>
+                    <li><code>Mach ihn kürzer</code></li>
+                    <li><code>Wandle ihn in Stichpunkte um</code></li>
+                    <li><code>Schreibe ihn als Executive Brief um</code></li>
+                </ul>
 
                 <h4>Präsentationen</h4>
                 <p>Sie können Präsentationen erstellen, indem Sie den Ausgangstext bereitstellen. Paiperwork schätzt die Anzahl der Folien anhand der Inhaltsmenge, sofern Sie keine konkrete Folienzahl angeben.</p>
@@ -3058,6 +3076,19 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> Möchten Sie weitere Änderungen an dieser Mini-App vornehmen?</p>
                 <p><strong>Nutzer:</strong> <code>Nein</code></p>
                 <p><strong>Paiperwork:</strong> Okay, der Artefakt-Änderungsmodus ist geschlossen.</p>
+
+                <h4>Nachverfolgungsmodi und Beendigungsbefehle</h4>
+                <p>Paiperwork behält den Workflow-Kontext pro Telefonnummer bei. Wenn eine Nachverfolgungsfrage erscheint, gehören <code>ja</code>, <code>ja bitte</code> und <code>weiter</code> zu den unterstützten Weiter-Befehlen. Unterstützte Beendigungsbefehle sind <code>nein</code>, <code>nein danke</code> und <code>ich bin fertig</code>. Bei Dokumenten können Sie den Fragemodus außerdem mit <code>dokumentmodus verlassen</code> beenden.</p>
+                <p>Dieselbe Nachverfolgungs-Transformation funktioniert auch nach Dokumentzusammenfassungen, Rechercheberichten und Antworten, die im aktiven Dokument-Fragemodus zurückgegeben wurden.</p>
+                <h5>Interaktionsbeispiel</h5>
+                <p><strong>Nutzer:</strong> <code>&lt;dokumentname&gt; zusammenfassung</code></p>
+                <p><strong>Paiperwork:</strong> Dokumentzusammenfassung bereitgestellt.</p>
+                <p><strong>Paiperwork:</strong> Möchten Sie mit diesem Dokument weiterarbeiten?</p>
+                <p><strong>Nutzer:</strong> <code>Übersetze die Zusammenfassung ins Chinesische</code></p>
+                <p><strong>Paiperwork:</strong> Chinesische Übersetzung der zwischengespeicherten Zusammenfassung bereitgestellt.</p>
+                <p><strong>Paiperwork:</strong> Möchten Sie mit diesem Dokument weiterarbeiten?</p>
+                <p><strong>Nutzer:</strong> <code>Nein</code></p>
+                <p><strong>Paiperwork:</strong> Okay, der Dokument-Nachverfolgungsmodus ist geschlossen.</p>
             `,
             },
             {
