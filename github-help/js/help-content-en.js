@@ -3079,6 +3079,38 @@ window.helpContent = {
                     <li><code>Rewrite it as an executive brief</code></li>
                 </ul>
 
+                <h4>Knowledge Base</h4>
+                <p>You can browse your saved knowledge base from WhatsApp by listing collections, opening one collection, listing its entries, and reading the selected entry. Collection names and entry names do not need to be exact.</p>
+                <ul>
+                    <li><code>Show my knowledge base</code></li>
+                    <li><code>List my knowledge collections</code></li>
+                    <li><code>Open &lt;collection name&gt; collection</code></li>
+                    <li><code>Show &lt;collection name&gt; knowledge collection</code></li>
+                    <li><code>Read &lt;entry name&gt; entry</code></li>
+                    <li><code>Open &lt;entry name&gt; article from &lt;collection name&gt; collection</code></li>
+                </ul>
+                <p>After Paiperwork sends a knowledge entry, the entry stays cached so you can translate it, shorten it, rewrite it, or change its format without reopening the collection.</p>
+                <h5>Paiperwork:User interaction</h5>
+                <p><strong>User:</strong> <code>Show my knowledge base</code></p>
+                <p><strong>Paiperwork:</strong> Here are your knowledge collections.</p>
+                <p><strong>Paiperwork:</strong> Choose a collection by number or name.</p>
+                <p><strong>User:</strong> <code>Open Project Research collection</code></p>
+                <p><strong>Paiperwork:</strong> Here are the entries in <code>Project Research</code>.</p>
+                <p><strong>Paiperwork:</strong> Choose an entry by number or name.</p>
+                <p><strong>User:</strong> <code>Read Battery supply chain entry</code></p>
+                <p><strong>Paiperwork:</strong> Sending knowledge entry from <code>Project Research</code>.</p>
+                <p><strong>Paiperwork:</strong> Entry content delivered in WhatsApp.</p>
+                <p><strong>Paiperwork:</strong> Do you want to keep working with this knowledge entry?</p>
+
+                <h5>Knowledge Entry Follow-up Transformations</h5>
+                <p>After a knowledge entry is delivered, you can keep transforming the cached entry text without browsing the knowledge base again.</p>
+                <ul>
+                    <li><code>Translate the entry to Spanish</code></li>
+                    <li><code>Make it shorter</code></li>
+                    <li><code>Turn it into bullet points</code></li>
+                    <li><code>Rewrite this note more clearly</code></li>
+                </ul>
+
                 <h4>Presentations</h4>
                 <p>You can create presentations by providing the source text. Paiperwork estimates the number of slides from the amount of content unless you explicitly request a slide count.</p>
                 <div class="note"><p><strong>Note:</strong> WhatsApp phone, tablet, and computer apps restrict the execution of code for security reasons, so presentations may not display there. Use WhatsApp Web so you can download them to your computer and view them correctly.</p></div>

@@ -2251,6 +2251,17 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
     content: "Conteúdo",
     markdownFormattingNote: "Você pode usar formatação Markdown.",
     saveEntry: "Salvar Entrada",
+    whatsappKnowledgeCollectionsEmpty: "Nenhuma coleção da Base de Conhecimento está disponível no momento.",
+    whatsappKnowledgeEntriesEmpty: "Esta coleção ainda não contém entradas.",
+    whatsappKnowledgeChooseCollectionPrompt: "Escolha uma das coleções da Base de Conhecimento:",
+    whatsappKnowledgeChooseCollectionTip: "Responda com o número ou o título da coleção para listar as entradas.",
+    whatsappKnowledgeChooseEntryPrompt: "Escolha uma entrada da coleção: {title}",
+    whatsappKnowledgeChooseEntryTip: "Responda com o número ou o título da entrada para abri-la.",
+    whatsappKnowledgeEntrySending: "Abrindo a entrada da Base de Conhecimento: {title}",
+    whatsappKnowledgeEntryFollowUpQuestion: "Você quer continuar modificando esta entrada da Base de Conhecimento?",
+    whatsappKnowledgeEntryFollowUpClosed: "Certo, o modo de acompanhamento da Base de Conhecimento foi encerrado.",
+    whatsappKnowledgeEntryFollowUpContinue: "Diga como você quer modificar esta entrada da Base de Conhecimento.",
+    whatsappKnowledgeEntryNotFoundInCollection: "Não encontrei essa entrada na coleção: {title}",
 
     // Alerts
     pleaseEnterTitle: "Por favor, insira um título para esta entrada.",

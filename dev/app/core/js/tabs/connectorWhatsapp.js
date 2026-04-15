@@ -1,5 +1,5 @@
 const ORCHESTRATOR_SYSTEM_PROMPT = `You are an internal routing assistant for Paiperwork.
-Your job is to decide whether an incoming user message should be handled by the normal chat flow ("chat"), by the chat+websearch flow ("chat+websearch"), by document-check ("document-check"), by the research workflow ("research"), by the promptable SlideForge presentation workflow ("presentation"), or by the Artifacts miniapp workflow ("artifact"). When the input includes active follow-up session context, you should also help rewrite the final engine prompt for that workflow.
+Your job is to decide whether an incoming user message should be handled by the normal chat flow ("chat"), by the chat+websearch flow ("chat+websearch"), by document-check ("document-check"), by the research workflow ("research"), by the promptable SlideForge presentation workflow ("presentation"), by the Artifacts miniapp workflow ("artifact"), or by the Knowledge Base workflow ("knowledge"). When the input includes active follow-up session context, you should also help rewrite the final engine prompt for that workflow.
 
 Instructions:
 - Do NOT produce natural chat replies. Under no circumstances generate conversational text as output.
@@ -146,6 +146,8 @@ class ConnectorWhatsapp {
         this._whatsappPendingDocSelection = {}; // keyed by normalized phone
         this._whatsappPendingPresentationSelection = {}; // keyed by normalized phone
         this._whatsappPendingArtifactSelection = {}; // keyed by normalized phone
+        this._whatsappPendingKnowledgeCollectionSelection = {}; // keyed by normalized phone
+        this._whatsappPendingKnowledgeEntrySelection = {}; // keyed by normalized phone
         this._whatsappRequestSequence = 0;
     }
 
@@ -201,6 +203,8 @@ class ConnectorWhatsapp {
             pendingDocSelection: this._cloneWhatsappQueueValue(this._getPendingDocSelection(normalizedPhone)),
             pendingPresentationSelection: this._cloneWhatsappQueueValue(this._getPendingPresentationSelection(normalizedPhone)),
             pendingArtifactSelection: this._cloneWhatsappQueueValue(this._getPendingArtifactSelection(normalizedPhone)),
+            pendingKnowledgeCollectionSelection: this._cloneWhatsappQueueValue(this._getPendingKnowledgeCollectionSelection(normalizedPhone)),
+            pendingKnowledgeEntrySelection: this._cloneWhatsappQueueValue(this._getPendingKnowledgeEntrySelection(normalizedPhone)),
             activeDocumentScope: this._cloneWhatsappQueueValue(this._getWhatsappActiveDocumentScope(normalizedPhone)),
             capturedAt: new Date().toISOString()
         };
@@ -216,6 +220,8 @@ class ConnectorWhatsapp {
         this._setPendingDocSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingDocSelection || null));
         this._setPendingPresentationSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingPresentationSelection || null));
         this._setPendingArtifactSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingArtifactSelection || null));
+        this._setPendingKnowledgeCollectionSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingKnowledgeCollectionSelection || null));
+        this._setPendingKnowledgeEntrySelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingKnowledgeEntrySelection || null));
 
         const activeDocumentScope = snapshot.activeDocumentScope && snapshot.activeDocumentScope.id
             ? this._cloneWhatsappQueueValue(snapshot.activeDocumentScope)
@@ -258,6 +264,8 @@ class ConnectorWhatsapp {
         Object.keys(this._whatsappPendingDocSelection || {}).forEach(collectPhone);
         Object.keys(this._whatsappPendingPresentationSelection || {}).forEach(collectPhone);
         Object.keys(this._whatsappPendingArtifactSelection || {}).forEach(collectPhone);
+        Object.keys(this._whatsappPendingKnowledgeCollectionSelection || {}).forEach(collectPhone);
+        Object.keys(this._whatsappPendingKnowledgeEntrySelection || {}).forEach(collectPhone);
         Object.keys(window._whatsappOrchestratorContext || {}).forEach(collectPhone);
 
         for (const queuedMsg of this.whatsappIncomingRetryQueue || []) {
@@ -273,12 +281,16 @@ class ConnectorWhatsapp {
             this._clearPendingDocSelection(phone);
             this._clearPendingPresentationSelection(phone);
             this._clearPendingArtifactSelection(phone);
+            this._clearPendingKnowledgeCollectionSelection(phone);
+            this._clearPendingKnowledgeEntrySelection(phone);
             this._exitWhatsappDocumentScope(phone);
         });
 
         this._whatsappPendingDocSelection = {};
         this._whatsappPendingPresentationSelection = {};
         this._whatsappPendingArtifactSelection = {};
+        this._whatsappPendingKnowledgeCollectionSelection = {};
+        this._whatsappPendingKnowledgeEntrySelection = {};
         this.whatsappIncomingRetryQueue = [];
         this._whatsappIncomingProcessing = false;
         this._clearWhatsappPendingReplyContext();
@@ -839,6 +851,44 @@ class ConnectorWhatsapp {
         delete this._whatsappPendingArtifactSelection[key];
     }
 
+    _getPendingKnowledgeCollectionSelection(phone) {
+        const key = String(phone || '').replace(/@.*$/g, '').trim();
+        return this._whatsappPendingKnowledgeCollectionSelection[key] || null;
+    }
+
+    _setPendingKnowledgeCollectionSelection(phone, selectionInfo) {
+        const key = String(phone || '').replace(/@.*$/g, '').trim();
+        if (!selectionInfo) {
+            delete this._whatsappPendingKnowledgeCollectionSelection[key];
+            return;
+        }
+        this._whatsappPendingKnowledgeCollectionSelection[key] = selectionInfo;
+    }
+
+    _clearPendingKnowledgeCollectionSelection(phone) {
+        const key = String(phone || '').replace(/@.*$/g, '').trim();
+        delete this._whatsappPendingKnowledgeCollectionSelection[key];
+    }
+
+    _getPendingKnowledgeEntrySelection(phone) {
+        const key = String(phone || '').replace(/@.*$/g, '').trim();
+        return this._whatsappPendingKnowledgeEntrySelection[key] || null;
+    }
+
+    _setPendingKnowledgeEntrySelection(phone, selectionInfo) {
+        const key = String(phone || '').replace(/@.*$/g, '').trim();
+        if (!selectionInfo) {
+            delete this._whatsappPendingKnowledgeEntrySelection[key];
+            return;
+        }
+        this._whatsappPendingKnowledgeEntrySelection[key] = selectionInfo;
+    }
+
+    _clearPendingKnowledgeEntrySelection(phone) {
+        const key = String(phone || '').replace(/@.*$/g, '').trim();
+        delete this._whatsappPendingKnowledgeEntrySelection[key];
+    }
+
     _isActiveDocumentModeFor(documentId) {
         const activeDocumentId = String(localStorage.getItem('ragQuestioningDocumentId') || '').trim();
         return !!documentId && activeDocumentId === String(documentId).trim();
@@ -1211,6 +1261,58 @@ class ConnectorWhatsapp {
         return this._setWhatsappDocumentSummaryMemory(phone, null, existingPhoneContext);
     }
 
+    _getWhatsappKnowledgeEntryMemory(phoneContext = null) {
+        const memory = phoneContext && typeof phoneContext === 'object' ? phoneContext.knowledgeEntryMemory : null;
+        if (!memory || typeof memory !== 'object') {
+            return null;
+        }
+
+        const sourceText = this._normalizeWhatsappResearchReportText(memory.sourceText || '');
+        if (!sourceText) {
+            return null;
+        }
+
+        return {
+            collectionId: String(memory.collectionId || '').trim(),
+            collectionName: String(memory.collectionName || '').trim(),
+            entryId: String(memory.entryId || '').trim(),
+            entryTitle: String(memory.entryTitle || '').trim(),
+            title: String(memory.title || memory.entryTitle || '').trim(),
+            sourceText,
+            updatedAt: String(memory.updatedAt || '').trim()
+        };
+    }
+
+    async _setWhatsappKnowledgeEntryMemory(phone, entryMemory, existingPhoneContext = null) {
+        const normalizedPhone = String(phone || '').replace(/@.*$/g, '').trim();
+        if (!normalizedPhone) return existingPhoneContext || null;
+
+        const phoneContext = (existingPhoneContext && typeof existingPhoneContext === 'object')
+            ? { ...existingPhoneContext }
+            : ((await this._getWhatsappPhoneContext(normalizedPhone)) || {});
+
+        if (!entryMemory) {
+            delete phoneContext.knowledgeEntryMemory;
+        } else {
+            const normalizedMemory = this._getWhatsappKnowledgeEntryMemory({ knowledgeEntryMemory: entryMemory });
+            if (normalizedMemory) {
+                phoneContext.knowledgeEntryMemory = {
+                    ...normalizedMemory,
+                    updatedAt: new Date().toISOString()
+                };
+            } else {
+                delete phoneContext.knowledgeEntryMemory;
+            }
+        }
+
+        await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
+        return phoneContext;
+    }
+
+    async _clearWhatsappKnowledgeEntryMemory(phone, existingPhoneContext = null) {
+        return this._setWhatsappKnowledgeEntryMemory(phone, null, existingPhoneContext);
+    }
+
     _getWhatsappWorkflowFollowUpKeymapTokens(kind, cueType) {
         const normalizedKind = String(kind || '').trim().toLowerCase();
         if (normalizedKind === 'research') {
@@ -1230,6 +1332,9 @@ class ConnectorWhatsapp {
                 return this._getArtifactKeymapTokens('followUpContinueCues');
             }
         }
+        if (normalizedKind === 'knowledge-entry') {
+            return this._getKnowledgeKeymapTokens(cueType);
+        }
         return [];
     }
 
@@ -1238,6 +1343,7 @@ class ConnectorWhatsapp {
             || this._isSavedArtifactIntent(text)
             || this._isPresentationIntent(text)
             || this._isSavedPresentationIntent(text)
+            || this._isKnowledgeIntent(text)
             || this._isDataVizIntent(text)
             || this._isResearchIntent(text)
             || this._isDocumentSelectionIntent(text)
@@ -1265,6 +1371,7 @@ class ConnectorWhatsapp {
         const toolMap = {
             research: 'research',
             presentation: 'presentation',
+            'knowledge-entry': 'knowledge',
             'document-summary': 'document-check'
         };
         const mappedTool = toolMap[followUpSession.kind];
@@ -1307,6 +1414,10 @@ class ConnectorWhatsapp {
             return 'presentation';
         }
 
+        if (this._isKnowledgeIntent(normalizedText)) {
+            return 'knowledge';
+        }
+
         if (this._isResearchIntent(normalizedText)) {
             return 'research';
         }
@@ -1316,7 +1427,7 @@ class ConnectorWhatsapp {
         }
 
         const normalizedTool = String(orchTool || '').trim().toLowerCase();
-        if (['artifact', 'research', 'presentation', 'document-check', 'dataviz'].includes(normalizedTool)) {
+        if (['artifact', 'research', 'presentation', 'knowledge', 'document-check', 'dataviz'].includes(normalizedTool)) {
             return normalizedTool;
         }
 
@@ -1358,6 +1469,7 @@ class ConnectorWhatsapp {
         const allowedTools = ['chat'];
         if (session.kind === 'research') allowedTools.push('research');
         if (session.kind === 'presentation') allowedTools.push('presentation');
+        if (session.kind === 'knowledge-entry') allowedTools.push('knowledge');
         if (session.kind === 'document-summary') allowedTools.push('document-check');
         if (normalizedTool && !allowedTools.includes(normalizedTool)) {
             return false;
@@ -1387,6 +1499,7 @@ class ConnectorWhatsapp {
         const allowedTools = ['chat'];
         if (session.kind === 'research') allowedTools.push('research');
         if (session.kind === 'presentation') allowedTools.push('presentation');
+        if (session.kind === 'knowledge-entry') allowedTools.push('knowledge');
         if (session.kind === 'document-summary') allowedTools.push('document-check');
         if (normalizedTool && !allowedTools.includes(normalizedTool)) {
             return false;
@@ -1416,6 +1529,7 @@ class ConnectorWhatsapp {
         const allowedTools = ['chat'];
         if (session.kind === 'research') allowedTools.push('research');
         if (session.kind === 'presentation') allowedTools.push('presentation');
+        if (session.kind === 'knowledge-entry') allowedTools.push('knowledge');
         if (session.kind === 'document-summary') allowedTools.push('document-check');
         if (normalizedTool && !allowedTools.includes(normalizedTool)) {
             return false;
@@ -1472,6 +1586,7 @@ class ConnectorWhatsapp {
         const keyMap = {
             research: ['researchFollowUpQuestion', 'Do you want to continue refining this research?'],
             presentation: ['presentationFollowUpQuestion', 'Do you want to make more changes to this presentation?'],
+            'knowledge-entry': ['whatsappKnowledgeEntryFollowUpQuestion', 'Do you want to keep modifying this Knowledge Base entry?'],
             'document-summary': ['ragDocumentSummaryFollowUpQuestion', 'Do you want to keep working with this document?']
         };
         const [key, fallback] = keyMap[kind] || [];
@@ -1492,6 +1607,7 @@ class ConnectorWhatsapp {
         const keyMap = {
             research: ['researchFollowUpClosed', 'Okay, research follow-up mode is closed.'],
             presentation: ['presentationFollowUpClosed', 'Okay, presentation follow-up mode is closed.'],
+            'knowledge-entry': ['whatsappKnowledgeEntryFollowUpClosed', 'Okay, Knowledge Base follow-up mode is closed.'],
             'document-summary': ['ragDocumentSummaryFollowUpClosed', 'Okay, document follow-up mode is closed.']
         };
         const [key, fallback] = keyMap[session && session.kind] || [];
@@ -1556,7 +1672,8 @@ class ConnectorWhatsapp {
         }, phoneContext);
         const keyMap = {
             research: ['researchFollowUpContinue', 'Tell me how you want to refine the research.'],
-            presentation: ['presentationFollowUpContinue', 'Tell me what you want to change in the presentation.']
+            presentation: ['presentationFollowUpContinue', 'Tell me what you want to change in the presentation.'],
+            'knowledge-entry': ['whatsappKnowledgeEntryFollowUpContinue', 'Tell me how you want to modify this Knowledge Base entry.']
         };
         const [key, fallback] = keyMap[session.kind] || [];
         if (key) {
@@ -2147,6 +2264,87 @@ class ConnectorWhatsapp {
             requestText: normalizedRequest,
             sourceText,
             documentName: normalizedDocumentName
+        };
+    }
+
+    _isWhatsappKnowledgeEntryTransformIntent(text, phoneContext = null, orchTool = '') {
+        const rawText = String(text || '').trim();
+        const normalizedText = this._normalizeWhatsappResearchReportText(rawText);
+        const knowledgeEntryMemory = this._getWhatsappKnowledgeEntryMemory(phoneContext);
+        if (!normalizedText || !knowledgeEntryMemory || !knowledgeEntryMemory.sourceText) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'knowledge') {
+            return false;
+        }
+
+        if (this._isArtifactIntent(normalizedText)
+            || this._isSavedArtifactIntent(normalizedText)
+            || this._isPresentationIntent(normalizedText)
+            || this._isSavedPresentationIntent(normalizedText)
+            || this._isKnowledgeIntent(normalizedText)
+            || this._isDataVizIntent(normalizedText)
+            || this._isResearchIntent(normalizedText)
+            || this._isDocumentSelectionIntent(normalizedText)
+            || this._parseWhatsappModelCommand(normalizedText)) {
+            return false;
+        }
+
+        return this._isWhatsappCachedTextTransformRequest(rawText, {
+            documentHint: knowledgeEntryMemory.entryTitle || knowledgeEntryMemory.collectionName || '',
+            allowSummaryIntent: true,
+            allowQuestionIntent: false,
+            allowExactSummaryCommand: true
+        });
+    }
+
+    _composeWhatsappKnowledgeEntryTransformPrompt(requestText, phoneContext = null, language = '') {
+        const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
+        const knowledgeEntryMemory = this._getWhatsappKnowledgeEntryMemory(phoneContext);
+        const sourceText = this._normalizeWhatsappResearchReportText(knowledgeEntryMemory && knowledgeEntryMemory.sourceText ? knowledgeEntryMemory.sourceText : '');
+        const collectionId = String(knowledgeEntryMemory && knowledgeEntryMemory.collectionId ? knowledgeEntryMemory.collectionId : '').trim();
+        const collectionName = String(knowledgeEntryMemory && knowledgeEntryMemory.collectionName ? knowledgeEntryMemory.collectionName : '').trim();
+        const entryId = String(knowledgeEntryMemory && knowledgeEntryMemory.entryId ? knowledgeEntryMemory.entryId : '').trim();
+        const entryTitle = String(knowledgeEntryMemory && (knowledgeEntryMemory.entryTitle || knowledgeEntryMemory.title) ? (knowledgeEntryMemory.entryTitle || knowledgeEntryMemory.title) : '').trim();
+        const normalizedLanguage = String(language || '').trim();
+
+        if (!normalizedRequest || !sourceText) {
+            return {
+                prompt: normalizedRequest,
+                requestText: normalizedRequest,
+                sourceText,
+                collectionId,
+                collectionName,
+                entryId,
+                entryTitle
+            };
+        }
+
+        const prompt = [
+            'Operate only on the cached Knowledge Base entry below.',
+            'Apply the user request to that entry text.',
+            'Do not retrieve other entries and do not add facts that are not present in the cached entry.',
+            normalizedLanguage
+                ? `Preserve the user's locale. If the user did not explicitly request a different target language, reply in ${normalizedLanguage}.`
+                : '',
+            'Return only the transformed entry text in the requested language or format unless the user explicitly asks for commentary.',
+            collectionName ? `Knowledge collection: ${collectionName}` : '',
+            entryTitle ? `Knowledge entry: ${entryTitle}` : '',
+            `User request: ${normalizedRequest}`,
+            'Cached Knowledge Base entry:',
+            sourceText
+        ].filter(Boolean).join('\n\n');
+
+        return {
+            prompt,
+            requestText: normalizedRequest,
+            sourceText,
+            collectionId,
+            collectionName,
+            entryId,
+            entryTitle
         };
     }
 
@@ -3537,6 +3735,31 @@ class ConnectorWhatsapp {
         return hasSavedCue || (hasArtifactNoun && (hasBrowseAction || hasSendAction) && !this._isArtifactIntent(text));
     }
 
+    _isKnowledgeIntent(text) {
+        const normalized = this._normalizeDocumentIntentKeymapText(text);
+        if (!normalized) return false;
+
+        const intentTokens = this._getKnowledgeKeymapTokens('intent');
+        const collectionTokens = this._getKnowledgeKeymapTokens('collectionNouns');
+        const entryTokens = this._getKnowledgeKeymapTokens('entryNouns');
+        const savedTokens = this._getKnowledgeKeymapTokens('savedCues');
+        const browseTokens = this._getKnowledgeKeymapTokens('actions.browse');
+
+        const hasKnowledgeCue = this._textMatchesDocumentKeymapTokens(normalized, [...intentTokens, ...savedTokens]);
+        const hasTargetCue = this._textMatchesDocumentKeymapTokens(normalized, [...collectionTokens, ...entryTokens]);
+        const hasBrowseCue = this._textMatchesDocumentKeymapTokens(normalized, browseTokens);
+
+        if (hasKnowledgeCue && hasBrowseCue) {
+            return true;
+        }
+
+        if (hasTargetCue && hasBrowseCue) {
+            return true;
+        }
+
+        return this._isExactDocumentKeymapCommand(normalized, [...intentTokens, ...savedTokens]);
+    }
+
     _artifactRequestWantsWebSearch(text) {
         if (!text || !window.Keymaps || !window.Keymaps.artifact) return false;
         return this._textMatchesDocumentKeymapTokens(text, this._getArtifactKeymapTokens('webCues'));
@@ -3667,6 +3890,38 @@ class ConnectorWhatsapp {
 
     _getArtifactKeymapTokens(...paths) {
         const keymap = this._getArtifactKeymapConfig();
+        const collected = [];
+
+        for (const path of paths) {
+            const segments = String(path || '').split('.').filter(Boolean);
+            let value = keymap;
+            for (const segment of segments) {
+                value = value && value[segment];
+            }
+            if (Array.isArray(value)) {
+                collected.push(...value);
+            }
+        }
+
+        return [...new Set(collected.map(token => String(token || '').trim()).filter(Boolean))];
+    }
+
+    _getKnowledgeKeymapConfig() {
+        const keymap = window.Keymaps && window.Keymaps.knowledge;
+        return keymap || {
+            intent: [],
+            actions: {},
+            collectionNouns: [],
+            entryNouns: [],
+            savedCues: [],
+            followUpCloseCues: [],
+            followUpContinueCues: [],
+            terms: []
+        };
+    }
+
+    _getKnowledgeKeymapTokens(...paths) {
+        const keymap = this._getKnowledgeKeymapConfig();
         const collected = [];
 
         for (const path of paths) {
@@ -3892,7 +4147,7 @@ class ConnectorWhatsapp {
         const scores = [];
         const hasActiveFollowUp = !!this._getWhatsappDeterministicWorkflowSession(phoneContext);
 
-        for (const tool of ['dataviz', 'artifact', 'presentation', 'research', 'document-check', 'chat+websearch']) {
+        for (const tool of ['dataviz', 'artifact', 'presentation', 'knowledge', 'research', 'document-check', 'chat+websearch']) {
             scores.push(this._scoreWhatsappWorkflowFromRules(tool, normalizedText, {
                 hasActiveFollowUp,
                 ...options
@@ -3928,6 +4183,13 @@ class ConnectorWhatsapp {
             presentationScore.score += 7;
             presentationScore.qualifies = true;
             presentationScore.reasonParts.push('pending_saved_presentation');
+        }
+
+        const knowledgeScore = scores.find(entry => entry.tool === 'knowledge');
+        if (knowledgeScore && (this._getPendingKnowledgeCollectionSelection(options.phone || '') || this._getPendingKnowledgeEntrySelection(options.phone || ''))) {
+            knowledgeScore.score += 7;
+            knowledgeScore.qualifies = true;
+            knowledgeScore.reasonParts.push('pending_knowledge_selection');
         }
 
         const webSearchScore = scores.find(entry => entry.tool === 'chat+websearch');
@@ -5454,6 +5716,336 @@ class ConnectorWhatsapp {
         return false;
     }
 
+    async _getSavedKnowledgeCollectionsForWhatsapp() {
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (!hashedMasterKey || typeof PaiperworkDB === 'undefined' || typeof PaiperworkDB.loadKnowledgeCollections !== 'function') {
+            console.warn('[ConnectorWhatsapp][knowledge] Knowledge Base unavailable', {
+                hasHashedMasterKey: !!hashedMasterKey,
+                hasDbApi: typeof PaiperworkDB !== 'undefined',
+                hasLoadFn: typeof PaiperworkDB !== 'undefined' && typeof PaiperworkDB.loadKnowledgeCollections === 'function'
+            });
+            return [];
+        }
+
+        const collections = await PaiperworkDB.loadKnowledgeCollections(hashedMasterKey);
+        const normalizedCollections = Array.isArray(collections) ? collections : [];
+        return normalizedCollections
+            .filter(collection => collection && collection.id && collection.name)
+            .sort((left, right) => {
+                const leftUpdated = new Date(left && (left.updated || left.created || 0)).getTime() || 0;
+                const rightUpdated = new Date(right && (right.updated || right.created || 0)).getTime() || 0;
+                return rightUpdated - leftUpdated;
+            });
+    }
+
+    _extractKnowledgeSelectionCandidate(input) {
+        const rawInput = this._normalizeWhatsappResearchReportText(input);
+        if (!rawInput) {
+            return '';
+        }
+
+        let candidate = rawInput;
+        const removablePrefixes = [...new Set(this._getKnowledgeKeymapTokens('actions.browse'))]
+            .map(token => String(token || '').trim())
+            .filter(Boolean)
+            .sort((left, right) => right.length - left.length);
+
+        for (const token of removablePrefixes) {
+            const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            candidate = candidate.replace(new RegExp(`^${escapedToken}\\s+`, 'i'), '');
+        }
+
+        candidate = candidate.replace(/^(?:me|the|my|this|that|to\s+me|for\s+me|from)\s+/i, '');
+        candidate = candidate.replace(/^(?:el|la|los|las|mi|mis|para\s+mi|de)\s+/i, '');
+        candidate = candidate.replace(/^(?:o|a|os|as|minha|minhas|meu|meus|para\s+mim|de)\s+/i, '');
+        candidate = candidate.replace(/^(?:le|la|les|ma|mes|moi|pour\s+moi|de)\s+/i, '');
+        candidate = candidate.replace(/^(?:der|die|das|den|dem|mein|meine|meinen|fur\s+mich|für\s+mich|aus)\s+/i, '');
+        candidate = candidate.replace(/^(?:il|lo|la|gli|le|mia|mie|mio|miei|per\s+me|da)\s+/i, '');
+
+        const removableSuffixes = [...new Set([
+            ...this._getKnowledgeKeymapTokens('intent'),
+            ...this._getKnowledgeKeymapTokens('savedCues'),
+            ...this._getKnowledgeKeymapTokens('collectionNouns'),
+            ...this._getKnowledgeKeymapTokens('entryNouns')
+        ])]
+            .map(token => String(token || '').trim())
+            .filter(Boolean)
+            .sort((left, right) => right.length - left.length);
+
+        for (const token of removableSuffixes) {
+            const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            candidate = candidate.replace(new RegExp(`\\s+${escapedToken}$`, 'i'), '');
+        }
+
+        candidate = candidate.replace(/^[-:,.\s]+|[-:,.\s]+$/g, '').trim();
+        return candidate || rawInput;
+    }
+
+    _extractKnowledgeDirectSelectionCandidates(input) {
+        const rawInput = this._normalizeWhatsappResearchReportText(input);
+        if (!rawInput) {
+            return { collectionCandidate: '', entryCandidate: '' };
+        }
+
+        const stripWrapper = (value) => String(value || '').trim().replace(/^['"“”‘’]+|['"“”‘’]+$/g, '').trim();
+        const entryPattern = /(?:^|\s)(?:entry|entries|note|notes|article|articles|entrada|entradas|entree|entrees|entrée|entrées|eintrag|eintrage|einträge|voce|voci|запись|записи|条目|エントリ|항목)\s+([^\n]+?)(?:(?:\s+(?:from|in|of|de|da|do|du|des|dans|aus|di|del|della|na|no|en)\s+(?:collection|collections|coleccion|colección|colecao|coleção|colecoes|coleções|sammlung|sammlungen|collezione|collezioni|коллекци(?:я|и)|集合|コレクション|컬렉션)\s+([^\n]+))|$)/i;
+        const collectionPattern = /(?:^|\s)(?:collection|collections|coleccion|colección|colecao|coleção|colecoes|coleções|sammlung|sammlungen|collezione|collezioni|коллекци(?:я|и)|集合|コレクション|컬렉션)\s+([^\n]+)$/i;
+
+        const entryMatch = rawInput.match(entryPattern);
+        const entryCandidate = stripWrapper(entryMatch && entryMatch[1] ? entryMatch[1] : '');
+        const collectionCandidateFromEntry = stripWrapper(entryMatch && entryMatch[2] ? entryMatch[2] : '');
+        const collectionMatch = rawInput.match(collectionPattern);
+        const collectionCandidate = collectionCandidateFromEntry || stripWrapper(collectionMatch && collectionMatch[1] ? collectionMatch[1] : '');
+
+        return {
+            collectionCandidate: this._extractKnowledgeSelectionCandidate(collectionCandidate),
+            entryCandidate: this._extractKnowledgeSelectionCandidate(entryCandidate)
+        };
+    }
+
+    _matchKnowledgeCollectionSelection(input, collections = []) {
+        const rawInput = String(input || '').trim();
+        if (!rawInput || !Array.isArray(collections) || collections.length === 0) {
+            return null;
+        }
+
+        const selectionCandidate = this._extractKnowledgeSelectionCandidate(rawInput);
+        const numericChoice = Number(selectionCandidate);
+        if (!Number.isNaN(numericChoice) && Number.isFinite(numericChoice) && numericChoice >= 1 && numericChoice <= collections.length) {
+            return collections[numericChoice - 1];
+        }
+
+        const normalize = (value) => this._normalizeDocumentIntentKeymapText(value);
+        const compact = (value) => normalize(value).replace(/\s+/g, '');
+        const normalizedInput = normalize(selectionCandidate);
+        const compactInput = compact(selectionCandidate);
+        if (!normalizedInput) {
+            return null;
+        }
+
+        let match = collections.find(item => normalize(item.name || '') === normalizedInput);
+        if (!match) {
+            match = collections.find(item => {
+                const normalizedName = normalize(item.name || '');
+                const compactName = compact(item.name || '');
+                return normalizedName.includes(normalizedInput)
+                    || (compactInput && compactName.includes(compactInput));
+            });
+        }
+
+        return match || null;
+    }
+
+    _matchKnowledgeEntrySelection(input, entries = []) {
+        const rawInput = String(input || '').trim();
+        if (!rawInput || !Array.isArray(entries) || entries.length === 0) {
+            return null;
+        }
+
+        const selectionCandidate = this._extractKnowledgeSelectionCandidate(rawInput);
+        const numericChoice = Number(selectionCandidate);
+        if (!Number.isNaN(numericChoice) && Number.isFinite(numericChoice) && numericChoice >= 1 && numericChoice <= entries.length) {
+            return entries[numericChoice - 1];
+        }
+
+        const normalize = (value) => this._normalizeDocumentIntentKeymapText(value);
+        const compact = (value) => normalize(value).replace(/\s+/g, '');
+        const normalizedInput = normalize(selectionCandidate);
+        const compactInput = compact(selectionCandidate);
+        if (!normalizedInput) {
+            return null;
+        }
+
+        let match = entries.find(item => normalize(item.title || '') === normalizedInput);
+        if (!match) {
+            match = entries.find(item => {
+                const normalizedTitle = normalize(item.title || '');
+                const compactTitle = compact(item.title || '');
+                return normalizedTitle.includes(normalizedInput)
+                    || (compactInput && compactTitle.includes(compactInput));
+            });
+        }
+
+        return match || null;
+    }
+
+    async _sendWhatsappKnowledgeEntryToWhatsapp(phone, collection, entry, language = null, existingPhoneContext = null) {
+        if (!phone || !collection || !entry) {
+            return false;
+        }
+
+        const collectionName = String(collection.name || '').trim() || 'Knowledge Collection';
+        const entryTitle = String(entry.title || '').trim() || 'Knowledge Entry';
+        const entryContent = this._normalizeWhatsappResearchReportText(entry.content || '');
+        if (!entryContent) {
+            return false;
+        }
+
+        const introText = await this._getLocalizedLangText(
+            language,
+            'whatsappKnowledgeEntrySending',
+            'Opening Knowledge Base entry: {title}',
+            { title: entryTitle }
+        );
+        await this.postWhatsappText(phone, `🤖 ${introText}`);
+
+        const chunks = this._splitWhatsappTextIntoChunks(entryContent, 1500);
+        if (!chunks.length) {
+            return false;
+        }
+
+        for (let index = 0; index < chunks.length; index += 1) {
+            const prefix = index === 0
+                ? `🤖 ${collectionName} / ${entryTitle}\n\n`
+                : '';
+            await this.postWhatsappText(phone, prefix + chunks[index]);
+        }
+
+        let phoneContext = existingPhoneContext;
+        phoneContext = (await this._setWhatsappKnowledgeEntryMemory(phone, {
+            collectionId: collection.id || '',
+            collectionName,
+            entryId: entry.id || '',
+            entryTitle,
+            title: entryTitle,
+            sourceText: entryContent
+        }, phoneContext)) || phoneContext;
+
+        phoneContext = (await this._setWhatsappFollowUpSession(phone, {
+            kind: 'knowledge-entry',
+            active: true,
+            awaitingFollowUpConfirmation: true,
+            basePrompt: entryContent,
+            currentPrompt: entryContent,
+            sourceText: entryContent,
+            refinements: [],
+            title: entryTitle,
+            documentId: entry.id || '',
+            documentName: collectionName
+        }, phoneContext)) || phoneContext;
+
+        await this._sendWhatsappFollowUpSessionQuestion(phone, 'knowledge-entry', language);
+        return true;
+    }
+
+    async _handleWhatsappKnowledgeBase(phone, requestText, language = null, phoneContext = null) {
+        const botPrefix = '🤖 ';
+        const collections = await this._getSavedKnowledgeCollectionsForWhatsapp();
+        const pendingCollectionSelection = this._getPendingKnowledgeCollectionSelection(phone);
+        const pendingEntrySelection = this._getPendingKnowledgeEntrySelection(phone);
+        const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
+        const directSelection = this._extractKnowledgeDirectSelectionCandidates(normalizedRequest);
+
+        if (!collections.length) {
+            this._clearPendingKnowledgeCollectionSelection(phone);
+            this._clearPendingKnowledgeEntrySelection(phone);
+            const emptyText = await this._getLocalizedLangText(
+                language,
+                'whatsappKnowledgeCollectionsEmpty',
+                'No Knowledge Base collections are currently available.'
+            );
+            await this.postWhatsappText(phone, `${botPrefix}${emptyText}`);
+            return { continueToChat: false };
+        }
+
+        if (pendingEntrySelection && Array.isArray(pendingEntrySelection.items) && pendingEntrySelection.items.length) {
+            const matchedEntry = this._matchKnowledgeEntrySelection(normalizedRequest, pendingEntrySelection.items);
+            if (matchedEntry) {
+                const matchedCollection = collections.find(item => item.id === pendingEntrySelection.collectionId) || {
+                    id: pendingEntrySelection.collectionId,
+                    name: pendingEntrySelection.collectionName,
+                    entries: pendingEntrySelection.items
+                };
+                await this._sendWhatsappKnowledgeEntryToWhatsapp(phone, matchedCollection, matchedEntry, language, phoneContext);
+                return { continueToChat: false };
+            }
+        }
+
+        if (directSelection.collectionCandidate && directSelection.entryCandidate) {
+            const directCollection = this._matchKnowledgeCollectionSelection(directSelection.collectionCandidate, collections);
+            if (directCollection) {
+                const directEntries = Array.isArray(directCollection.entries) ? directCollection.entries : [];
+                const directEntry = this._matchKnowledgeEntrySelection(directSelection.entryCandidate, directEntries);
+                if (directEntry) {
+                    await this._sendWhatsappKnowledgeEntryToWhatsapp(phone, directCollection, directEntry, language, phoneContext);
+                    return { continueToChat: false };
+                }
+
+                const notFoundText = await this._getLocalizedLangText(
+                    language,
+                    'whatsappKnowledgeEntryNotFoundInCollection',
+                    'I could not find that entry in collection: {title}',
+                    { title: directCollection.name || 'Knowledge Collection' }
+                );
+                await this.postWhatsappText(phone, `${botPrefix}${notFoundText}`);
+                return { continueToChat: false };
+            }
+        }
+
+        const collectionCandidatePool = Array.isArray(pendingCollectionSelection && pendingCollectionSelection.items) && pendingCollectionSelection.items.length
+            ? pendingCollectionSelection.items
+            : collections;
+        const matchedCollection = this._matchKnowledgeCollectionSelection(normalizedRequest, collectionCandidatePool);
+        if (matchedCollection) {
+            const entries = Array.isArray(matchedCollection.entries) ? matchedCollection.entries : [];
+            const listItems = entries.slice(0, 12);
+            this._setPendingKnowledgeCollectionSelection(phone, { items: collectionCandidatePool });
+            this._setPendingKnowledgeEntrySelection(phone, {
+                collectionId: matchedCollection.id,
+                collectionName: matchedCollection.name,
+                items: listItems
+            });
+
+            if (!listItems.length) {
+                const emptyEntriesText = await this._getLocalizedLangText(
+                    language,
+                    'whatsappKnowledgeEntriesEmpty',
+                    'This collection does not contain any entries yet.'
+                );
+                await this.postWhatsappText(phone, `${botPrefix}${emptyEntriesText}`);
+                return { continueToChat: false };
+            }
+
+            const promptText = await this._getLocalizedLangText(
+                language,
+                'whatsappKnowledgeChooseEntryPrompt',
+                'Choose an entry from collection: {title}',
+                { title: matchedCollection.name || 'Knowledge Collection' }
+            );
+            const tipText = await this._getLocalizedLangText(
+                language,
+                'whatsappKnowledgeChooseEntryTip',
+                'Reply with the entry number or title to open it.'
+            );
+            const names = listItems.map((item, index) => `${index + 1}. ${item.title || 'Entry'}`).join('\n');
+            await this.postWhatsappText(phone, `${botPrefix}${promptText}\n${names}\n${tipText}`);
+            return { continueToChat: false };
+        }
+
+        const shouldListCollections = this._isKnowledgeIntent(normalizedRequest) || !!pendingCollectionSelection || !!pendingEntrySelection;
+        if (shouldListCollections) {
+            const listItems = collections.slice(0, 12);
+            this._setPendingKnowledgeCollectionSelection(phone, { items: listItems });
+            this._clearPendingKnowledgeEntrySelection(phone);
+
+            const promptText = await this._getLocalizedLangText(
+                language,
+                'whatsappKnowledgeChooseCollectionPrompt',
+                'Choose one of the Knowledge Base collections:'
+            );
+            const tipText = await this._getLocalizedLangText(
+                language,
+                'whatsappKnowledgeChooseCollectionTip',
+                'Reply with the collection number or title to list its entries.'
+            );
+            const names = listItems.map((item, index) => `${index + 1}. ${item.name || 'Collection'}`).join('\n');
+            await this.postWhatsappText(phone, `${botPrefix}${promptText}\n${names}\n${tipText}`);
+            return { continueToChat: false };
+        }
+
+        return { continueToChat: true };
+    }
+
     async _waitForWhatsappUi(checkFn, timeoutMs = 5000, intervalMs = 50) {
         const timeoutAt = Date.now() + timeoutMs;
         while (Date.now() < timeoutAt) {
@@ -6720,6 +7312,8 @@ class ConnectorWhatsapp {
                         toolNormalized = 'artifact';
                     } else if (toolRaw.includes('presentation') || toolRaw.includes('slideforge') || toolRaw.includes('slide deck') || toolRaw.includes('slides') || toolRaw.includes('deck')) {
                         toolNormalized = 'presentation';
+                    } else if (toolRaw.includes('knowledge') || toolRaw.includes('knowledge base') || toolRaw === 'kb') {
+                        toolNormalized = 'knowledge';
                     } else if (toolRaw.includes('dataviz') || toolRaw.includes('visualization') || toolRaw.includes('graph') || toolRaw.includes('chart')) {
                         toolNormalized = 'dataviz';
                     } else if (toolRaw.includes('web') || toolRaw.includes('search')) {
@@ -7618,6 +8212,7 @@ class ConnectorWhatsapp {
             let artifactFollowUpIntent = this._isWhatsappArtifactFollowUpIntent(routingIntentText || userText, phoneContext, orchTool);
             let researchFollowUpIntent = this._isWhatsappResearchFollowUpIntent(routingIntentText || userText, phoneContext, orchTool);
             let presentationFollowUpIntent = this._isWhatsappPresentationFollowUpIntent(routingIntentText || userText, phoneContext, orchTool);
+            let knowledgeEntryTransformIntent = this._isWhatsappKnowledgeEntryTransformIntent(routingIntentText || userText, phoneContext, orchTool);
             let documentSummaryFollowUpIntent = !explicitDocumentSwitch
                 && this._isWhatsappDocumentSummaryQuestionIntent(routingIntentText || userText, phoneContext, orchTool);
 
@@ -7659,6 +8254,7 @@ class ConnectorWhatsapp {
                 artifactFollowUpIntent,
                 researchFollowUpIntent,
                 presentationFollowUpIntent,
+                knowledgeEntryTransformIntent,
                 documentSummaryFollowUpIntent,
                 regenerateRequested: !!(regenerateState && regenerateState.requested)
             });
@@ -7723,6 +8319,8 @@ class ConnectorWhatsapp {
                     orchTool = 'research';
                 } else if (activeFollowUpSession && activeFollowUpSession.kind === 'presentation') {
                     orchTool = 'presentation';
+                } else if (activeFollowUpSession && activeFollowUpSession.kind === 'knowledge-entry') {
+                    orchTool = 'knowledge';
                 } else if (activeFollowUpSession && activeFollowUpSession.kind === 'document-summary') {
                     orchTool = 'document-check';
                 }
@@ -7771,6 +8369,15 @@ class ConnectorWhatsapp {
                                 awaitingFollowUpConfirmation: false
                             }, phoneContext)) || phoneContext;
                         }
+                    } else if (retainedSession.kind === 'knowledge-entry') {
+                        knowledgeEntryTransformIntent = true;
+                        if (retainedSession.awaitingFollowUpConfirmation) {
+                            phoneContext = (await this._setWhatsappFollowUpSession(normalizedPhone, {
+                                ...(retainedSession.session || {}),
+                                active: true,
+                                awaitingFollowUpConfirmation: false
+                            }, phoneContext)) || phoneContext;
+                        }
                     } else if (retainedSession.kind === 'document-summary' && !explicitDocumentSwitch) {
                         documentSummaryFollowUpIntent = true;
                     }
@@ -7790,13 +8397,16 @@ class ConnectorWhatsapp {
             const shouldBypassModelCommand = orchTool === 'artifact'
                 || orchTool === 'research'
                 || orchTool === 'presentation'
+                || orchTool === 'knowledge'
                 || orchTool === 'document-check'
                 || orchTool === 'dataviz'
                 || this._isArtifactIntent(routingIntentText)
                 || this._isSavedArtifactIntent(routingIntentText)
+                || this._isKnowledgeIntent(routingIntentText)
                 || artifactFollowUpIntent
                 || researchFollowUpIntent
                 || presentationFollowUpIntent
+                || knowledgeEntryTransformIntent
                 || documentSummaryFollowUpIntent;
 
             if (!shouldBypassModelCommand) {
@@ -7839,6 +8449,7 @@ class ConnectorWhatsapp {
             const followUpToolMap = {
                 research: 'research',
                 presentation: 'presentation',
+                'knowledge-entry': 'knowledge',
                 'document-summary': 'document-check'
             };
             if (activeFollowUpSession && followUpToolMap[activeFollowUpSession.kind] !== orchTool) {
@@ -7858,7 +8469,7 @@ class ConnectorWhatsapp {
                     await this._ensureWhatsappWebSearchMode(true);
                     shouldResetWebSearchMode = true;
                 } else {
-                    // For chat, document-check, research, dataviz, presentation we keep websearch off.
+                    // For chat, document-check, research, dataviz, presentation, knowledge we keep websearch off.
                     await this._ensureWhatsappWebSearchMode(false);
                 }
             } catch (err) {
@@ -7911,6 +8522,38 @@ class ConnectorWhatsapp {
                     allowDocumentSummaryMemoryFollowUp
                 });
                 return;
+            }
+
+            if (knowledgeEntryTransformIntent) {
+                orchTool = 'knowledge';
+                const transformPrompt = this._composeWhatsappKnowledgeEntryTransformPrompt(userText, phoneContext, resolvedLanguage);
+                if (transformPrompt && transformPrompt.prompt) {
+                    msg.body = transformPrompt.prompt;
+                    msg.orchestrator = Object.assign({}, msg.orchestrator, {
+                        tool: 'knowledge',
+                        mergedPrompt: transformPrompt.prompt
+                    });
+                    msg.__whatsappDisplayUserText = transformPrompt.requestText || userText;
+                    msg.__whatsappKnowledgeTransform = {
+                        phone: normalizedPhone,
+                        collectionId: transformPrompt.collectionId,
+                        collectionName: transformPrompt.collectionName,
+                        entryId: transformPrompt.entryId,
+                        entryTitle: transformPrompt.entryTitle,
+                        requestText: transformPrompt.requestText
+                    };
+                    if (requestScope) {
+                        requestScope.knowledgeTransform = { ...msg.__whatsappKnowledgeTransform };
+                    }
+                }
+            }
+
+            if (orchTool === 'knowledge') {
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                const knowledgeResult = await this._handleWhatsappKnowledgeBase(normalizedPhone, userText, resolvedLanguage, phoneContext);
+                if (!knowledgeResult || !knowledgeResult.continueToChat) {
+                    return;
+                }
             }
 
             const isDocumentIntent = this._isDocumentSelectionIntent(routingIntentText) || this._isSummaryIntent(routingIntentText);
@@ -8476,10 +9119,11 @@ class ConnectorWhatsapp {
                 await new Promise(r => setTimeout(r, 180));
             }
 
-            if (requestScope && (requestScope.documentSummaryTransform || requestScope.researchTransform)) {
+            if (requestScope && (requestScope.documentSummaryTransform || requestScope.researchTransform || requestScope.knowledgeTransform)) {
                 const normalizedPhone = String(
                     (requestScope.documentSummaryTransform && requestScope.documentSummaryTransform.phone)
                     || (requestScope.researchTransform && requestScope.researchTransform.phone)
+                    || (requestScope.knowledgeTransform && requestScope.knowledgeTransform.phone)
                     || requestScope.phone
                     || ''
                 ).replace(/@.*$/g, '').trim();
@@ -8540,6 +9184,40 @@ class ConnectorWhatsapp {
                             title: requestScope.researchTransform.title || '',
                             reportLength: transformedSummaryText.length,
                             requestText: requestScope.researchTransform.requestText || ''
+                        });
+                    }
+
+                    if (requestScope.knowledgeTransform) {
+                        const existingKnowledgeMemory = this._getWhatsappKnowledgeEntryMemory(phoneContext);
+                        phoneContext = (await this._setWhatsappKnowledgeEntryMemory(normalizedPhone, {
+                            collectionId: requestScope.knowledgeTransform.collectionId || existingKnowledgeMemory?.collectionId || '',
+                            collectionName: requestScope.knowledgeTransform.collectionName || existingKnowledgeMemory?.collectionName || '',
+                            entryId: requestScope.knowledgeTransform.entryId || existingKnowledgeMemory?.entryId || '',
+                            entryTitle: requestScope.knowledgeTransform.entryTitle || existingKnowledgeMemory?.entryTitle || '',
+                            title: requestScope.knowledgeTransform.entryTitle || existingKnowledgeMemory?.title || '',
+                            sourceText: transformedSummaryText
+                        }, phoneContext)) || phoneContext;
+
+                        const followUpSession = this._getWhatsappFollowUpSession(phoneContext);
+                        if (followUpSession && followUpSession.kind === 'knowledge-entry') {
+                            await this._setWhatsappFollowUpSession(normalizedPhone, {
+                                ...followUpSession,
+                                active: true,
+                                awaitingFollowUpConfirmation: true,
+                                sourceText: transformedSummaryText,
+                                currentPrompt: transformedSummaryText,
+                                title: requestScope.knowledgeTransform.entryTitle || followUpSession.title,
+                                documentId: requestScope.knowledgeTransform.entryId || followUpSession.documentId,
+                                documentName: requestScope.knowledgeTransform.collectionName || followUpSession.documentName
+                            }, phoneContext);
+                        }
+
+                        console.info('[ConnectorWhatsapp][knowledge] Cached transformed Knowledge Base entry for follow-up reuse', {
+                            phone: normalizedPhone,
+                            collectionId: requestScope.knowledgeTransform.collectionId || existingKnowledgeMemory?.collectionId || '',
+                            entryId: requestScope.knowledgeTransform.entryId || existingKnowledgeMemory?.entryId || '',
+                            entryLength: transformedSummaryText.length,
+                            requestText: requestScope.knowledgeTransform.requestText || ''
                         });
                     }
                 }

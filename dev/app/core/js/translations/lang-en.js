@@ -1899,6 +1899,17 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         markdownFormattingNote: "You can use Markdown formatting.",
         cancelButton: "Cancel",
         saveEntry: "Save Entry",
+        whatsappKnowledgeCollectionsEmpty: "No Knowledge Base collections are currently available.",
+        whatsappKnowledgeEntriesEmpty: "This collection does not contain any entries yet.",
+        whatsappKnowledgeChooseCollectionPrompt: "Choose one of the Knowledge Base collections:",
+        whatsappKnowledgeChooseCollectionTip: "Reply with the collection number or title to list its entries.",
+        whatsappKnowledgeChooseEntryPrompt: "Choose an entry from collection: {title}",
+        whatsappKnowledgeChooseEntryTip: "Reply with the entry number or title to open it.",
+        whatsappKnowledgeEntrySending: "Opening Knowledge Base entry: {title}",
+        whatsappKnowledgeEntryFollowUpQuestion: "Do you want to keep modifying this Knowledge Base entry?",
+        whatsappKnowledgeEntryFollowUpClosed: "Okay, Knowledge Base follow-up mode is closed.",
+        whatsappKnowledgeEntryFollowUpContinue: "Tell me how you want to modify this Knowledge Base entry.",
+        whatsappKnowledgeEntryNotFoundInCollection: "I could not find that entry in collection: {title}",
 
         // Alerts
         researchProcessAlreadyRunning: "A research process is already running. Please wait.",

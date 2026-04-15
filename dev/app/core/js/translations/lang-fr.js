@@ -1883,6 +1883,17 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         markdownFormattingNote: "Vous pouvez utiliser le formatage Markdown.",
         cancelButton: "Annuler",
         saveEntry: "Sauvegarder l'Entrée",
+        whatsappKnowledgeCollectionsEmpty: "Aucune collection de la base de connaissances n'est disponible actuellement.",
+        whatsappKnowledgeEntriesEmpty: "Cette collection ne contient encore aucune entrée.",
+        whatsappKnowledgeChooseCollectionPrompt: "Choisissez l'une des collections de la base de connaissances :",
+        whatsappKnowledgeChooseCollectionTip: "Répondez avec le numéro ou le titre de la collection pour afficher ses entrées.",
+        whatsappKnowledgeChooseEntryPrompt: "Choisissez une entrée de la collection : {title}",
+        whatsappKnowledgeChooseEntryTip: "Répondez avec le numéro ou le titre de l'entrée pour l'ouvrir.",
+        whatsappKnowledgeEntrySending: "Ouverture de l'entrée de la base de connaissances : {title}",
+        whatsappKnowledgeEntryFollowUpQuestion: "Voulez-vous continuer à modifier cette entrée de la base de connaissances ?",
+        whatsappKnowledgeEntryFollowUpClosed: "D'accord, le mode de suivi de la base de connaissances est fermé.",
+        whatsappKnowledgeEntryFollowUpContinue: "Dites-moi comment vous voulez modifier cette entrée de la base de connaissances.",
+        whatsappKnowledgeEntryNotFoundInCollection: "Je n'ai pas trouvé cette entrée dans la collection : {title}",
 
         // Alerts
         researchProcessAlreadyRunning: "Un processus de recherche est déjà en cours. Veuillez patienter.",

@@ -3035,6 +3035,38 @@ window.helpContent = {
                     <li><code>Réécris-le comme note exécutive</code></li>
                 </ul>
 
+                <h4>Base de connaissances</h4>
+                <p>Vous pouvez parcourir votre base de connaissances enregistrée depuis WhatsApp en listant les collections, en ouvrant une collection, en listant ses entrées et en lisant l'entrée sélectionnée. Les noms des collections et des entrées n'ont pas besoin d'être exacts.</p>
+                <ul>
+                    <li><code>Afficher ma base de connaissances</code></li>
+                    <li><code>Lister mes collections de connaissances</code></li>
+                    <li><code>Ouvrir la collection &lt;nom de la collection&gt;</code></li>
+                    <li><code>Afficher la collection de connaissances &lt;nom de la collection&gt;</code></li>
+                    <li><code>Lire l'entrée &lt;nom de l'entrée&gt;</code></li>
+                    <li><code>Ouvrir l'article &lt;nom de l'entrée&gt; de la collection &lt;nom de la collection&gt;</code></li>
+                </ul>
+                <p>Après que Paiperwork a envoyé une entrée de connaissance, cette entrée reste en mémoire afin que vous puissiez la traduire, la raccourcir, la réécrire ou changer son format sans rouvrir la collection.</p>
+                <h5>Paiperwork:Interaction utilisateur</h5>
+                <p><strong>Utilisateur :</strong> <code>Afficher ma base de connaissances</code></p>
+                <p><strong>Paiperwork :</strong> Voici vos collections de connaissances.</p>
+                <p><strong>Paiperwork :</strong> Choisissez une collection par numéro ou par nom.</p>
+                <p><strong>Utilisateur :</strong> <code>Ouvrir la collection Project Research</code></p>
+                <p><strong>Paiperwork :</strong> Voici les entrées de <code>Project Research</code>.</p>
+                <p><strong>Paiperwork :</strong> Choisissez une entrée par numéro ou par nom.</p>
+                <p><strong>Utilisateur :</strong> <code>Lire l'entrée Battery supply chain</code></p>
+                <p><strong>Paiperwork :</strong> Envoi de l'entrée de connaissance depuis <code>Project Research</code>.</p>
+                <p><strong>Paiperwork :</strong> Contenu de l'entrée livré dans WhatsApp.</p>
+                <p><strong>Paiperwork :</strong> Voulez-vous continuer à travailler avec cette entrée de connaissance ?</p>
+
+                <h5>Transformations de suivi des entrées de connaissance</h5>
+                <p>Après la livraison d'une entrée de connaissance, vous pouvez continuer à transformer le texte mis en mémoire sans repartir parcourir la base de connaissances.</p>
+                <ul>
+                    <li><code>Traduis l'entrée en espagnol</code></li>
+                    <li><code>Raccourcis-la</code></li>
+                    <li><code>Transforme-la en points</code></li>
+                    <li><code>Réécris cette note plus clairement</code></li>
+                </ul>
+
                 <h4>Présentations</h4>
                 <p>Vous pouvez créer des présentations en fournissant le texte source. Paiperwork estime le nombre de diapositives à partir de la quantité de contenu, sauf si vous indiquez explicitement un nombre de diapositives.</p>
                 <div class="note"><p><strong>Remarque :</strong> Les applications WhatsApp sur téléphone, tablette et ordinateur limitent l'exécution de code pour des raisons de sécurité ; les présentations risquent donc de ne pas s'y afficher. Utilisez WhatsApp Web afin de pouvoir les télécharger sur votre ordinateur et les voir correctement.</p></div>

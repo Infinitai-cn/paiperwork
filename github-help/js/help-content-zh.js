@@ -3044,6 +3044,38 @@ window.helpContent = {
                     <li><code>把它改写成执行摘要</code></li>
                 </ul>
 
+                <h4>知识库</h4>
+                <p>您可以通过 WhatsApp 浏览已保存的知识库，先列出知识集合，再打开一个集合，列出其中的知识条目，然后阅读所选条目。集合名称和条目名称不需要完全精确。</p>
+                <ul>
+                    <li><code>显示 我的知识库</code></li>
+                    <li><code>列出 我的知识集合</code></li>
+                    <li><code>打开 &lt;集合名称&gt; 集合</code></li>
+                    <li><code>显示 &lt;集合名称&gt; 知识集合</code></li>
+                    <li><code>阅读 &lt;条目名称&gt; 条目</code></li>
+                    <li><code>打开 &lt;条目名称&gt; 文章 从 &lt;集合名称&gt; 集合</code></li>
+                </ul>
+                <p>当 Paiperwork 发送某个知识条目后，该条目会保留在缓存中，您可以继续翻译、缩短、改写或改变格式，而不需要重新打开该集合。</p>
+                <h5>Paiperwork:用户交互</h5>
+                <p><strong>用户：</strong><code>显示 我的知识库</code></p>
+                <p><strong>Paiperwork：</strong>以下是您的知识集合。</p>
+                <p><strong>Paiperwork：</strong>请按编号或名称选择一个集合。</p>
+                <p><strong>用户：</strong><code>打开 Project Research 集合</code></p>
+                <p><strong>Paiperwork：</strong>以下是 <code>Project Research</code> 中的知识条目。</p>
+                <p><strong>Paiperwork：</strong>请按编号或名称选择一个条目。</p>
+                <p><strong>用户：</strong><code>阅读 Battery supply chain 条目</code></p>
+                <p><strong>Paiperwork：</strong>正在发送来自 <code>Project Research</code> 的知识条目。</p>
+                <p><strong>Paiperwork：</strong>条目内容已在 WhatsApp 中发送。</p>
+                <p><strong>Paiperwork：</strong>您想继续处理这个知识条目吗？</p>
+
+                <h5>知识条目的后续转换</h5>
+                <p>知识条目发送完成后，您可以继续基于已缓存的条目文本进行转换，而不需要再次浏览知识库。</p>
+                <ul>
+                    <li><code>把条目翻译成西班牙语</code></li>
+                    <li><code>把它缩短一点</code></li>
+                    <li><code>把它改成要点列表</code></li>
+                    <li><code>把这条笔记改写得更清楚</code></li>
+                </ul>
+
                 <h4>演示文稿</h4>
                 <p>您可以通过提供源文本来创建演示文稿。除非您明确指定页数，否则 Paiperwork 会根据内容量估算幻灯片数量。</p>
                 <div class="note"><p><strong>注意：</strong>WhatsApp 的手机、平板和电脑应用出于安全原因会限制代码执行，因此演示文稿可能无法在这些应用中正常显示。请使用 WhatsApp Web，将其下载到您的电脑后再正确查看。</p></div>
