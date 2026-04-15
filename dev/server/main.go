@@ -4492,6 +4492,7 @@ func whatsappIncomingWebhookHandler(w http.ResponseWriter, r *http.Request) {
 			Body      string   `json:"body"`
 			IsFromMe  bool     `json:"is_from_me"`
 			Mentions  []string `json:"mentions"`
+			IsReplay  bool     `json:"is_replay_or_historical"`
 		} `json:"payload"`
 	}
 
@@ -4503,6 +4504,12 @@ func whatsappIncomingWebhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	if wrapper.Event != "message" || strings.TrimSpace(wrapper.Payload.Body) == "" {
 		log.Printf("whatsappIncomingWebhook: ignored non-text or non-message event=%s body_present=%v", wrapper.Event, strings.TrimSpace(wrapper.Payload.Body) != "")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if wrapper.Payload.IsReplay {
+		log.Printf("whatsappIncomingWebhook: ignored replay/history message device=%s chat=%s from=%s", maskPhoneForLog(wrapper.DeviceID), maskPhoneForLog(wrapper.Payload.ChatID), maskPhoneForLog(wrapper.Payload.From))
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
