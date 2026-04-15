@@ -1878,6 +1878,17 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 markdownFormattingNote: "您可以使用Markdown格式。",
                 cancelButton: "取消",
                 saveEntry: "保存条目",
+                whatsappKnowledgeCollectionsEmpty: "当前没有可用的知识库集合。",
+                whatsappKnowledgeEntriesEmpty: "此集合中还没有任何条目。",
+                whatsappKnowledgeChooseCollectionPrompt: "请选择一个知识库集合：",
+                whatsappKnowledgeChooseCollectionTip: "回复集合编号或标题以查看其条目。",
+                whatsappKnowledgeChooseEntryPrompt: "请选择集合中的一个条目：{title}",
+                whatsappKnowledgeChooseEntryTip: "回复条目编号或标题以打开它。",
+                whatsappKnowledgeEntrySending: "正在打开知识库条目：{title}",
+                whatsappKnowledgeEntryFollowUpQuestion: "您想继续修改这条知识库条目吗？",
+                whatsappKnowledgeEntryFollowUpClosed: "好的，知识库后续修改模式已关闭。",
+                whatsappKnowledgeEntryFollowUpContinue: "请告诉我您想如何修改这条知识库条目。",
+                whatsappKnowledgeEntryNotFoundInCollection: "我无法在该集合中找到这个条目：{title}",
 
                 // Alerts
                 researchProcessAlreadyRunning: "研究进程已在运行中。请等待。",

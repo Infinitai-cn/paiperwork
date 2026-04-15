@@ -324,6 +324,81 @@ presentationKeymap.terms = [...new Set([
     ...Object.values(presentationKeymap.actions).flat()
 ])];
 
+const knowledgeKeymap = {
+    intent: [
+        'knowledge base', 'knowledgebase', 'knowledge', 'stored knowledge', 'saved knowledge', 'kb',
+        'base de conocimiento', 'conocimiento guardado', 'conocimiento almacenado', 'kb',
+        'base de conhecimento', 'conhecimento guardado', 'conhecimento armazenado', 'kb',
+        'base de connaissances', 'connaissances enregistrees', 'connaissances enregistrées', 'kb',
+        'wissensdatenbank', 'gespeichertes wissen', 'wissensbasis', 'kb',
+        'base di conoscenza', 'conoscenza salvata', 'conoscenza archiviata', 'kb',
+        'база знаний', 'сохраненные знания', 'знания',
+        '知识库', '已保存知识', '知识',
+        'ナレッジベース', '保存済みナレッジ', '知識ベース',
+        '지식 베이스', '저장된 지식', '지식'
+    ],
+    actions: {
+        browse: [
+            'show', 'list', 'open', 'browse', 'view', 'see', 'find', 'choose', 'select', 'read',
+            'mostrar', 'lista', 'listar', 'abrir', 'ver', 'buscar', 'elige', 'seleccionar', 'leer',
+            'mostrar', 'listar', 'abrir', 'ver', 'procurar', 'buscar', 'escolher', 'selecionar', 'ler',
+            'afficher', 'lister', 'ouvrir', 'parcourir', 'voir', 'chercher', 'choisir', 'selectionner', 'sélectionner', 'lire',
+            'zeigen', 'auflisten', 'offnen', 'öffnen', 'durchsuchen', 'ansehen', 'finden', 'auswahlen', 'auswählen', 'lesen',
+            'mostrare', 'elencare', 'aprire', 'sfogliare', 'vedere', 'cercare', 'scegliere', 'selezionare', 'leggere',
+            'показать', 'список', 'перечислить', 'открыть', 'просмотреть', 'найти', 'выбрать', 'читать',
+            '查看', '显示', '列出', '打开', '浏览', '选择', '查找', '阅读',
+            '表示', '一覧', '開く', '閲覧', '確認', '選択', '探す', '読む',
+            '보여', '목록', '열기', '찾아', '선택', '확인', '읽어'
+        ]
+    },
+    collectionNouns: [
+        'knowledge collection', 'knowledge collections', 'collection', 'collections',
+        'coleccion de conocimiento', 'colección de conocimiento', 'colecciones de conocimiento',
+        'colecao de conhecimento', 'coleção de conhecimento', 'colecoes de conhecimento', 'coleções de conhecimento',
+        'collection de connaissances', 'collections de connaissances',
+        'wissenssammlung', 'wissenssammlungen',
+        'collezione di conoscenza', 'collezioni di conoscenza',
+        'коллекция знаний', 'коллекции знаний',
+        '知识集合', '知识库集合', '集合',
+        'ナレッジコレクション', 'コレクション',
+        '지식 컬렉션', '컬렉션'
+    ],
+    entryNouns: [
+        'knowledge entry', 'knowledge entries', 'entry', 'entries', 'note', 'notes', 'article', 'articles',
+        'entrada de conocimiento', 'entradas de conocimiento', 'entrada', 'entradas', 'nota', 'notas', 'articulo', 'artículo', 'articulos', 'artículos',
+        'entrada de conhecimento', 'entradas de conhecimento', 'entrada', 'entradas', 'nota', 'notas', 'artigo', 'artigos',
+        'entree de connaissance', 'entrée de connaissance', 'entrees de connaissance', 'entrées de connaissance', 'entree', 'entrée', 'entrees', 'entrées', 'note', 'notes', 'article', 'articles',
+        'wissenseintrag', 'wissenseintrage', 'wissenseinträge', 'eintrag', 'eintrage', 'einträge', 'notiz', 'notizen', 'artikel',
+        'voce di conoscenza', 'voci di conoscenza', 'voce', 'voci', 'nota', 'note', 'articolo', 'articoli',
+        'запись знаний', 'записи знаний', 'запись', 'записи', 'заметка', 'заметки', 'статья', 'статьи',
+        '知识条目', '条目', '笔记', '文章',
+        'ナレッジエントリ', 'エントリ', 'ノート', '記事',
+        '지식 항목', '항목', '노트', '문서'
+    ],
+    savedCues: [
+        'saved knowledge base', 'saved knowledge', 'stored knowledge base', 'stored knowledge', 'my knowledge base', 'my knowledge collections',
+        'base de conocimiento guardada', 'conocimiento guardado', 'base de conocimiento almacenada', 'mi base de conocimiento', 'mis colecciones de conocimiento',
+        'base de conhecimento guardada', 'conhecimento guardado', 'base de conhecimento armazenada', 'minha base de conhecimento', 'minhas colecoes de conhecimento', 'minhas coleções de conhecimento',
+        'base de connaissances enregistree', 'base de connaissances enregistrée', 'connaissances enregistrees', 'connaissances enregistrées', 'ma base de connaissances', 'mes collections de connaissances',
+        'gespeicherte wissensdatenbank', 'gespeichertes wissen', 'meine wissensdatenbank', 'meine wissenssammlungen',
+        'base di conoscenza salvata', 'conoscenza salvata', 'la mia base di conoscenza', 'le mie collezioni di conoscenza',
+        'сохраненная база знаний', 'сохраненные знания', 'моя база знаний', 'мои коллекции знаний',
+        '已保存知识库', '保存的知识库', '我的知识库', '我的知识集合',
+        '保存済みのナレッジベース', '保存済みナレッジ', '自分のナレッジベース', '自分のナレッジコレクション',
+        '저장된 지식 베이스', '저장된 지식', '내 지식 베이스', '내 지식 컬렉션'
+    ],
+    followUpCloseCues: commonFollowUpCloseCues,
+    followUpContinueCues: commonFollowUpContinueCues
+};
+
+knowledgeKeymap.terms = [...new Set([
+    ...knowledgeKeymap.intent,
+    ...knowledgeKeymap.collectionNouns,
+    ...knowledgeKeymap.entryNouns,
+    ...knowledgeKeymap.savedCues,
+    ...Object.values(knowledgeKeymap.actions).flat()
+])];
+
 const artifactKeymap = {
     intent: [
         'miniapp', 'miniapps', 'mini app', 'mini apps', 'mini-app', 'mini-apps',
@@ -736,6 +811,25 @@ const workflowRules = {
         ],
         followUpOnly: false
     },
+    knowledge: {
+        required: [
+            { id: 'knowledgeTarget', tokens: [...knowledgeKeymap.intent, ...knowledgeKeymap.collectionNouns, ...knowledgeKeymap.entryNouns, ...knowledgeKeymap.savedCues], wholeWordOnly: true },
+            { id: 'knowledgeAction', tokens: knowledgeKeymap.actions.browse, wholeWordOnly: true }
+        ],
+        optional: [
+            { id: 'knowledgeSaved', tokens: knowledgeKeymap.savedCues, wholeWordOnly: true }
+        ],
+        strong: [
+            { id: 'knowledgeIntent', tokens: knowledgeKeymap.intent, wholeWordOnly: true },
+            { id: 'knowledgeSavedCue', tokens: knowledgeKeymap.savedCues, wholeWordOnly: true }
+        ],
+        negative: [
+            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true },
+            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true },
+            { id: 'documentNoun', tokens: documentKeymap.nouns, wholeWordOnly: true }
+        ],
+        followUpOnly: false
+    },
     research: {
         required: [
             { id: 'researchIntent', tokens: researchKeymap.intent, wholeWordOnly: true },
@@ -801,6 +895,7 @@ window.Keymaps = {
     research: researchKeymap,
     document: documentKeymap,
     presentation: presentationKeymap,
+    knowledge: knowledgeKeymap,
     artifact: artifactKeymap,
     model: modelKeymap,
     chat: chatKeymap,

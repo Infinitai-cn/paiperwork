@@ -1888,6 +1888,17 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         markdownFormattingNote: "Sie können Markdown-Formatierung verwenden.",
         cancelButton: "Abbrechen",
         saveEntry: "Eintrag speichern",
+        whatsappKnowledgeCollectionsEmpty: "Derzeit sind keine Wissensdatenbank-Sammlungen verfügbar.",
+        whatsappKnowledgeEntriesEmpty: "Diese Sammlung enthält noch keine Einträge.",
+        whatsappKnowledgeChooseCollectionPrompt: "Wählen Sie eine der Wissensdatenbank-Sammlungen:",
+        whatsappKnowledgeChooseCollectionTip: "Antworten Sie mit der Nummer oder dem Titel der Sammlung, um ihre Einträge anzuzeigen.",
+        whatsappKnowledgeChooseEntryPrompt: "Wählen Sie einen Eintrag aus der Sammlung: {title}",
+        whatsappKnowledgeChooseEntryTip: "Antworten Sie mit der Nummer oder dem Titel des Eintrags, um ihn zu öffnen.",
+        whatsappKnowledgeEntrySending: "Wissensdatenbank-Eintrag wird geöffnet: {title}",
+        whatsappKnowledgeEntryFollowUpQuestion: "Möchten Sie diesen Wissensdatenbank-Eintrag weiter bearbeiten?",
+        whatsappKnowledgeEntryFollowUpClosed: "Okay, der Wissensdatenbank-Folgemodus ist geschlossen.",
+        whatsappKnowledgeEntryFollowUpContinue: "Sagen Sie mir, wie Sie diesen Wissensdatenbank-Eintrag ändern möchten.",
+        whatsappKnowledgeEntryNotFoundInCollection: "Ich konnte diesen Eintrag in der Sammlung nicht finden: {title}",
 
         // Alerts
         researchProcessAlreadyRunning: "Ein Rechercheprozess läuft bereits. Bitte warten.",

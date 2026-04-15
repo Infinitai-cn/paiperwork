@@ -3040,6 +3040,38 @@ window.helpContent = {
                     <li><code>Schreibe ihn als Executive Brief um</code></li>
                 </ul>
 
+                <h4>Wissensdatenbank</h4>
+                <p>Sie können Ihre gespeicherte Wissensdatenbank über WhatsApp durchsuchen, indem Sie Wissenssammlungen auflisten, eine Sammlung öffnen, deren Einträge auflisten und den ausgewählten Eintrag lesen. Die Namen von Sammlungen und Einträgen müssen nicht exakt sein.</p>
+                <ul>
+                    <li><code>Zeig mir meine Wissensdatenbank</code></li>
+                    <li><code>Liste meine Wissenssammlungen</code></li>
+                    <li><code>Öffne die Sammlung &lt;Name der Sammlung&gt;</code></li>
+                    <li><code>Zeige die Wissenssammlung &lt;Name der Sammlung&gt;</code></li>
+                    <li><code>Lies den Eintrag &lt;Name des Eintrags&gt;</code></li>
+                    <li><code>Öffne den Artikel &lt;Name des Eintrags&gt; aus der Sammlung &lt;Name der Sammlung&gt;</code></li>
+                </ul>
+                <p>Nachdem Paiperwork einen Wissenseintrag gesendet hat, bleibt dieser Eintrag im Speicher, damit Sie ihn übersetzen, kürzen, umschreiben oder das Format ändern können, ohne die Sammlung erneut zu öffnen.</p>
+                <h5>Paiperwork:Nutzerinteraktion</h5>
+                <p><strong>Nutzer:</strong> <code>Zeig mir meine Wissensdatenbank</code></p>
+                <p><strong>Paiperwork:</strong> Hier sind Ihre Wissenssammlungen.</p>
+                <p><strong>Paiperwork:</strong> Wählen Sie eine Sammlung per Nummer oder Namen aus.</p>
+                <p><strong>Nutzer:</strong> <code>Öffne die Sammlung Project Research</code></p>
+                <p><strong>Paiperwork:</strong> Hier sind die Einträge in <code>Project Research</code>.</p>
+                <p><strong>Paiperwork:</strong> Wählen Sie einen Eintrag per Nummer oder Namen aus.</p>
+                <p><strong>Nutzer:</strong> <code>Lies den Eintrag Battery supply chain</code></p>
+                <p><strong>Paiperwork:</strong> Sende Wissenseintrag aus <code>Project Research</code>.</p>
+                <p><strong>Paiperwork:</strong> Eintragsinhalt wurde in WhatsApp geliefert.</p>
+                <p><strong>Paiperwork:</strong> Möchten Sie mit diesem Wissenseintrag weiterarbeiten?</p>
+
+                <h5>Nachverfolgungs-Transformationen für Wissenseinträge</h5>
+                <p>Nachdem ein Wissenseintrag geliefert wurde, können Sie den zwischengespeicherten Text weiter umformen, ohne die Wissensdatenbank erneut zu durchsuchen.</p>
+                <ul>
+                    <li><code>Übersetze den Eintrag ins Spanische</code></li>
+                    <li><code>Mach ihn kürzer</code></li>
+                    <li><code>Wandle ihn in Stichpunkte um</code></li>
+                    <li><code>Schreibe diese Notiz klarer um</code></li>
+                </ul>
+
                 <h4>Präsentationen</h4>
                 <p>Sie können Präsentationen erstellen, indem Sie den Ausgangstext bereitstellen. Paiperwork schätzt die Anzahl der Folien anhand der Inhaltsmenge, sofern Sie keine konkrete Folienzahl angeben.</p>
                 <div class="note"><p><strong>Hinweis:</strong> Die WhatsApp-Apps auf Telefon, Tablet und Computer beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Präsentationen dort möglicherweise nicht angezeigt. Verwenden Sie WhatsApp Web, damit Sie sie auf Ihren Computer herunterladen und korrekt ansehen können.</p></div>
