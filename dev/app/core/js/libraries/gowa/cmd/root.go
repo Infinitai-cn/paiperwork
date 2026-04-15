@@ -23,10 +23,11 @@ import (
 	domainUser "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/user"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/chatstorage"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/embeddedsafe"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/sqliteutil"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/usecase"
 	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -415,14 +416,10 @@ func initChatStorage() (*sql.DB, error) {
 		}
 	}
 
-	db, err := sql.Open("sqlite3", connStr)
+	db, err := sqliteutil.Open(connStr)
 	if err != nil {
 		return nil, err
 	}
-
-	// Configure connection pool
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
 
 	// Test connection
 	if err := db.Ping(); err != nil {
@@ -459,13 +456,13 @@ func initApp() {
 		// _ = os.RemoveAll("storages")
 
 		if strings.TrimSpace(config.DBURI) == "" {
-			logrus.Fatal("initApp: PAIPERWORK_NO_DISK is enabled but no in-memory gowa DB URI was configured")
+			embeddedsafe.Fatal("initApp: PAIPERWORK_NO_DISK is enabled but no in-memory gowa DB URI was configured")
 		}
 		if !isInMemoryGowaStorageURI(config.DBURI) || !isInMemoryGowaStorageURI(config.ChatStorageURI) || (strings.TrimSpace(config.DBKeysURI) != "" && !isInMemoryGowaStorageURI(config.DBKeysURI)) {
-			logrus.Fatalf("initApp: no-disk mode requires in-memory gowa storage URIs only (db=%q keys=%q chat=%q)", config.DBURI, config.DBKeysURI, config.ChatStorageURI)
+			embeddedsafe.Fatalf("initApp: no-disk mode requires in-memory gowa storage URIs only (db=%q keys=%q chat=%q)", config.DBURI, config.DBKeysURI, config.ChatStorageURI)
 		}
 		if isLocalGowaStorageURI(config.DBURI) || isLocalGowaStorageURI(config.ChatStorageURI) || (strings.TrimSpace(config.DBKeysURI) != "" && isLocalGowaStorageURI(config.DBKeysURI)) {
-			logrus.Fatalf("initApp: no-disk mode forbids local gowa storage URIs (db=%q keys=%q chat=%q)", config.DBURI, config.DBKeysURI, config.ChatStorageURI)
+			embeddedsafe.Fatalf("initApp: no-disk mode forbids local gowa storage URIs (db=%q keys=%q chat=%q)", config.DBURI, config.DBKeysURI, config.ChatStorageURI)
 		}
 
 		logrus.Infof("No-disk mode enabled: using in-memory gowa runtime DB for WhatsApp store, keys, and chat storage")
@@ -481,7 +478,7 @@ func initApp() {
 	chatStorageDB, err = initChatStorage()
 	if err != nil {
 		// Terminate the application if chat storage fails to initialize to avoid nil pointer panics later.
-		logrus.Fatalf("failed to initialize chat storage: %v", err)
+		embeddedsafe.Fatalf("failed to initialize chat storage: %v", err)
 	}
 
 	chatStorageRepo = chatstorage.NewStorageRepository(chatStorageDB)

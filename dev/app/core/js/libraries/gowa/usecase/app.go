@@ -20,9 +20,9 @@ import (
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
 	pkgError "github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/error"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/sqliteutil"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/ui/websocket"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/validations"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
 	"github.com/skip2/go-qrcode"
 	"go.mau.fi/whatsmeow"
@@ -973,12 +973,10 @@ func openRuntimeSQLiteDB(uri string) (*sql.DB, error) {
 	if trimmed == "" || !strings.HasPrefix(trimmed, "file:") {
 		return nil, nil
 	}
-	db, err := sql.Open("sqlite3", trimmed)
+	db, err := sqliteutil.Open(trimmed)
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
 	return db, nil
 }
 

@@ -3893,7 +3893,7 @@ class ConnectorWhatsapp {
         const hasActiveFollowUp = !!this._getWhatsappDeterministicWorkflowSession(phoneContext);
 
         for (const tool of ['dataviz', 'artifact', 'presentation', 'research', 'document-check', 'chat+websearch']) {
-            scores.push(this._scoreWhatsappWorkflowFromRules(normalizedText, normalizedText, {
+            scores.push(this._scoreWhatsappWorkflowFromRules(tool, normalizedText, {
                 hasActiveFollowUp,
                 ...options
             }));
