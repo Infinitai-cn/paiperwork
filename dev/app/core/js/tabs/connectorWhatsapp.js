@@ -2650,6 +2650,36 @@ class ConnectorWhatsapp {
         return normalized.charAt(0).toUpperCase() + normalized.slice(1);
     }
 
+    _isWhatsappLowSignalControlReply(text) {
+        const normalized = String(text || '').trim().toLowerCase();
+        if (!normalized) return false;
+
+        const compact = normalized
+            .replace(/[\u00bf\u00a1]/g, '')
+            .replace(/[\s.,;:!?"'`()[\]{}_-]+/g, ' ')
+            .trim();
+
+        if (!compact) return false;
+
+        const controlReplies = new Set([
+            'no', 'nope', 'nah', 'not now', 'no thanks', 'no thank you', 'im done', 'i am done', 'finished', 'stop', 'close', 'cancel',
+            'yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'continue', 'go on', 'keep going',
+            'si', 'sí', 'no gracias', 'ya termine', 'ya terminé', 'terminado', 'cerrar', 'cancelar', 'continua', 'continua por favor', 'continúa', 'continúa por favor',
+            'nao', 'não', 'nao obrigado', 'não obrigado', 'continuar',
+            'non', 'merci', 'non merci', 'continuer',
+            'nein', 'danke', 'nein danke', 'weiter',
+            '不是', '不', '继续', '繼續', '继续吧', '繼續吧',
+            'いいえ', 'はい', '続けて',
+            '아니오', '네', '계속'
+        ]);
+
+        if (controlReplies.has(compact)) {
+            return true;
+        }
+
+        return compact.length <= 12 && compact.split(/\s+/).length <= 3;
+    }
+
     _languageToCode(language) {
         const normalized = String(language || '').trim().toLowerCase();
         const map = {
@@ -6341,13 +6371,20 @@ class ConnectorWhatsapp {
             }
             for (const msg of messages) {
                 try {
+                    const isBusy = this._whatsappIncomingProcessing || window.isGenerating || (window.chat && window.chat.isGenerating);
+                    if (isBusy) {
+                        console.info('[ConnectorWhatsapp] Busy before orchestration, queueing raw WA message');
+                        await this.enqueueWhatsappIncomingMessage(msg);
+                        continue;
+                    }
+
                     if (this._isWhatsappBotMode() && typeof this.postWhatsappPresence === 'function') {
                         const replyTarget = this._getWhatsappIncomingReplyTarget(msg) || this._getWhatsappIncomingThreadKey(msg);
                         await this._ensureWhatsappPresenceStartedIfNeeded(replyTarget);
                     }
                     const processed = await this._orchestrateMessage(msg);
-                    const isBusy = window.isGenerating || (window.chat && window.chat.isGenerating);
-                    if (isBusy) {
+                    const isStillBusy = this._whatsappIncomingProcessing || window.isGenerating || (window.chat && window.chat.isGenerating);
+                    if (isStillBusy) {
                         console.info('[ConnectorWhatsapp] Busy generating, queueing incoming WA message');
                         await this.enqueueWhatsappIncomingMessage(processed);
                         continue;
@@ -6356,7 +6393,7 @@ class ConnectorWhatsapp {
                 } catch (e) {
                     console.warn('ConnectorWhatsapp: failed to handle incoming message', e);
                     try {
-                        const isBusy = window.isGenerating || (window.chat && window.chat.isGenerating);
+                        const isBusy = this._whatsappIncomingProcessing || window.isGenerating || (window.chat && window.chat.isGenerating);
                         if (isBusy) {
                             await this.enqueueWhatsappIncomingMessage(msg);
                         } else {
@@ -7519,6 +7556,11 @@ class ConnectorWhatsapp {
                 ? phoneContext
                 : ((await this._getWhatsappPhoneContext(normalizedPhone)) || {});
             const inferredLanguage = this._detectLanguage(routingIntentText || userText);
+            const hasActiveWorkflowSession = !!this._getWhatsappArtifactSession(phoneContext)
+                || !!this._getWhatsappFollowUpSession(phoneContext);
+            const preserveExistingLanguageForControlReply = !!phoneContext?.language
+                && hasActiveWorkflowSession
+                && this._isWhatsappLowSignalControlReply(routingIntentText || userText);
 
             if (this._isWhatsappBotMode()) {
                 phoneContext = (await this._ensureWhatsappBotConversationThread(msg, normalizedPhone, phoneContext)) || phoneContext;
@@ -7589,7 +7631,7 @@ class ConnectorWhatsapp {
                 await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
             }
 
-            if (!orchestratorLanguage && inferredLanguage && inferredLanguage !== phoneContext.language) {
+            if (!orchestratorLanguage && !preserveExistingLanguageForControlReply && inferredLanguage && inferredLanguage !== phoneContext.language) {
                 phoneContext.language = inferredLanguage;
                 await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
             }

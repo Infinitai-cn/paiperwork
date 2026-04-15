@@ -1030,28 +1030,32 @@ class ChatTab {
                     console.warn('ChatTab: Error computing base model for logging', e);
                 }
 
-                // --- Unload-on-select (consolidated)
+                // --- Unload-on-select for local runtime model switching
                 try {
                     // Only react for real user interactions
                     if (event && event.isTrusted) {
                         const newValue = modelSelector.value || '';
                         if (newValue !== modelSelector.__lastModelValue) {
+                            const shouldUnloadLocalModels = window.PAIPERWORK_IS_LOCAL_RUNTIME === true;
                             if (modelSelector.__unloadDebounceTimeout) clearTimeout(modelSelector.__unloadDebounceTimeout);
-                            modelSelector.__unloadDebounceTimeout = setTimeout(async () => {
-                                try {
-                                    if (chatTab && typeof chatTab.unloadOllamaModels === 'function') {
-                                       //console.log('ChatTab: User changed model — calling ChatTab.unloadOllamaModels() to free memory.');
-                                        await chatTab.unloadOllamaModels();
-                                    } else {
-                                        // If the ChatTab method isn't present, skip unload to avoid calling presentation-only code
-                                        console.warn('ChatTab: unloadOllamaModels not found on ChatTab; skipping unload on model change.');
+                            if (shouldUnloadLocalModels) {
+                                modelSelector.__unloadDebounceTimeout = setTimeout(async () => {
+                                    try {
+                                        if (chatTab && typeof chatTab.unloadOllamaModels === 'function') {
+                                           //console.log('ChatTab: Model changed on local runtime — unloading local Ollama models to keep only the selected model resident.');
+                                            await chatTab.unloadOllamaModels({ allowWhenCloudSelected: selectedProvider === 'cloud' });
+                                        } else {
+                                            console.warn('ChatTab: unloadOllamaModels not found on ChatTab; skipping unload on model change.');
+                                        }
+                                    } catch (err) {
+                                        console.error('ChatTab: Error while unloading Ollama models on model change:', err);
+                                    } finally {
+                                        modelSelector.__lastModelValue = newValue;
                                     }
-                                } catch (err) {
-                                    console.error('ChatTab: Error while unloading Ollama models on model change:', err);
-                                } finally {
-                                    modelSelector.__lastModelValue = newValue;
-                                }
-                            }, 300);
+                                }, 300);
+                            } else {
+                                modelSelector.__lastModelValue = newValue;
+                            }
                         }
                     }
                 } catch (err) {
@@ -5684,16 +5688,22 @@ class ChatTab {
         }
     }
 
-        // Helper method to unload all models from Ollama to ensure clean memory
-        async unloadOllamaModels() {
+        // Helper method to unload local Ollama models to ensure clean memory
+        async unloadOllamaModels(options = {}) {
             try {
+                const { allowWhenCloudSelected = false } = options || {};
                 const modelName = document.getElementById('model-selector')?.value || '';
                 const selectedProvider = (window.OllamaAPI && typeof window.OllamaAPI.getSelectedModelSource === 'function')
                     ? (window.OllamaAPI.getSelectedModelSource() || window.OllamaAPI.getModelSource?.(modelName) || 'local')
                     : 'local';
 
-                // Unload uses local daemon endpoints and should not run for cloud-only model selections.
-                if (selectedProvider === 'cloud') {
+                // Unload uses local daemon endpoints and should only run on local desktop/runtime installs.
+                if (window.PAIPERWORK_IS_LOCAL_RUNTIME !== true) {
+                    return;
+                }
+
+                // When cloud is selected, unload only if this call explicitly came from a local-runtime cloud switch.
+                if (selectedProvider === 'cloud' && !allowWhenCloudSelected) {
                     return;
                 }
 
