@@ -141,6 +141,11 @@ func handleAutoMarkRead(ctx context.Context, evt *events.Message, client *whatsm
 
 func handleWebhookForward(ctx context.Context, evt *events.Message, client *whatsmeow.Client) {
 	_ = ctx
+	if isReplayOrHistoricalMessage(evt) {
+		log.Infof("Skipping webhook for replayed/synced message %s from %s", evt.Info.ID, evt.Info.SourceString())
+		return
+	}
+
 	// Skip webhook for protocol messages that are internal sync messages
 	if protocolMessage := evt.Message.GetProtocolMessage(); protocolMessage != nil {
 		protocolType := protocolMessage.GetType().String()

@@ -120,6 +120,11 @@ func TestBuildEventPayloadIncludesIsFromMe(t *testing.T) {
 	} else if isFromMe, ok := value.(bool); !ok || !isFromMe {
 		t.Fatalf("expected is_from_me=true, got %v", value)
 	}
+	if value, ok := payload["is_replay_or_historical"]; !ok {
+		t.Fatalf("expected is_replay_or_historical in payload")
+	} else if replay, ok := value.(bool); !ok || replay {
+		t.Fatalf("expected is_replay_or_historical=false, got %v", value)
+	}
 }
 
 func TestBuildEventPayloadRevokedIncludesIsFromMe(t *testing.T) {
@@ -157,6 +162,40 @@ func TestBuildEventPayloadRevokedIncludesIsFromMe(t *testing.T) {
 		t.Fatalf("expected is_from_me in payload")
 	} else if isFromMe, ok := value.(bool); !ok || !isFromMe {
 		t.Fatalf("expected is_from_me=true, got %v", value)
+	}
+	if value, ok := payload["is_replay_or_historical"]; !ok {
+		t.Fatalf("expected is_replay_or_historical in payload")
+	} else if replay, ok := value.(bool); !ok || replay {
+		t.Fatalf("expected is_replay_or_historical=false, got %v", value)
+	}
+}
+
+func TestBuildEventPayloadMarksHistorySyncReplay(t *testing.T) {
+	evt := &events.Message{
+		Info: types.MessageInfo{
+			MessageSource: types.MessageSource{
+				Chat:     types.NewJID("123", types.DefaultUserServer),
+				Sender:   types.NewJID("456", types.DefaultUserServer),
+				IsFromMe: false,
+			},
+			ID:        "SYNC-PAYLOAD-1",
+			Timestamp: time.Date(2026, time.April, 15, 3, 5, 0, 0, time.UTC),
+		},
+		Message:      &waE2E.Message{Conversation: protoString("restored")},
+		SourceWebMsg: &waWeb.WebMessageInfo{},
+	}
+
+	eventType, payload, err := buildEventPayload(context.Background(), nil, evt)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if eventType != EventTypeMessage {
+		t.Fatalf("expected event type %s, got %s", EventTypeMessage, eventType)
+	}
+	if value, ok := payload["is_replay_or_historical"]; !ok {
+		t.Fatalf("expected is_replay_or_historical in payload")
+	} else if replay, ok := value.(bool); !ok || !replay {
+		t.Fatalf("expected is_replay_or_historical=true, got %v", value)
 	}
 }
 

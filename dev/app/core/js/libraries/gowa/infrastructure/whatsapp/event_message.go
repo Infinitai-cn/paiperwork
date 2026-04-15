@@ -82,6 +82,7 @@ func buildEventPayload(ctx context.Context, client *whatsmeow.Client, evt *event
 	payload["id"] = evt.Info.ID
 	payload["timestamp"] = evt.Info.Timestamp.Format(time.RFC3339)
 	payload["is_from_me"] = evt.Info.IsFromMe
+	payload["is_replay_or_historical"] = isReplayOrHistoricalMessage(evt)
 
 	// Build from/from_lid fields
 	buildFromFields(ctx, client, evt, payload)
