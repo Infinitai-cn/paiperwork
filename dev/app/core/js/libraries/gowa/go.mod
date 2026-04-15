@@ -21,8 +21,9 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/fasthttp v1.69.0
 	go.mau.fi/whatsmeow v0.0.0-20260327181659-02ec817e7cf4
-	golang.org/x/image v0.37.0
+	golang.org/x/image v0.38.0
 	google.golang.org/protobuf v1.36.11
+	modernc.org/sqlite v1.48.2
 )
 
 require (
@@ -81,5 +82,4 @@ require (
 	modernc.org/libc v1.70.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.48.2 // indirect
 )
