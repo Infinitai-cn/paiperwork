@@ -779,7 +779,11 @@ class Chat {
         userDiv.dataset.messageId = conversationMessageIds.userMessageId;
     applyWhatsappRequestMetadata(userDiv);
 
-        userDiv.innerHTML = `<div class="message-bubble">${prompt}</div>`;
+        const visiblePrompt = whatsappRequestScope && typeof whatsappRequestScope.displayUserText === 'string' && whatsappRequestScope.displayUserText.trim()
+            ? whatsappRequestScope.displayUserText.trim()
+            : prompt;
+
+        userDiv.innerHTML = `<div class="message-bubble">${visiblePrompt}</div>`;
 
         if (isGemma3 && window.selectedImages && window.selectedImages.length > 0 && !window.imagesUnderTheHood) {
             // Add images container after the message bubble

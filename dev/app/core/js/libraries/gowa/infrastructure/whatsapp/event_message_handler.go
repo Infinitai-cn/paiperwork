@@ -15,6 +15,21 @@ import (
 	"go.mau.fi/whatsmeow/types/events"
 )
 
+func isReplayOrHistoricalMessage(evt *events.Message) bool {
+	if evt == nil {
+		return false
+	}
+
+	// SourceWebMsg is populated when whatsmeow parses a message from WebMessageInfo,
+	// which includes history sync replay and unavailable-message resend responses.
+	if evt.SourceWebMsg != nil {
+		return true
+	}
+
+	// UnavailableRequestID is also a replay signal when a prior message was fetched again.
+	return evt.UnavailableRequestID != ""
+}
+
 func handleMessage(ctx context.Context, evt *events.Message, chatStorageRepo domainChatStorage.IChatStorageRepository, client *whatsmeow.Client) {
 	if evt != nil && evt.Info.IsFromMe {
 		if inst, ok := DeviceFromContext(ctx); ok && inst != nil {
@@ -37,6 +52,11 @@ func handleMessage(ctx context.Context, evt *events.Message, chatStorageRepo dom
 	if err := chatStorageRepo.CreateMessage(ctx, evt); err != nil {
 		// Log storage errors to avoid silent failures that could lead to data loss
 		log.Errorf("Failed to store incoming message %s: %v", evt.Info.ID, err)
+	}
+
+	if isReplayOrHistoricalMessage(evt) {
+		log.Infof("Skipping live side effects for replayed/synced message %s from %s", evt.Info.ID, evt.Info.SourceString())
+		return
 	}
 
 	// Handle image message if present

@@ -170,7 +170,8 @@ class ConnectorWhatsapp {
             id: `wa_req_${Date.now()}_${this._whatsappRequestSequence}`,
             phone: normalizedPhone,
             replyTarget: normalizedReplyTarget,
-            deviceId: normalizedDeviceId
+            deviceId: normalizedDeviceId,
+            displayUserText: ''
         };
     }
 
@@ -688,6 +689,12 @@ class ConnectorWhatsapp {
 
         await this._activateWhatsappConversationGroup(conversationGroup, threadLabel);
         return phoneContext;
+                msg.__whatsappDisplayUserText = transformPrompt.requestText || query;
+                msg.__whatsappResearchTransform = {
+                    phone,
+                    title: transformPrompt.title,
+                    requestText: transformPrompt.requestText
+                };
     }
 
     async _ensureWhatsappPersonalConversationThread(msg, threadKey, existingPhoneContext = null) {
@@ -757,6 +764,13 @@ class ConnectorWhatsapp {
 
         await this._activateWhatsappConversationGroup(conversationGroup, threadLabel);
         return phoneContext;
+                msg.__whatsappDisplayUserText = transformPrompt.requestText || userIntentText;
+                msg.__whatsappDocumentSummaryTransform = {
+                    phone,
+                    documentId: transformPrompt.documentId,
+                    documentName: transformPrompt.documentName,
+                    requestText: transformPrompt.requestText
+                };
     }
 
     _getPendingDocSelection(phone) {
@@ -976,7 +990,10 @@ class ConnectorWhatsapp {
         const persisted = phoneContext && typeof phoneContext === 'object' ? phoneContext : {};
         const persistedTurns = this._normalizeWhatsappConversationTurns(persisted.conversationTurns || []);
         return {
-            localPreviousContext: this._cloneOllamaContextPayload(persisted.localPreviousContext),
+            // Raw Ollama context arrays are not stable across WhatsApp reconnects,
+            // model switches, or orchestrator/chat hand-offs. Use normalized turns
+            // instead of replaying persisted token arrays.
+            localPreviousContext: null,
             conversationTurns: persistedTurns
         };
     }
@@ -1816,6 +1833,323 @@ class ConnectorWhatsapp {
             || this._isSummaryIntent(normalizedText);
     }
 
+    _getWhatsappCachedTextTransformCueTokens() {
+        return [
+            'translate', 'translation', 'localize', 'rewrite', 'rephrase', 'paraphrase', 'shorten', 'shorter', 'condense', 'compress', 'expand', 'longer', 'lengthen',
+            'simplify', 'clarify', 'polish', 'refine', 'improve', 'adapt', 'convert', 'turn', 'change', 'make', 'format', 'reformat', 'organize', 'structure',
+            'bullet', 'bullets', 'bullet points', 'list', 'outline', 'table', 'markdown', 'formal', 'casual', 'professional', 'friendly', 'executive',
+            'traducir', 'traduce', 'traduccion', 'traducción', 'reescribe', 'reformula', 'acorta', 'resumelo', 'resúmelo', 'hazlo', 'ponlo', 'conviertelo', 'conviértelo',
+            'traduza', 'traduz', 'reescreva', 'resuma', 'encurte', 'torne', 'converta',
+            'traduire', 'traduis', 'reformule', 'reecris', 'réécris', 'raccourcis', 'developpe', 'développe', 'mets', 'convertis',
+            'ubersetze', 'übersetze', 'umschreiben', 'kurzer', 'kuerzer', 'lange', 'langer', 'länger', 'mache', 'wandle', 'fasse',
+            '翻译', '翻譯', '改写', '改寫', '重写', '重寫', '缩短', '縮短', '扩展', '擴展', '简化', '簡化', '要点', '要點', '列表', '表格',
+            '翻訳', '書き直し', '短く', '長く', '箇条書き', '表に',
+            '번역', '다시', '짧게', '길게', '글머리표', '표로'
+        ];
+    }
+
+    _getWhatsappCachedTextFormatCueTokens() {
+        return [
+            'summary', 'bullets', 'bullet points', 'list', 'outline', 'table', 'markdown', 'email', 'tweet', 'post', 'paragraph', 'paragraphs',
+            'resumen', 'lista', 'tabla', 'correo', 'parrafos', 'párrafos',
+            'resumo', 'lista', 'tabela', 'email', 'paragrafos', 'parágrafos',
+            'resume', 'résumé', 'liste', 'tableau', 'email', 'paragraphes',
+            'zusammenfassung', 'liste', 'tabelle', 'absatze', 'absätze',
+            '摘要', '总结', '概述', '列表', '表格', '段落',
+            '要約', '箇条書き', '表', '段落',
+            '요약', '목록', '표', '문단'
+        ];
+    }
+
+    _isWhatsappCachedTextTransformRequest(text, options = {}) {
+        const rawText = String(text || '').trim();
+        const normalizedText = this._normalizeWhatsappResearchReportText(rawText);
+        if (!normalizedText) {
+            return false;
+        }
+
+        if (!options.allowQuestionIntent) {
+            const questionDocumentHint = options.documentHint || '';
+            if (this._isQuestionIntent(normalizedText)
+                || this._hasRunnableDocumentQuestionText(normalizedText, questionDocumentHint)) {
+                return false;
+            }
+        }
+
+        if (!options.allowSummaryIntent && this._isSummaryIntent(normalizedText)) {
+            return false;
+        }
+
+        const summaryTokens = this._getDocumentKeymapTokens('actions.summary');
+        if (!options.allowExactSummaryCommand && this._isExactDocumentKeymapCommand(rawText, summaryTokens)) {
+            return false;
+        }
+
+        const transformCueTokens = this._getWhatsappCachedTextTransformCueTokens();
+        const formatCueTokens = this._getWhatsappCachedTextFormatCueTokens();
+        const hasTransformCue = this._textMatchesDocumentKeymapTokens(normalizedText, transformCueTokens);
+        const hasFormatCue = this._textMatchesDocumentKeymapTokens(normalizedText, formatCueTokens);
+        const wordCount = (normalizedText.match(/\S+/g) || []).length;
+
+        if (hasTransformCue) {
+            return true;
+        }
+
+        return hasFormatCue && wordCount <= 24;
+    }
+
+    _getWhatsappLastAssistantReplyText(phoneContext = null, options = {}) {
+        const turns = this._normalizeWhatsappConversationTurns(phoneContext && phoneContext.conversationTurns ? phoneContext.conversationTurns : [], 50);
+        if (!turns.length) {
+            return '';
+        }
+
+        const excludedNormalized = new Set(
+            (Array.isArray(options.excludeTexts) ? options.excludeTexts : [])
+                .map(text => this._normalizeWhatsappReplyText(text))
+                .filter(Boolean)
+        );
+
+        for (let index = turns.length - 1; index >= 0; index -= 1) {
+            const turn = turns[index];
+            if (!turn || turn.role !== 'assistant') continue;
+
+            const text = this._normalizeWhatsappReplyText(turn.text || turn.content || '');
+            if (!text) continue;
+            if (excludedNormalized.has(text)) continue;
+            return text;
+        }
+
+        return '';
+    }
+
+    _isWhatsappDocumentSummaryTransformIntent(text, phoneContext = null, orchTool = '') {
+        const rawText = String(text || '').trim();
+        const normalizedText = this._normalizeWhatsappResearchReportText(rawText);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        const summaryMemory = this._getWhatsappDocumentSummaryMemory(phoneContext);
+        if (!normalizedText || !session || session.kind !== 'document-summary' || !session.active || !summaryMemory || !summaryMemory.sourceText) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'document-check') {
+            return false;
+        }
+
+        if (this._isArtifactIntent(normalizedText)
+            || this._isSavedArtifactIntent(normalizedText)
+            || this._isPresentationIntent(normalizedText)
+            || this._isSavedPresentationIntent(normalizedText)
+            || this._isSummaryToPresentationWorkflowIntent(normalizedText)
+            || this._isDataVizIntent(normalizedText)
+            || this._isResearchIntent(normalizedText)
+            || this._isDocumentSelectionIntent(normalizedText)
+            || this._parseWhatsappModelCommand(normalizedText)) {
+            return false;
+                msg.__whatsappDisplayUserText = transformPrompt.requestText || userIntentText;
+                msg.__whatsappDocumentSummaryTransform = {
+                    phone,
+                    documentId: transformPrompt.documentId,
+                    documentName: transformPrompt.documentName,
+                    requestText: transformPrompt.requestText
+                };
+        }
+
+        const summaryTokens = this._getDocumentKeymapTokens('actions.summary');
+        if (this._isExactDocumentKeymapCommand(rawText, summaryTokens)) {
+            return false;
+        }
+
+        if (this._isQuestionIntent(normalizedText)
+            || this._hasRunnableDocumentQuestionText(normalizedText, session.documentName || summaryMemory.documentName || '')) {
+            return false;
+        }
+
+        return this._isWhatsappCachedTextTransformRequest(rawText, {
+            documentHint: session.documentName || summaryMemory.documentName || '',
+            allowSummaryIntent: false,
+            allowQuestionIntent: false,
+            allowExactSummaryCommand: false
+        });
+    }
+
+    _composeWhatsappDocumentSummaryTransformPrompt(requestText, phoneContext = null) {
+        const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        const summaryMemory = this._getWhatsappDocumentSummaryMemory(phoneContext);
+        const sourceText = this._normalizeWhatsappResearchReportText(
+            (session && (session.sourceText || session.currentPrompt || session.basePrompt))
+                || (summaryMemory && summaryMemory.sourceText)
+                || ''
+        );
+        const documentId = String((session && session.documentId) || (summaryMemory && summaryMemory.documentId) || '').trim();
+        const documentName = String((session && session.documentName) || (summaryMemory && summaryMemory.documentName) || '').trim();
+        const title = String((session && session.title) || (summaryMemory && summaryMemory.title) || documentName).trim();
+
+        if (!normalizedRequest || !sourceText) {
+            return {
+                prompt: normalizedRequest,
+                requestText: normalizedRequest,
+                sourceText,
+                documentId,
+                documentName,
+                title
+            };
+        }
+
+        const prompt = [
+            'Operate only on the cached document summary below.',
+            'Apply the user request to that summary.',
+            'Do not re-summarize the original document. Do not add facts that are not present in the cached summary.',
+            'Return only the transformed summary in the requested language or format unless the user explicitly asks for commentary.',
+            documentName ? `Document: ${documentName}` : '',
+            `User request: ${normalizedRequest}`,
+            'Cached summary:',
+            sourceText
+        ].filter(Boolean).join('\n\n');
+
+        return {
+            prompt,
+            requestText: normalizedRequest,
+            sourceText,
+            documentId,
+            documentName,
+            title
+        };
+    }
+
+    _isWhatsappResearchReportTransformIntent(text, phoneContext = null, orchTool = '') {
+        const rawText = String(text || '').trim();
+        const normalizedText = this._normalizeWhatsappResearchReportText(rawText);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        if (!normalizedText || !session || session.kind !== 'research' || !session.active || !session.sourceText) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'research') {
+            return false;
+        }
+
+        if (this._isArtifactIntent(normalizedText)
+            || this._isSavedArtifactIntent(normalizedText)
+            || this._isPresentationIntent(normalizedText)
+            || this._isSavedPresentationIntent(normalizedText)
+            || this._isDataVizIntent(normalizedText)
+            || this._isResearchIntent(normalizedText)
+            || this._isDocumentSelectionIntent(normalizedText)
+            || this._parseWhatsappModelCommand(normalizedText)) {
+            return false;
+        }
+
+        return this._isWhatsappCachedTextTransformRequest(rawText, {
+            allowSummaryIntent: false,
+            allowQuestionIntent: true,
+            allowExactSummaryCommand: false
+        });
+    }
+
+    _composeWhatsappResearchReportTransformPrompt(requestText, phoneContext = null) {
+        const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
+        const session = this._getWhatsappFollowUpSession(phoneContext);
+        const sourceText = this._normalizeWhatsappResearchReportText(session && session.sourceText ? session.sourceText : '');
+        const title = String((session && session.title) || 'Research Report').trim();
+
+        if (!normalizedRequest || !sourceText) {
+            return {
+                prompt: normalizedRequest,
+                requestText: normalizedRequest,
+                sourceText,
+                title
+            };
+        }
+
+        const prompt = [
+            'Operate only on the cached research report below.',
+            'Apply the user request to that report.',
+            'Do not perform a new web search or a new research run.',
+            'Do not add facts that are not present in the cached report.',
+            'Return only the transformed report in the requested language or format unless the user explicitly asks for commentary.',
+            `User request: ${normalizedRequest}`,
+            'Cached research report:',
+            sourceText
+        ].filter(Boolean).join('\n\n');
+
+        return {
+            prompt,
+            requestText: normalizedRequest,
+            sourceText,
+            title
+        };
+    }
+
+    _isWhatsappDocumentAnswerTransformIntent(text, phoneContext = null, orchTool = '') {
+        const rawText = String(text || '').trim();
+        const normalizedText = this._normalizeWhatsappResearchReportText(rawText);
+        const lastAssistantReply = this._getWhatsappLastAssistantReplyText(phoneContext);
+        if (!normalizedText || !lastAssistantReply) {
+            return false;
+        }
+
+        const normalizedTool = String(orchTool || '').trim().toLowerCase();
+        if (normalizedTool && normalizedTool !== 'chat' && normalizedTool !== 'document-check') {
+            return false;
+        }
+
+        if (this._isArtifactIntent(normalizedText)
+            || this._isSavedArtifactIntent(normalizedText)
+            || this._isPresentationIntent(normalizedText)
+            || this._isSavedPresentationIntent(normalizedText)
+            || this._isSummaryToPresentationWorkflowIntent(normalizedText)
+            || this._isDataVizIntent(normalizedText)
+            || this._isResearchIntent(normalizedText)
+            || this._isDocumentSelectionIntent(normalizedText)
+            || this._isSummaryIntent(normalizedText)
+            || this._parseWhatsappModelCommand(normalizedText)) {
+            return false;
+        }
+
+        return this._isWhatsappCachedTextTransformRequest(rawText, {
+            allowSummaryIntent: false,
+            allowQuestionIntent: true,
+            allowExactSummaryCommand: false
+        });
+    }
+
+    _composeWhatsappDocumentAnswerTransformPrompt(requestText, phoneContext = null, documentName = '') {
+        const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
+        const sourceText = this._getWhatsappLastAssistantReplyText(phoneContext);
+        const normalizedDocumentName = String(documentName || '').trim();
+
+        if (!normalizedRequest || !sourceText) {
+            return {
+                prompt: normalizedRequest,
+                requestText: normalizedRequest,
+                sourceText,
+                documentName: normalizedDocumentName
+            };
+        }
+
+        const prompt = [
+            'Operate only on the assistant answer below from the active document-questioning conversation.',
+            'Apply the user request to that answer.',
+            'Do not query the document again and do not add facts that are not already present in the answer below.',
+            'Return only the transformed answer in the requested language or format unless the user explicitly asks for commentary.',
+            normalizedDocumentName ? `Document context: ${normalizedDocumentName}` : '',
+            `User request: ${normalizedRequest}`,
+            'Assistant answer to transform:',
+            sourceText
+        ].filter(Boolean).join('\n\n');
+
+        return {
+            prompt,
+            requestText: normalizedRequest,
+            sourceText,
+            documentName: normalizedDocumentName
+        };
+    }
+
     _getWhatsappArtifactFollowUpTokens() {
         return [
             'make', 'change', 'add', 'remove', 'delete', 'update', 'modify', 'adjust', 'increase', 'decrease', 'replace', 'keep', 'set', 'turn',
@@ -2217,17 +2551,11 @@ class ConnectorWhatsapp {
             : null;
 
         if (typeof OllamaAPI !== 'undefined' && OllamaAPI) {
-            OllamaAPI.previousContext = routing.source === 'cloud'
-                ? null
-                : this._cloneOllamaContextPayload(routingState.localPreviousContext);
+            OllamaAPI.previousContext = null;
         }
 
         if (typeof window !== 'undefined') {
-            window.currentCheckpoint = routing.source === 'cloud'
-                ? null
-                : (routingState.localPreviousContext
-                    ? { lastContext: this._cloneOllamaContextPayload(routingState.localPreviousContext) }
-                    : null);
+            window.currentCheckpoint = null;
             window.__paiperworkWhatsappContextOverride = {
                 active: true,
                 phone: normalizedPhone,
@@ -2256,12 +2584,7 @@ class ConnectorWhatsapp {
             : ((await this._getWhatsappPhoneContext(normalizedPhone)) || {});
 
         phoneContext.conversationTurns = this._buildWhatsappRoutingState(phoneContext, normalizedPhone).conversationTurns;
-        if (session.source !== 'cloud' && typeof OllamaAPI !== 'undefined' && OllamaAPI) {
-            const activeLocalContext = (typeof window !== 'undefined' && window.currentCheckpoint && Array.isArray(window.currentCheckpoint.lastContext))
-                ? window.currentCheckpoint.lastContext
-                : OllamaAPI.previousContext;
-            phoneContext.localPreviousContext = this._cloneOllamaContextPayload(activeLocalContext);
-        }
+        phoneContext.localPreviousContext = null;
 
         await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
 
@@ -2384,6 +2707,20 @@ class ConnectorWhatsapp {
             || window.lastOrchestratorDecision?.language
             || window.chatInstance?.whatsappPendingReplyLanguage
             || 'English';
+    }
+
+    async _sendWhatsappReplyUnavailableMessage(phone, language = null) {
+        const targetPhone = String(phone || '').trim();
+        if (!targetPhone || typeof this.postWhatsappText !== 'function') return;
+
+        const replyLanguage = language || this._getActiveWhatsappReplyLanguage();
+        const unavailableText = await this._getLocalizedLangText(
+            replyLanguage,
+            'whatsappReplyUnavailable',
+            'Sorry, I could not send the AI reply this time. Please try again in a moment.'
+        );
+
+        await this.postWhatsappText(targetPhone, `🤖 ${unavailableText}`);
     }
 
     async _ensureDocumentsTabReady() {
@@ -3098,14 +3435,25 @@ class ConnectorWhatsapp {
 
     _isDataVizIntent(text) {
         if (!text || !window.Keymaps || !window.Keymaps.dataViz) return false;
-        const candidate = String(text || '').toLowerCase();
 
-        const keymap = window.Keymaps.dataViz;
-        const intentMatch = keymap.intent.some(token => candidate.includes(token));
-        if (!intentMatch) return false;
+        const normalizedText = this._normalizeDocumentIntentKeymapText(text);
+        if (!normalizedText) return false;
 
-        const chartTypeMatch = Object.values(keymap.chartType).some(arr => arr.some(token => candidate.includes(token)));
-        return chartTypeMatch || intentMatch;
+        const chartType = this._extractDataVizType(normalizedText);
+        if (!chartType) {
+            return false;
+        }
+
+        const genericIntentTokens = this._getDataVizGenericIntentTokens();
+        if (this._textMatchesWholeWordKeymapTokens(normalizedText, genericIntentTokens)) {
+            return true;
+        }
+
+        const matchedChartToken = this._findLongestNormalizedTokenMatch(
+            normalizedText,
+            this._getDataVizKeymapTokens(`chartType.${chartType}`)
+        );
+        return this._isStrongDataVizTypeToken(chartType, matchedChartToken);
     }
 
     _isPresentationIntent(text) {
@@ -3361,6 +3709,308 @@ class ConnectorWhatsapp {
         return [...new Set(collected.map(token => String(token || '').trim()).filter(Boolean))];
     }
 
+    _getDataVizKeymapConfig() {
+        const keymap = window.Keymaps && window.Keymaps.dataViz;
+        return keymap || {
+            intent: [],
+            chartType: {}
+        };
+    }
+
+    _getDataVizKeymapTokens(...paths) {
+        const keymap = this._getDataVizKeymapConfig();
+        const collected = [];
+
+        for (const path of paths) {
+            const segments = String(path || '').split('.').filter(Boolean);
+            let value = keymap;
+            for (const segment of segments) {
+                value = value && value[segment];
+            }
+            if (Array.isArray(value)) {
+                collected.push(...value);
+            }
+        }
+
+        return [...new Set(collected.map(token => String(token || '').trim()).filter(Boolean))];
+    }
+
+    _getWhatsappWorkflowRules() {
+        const rules = window.Keymaps && window.Keymaps.workflowRules;
+        return rules && typeof rules === 'object' ? rules : {};
+    }
+
+    _getWhatsappWorkflowRuleConfig(tool) {
+        const rules = this._getWhatsappWorkflowRules();
+        const entry = rules && rules[tool];
+        return entry && typeof entry === 'object'
+            ? entry
+            : { required: [], optional: [], strong: [], negative: [], followUpOnly: false };
+    }
+
+    _matchWhatsappWorkflowRuleGroup(text, group = {}) {
+        const tokens = Array.isArray(group.tokens)
+            ? group.tokens.map(token => String(token || '').trim()).filter(Boolean)
+            : [];
+        if (!tokens.length) {
+            return { matched: false, token: '', tokens: [] };
+        }
+
+        const matcher = group.wholeWordOnly
+            ? this._findLongestNormalizedTokenMatch(text, tokens)
+            : (this._textMatchesDocumentKeymapTokens(text, tokens)
+                ? this._findLongestNormalizedTokenMatch(text, tokens)
+                    || this._normalizeDocumentIntentKeymapText(tokens[0])
+                : '');
+
+        return {
+            matched: !!matcher,
+            token: matcher || '',
+            tokens: matcher ? [matcher] : []
+        };
+    }
+
+    _scoreWhatsappWorkflowFromRules(tool, text, options = {}) {
+        const config = this._getWhatsappWorkflowRuleConfig(tool);
+        const normalizedText = this._normalizeDocumentIntentKeymapText(text);
+        if (!normalizedText) {
+            return {
+                tool,
+                score: 0,
+                qualifies: false,
+                strongMatches: 0,
+                requiredMatches: 0,
+                optionalMatches: 0,
+                negativeMatches: 0,
+                matchedTokens: [],
+                reasonParts: []
+            };
+        }
+
+        if (config.followUpOnly && !options.hasActiveFollowUp) {
+            return {
+                tool,
+                score: 0,
+                qualifies: false,
+                strongMatches: 0,
+                requiredMatches: 0,
+                optionalMatches: 0,
+                negativeMatches: 0,
+                matchedTokens: [],
+                reasonParts: ['follow-up-only rule skipped without active session']
+            };
+        }
+
+        const matchGroups = (groups = []) => groups.map(group => ({
+            group,
+            result: this._matchWhatsappWorkflowRuleGroup(normalizedText, group)
+        }));
+
+        const strongResults = matchGroups(config.strong || []);
+        const requiredResults = matchGroups(config.required || []);
+        const optionalResults = matchGroups(config.optional || []);
+        const negativeResults = matchGroups(config.negative || []);
+
+        const strongMatches = strongResults.filter(item => item.result.matched);
+        const requiredMatches = requiredResults.filter(item => item.result.matched);
+        const optionalMatches = optionalResults.filter(item => item.result.matched);
+        const negativeMatches = negativeResults.filter(item => item.result.matched);
+
+        const matchedTokens = [
+            ...strongMatches,
+            ...requiredMatches,
+            ...optionalMatches
+        ].flatMap(item => item.result.tokens);
+
+        const qualifies = strongMatches.length > 0
+            || (requiredResults.length > 0 && requiredMatches.length === requiredResults.length);
+
+        const score = (strongMatches.length * 8)
+            + (requiredMatches.length * 4)
+            + optionalMatches.length
+            - (negativeMatches.length * 6);
+
+        const reasonParts = [];
+        if (strongMatches.length) {
+            reasonParts.push(`strong=${strongMatches.map(item => item.group.id || item.result.token).join(',')}`);
+        }
+        if (requiredMatches.length) {
+            reasonParts.push(`required=${requiredMatches.map(item => item.group.id || item.result.token).join(',')}`);
+        }
+        if (optionalMatches.length) {
+            reasonParts.push(`optional=${optionalMatches.map(item => item.group.id || item.result.token).join(',')}`);
+        }
+        if (negativeMatches.length) {
+            reasonParts.push(`negative=${negativeMatches.map(item => item.group.id || item.result.token).join(',')}`);
+        }
+
+        return {
+            tool,
+            score,
+            qualifies: qualifies && score > 0,
+            strongMatches: strongMatches.length,
+            requiredMatches: requiredMatches.length,
+            optionalMatches: optionalMatches.length,
+            negativeMatches: negativeMatches.length,
+            matchedTokens,
+            reasonParts
+        };
+    }
+
+    async _scoreWhatsappWorkflowCandidates(text, phoneContext = null, options = {}) {
+        const normalizedText = this._normalizeDocumentIntentKeymapText(text);
+        const scores = [];
+        const hasActiveFollowUp = !!this._getWhatsappDeterministicWorkflowSession(phoneContext);
+
+        for (const tool of ['dataviz', 'artifact', 'presentation', 'research', 'document-check', 'chat+websearch']) {
+            scores.push(this._scoreWhatsappWorkflowFromRules(normalizedText, normalizedText, {
+                hasActiveFollowUp,
+                ...options
+            }));
+        }
+
+        let documentReference = null;
+        try {
+            documentReference = await this._findReferencedDocumentFromText(
+                text,
+                sessionStorage.getItem('hashedMasterKey')
+            );
+        } catch (docRefErr) {
+            console.warn('[ConnectorWhatsapp][routing] Failed to score referenced document', docRefErr);
+        }
+
+        const documentScore = scores.find(entry => entry.tool === 'document-check');
+        if (documentScore && documentReference) {
+            const wantsDocumentFlow = this._isSummaryIntent(text)
+                || this._isQuestionIntent(text)
+                || this._hasRunnableDocumentQuestionText(text, documentReference.name)
+                || this._isDocumentSelectionIntent(text);
+            if (wantsDocumentFlow) {
+                documentScore.score += 7;
+                documentScore.qualifies = true;
+                documentScore.reasonParts.push('document_reference');
+                documentScore.document = documentReference.name;
+            }
+        }
+
+        const presentationScore = scores.find(entry => entry.tool === 'presentation');
+        if (presentationScore && this._matchPendingSavedPresentationFollowUp(options.phone || '', text)) {
+            presentationScore.score += 7;
+            presentationScore.qualifies = true;
+            presentationScore.reasonParts.push('pending_saved_presentation');
+        }
+
+        const webSearchScore = scores.find(entry => entry.tool === 'chat+websearch');
+        if (webSearchScore) {
+            const artifactWantsWeb = this._artifactRequestWantsWebSearch(text);
+            const presentationWantsWeb = this._presentationRequestWantsWebSearch(text);
+            if (artifactWantsWeb || presentationWantsWeb) {
+                webSearchScore.score -= 8;
+                webSearchScore.reasonParts.push('workflow_scoped_websearch');
+            }
+        }
+
+        return scores
+            .map(entry => ({ ...entry, score: Math.max(-20, entry.score) }))
+            .sort((left, right) => right.score - left.score);
+    }
+
+    async _buildWhatsappDeterministicRoutingDecision(text, phoneContext = null, options = {}) {
+        const normalizedText = this._normalizeDocumentIntentKeymapText(text);
+        const explicitDocumentAction = options.explicitDocumentAction || null;
+        const activeSessionRouting = this._resolveWhatsappDeterministicWorkflowRouting(text, phoneContext, options.currentTool || 'chat');
+        const buildFallbackDecision = (entry = null, reason = 'deterministic fallback') => ({
+            tool: entry && entry.qualifies ? entry.tool : 'chat',
+            document: entry && entry.tool === 'document-check' ? String(entry.document || '') : '',
+            confidence: entry && entry.qualifies ? Math.min(0.85, 0.45 + (Math.max(entry.score, 0) * 0.02)) : 0.45,
+            reason,
+            language: options.language || this._detectLanguage(normalizedText) || 'English',
+            source: 'deterministic-fallback'
+        });
+
+        if (explicitDocumentAction
+            && (explicitDocumentAction.action === 'enter' || explicitDocumentAction.action === 'switch')
+            && explicitDocumentAction.match
+            && explicitDocumentAction.match.documentId) {
+            return {
+                useLLM: false,
+                decision: {
+                    tool: 'document-check',
+                    document: explicitDocumentAction.match.documentName || '',
+                    confidence: 0.99,
+                    reason: 'Deterministic explicit document switch.',
+                    language: options.language || this._detectLanguage(text) || 'English',
+                    source: 'deterministic'
+                },
+                scores: []
+            };
+        }
+
+        if (activeSessionRouting && activeSessionRouting.activeSession && activeSessionRouting.retain) {
+            const retainedTool = activeSessionRouting.tool || activeSessionRouting.activeSession.tool || 'chat';
+            return {
+                useLLM: false,
+                decision: {
+                    tool: retainedTool,
+                    document: retainedTool === 'document-check' && activeSessionRouting.activeSession.session
+                        ? String(activeSessionRouting.activeSession.session.documentName || '')
+                        : '',
+                    confidence: 0.98,
+                    reason: `Deterministically retained active ${activeSessionRouting.activeSession.kind} session.`,
+                    language: options.language || this._detectLanguage(text) || 'English',
+                    source: 'deterministic'
+                },
+                scores: []
+            };
+        }
+
+        const scores = await this._scoreWhatsappWorkflowCandidates(text, phoneContext, options);
+        const top = scores[0] || null;
+        const runnerUp = scores[1] || null;
+
+        if (!top || !top.qualifies || top.score < 6) {
+            return {
+                useLLM: true,
+                scores,
+                reason: 'low deterministic confidence',
+                fallbackDecision: buildFallbackDecision(top, 'Low-confidence deterministic fallback.')
+            };
+        }
+
+        if (runnerUp && runnerUp.qualifies && (top.score - runnerUp.score) <= 1) {
+            return {
+                useLLM: true,
+                scores,
+                reason: 'deterministic tie',
+                fallbackDecision: buildFallbackDecision(top, 'Tie-broken deterministic fallback.')
+            };
+        }
+
+        const decision = {
+            tool: top.tool,
+            document: top.tool === 'document-check' ? String(top.document || '') : '',
+            confidence: Math.min(0.99, 0.55 + (top.score * 0.03)),
+            reason: `Deterministic workflow score selected ${top.tool}: ${top.reasonParts.join('; ')}`.trim(),
+            language: options.language || this._detectLanguage(normalizedText) || 'English',
+            source: 'deterministic',
+            deterministicScores: scores.map(entry => ({
+                tool: entry.tool,
+                score: entry.score,
+                qualifies: entry.qualifies
+            }))
+        };
+
+        if (top.tool === 'chat+websearch' || top.tool === 'chat') {
+            decision.shortAnswer = true;
+        }
+
+        return {
+            useLLM: false,
+            decision,
+            scores
+        };
+    }
+
     _findLongestNormalizedTokenMatch(text, tokens = []) {
         const normalizedText = this._normalizeDocumentIntentKeymapText(text);
         if (!normalizedText) return '';
@@ -3382,6 +4032,10 @@ class ConnectorWhatsapp {
         }
 
         return bestMatch;
+    }
+
+    _textMatchesWholeWordKeymapTokens(text, tokens = []) {
+        return !!this._findLongestNormalizedTokenMatch(text, tokens);
     }
 
     _escapeRegExp(text) {
@@ -3407,6 +4061,38 @@ class ConnectorWhatsapp {
         }
 
         return candidate.replace(/\s+/g, ' ').trim();
+    }
+
+    _getDataVizGenericIntentTokens() {
+        const keymap = this._getDataVizKeymapConfig();
+        const chartTypeTokens = new Set(
+            Object.values(keymap.chartType || {})
+                .flat()
+                .map(token => this._normalizeDocumentIntentKeymapText(token))
+                .filter(Boolean)
+        );
+
+        return [...new Set((keymap.intent || [])
+            .map(token => String(token || '').trim())
+            .filter(Boolean)
+            .filter(token => !chartTypeTokens.has(this._normalizeDocumentIntentKeymapText(token))))];
+    }
+
+    _isStrongDataVizTypeToken(chartType, matchedToken = '') {
+        const normalizedType = String(chartType || '').trim().toLowerCase();
+        const normalizedToken = this._normalizeDocumentIntentKeymapText(matchedToken);
+        if (!normalizedType || !normalizedToken) {
+            return false;
+        }
+
+        if (normalizedToken.includes(' ')) {
+            return true;
+        }
+
+        return normalizedType === 'scatter'
+            || normalizedType === 'radar'
+            || normalizedType === 'heatmap'
+            || normalizedType === 'bubble';
     }
 
     _normalizeWhatsappRegenerateCommand(text) {
@@ -4826,17 +5512,23 @@ class ConnectorWhatsapp {
 
     _extractDataVizType(text) {
         if (!text) return null;
-        const candidate = String(text || '').toLowerCase();
+        const candidate = this._normalizeDocumentIntentKeymapText(text);
+        if (!candidate) return null;
 
         if (window.Keymaps && window.Keymaps.dataViz) {
             const chartTypeMap = window.Keymaps.dataViz.chartType;
+            let bestType = null;
+            let bestMatch = '';
+
             for (const [type, tokens] of Object.entries(chartTypeMap)) {
-                for (const token of tokens) {
-                    if (candidate.includes(token)) {
-                        return type;
-                    }
+                const matchedToken = this._findLongestNormalizedTokenMatch(candidate, tokens);
+                if (matchedToken && matchedToken.length > bestMatch.length) {
+                    bestMatch = matchedToken;
+                    bestType = type;
                 }
             }
+
+            return bestType;
         }
 
         return null;
@@ -5922,30 +6614,55 @@ class ConnectorWhatsapp {
             phoneContext = (await this._appendWhatsappPhoneConversationTurn(normalizedPhone, { role: 'user', text: cleaned }, phoneContext)) || phoneContext;
             msg.body = cleaned;
 
-            // We currently rely on the orchestrator model only (system prompt guidance) to select tool.
-            let orchText = '';
-            let routingSession = null;
-            try {
-                if (typeof OllamaAPI === 'undefined' || !OllamaAPI.OrchestratorCall) {
-                    console.warn('[ConnectorWhatsapp][orchestrator] OllamaAPI.OrchestratorCall not available - skipping orchestration');
-                } else {
-                    this._showWhatsappOrchestratorModal();
-                    routingSession = await this._beginWhatsappModelRoutingSession(normalizedPhone, phoneContext);
-                    const orchestratorContext = this._normalizeWhatsappOrchestratorTurns(this._getWhatsappOrchestratorContext(normalizedPhone) || []);
-                    orchText = await OllamaAPI.OrchestratorCall(orchestratorInput, systemPrompt, contextSize, orchestratorContext, null, `wa_orch_${Date.now()}`, null);
-                }
-            } catch (e) {
-                console.error('[ConnectorWhatsapp][orchestrator] Orchestrator call failed', e);
-            } finally {
-                this._hideWhatsappOrchestratorModal();
+            let explicitDocumentAction = null;
+            if (window.RAG_Utils && typeof window.RAG_Utils.resolveDocumentQuestioningAction === 'function') {
                 try {
-                    await this._endWhatsappModelRoutingSession(routingSession);
-                } catch (sessionErr) {
-                    console.warn('[ConnectorWhatsapp][orchestrator] Failed to finalize routing session', sessionErr);
+                    explicitDocumentAction = await window.RAG_Utils.resolveDocumentQuestioningAction(routingIntentText || cleaned, {
+                        scopeKey: this._getWhatsappDocumentScopeKey(normalizedPhone),
+                        hashedMasterKey: sessionStorage.getItem('hashedMasterKey')
+                    });
+                } catch (docIntentErr) {
+                    console.warn('[ConnectorWhatsapp][orchestrator] resolveDocumentQuestioningAction failed during deterministic routing', docIntentErr);
                 }
             }
 
-            let decision = { tool: 'chat', confidence: 0, reason: 'orchestrator_unavailable_or_failed' };
+            const deterministicRouting = await this._buildWhatsappDeterministicRoutingDecision(routingIntentText || cleaned, phoneContext, {
+                phone: normalizedPhone,
+                language: this._detectLanguage(cleaned) || 'English',
+                explicitDocumentAction,
+                currentTool: 'chat'
+            });
+
+            let orchText = '';
+            let routingSession = null;
+            let decision = deterministicRouting && deterministicRouting.decision
+                ? { ...deterministicRouting.decision }
+                : (deterministicRouting && deterministicRouting.fallbackDecision
+                    ? { ...deterministicRouting.fallbackDecision }
+                    : null)
+                || { tool: 'chat', confidence: 0, reason: 'orchestrator_unavailable_or_failed', source: 'deterministic-fallback' };
+
+            if (deterministicRouting && deterministicRouting.useLLM) {
+                try {
+                    if (typeof OllamaAPI === 'undefined' || !OllamaAPI.OrchestratorCall) {
+                        console.warn('[ConnectorWhatsapp][orchestrator] OllamaAPI.OrchestratorCall not available - skipping orchestration');
+                    } else {
+                        this._showWhatsappOrchestratorModal();
+                        routingSession = await this._beginWhatsappModelRoutingSession(normalizedPhone, phoneContext);
+                        const orchestratorContext = this._normalizeWhatsappOrchestratorTurns(this._getWhatsappOrchestratorContext(normalizedPhone) || []);
+                        orchText = await OllamaAPI.OrchestratorCall(orchestratorInput, systemPrompt, contextSize, orchestratorContext, null, `wa_orch_${Date.now()}`, null);
+                    }
+                } catch (e) {
+                    console.error('[ConnectorWhatsapp][orchestrator] Orchestrator call failed', e);
+                } finally {
+                    this._hideWhatsappOrchestratorModal();
+                    try {
+                        await this._endWhatsappModelRoutingSession(routingSession);
+                    } catch (sessionErr) {
+                        console.warn('[ConnectorWhatsapp][orchestrator] Failed to finalize routing session', sessionErr);
+                    }
+                }
+            }
 
             if (orchText && typeof orchText === 'string' && orchText.trim().length > 0) {
                 const rawOut = orchText.trim();
@@ -5998,60 +6715,15 @@ class ConnectorWhatsapp {
                     decision.confidence = Number(parsed.confidence) || Number(parsed.confidence) === 0 ? Number(parsed.confidence) : (parsed.confidence === 0 ? 0 : (parsed.confidence || 0));
                     decision.reason = parsed.reason || parsed.explanation || '';
 
-                    let explicitDocumentAction = null;
-                    if (window.RAG_Utils && typeof window.RAG_Utils.resolveDocumentQuestioningAction === 'function') {
-                        try {
-                            explicitDocumentAction = await window.RAG_Utils.resolveDocumentQuestioningAction(routingIntentText || cleaned, {
-                                scopeKey: this._getWhatsappDocumentScopeKey(normalizedPhone),
-                                hashedMasterKey: sessionStorage.getItem('hashedMasterKey')
-                            });
-                        } catch (docIntentErr) {
-                            console.warn('[ConnectorWhatsapp][orchestrator] resolveDocumentQuestioningAction failed during routing upgrade', docIntentErr);
-                        }
-                    }
                     const explicitDocumentSwitch = !!(explicitDocumentAction
                         && (explicitDocumentAction.action === 'enter' || explicitDocumentAction.action === 'switch')
                         && explicitDocumentAction.match
                         && explicitDocumentAction.match.documentId);
 
-                    // If prompt-based orchestrator gave chat but text matches data-viz criteria, upgrade to dataviz
-                    const artifactFollowUpIntent = this._isWhatsappArtifactFollowUpIntent(routingIntentText || cleaned, phoneContext, decision.tool);
-                    const researchFollowUpIntent = this._isWhatsappResearchFollowUpIntent(routingIntentText || cleaned, phoneContext, decision.tool);
-                    const presentationFollowUpIntent = this._isWhatsappPresentationFollowUpIntent(routingIntentText || cleaned, phoneContext, decision.tool);
-                    const documentSummaryFollowUpIntent = !explicitDocumentSwitch
-                        && this._isWhatsappDocumentSummaryQuestionIntent(routingIntentText || cleaned, phoneContext, decision.tool);
-                    const followUpSession = this._getWhatsappFollowUpSession(phoneContext);
-
                     if (explicitDocumentSwitch) {
                         decision.tool = 'document-check';
                         decision.document = explicitDocumentAction.match.documentName || decision.document || '';
                         decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected explicit request to switch to another document.';
-                    }
-
-                    if (decision.tool === 'chat' && this._isDataVizIntent(routingIntentText) && !this._isPresentationIntent(routingIntentText)) {
-                        decision.tool = 'dataviz';
-                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected dataviz intent via keymap fallback.';
-                    } else if (decision.tool === 'chat' && artifactFollowUpIntent) {
-                        decision.tool = 'artifact';
-                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected artifact follow-up modification via active artifact session.';
-                    } else if (decision.tool === 'chat' && (this._isArtifactIntent(routingIntentText) || this._isSavedArtifactIntent(routingIntentText))) {
-                        decision.tool = 'artifact';
-                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected artifact intent via keymap fallback.';
-                    } else if (decision.tool === 'chat' && researchFollowUpIntent) {
-                        decision.tool = 'research';
-                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected research follow-up via active research session.';
-                    } else if (decision.tool === 'chat' && presentationFollowUpIntent) {
-                        decision.tool = 'presentation';
-                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected presentation follow-up via active presentation session.';
-                    } else if (decision.tool === 'chat' && documentSummaryFollowUpIntent) {
-                        decision.tool = 'document-check';
-                        if (followUpSession && followUpSession.documentName) {
-                            decision.document = followUpSession.documentName;
-                        }
-                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected same-document follow-up via active document summary session.';
-                    } else if (decision.tool === 'chat' && this._isPresentationIntent(routingIntentText)) {
-                        decision.tool = 'presentation';
-                        decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected presentation intent via keymap fallback.';
                     }
 
                     // Apply normalized language from orchestrator if provided, or fallback to local detection.
@@ -6063,35 +6735,24 @@ class ConnectorWhatsapp {
                         decision.think = false;
                     }
 
-                    const deterministicWorkflowRouting = this._resolveWhatsappDeterministicWorkflowRouting(routingIntentText || cleaned, phoneContext, decision.tool);
-                    if (deterministicWorkflowRouting.activeSession) {
-                        if (deterministicWorkflowRouting.retain && decision.tool !== deterministicWorkflowRouting.tool) {
-                            decision.tool = deterministicWorkflowRouting.tool;
-                            if (deterministicWorkflowRouting.tool === 'document-check' && followUpSession && followUpSession.documentName) {
-                                decision.document = followUpSession.documentName;
-                            }
-                            decision.reason = (decision.reason ? `${decision.reason} ` : '') + `Deterministically retained active ${deterministicWorkflowRouting.activeSession.kind} session.`;
-                            console.info('[ConnectorWhatsapp][session] Deterministically retained active workflow session during orchestration', {
-                                phone: normalizedPhone,
-                                sessionKind: deterministicWorkflowRouting.activeSession.kind,
-                                retainedTool: deterministicWorkflowRouting.tool,
-                                explicitTarget: deterministicWorkflowRouting.explicitTarget || ''
-                            });
-                        } else if (!deterministicWorkflowRouting.retain && deterministicWorkflowRouting.explicitTarget) {
-                            console.info('[ConnectorWhatsapp][session] Explicit workflow switch detected during orchestration', {
-                                phone: normalizedPhone,
-                                sessionKind: deterministicWorkflowRouting.activeSession.kind,
-                                previousTool: deterministicWorkflowRouting.activeSession.tool,
-                                explicitTarget: deterministicWorkflowRouting.explicitTarget
-                            });
-                        }
-                    }
+                    decision.source = 'llm';
                 } else {
                     console.warn('[ConnectorWhatsapp][orchestrator] Could not parse orchestrator JSON, falling back to chat', { rawOut });
-                    decision = { tool: 'chat', confidence: 0, reason: 'parse_failure' };
+                    if (deterministicRouting && deterministicRouting.decision) {
+                        decision = { ...deterministicRouting.decision, reason: `${deterministicRouting.decision.reason} LLM parse failure fallback.`.trim() };
+                    } else if (deterministicRouting && deterministicRouting.fallbackDecision) {
+                        decision = { ...deterministicRouting.fallbackDecision, reason: `${deterministicRouting.fallbackDecision.reason} LLM parse failure fallback.`.trim() };
+                    } else {
+                        decision = { tool: 'chat', confidence: 0, reason: 'parse_failure', source: 'deterministic-fallback' };
+                    }
                 }
-            } else {
+            } else if (!(deterministicRouting && !deterministicRouting.useLLM)) {
                 console.info('[ConnectorWhatsapp][orchestrator] Empty orchestrator response, defaulting to chat');
+                if (deterministicRouting && deterministicRouting.decision) {
+                    decision = { ...deterministicRouting.decision, reason: `${deterministicRouting.decision.reason} LLM unavailable or empty response fallback.`.trim() };
+                } else if (deterministicRouting && deterministicRouting.fallbackDecision) {
+                    decision = { ...deterministicRouting.fallbackDecision, reason: `${deterministicRouting.fallbackDecision.reason} LLM unavailable or empty response fallback.`.trim() };
+                }
             }
 
             const modelCommand = this._parseWhatsappModelCommand(routingIntentText || cleaned);
@@ -6107,34 +6768,6 @@ class ConnectorWhatsapp {
                     modelCommandType: modelCommand.type,
                     requestedModelName: modelCommand.requestedModelName || ''
                 });
-            }
-
-            if (decision.tool === 'chat' || decision.tool === 'chat+websearch') {
-                try {
-                    const matchedSavedPresentation = this._matchPendingSavedPresentationFollowUp(normalizedPhone, routingIntentText);
-                    if (matchedSavedPresentation) {
-                        decision.tool = 'presentation';
-                        decision.reason = (decision.reason ? `${decision.reason} ` : '') + 'Upgraded via pending saved-presentation follow-up.';
-                    }
-
-                    if (!matchedSavedPresentation) {
-                        const documentReference = await this._findReferencedDocumentFromText(routingIntentText, sessionStorage.getItem('hashedMasterKey'));
-                        const wantsDocumentFlow = !!documentReference && (
-                            this._isSummaryIntent(routingIntentText)
-                            || this._isQuestionIntent(routingIntentText)
-                            || this._hasRunnableDocumentQuestionText(routingIntentText, documentReference.name)
-                            || this._isDocumentSelectionIntent(routingIntentText)
-                        );
-
-                        if (wantsDocumentFlow) {
-                            decision.tool = 'document-check';
-                            decision.document = documentReference.name;
-                            decision.reason = (decision.reason ? `${decision.reason} ` : '') + 'Upgraded via saved-document title fallback.';
-                        }
-                    }
-                } catch (docFallbackErr) {
-                    console.warn('[ConnectorWhatsapp][orchestrator] document title fallback failed', docFallbackErr);
-                }
             }
 
             if (!decision.language) {
@@ -6169,6 +6802,7 @@ class ConnectorWhatsapp {
             const query = queryFromOrch || mergedPrompt || String(msg?.body || '').trim();
             const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
             const language = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(query) || 'English';
+            const phoneContext = (await this._getWhatsappPhoneContext(phone)) || {};
 
             if (!query) {
                 const noTopicText = await this._getLocalizedLangText(
@@ -6177,7 +6811,31 @@ class ConnectorWhatsapp {
                     'Research request received but no topic was detected. Please provide a clear research question.'
                 );
                 await this.postWhatsappText(phone, `🤖 ${noTopicText}`);
-                return false;
+                return { continueToChat: false };
+            }
+
+            if (this._isWhatsappResearchReportTransformIntent(query, phoneContext, 'research')) {
+                const transformPrompt = this._composeWhatsappResearchReportTransformPrompt(query, phoneContext);
+                if (transformPrompt && transformPrompt.prompt) {
+                    console.info('[ConnectorWhatsapp][research] Transforming cached research report via chat pipeline', {
+                        phone,
+                        title: transformPrompt.title,
+                        requestText: transformPrompt.requestText,
+                        sourceLength: transformPrompt.sourceText.length
+                    });
+
+                    msg.body = transformPrompt.prompt;
+                    msg.orchestrator = Object.assign({}, msg.orchestrator, {
+                        mergedPrompt: transformPrompt.prompt
+                    });
+                    msg.__whatsappDisplayUserText = transformPrompt.requestText || query;
+                    msg.__whatsappResearchTransform = {
+                        phone,
+                        title: transformPrompt.title,
+                        requestText: transformPrompt.requestText
+                    };
+                    return { continueToChat: true };
+                }
             }
 
             if (typeof window.handleResearchTab === 'function') {
@@ -6205,7 +6863,6 @@ class ConnectorWhatsapp {
             }
 
             if (window.researchTab && window.researchTab.researchAutomation && typeof window.researchTab.researchAutomation.performResearch === 'function') {
-                const phoneContext = (await this._getWhatsappPhoneContext(phone)) || {};
                 const researchPromptResolution = this._composeWhatsappResearchPrompt(query, phoneContext, {
                     mergedPrompt: mergedPrompt || queryFromOrch
                 });
@@ -6243,6 +6900,9 @@ class ConnectorWhatsapp {
                             ? researchPromptResolution.basePrompt
                             : query,
                         currentPrompt: effectiveQuery,
+                        sourceText: researchPromptResolution && researchPromptResolution.session && researchPromptResolution.session.sourceText
+                            ? researchPromptResolution.session.sourceText
+                            : '',
                         refinements: researchPromptResolution && Array.isArray(researchPromptResolution.refinements)
                             ? researchPromptResolution.refinements
                             : [],
@@ -6250,7 +6910,7 @@ class ConnectorWhatsapp {
                     });
                     await this._sendWhatsappFollowUpSessionQuestion(phone, 'research', language);
                     await this._closeWhatsappResearchWindows();
-                    return true;
+                    return { continueToChat: false };
                 }
 
                 const inProgressText = await this._getLocalizedLangText(
@@ -6284,6 +6944,7 @@ class ConnectorWhatsapp {
                             ? researchPromptResolution.basePrompt
                             : query,
                         currentPrompt: effectiveQuery,
+                        sourceText: whatsappResearchReport,
                         refinements: researchPromptResolution && Array.isArray(researchPromptResolution.refinements)
                             ? researchPromptResolution.refinements
                             : [],
@@ -6301,7 +6962,7 @@ class ConnectorWhatsapp {
                     await this._closeWhatsappResearchWindows();
                 }
 
-                return true;
+                return { continueToChat: false };
             }
 
             const moduleNotReadyText = await this._getLocalizedLangText(
@@ -6310,7 +6971,7 @@ class ConnectorWhatsapp {
                 'Research flow initiated, but research module is not ready yet. Please try again shortly.'
             );
             await this.postWhatsappText(phone, `🤖 ${moduleNotReadyText}`);
-            return false;
+            return { continueToChat: false };
         } catch (err) {
             console.error('ConnectorWhatsapp: handleOrchestratorResearch error', err);
             const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
@@ -6321,7 +6982,7 @@ class ConnectorWhatsapp {
                 'Failed to start research workflow. Please try again.'
             );
             await this.postWhatsappText(phone, `🤖 ${failedText}`);
-            return false;
+            return { continueToChat: false };
         }
     }
 
@@ -6332,6 +6993,9 @@ class ConnectorWhatsapp {
             const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
             const language = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(rawBody) || 'English';
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+            const phoneContext = phone ? ((await this._getWhatsappPhoneContext(phone)) || {}) : {};
+            const activeFollowUpSession = this._getWhatsappFollowUpSession(phoneContext);
+            const documentSummaryMemory = this._getWhatsappDocumentSummaryMemory(phoneContext);
 
             msg.body = rawBody;
 
@@ -6374,9 +7038,67 @@ class ConnectorWhatsapp {
             const botPrefix = '🤖 ';
             const explicitPending = this._getPendingDocSelection(phone);
             const activeScopedDocument = this._getWhatsappActiveDocumentScope(phone);
-            const pending = explicitPending || activeScopedDocument;
+            const followUpDocument = activeFollowUpSession
+                && activeFollowUpSession.kind === 'document-summary'
+                && activeFollowUpSession.documentId
+                ? {
+                    id: activeFollowUpSession.documentId,
+                    name: activeFollowUpSession.documentName || documentSummaryMemory?.documentName || activeFollowUpSession.title || ''
+                }
+                : null;
+            const pending = explicitPending || activeScopedDocument || followUpDocument;
             const userIntentText = (rawBody || '').trim();
             const input = (docName || rawBody || '').trim();
+
+            if (this._isWhatsappDocumentSummaryTransformIntent(userIntentText, phoneContext, 'document-check')) {
+                const transformPrompt = this._composeWhatsappDocumentSummaryTransformPrompt(userIntentText, phoneContext);
+                if (transformPrompt && transformPrompt.prompt) {
+                    console.info('[ConnectorWhatsapp][document-summary] Transforming cached summary via chat pipeline', {
+                        phone,
+                        documentId: transformPrompt.documentId,
+                        documentName: transformPrompt.documentName,
+                        requestText: transformPrompt.requestText,
+                        summaryLength: transformPrompt.sourceText.length
+                    });
+
+                    msg.body = transformPrompt.prompt;
+                    msg.orchestrator = Object.assign({}, msg.orchestrator, {
+                        mergedPrompt: transformPrompt.prompt
+                    });
+                    msg.__whatsappDisplayUserText = transformPrompt.requestText || userIntentText;
+                    msg.__whatsappDocumentSummaryTransform = {
+                        phone,
+                        documentId: transformPrompt.documentId,
+                        documentName: transformPrompt.documentName,
+                        title: transformPrompt.title,
+                        requestText: transformPrompt.requestText
+                    };
+                    return { continueToChat: true };
+                }
+            }
+
+            const activeDocumentName = (activeScopedDocument && activeScopedDocument.name)
+                || (followUpDocument && followUpDocument.name)
+                || (pending && pending.name)
+                || '';
+            if (!activeFollowUpSession && activeScopedDocument && this._isWhatsappDocumentAnswerTransformIntent(userIntentText, phoneContext, 'document-check')) {
+                const transformPrompt = this._composeWhatsappDocumentAnswerTransformPrompt(userIntentText, phoneContext, activeDocumentName);
+                if (transformPrompt && transformPrompt.prompt) {
+                    console.info('[ConnectorWhatsapp][document-question] Transforming last document answer via chat pipeline', {
+                        phone,
+                        documentName: transformPrompt.documentName,
+                        requestText: transformPrompt.requestText,
+                        sourceLength: transformPrompt.sourceText.length
+                    });
+
+                    msg.body = transformPrompt.prompt;
+                    msg.orchestrator = Object.assign({}, msg.orchestrator, {
+                        mergedPrompt: transformPrompt.prompt
+                    });
+                    msg.__whatsappDisplayUserText = transformPrompt.requestText || userIntentText;
+                    return { continueToChat: true };
+                }
+            }
 
             if (!explicitPending && activeScopedDocument && activeScopedDocument.id) {
                 console.info('[ConnectorWhatsapp][debug] using active scoped document as fallback for document-check', {
@@ -6778,6 +7500,9 @@ class ConnectorWhatsapp {
             let docModeActive = this._isWhatsappDocumentScopeActive(normalizedPhone);
 
             let userText = String(msg?.body || '').trim();
+            if (requestScope) {
+                requestScope.displayUserText = userText;
+            }
             const regenerateState = msg && msg.whatsappRegenerate ? msg.whatsappRegenerate : null;
             if (regenerateState && regenerateState.requested && regenerateState.missingPreviousPrompt) {
                 const missingPromptLanguage = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(userText) || 'English';
@@ -6836,40 +7561,23 @@ class ConnectorWhatsapp {
                 }
             }
 
-            // If orchestrator is missing or defaulted to chat, but text clearly asks for chart creation,
-            // force dataviz routing.
-            if ((!orchTool || orchTool === 'chat') && this._isDataVizIntent(routingIntentText) && !this._isPresentationIntent(routingIntentText)) {
-                orchTool = 'dataviz';
-            }
-
-            if ((!orchTool || orchTool === 'chat') && (this._isArtifactIntent(routingIntentText) || this._isSavedArtifactIntent(routingIntentText))) {
-                orchTool = 'artifact';
+            if (!orchTool) {
+                const fallbackRouting = await this._buildWhatsappDeterministicRoutingDecision(routingIntentText || userText, phoneContext, {
+                    phone: normalizedPhone,
+                    language: inferredLanguage || phoneContext.language || 'English',
+                    currentTool: 'chat'
+                });
+                orchTool = fallbackRouting && fallbackRouting.decision && fallbackRouting.decision.tool
+                    ? fallbackRouting.decision.tool
+                    : 'chat';
+                msg.orchestrator = Object.assign({}, msg.orchestrator, fallbackRouting && fallbackRouting.decision ? fallbackRouting.decision : { tool: orchTool });
             }
 
             let artifactFollowUpIntent = this._isWhatsappArtifactFollowUpIntent(routingIntentText || userText, phoneContext, orchTool);
-            if ((!orchTool || orchTool === 'chat') && artifactFollowUpIntent) {
-                orchTool = 'artifact';
-            }
-
             let researchFollowUpIntent = this._isWhatsappResearchFollowUpIntent(routingIntentText || userText, phoneContext, orchTool);
-            if ((!orchTool || orchTool === 'chat') && researchFollowUpIntent) {
-                orchTool = 'research';
-            }
-
             let presentationFollowUpIntent = this._isWhatsappPresentationFollowUpIntent(routingIntentText || userText, phoneContext, orchTool);
-            if ((!orchTool || orchTool === 'chat') && presentationFollowUpIntent) {
-                orchTool = 'presentation';
-            }
-
             let documentSummaryFollowUpIntent = !explicitDocumentSwitch
                 && this._isWhatsappDocumentSummaryQuestionIntent(routingIntentText || userText, phoneContext, orchTool);
-            if ((!orchTool || orchTool === 'chat') && documentSummaryFollowUpIntent) {
-                orchTool = 'document-check';
-            }
-
-            if ((!orchTool || orchTool === 'chat') && this._isPresentationIntent(routingIntentText)) {
-                orchTool = 'presentation';
-            }
 
             let orchestratorLanguage = null;
             if (msg && msg.orchestrator && msg.orchestrator.language) {
@@ -6933,6 +7641,9 @@ class ConnectorWhatsapp {
                 }, phoneContext)) || phoneContext;
 
                 userText = strippedArtifactText || userText;
+                if (requestScope) {
+                    requestScope.displayUserText = userText;
+                }
                 routingIntentText = this._getWhatsappRoutingIntentText(userText);
                 msg.body = userText;
                 orchTool = 'artifact';
@@ -6960,6 +7671,9 @@ class ConnectorWhatsapp {
                 }, phoneContext)) || phoneContext;
 
                 userText = strippedFollowUpText || userText;
+                if (requestScope) {
+                    requestScope.displayUserText = userText;
+                }
                 routingIntentText = this._getWhatsappRoutingIntentText(userText);
                 msg.body = userText;
 
@@ -7031,18 +7745,6 @@ class ConnectorWhatsapp {
                 }
             }
 
-            if (documentSummaryFollowUpIntent && !explicitDocumentSwitch) {
-                phoneContext = (await this._continueWhatsappDocumentSummarySession(normalizedPhone, resolvedLanguage, phoneContext, { announce: false })) || phoneContext;
-                pendingDoc = this._getPendingDocSelection(normalizedPhone);
-                docModeActive = this._isWhatsappDocumentScopeActive(normalizedPhone);
-                orchTool = 'document-check';
-                msg.orchestrator = Object.assign({}, msg.orchestrator, {
-                    tool: 'document-check',
-                    document: pendingDoc && pendingDoc.name ? pendingDoc.name : (msg.orchestrator && msg.orchestrator.document) || ''
-                });
-                window.lastOrchestratorDecision = msg.orchestrator;
-            }
-
             const shouldBypassModelCommand = orchTool === 'artifact'
                 || orchTool === 'research'
                 || orchTool === 'presentation'
@@ -7084,13 +7786,6 @@ class ConnectorWhatsapp {
                     phoneContext = (await this._clearWhatsappFollowUpSession(normalizedPhone, phoneContext)) || phoneContext;
                     return;
                 }
-            }
-
-            const shouldForceResearchWorkflow = (this._isResearchIntent(routingIntentText) || researchFollowUpIntent) && (orchTool === 'research' || orchTool === 'chat+websearch' || !orchTool || researchFollowUpIntent);
-            if (shouldForceResearchWorkflow) {
-                orchTool = 'research';
-                msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: 'research' });
-                window.lastOrchestratorDecision = msg.orchestrator;
             }
 
             if (orchTool !== 'artifact' && this._getWhatsappArtifactSession(phoneContext)) {
@@ -7139,6 +7834,19 @@ class ConnectorWhatsapp {
                 return;
             }
 
+            if (orchTool === 'research') {
+                try {
+                    this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                    const researchResult = await this.handleOrchestratorResearch(msg);
+                    if (researchResult && researchResult.continueToChat && msg && msg.__whatsappResearchTransform && requestScope) {
+                        requestScope.researchTransform = { ...msg.__whatsappResearchTransform };
+                    }
+                    if (!researchResult || !researchResult.continueToChat) return;
+                } catch (e) {
+                    console.error('ConnectorWhatsapp: handleOrchestratorResearch failed', e);
+                }
+            }
+
             if (orchTool === 'artifact') {
                 console.info('[ConnectorWhatsapp][routing] Dispatching to artifact workflow', {
                     phone: normalizedPhone,
@@ -7170,16 +7878,6 @@ class ConnectorWhatsapp {
             // do not treat general questions as documents unless explicit document reference exists.
             const isGenericQuestion = this._isQuestionIntent(routingIntentText) && !this._isDocumentSelectionIntent(routingIntentText) && !this._isSummaryIntent(routingIntentText);
 
-            if (shouldForceResearchWorkflow) {
-                try {
-                    this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
-                    const reached = await this.handleOrchestratorResearch(msg);
-                    if (reached) return;
-                } catch (e) {
-                    console.error('ConnectorWhatsapp: handleOrchestratorResearch failed', e);
-                }
-            }
-
             const shouldForceDocCheck = orchTool === 'document-check' || !!pendingDoc || docModeActive || isDocumentIntent || asksToSpecificDoc;
             if (shouldForceDocCheck) {
                 let continueToChat = false;
@@ -7188,6 +7886,9 @@ class ConnectorWhatsapp {
                         this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
                         const result = await window.chatInstance._handleOrchestratorDocumentCheck(msg);
                         continueToChat = result && result.continueToChat;
+                        if (continueToChat && msg && msg.__whatsappDocumentSummaryTransform && requestScope) {
+                            requestScope.documentSummaryTransform = { ...msg.__whatsappDocumentSummaryTransform };
+                        }
                     }
                 } catch (e) { console.error('ConnectorWhatsapp: _handleOrchestratorDocumentCheck failed', e); }
                 if (!continueToChat) return;
@@ -7211,6 +7912,9 @@ class ConnectorWhatsapp {
 
             // Inject incoming text into prompt input
             try {
+                if (requestScope && msg && typeof msg.__whatsappDisplayUserText === 'string' && msg.__whatsappDisplayUserText.trim()) {
+                    requestScope.displayUserText = msg.__whatsappDisplayUserText.trim();
+                }
                 const promptInput = document.getElementById('prompt-input');
                 if (promptInput) promptInput.value = String(msg.body || '').trim();
             } catch (e) {}
@@ -7728,6 +8432,75 @@ class ConnectorWhatsapp {
 
                 firstMessage = false;
                 await new Promise(r => setTimeout(r, 180));
+            }
+
+            if (requestScope && (requestScope.documentSummaryTransform || requestScope.researchTransform)) {
+                const normalizedPhone = String(
+                    (requestScope.documentSummaryTransform && requestScope.documentSummaryTransform.phone)
+                    || (requestScope.researchTransform && requestScope.researchTransform.phone)
+                    || requestScope.phone
+                    || ''
+                ).replace(/@.*$/g, '').trim();
+                const transformedSummaryText = meaningfulSegments
+                    .filter(seg => seg && seg.type === 'text')
+                    .map(seg => this._normalizeWhatsappReplyText(seg.text || ''))
+                    .filter(Boolean)
+                    .join('\n\n')
+                    .trim();
+
+                if (normalizedPhone && transformedSummaryText) {
+                    let phoneContext = (await this._getWhatsappPhoneContext(normalizedPhone)) || {};
+                    if (requestScope.documentSummaryTransform) {
+                        const existingSummaryMemory = this._getWhatsappDocumentSummaryMemory(phoneContext);
+                        phoneContext = (await this._setWhatsappDocumentSummaryMemory(normalizedPhone, {
+                            documentId: requestScope.documentSummaryTransform.documentId || existingSummaryMemory?.documentId || '',
+                            documentName: requestScope.documentSummaryTransform.documentName || existingSummaryMemory?.documentName || '',
+                            title: requestScope.documentSummaryTransform.title || existingSummaryMemory?.title || requestScope.documentSummaryTransform.documentName || '',
+                            sourceText: transformedSummaryText
+                        }, phoneContext)) || phoneContext;
+
+                        const followUpSession = this._getWhatsappFollowUpSession(phoneContext);
+                        if (followUpSession && followUpSession.kind === 'document-summary') {
+                            await this._setWhatsappFollowUpSession(normalizedPhone, {
+                                ...followUpSession,
+                                active: true,
+                                awaitingFollowUpConfirmation: true,
+                                sourceText: transformedSummaryText,
+                                currentPrompt: transformedSummaryText,
+                                documentId: requestScope.documentSummaryTransform.documentId || followUpSession.documentId,
+                                documentName: requestScope.documentSummaryTransform.documentName || followUpSession.documentName,
+                                title: requestScope.documentSummaryTransform.title || followUpSession.title
+                            }, phoneContext);
+                        }
+
+                        console.info('[ConnectorWhatsapp][document-summary] Cached transformed summary for follow-up reuse', {
+                            phone: normalizedPhone,
+                            documentId: requestScope.documentSummaryTransform.documentId || existingSummaryMemory?.documentId || '',
+                            summaryLength: transformedSummaryText.length,
+                            requestText: requestScope.documentSummaryTransform.requestText || ''
+                        });
+                    }
+
+                    if (requestScope.researchTransform) {
+                        const followUpSession = this._getWhatsappFollowUpSession(phoneContext);
+                        if (followUpSession && followUpSession.kind === 'research') {
+                            await this._setWhatsappFollowUpSession(normalizedPhone, {
+                                ...followUpSession,
+                                active: true,
+                                awaitingFollowUpConfirmation: true,
+                                sourceText: transformedSummaryText,
+                                title: requestScope.researchTransform.title || followUpSession.title
+                            }, phoneContext);
+                        }
+
+                        console.info('[ConnectorWhatsapp][research] Cached transformed report for follow-up reuse', {
+                            phone: normalizedPhone,
+                            title: requestScope.researchTransform.title || '',
+                            reportLength: transformedSummaryText.length,
+                            requestText: requestScope.researchTransform.requestText || ''
+                        });
+                    }
+                }
             }
 
             try { await this._postWhatsappPresenceStopIfNeeded(targetPhone); } catch (err) { console.warn('ConnectorWhatsapp: Failed to post WhatsApp presence stop via connectors:', err); }

@@ -2993,6 +2993,15 @@ window.helpContent = {
                 <p><strong>Utilizador:</strong> <code>Não</code></p>
                 <p><strong>Paiperwork:</strong> Certo, o modo de seguimento da apresentação foi fechado.</p>
 
+                <h5>Transformações de seguimento para resumos e respostas</h5>
+                <p>Depois de o Paiperwork enviar um resumo de documento ou responder a uma pergunta no modo documento, pode pedir-lhe para transformar o resultado em memória em vez de voltar a executar o fluxo do documento.</p>
+                <ul>
+                    <li><code>Traduz o resumo para chinês</code></li>
+                    <li><code>Torna-o mais curto</code></li>
+                    <li><code>Transforma-o em pontos</code></li>
+                    <li><code>Reescreve essa resposta com mais clareza</code></li>
+                </ul>
+
                 <h4>Gráficos</h4>
                 <p>Pode pedir gráficos suportados pelo Paiperwork. Assim que o gráfico for criado, ele é enviado para a sua conversa no WhatsApp.</p>
                 <ul>
@@ -3021,6 +3030,15 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> Quer continuar a refinar esta pesquisa?</p>
                 <p><strong>Utilizador:</strong> <code>já terminei</code>, <code>não</code>, <code>não obrigado</code></p>
                 <p><strong>Paiperwork:</strong> Certo, o modo de seguimento da pesquisa foi fechado.</p>
+
+                <h5>Transformações de seguimento para relatórios de pesquisa</h5>
+                <p>Depois de um relatório de pesquisa ser entregue, pode continuar a refinar o texto em memória sem iniciar uma nova pesquisa.</p>
+                <ul>
+                    <li><code>Traduz o relatório para espanhol</code></li>
+                    <li><code>Torna-o mais curto</code></li>
+                    <li><code>Transforma-o em pontos</code></li>
+                    <li><code>Reescreve-o como resumo executivo</code></li>
+                </ul>
 
                 <h4>Apresentações</h4>
                 <p>Pode criar apresentações fornecendo o texto de base. O Paiperwork estima o número de slides pela quantidade de conteúdo, a menos que indique explicitamente uma quantidade.</p>
@@ -3058,6 +3076,19 @@ window.helpContent = {
                 <p><strong>Paiperwork:</strong> Quer fazer mais modificações nesta mini app?</p>
                 <p><strong>Utilizador:</strong> <code>Não</code></p>
                 <p><strong>Paiperwork:</strong> Certo, o modo de modificação de artefatos foi fechado.</p>
+
+                <h4>Modos de seguimento e frases de saída</h4>
+                <p>O Paiperwork mantém o contexto do fluxo por telefone. Quando surgir uma pergunta de seguimento, as frases suportadas para continuar incluem <code>sim</code>, <code>sim por favor</code> e <code>continuar</code>. As frases suportadas para fechar incluem <code>não</code>, <code>não obrigado</code> e <code>já terminei</code>. Nos documentos, também pode sair do modo de perguntas com <code>sair do modo documento</code>.</p>
+                <p>O mesmo fluxo de transformação de seguimento também funciona após resumos de documentos, relatórios de pesquisa e respostas devolvidas enquanto o modo de perguntas sobre documentos está ativo.</p>
+                <h5>Exemplo de interação</h5>
+                <p><strong>Utilizador:</strong> <code>&lt;nome do documento&gt; resumo</code></p>
+                <p><strong>Paiperwork:</strong> Resumo do documento fornecido.</p>
+                <p><strong>Paiperwork:</strong> Quer continuar a trabalhar com este documento?</p>
+                <p><strong>Utilizador:</strong> <code>Traduz o resumo para chinês</code></p>
+                <p><strong>Paiperwork:</strong> Tradução chinesa do resumo em memória fornecida.</p>
+                <p><strong>Paiperwork:</strong> Quer continuar a trabalhar com este documento?</p>
+                <p><strong>Utilizador:</strong> <code>Não</code></p>
+                <p><strong>Paiperwork:</strong> Certo, o modo de seguimento do documento foi fechado.</p>
             `,
             },
             {

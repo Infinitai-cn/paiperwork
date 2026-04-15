@@ -1085,9 +1085,15 @@ class OllamaAPI {
             const cloudHistoryBlock = isCloudRouting
                 ? this.buildCloudConversationHistoryBlock(userPrompt)
                 : '';
+            const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
+                ? window.__paiperworkWhatsappActiveRequest
+                : null;
+            const whatsappHistoryBlock = whatsappRequestScope
+                ? this.buildCloudConversationHistoryBlock(userPrompt, { maxTurns: 30 })
+                : '';
 
             // Keep cloud/local context paths separated: cloud requests must not reuse local context arrays.
-            if (!isCloudRouting && localContextPayload) {
+            if (!isCloudRouting && !whatsappRequestScope && localContextPayload) {
                 jsonPost.context = localContextPayload;
             } else {
                 delete jsonPost.context;
@@ -1095,6 +1101,8 @@ class OllamaAPI {
 
             if (isCloudRouting && cloudHistoryBlock) {
                 jsonPost.prompt = `${cloudHistoryBlock}\n\nCurrent user message:\n${enhancedPrompt}`;
+            } else if (!isCloudRouting && whatsappHistoryBlock) {
+                jsonPost.prompt = `${whatsappHistoryBlock}\n\nCurrent user message:\n${enhancedPrompt}`;
             }
 
             if (streamProcessor) {
@@ -2464,8 +2472,14 @@ class OllamaAPI {
             const cloudHistoryBlock = isCloudRouting
                 ? this.buildCloudConversationHistoryBlock(userPrompt)
                 : '';
+            const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
+                ? window.__paiperworkWhatsappActiveRequest
+                : null;
+            const whatsappHistoryBlock = whatsappRequestScope
+                ? this.buildCloudConversationHistoryBlock(userPrompt, { maxTurns: 30 })
+                : '';
 
-            if (!isCloudRouting && localContextPayload) {
+            if (!isCloudRouting && !whatsappRequestScope && localContextPayload) {
                 jsonPost.context = localContextPayload;
             } else {
                 delete jsonPost.context;
@@ -2473,6 +2487,8 @@ class OllamaAPI {
 
             if (isCloudRouting && cloudHistoryBlock) {
                 jsonPost.prompt = `${cloudHistoryBlock}\n\nCurrent user message:\n${userPrompt}`;
+            } else if (!isCloudRouting && whatsappHistoryBlock) {
+                jsonPost.prompt = `${whatsappHistoryBlock}\n\nCurrent user message:\n${userPrompt}`;
             }
 
             const requestPayload = jsonPost;

@@ -545,67 +545,265 @@ chatKeymap.terms = [...new Set([
     ...chatKeymap.fillers
 ])];
 
-window.Keymaps = {
-    dataViz: {
-        intent: [
-            'pie', 'bar', 'line', 'scatter', 'area', 'radar', 'heatmap', 'bubble',
-            'chart', 'charts', 'graph', 'plot', 'diagram', 'visualization', 'visualisation',
-            'gráfico', 'graficos', 'gráfica', 'grafic', 'grafico', 'grafica', 'diagrama',
-            'graphique', 'diagramme', 'graphe',
-            'grafik', 'diagramm',
-            'grafico', 'grafici',
-            'gráfico', 'gráficos',
-            '图', '图表', '图形', '图示',
-            'グラフ', 'チャート', '図表',
-            '차트', '그래프',
-            'pie chart', 'donut chart', 'doughnut chart', 'bar chart', 'line chart',
-            'scatter plot', 'area chart', 'radar chart', 'heat map', 'bubble chart',
-            'circular', 'torta', 'pastel', '円グラフ', '파이', '饼', '円', '圆形'
-        ],
-        chartType: {
-            pie: [
-                'pie', 'pie chart', 'donut', 'doughnut', 'donut chart', 'doughnut chart',
-                'pastel', 'torta', 'circular', 'camembert', 'sector', 'sectores', 'setores',
-                '饼图', '圈图', '圆饼图', '円グラフ', 'ドーナツ', '파이 차트', '파이차트', '파이'
-            ],
-            bar: [
-                'bar', 'bar chart', 'barras', 'grafico de barras', 'gráfico de barras',
-                'balken', 'balkendiagramm', 'barre', 'graphique en barres',
-                '棒状图', '柱状图', '条形图', '棒グラフ', '棒状', '막대 그래프', '막대차트', '막대'
-            ],
-            line: [
-                'line', 'line chart', 'línea', 'grafico de linea', 'gráfico de línea',
-                'ligne', 'graphique en ligne', 'linie', 'liniendiagramm',
-                '线图', '折线图', '折れ線グラフ', '선형', '선 그래프', 'linea'
-            ],
-            scatter: [
-                'scatter', 'scatter plot', 'dispersión', 'diagrama de dispersion', 'diagrama de dispersión',
-                'nuage de points', 'streudiagramm',
-                '散点图', '散布図', '산점도'
-            ],
-            area: [
-                'area', 'area chart', 'área', 'grafico de area', 'gráfico de área',
-                'zone', 'graphique de zone', 'flachendiagramm',
-                '区域图', '面积图', 'エリアチャート', '영역 차트'
-            ],
-            radar: [
-                'radar', 'radar chart', 'spider chart', 'araña', 'telaraña', 'toile',
-                '雷达图', 'レーダーチャート', '레이더 차트'
-            ],
-            heatmap: [
-                'heatmap', 'heat map', 'mapa de calor', 'carte thermique', 'wärmekarte',
-                '热图', '热力图', 'ヒートマップ', '히트맵'
-            ],
-            bubble: [
-                'bubble', 'bubble chart', 'burbuja', 'grafico de burbujas', 'gráfico de burbujas',
-                'bulles', 'blasendiagramm', '泡', '气泡图', 'バブルチャート', '버블', '버블 차트'
-            ]
-        }
+const webSearchKeymap = {
+    direct: [
+        'search the web', 'search web', 'search online', 'search internet', 'look online', 'look on the web', 'browse the web',
+        'use internet', 'use the internet', 'use web', 'use the web', 'with web search', 'using web search',
+        'buscar en internet', 'buscar en la web', 'busca en internet', 'busca en la web', 'usar internet', 'usa internet', 'con busqueda web', 'con búsqueda web',
+        'pesquisar na internet', 'pesquisar na web', 'busca na internet', 'busca na web', 'usar internet', 'usa internet', 'com pesquisa web',
+        'chercher en ligne', 'chercher sur le web', 'recherche web', 'utilise internet', 'utilise le web', 'avec recherche web',
+        'im web suchen', 'online suchen', 'nutze das internet', 'nutze websuche', 'mit websuche',
+        'cerca online', 'cerca sul web', 'usa internet', 'usa il web', 'con ricerca web',
+        'ищи в интернете', 'поиск в интернете', 'используй интернет', 'с веб-поиском',
+        '在线搜索', '搜索网络', '搜索互联网', '使用网络搜索', '使用互联网',
+        'ウェブで検索', 'オンラインで検索', 'ウェブ検索を使う', 'インターネットを使う',
+        '웹 검색', '온라인 검색', '인터넷 검색', '웹 검색 사용'
+    ],
+    freshness: [
+        'latest', 'current', 'recent', 'up to date', 'today', 'now', 'news', 'live updates',
+        'ultimo', 'último', 'actual', 'reciente', 'hoy', 'ahora', 'noticias',
+        'atual', 'recente', 'hoje', 'agora', 'noticias', 'notícias',
+        'actuel', 'actuelle', 'recent', 'récente', 'aujourdhui', "aujourd'hui", 'maintenant', 'actualites', 'actualités',
+        'aktuell', 'neueste', 'letzte', 'heute', 'jetzt', 'nachrichten',
+        'attuale', 'recente', 'oggi', 'adesso', 'notizie',
+        'последние', 'актуальные', 'сегодня', 'сейчас', 'новости',
+        '最新', '当前', '最近', '今天', '现在', '新闻',
+        '最新', '現在', '最近', '今日', '今', 'ニュース',
+        '최신', '현재', '최근', '오늘', '지금', '뉴스'
+    ],
+    citations: [
+        'citation', 'citations', 'sources', 'source', 'references', 'reference', 'verify', 'verifiable',
+        'cita', 'citas', 'fuentes', 'fuente', 'referencias', 'referencia', 'verificar',
+        'citacao', 'citação', 'citacoes', 'citações', 'fontes', 'fonte', 'referencias', 'referências', 'verificar',
+        'citation', 'citations', 'sources', 'references', 'verifier', 'vérifier',
+        'zitat', 'zitate', 'quelle', 'quellen', 'referenz', 'referenzen', 'verifizieren',
+        'citazione', 'citazioni', 'fonti', 'riferimenti', 'verificare',
+        'цитата', 'цитаты', 'источник', 'источники', 'ссылки', 'проверить',
+        '引用', '来源', '参考', '可验证',
+        '引用', '出典', '参考', '検証',
+        '인용', '출처', '참고', '검증'
+    ]
+};
+
+webSearchKeymap.terms = [...new Set([
+    ...webSearchKeymap.direct,
+    ...webSearchKeymap.freshness,
+    ...webSearchKeymap.citations
+])];
+
+const dataVizKeymap = {
+    nouns: [
+        'chart', 'charts', 'graph', 'graphs', 'plot', 'plots', 'diagram', 'diagrams', 'visualization', 'visualisation',
+        'gráfico', 'graficos', 'gráficos', 'gráfica', 'grafico', 'grafica', 'diagrama',
+        'graphique', 'graphe', 'graphes', 'diagramme', 'visualisation',
+        'grafik', 'grafiken', 'diagramm', 'diagramme',
+        'grafico', 'grafici', 'diagramma', 'diagrammi',
+        '图', '图表', '图形', '图示',
+        'グラフ', 'チャート', '図表',
+        '차트', '그래프', '도표'
+    ],
+    actions: {
+        create: [
+            'create', 'make', 'build', 'generate', 'show', 'draw', 'plot',
+            'crear', 'hacer', 'genera', 'generar', 'mostrar', 'dibujar',
+            'criar', 'fazer', 'gerar', 'mostrar', 'desenhar',
+            'creer', 'créer', 'generer', 'générer', 'afficher', 'dessiner',
+            'erstellen', 'machen', 'generieren', 'zeigen', 'zeichnen',
+            'creare', 'fare', 'generare', 'mostrare', 'disegnare',
+            'создать', 'сделать', 'построить', 'показать',
+            '创建', '生成', '制作', '显示',
+            '作成', '生成', '表示',
+            '만들어', '생성', '보여', '그려'
+        ]
     },
+    intent: [
+        'pie', 'bar', 'line', 'scatter', 'area', 'radar', 'heatmap', 'bubble',
+        'chart', 'charts', 'graph', 'plot', 'diagram', 'visualization', 'visualisation',
+        'gráfico', 'graficos', 'gráfica', 'grafic', 'grafico', 'grafica', 'diagrama',
+        'graphique', 'diagramme', 'graphe',
+        'grafik', 'diagramm',
+        'grafico', 'grafici',
+        'gráfico', 'gráficos',
+        '图', '图表', '图形', '图示',
+        'グラフ', 'チャート', '図表',
+        '차트', '그래프',
+        'pie chart', 'donut chart', 'doughnut chart', 'bar chart', 'line chart',
+        'scatter plot', 'area chart', 'radar chart', 'heat map', 'bubble chart',
+        'circular', 'torta', 'pastel', '円グラフ', '파이', '饼', '円', '圆形'
+    ],
+    chartType: {
+        pie: [
+            'pie', 'pie chart', 'donut', 'doughnut', 'donut chart', 'doughnut chart',
+            'pastel', 'torta', 'circular', 'camembert', 'sector', 'sectores', 'setores',
+            '饼图', '圈图', '圆饼图', '円グラフ', 'ドーナツ', '파이 차트', '파이차트', '파이'
+        ],
+        bar: [
+            'bar', 'bar chart', 'barras', 'grafico de barras', 'gráfico de barras',
+            'balken', 'balkendiagramm', 'barre', 'graphique en barres',
+            '棒状图', '柱状图', '条形图', '棒グラフ', '棒状', '막대 그래프', '막대차트', '막대'
+        ],
+        line: [
+            'line', 'line chart', 'línea', 'grafico de linea', 'gráfico de línea',
+            'ligne', 'graphique en ligne', 'linie', 'liniendiagramm',
+            '线图', '折线图', '折れ線グラフ', '선형', '선 그래프', 'linea'
+        ],
+        scatter: [
+            'scatter', 'scatter plot', 'dispersión', 'diagrama de dispersion', 'diagrama de dispersión',
+            'nuage de points', 'streudiagramm',
+            '散点图', '散布図', '산점도'
+        ],
+        area: [
+            'area', 'area chart', 'área', 'grafico de area', 'gráfico de área',
+            'zone', 'graphique de zone', 'flachendiagramm',
+            '区域图', '面积图', 'エリアチャート', '영역 차트'
+        ],
+        radar: [
+            'radar', 'radar chart', 'spider chart', 'araña', 'telaraña', 'toile',
+            '雷达图', 'レーダーチャート', '레이더 차트'
+        ],
+        heatmap: [
+            'heatmap', 'heat map', 'mapa de calor', 'carte thermique', 'wärmekarte',
+            '热图', '热力图', 'ヒートマップ', '히트맵'
+        ],
+        bubble: [
+            'bubble', 'bubble chart', 'burbuja', 'grafico de burbujas', 'gráfico de burbujas',
+            'bulles', 'blasendiagramm', '泡', '气泡图', 'バブルチャート', '버블', '버블 차트'
+        ]
+    }
+};
+
+const workflowRules = {
+    dataviz: {
+        required: [
+            { id: 'chartType', tokens: Object.values(dataVizKeymap.chartType).flat(), wholeWordOnly: true },
+            { id: 'vizNoun', tokens: dataVizKeymap.nouns, wholeWordOnly: true }
+        ],
+        optional: [
+            { id: 'createAction', tokens: dataVizKeymap.actions.create, wholeWordOnly: true }
+        ],
+        strong: [
+            { id: 'explicitChartPhrase', tokens: [
+                'pie chart', 'donut chart', 'doughnut chart', 'bar chart', 'line chart',
+                'scatter plot', 'area chart', 'radar chart', 'heat map', 'bubble chart'
+            ], wholeWordOnly: true }
+        ],
+        negative: [
+            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true },
+            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true }
+        ],
+        followUpOnly: false
+    },
+    artifact: {
+        required: [
+            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true },
+            { id: 'artifactCreate', tokens: artifactKeymap.actions.create, wholeWordOnly: true }
+        ],
+        optional: [
+            { id: 'artifactBrowse', tokens: artifactKeymap.actions.browse, wholeWordOnly: true },
+            { id: 'artifactSend', tokens: artifactKeymap.actions.send, wholeWordOnly: true },
+            { id: 'artifactWeb', tokens: artifactKeymap.webCues, wholeWordOnly: true }
+        ],
+        strong: [
+            { id: 'savedArtifact', tokens: artifactKeymap.savedCues, wholeWordOnly: true }
+        ],
+        negative: [
+            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true },
+            { id: 'documentNoun', tokens: documentKeymap.nouns, wholeWordOnly: true }
+        ],
+        followUpOnly: false
+    },
+    presentation: {
+        required: [
+            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true },
+            { id: 'presentationAction', tokens: [
+                ...presentationKeymap.actions.create,
+                ...presentationKeymap.actions.browse,
+                ...presentationKeymap.actions.send,
+                ...presentationKeymap.sourceCues,
+                ...presentationKeymap.savedCues
+            ], wholeWordOnly: true }
+        ],
+        optional: [
+            { id: 'presentationWeb', tokens: presentationKeymap.webCues, wholeWordOnly: true },
+            { id: 'presentationSections', tokens: presentationKeymap.sectionAnchors, wholeWordOnly: true }
+        ],
+        strong: [
+            { id: 'summaryToPresentation', tokens: presentationKeymap.workflows.summaryToPresentation, wholeWordOnly: true },
+            { id: 'savedPresentation', tokens: presentationKeymap.savedCues, wholeWordOnly: true }
+        ],
+        negative: [
+            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true }
+        ],
+        followUpOnly: false
+    },
+    research: {
+        required: [
+            { id: 'researchIntent', tokens: researchKeymap.intent, wholeWordOnly: true },
+            { id: 'researchTarget', tokens: [...researchKeymap.outputs, ...researchKeymap.modifiers], wholeWordOnly: true }
+        ],
+        optional: [
+            { id: 'researchCreate', tokens: researchKeymap.actions.create, wholeWordOnly: true },
+            { id: 'researchCompare', tokens: researchKeymap.actions.compare, wholeWordOnly: true }
+        ],
+        strong: [
+            { id: 'researchExplicit', tokens: ['research', 'investigate', 'market research', 'competitive analysis', 'trend report'], wholeWordOnly: true }
+        ],
+        negative: [
+            { id: 'documentNoun', tokens: documentKeymap.nouns, wholeWordOnly: true },
+            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true },
+            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true }
+        ],
+        followUpOnly: false
+    },
+    'document-check': {
+        required: [
+            { id: 'documentNoun', tokens: documentKeymap.nouns, wholeWordOnly: true },
+            { id: 'documentAction', tokens: [
+                ...documentKeymap.actions.browse,
+                ...documentKeymap.actions.summary,
+                ...documentKeymap.actions.question
+            ], wholeWordOnly: true }
+        ],
+        optional: [
+            { id: 'documentQuestionStarter', tokens: documentKeymap.questionStarters, wholeWordOnly: true }
+        ],
+        strong: [
+            { id: 'documentExit', tokens: documentKeymap.actions.exit, wholeWordOnly: true },
+            { id: 'documentSummary', tokens: documentKeymap.actions.summary, wholeWordOnly: true }
+        ],
+        negative: [
+            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true },
+            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true }
+        ],
+        followUpOnly: false
+    },
+    'chat+websearch': {
+        required: [
+            { id: 'webCue', tokens: [...webSearchKeymap.direct, ...webSearchKeymap.citations], wholeWordOnly: true }
+        ],
+        optional: [
+            { id: 'freshnessCue', tokens: webSearchKeymap.freshness, wholeWordOnly: true }
+        ],
+        strong: [
+            { id: 'directWebCue', tokens: webSearchKeymap.direct, wholeWordOnly: true },
+            { id: 'citationCue', tokens: webSearchKeymap.citations, wholeWordOnly: true }
+        ],
+        negative: [
+            { id: 'artifactWeb', tokens: artifactKeymap.webCues, wholeWordOnly: true },
+            { id: 'presentationWeb', tokens: presentationKeymap.webCues, wholeWordOnly: true }
+        ],
+        followUpOnly: false
+    }
+};
+
+window.Keymaps = {
+    dataViz: dataVizKeymap,
     research: researchKeymap,
     document: documentKeymap,
     presentation: presentationKeymap,
     artifact: artifactKeymap,
     model: modelKeymap,
-    chat: chatKeymap
+    chat: chatKeymap,
+    webSearch: webSearchKeymap,
+    workflowRules
 };

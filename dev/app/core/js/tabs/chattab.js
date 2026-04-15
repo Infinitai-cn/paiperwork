@@ -3463,6 +3463,9 @@ class ChatTab {
             deleteButton.addEventListener('click', async () => {
                 if (confirm(Lang.get('deleteConversationConfirm'))) {
                     const liveMasterKey = sessionStorage.getItem('hashedMasterKey') || hashedMasterKey;
+                    if (window.PaiperworkSessionReset && typeof window.PaiperworkSessionReset.stopWhatsappServerForSessionReset === 'function') {
+                        await window.PaiperworkSessionReset.stopWhatsappServerForSessionReset();
+                    }
                     const success = await PaiperworkDB.deleteDatabase(liveMasterKey);
                     if (success) {
                         await PaiperworkDB.clearUserSpecificClientTraces(liveMasterKey);

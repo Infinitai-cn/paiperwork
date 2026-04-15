@@ -8,9 +8,69 @@ import (
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 )
+
+func TestIsReplayOrHistoricalMessageFalseForLiveEvent(t *testing.T) {
+	evt := &events.Message{
+		Info: types.MessageInfo{
+			MessageSource: types.MessageSource{
+				Chat:     types.NewJID("123", types.DefaultUserServer),
+				Sender:   types.NewJID("456", types.DefaultUserServer),
+				IsFromMe: false,
+			},
+			ID:        "LIVE123",
+			Timestamp: time.Date(2026, time.April, 15, 3, 5, 0, 0, time.UTC),
+		},
+		Message: &waE2E.Message{Conversation: protoString("hello")},
+	}
+
+	if isReplayOrHistoricalMessage(evt) {
+		t.Fatal("expected live event to not be treated as replay/history")
+	}
+}
+
+func TestIsReplayOrHistoricalMessageTrueForHistorySyncEvent(t *testing.T) {
+	evt := &events.Message{
+		Info: types.MessageInfo{
+			MessageSource: types.MessageSource{
+				Chat:     types.NewJID("123", types.DefaultUserServer),
+				Sender:   types.NewJID("456", types.DefaultUserServer),
+				IsFromMe: false,
+			},
+			ID:        "SYNC123",
+			Timestamp: time.Date(2026, time.April, 15, 3, 5, 0, 0, time.UTC),
+		},
+		Message:      &waE2E.Message{Conversation: protoString("restored")},
+		SourceWebMsg: &waWeb.WebMessageInfo{},
+	}
+
+	if !isReplayOrHistoricalMessage(evt) {
+		t.Fatal("expected history sync event to be treated as replay/history")
+	}
+}
+
+func TestIsReplayOrHistoricalMessageTrueForUnavailableResponse(t *testing.T) {
+	evt := &events.Message{
+		Info: types.MessageInfo{
+			MessageSource: types.MessageSource{
+				Chat:     types.NewJID("123", types.DefaultUserServer),
+				Sender:   types.NewJID("456", types.DefaultUserServer),
+				IsFromMe: false,
+			},
+			ID:        "REQ123",
+			Timestamp: time.Date(2026, time.April, 15, 3, 5, 0, 0, time.UTC),
+		},
+		Message:              &waE2E.Message{Conversation: protoString("retried")},
+		UnavailableRequestID: "PLACEHOLDER_REQ",
+	}
+
+	if !isReplayOrHistoricalMessage(evt) {
+		t.Fatal("expected unavailable response event to be treated as replay/history")
+	}
+}
 
 func TestBuildEventPayloadIncludesIsFromMe(t *testing.T) {
 	evt := &events.Message{

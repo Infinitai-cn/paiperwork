@@ -87,6 +87,109 @@
     };
 })();
 
+function getWhatsappUserScopedHeadersForSessionReset(hashedMasterKey, extraHeaders = null) {
+    const headers = { ...(extraHeaders || {}) };
+    const resolvedMasterKey = String(hashedMasterKey || '').trim();
+    if (resolvedMasterKey) {
+        headers['X-Paiperwork-User'] = resolvedMasterKey;
+    }
+    return headers;
+}
+
+function appendWhatsappUserScopeForSessionReset(params, hashedMasterKey) {
+    const resolvedParams = params instanceof URLSearchParams ? params : new URLSearchParams(params || '');
+    const resolvedMasterKey = String(hashedMasterKey || '').trim();
+    if (resolvedMasterKey) {
+        resolvedParams.set('user', resolvedMasterKey);
+    }
+    return resolvedParams;
+}
+
+async function waitForWhatsappGatewayStopForSessionReset(hashedMasterKey, timeoutMs = 15000, intervalMs = 400) {
+    const resolvedMasterKey = String(hashedMasterKey || '').trim();
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+        try {
+            const params = appendWhatsappUserScopeForSessionReset(new URLSearchParams(), resolvedMasterKey);
+            const res = await fetch('/api/whatsapp/gateway-info?' + params.toString(), {
+                cache: 'no-store',
+                headers: getWhatsappUserScopedHeadersForSessionReset(resolvedMasterKey)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (!data || data.gatewayRunning !== true) {
+                    return true;
+                }
+            }
+        } catch (err) {
+            console.warn('App: gateway-info poll during session reset stop failed', err);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+
+    return false;
+}
+
+async function stopWhatsappServerForSessionReset() {
+    if (typeof window === 'undefined' || typeof fetch !== 'function') {
+        return false;
+    }
+
+    const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+    if (!hashedMasterKey) {
+        return false;
+    }
+
+    try {
+        if (window.connectorsTab && typeof window.connectorsTab.stopWhatsappServer === 'function') {
+            await window.connectorsTab.stopWhatsappServer();
+            return true;
+        }
+
+        const gatewayInfoParams = appendWhatsappUserScopeForSessionReset(new URLSearchParams(), hashedMasterKey);
+        const gatewayInfoHeaders = getWhatsappUserScopedHeadersForSessionReset(hashedMasterKey);
+
+        try {
+            const gatewayInfoRes = await fetch('/api/whatsapp/gateway-info?' + gatewayInfoParams.toString(), {
+                cache: 'no-store',
+                headers: gatewayInfoHeaders
+            });
+            if (gatewayInfoRes.ok) {
+                const gatewayInfo = await gatewayInfoRes.json();
+                if (!gatewayInfo || gatewayInfo.gatewayRunning !== true) {
+                    return true;
+                }
+            }
+        } catch (err) {
+            console.warn('App: initial gateway-info check before session reset stop failed', err);
+        }
+
+        const stopParams = appendWhatsappUserScopeForSessionReset(new URLSearchParams({ stop: 'true' }), hashedMasterKey);
+        const stopRes = await fetch('/api/whatsapp/qr?' + stopParams.toString(), {
+            method: 'POST',
+            headers: getWhatsappUserScopedHeadersForSessionReset(hashedMasterKey, { 'Content-Type': 'application/json' })
+        });
+
+        if (!stopRes.ok) {
+            console.warn('App: stop WhatsApp server during session reset failed', await stopRes.text());
+        }
+
+        await waitForWhatsappGatewayStopForSessionReset(hashedMasterKey);
+        return true;
+    } catch (err) {
+        console.warn('App: stopWhatsappServerForSessionReset failed', err);
+        return false;
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.PaiperworkSessionReset = {
+        stopWhatsappServerForSessionReset
+    };
+}
+
 document.addEventListener('DOMContentLoaded', async function () {
    //console.log('DOM Content Loaded');
     await Lang.initialize();

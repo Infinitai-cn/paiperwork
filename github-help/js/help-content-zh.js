@@ -2997,6 +2997,15 @@ window.helpContent = {
                 <p><strong>用户：</strong><code>不用了</code></p>
                 <p><strong>Paiperwork：</strong>好的，演示文稿后续模式已关闭。</p>
 
+                <h5>摘要与回答的后续转换</h5>
+                <p>当 Paiperwork 已经发送文档摘要，或在文档提问模式中回答了问题后，您可以要求它直接转换已缓存的结果，而不是重新运行整个文档流程。</p>
+                <ul>
+                    <li><code>把摘要翻译成中文</code></li>
+                    <li><code>把它缩短一点</code></li>
+                    <li><code>把它改成要点列表</code></li>
+                    <li><code>把那个回答改写得更清楚</code></li>
+                </ul>
+
                 <h4>图表</h4>
                 <p>您可以请求 Paiperwork 支持的图表。图表创建完成后，会发送到您的 WhatsApp 对话中。</p>
                 <ul>
@@ -3025,6 +3034,15 @@ window.helpContent = {
                 <p><strong>Paiperwork：</strong>您想继续完善这项研究吗？</p>
                 <p><strong>用户：</strong><code>完成了</code>、<code>不用了</code>、<code>不用</code></p>
                 <p><strong>Paiperwork：</strong>好的，研究后续模式已关闭。</p>
+
+                <h5>研究报告的后续转换</h5>
+                <p>研究报告发送完成后，您可以继续基于已缓存的报告文本进行改写，而不需要重新发起新的研究。</p>
+                <ul>
+                    <li><code>把报告翻译成西班牙语</code></li>
+                    <li><code>把它缩短一点</code></li>
+                    <li><code>把它改成要点列表</code></li>
+                    <li><code>把它改写成执行摘要</code></li>
+                </ul>
 
                 <h4>演示文稿</h4>
                 <p>您可以通过提供源文本来创建演示文稿。除非您明确指定页数，否则 Paiperwork 会根据内容量估算幻灯片数量。</p>
@@ -3062,6 +3080,19 @@ window.helpContent = {
                 <p><strong>Paiperwork：</strong>您想继续修改这个迷你应用吗？</p>
                 <p><strong>用户：</strong><code>不用了</code></p>
                 <p><strong>Paiperwork：</strong>好的，工件修改模式已关闭。</p>
+
+                <h4>后续模式与退出短语</h4>
+                <p>Paiperwork 会按电话号码保留工作流上下文。当出现后续问题时，可继续的短语包括 <code>是</code>、<code>好的</code> 和 <code>继续</code>。可关闭的短语包括 <code>不用了</code>、<code>不用</code> 和 <code>完成了</code>。对于文档流程，您也可以用 <code>退出文档模式</code> 离开提问模式。</p>
+                <p>同样的后续转换流程也适用于文档摘要、研究报告，以及文档提问模式下已经返回的回答。</p>
+                <h5>交互示例</h5>
+                <p><strong>用户：</strong><code>&lt;文档名称&gt; 总结</code></p>
+                <p><strong>Paiperwork：</strong>已提供文档总结。</p>
+                <p><strong>Paiperwork：</strong>您想继续处理这个文档吗？</p>
+                <p><strong>用户：</strong><code>把摘要翻译成中文</code></p>
+                <p><strong>Paiperwork：</strong>已提供缓存摘要的中文译文。</p>
+                <p><strong>Paiperwork：</strong>您想继续处理这个文档吗？</p>
+                <p><strong>用户：</strong><code>不用了</code></p>
+                <p><strong>Paiperwork：</strong>好的，文档后续模式已关闭。</p>
             `,
             },
             {

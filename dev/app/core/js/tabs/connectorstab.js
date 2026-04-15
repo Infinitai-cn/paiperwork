@@ -2198,7 +2198,7 @@ class ConnectorsTab {
             overlay.style.cssText = 'position:fixed;inset:0;background:var(--modal-overlay-bg, rgba(15,23,42,0.55));display:flex;align-items:center;justify-content:center;z-index:100001;padding:16px;';
 
             const dialog = document.createElement('div');
-            dialog.style.cssText = 'width:min(520px,100%);max-height:min(80vh,720px);overflow:auto;background:var(--card-bg,#fff);color:var(--text-color,#111);border:1px solid var(--border-color,#d0d7de);border-radius:14px;box-shadow:var(--wa-modal-shadow, 0 18px 55px rgba(15,23,42,0.22));padding:18px;';
+            dialog.style.cssText = 'width:min(520px,100%);max-height:min(80vh,720px);overflow:auto;background:var(--wa-modal-bg, var(--card-bg,#fff));color:var(--wa-modal-text, var(--text-color,#111));border:1px solid var(--wa-modal-border, var(--border-color,#d0d7de));border-radius:14px;box-shadow:var(--wa-modal-shadow, 0 18px 55px rgba(15,23,42,0.22));padding:18px;';
 
             const title = document.createElement('h3');
             title.textContent = 'Choose a saved WhatsApp device';
@@ -2222,7 +2222,7 @@ class ConnectorsTab {
                 if (!currentEntries.length) {
                     const empty = document.createElement('div');
                     empty.textContent = 'No saved WhatsApp devices remain.';
-                    empty.style.cssText = 'padding:14px 16px;border:1px dashed var(--border-color,#d0d7de);border-radius:12px;color:var(--wa-modal-muted,#5b6573);text-align:center;';
+                    empty.style.cssText = 'padding:14px 16px;border:1px dashed var(--wa-modal-border, var(--border-color,#d0d7de));border-radius:12px;background:var(--wa-modal-qr-surface, var(--panel-background,#f8fafc));color:var(--wa-modal-muted,#5b6573);text-align:center;';
                     list.appendChild(empty);
                     return;
                 }
@@ -2236,11 +2236,11 @@ class ConnectorsTab {
                     card.tabIndex = 0;
                     card.setAttribute('role', 'button');
                     card.setAttribute('aria-label', `Select ${label.primary}`);
-                    card.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:4px;box-sizing:border-box;width:100%;padding:14px 16px;border:1px solid var(--border-color,#d0d7de);border-radius:12px;background:var(--panel-background, var(--card-bg,#fff));color:var(--text-color,#111);cursor:pointer;text-align:left;transition:border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;';
+                    card.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:4px;box-sizing:border-box;width:100%;padding:14px 16px;border:1px solid var(--wa-modal-border, var(--border-color,#d0d7de));border-radius:12px;background:var(--wa-modal-qr-surface, var(--panel-background, var(--card-bg,#fff)));color:var(--wa-modal-text, var(--text-color,#111));cursor:pointer;text-align:left;transition:border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;';
 
                     const primary = document.createElement('span');
                     primary.textContent = label.primary;
-                    primary.style.cssText = 'font-size:15px;font-weight:600;color:var(--text-color,#111);';
+                    primary.style.cssText = 'font-size:15px;font-weight:600;color:var(--wa-modal-text, var(--text-color,#111));';
 
                     const secondary = document.createElement('span');
                     secondary.textContent = label.secondary || `Device ID: ${label.deviceId}`;
@@ -2257,22 +2257,22 @@ class ConnectorsTab {
                     });
                     card.addEventListener('mouseenter', () => {
                         card.style.borderColor = 'var(--accent-color, #4f46e5)';
-                        card.style.background = 'var(--hover-background, var(--panel-background, var(--card-bg,#fff)))';
+                        card.style.background = 'var(--wa-modal-surface-hover, var(--hover-background, var(--panel-background, var(--card-bg,#fff))))';
                         card.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--accent-color, #4f46e5) 18%, transparent)';
                     });
                     card.addEventListener('mouseleave', () => {
-                        card.style.borderColor = 'var(--border-color,#d0d7de)';
-                        card.style.background = 'var(--panel-background, var(--card-bg,#fff))';
+                        card.style.borderColor = 'var(--wa-modal-border, var(--border-color,#d0d7de))';
+                        card.style.background = 'var(--wa-modal-qr-surface, var(--panel-background, var(--card-bg,#fff)))';
                         card.style.boxShadow = 'none';
                     });
                     card.addEventListener('focus', () => {
                         card.style.borderColor = 'var(--accent-color, #4f46e5)';
-                        card.style.background = 'var(--hover-background, var(--panel-background, var(--card-bg,#fff)))';
+                        card.style.background = 'var(--wa-modal-surface-hover, var(--hover-background, var(--panel-background, var(--card-bg,#fff))))';
                         card.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--accent-color, #4f46e5) 20%, transparent)';
                     });
                     card.addEventListener('blur', () => {
-                        card.style.borderColor = 'var(--border-color,#d0d7de)';
-                        card.style.background = 'var(--panel-background, var(--card-bg,#fff))';
+                        card.style.borderColor = 'var(--wa-modal-border, var(--border-color,#d0d7de))';
+                        card.style.background = 'var(--wa-modal-qr-surface, var(--panel-background, var(--card-bg,#fff)))';
                         card.style.boxShadow = 'none';
                     });
 
@@ -2352,7 +2352,17 @@ class ConnectorsTab {
             const cancel = document.createElement('button');
             cancel.type = 'button';
             cancel.textContent = 'Cancel';
-            cancel.style.cssText = 'padding:10px 14px;border:1px solid var(--border-color,#d0d7de);border-radius:10px;background:var(--button-secondary-bg, var(--panel-background, #e5e7eb));color:var(--button-secondary-text, var(--text-color, #111));cursor:pointer;font-weight:600;';
+            cancel.style.cssText = 'padding:10px 14px;border:1px solid var(--wa-modal-secondary-btn-border, var(--border-color,#d0d7de));border-radius:10px;background:var(--wa-modal-secondary-btn-bg, var(--panel-background, #e5e7eb));color:var(--wa-modal-secondary-btn-text, var(--text-color, #111));cursor:pointer;font-weight:600;transition:background-color 120ms ease, border-color 120ms ease, color 120ms ease;';
+            cancel.addEventListener('mouseenter', () => {
+                cancel.style.background = 'var(--wa-modal-secondary-btn-hover-bg, var(--wa-modal-secondary-btn-bg, var(--panel-background, #e5e7eb)))';
+                cancel.style.borderColor = 'var(--wa-modal-secondary-btn-hover-border, var(--wa-modal-secondary-btn-border, var(--border-color,#d0d7de)))';
+                cancel.style.color = 'var(--wa-modal-secondary-btn-hover-text, var(--wa-modal-secondary-btn-text, var(--text-color, #111)))';
+            });
+            cancel.addEventListener('mouseleave', () => {
+                cancel.style.background = 'var(--wa-modal-secondary-btn-bg, var(--panel-background, #e5e7eb))';
+                cancel.style.borderColor = 'var(--wa-modal-secondary-btn-border, var(--border-color,#d0d7de))';
+                cancel.style.color = 'var(--wa-modal-secondary-btn-text, var(--text-color, #111))';
+            });
             cancel.addEventListener('click', () => finish(null));
 
             footer.appendChild(cancel);
@@ -3695,10 +3705,10 @@ class ConnectorsTab {
 
         const overlay = document.createElement('div');
         overlay.id = 'wa-no-model-modal';
-        overlay.style.cssText = 'position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:99999;';
+        overlay.style.cssText = 'position: fixed; top:0; left:0; width:100%; height:100%; background:var(--modal-overlay-bg, rgba(0,0,0,0.6)); display:flex; align-items:center; justify-content:center; z-index:99999;';
 
         const dialog = document.createElement('div');
-        dialog.style.cssText = 'width:min(440px,calc(100vw-32px)); background:var(--card-bg,#fff); color:var(--text-color,#000); border:1px solid var(--border-color,#ccc); border-radius:10px; padding:18px; text-align:center;';
+        dialog.style.cssText = 'width:min(440px,calc(100vw-32px)); background:var(--wa-modal-bg, var(--card-bg,#fff)); color:var(--wa-modal-text, var(--text-color,#000)); border:1px solid var(--wa-modal-border, var(--border-color,#ccc)); border-radius:10px; padding:18px; text-align:center; box-shadow:var(--wa-modal-shadow, 0 18px 55px rgba(15,23,42,0.22));';
 
         const title = document.createElement('h3');
         title.style.margin = '0 0 10px 0';
@@ -3708,6 +3718,7 @@ class ConnectorsTab {
         const msg = document.createElement('p');
         msg.style.margin = '0 0 14px 0';
         msg.style.lineHeight = '1.45';
+        msg.style.color = 'var(--wa-modal-muted, var(--text-color, #000))';
         msg.textContent = message;
 
         const chatBtn = document.createElement('button');
@@ -3726,8 +3737,18 @@ class ConnectorsTab {
         });
 
         const closeBtn = document.createElement('button');
-        closeBtn.style.cssText = 'padding:9px 14px; border:none; border-radius:8px; background:#e5e7eb; color:#111; cursor:pointer; font-weight:600;';
+        closeBtn.style.cssText = 'padding:9px 14px; border:1px solid var(--wa-modal-secondary-btn-border, var(--border-color,#d0d7de)); border-radius:8px; background:var(--wa-modal-secondary-btn-bg, var(--panel-background, #e5e7eb)); color:var(--wa-modal-secondary-btn-text, var(--text-color, #111)); cursor:pointer; font-weight:600; transition:background-color 120ms ease, border-color 120ms ease, color 120ms ease;';
         closeBtn.textContent = (window.Lang && Lang.get('cancel')) || 'Cancel';
+        closeBtn.addEventListener('mouseenter', () => {
+            closeBtn.style.background = 'var(--wa-modal-secondary-btn-hover-bg, var(--wa-modal-secondary-btn-bg, var(--panel-background, #e5e7eb)))';
+            closeBtn.style.borderColor = 'var(--wa-modal-secondary-btn-hover-border, var(--wa-modal-secondary-btn-border, var(--border-color,#d0d7de)))';
+            closeBtn.style.color = 'var(--wa-modal-secondary-btn-hover-text, var(--wa-modal-secondary-btn-text, var(--text-color, #111)))';
+        });
+        closeBtn.addEventListener('mouseleave', () => {
+            closeBtn.style.background = 'var(--wa-modal-secondary-btn-bg, var(--panel-background, #e5e7eb))';
+            closeBtn.style.borderColor = 'var(--wa-modal-secondary-btn-border, var(--border-color,#d0d7de))';
+            closeBtn.style.color = 'var(--wa-modal-secondary-btn-text, var(--text-color, #111))';
+        });
         closeBtn.addEventListener('click', () => {
             if (overlay.parentNode) { overlay.parentNode.removeChild(overlay); }
         });
@@ -4299,9 +4320,9 @@ class ConnectorsTab {
             modal.style.transform = 'translate(-50%, -50%)';
             modal.style.width = '360px';
             modal.style.maxWidth = 'calc(100vw - 24px)';
-            modal.style.background = 'var(--modal-background, white)';
-            modal.style.color = 'var(--text-color, #111111)';
-            modal.style.border = '1px solid var(--border-color, #ccc)';
+            modal.style.background = 'var(--wa-modal-bg, var(--card-bg, #ffffff))';
+            modal.style.color = 'var(--wa-modal-text, var(--text-color, #111111))';
+            modal.style.border = '1px solid var(--wa-modal-border, var(--border-color, #ccc))';
             modal.style.padding = '12px';
             modal.style.boxSizing = 'border-box';
             modal.style.maxHeight = 'calc(100vh - 32px)';
@@ -4318,14 +4339,14 @@ class ConnectorsTab {
         modal.innerHTML = `
             <div class="wa-pair-modal-content">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px;">
-                    <h2 id="wa-modal-title" style="margin: 0; font-size: 18px; font-weight: 600;">Pair WhatsApp</h2>
-                    <button id="wa-close-modal-x" type="button" aria-label="Close pairing" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--border-color, #ccc);border-radius:999px;background:var(--panel-background, #f3f4f6);color:var(--text-color, #111111);cursor:pointer;font-size:20px;line-height:1;">&times;</button>
+                    <h2 id="wa-modal-title" style="margin: 0; font-size: 18px; font-weight: 600; color: var(--wa-modal-text, var(--text-color, #111111));">Pair WhatsApp</h2>
+                    <button id="wa-close-modal-x" type="button" aria-label="Close pairing" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--wa-modal-close-x-border, var(--border-color, #ccc));border-radius:999px;background:var(--wa-modal-close-x-bg, var(--panel-background, #f3f4f6));color:var(--wa-modal-close-x-text, var(--text-color, #111111));cursor:pointer;font-size:20px;line-height:1;transition:background-color 0.2s ease,border-color 0.2s ease,color 0.2s ease;">&times;</button>
                 </div>
                 <div id="wa-start-status" style="display: none; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: #0b74de; margin-bottom: 8px;">
                     <div class="wa-loading-spinner" style="width: 16px; height: 16px; border: 3px solid var(--wa-modal-spinner-track, #c4c4c4); border-top-color: var(--wa-modal-spinner-accent, #0b74de); border-top-left-radius: 50%; border-radius: 50%; margin: 0; animation: wa-spin 0.9s linear infinite;"></div>
                     <span id="wa-start-status-text">Server starting...</span>
                 </div>
-                <div id="wa-qr-container" style="text-align: center; margin-top: 16px; margin-bottom: 16px;"></div>
+                <div id="wa-qr-container" style="text-align: center; margin-top: 16px; margin-bottom: 16px; background: var(--wa-modal-qr-surface, transparent); border-radius: 12px; padding: 12px;"></div>
                 <div id="wa-qr-legend" style="text-align: center; font-size: 13px; color: var(--wa-modal-status-color, #4d4d4d); margin-top: 4px; margin-bottom: 8px; display: none;"></div>
                 <div id="wa-status" style="text-align: center; font-size: 14px; color: var(--wa-modal-status-color, #666);"></div>
                 <div id="wa-starting-spinner" style="display: none; justify-content: center; align-items: center; margin-top: 18px; margin-bottom: 2px;">
@@ -4334,7 +4355,7 @@ class ConnectorsTab {
                 <div id="wa-session-restore-status" style="text-align: center; font-size: 12px; color: var(--wa-modal-muted, #7a7a7a); margin-top: 6px; min-height: 16px; display: none;"></div>
                 <div id="wa-qr-countdown" style="text-align: center; font-size: 13px; color: var(--wa-modal-status-color, #4d4d4d); margin-top: 6px; min-height: 18px; display: none;"></div>
                 <div id="wa-qr-refresh-note" style="text-align: center; font-size: 13px; color: var(--wa-modal-link, #007bff); margin-top: 8px; min-height: 18px; visibility: hidden; opacity: 0; transition: opacity 0.25s;"></div>
-                <button id="wa-close-modal" style="margin-top: 18px; width: 100%; padding: 10px; background: var(--wa-modal-close-btn-bg, #4CAF50); color: var(--wa-modal-close-btn-text, #ffffff); border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">Close</button>
+                <button id="wa-close-modal" style="margin-top: 18px; width: 100%; padding: 10px; background: var(--wa-modal-close-btn-bg, #4CAF50); color: var(--wa-modal-close-btn-text, #ffffff); border: 1px solid transparent; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; box-shadow: var(--wa-modal-shadow, 0 4px 20px rgba(0,0,0,0.15));">Close</button>
             </div>
         `;
 
@@ -4364,6 +4385,16 @@ class ConnectorsTab {
 
         const closeModalX = document.getElementById('wa-close-modal-x');
         if (closeModalX) {
+            closeModalX.addEventListener('mouseenter', () => {
+                closeModalX.style.background = 'var(--wa-modal-close-x-hover-bg, var(--wa-modal-close-x-bg, #f3f4f6))';
+                closeModalX.style.borderColor = 'var(--wa-modal-close-x-hover-border, var(--wa-modal-close-x-border, #ccc))';
+                closeModalX.style.color = 'var(--wa-modal-close-x-hover-text, var(--wa-modal-close-x-text, #111111))';
+            });
+            closeModalX.addEventListener('mouseleave', () => {
+                closeModalX.style.background = 'var(--wa-modal-close-x-bg, var(--panel-background, #f3f4f6))';
+                closeModalX.style.borderColor = 'var(--wa-modal-close-x-border, var(--border-color, #ccc))';
+                closeModalX.style.color = 'var(--wa-modal-close-x-text, var(--text-color, #111111))';
+            });
             closeModalX.addEventListener('click', () => {
                 this._cancelWhatsappPairingAndStopServer('modal-close-x').catch(err => {
                     console.warn('ConnectorsTab: failed to stop WhatsApp server after modal x close', err);
