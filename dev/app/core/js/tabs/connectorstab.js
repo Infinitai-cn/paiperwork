@@ -311,20 +311,14 @@ class ConnectorsTab {
     }
 
     _handleWhatsappPairingWindowClose() {
-        if (this.isPaired) {
-            return;
-        }
-
-        const modal = document.getElementById('wa-pair-modal');
-        if (!modal) {
-            return;
-        }
-
         if (!(this.serverStarted || this.serverStarting || this.serverStopping)) {
             return;
         }
 
-        this.whatsappPairModalDismissed = true;
+        const modal = document.getElementById('wa-pair-modal');
+        if (modal && !this.isPaired) {
+            this.whatsappPairModalDismissed = true;
+        }
         this.whatsappWebsocketShouldReconnect = false;
         this.stopPolling();
         this.stopWhatsappModalCountdown();
@@ -3276,6 +3270,82 @@ class ConnectorsTab {
         }
     }
 
+    _isWindowsLocalRuntime() {
+        if (typeof window === 'undefined' || window.PAIPERWORK_IS_LOCAL_RUNTIME !== true) {
+            return false;
+        }
+
+        const navigatorData = window.navigator || {};
+        const platform = String((navigatorData.userAgentData && navigatorData.userAgentData.platform) || navigatorData.platform || '').toLowerCase();
+        const userAgent = String(navigatorData.userAgent || '').toLowerCase();
+        return platform.includes('win') || userAgent.includes('windows');
+    }
+
+    _extractWindowsWhatsappStartupFailureDetail(rawValue) {
+        const rawText = String(rawValue || '').trim();
+        if (!rawText) {
+            return '';
+        }
+
+        try {
+            const parsed = JSON.parse(rawText);
+            const candidate = String((parsed && (parsed.message || parsed.error || parsed.detail)) || '').trim();
+            if (candidate) {
+                return this._extractWindowsWhatsappStartupFailureDetail(candidate);
+            }
+        } catch (_err) {
+            // Response was not JSON; continue with raw text.
+        }
+
+        const normalized = rawText.replace(/^"+|"+$/g, '').trim();
+        if (!normalized) {
+            return '';
+        }
+
+        if (/^(gateway-unavailable|gateway-stopped|service unavailable|internal server error)$/i.test(normalized)) {
+            return '';
+        }
+        if (/^<!doctype html/i.test(normalized) || /^<html/i.test(normalized)) {
+            return '';
+        }
+
+        return normalized;
+    }
+
+    _shouldShowWindowsWhatsappStartupFailure(options = {}, statusCode = 0, rawDetail = '') {
+        if (!this._isWindowsLocalRuntime()) {
+            return false;
+        }
+
+        const startupInFlight = !!options.start || this.serverStarting || this.whatsappModalPhase === 'starting';
+        if (!startupInFlight) {
+            return false;
+        }
+
+        if (statusCode === 0) {
+            return true;
+        }
+
+        if (statusCode >= 500) {
+            return true;
+        }
+
+        return /gateway-unavailable|failed to start gateway|failed to initialize chat storage|sqlite|database|stream replaced/i.test(String(rawDetail || ''));
+    }
+
+    _showWindowsWhatsappStartupFailure(rawDetail = '') {
+        const detail = this._extractWindowsWhatsappStartupFailureDetail(rawDetail);
+        const baseMessage = 'Windows WhatsApp startup failed, but Paiperwork stayed open. Try Start server again. If it keeps failing, rebuild or update the Windows package.';
+        const fullMessage = detail ? `${baseMessage} Detail: ${detail}` : baseMessage;
+
+        if (this.whatsappModalPhase === 'starting' || this.serverStarting) {
+            this.setWhatsappModalPhase('starting', fullMessage);
+            return;
+        }
+
+        this.setWhatsappModalStatus(fullMessage);
+    }
+
     setWhatsappModalActivitySpinner(isVisible) {
         const spinnerWrap = document.getElementById('wa-starting-spinner');
         if (!spinnerWrap) {
@@ -3898,8 +3968,19 @@ class ConnectorsTab {
                 if (!this._isWhatsappRequestActive(requestGeneration)) {
                     return null;
                 }
+                const errorText = await res.text().catch(() => '');
+                if (this._shouldShowWindowsWhatsappStartupFailure(options, res.status, errorText)) {
+                    this._showWindowsWhatsappStartupFailure(errorText);
+                }
+                console.warn('ConnectorsTab: refreshWhatsappPairButton non-ok response', res.status, errorText);
                 await this.setWhatsappPairButtonState(false);
-                return;
+                return {
+                    gatewayRunning: false,
+                    connected: false,
+                    loggedIn: false,
+                    status: 'error',
+                    httpStatus: res.status
+                };
             }
 
             const data = await res.json();
@@ -4031,6 +4112,9 @@ class ConnectorsTab {
                 return null;
             }
             console.warn('ConnectorsTab: refreshWhatsappPairButton failed', err);
+            if (this._shouldShowWindowsWhatsappStartupFailure(options, 0, err && err.message ? err.message : '')) {
+                this._showWindowsWhatsappStartupFailure(err && err.message ? err.message : '');
+            }
             await this.setWhatsappPairButtonState(false);
             return null;
         }

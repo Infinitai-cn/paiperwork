@@ -10,6 +10,7 @@ import (
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
 	domainDevice "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/device"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/embeddedsafe"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/ui/websocket"
 	"github.com/sirupsen/logrus"
@@ -357,6 +358,10 @@ func resolveUserInfoName(ctx context.Context, client *whatsmeow.Client, jid type
 }
 
 func handleStreamReplaced(_ context.Context) {
+	if embeddedsafe.IsEnabled() {
+		log.Warnf("stream replaced event received while gowa is embedded; suppressing process exit")
+		return
+	}
 	os.Exit(0)
 }
 

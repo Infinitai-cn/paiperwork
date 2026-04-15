@@ -3138,7 +3138,7 @@ window.helpContent = {
                     <li>Sending files and images to the AI model is not supported yet.</li>
                     <li>Document workflows require a local embedding model selected in the Documents tab.</li>
                     <li>Paiperwork uses an internal orchestrator to decide which connector function to use for each WhatsApp request.</li>
-                    <li>If you refresh the browser, incoming messages stay paused until you open the Connectors tab again. This is intentional so local users do not get spammed unexpectedly.</li>
+                    <li>If you go back from the generation page to the welcome page or refresh the browser, the WhatsApp server is closed. Start it manually again to resume WhatsApp communication.</li>
                     <li>Presentations and artifacts generated from WhatsApp are sent back as HTML files. You can later open them in Paiperwork for deeper manual edits.</li>
                     <li>By default, Paiperwork isolates WhatsApp connector state per Master Key user so saved sessions, device state, and queued runtime data do not leak between different Master Key users on the same machine.</li>
                 </ul>

@@ -35,6 +35,7 @@ import (
 	gowaCmd "github.com/aldinokemal/go-whatsapp-web-multidevice/cmd"
 	config "github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	whatsappInfra "github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/sqliteutil"
 	restHelpers "github.com/aldinokemal/go-whatsapp-web-multidevice/ui/rest/helpers"
 	uiWebsocket "github.com/aldinokemal/go-whatsapp-web-multidevice/ui/websocket"
 	"go.mau.fi/whatsmeow/store/sqlstore"
@@ -246,6 +247,9 @@ func qrRefForLog(qr string) string {
 }
 
 func useInMemoryPaiperworkWhatsappRuntime() bool {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("PAIPERWORK_FORCE_FILEBACKED_WHATSAPP")), "true") {
+		return false
+	}
 	return true
 }
 
@@ -270,13 +274,11 @@ func loadPreferredWhatsappDeviceFromDB(userKey string) (deviceID string, meta st
 		return "", "", nil
 	}
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath))
+	db, err := sqliteutil.Open(fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath))
 	if err != nil {
 		return "", "", err
 	}
 	defer db.Close()
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
 
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS preferred_whatsapp_device (
@@ -319,13 +321,11 @@ func savePreferredWhatsappDeviceToDB(userKey, deviceID, meta string) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath))
+	db, err := sqliteutil.Open(fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath))
 	if err != nil {
 		return err
 	}
 	defer db.Close()
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
 
 	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS preferred_whatsapp_device (
@@ -451,14 +451,12 @@ func purgePersistedWhatsappDeviceForUser(userKey, deviceID string) error {
 			return
 		}
 
-		db, err := sql.Open("sqlite3", trimmedURI)
+		db, err := sqliteutil.Open(trimmedURI)
 		if err != nil {
 			recordErr(err)
 			return
 		}
 		defer db.Close()
-		db.SetMaxOpenConns(1)
-		db.SetMaxIdleConns(1)
 
 		purgeChatStorageTables(db)
 
@@ -606,13 +604,11 @@ func loadPersistedWhatsappDevicesFromDB(userKey string) ([]persistedWhatsappDevi
 		return []persistedWhatsappDeviceEntry{}, nil
 	}
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath))
+	db, err := sqliteutil.Open(fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath))
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
 
 	entries := make(map[string]persistedWhatsappDeviceEntry)
 	order := make([]string, 0)
@@ -1360,13 +1356,11 @@ func mergeSQLiteIntoTarget(targetPath, sourcePath string) error {
 		return nil
 	}
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", targetPath))
+	db, err := sqliteutil.Open(fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", targetPath))
 	if err != nil {
 		return err
 	}
 	defer db.Close()
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
 
 	if _, err = db.Exec("ATTACH DATABASE ? AS legacy", sourcePath); err != nil {
 		return err
@@ -6183,6 +6177,7 @@ func stopGateway() error {
 		waitForGatewayStopped(2 * time.Second)
 		resetGatewayRuntimeState(false)
 		whatsappInfra.ResetStateOnShutdown()
+		sqliteutil.ClosePinnedRuntimeAnchors()
 		return nil
 	}
 	embeddedGowaMutex.Unlock()
@@ -6204,6 +6199,7 @@ func stopGateway() error {
 	whatsappServerStarted = false
 	resetGatewayRuntimeState(false)
 	whatsappInfra.ResetStateOnShutdown()
+	sqliteutil.ClosePinnedRuntimeAnchors()
 	return nil
 }
 
@@ -6263,9 +6259,12 @@ func startEmbeddedGowa(freshPairStartup bool) error {
 		os.Unsetenv(whatsappFreshPairStartupEnv)
 	}
 
-	// When launching gowa from Paiperwork, prefer no-disk mode to avoid
-	// creating local folders/files/databases (forces in-memory DBs).
-	os.Setenv("PAIPERWORK_NO_DISK", "true")
+	if useInMemoryPaiperworkWhatsappRuntime() {
+		os.Setenv("PAIPERWORK_NO_DISK", "true")
+	} else {
+		os.Unsetenv("PAIPERWORK_NO_DISK")
+	}
+	os.Setenv("PAIPERWORK_EMBEDDED_GOWA", "true")
 
 	go func() {
 		defer func() {

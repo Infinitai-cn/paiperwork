@@ -3094,7 +3094,7 @@ window.helpContent = {
                     <li>L'envoi de fichiers et d'images au modèle d'IA n'est pas encore pris en charge.</li>
                     <li>Les flux documents nécessitent un modèle d'embeddings local sélectionné dans l'onglet Documents.</li>
                     <li>Paiperwork utilise un orchestrateur interne pour décider quelle fonction du connecteur employer pour chaque requête WhatsApp.</li>
-                    <li>Si vous actualisez le navigateur, les messages entrants restent en pause jusqu'à ce que vous rouvriez l'onglet Connecteurs. C'est intentionnel afin d'éviter tout spam inattendu pour l'utilisateur local.</li>
+                    <li>Si vous revenez de la page de génération à la page d'accueil ou si vous actualisez le navigateur, le serveur WhatsApp se ferme. Vous devez le redémarrer manuellement pour reprendre la communication sur WhatsApp.</li>
                     <li>Les présentations et artefacts générés depuis WhatsApp sont renvoyés comme fichiers HTML. Vous pourrez ensuite les ouvrir dans Paiperwork pour des retouches manuelles plus poussées.</li>
                     <li>Par défaut, Paiperwork isole l'état du connecteur WhatsApp par utilisateur de Master Key afin que les sessions enregistrées, l'état des appareils et les données d'exécution en file d'attente ne fuient pas entre différents utilisateurs de Master Key sur la même machine.</li>
                 </ul>

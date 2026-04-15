@@ -3116,7 +3116,7 @@ window.helpContent = {
                     <li>Enviar archivos e imágenes al modelo de IA todavía no está soportado.</li>
                     <li>Los flujos de documentos requieren un modelo de embeddings local seleccionado en la pestaña Documentos.</li>
                     <li>Paiperwork usa un orquestador interno para decidir qué función del conector utilizar en cada solicitud de WhatsApp.</li>
-                    <li>Si recargas el navegador, los mensajes entrantes quedan pausados hasta que abras de nuevo la pestaña Conectores. Esto es intencional para evitar spam inesperado al usuario local.</li>
+                    <li>Si vuelves de la página de generación a la página de bienvenida o recargas el navegador, el servidor de WhatsApp se cerrará. Debes iniciarlo manualmente de nuevo para reanudar la comunicación por WhatsApp.</li>
                     <li>Las presentaciones y los artefactos generados desde WhatsApp se envían como archivos HTML. Después puedes abrirlos en Paiperwork para hacer ediciones manuales más profundas.</li>
                     <li>De forma predeterminada, Paiperwork aísla el estado del conector de WhatsApp por usuario de Master Key para que las sesiones guardadas, el estado del dispositivo y los datos de ejecución en cola no se filtren entre distintos usuarios de Master Key en el mismo equipo.</li>
                 </ul>

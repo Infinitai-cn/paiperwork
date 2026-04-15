@@ -3099,7 +3099,7 @@ window.helpContent = {
                     <li>Das Senden von Dateien und Bildern an das KI-Modell wird derzeit noch nicht unterstützt.</li>
                     <li>Dokument-Workflows erfordern ein lokal ausgewähltes Embedding-Modell im Dokumente-Tab.</li>
                     <li>Paiperwork verwendet einen internen Orchestrator, um für jede WhatsApp-Anfrage die passende Connector-Funktion auszuwählen.</li>
-                    <li>Wenn Sie den Browser aktualisieren, bleiben eingehende Nachrichten pausiert, bis Sie den Verbindungen-Tab erneut öffnen. Das ist beabsichtigt, damit lokale Nutzer nicht unerwartet gespammt werden.</li>
+                    <li>Wenn Sie von der Generierungsseite zur Willkommensseite zurückgehen oder den Browser aktualisieren, wird der WhatsApp-Server geschlossen. Starten Sie ihn anschließend manuell neu, um die WhatsApp-Kommunikation fortzusetzen.</li>
                     <li>Präsentationen und Artefakte aus WhatsApp werden als HTML-Dateien zurückgesendet. Später können Sie sie in Paiperwork öffnen und manuell weiter bearbeiten.</li>
                     <li>Standardmäßig isoliert Paiperwork den WhatsApp-Connector-Zustand pro Master-Key-Nutzer, sodass gespeicherte Sitzungen, Gerätezustand und zwischengespeicherte Laufzeitdaten nicht zwischen verschiedenen Master-Key-Nutzern auf demselben Computer durchsickern.</li>
                 </ul>

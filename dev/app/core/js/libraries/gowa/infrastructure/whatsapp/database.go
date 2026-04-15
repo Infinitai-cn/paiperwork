@@ -2,12 +2,12 @@ package whatsapp
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
-	"github.com/sirupsen/logrus"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/embeddedsafe"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/sqliteutil"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
@@ -35,13 +35,13 @@ func InitWaDB(ctx context.Context, DBURI string) *sqlstore.Container {
 	if config.NoDisk {
 		trimmed := strings.TrimSpace(strings.Trim(DBURI, `"'`))
 		if trimmed == "" {
-			logrus.Fatal("InitWaDB: no-disk mode requires an in-memory gowa DB URI")
+			embeddedsafe.Fatal("InitWaDB: no-disk mode requires an in-memory gowa DB URI")
 		}
 		if isForbiddenNoDiskURI(trimmed) {
-			logrus.Fatalf("InitWaDB: no-disk mode forbids local file-backed gowa database URIs: %s", trimmed)
+			embeddedsafe.Fatalf("InitWaDB: no-disk mode forbids local file-backed gowa database URIs: %s", trimmed)
 		}
 		if !isInMemoryNoDiskURI(trimmed) {
-			logrus.Fatalf("InitWaDB: no-disk mode requires an in-memory gowa database URI: %s", trimmed)
+			embeddedsafe.Fatalf("InitWaDB: no-disk mode requires an in-memory gowa database URI: %s", trimmed)
 		}
 	}
 
@@ -92,12 +92,10 @@ func initDatabase(ctx context.Context, dbLog waLog.Logger, DBURI string) (*sqlst
 	DBURI = strings.Trim(DBURI, `"'`)
 
 	if strings.HasPrefix(DBURI, "file:") {
-		sqlDB, err := sql.Open("sqlite3", DBURI)
+		sqlDB, err := sqliteutil.Open(DBURI)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open sqlite database: %w", err)
 		}
-		sqlDB.SetMaxOpenConns(1)
-		sqlDB.SetMaxIdleConns(1)
 
 		container := sqlstore.NewWithDB(sqlDB, "sqlite3", dbLog)
 		if err := container.Upgrade(ctx); err != nil {
