@@ -20,6 +20,13 @@ func isReplayOrHistoricalMessage(evt *events.Message) bool {
 		return false
 	}
 
+	// DeviceSentMeta is populated when a direct message was authored on another one
+	// of the user's linked devices. Those cross-device replays must not trigger live
+	// webhook/orchestrator side effects when a different bot device starts up.
+	if evt.Info.DeviceSentMeta != nil {
+		return true
+	}
+
 	// SourceWebMsg is populated when whatsmeow parses a message from WebMessageInfo,
 	// which includes history sync replay and unavailable-message resend responses.
 	if evt.SourceWebMsg != nil {
