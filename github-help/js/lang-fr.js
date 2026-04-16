@@ -1,8 +1,7 @@
-const isGithubHelpLanguageRuntime = typeof window !== 'undefined'
+if (typeof window !== 'undefined'
     && (window.location.pathname.includes('/github-help/')
-        || String(document.currentScript && document.currentScript.src || '').includes('/github-help/js/'));
-
-if (isGithubHelpLanguageRuntime && typeof window.githubHelpFrenchTranslationsLoaded === 'undefined') {
+        || String(document.currentScript && document.currentScript.src || '').includes('/github-help/js/'))
+    && typeof window.githubHelpFrenchTranslationsLoaded === 'undefined') {
     window.githubHelpFrenchTranslationsLoaded = true;
 
 
@@ -23,6 +22,10 @@ if (isGithubHelpLanguageRuntime && typeof window.githubHelpFrenchTranslationsLoa
         adminKeyNoticeBody: "Pour effectuer des actions administratives, cette session a besoin d'une clé d'administration. Elle sera stockée dans la session du navigateur.",
         adminKeyNoticeHint: "Cliquez sur OK pour générer et enregistrer la clé pour cette session.",
         adminKeySavedToast: "Clé d'administration enregistrée dans la session.",
+        whatsappPersonalModeButton: 'Personnel',
+        whatsappPersonalModeButtonTitle: 'Mode personnel',
+        whatsappBotModeButton: 'Bot',
+        whatsappBotModeButtonTitle: 'Mode bot',
 
 
     };

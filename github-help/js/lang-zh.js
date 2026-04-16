@@ -1,8 +1,7 @@
-const isGithubHelpLanguageRuntime = typeof window !== 'undefined'
-    && (window.location.pathname.includes('/github-help/')
-        || String(document.currentScript && document.currentScript.src || '').includes('/github-help/js/'));
-
-if (isGithubHelpLanguageRuntime && typeof window.githubHelpChineseTranslationsLoaded === 'undefined') {
+if (typeof window !== 'undefined'
+        && (window.location.pathname.includes('/github-help/')
+                || String(document.currentScript && document.currentScript.src || '').includes('/github-help/js/'))
+        && typeof window.githubHelpChineseTranslationsLoaded === 'undefined') {
         window.githubHelpChineseTranslationsLoaded = true;
 
 
@@ -22,6 +21,10 @@ if (isGithubHelpLanguageRuntime && typeof window.githubHelpChineseTranslationsLo
                 adminKeyNoticeBody: '要执行管理操作，本次会话需要管理员密钥。它将保存在浏览器会话中。',
                 adminKeyNoticeHint: '点击确定以为此会话生成并保存密钥。',
                 adminKeySavedToast: '管理员密钥已保存到会话。',
+                whatsappPersonalModeButton: '个人',
+                whatsappPersonalModeButtonTitle: '个人模式',
+                whatsappBotModeButton: '机器人',
+                whatsappBotModeButtonTitle: '机器人模式',
 
         };
         if (typeof window.Lang !== 'undefined') {
