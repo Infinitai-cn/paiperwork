@@ -2892,14 +2892,6 @@ window.helpContent = {
                     <li><strong>Solution 3 :</strong> Exécutez l'optimisation de base de données après le nettoyage</li>
                 </ul>
 
-                <h4>Effacer les contextes WhatsApp</h4>
-                <p>Si les réponses WhatsApp deviennent trop chargées après une longue utilisation, vous pouvez effacer uniquement les contextes WhatsApp stockés par téléphone sans supprimer le reste de votre base de données.</p>
-                <ol>
-                    <li>Cliquez sur "Effacer les contextes WhatsApp" dans l'onglet Base de données</li>
-                    <li>Cela supprime la mémoire de contexte WhatsApp stockée par téléphone et réinitialise le contexte WhatsApp actif en mémoire</li>
-                    <li>Les informations des appareils appairés sont conservées et peuvent toujours être gérées depuis l'onglet Connectors avec "Delete paired device(s)"</li>
-                </ol>
-                
                 <h4>Dernier recours : Réinitialisation de base de données</h4>
                 <p>Si des problèmes persistants se produisent et que la maintenance normale n'aide pas :</p>
                                 <ol>
@@ -2922,7 +2914,7 @@ window.helpContent = {
         intro: [
             "Remarque : la version en ligne de Paiperwork hébergée sur Huggingface n'inclut pas la fonctionnalité WhatsApp pour des raisons de sécurité et de confidentialité des utilisateurs.",
             "Les connecteurs relient Paiperwork à WhatsApp. Les requêtes n'utilisent que les ressources déjà disponibles dans Paiperwork et n'accèdent pas à votre système d'exploitation, à la mémoire, au disque dur ni à des fichiers externes arbitraires.",
-            "Pour recevoir les messages WhatsApp entrants, gardez actif l'onglet du navigateur qui exécute Paiperwork et empêchez l'ordinateur de se mettre en veille. Remarque : si vous utilisez la version Huggingface Spaces de Paiperwork, le serveur peut s'arrêter en raison de l'inactivité (règles Huggingface).",
+            "Pour recevoir les messages WhatsApp entrants, gardez actif l'onglet du navigateur qui exécute Paiperwork et empêchez l'ordinateur de se mettre en veille.",
             "Les documents, recherches, présentations et artefacts peuvent ouvrir un mode de suivi dédié. Restez dans ce mode jusqu'à sa fermeture avec la commande de sortie appropriée."
         ],
         articles: [
@@ -2936,6 +2928,13 @@ window.helpContent = {
                     <li><strong>Mode bot :</strong> les personnes présentes dans votre liste de contacts WhatsApp peuvent parler à l'instance Paiperwork appairée. Utilisez de préférence un numéro séparé, sauf si vous voulez explicitement ce comportement sur votre compte principal.<br><strong>2.1.</strong> Vous pouvez améliorer l'expérience utilisateur avec le bot en modifiant le System Prompt dans l'onglet Chat.<br><strong>2.2.</strong> Tout utilisateur WhatsApp présent dans votre liste de contacts pourra accéder aux fonctions du connecteur activées et aux documents stockés disponibles via le connecteur.<br><strong>2.3.</strong> Vous ne pouvez pas initier de messages depuis Paiperwork vers des utilisateurs WhatsApp afin d'éviter les abus et le spam.<br><strong>2.4.</strong> Si vous fermez le serveur en mode bot, les messages utilisateurs en attente restent dans une file jusqu'au prochain démarrage du serveur, puis sont traités un par un. Si vous voulez ignorer ces messages, démarrez le serveur en mode personnel ; tous les messages entrants seront ignorés sauf ceux que vous vous envoyez à vous-même.</li>
                 </ol>
                 <p>Cliquez sur <strong>Start server</strong>, puis scannez le code QR lors du premier appairage. Vous pouvez arrêter le serveur à tout moment, ce qui stoppe le routage des messages dans les deux sens.</p>
+                <h4>Effacer les contextes WhatsApp</h4>
+                <p>Si les réponses WhatsApp deviennent trop chargées après une longue utilisation, vous pouvez effacer uniquement les contextes WhatsApp stockés par téléphone sans supprimer le reste de votre base de données.</p>
+                <ol>
+                    <li>Cliquez sur "Effacer les contextes WhatsApp" dans l'onglet Connecteurs</li>
+                    <li>Cela supprime la mémoire de contexte WhatsApp stockée par téléphone et réinitialise le contexte WhatsApp actif en mémoire</li>
+                    <li>Les informations des appareils appairés sont conservées et peuvent toujours être gérées avec "Delete paired device(s)"</li>
+                </ol>
                 <p>Si vous souhaitez supprimer complètement le lien avec Paiperwork, faites-le depuis votre téléphone dans WhatsApp sous <strong>Linked devices</strong>.</p>
             `,
             },

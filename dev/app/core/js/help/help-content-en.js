@@ -2936,14 +2936,6 @@ window.helpContent = {
                     <li><strong>Solution 3:</strong> Run database optimization after cleanup</li>
                 </ul>
 
-                <h4>Clear WhatsApp Contexts</h4>
-                <p>If WhatsApp responses start feeling bloated after long use, you can clear only the stored per-phone WhatsApp contexts without deleting the rest of your database.</p>
-                <ol>
-                    <li>Click "Clear WhatsApp Contexts" in the Database tab</li>
-                    <li>This removes stored per-phone WhatsApp context memory and resets the live WhatsApp runtime context</li>
-                    <li>Paired device information is preserved and can still be managed from the Connectors tab with "Delete paired device(s)"</li>
-                </ol>
-                
                 <h4>Last Resort: Database Reset</h4>
                 <p>If persistent issues occur and normal maintenance doesn't help:</p>
                 <ol>
@@ -2966,7 +2958,7 @@ window.helpContent = {
         intro: [
             "Note: The Paiperwork online version hosted on Huggingface does not include WhatsApp functionality for user safety and privacy reasons.",
             "Connectors pair Paiperwork with WhatsApp. Requests only use resources already available inside Paiperwork and do not access your operating system, memory, hard disk, or arbitrary external files.",
-            "To receive incoming WhatsApp messages, keep the Paiperwork browser tab active and keep your computer awake. Note: If you use Huggingface Spaces version of Paiperwork, the server may stop due to inactivity (Huggingface rules).",
+            "To receive incoming WhatsApp messages, keep the Paiperwork browser tab active and keep your computer awake.",
             "Documents, research, presentations, and artifacts can open a dedicated follow-up mode. Stay in that mode until you close it with the corresponding exit cue."
         ],
         articles: [
@@ -2980,6 +2972,13 @@ window.helpContent = {
                     <li><strong>Bot mode:</strong> People in your WhatsApp contact list can talk to the paired Paiperwork instance. Use a separate phone number unless you explicitly want your main account to behave this way.<br><strong>2.1.</strong> You can enhance the user experience interacting with the bot by modifying the system prompt in the Chat tab.<br><strong>2.2.</strong> Any WhatsApp user in your contact list can access enabled connector functions and stored documents that are available through the connector.<br><strong>2.3.</strong> You cannot initiate messages from Paiperwork to WhatsApp users in order to avoid abuse and spam.<br><strong>2.4.</strong> If you close the server in bot mode, pending user messages stay queued until the next server start and are then processed one by one. If you want to skip those messages, start the server in personal mode; all inbound messages will be ignored except the ones you sent to yourself.</li>
                 </ol>
                 <p>Click <strong>Start server</strong>, then scan the QR code the first time you pair. You can stop the server at any time, which stops message routing in both directions.</p>
+                <h4>Clear WhatsApp Contexts</h4>
+                <p>If WhatsApp responses start feeling bloated after long use, you can clear only the stored per-phone WhatsApp contexts without deleting the rest of your database.</p>
+                <ol>
+                    <li>Click "Clear WhatsApp Contexts" in the Connectors tab</li>
+                    <li>This removes stored per-phone WhatsApp context memory and resets the live WhatsApp runtime context</li>
+                    <li>Paired device information is preserved and can still be managed with "Delete paired device(s)"</li>
+                </ol>
                 <p>If you want to fully remove the Paiperwork pairing, do it from your phone in WhatsApp under <strong>Linked devices</strong>.</p>
             `,
             },

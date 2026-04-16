@@ -2897,14 +2897,6 @@ window.helpContent = {
                     <li><strong>Solução 3:</strong> Execute otimização da base de dados após limpeza</li>
                 </ul>
 
-                <h4>Limpar Contextos do WhatsApp</h4>
-                <p>Se as respostas do WhatsApp começarem a ficar pesadas após muito uso, pode limpar apenas os contextos do WhatsApp armazenados por telefone sem apagar o resto da sua base de dados.</p>
-                <ol>
-                    <li>Clique em "Limpar Contextos do WhatsApp" na aba Base de Dados</li>
-                    <li>Isto remove a memória de contexto do WhatsApp armazenada por telefone e reinicia o contexto ativo do WhatsApp em execução</li>
-                    <li>As informações dos dispositivos emparelhados são preservadas e continuam a poder ser geridas na aba Connectors com "Delete paired device(s)"</li>
-                </ol>
-                
                 <h4>Último Recurso: Reset da Base de Dados</h4>
                 <p>Se problemas persistentes ocorrem e a manutenção normal não ajuda:</p>
                                 <ol>
@@ -2927,7 +2919,7 @@ window.helpContent = {
         intro: [
             "Nota: a versão online do Paiperwork alojada no Huggingface não inclui a funcionalidade de WhatsApp por motivos de segurança e privacidade dos utilizadores.",
             "Os conectores ligam o Paiperwork ao WhatsApp. Os pedidos usam apenas recursos já disponíveis dentro do Paiperwork e não acedem ao sistema operativo, memória, disco rígido nem a ficheiros externos arbitrários.",
-            "Para receber mensagens de WhatsApp, mantenha ativa a aba do navegador onde o Paiperwork está a correr e evite que o computador entre em suspensão. Nota: se usar a versão do Paiperwork no Huggingface Spaces, o servidor pode parar devido à inatividade (regras do Huggingface).",
+            "Para receber mensagens de WhatsApp, mantenha ativa a aba do navegador onde o Paiperwork está a correr e evite que o computador entre em suspensão.",
             "Documentos, pesquisas, apresentações e artefatos podem abrir um modo de seguimento dedicado. Permaneça nesse modo até o fechar com a frase de saída correspondente."
         ],
         articles: [
@@ -2941,6 +2933,13 @@ window.helpContent = {
                     <li><strong>Modo bot:</strong> pessoas que o têm na lista de contactos do WhatsApp podem falar com a instância emparelhada do Paiperwork. Use um número separado, a menos que queira explicitamente este comportamento na sua conta principal.<br><strong>2.1.</strong> Pode melhorar a experiência de uso ao interagir com o bot modificando o System Prompt na aba Chat.<br><strong>2.2.</strong> Qualquer utilizador de WhatsApp na sua lista de contactos poderá aceder às funções do conector ativadas e aos documentos armazenados disponíveis através do conector.<br><strong>2.3.</strong> Não pode iniciar mensagens do Paiperwork para utilizadores de WhatsApp, para evitar abusos e spam.<br><strong>2.4.</strong> Se fechar o servidor em modo bot, as mensagens pendentes dos utilizadores ficam em fila até ao próximo arranque do servidor e depois são processadas uma a uma. Se quiser ignorar essas mensagens, inicie o servidor em modo pessoal; todas as mensagens recebidas serão ignoradas, exceto as que enviar para si mesmo.</li>
                 </ol>
                 <p>Clique em <strong>Start server</strong> e leia o código QR na primeira vez que emparelhar. Pode parar o servidor a qualquer momento, o que interrompe o encaminhamento de mensagens nos dois sentidos.</p>
+                <h4>Limpar Contextos do WhatsApp</h4>
+                <p>Se as respostas do WhatsApp começarem a ficar pesadas após muito uso, pode limpar apenas os contextos do WhatsApp armazenados por telefone sem apagar o resto da sua base de dados.</p>
+                <ol>
+                    <li>Clique em "Limpar Contextos do WhatsApp" na aba Conectores</li>
+                    <li>Isto remove a memória de contexto do WhatsApp armazenada por telefone e reinicia o contexto ativo do WhatsApp em execução</li>
+                    <li>As informações dos dispositivos emparelhados são preservadas e continuam a poder ser geridas com "Delete paired device(s)"</li>
+                </ol>
                 <p>Se quiser remover totalmente a ligação do Paiperwork, faça isso no seu telefone em WhatsApp, em <strong>Linked devices</strong>.</p>
             `,
             },

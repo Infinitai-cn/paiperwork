@@ -2914,18 +2914,17 @@ window.helpContent = {
                     <li><strong>Solución 3:</strong> Ejecuta optimización de base de datos después de la limpieza</li>
                 </ul>
 
-                <h4>Borrar Contextos de WhatsApp</h4>
-                <p>Si las respuestas de WhatsApp empiezan a sentirse sobrecargadas tras un uso prolongado, puedes borrar solo los contextos de WhatsApp almacenados por teléfono sin eliminar el resto de tu base de datos.</p>
-                <ol>
-                    <li>Haz clic en "Borrar Contextos de WhatsApp" en la pestaña Base de Datos</li>
-                    <li>Esto elimina la memoria de contexto de WhatsApp almacenada por teléfono y restablece el contexto activo de WhatsApp en tiempo de ejecución</li>
-                    <li>La información de los dispositivos emparejados se conserva y sigue pudiendo gestionarse desde la pestaña Connectors con "Delete paired device(s)"</li>
-                </ol>
-                
                 <h4>Último Recurso: Reinicio de Base de Datos</h4>
                 <p>Si ocurren problemas persistentes y el mantenimiento normal no ayuda:</p>
                                 <ol>
                     <li>Exporta cualquier conversación o documento importante primero</li>
+                                <h4>Borrar Contextos de WhatsApp</h4>
+                                <p>Si las respuestas de WhatsApp empiezan a sentirse sobrecargadas tras un uso prolongado, puedes borrar solo los contextos de WhatsApp almacenados por teléfono sin eliminar el resto de tu base de datos.</p>
+                                <ol>
+                                    <li>Haz clic en "Borrar Contextos de WhatsApp" en la pestaña Conectores</li>
+                                    <li>Esto elimina la memoria de contexto de WhatsApp almacenada por teléfono y restablece el contexto activo de WhatsApp en tiempo de ejecución</li>
+                                    <li>La información de los dispositivos emparejados se conserva y sigue pudiendo gestionarse con "Delete paired device(s)"</li>
+                                </ol>
                     <li>Haz clic en "Eliminar Toda la Información" para eliminar la base de datos</li>
                     <li>Esto eliminará todos los datos y creará una base de datos nueva, ahora puedes intentar importar tu base de datos guardada</li>
                 </ol>
@@ -2944,7 +2943,7 @@ window.helpContent = {
         intro: [
             "Nota: la versión online de Paiperwork alojada en Huggingface no incluye la funcionalidad de WhatsApp por motivos de seguridad y privacidad del usuario.",
             "Los conectores enlazan Paiperwork con WhatsApp. Las solicitudes solo usan recursos ya disponibles dentro de Paiperwork y no acceden a tu sistema operativo, memoria, disco duro ni archivos externos arbitrarios.",
-            "Para recibir mensajes entrantes de WhatsApp, mantén activa la pestaña del navegador donde está Paiperwork y evita que el equipo entre en reposo. Nota: si usas la versión de Paiperwork en Huggingface Spaces, el servidor puede detenerse por inactividad (reglas de Huggingface).",
+            "Para recibir mensajes entrantes de WhatsApp, mantén activa la pestaña del navegador donde está Paiperwork y evita que el equipo entre en reposo.",
             "Los documentos, investigaciones, presentaciones y artefactos pueden abrir un modo de seguimiento dedicado. Permanece en ese modo hasta cerrarlo con la frase de salida correspondiente."
         ],
         articles: [
