@@ -1443,7 +1443,7 @@ async function enableDocumentQuestioningMode(documentId, options = { force: fals
 function normalizeDocumentIntentText(text) {
     return String(text || '')
         .toLowerCase()
-        .replace(/[^a-z0-9\u00C0-\u017F\u3040-\u30FF\u3400-\u9FFF\uF900-\uFAFF\uAC00-\uD7AF]+/gi, ' ')
+    .replace(/[^a-z0-9\u00C0-\u017F\u0400-\u04FF\u0500-\u052F\u3040-\u30FF\u3400-\u9FFF\uF900-\uFAFF\uAC00-\uD7AF]+/gi, ' ')
         .trim();
 }
 

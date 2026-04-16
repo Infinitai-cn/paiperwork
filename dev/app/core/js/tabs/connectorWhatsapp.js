@@ -3744,7 +3744,7 @@ class ConnectorWhatsapp {
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .toLowerCase()
-            .replace(/[^a-z0-9\u00C0-\u017F\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0900-\u097F\u3040-\u30FF\u3400-\u9FFF\uF900-\uFAFF\uAC00-\uD7AF]+/gi, ' ')
+            .replace(/[^a-z0-9\u00C0-\u017F\u0400-\u04FF\u0500-\u052F\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0900-\u097F\u3040-\u30FF\u3400-\u9FFF\uF900-\uFAFF\uAC00-\uD7AF]+/gi, ' ')
             .trim();
     }
 
