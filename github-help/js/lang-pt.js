@@ -1,8 +1,7 @@
-const isGithubHelpLanguageRuntime = typeof window !== 'undefined'
+if (typeof window !== 'undefined'
     && (window.location.pathname.includes('/github-help/')
-        || String(document.currentScript && document.currentScript.src || '').includes('/github-help/js/'));
-
-if (isGithubHelpLanguageRuntime && typeof window.githubHelpPortugueseTranslationsLoaded === 'undefined') {
+        || String(document.currentScript && document.currentScript.src || '').includes('/github-help/js/'))
+    && typeof window.githubHelpPortugueseTranslationsLoaded === 'undefined') {
     window.githubHelpPortugueseTranslationsLoaded = true;
 
 
@@ -22,6 +21,10 @@ if (isGithubHelpLanguageRuntime && typeof window.githubHelpPortugueseTranslation
         adminKeyNoticeBody: 'Para executar ações administrativas, esta sessão precisa de uma chave de administrador. Ela será armazenada na sessão do navegador.',
         adminKeyNoticeHint: 'Clique em OK para gerar e salvar a chave para esta sessão.',
         adminKeySavedToast: 'Chave de administrador salva na sessão.',
+        whatsappPersonalModeButton: 'Pessoal',
+        whatsappPersonalModeButtonTitle: 'Modo pessoal',
+        whatsappBotModeButton: 'Bot',
+        whatsappBotModeButtonTitle: 'Modo bot',
 
 
       

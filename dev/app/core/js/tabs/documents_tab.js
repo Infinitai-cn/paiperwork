@@ -1680,6 +1680,24 @@ async function detectDocumentQuestionIntent(prompt, options = {}) {
 
     const promptWithoutActions = stripDocumentIntentTokens(normalizedPrompt, [...summaryTerms, ...questionTerms, ...questionStarters, ...browseTerms, ...documentNouns]);
 
+    const numericSelectionCandidate = (promptWithoutActions || normalizedPrompt).match(/^\d+$/)
+        ? Number(promptWithoutActions || normalizedPrompt)
+        : NaN;
+    if (Number.isFinite(numericSelectionCandidate)
+        && numericSelectionCandidate >= 1
+        && numericSelectionCandidate <= docs.length) {
+        const numericMatch = docs[numericSelectionCandidate - 1];
+        if (numericMatch) {
+            return {
+                documentId: numericMatch.id,
+                documentName: numericMatch.name,
+                score: 1,
+                hasDocumentKeyword: true,
+                matchedBy: 'numeric-selection'
+            };
+        }
+    }
+
     const scoreDocumentMatch = (doc, query) => {
         const normalizedName = normalizeDocumentIntentText(doc.name);
         const normalizedId = normalizeDocumentIntentText(doc.id);

@@ -4603,6 +4603,12 @@ class ConnectorWhatsapp {
         for (const token of tokens) {
             const normalizedToken = this._normalizeDocumentIntentKeymapText(token);
             if (!normalizedToken) continue;
+            if (this._shouldAllowContiguousKeymapTokenMatch(normalizedToken) && normalizedText.includes(normalizedToken)) {
+                if (normalizedToken.length > bestMatch.length) {
+                    bestMatch = normalizedToken;
+                }
+                continue;
+            }
             const pattern = normalizedToken
                 .split(/\s+/)
                 .map(part => this._escapeRegExp(part))
@@ -4626,6 +4632,15 @@ class ConnectorWhatsapp {
         return String(text || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
+    _shouldAllowContiguousKeymapTokenMatch(token) {
+        const normalizedToken = this._normalizeDocumentIntentKeymapText(token);
+        if (!normalizedToken || /\s/.test(normalizedToken)) {
+            return false;
+        }
+
+        return /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF\uAC00-\uD7AF]/.test(normalizedToken);
+    }
+
     _removeKeymapTokensFromNormalizedText(text, tokens = []) {
         let candidate = this._normalizeDocumentIntentKeymapText(text);
         if (!candidate) return '';
@@ -4636,6 +4651,10 @@ class ConnectorWhatsapp {
             .sort((left, right) => right.length - left.length);
 
         for (const token of normalizedTokens) {
+            if (this._shouldAllowContiguousKeymapTokenMatch(token)) {
+                candidate = candidate.replace(new RegExp(this._escapeRegExp(token), 'gi'), ' ');
+                continue;
+            }
             const pattern = token
                 .split(/\s+/)
                 .map(part => this._escapeRegExp(part))

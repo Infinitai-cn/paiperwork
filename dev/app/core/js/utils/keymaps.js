@@ -56,7 +56,7 @@ const documentKeymap = {
             'quitter le mode document', 'revenir au chat normal',
             'dokumentmodus verlassen', 'zuruck zum normalen chat', 'zurück zum normalen chat',
             'uscire dalla modalita documento', 'uscire dalla modalità documento', 'torna alla chat normale',
-            '退出文档模式', '返回普通聊天',
+            '退出文档模式', '退出', '关闭文档模式', '离开文档模式', '返回普通聊天',
             'ドキュメントモードを終了', '通常チャットに戻る',
             '문서 모드 종료', '일반 채팅으로 돌아가기'
         ]
@@ -99,7 +99,7 @@ const commonFollowUpCloseCueGroups = {
     German: ['nein', 'nein danke', 'ich bin fertig', 'fertig', 'alles gut', 'sieht gut aus', 'keine weiteren anderungen', 'keine weiteren änderungen', 'das ist alles'],
     Italian: ['no', 'no grazie', 'ho finito', 'finito', 'va bene cosi', 'va bene così', 'nessun altra modifica', "nessun'altra modifica", 'basta cosi', 'basta così'],
     Russian: ['нет', 'нет спасибо', 'я закончил', 'я закончила', 'готово', 'все хорошо', 'всё хорошо', 'без изменений', 'без дальнейших изменений'],
-    Chinese: ['不用了', '不用', '不用，谢谢', '好了', '我好了', '我没问题', '完成了', '结束', '不需要再修改'],
+    Chinese: ['不用了', '不用', '不用，谢谢', '不需要', '好了', '我好了', '我没问题', '完成了', '我完成了', '结束', '不需要再修改'],
     Japanese: ['いいえ', '大丈夫', 'これでいい', 'これで大丈夫', '終わり', '完了', 'もういい', 'もう修正はいらない'],
     Korean: ['아니요', '괜찮아요', '됐어요', '끝났어요', '끝', '좋아요', '수정은 더 필요 없어요'],
     Arabic: ['لا', 'لا شكرا', 'لا شكرًا', 'انتهيت', 'أنا انتهيت', 'تم', 'هذا يكفي', 'لا مزيد من التعديلات'],
