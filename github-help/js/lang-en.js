@@ -10,6 +10,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         loadingHelpContent: 'Loading help content...',
         returnButton: 'Return',
         loadingContent: 'Loading content, please wait...',
+        helpTabsScrollableLegend: 'Tab buttons can be scrolled sideways',
         contentComingSoon: 'Content for this section coming soon.',
         inThisSection: 'In This Section:',
         noArticlesAvailable: 'No articles available for this section.',

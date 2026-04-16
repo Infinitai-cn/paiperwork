@@ -11,6 +11,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         loadingHelpContent: 'Lade Hilfeinhalte...',
         returnButton: 'Zurück',
         loadingContent: 'Lade Inhalt, bitte warten...',
+        helpTabsScrollableLegend: 'Die Tab-Schaltflächen können seitlich gescrollt werden',
         contentComingSoon: 'Inhalt für diesen Bereich kommt bald.',
         inThisSection: 'In Diesem Bereich:',
         noArticlesAvailable: 'Keine Artikel für diesen Bereich verfügbar.',

@@ -11,6 +11,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         loadingHelpContent: 'Chargement du contenu d\'aide...',
         returnButton: 'Retour',
         loadingContent: 'Chargement du contenu, veuillez patienter...',
+        helpTabsScrollableLegend: 'Les boutons d\'onglet peuvent se faire défiler horizontalement',
         contentComingSoon: 'Le contenu de cette section arrive bientôt.',
         inThisSection: 'Dans Cette Section :',
         noArticlesAvailable: 'Aucun article disponible pour cette section.',

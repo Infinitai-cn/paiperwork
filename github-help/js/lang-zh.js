@@ -10,6 +10,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 loadingHelpContent: '正在加载帮助内容...',
                 returnButton: '返回',
                 loadingContent: '正在加载内容，请稍候...',
+                helpTabsScrollableLegend: '标签按钮可左右滑动',
                 contentComingSoon: '本节内容即将推出。',
                 inThisSection: '本节内容：',
                 noArticlesAvailable: '本节暂无可用文章。',
