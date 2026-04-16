@@ -25,6 +25,7 @@ class ResearchAutomation {
         this._researchRunCounter = 0;
         this._activeResearchRunId = null;
         this._lastDisplayedResearchRunId = null;
+        this.forcedQueryLanguage = null;
     }
 
 
@@ -2300,7 +2301,13 @@ class ResearchAutomation {
         }
 
         // Detect the language of the original query
-        const queryLanguage = this.detectLanguage(mainQuery);
+        const forcedQueryLanguage = this.normalizeResearchLanguage(this.forcedQueryLanguage);
+        const detectedQueryLanguage = this.detectLanguageDetails(mainQuery);
+        const queryLanguage = forcedQueryLanguage !== 'Unknown'
+            ? forcedQueryLanguage
+            : (detectedQueryLanguage.language === 'Unknown' || detectedQueryLanguage.confidence === 'low'
+            ? this.getPreferredResearchLanguage()
+            : detectedQueryLanguage.language);
 
         // Use Ollama to break down a complex research masterkey into sub-queries
         const systemPrompt = `You are a research assistant. Today's date is ${this.formattedDate}.
@@ -2475,20 +2482,193 @@ class ResearchAutomation {
         }
     }
 
-    detectLanguage(text) {
-        // Simple language detection based on common patterns
-        const spanishPatterns = /¿|¡|ñ|á|é|í|ó|ú|ü|Qué|Cuál|Cómo|Dónde|Por qué|genético|gatos/i;
-        const englishPatterns = /\b(what|which|how|where|why|genetic|cats|the|and|or|in|on|at)\b/i;
+    normalizeResearchLanguage(language) {
+        if (!language) return 'Unknown';
 
-        if (spanishPatterns.test(text)) {
-            return 'Spanish';
-        } else if (englishPatterns.test(text)) {
-            return 'English';
+        const raw = String(language).trim().toLowerCase();
+        const sanitized = raw
+            .replace(/["'`]+/g, '')
+            .replace(/[()\[\]{}]/g, ' ')
+            .replace(/[.,;:!?]+$/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const map = {
+            'en': 'English', 'en-us': 'English', 'en-gb': 'English', 'english': 'English',
+            'es': 'Spanish', 'es-es': 'Spanish', 'es-mx': 'Spanish', 'spanish': 'Spanish', 'espanol': 'Spanish', 'español': 'Spanish',
+            'fr': 'French', 'fr-fr': 'French', 'french': 'French', 'francais': 'French', 'français': 'French',
+            'de': 'German', 'de-de': 'German', 'german': 'German', 'deutsch': 'German',
+            'it': 'Italian', 'it-it': 'Italian', 'italian': 'Italian', 'italiano': 'Italian',
+            'pt': 'Portuguese', 'pt-br': 'Portuguese', 'pt-pt': 'Portuguese', 'portuguese': 'Portuguese', 'portugues': 'Portuguese', 'português': 'Portuguese',
+            'ru': 'Russian', 'ru-ru': 'Russian', 'russian': 'Russian', 'русский': 'Russian',
+            'ja': 'Japanese', 'ja-jp': 'Japanese', 'japanese': 'Japanese', '日本語': 'Japanese',
+            'ko': 'Korean', 'ko-kr': 'Korean', 'korean': 'Korean', '한국어': 'Korean',
+            'zh': 'Chinese', 'zh-cn': 'Chinese', 'zh-tw': 'Chinese', 'chinese': 'Chinese', '中文': 'Chinese', '简体中文': 'Chinese', '繁體中文': 'Chinese', '繁体中文': 'Chinese',
+            'ar': 'Arabic', 'ar-sa': 'Arabic', 'arabic': 'Arabic', 'العربية': 'Arabic',
+            'hi': 'Hindi', 'hi-in': 'Hindi', 'hindi': 'Hindi', 'हिन्दी': 'Hindi', 'हिंदी': 'Hindi'
+        };
+
+        if (map[sanitized]) return map[sanitized];
+        if (map[raw]) return map[raw];
+
+        const base = sanitized.split('-')[0];
+        return map[base] || 'Unknown';
+    }
+
+    getPreferredResearchLanguage() {
+        const currentLang = (typeof Lang !== 'undefined' && Lang && typeof Lang.getCurrentLanguage === 'function')
+            ? Lang.getCurrentLanguage()
+            : '';
+        const browserLang = (typeof navigator !== 'undefined' && navigator.language)
+            ? navigator.language
+            : '';
+
+        const normalizedCurrentLang = this.normalizeResearchLanguage(currentLang);
+        if (normalizedCurrentLang !== 'Unknown') {
+            return normalizedCurrentLang;
         }
 
-        // Default fallback - try to detect by character patterns
-        const hasSpanishChars = /[ñáéíóúü¿¡]/i.test(text);
-        return hasSpanishChars ? 'Spanish' : 'English';
+        const normalizedBrowserLang = this.normalizeResearchLanguage(browserLang);
+        if (normalizedBrowserLang !== 'Unknown') {
+            return normalizedBrowserLang;
+        }
+
+        return 'English';
+    }
+
+    normalizeResearchLanguageText(text) {
+        return String(text || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    getResearchLanguageProfiles() {
+        return {
+            English: {
+                tokens: ['the', 'and', 'or', 'in', 'on', 'at', 'for', 'with', 'from', 'about', 'latest', 'report', 'research', 'analysis', 'world', 'significant', 'earthquake', 'earthquakes'],
+                phrases: ['significant earthquakes', 'research report', 'world report']
+            },
+            Spanish: {
+                strongCharPattern: /[¿¡ñ]/i,
+                weakCharPattern: /[áéíóúü]/i,
+                tokens: ['el', 'la', 'los', 'las', 'de', 'del', 'para', 'con', 'por', 'como', 'que', 'sobre', 'informe', 'investigacion', 'investigación', 'analisis', 'análisis', 'mundo', 'sismos', 'terremotos', 'significativos', 'resumen', 'mision', 'misión', 'tripulacion', 'tripulación', 'cronograma', 'avances', 'objetivos', 'luna'],
+                phrases: ['por que', 'informe de', 'sismos significativos', 'terremotos significativos', 'mision a la luna', 'misión a la luna', 'tripulacion y cronograma', 'tripulación y cronograma']
+            },
+            French: {
+                strongCharPattern: /[çœæ]/i,
+                weakCharPattern: /[àâéèêëîïôûùüÿ]/i,
+                tokens: ['le', 'la', 'les', 'de', 'des', 'du', 'pour', 'avec', 'sur', 'dans', 'rapport', 'recherche', 'analyse', 'monde', 'seismes', 'séismes', 'significatifs', 'tremblements'],
+                phrases: ['rapport de', 'seismes significatifs', 'séismes significatifs']
+            },
+            German: {
+                strongCharPattern: /[äöüß]/i,
+                tokens: ['der', 'die', 'das', 'und', 'mit', 'fur', 'für', 'von', 'im', 'auf', 'bericht', 'forschung', 'analyse', 'welt', 'erdbeben', 'bedeutende', 'signifikante'],
+                phrases: ['bericht uber', 'bericht über', 'bedeutende erdbeben', 'signifikante erdbeben']
+            },
+            Italian: {
+                strongCharPattern: /[ìò]/i,
+                weakCharPattern: /[àèéíîóù]/i,
+                tokens: ['il', 'lo', 'la', 'gli', 'le', 'di', 'del', 'della', 'per', 'con', 'rapporto', 'ricerca', 'analisi', 'mondo', 'terremoti', 'significativi', 'sismi', 'missione', 'equipaggio', 'cronologia', 'obiettivi', 'luna'],
+                phrases: ['rapporto sui', 'terremoti significativi', 'sismi significativi', 'missione sulla luna']
+            },
+            Portuguese: {
+                strongCharPattern: /[ãõç]/i,
+                weakCharPattern: /[âêôáàéíóú]/i,
+                tokens: ['o', 'a', 'os', 'as', 'de', 'do', 'da', 'para', 'com', 'por', 'relatorio', 'relatório', 'pesquisa', 'analise', 'análise', 'mundo', 'sismos', 'terremotos', 'significativos', 'missao', 'missão', 'tripulacao', 'tripulação', 'cronograma', 'avancos', 'avanços', 'objetivos', 'lua'],
+                phrases: ['relatorio de', 'relatório de', 'sismos significativos', 'terremotos significativos', 'missao a lua', 'missão à lua']
+            }
+        };
+    }
+
+    scoreResearchLanguageProfile(rawText, normalizedText, profile) {
+        if (!normalizedText || !profile) return 0;
+
+        const tokens = normalizedText.split(/\s+/).filter(Boolean);
+        const tokenSet = new Set(tokens);
+        let score = 0;
+
+        if (profile.strongCharPattern && profile.strongCharPattern.test(rawText)) {
+            score += 2;
+        }
+
+        if (profile.weakCharPattern && profile.weakCharPattern.test(rawText)) {
+            score += 1;
+        }
+
+        for (const token of profile.tokens || []) {
+            if (tokenSet.has(this.normalizeResearchLanguageText(token))) {
+                score += 1;
+            }
+        }
+
+        for (const phrase of profile.phrases || []) {
+            const normalizedPhrase = this.normalizeResearchLanguageText(phrase);
+            if (normalizedPhrase && normalizedText.includes(normalizedPhrase)) {
+                score += 2;
+            }
+        }
+
+        return score;
+    }
+
+    detectLanguageDetails(text) {
+        const candidate = String(text || '').trim();
+        if (!candidate) {
+            return { language: 'Unknown', confidence: 'low' };
+        }
+
+        if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(candidate)) return { language: 'Arabic', confidence: 'high' };
+        if (/[\u0900-\u097F]/.test(candidate)) return { language: 'Hindi', confidence: 'high' };
+        if (/[\uAC00-\uD7AF]/.test(candidate)) return { language: 'Korean', confidence: 'high' };
+        if (/[\u3040-\u30FF]/.test(candidate)) return { language: 'Japanese', confidence: 'high' };
+        if (/[\u0400-\u04FF]/.test(candidate)) return { language: 'Russian', confidence: 'high' };
+        if (/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/.test(candidate)) return { language: 'Chinese', confidence: 'high' };
+
+        const normalizedText = this.normalizeResearchLanguageText(candidate);
+        if (!normalizedText) {
+            return { language: 'Unknown', confidence: 'low' };
+        }
+
+        const profiles = this.getResearchLanguageProfiles();
+        const scores = Object.entries(profiles)
+            .map(([language, profile]) => ({
+                language,
+                score: this.scoreResearchLanguageProfile(candidate, normalizedText, profile)
+            }))
+            .sort((left, right) => right.score - left.score);
+
+        const best = scores[0];
+        const runnerUp = scores[1];
+
+        if (!best || best.score <= 0) {
+            return { language: 'Unknown', confidence: 'low' };
+        }
+
+        if (runnerUp && best.score === runnerUp.score) {
+            return { language: 'Unknown', confidence: 'low' };
+        }
+
+        const scoreGap = runnerUp ? (best.score - runnerUp.score) : best.score;
+        let confidence = 'low';
+
+        if (best.score >= 5 && scoreGap >= 2) {
+            confidence = 'high';
+        } else if (best.score >= 3 && scoreGap >= 1) {
+            confidence = 'medium';
+        }
+
+        return {
+            language: best.language,
+            confidence
+        };
+    }
+
+    detectLanguage(text) {
+        return this.detectLanguageDetails(text).language;
     }
 
     validateQueryLanguage(queries, expectedLanguage, originalQuery) {
@@ -2497,18 +2677,46 @@ class ResearchAutomation {
             return this.generateBasicQueries(originalQuery);
         }
 
+        const normalizedExpectedLanguage = this.normalizeResearchLanguage(expectedLanguage);
+        const originalQueryDetails = this.detectLanguageDetails(originalQuery);
+        const expectedLanguageConfidence = originalQueryDetails.language === normalizedExpectedLanguage
+            ? originalQueryDetails.confidence
+            : 'low';
+
         // Filter out any queries that appear to be in the wrong language
         const validQueries = queries.filter(query => {
             if (!query || typeof query !== 'string') return false;
 
-            const queryLanguage = this.detectLanguage(query);
-            const isCorrectLanguage = queryLanguage === expectedLanguage;
+            const queryLanguageDetails = this.detectLanguageDetails(query);
+            const queryLanguage = queryLanguageDetails.language;
 
-            if (!isCorrectLanguage) {
-                console.warn(`Filtered out query in wrong language: "${query}" (expected ${expectedLanguage}, got ${queryLanguage})`);
+            if (normalizedExpectedLanguage === 'Unknown' || queryLanguage === normalizedExpectedLanguage) {
+                return true;
             }
 
-            return isCorrectLanguage;
+            const uncertainDetection = queryLanguage === 'Unknown'
+                || queryLanguageDetails.confidence === 'low'
+                || expectedLanguageConfidence === 'low';
+
+            if (uncertainDetection) {
+                console.warn(`Keeping query with uncertain language detection: "${query}" (expected ${normalizedExpectedLanguage})`);
+                return true;
+            }
+
+            const isClearMismatch = queryLanguageDetails.confidence === 'high'
+                || (queryLanguageDetails.confidence === 'medium' && expectedLanguageConfidence === 'high');
+
+            if (isClearMismatch) {
+                console.warn(`Filtered out query in wrong language: "${query}" (expected ${normalizedExpectedLanguage}, got ${queryLanguage})`);
+                return false;
+            }
+
+            if (queryLanguageDetails.confidence === 'medium') {
+                console.warn(`Keeping query with uncertain language detection: "${query}" (expected ${normalizedExpectedLanguage})`);
+                return true;
+            }
+
+            return true;
         });
 
         // If we don't have enough valid queries, fall back to basic generation

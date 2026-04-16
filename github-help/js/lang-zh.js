@@ -1,5 +1,9 @@
-if (typeof window.chineseTranslationsLoaded === 'undefined') {
-        window.chineseTranslationsLoaded = true;
+const isGithubHelpLanguageRuntime = typeof window !== 'undefined'
+    && (window.location.pathname.includes('/github-help/')
+        || String(document.currentScript && document.currentScript.src || '').includes('/github-help/js/'));
+
+if (isGithubHelpLanguageRuntime && typeof window.githubHelpChineseTranslationsLoaded === 'undefined') {
+        window.githubHelpChineseTranslationsLoaded = true;
 
 
         const chineseTranslations = {

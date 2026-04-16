@@ -65,6 +65,12 @@
 
         --button-secondary-bg: #2d2d2d;
         --button-secondary-text: #e0e0e0;
+        --button-secondary-border: #4b5563;
+        --button-secondary-hover-bg: #3a3f47;
+        --button-secondary-hover-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+        --button-secondary-disabled-bg: #3a3a3a;
+        --button-secondary-disabled-border: #4a4a4a;
+        --button-secondary-disabled-text: #8f96a3;
         --danger-color-hover: #bb2d3b;
         --preview-text-color: #e0e0e0;
         --document-bg: #262626;
@@ -233,6 +239,12 @@
 
         --button-secondary-bg: #f5f5f5;
         --button-secondary-text: #333;
+        --button-secondary-border: #cbd5e1;
+        --button-secondary-hover-bg: #e5e7eb;
+        --button-secondary-hover-shadow: 0 8px 18px rgba(100, 116, 139, 0.18);
+        --button-secondary-disabled-bg: #e5e7eb;
+        --button-secondary-disabled-border: #cbd5e1;
+        --button-secondary-disabled-text: #6b7280;
         --danger-color-hover: #c82333;
         --preview-text-color: #333;
         --document-bg: #ffffff;

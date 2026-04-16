@@ -91,31 +91,41 @@ documentKeymap.terms = [...new Set([
     ...Object.values(documentKeymap.actions).flat()
 ])];
 
-const commonFollowUpCloseCues = [
-    'no', 'no thanks', 'no thank you', 'im finished', "i'm finished", 'i am finished', 'finished', 'im good', "i'm good", 'i am good', 'all good', 'looks good', 'thats all', "that's all", 'no more changes', 'no more modifications', 'stop modifying', 'done',
-    'no', 'no gracias', 'estoy bien', 'ya termine', 'ya terminé', 'terminado', 'listo', 'sin mas cambios', 'sin más cambios', 'no mas cambios', 'no más cambios',
-    'nao', 'não', 'nao obrigado', 'não obrigado', 'estou bem', 'ja terminei', 'já terminei', 'terminado', 'pronto', 'sem mais alteracoes', 'sem mais alterações',
-    'non', 'non merci', 'cest bon', "c'est bon", 'je suis bon', 'jai fini', "j'ai fini", 'termine', 'terminé', 'plus de modifications', 'cest tout', "c'est tout",
-    'nein', 'nein danke', 'ich bin fertig', 'fertig', 'alles gut', 'sieht gut aus', 'keine weiteren anderungen', 'keine weiteren änderungen', 'das ist alles',
-    'no', 'no grazie', 'ho finito', 'finito', 'va bene cosi', 'va bene così', 'nessun altra modifica', "nessun'altra modifica", 'basta cosi', 'basta così',
-    'нет', 'нет спасибо', 'я закончил', 'я закончила', 'готово', 'все хорошо', 'всё хорошо', 'без изменений', 'без дальнейших изменений',
-    '不用了', '不用', '好了', '我好了', '我没问题', '完成了', '结束', '不需要再修改',
-    'いいえ', '大丈夫', 'これでいい', 'これで大丈夫', '終わり', '完了', 'もういい', 'もう修正はいらない',
-    '아니요', '괜찮아요', '됐어요', '끝났어요', '끝', '좋아요', '수정은 더 필요 없어요'
-];
+const commonFollowUpCloseCueGroups = {
+    English: ['no', 'no thanks', 'no thank you', 'im finished', "i'm finished", 'i am finished', 'finished', 'im good', "i'm good", 'i am good', 'all good', 'looks good', 'thats all', "that's all", 'no more changes', 'no more modifications', 'stop modifying', 'done'],
+    Spanish: ['no', 'no gracias', 'estoy bien', 'ya termine', 'ya terminé', 'terminado', 'listo', 'sin mas cambios', 'sin más cambios', 'no mas cambios', 'no más cambios'],
+    Portuguese: ['nao', 'não', 'nao obrigado', 'não obrigado', 'estou bem', 'ja terminei', 'já terminei', 'terminado', 'pronto', 'sem mais alteracoes', 'sem mais alterações'],
+    French: ['non', 'non merci', 'cest bon', "c'est bon", 'je suis bon', 'jai fini', "j'ai fini", 'termine', 'terminé', 'plus de modifications', 'cest tout', "c'est tout"],
+    German: ['nein', 'nein danke', 'ich bin fertig', 'fertig', 'alles gut', 'sieht gut aus', 'keine weiteren anderungen', 'keine weiteren änderungen', 'das ist alles'],
+    Italian: ['no', 'no grazie', 'ho finito', 'finito', 'va bene cosi', 'va bene così', 'nessun altra modifica', "nessun'altra modifica", 'basta cosi', 'basta così'],
+    Russian: ['нет', 'нет спасибо', 'я закончил', 'я закончила', 'готово', 'все хорошо', 'всё хорошо', 'без изменений', 'без дальнейших изменений'],
+    Chinese: ['不用了', '不用', '不用，谢谢', '好了', '我好了', '我没问题', '完成了', '结束', '不需要再修改'],
+    Japanese: ['いいえ', '大丈夫', 'これでいい', 'これで大丈夫', '終わり', '完了', 'もういい', 'もう修正はいらない'],
+    Korean: ['아니요', '괜찮아요', '됐어요', '끝났어요', '끝', '좋아요', '수정은 더 필요 없어요'],
+    Arabic: ['لا', 'لا شكرا', 'لا شكرًا', 'انتهيت', 'أنا انتهيت', 'تم', 'هذا يكفي', 'لا مزيد من التعديلات'],
+    Hindi: ['नहीं', 'नहीं धन्यवाद', 'मैं समाप्त कर चुका हूं', 'मैं समाप्त कर चुकी हूं', 'खत्म', 'हो गया', 'बस', 'और बदलाव नहीं']
+};
 
-const commonFollowUpContinueCues = [
-    'yes', 'yes please', 'sure', 'ok', 'okay', 'continue', 'keep going', 'more changes', 'modify more', 'lets continue', "let's continue",
-    'si', 'sí', 'si por favor', 'sí por favor', 'claro', 'vale', 'continuar', 'sigue', 'mas cambios', 'más cambios',
-    'sim', 'sim por favor', 'claro', 'ok', 'continuar', 'continua', 'continue', 'mais alteracoes', 'mais alterações',
-    'oui', 'oui sil vous plait', 'oui s il vous plait', 'bien sur', 'bien sûr', 'daccord', "d'accord", 'continuer', 'encore des modifications',
-    'ja', 'ja bitte', 'klar', 'okay', 'weiter', 'weitermachen', 'mehr anderungen', 'mehr änderungen',
-    'si', 'sì', 'si per favore', 'sì per favore', 'certo', 'ok', 'continua', 'continuare', 'piu modifiche', 'più modifiche',
-    'да', 'да пожалуйста', 'конечно', 'продолжай', 'еще изменения', 'ещё изменения',
-    '是', '好的', '继续', '继续修改', '还要修改',
-    'はい', 'お願いします', '続けて', '続行', 'まだ修正したい',
-    '네', '예', '계속', '계속해줘', '더 수정할게요'
-];
+const commonFollowUpContinueCueGroups = {
+    English: ['yes', 'yes please', 'sure', 'ok', 'okay', 'continue', 'keep going', 'more changes', 'modify more', 'lets continue', "let's continue"],
+    Spanish: ['si', 'sí', 'si por favor', 'sí por favor', 'claro', 'vale', 'continuar', 'sigue', 'mas cambios', 'más cambios'],
+    Portuguese: ['sim', 'sim por favor', 'claro', 'ok', 'continuar', 'continua', 'continue', 'mais alteracoes', 'mais alterações'],
+    French: ['oui', 'oui sil vous plait', 'oui s il vous plait', 'bien sur', 'bien sûr', 'daccord', "d'accord", 'continuer', 'encore des modifications'],
+    German: ['ja', 'ja bitte', 'klar', 'okay', 'weiter', 'weitermachen', 'mehr anderungen', 'mehr änderungen'],
+    Italian: ['si', 'sì', 'si per favore', 'sì per favore', 'certo', 'ok', 'continua', 'continuare', 'piu modifiche', 'più modifiche'],
+    Russian: ['да', 'да пожалуйста', 'конечно', 'продолжай', 'еще изменения', 'ещё изменения'],
+    Chinese: ['是', '好的', '继续', '继续修改', '还要修改'],
+    Japanese: ['はい', 'お願いします', '続けて', '続行', 'まだ修正したい'],
+    Korean: ['네', '예', '계속', '계속해줘', '더 수정할게요'],
+    Arabic: ['نعم', 'نعم من فضلك', 'بالتأكيد', 'حسنا', 'حسنًا', 'استمر', 'واصل', 'المزيد من التعديلات'],
+    Hindi: ['हाँ', 'हां', 'हाँ कृपया', 'ज़रूर', 'ठीक है', 'जारी रखें', 'आगे बढ़ो', 'और बदलाव']
+};
+
+const flattenCueGroups = (groups) => [...new Set(Object.values(groups).flat())];
+
+const commonFollowUpCloseCues = flattenCueGroups(commonFollowUpCloseCueGroups);
+
+const commonFollowUpContinueCues = flattenCueGroups(commonFollowUpContinueCueGroups);
 
 const researchKeymap = {
     intent: [
@@ -195,20 +205,24 @@ const presentationKeymap = {
         'презентация', 'презентации', 'слайд', 'слайды', 'слайд дек', 'дек',
         '演示', '演示文稿', '简报', '幻灯片', '投影片',
         'プレゼン', 'プレゼンテーション', 'スライド', '資料',
-        '프레젠테이션', '슬라이드', '발표자료'
+        '프레젠테이션', '슬라이드', '발표자료',
+        'عرض تقديمي', 'عروض تقديمية', 'شرائح',
+        'प्रस्तुति', 'प्रस्तुतियाँ', 'प्रस्तुतियां', 'स्लाइड', 'स्लाइड्स'
     ],
     actions: {
         create: [
             'create', 'make', 'build', 'generate', 'prepare', 'craft', 'design', 'turn into', 'convert into',
-            'crear', 'creame', 'créame', 'hacer', 'hazme', 'generar', 'generame', 'genérame', 'preparar', 'preparame', 'prepárame', 'disenar', 'diseñar', 'convertir en',
-            'criar', 'cria-me', 'criame', 'fazer', 'faz-me', 'fazeme', 'gerar', 'gera-me', 'gerame', 'preparar', 'prepara-me', 'preparame', 'montar', 'converter em',
-            'creer', 'créer', 'cree-moi', 'crée-moi', 'generer', 'générer', 'prepare', 'preparer', 'préparer', 'prepare-moi', 'prépare-moi', 'concevoir', 'transformer en',
-            'erstellen', 'mach', 'machen', 'erzeuge', 'generieren', 'vorbereiten', 'entwerfen', 'umwandeln in',
-            'creare', 'creami', 'generare', 'generami', 'preparare', 'preparami', 'progettare', 'trasformare in',
+            'crear', 'crea', 'creame', 'créame', 'hacer', 'haz', 'hazme', 'generar', 'genera', 'generame', 'genérame', 'preparar', 'prepara', 'preparame', 'prepárame', 'disenar', 'diseñar', 'disena', 'diseña', 'convertir en', 'convierte en',
+            'criar', 'cria', 'cria-me', 'criame', 'fazer', 'faz', 'faz-me', 'fazeme', 'gerar', 'gera', 'gera-me', 'gerame', 'preparar', 'prepara', 'prepara-me', 'preparame', 'montar', 'monta', 'converter em', 'converte em',
+            'creer', 'créer', 'cree', 'crée', 'cree-moi', 'crée-moi', 'generer', 'générer', 'genere', 'génère', 'prepare', 'preparer', 'préparer', 'prepare-moi', 'prépare-moi', 'concevoir', 'concois', 'conçois', 'transformer en', 'transforme en',
+            'erstellen', 'erstelle', 'mach', 'machen', 'erzeuge', 'generieren', 'generiere', 'vorbereiten', 'bereite vor', 'entwerfen', 'entwirf', 'umwandeln in', 'wandle in',
+            'creare', 'crea', 'creami', 'generare', 'genera', 'generami', 'preparare', 'prepara', 'preparami', 'progettare', 'progetta', 'trasformare in', 'trasforma in',
             'создать', 'сделать', 'подготовить', 'сгенерировать', 'собрать', 'преобразовать в',
             '创建', '生成', '制作', '整理成', '转换成',
             '作成', '生成', '作る', '変換',
-            '만들어', '생성', '작성', '구성', '변환'
+            '만들어', '생성', '작성', '구성', '변환',
+            'أنشئ', 'انشئ', 'أنشئ لي', 'انشئ لي', 'اصنع', 'جهز', 'جهّز', 'كوّن', 'حوّل إلى',
+            'बनाओ', 'बनाइए', 'तैयार करो', 'तैयार कीजिए', 'बनाना', 'तैयार करना', 'बना दो', 'रूपांतरित करो'
         ],
         browse: [
             'show', 'list', 'open', 'browse', 'view', 'find', 'choose', 'select', 'pick',
@@ -220,7 +234,9 @@ const presentationKeymap = {
             'показать', 'список', 'перечислить', 'открыть', 'просмотреть', 'найти', 'выбрать',
             '查看', '显示', '列出', '打开', '浏览', '选择', '查找',
             '表示', '一覧', '開く', '閲覧', '確認', '選択', '探す',
-            '보여', '목록', '열기', '찾아', '선택', '확인'
+            '보여', '목록', '열기', '찾아', '선택', '확인',
+            'اعرض', 'أرني', 'ارني', 'قائمة', 'افتح', 'تصفح', 'اختر', 'ابحث',
+            'दिखाओ', 'दिखाइए', 'सूची', 'खोलो', 'खोलिए', 'देखो', 'चुनो', 'चुनिए', 'खोजो', 'ढूंढो'
         ],
         send: [
             'send', 'share', 'deliver', 'export',
@@ -233,7 +249,9 @@ const presentationKeymap = {
             'отправить', 'поделиться',
             '发送', '分享',
             '送信', '共有',
-            '보내', '전송', '공유'
+            '보내', '전송', '공유',
+            'أرسل', 'ارسل', 'أرسل لي', 'ارسل لي', 'شارك',
+            'भेजो', 'भेजिए', 'मुझे भेजो', 'मुझे भेजिए', 'साझा करो'
         ]
     },
     sourceCues: [
@@ -246,7 +264,9 @@ const presentationKeymap = {
         'с этим текстом', 'со следующим текстом', 'используя этот текст', 'на основе этого текста', 'предоставленный текст', 'предоставленный контент',
         '用这段文字', '使用以下文本', '根据这段文字', '提供的文本', '提供的内容',
         'このテキストで', '次のテキストを使って', 'この文章から', '提供されたテキスト',
-        '이 텍스트로', '다음 텍스트로', '제공한 텍스트', '제공된 내용으로'
+        '이 텍스트로', '다음 텍스트로', '제공한 텍스트', '제공된 내용으로',
+        'بهذا النص', 'باستخدام هذا النص', 'باستخدام النص التالي', 'من هذا النص', 'استنادا إلى هذا النص', 'استنادًا إلى هذا النص', 'النص المقدم', 'المحتوى المقدم',
+        'इस पाठ के साथ', 'इस टेक्स्ट के साथ', 'निम्नलिखित पाठ के साथ', 'निम्नलिखित टेक्स्ट के साथ', 'इस पाठ का उपयोग करके', 'इस टेक्स्ट का उपयोग करके', 'इस पाठ से', 'इस टेक्स्ट से', 'दिया गया पाठ', 'दिया गया टेक्स्ट', 'प्रदान किया गया पाठ', 'प्रदान की गई सामग्री'
     ],
     savedCues: [
         'saved presentation', 'saved presentations', 'existing presentation', 'existing presentations', 'my presentation', 'my presentations',
@@ -258,7 +278,9 @@ const presentationKeymap = {
         'сохраненная презентация', 'сохраненные презентации', 'моя презентация', 'мои презентации',
         '已保存的演示文稿', '保存的演示文稿', '我的演示文稿',
         '保存済みのプレゼン', '保存済みのプレゼンテーション', '自分のプレゼン',
-        '저장된 프레젠테이션', '내 프레젠테이션'
+        '저장된 프레젠테이션', '내 프레젠테이션',
+        'عرض تقديمي محفوظ', 'عروض تقديمية محفوظة', 'عرضي التقديمي', 'عروضي التقديمية',
+        'सहेजी गई प्रस्तुति', 'सहेजी गई प्रस्तुतियाँ', 'सहेजी गई प्रस्तुतियां', 'मेरी प्रस्तुति', 'मेरी प्रस्तुतियाँ', 'मेरी प्रस्तुतियां'
     ],
     webCues: [
         'use internet', 'use the internet', 'use web', 'use the web', 'with web search', 'using web search', 'search the web', 'search online', 'use online sources',
@@ -274,7 +296,9 @@ const presentationKeymap = {
         'используй интернет', 'используй веб-поиск', 'с веб-поиском', 'ищи в интернете', 'используй онлайн-источники',
         '使用互联网', '使用网络搜索', '用网页搜索', '搜索网络', '在线搜索', '使用在线来源',
         'ウェブ検索を使う', 'インターネットを使う', 'ウェブで検索', 'オンラインで検索', 'オンライン情報を使う',
-        '웹 검색 사용', '인터넷 사용', '웹에서 검색', '온라인 검색', '온라인 출처 사용'
+        '웹 검색 사용', '인터넷 사용', '웹에서 검색', '온라인 검색', '온라인 출처 사용',
+        'استخدم الإنترنت', 'استخدم الويب', 'استخدم البحث على الويب', 'مع بحث الويب', 'ابحث على الويب', 'ابحث عبر الإنترنت', 'استخدم مصادر عبر الإنترنت',
+        'इंटरनेट का उपयोग करो', 'वेब का उपयोग करो', 'वेब खोज का उपयोग करो', 'वेब खोज के साथ', 'वेब पर खोजो', 'ऑनलाइन खोजो', 'ऑनलाइन स्रोतों का उपयोग करो'
     ],
     followUpCloseCues: commonFollowUpCloseCues,
     followUpContinueCues: commonFollowUpContinueCues,
@@ -326,29 +350,29 @@ presentationKeymap.terms = [...new Set([
 
 const knowledgeKeymap = {
     intent: [
-        'knowledge base', 'knowledgebase', 'knowledge', 'stored knowledge', 'saved knowledge', 'kb',
-        'base de conocimiento', 'conocimiento guardado', 'conocimiento almacenado', 'kb',
-        'base de conhecimento', 'conhecimento guardado', 'conhecimento armazenado', 'kb',
-        'base de connaissances', 'connaissances enregistrees', 'connaissances enregistrées', 'kb',
-        'wissensdatenbank', 'gespeichertes wissen', 'wissensbasis', 'kb',
-        'base di conoscenza', 'conoscenza salvata', 'conoscenza archiviata', 'kb',
-        'база знаний', 'сохраненные знания', 'знания',
+        'knowledge base', 'knowledge bases', 'knowledgebase', 'knowledge', 'stored knowledge', 'saved knowledge', 'kb',
+        'base de conocimiento', 'base de conocimientos', 'bases de conocimiento', 'bases de conocimientos', 'conocimiento guardado', 'conocimiento almacenado', 'kb',
+        'base de conhecimento', 'base de conhecimentos', 'bases de conhecimento', 'bases de conhecimentos', 'conhecimento guardado', 'conhecimento armazenado', 'kb',
+        'base de connaissances', 'bases de connaissances', 'connaissances enregistrees', 'connaissances enregistrées', 'kb',
+        'wissensdatenbank', 'wissensdatenbanken', 'wissensbasis', 'wissensbasen', 'gespeichertes wissen', 'kb',
+        'base di conoscenza', 'base di conoscenze', 'basi di conoscenza', 'basi di conoscenze', 'conoscenza salvata', 'conoscenza archiviata', 'kb',
+        'база знаний', 'базы знаний', 'сохраненные знания', 'знания',
         '知识库', '已保存知识', '知识',
         'ナレッジベース', '保存済みナレッジ', '知識ベース',
         '지식 베이스', '저장된 지식', '지식'
     ],
     actions: {
         browse: [
-            'show', 'list', 'open', 'browse', 'view', 'see', 'find', 'choose', 'select', 'read',
-            'mostrar', 'lista', 'listar', 'abrir', 'ver', 'buscar', 'elige', 'seleccionar', 'leer',
-            'mostrar', 'listar', 'abrir', 'ver', 'procurar', 'buscar', 'escolher', 'selecionar', 'ler',
-            'afficher', 'lister', 'ouvrir', 'parcourir', 'voir', 'chercher', 'choisir', 'selectionner', 'sélectionner', 'lire',
-            'zeigen', 'auflisten', 'offnen', 'öffnen', 'durchsuchen', 'ansehen', 'finden', 'auswahlen', 'auswählen', 'lesen',
-            'mostrare', 'elencare', 'aprire', 'sfogliare', 'vedere', 'cercare', 'scegliere', 'selezionare', 'leggere',
-            'показать', 'список', 'перечислить', 'открыть', 'просмотреть', 'найти', 'выбрать', 'читать',
+            'show', 'show me', 'list', 'open', 'browse', 'view', 'see', 'find', 'choose', 'select', 'read',
+            'mostrar', 'muestra', 'mostrarme', 'muestrame', 'muéstrame', 'lista', 'listar', 'abrir', 'ver', 'buscar', 'elige', 'seleccionar', 'leer',
+            'mostrar', 'mostra', 'mostrar-me', 'mostra-me', 'listar', 'abrir', 'ver', 'procurar', 'buscar', 'escolher', 'selecionar', 'ler',
+            'afficher', 'montre', 'montre moi', 'montre-moi', 'lister', 'ouvrir', 'parcourir', 'voir', 'chercher', 'choisir', 'selectionner', 'sélectionner', 'lire',
+            'zeigen', 'zeig', 'zeig mir', 'auflisten', 'offnen', 'öffnen', 'durchsuchen', 'ansehen', 'finden', 'auswahlen', 'auswählen', 'lesen',
+            'mostrare', 'mostra', 'mostrami', 'elencare', 'aprire', 'sfogliare', 'vedere', 'cercare', 'scegliere', 'selezionare', 'leggere',
+            'показать', 'покажи', 'список', 'перечислить', 'открыть', 'просмотреть', 'найти', 'выбрать', 'читать',
             '查看', '显示', '列出', '打开', '浏览', '选择', '查找', '阅读',
-            '表示', '一覧', '開く', '閲覧', '確認', '選択', '探す', '読む',
-            '보여', '목록', '열기', '찾아', '선택', '확인', '읽어'
+            '表示', '見せて', '一覧', '開く', '閲覧', '確認', '選択', '探す', '読む',
+            '보여', '보여줘', '목록', '열기', '찾아', '선택', '확인', '읽어'
         ]
     },
     collectionNouns: [
@@ -376,16 +400,16 @@ const knowledgeKeymap = {
         '지식 항목', '항목', '노트', '문서'
     ],
     savedCues: [
-        'saved knowledge base', 'saved knowledge', 'stored knowledge base', 'stored knowledge', 'my knowledge base', 'my knowledge collections',
-        'base de conocimiento guardada', 'conocimiento guardado', 'base de conocimiento almacenada', 'mi base de conocimiento', 'mis colecciones de conocimiento',
-        'base de conhecimento guardada', 'conhecimento guardado', 'base de conhecimento armazenada', 'minha base de conhecimento', 'minhas colecoes de conhecimento', 'minhas coleções de conhecimento',
-        'base de connaissances enregistree', 'base de connaissances enregistrée', 'connaissances enregistrees', 'connaissances enregistrées', 'ma base de connaissances', 'mes collections de connaissances',
-        'gespeicherte wissensdatenbank', 'gespeichertes wissen', 'meine wissensdatenbank', 'meine wissenssammlungen',
-        'base di conoscenza salvata', 'conoscenza salvata', 'la mia base di conoscenza', 'le mie collezioni di conoscenza',
-        'сохраненная база знаний', 'сохраненные знания', 'моя база знаний', 'мои коллекции знаний',
+        'saved knowledge base', 'saved knowledge bases', 'saved knowledge', 'stored knowledge base', 'stored knowledge bases', 'stored knowledge', 'my knowledge base', 'my knowledge bases', 'my saved knowledge base', 'my saved knowledge bases', 'my knowledge collections',
+        'base de conocimiento guardada', 'bases de conocimiento guardadas', 'base de conocimientos guardada', 'bases de conocimientos guardadas', 'conocimiento guardado', 'base de conocimiento almacenada', 'base de conocimientos almacenada', 'mi base de conocimiento', 'mi base de conocimientos', 'mis bases de conocimiento', 'mis bases de conocimientos', 'mis colecciones de conocimiento',
+        'base de conhecimento guardada', 'bases de conhecimento guardadas', 'base de conhecimentos guardada', 'bases de conhecimentos guardadas', 'conhecimento guardado', 'base de conhecimento armazenada', 'base de conhecimentos armazenada', 'minha base de conhecimento', 'minha base de conhecimentos', 'minhas bases de conhecimento', 'minhas bases de conhecimentos', 'minhas colecoes de conhecimento', 'minhas coleções de conhecimento',
+        'base de connaissances enregistree', 'base de connaissances enregistrée', 'bases de connaissances enregistrees', 'bases de connaissances enregistrées', 'connaissances enregistrees', 'connaissances enregistrées', 'ma base de connaissances', 'mes bases de connaissances', 'mes collections de connaissances',
+        'gespeicherte wissensdatenbank', 'gespeicherte wissensdatenbanken', 'gespeichertes wissen', 'meine wissensdatenbank', 'meine wissensdatenbanken', 'meine wissenssammlungen',
+        'base di conoscenza salvata', 'basi di conoscenza salvate', 'base di conoscenze salvata', 'basi di conoscenze salvate', 'conoscenza salvata', 'la mia base di conoscenza', 'la mia base di conoscenze', 'le mie basi di conoscenza', 'le mie basi di conoscenze', 'le mie collezioni di conoscenza',
+        'сохраненная база знаний', 'сохраненные базы знаний', 'сохраненные знания', 'моя база знаний', 'мои базы знаний', 'мои коллекции знаний',
         '已保存知识库', '保存的知识库', '我的知识库', '我的知识集合',
-        '保存済みのナレッジベース', '保存済みナレッジ', '自分のナレッジベース', '自分のナレッジコレクション',
-        '저장된 지식 베이스', '저장된 지식', '내 지식 베이스', '내 지식 컬렉션'
+        '保存済みのナレッジベース', '保存済みのナレッジベース一覧', '保存済みナレッジ', '自分のナレッジベース', '自分のナレッジコレクション',
+        '저장된 지식 베이스', '저장된 지식 베이스들', '저장된 지식', '내 지식 베이스', '내 지식 컬렉션'
     ],
     followUpCloseCues: commonFollowUpCloseCues,
     followUpContinueCues: commonFollowUpContinueCues
@@ -900,5 +924,9 @@ window.Keymaps = {
     model: modelKeymap,
     chat: chatKeymap,
     webSearch: webSearchKeymap,
-    workflowRules
+    workflowRules,
+    meta: {
+        followUpCloseCueGroups: commonFollowUpCloseCueGroups,
+        followUpContinueCueGroups: commonFollowUpContinueCueGroups
+    }
 };

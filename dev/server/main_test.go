@@ -67,6 +67,38 @@ func TestWhatsappMentionsDevice(t *testing.T) {
 	}
 }
 
+func TestMaskPhoneForLog(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "masks paired device placeholder and keeps suffixes",
+			raw:  "8619802087305:45@s.whatsapp.net",
+			want: "*********7305:45@s.whatsapp.net",
+		},
+		{
+			name: "masks plain digits",
+			raw:  "15551234567",
+			want: "*******4567",
+		},
+		{
+			name: "preserves plus prefix",
+			raw:  "+15551234567@s.whatsapp.net",
+			want: "+*******4567@s.whatsapp.net",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := maskPhoneForLog(tt.raw); got != tt.want {
+				t.Fatalf("maskPhoneForLog(%q) = %q, want %q", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestShouldSelectNoDiskGatewayDevice(t *testing.T) {
 	resetWhatsappPairingProbeStateForTests()
 	tests := []struct {

@@ -470,6 +470,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         datavizNotAvailable: "DataViz ist derzeit nicht verfügbar. Bitte versuchen Sie es später erneut.",
         datavizGenerationFailed: "Das Diagramm konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
         researchStarted: "Forschung gestartet für \"{query}\". Sammle Erkenntnisse...",
+        researchRefiningStarted: "Die bestehende Recherche wird mit Ihrer neuen Anfrage verfeinert. Zusätzliche Erkenntnisse werden gesammelt...",
         researchExitTip: "Wenn Sie fertig sind, antworten Sie mit \"nein\", \"nein danke\" oder sagen Sie \"ich bin fertig\", um den Recherchemodus zu schließen.",
         researchInProgress: "Forschung läuft: Ergebnisse werden gesammelt und zusammengefasst.",
         researchNoTopic: "Forschungsanfrage erhalten, aber kein Thema erkannt. Bitte geben Sie eine klare Forschungsfrage an.",

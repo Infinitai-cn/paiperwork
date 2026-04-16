@@ -3105,7 +3105,7 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
                     textToSend = textToSend.replace(/#+\s*/g, ' ').replace(/\*/g, '').replace(/_+/g, '').trim();
                     // Collapse excessive blank lines
                     textToSend = textToSend.replace(/\n{3,}/g, '\n\n').trim();
-                    const header = `🤖 Summary of "${documentTitle}":\n\n`;
+                    const header = `💬 Summary of "${documentTitle}":\n\n`;
                     const MAX_CHUNK = 1500;
                     let payload = header + textToSend;
                     while (payload.length > 0) {

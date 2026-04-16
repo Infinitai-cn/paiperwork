@@ -1,5 +1,9 @@
-if (typeof window.frenchTranslationsLoaded === 'undefined') {
-    window.frenchTranslationsLoaded = true;
+const isGithubHelpLanguageRuntime = typeof window !== 'undefined'
+    && (window.location.pathname.includes('/github-help/')
+        || String(document.currentScript && document.currentScript.src || '').includes('/github-help/js/'));
+
+if (isGithubHelpLanguageRuntime && typeof window.githubHelpFrenchTranslationsLoaded === 'undefined') {
+    window.githubHelpFrenchTranslationsLoaded = true;
 
 
     const frenchTranslations = {

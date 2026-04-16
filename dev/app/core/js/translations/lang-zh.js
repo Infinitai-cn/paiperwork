@@ -461,6 +461,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 datavizNotAvailable: "DataViz 当前不可用，请稍后重试。",
                 datavizGenerationFailed: "图表生成失败，请重试。",
                 researchStarted: "已开始针对 \"{query}\" 进行研究。正在收集见解...",
+                researchRefiningStarted: "正在根据你的新请求细化现有研究。正在收集更多见解...",
                 researchExitTip: "完成后，请回复\"不用了\"、\"不用，谢谢\"，或说\"我完成了\"来关闭研究模式。",
                 researchInProgress: "研究进行中：正在收集并汇总结果。",
                 researchNoTopic: "已收到研究请求，但未检测到主题。请提供明确的研究问题。",
