@@ -2938,7 +2938,7 @@ window.helpContent = {
                 </ol>
                 <p>点击 <strong>Start server</strong>，首次配对时扫描二维码。您可以随时停止服务器，这会停止双向消息路由。</p>
                 <h4>清除 WhatsApp 上下文</h4>
-                <p>如果长时间使用后 WhatsApp 回复开始变得臃肿，您可以只清除按手机保存的 WhatsApp 上下文，而无需删除数据库中的其他内容。</p>
+                <p>如果长时间使用后 WhatsApp 回复开始变得臃肿，您可以只清除数据库中按手机保存的 WhatsApp 对话，而无需删除数据库中的其他内容；与 Paiperwork 相关的对话不会被删除。</p>
                 <ol>
                     <li>在连接器选项卡中点击“清除 WhatsApp 上下文”</li>
                     <li>这会删除按手机保存的 WhatsApp 上下文记忆，并重置当前运行中的 WhatsApp 上下文</li>

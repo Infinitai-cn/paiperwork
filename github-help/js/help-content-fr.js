@@ -2929,7 +2929,7 @@ window.helpContent = {
                 </ol>
                 <p>Cliquez sur <strong>Start server</strong>, puis scannez le code QR lors du premier appairage. Vous pouvez arrêter le serveur à tout moment, ce qui stoppe le routage des messages dans les deux sens.</p>
                 <h4>Effacer les contextes WhatsApp</h4>
-                <p>Si les réponses WhatsApp deviennent trop chargées après une longue utilisation, vous pouvez effacer uniquement les contextes WhatsApp stockés par téléphone sans supprimer le reste de votre base de données.</p>
+                <p>Si les réponses WhatsApp deviennent trop chargées après une longue utilisation, vous pouvez effacer uniquement les conversations WhatsApp par téléphone stockées dans la base de données sans supprimer le reste de votre base de données ; les conversations liées à Paiperwork ne seront pas supprimées.</p>
                 <ol>
                     <li>Cliquez sur "Effacer les contextes WhatsApp" dans l'onglet Connecteurs</li>
                     <li>Cela supprime la mémoire de contexte WhatsApp stockée par téléphone et réinitialise le contexte WhatsApp actif en mémoire</li>
