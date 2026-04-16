@@ -1635,6 +1635,10 @@ class ConnectorWhatsapp {
         const resolvedLanguage = this._resolveWhatsappReplyLanguage(language, resolvedContext, followUpSession);
         const questionText = await this._getLocalizedLangText(resolvedLanguage, key, fallback);
         await this.postWhatsappText(phone, `💬 ${questionText}`);
+        const exitTipText = this._getWhatsappWorkflowExitTip(kind, resolvedLanguage);
+        if (exitTipText) {
+            await this.postWhatsappText(phone, `💬 ${exitTipText}`);
+        }
     }
 
     async _handleWhatsappFollowUpSessionClose(phone, language = null, phoneContext = null) {
@@ -1725,6 +1729,10 @@ class ConnectorWhatsapp {
         if (key) {
             const continueText = await this._getLocalizedLangText(resolvedLanguage, key, fallback);
             await this.postWhatsappText(phone, `💬 ${continueText}`);
+            const exitTipText = this._getWhatsappWorkflowExitTip(session.kind, resolvedLanguage);
+            if (exitTipText) {
+                await this.postWhatsappText(phone, `💬 ${exitTipText}`);
+            }
         }
         return updatedContext;
     }
@@ -2554,6 +2562,10 @@ class ConnectorWhatsapp {
             'Do you want to make further modifications to this miniapp?'
         );
         await this.postWhatsappText(phone, `💬 ${questionText}`);
+        const exitTipText = this._getWhatsappWorkflowExitTip('artifact', language);
+        if (exitTipText) {
+            await this.postWhatsappText(phone, `💬 ${exitTipText}`);
+        }
     }
 
     async _handleWhatsappArtifactSessionClose(phone, language = null, phoneContext = null) {
@@ -2580,6 +2592,10 @@ class ConnectorWhatsapp {
             'Tell me what you want to change in the miniapp.'
         );
         await this.postWhatsappText(phone, `💬 ${continueText}`);
+        const exitTipText = this._getWhatsappWorkflowExitTip('artifact', language);
+        if (exitTipText) {
+            await this.postWhatsappText(phone, `💬 ${exitTipText}`);
+        }
         return updatedContext;
     }
 
@@ -4166,6 +4182,50 @@ class ConnectorWhatsapp {
             Hindi: `नॉलेज बेस मोड से बाहर निकलने के लिए ${formattedExamples} में से किसी एक के साथ उत्तर दें।`
         };
 
+        return templates[normalizedLanguage] || templates.English;
+    }
+
+    _getWhatsappWorkflowExitTip(kind, language = null) {
+        const normalizedKind = String(kind || '').trim().toLowerCase();
+        if (normalizedKind !== 'presentation' && normalizedKind !== 'artifact') {
+            return '';
+        }
+
+        const examples = this._getWhatsappFollowUpCloseCueExamples(language, 3);
+        const formattedExamples = examples.map(token => `"${token}"`).join(', ');
+        const normalizedLanguage = this._normalizeLanguage(language) || 'English';
+        const templatesByKind = {
+            presentation: {
+                English: `To leave presentation mode, reply with ${formattedExamples}.`,
+                Spanish: `Para salir del modo de presentación, responde con ${formattedExamples}.`,
+                Portuguese: `Para sair do modo de apresentação, responda com ${formattedExamples}.`,
+                French: `Pour quitter le mode présentation, répondez avec ${formattedExamples}.`,
+                German: `Um den Präsentationsmodus zu verlassen, antworten Sie mit ${formattedExamples}.`,
+                Italian: `Per uscire dalla modalita presentazione, rispondi con ${formattedExamples}.`,
+                Russian: `Чтобы выйти из режима презентации, ответьте ${formattedExamples}.`,
+                Chinese: `要退出演示文稿模式，请回复 ${formattedExamples}。`,
+                Japanese: `プレゼンテーションモードを終了するには、${formattedExamples} と返信してください。`,
+                Korean: `프레젠테이션 모드를 종료하려면 ${formattedExamples}라고 답장하세요.`,
+                Arabic: `للخروج من وضع العرض التقديمي، رد بـ ${formattedExamples}.`,
+                Hindi: `प्रेजेंटेशन मोड से बाहर निकलने के लिए ${formattedExamples} में से किसी एक के साथ उत्तर दें।`
+            },
+            artifact: {
+                English: `To leave miniapp mode, reply with ${formattedExamples}.`,
+                Spanish: `Para salir del modo de miniaplicación, responde con ${formattedExamples}.`,
+                Portuguese: `Para sair do modo de miniaplicação, responda com ${formattedExamples}.`,
+                French: `Pour quitter le mode miniapp, répondez avec ${formattedExamples}.`,
+                German: `Um den Mini-App-Modus zu verlassen, antworten Sie mit ${formattedExamples}.`,
+                Italian: `Per uscire dalla modalita miniapp, rispondi con ${formattedExamples}.`,
+                Russian: `Чтобы выйти из режима мини-приложения, ответьте ${formattedExamples}.`,
+                Chinese: `要退出迷你应用模式，请回复 ${formattedExamples}。`,
+                Japanese: `ミニアプリモードを終了するには、${formattedExamples} と返信してください。`,
+                Korean: `미니앱 모드를 종료하려면 ${formattedExamples}라고 답장하세요.`,
+                Arabic: `للخروج من وضع التطبيق المصغر، رد بـ ${formattedExamples}.`,
+                Hindi: `मिनीऐप मोड से बाहर निकलने के लिए ${formattedExamples} में से किसी एक के साथ उत्तर दें।`
+            }
+        };
+
+        const templates = templatesByKind[normalizedKind] || templatesByKind.presentation;
         return templates[normalizedLanguage] || templates.English;
     }
 
