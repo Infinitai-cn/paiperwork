@@ -2934,7 +2934,7 @@ window.helpContent = {
                 </ol>
                 <p>Klicken Sie auf <strong>Start server</strong> und scannen Sie beim ersten Koppeln den QR-Code. Sie können den Server jederzeit stoppen, wodurch die Nachrichtenweiterleitung in beide Richtungen endet.</p>
                 <h4>WhatsApp-Kontexte löschen</h4>
-                <p>Wenn WhatsApp-Antworten nach längerer Nutzung aufgebläht wirken, können Sie nur die gespeicherten WhatsApp-Kontexte pro Telefon löschen, ohne den Rest Ihrer Datenbank zu entfernen.</p>
+                <p>Wenn WhatsApp-Antworten nach längerer Nutzung aufgebläht wirken, können Sie nur die in der Datenbank gespeicherten WhatsApp-Konversationen pro Telefon löschen, ohne den Rest Ihrer Datenbank zu entfernen; Paiperwork-bezogene Konversationen werden nicht gelöscht.</p>
                 <ol>
                     <li>Klicken Sie im Verbindungen-Tab auf "WhatsApp-Kontexte löschen"</li>
                     <li>Dadurch werden die gespeicherten WhatsApp-Kontexte pro Telefon entfernt und der aktuelle WhatsApp-Laufzeitkontext zurückgesetzt</li>

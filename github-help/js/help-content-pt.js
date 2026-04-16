@@ -2934,7 +2934,7 @@ window.helpContent = {
                 </ol>
                 <p>Clique em <strong>Start server</strong> e leia o código QR na primeira vez que emparelhar. Pode parar o servidor a qualquer momento, o que interrompe o encaminhamento de mensagens nos dois sentidos.</p>
                 <h4>Limpar Contextos do WhatsApp</h4>
-                <p>Se as respostas do WhatsApp começarem a ficar pesadas após muito uso, pode limpar apenas os contextos do WhatsApp armazenados por telefone sem apagar o resto da sua base de dados.</p>
+                <p>Se as respostas do WhatsApp começarem a ficar pesadas após muito uso, pode limpar apenas as conversas de WhatsApp armazenadas por telefone na base de dados sem apagar o resto da sua base de dados; as conversas relacionadas com o Paiperwork não serão apagadas.</p>
                 <ol>
                     <li>Clique em "Limpar Contextos do WhatsApp" na aba Conectores</li>
                     <li>Isto remove a memória de contexto do WhatsApp armazenada por telefone e reinicia o contexto ativo do WhatsApp em execução</li>

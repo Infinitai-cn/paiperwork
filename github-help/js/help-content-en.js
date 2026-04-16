@@ -2973,7 +2973,7 @@ window.helpContent = {
                 </ol>
                 <p>Click <strong>Start server</strong>, then scan the QR code the first time you pair. You can stop the server at any time, which stops message routing in both directions.</p>
                 <h4>Clear WhatsApp Contexts</h4>
-                <p>If WhatsApp responses start feeling bloated after long use, you can clear only the stored per-phone WhatsApp contexts without deleting the rest of your database.</p>
+                <p>If WhatsApp responses start feeling bloated after long use, you can clear only the database's stored per-phone WhatsApp conversations without deleting the rest of your database, Paiperwork related conversations won't be deleted.</p>
                 <ol>
                     <li>Click "Clear WhatsApp Contexts" in the Connectors tab</li>
                     <li>This removes stored per-phone WhatsApp context memory and resets the live WhatsApp runtime context</li>

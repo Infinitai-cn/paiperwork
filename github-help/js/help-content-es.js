@@ -2919,7 +2919,7 @@ window.helpContent = {
                                 <ol>
                     <li>Exporta cualquier conversación o documento importante primero</li>
                                 <h4>Borrar Contextos de WhatsApp</h4>
-                                <p>Si las respuestas de WhatsApp empiezan a sentirse sobrecargadas tras un uso prolongado, puedes borrar solo los contextos de WhatsApp almacenados por teléfono sin eliminar el resto de tu base de datos.</p>
+                                <p>Si las respuestas de WhatsApp empiezan a sentirse sobrecargadas tras un uso prolongado, puedes borrar solo las conversaciones de WhatsApp almacenadas por teléfono en la base de datos sin eliminar el resto de tu base de datos; las conversaciones relacionadas con Paiperwork no se eliminarán.</p>
                                 <ol>
                                     <li>Haz clic en "Borrar Contextos de WhatsApp" en la pestaña Conectores</li>
                                     <li>Esto elimina la memoria de contexto de WhatsApp almacenada por teléfono y restablece el contexto activo de WhatsApp en tiempo de ejecución</li>
