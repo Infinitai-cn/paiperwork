@@ -246,6 +246,26 @@ func qrRefForLog(qr string) string {
 	return compactLogValue(trimmed, 200)
 }
 
+func maskURLForLog(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return compactLogValue(trimmed, 200)
+	}
+
+	query := parsed.Query()
+	if deviceID := strings.TrimSpace(query.Get("device_id")); deviceID != "" {
+		query.Set("device_id", maskPhoneForLog(deviceID))
+	}
+	parsed.RawQuery = query.Encode()
+
+	return compactLogValue(parsed.String(), 200)
+}
+
 func useInMemoryPaiperworkWhatsappRuntime() bool {
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("PAIPERWORK_FORCE_FILEBACKED_WHATSAPP")), "true") {
 		return false
@@ -3291,7 +3311,7 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 		// /app/login so a QR can be produced.
 		errText := strings.ToLower(err.Error())
 		if config.NoDisk && (strings.Contains(errText, "device") && strings.Contains(errText, "not found")) {
-			log.Printf("fetchWhatsappGatewayStatus: status check returned device-not-found for %q, continuing to login flow", deviceID)
+			log.Printf("fetchWhatsappGatewayStatus: status check returned device-not-found for %q, continuing to login flow", maskPhoneForLog(deviceID))
 			status = &whatsappGatewayStatus{DeviceID: deviceID, Connected: false, LoggedIn: false}
 		} else {
 			return nil, fmt.Errorf("gateway status unavailable: %v", err)
@@ -3342,7 +3362,7 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 	allowQrForPersistentDevice, qrGateReason := shouldAllowQrForPersistentDevice(client, preferredDeviceID, freshPairRequested)
 	if !freshPairRequested && strings.TrimSpace(preferredDeviceID) != "" && isWhatsappSessionRestoreExpected() {
 		if shouldLogWhatsappGatewayWarmup(deviceID) {
-			log.Printf("fetchWhatsappGatewayStatus: waiting for browser session restore before app/login for device %s", deviceID)
+			log.Printf("fetchWhatsappGatewayStatus: waiting for browser session restore before app/login for device %s", maskPhoneForLog(deviceID))
 		}
 		return &whatsappGatewayStatus{DeviceID: deviceID, Connected: false, LoggedIn: false, QRWithheld: true}, nil
 	}
@@ -3351,17 +3371,17 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 	if whatsappGatewayCachedQR != "" && time.Since(whatsappGatewayCachedQRTimestamp) < whatsappGatewayQRTTL {
 		if holdQrDuringWarmup {
 			if shouldLogWhatsappGatewayWarmup(deviceID) {
-				log.Printf("fetchWhatsappGatewayStatus: startup warm-up active; withholding cached QR for device %s", deviceID)
+				log.Printf("fetchWhatsappGatewayStatus: startup warm-up active; withholding cached QR for device %s", maskPhoneForLog(deviceID))
 			}
 			return &whatsappGatewayStatus{DeviceID: deviceID, Connected: false, LoggedIn: false, QRWithheld: true}, nil
 		}
 		if !allowQrForPersistentDevice {
-			log.Printf("fetchWhatsappGatewayStatus: withholding cached QR for device %s (reason=%s)", deviceID, qrGateReason)
+			log.Printf("fetchWhatsappGatewayStatus: withholding cached QR for device %s (reason=%s)", maskPhoneForLog(deviceID), qrGateReason)
 			return &whatsappGatewayStatus{DeviceID: deviceID, Connected: false, LoggedIn: false, QRWithheld: true}, nil
 		}
 		if !startRequested {
 			markWhatsappPairingProbeState(deviceID, "cached-qr")
-			log.Printf("fetchWhatsappGatewayStatus: using cached QR for device %s", deviceID)
+			log.Printf("fetchWhatsappGatewayStatus: using cached QR for device %s", maskPhoneForLog(deviceID))
 			return &whatsappGatewayStatus{DeviceID: deviceID, Connected: false, QRDataUrl: whatsappGatewayCachedQR, QRTimestamp: whatsappGatewayCachedQRTimestamp.UnixMilli(), QRDuration: int64(whatsappGatewayQRTTL / time.Second)}, nil
 		}
 
@@ -3405,7 +3425,7 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 				}
 				if err := json.NewDecoder(resp.Body).Decode(&appLogin); err == nil {
 					if isWhatsappGatewayAlreadyLoggedInResponse(appLogin.Code, appLogin.Message) {
-						log.Printf("fetchWhatsappGatewayStatus: app/login reports already logged in for device %s; waiting for settled status", deviceID)
+						log.Printf("fetchWhatsappGatewayStatus: app/login reports already logged in for device %s; waiting for settled status", maskPhoneForLog(deviceID))
 						settledStatus, settledErr := waitForWhatsappGatewayLoggedInStatus(client, deviceID, 4*time.Second)
 						if settledErr == nil && settledStatus != nil && settledStatus.LoggedIn {
 							clearWhatsappGatewayWarmup(deviceID)
@@ -3467,12 +3487,12 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 						markWhatsappPairingProbeState(deviceID, "login-qr-data")
 						if holdQrDuringWarmup {
 							if shouldLogWhatsappGatewayWarmup(deviceID) {
-								log.Printf("fetchWhatsappGatewayStatus: startup warm-up active; QR generated but withheld for device %s", deviceID)
+								log.Printf("fetchWhatsappGatewayStatus: startup warm-up active; QR generated but withheld for device %s", maskPhoneForLog(deviceID))
 							}
 							return &whatsappGatewayStatus{DeviceID: deviceID, Connected: false, LoggedIn: false, QRWithheld: true}, nil
 						}
 						if !allowQrForPersistentDevice {
-							log.Printf("fetchWhatsappGatewayStatus: QR generated but withheld for device %s (reason=%s)", deviceID, qrGateReason)
+							log.Printf("fetchWhatsappGatewayStatus: QR generated but withheld for device %s (reason=%s)", maskPhoneForLog(deviceID), qrGateReason)
 							return &whatsappGatewayStatus{DeviceID: deviceID, Connected: false, LoggedIn: false, QRWithheld: true}, nil
 						}
 						log.Printf("fetchWhatsappGatewayStatus: got QR data from app/login (inlined data URL) issued_at=%d ttl=%ds", qrIssuedAt, int64(whatsappGatewayQRTTL/time.Second))
@@ -3528,11 +3548,11 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 						}
 						markWhatsappPairingProbeState(deviceID, "login-qr-link")
 						if holdQrDuringWarmup {
-							log.Printf("fetchWhatsappGatewayStatus: startup warm-up active; QR link generated but withheld for device %s", deviceID)
+							log.Printf("fetchWhatsappGatewayStatus: startup warm-up active; QR link generated but withheld for device %s", maskPhoneForLog(deviceID))
 							return &whatsappGatewayStatus{DeviceID: deviceID, Connected: false, LoggedIn: false, QRWithheld: true}, nil
 						}
 						if !allowQrForPersistentDevice {
-							log.Printf("fetchWhatsappGatewayStatus: QR link generated but withheld for device %s (reason=%s)", deviceID, qrGateReason)
+							log.Printf("fetchWhatsappGatewayStatus: QR link generated but withheld for device %s (reason=%s)", maskPhoneForLog(deviceID), qrGateReason)
 							return &whatsappGatewayStatus{DeviceID: deviceID, Connected: false, LoggedIn: false, QRWithheld: true}, nil
 						}
 						log.Printf("fetchWhatsappGatewayStatus: got QR link from app/login: %s issued_at=%d ttl=%ds", qrRefForLog(qr), qrIssuedAt, int64(whatsappGatewayQRTTL/time.Second))
@@ -3549,12 +3569,12 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, prefer
 					log.Printf("fetchWhatsappGatewayStatus: app/login status=%d body=%s", resp.StatusCode, compactLogValue(bodyText, 700))
 				}
 				if startRequested && resp.StatusCode == http.StatusGatewayTimeout {
-					log.Printf("fetchWhatsappGatewayStatus: gateway login timeout; preserving device %s and clearing transient state", deviceID)
+					log.Printf("fetchWhatsappGatewayStatus: gateway login timeout; preserving device %s and clearing transient state", maskPhoneForLog(deviceID))
 					clearWhatsappGatewayTransientState(deviceID)
 					return &whatsappGatewayStatus{DeviceID: deviceID, Connected: false, LoggedIn: false}, nil
 				}
 				if startRequested && resp.StatusCode == http.StatusUnauthorized {
-					log.Printf("fetchWhatsappGatewayStatus: gateway returned 401 during login; preserving device %s pending remote logout or explicit unpair", deviceID)
+					log.Printf("fetchWhatsappGatewayStatus: gateway returned 401 during login; preserving device %s pending remote logout or explicit unpair", maskPhoneForLog(deviceID))
 					welcomeMu.Lock()
 					clearWhatsappWelcomeState(deviceID, "")
 					welcomeMu.Unlock()
@@ -3893,7 +3913,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 						}
 						if did != "" {
 							if derr := deleteWhatsappGatewayDevice(client, did); derr == nil {
-								log.Printf("ensureWhatsappGatewayDevice: fresh-pair purged stale gowa device: %s", did)
+								log.Printf("ensureWhatsappGatewayDevice: fresh-pair purged stale gowa device: %s", maskPhoneForLog(did))
 							}
 						}
 					}
@@ -3918,7 +3938,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 						}
 						if createdID != "" {
 							markWhatsappPairingProbeState(createdID, "fresh-pair-request")
-							log.Printf("ensureWhatsappGatewayDevice: NoDisk mode created fresh-pair device placeholder: %s", createdID)
+							log.Printf("ensureWhatsappGatewayDevice: NoDisk mode created fresh-pair device placeholder: %s", maskPhoneForLog(createdID))
 							return createdID, nil
 						}
 					}
@@ -3996,7 +4016,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 		if idsErr == nil && len(noDiskDeviceIDs) > 0 {
 			if resolvedID := resolveExistingNoDiskGatewayDevice(noDiskDeviceIDs, trimmedPreferred, candidateStatus); resolvedID != "" {
 				if trimmedPreferred != "" && trimmedPreferred != resolvedID && normalizeWhatsappIdentity(trimmedPreferred) != normalizeWhatsappIdentity(resolvedID) {
-					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode preferring already logged-in device %s over preferred candidate %s", resolvedID, trimmedPreferred)
+					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode preferring already logged-in device %s over preferred candidate %s", maskPhoneForLog(resolvedID), maskPhoneForLog(trimmedPreferred))
 				}
 				return resolvedID, nil
 			}
@@ -4014,7 +4034,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 					}
 					if status != nil && status.Connected && status.LoggedIn {
 						if candidateID != trimmedPreferred && normalizeWhatsappIdentity(candidateID) != normalizeWhatsappIdentity(trimmedPreferred) {
-							log.Printf("ensureWhatsappGatewayDevice: NoDisk mode preferring identity-matched active device %s over preferred candidate %s", candidateID, trimmedPreferred)
+							log.Printf("ensureWhatsappGatewayDevice: NoDisk mode preferring identity-matched active device %s over preferred candidate %s", maskPhoneForLog(candidateID), maskPhoneForLog(trimmedPreferred))
 						}
 						return candidateID, nil
 					}
@@ -4044,15 +4064,15 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 				createResp.Body.Close()
 				if createResp.StatusCode == http.StatusOK {
 					markWhatsappPairingProbeState(trimmedPreferred, "preferred-device-placeholder")
-					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode created preferred device placeholder: %s", trimmedPreferred)
+					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode created preferred device placeholder: %s", maskPhoneForLog(trimmedPreferred))
 				} else {
-					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode could not create preferred device placeholder status=%d id=%s", createResp.StatusCode, trimmedPreferred)
+					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode could not create preferred device placeholder status=%d id=%s", createResp.StatusCode, maskPhoneForLog(trimmedPreferred))
 				}
 			} else {
 				log.Printf("ensureWhatsappGatewayDevice: NoDisk mode create preferred device request failed: %v", createErr)
 			}
 
-			log.Printf("ensureWhatsappGatewayDevice: NoDisk mode using preferred device directly: %s", trimmedPreferred)
+			log.Printf("ensureWhatsappGatewayDevice: NoDisk mode using preferred device directly: %s", maskPhoneForLog(trimmedPreferred))
 			return trimmedPreferred, nil
 		}
 
@@ -4060,18 +4080,18 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 			for _, id := range noDiskDeviceIDs {
 				if hasActiveWhatsappPairingProbe(id) {
 					markWhatsappPairingProbeState(id, "reuse-active-probe")
-					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode reusing active probe device: %s", id)
+					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode reusing active probe device: %s", maskPhoneForLog(id))
 					return id, nil
 				}
 				if shouldSelectNoDiskGatewayDevice(candidateDetails[id], candidateStatus[id]) {
-					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode selected existing device from registry: %s", id)
+					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode selected existing device from registry: %s", maskPhoneForLog(id))
 					return id, nil
 				}
 				if shouldPruneNoDiskGatewayPlaceholder(id, "", candidateDetails[id], candidateStatus[id]) {
 					if derr := deleteWhatsappGatewayDevice(client, id); derr != nil {
 						log.Printf("ensureWhatsappGatewayDevice: NoDisk mode failed to prune orphan placeholder %s: %v", id, derr)
 					} else {
-						log.Printf("ensureWhatsappGatewayDevice: NoDisk mode pruned orphan placeholder device: %s", id)
+						log.Printf("ensureWhatsappGatewayDevice: NoDisk mode pruned orphan placeholder device: %s", maskPhoneForLog(id))
 					}
 				}
 			}
@@ -4096,7 +4116,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 					}
 					if createdID != "" {
 						markWhatsappPairingProbeState(createdID, "fresh-device-placeholder")
-						log.Printf("ensureWhatsappGatewayDevice: NoDisk mode created fresh device placeholder: %s", createdID)
+						log.Printf("ensureWhatsappGatewayDevice: NoDisk mode created fresh device placeholder: %s", maskPhoneForLog(createdID))
 						return createdID, nil
 					}
 				}
@@ -4132,7 +4152,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 					did := strings.TrimSpace(d.ID)
 					if did != "" {
 						if derr := deleteWhatsappGatewayDevice(client, did); derr == nil {
-							log.Printf("ensureWhatsappGatewayDevice: fresh-pair purged stale gowa device: %s", did)
+							log.Printf("ensureWhatsappGatewayDevice: fresh-pair purged stale gowa device: %s", maskPhoneForLog(did))
 						}
 					}
 				}
@@ -4164,7 +4184,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 			return "", fmt.Errorf("created device response missing id")
 		}
 		markWhatsappPairingProbeState(createResp.Results.ID, "fresh-pair-request")
-		log.Printf("ensureWhatsappGatewayDevice: created fresh-pair device id=%s", createResp.Results.ID)
+		log.Printf("ensureWhatsappGatewayDevice: created fresh-pair device id=%s", maskPhoneForLog(createResp.Results.ID))
 		return createResp.Results.ID, nil
 	}
 
@@ -4193,7 +4213,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 		trimmedPreferred := strings.TrimSpace(preferredDeviceID)
 		for _, d := range listResp.Results {
 			if strings.TrimSpace(d.ID) == trimmedPreferred {
-				log.Printf("ensureWhatsappGatewayDevice: using preferred device already present: %s", trimmedPreferred)
+				log.Printf("ensureWhatsappGatewayDevice: using preferred device already present: %s", maskPhoneForLog(trimmedPreferred))
 				return trimmedPreferred, nil
 			}
 		}
@@ -4203,13 +4223,13 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 		if prefResp, err := client.Get(prefURL); err == nil {
 			defer prefResp.Body.Close()
 			if prefResp.StatusCode == http.StatusOK {
-				log.Printf("ensureWhatsappGatewayDevice: preferred device %s exists in gateway, using it", trimmedPreferred)
+				log.Printf("ensureWhatsappGatewayDevice: preferred device %s exists in gateway, using it", maskPhoneForLog(trimmedPreferred))
 				return trimmedPreferred, nil
 			}
 		}
 
 		// As a last resort, use the preferred device ID directly (login endpoint may create it) before creating random fallback.
-		log.Printf("ensureWhatsappGatewayDevice: preferred device %s not found in device list, using it directly as candidate", trimmedPreferred)
+		log.Printf("ensureWhatsappGatewayDevice: preferred device %s not found in device list, using it directly as candidate", maskPhoneForLog(trimmedPreferred))
 		return trimmedPreferred, nil
 	}
 
@@ -4272,7 +4292,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, preferredDeviceID string, 
 	if createResp.Results.ID == "" {
 		return "", fmt.Errorf("created device response missing id")
 	}
-	log.Printf("ensureWhatsappGatewayDevice: created device id=%s", createResp.Results.ID)
+	log.Printf("ensureWhatsappGatewayDevice: created device id=%s", maskPhoneForLog(createResp.Results.ID))
 	return createResp.Results.ID, nil
 }
 
@@ -4669,16 +4689,24 @@ func maskPhoneForLog(raw string) string {
 	if r == "" {
 		return ""
 	}
-	if strings.Contains(r, "@") {
-		r = strings.SplitN(r, "@", 2)[0]
+	prefix := ""
+	if strings.HasPrefix(r, "+") {
+		prefix = "+"
+		r = strings.TrimPrefix(r, "+")
+	}
+	suffix := ""
+	if at := strings.Index(r, "@"); at >= 0 {
+		suffix = r[at:]
+		r = r[:at]
 	}
 	if colon := strings.Index(r, ":"); colon >= 0 {
+		suffix = r[colon:] + suffix
 		r = r[:colon]
 	}
 	if len(r) <= 4 {
-		return r
+		return prefix + r + suffix
 	}
-	return strings.Repeat("*", len(r)-4) + r[len(r)-4:]
+	return prefix + strings.Repeat("*", len(r)-4) + r[len(r)-4:] + suffix
 }
 
 func normalizeWhatsappWelcomeDeviceKey(deviceID string) string {
@@ -5449,7 +5477,7 @@ func whatsappSendProxyHandler(w http.ResponseWriter, r *http.Request) {
 	// Prefer the device-scoped go-whatsapp-web-multidevice endpoint first.
 	primarySendURL := "http://127.0.0.1:3000/send/message" + deviceQuery
 	fallbackSendURL := "http://127.0.0.1:3000/send" + deviceQuery
-	log.Printf("whatsappSendProxy: attempting primary send route device=%s url=%s", maskPhoneForLog(resolvedDeviceID), primarySendURL)
+	log.Printf("whatsappSendProxy: attempting primary send route device=%s url=%s", maskPhoneForLog(resolvedDeviceID), maskURLForLog(primarySendURL))
 	if resp, err := forwardWhatsAppSendRequest(client, primarySendURL, body); err == nil {
 		defer resp.Body.Close()
 		log.Printf("whatsappSendProxy: primary send route succeeded status=%d device=%s", resp.StatusCode, maskPhoneForLog(resolvedDeviceID))
@@ -5460,7 +5488,7 @@ func whatsappSendProxyHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		log.Printf("whatsappSendProxy: primary send route failed device=%s err=%v", maskPhoneForLog(resolvedDeviceID), err)
 	}
-	log.Printf("whatsappSendProxy: attempting fallback send route device=%s url=%s", maskPhoneForLog(resolvedDeviceID), fallbackSendURL)
+	log.Printf("whatsappSendProxy: attempting fallback send route device=%s url=%s", maskPhoneForLog(resolvedDeviceID), maskURLForLog(fallbackSendURL))
 	if resp, err := forwardWhatsAppSendRequest(client, fallbackSendURL, body); err == nil {
 		defer resp.Body.Close()
 		log.Printf("whatsappSendProxy: fallback send route succeeded status=%d device=%s", resp.StatusCode, maskPhoneForLog(resolvedDeviceID))

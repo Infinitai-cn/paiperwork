@@ -442,6 +442,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         datavizNotAvailable: "DataViz is not available right now. Please try again later.",
         datavizGenerationFailed: "Failed to generate the chart. Please try again.",
         researchStarted: "Research has started for \"{query}\". Gathering insights...",
+        researchRefiningStarted: "Refining the existing research with your new request. Gathering additional insights...",
         researchExitTip: "When you are done, reply with \"no\", \"no thanks\", or say \"I am finished\" to close research mode.",
         researchInProgress: "Research in progress: collecting and summarizing results.",
         researchNoTopic: "Research request received but no topic was detected. Please provide a clear research question.",

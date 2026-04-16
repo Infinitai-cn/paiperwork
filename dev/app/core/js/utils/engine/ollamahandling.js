@@ -105,6 +105,52 @@ class OllamaAPI {
             || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.';
     }
 
+    static isWhatsappConnectorServerActive() {
+        const connectorsTab = window.connectorsTab;
+        if (!connectorsTab || typeof connectorsTab !== 'object') {
+            return false;
+        }
+
+        return connectorsTab.serverStarted === true
+            || connectorsTab.serverStarting === true
+            || connectorsTab.serverStopping === true;
+    }
+
+    static showBlockingOllamaWarning(message, options = {}) {
+        const normalizedMessage = String(message || '').trim();
+        if (!normalizedMessage) {
+            return false;
+        }
+
+        if (this.isWhatsappConnectorServerActive()) {
+            console.info('[OllamaAPI] Suppressed blocking warning while WhatsApp connector server is active', {
+                scope: String(options.scope || 'generic'),
+                message: normalizedMessage
+            });
+            return false;
+        }
+
+        window.alert(normalizedMessage);
+        return true;
+    }
+
+    static confirmBlockingOllamaWarning(message, options = {}) {
+        const normalizedMessage = String(message || '').trim();
+        if (!normalizedMessage) {
+            return false;
+        }
+
+        if (this.isWhatsappConnectorServerActive()) {
+            console.info('[OllamaAPI] Suppressed blocking confirmation while WhatsApp connector server is active', {
+                scope: String(options.scope || 'generic'),
+                message: normalizedMessage
+            });
+            return false;
+        }
+
+        return window.confirm(normalizedMessage);
+    }
+
     static isOllamaRateLimitStatus(status, responseText = '') {
         if (Number(status) === 429) {
             return true;
@@ -702,7 +748,7 @@ class OllamaAPI {
                 console.warn('No local or cloud models found in Ollama');
 
                 setTimeout(() => {
-                    alert(Lang.get('noModelsFound') || 'No models found in Ollama.');
+                    this.showBlockingOllamaWarning(Lang.get('noModelsFound') || 'No models found in Ollama.', { scope: 'load-models-empty' });
                 }, 500);
 
                 return false;
@@ -760,7 +806,7 @@ class OllamaAPI {
                     Lang.get('ollamaLoadError') || 'Error loading models from Ollama.';
 
                 const retryText = Lang.get('ollamaRetryPrompt') || 'Would you like to retry? (Make sure Ollama is running)';
-                if (confirm(`${errorMessage} ${retryText}`)) {
+                if (this.confirmBlockingOllamaWarning(`${errorMessage} ${retryText}`, { scope: 'load-models-error' })) {
                     OllamaAPI.loadOllamaModels();
                 }
             }, 500);
@@ -1148,7 +1194,7 @@ class OllamaAPI {
             }
 
             if (response.status === 500) {
-                alert(Lang.get('ollamaContextSizeError', 'Communication error, please try again or restart Ollama.'));
+                this.showBlockingOllamaWarning(Lang.get('ollamaContextSizeError', 'Communication error, please try again or restart Ollama.'), { scope: 'send-to-ollama-context' });
                 return null;
             }
 
@@ -1514,9 +1560,9 @@ class OllamaAPI {
             }
 
             if (this.isOllamaRateLimitError(error)) {
-                alert(this.getOllamaRateLimitMessage());
+                this.showBlockingOllamaWarning(this.getOllamaRateLimitMessage(), { scope: 'send-to-ollama-rate-limit' });
             } else {
-                alert(Lang.get('ollamaConnectionError'));
+                this.showBlockingOllamaWarning(Lang.get('ollamaConnectionError'), { scope: 'send-to-ollama-connection' });
             }
             return null;
         }
@@ -2130,7 +2176,7 @@ class OllamaAPI {
             }
 
             if (response.status === 500) {
-                alert(Lang.get('ollamaerror500'));
+                this.showBlockingOllamaWarning(Lang.get('ollamaerror500'), { scope: 'websearch-500' });
                 aiDiv.remove();
                 return;
             }
@@ -2526,7 +2572,7 @@ class OllamaAPI {
                 }
 
                 if (response.status === 500) {
-                    alert(Lang.get('ollamaContextSizeError'));
+                    this.showBlockingOllamaWarning(Lang.get('ollamaContextSizeError'), { scope: 'image-send-500' });
                     return null;
                 }
 
@@ -2545,9 +2591,9 @@ class OllamaAPI {
             }
 
             if (this.isOllamaRateLimitError(error)) {
-                alert(this.getOllamaRateLimitMessage());
+                this.showBlockingOllamaWarning(this.getOllamaRateLimitMessage(), { scope: 'image-send-rate-limit' });
             } else {
-                alert(Lang.get('ollamaConnectionError') + ': ' + error.message);
+                this.showBlockingOllamaWarning(Lang.get('ollamaConnectionError') + ': ' + error.message, { scope: 'image-send-connection' });
             }
             return null;
         }
@@ -2699,6 +2745,8 @@ class OllamaAPI {
             : '';
 
         const languageCode = orchestratorLanguageCode || whatsappLanguageCode || browserLanguageCode || 'en';
+        const normalizedLanguageCode = this.getLanguageCode(languageCode || 'en');
+        const normalizedLanguageDisplayName = this.getLanguageDisplayName(languageCode || normalizedLanguageCode || 'en');
         /* console.log('OllamaAPI: buildCompleteSystemPrompt language auto-detect', {
             orchestratorLanguageCode,
             whatsappLanguageCode,
@@ -2738,7 +2786,7 @@ class OllamaAPI {
         const cacheKey = [
             `sysRev:${this._getRevision(this.systemPromptRevision, hashedMasterKey)}`,
             `insRev:${this._getRevision(this.insightsRevision, hashedMasterKey)}`,
-            `lang:${languageCode}`,
+            `lang:${normalizedLanguageCode}`,
             `day:${dayKey}`,
             `reason:${reasoningKey}`,
             `base:${basePromptSignature}`
@@ -2769,8 +2817,8 @@ class OllamaAPI {
         try {
            //console.log('OllamaAPI DEBUG: Adding language enforcement...');
 
-            const normalizedLangCode = this.getLanguageCode(languageCode || 'en');
-            const userLanguage = this.getLanguageDisplayName(languageCode || 'en');
+            const normalizedLangCode = normalizedLanguageCode || this.getLanguageCode(languageCode || 'en');
+            const userLanguage = normalizedLanguageDisplayName || this.getLanguageDisplayName(languageCode || normalizedLangCode || 'en');
 
             // Create language enforcement instruction using human-readable language names.
             // Include the language code as secondary information for clarity.
@@ -2876,17 +2924,17 @@ class OllamaAPI {
         const normalized = String(langCode).trim().toLowerCase();
         const languageCodeMap = {
             'en': 'en', 'en-us': 'en', 'en-gb': 'en', 'english': 'en',
-            'es': 'es', 'es-es': 'es', 'es-mx': 'es', 'spanish': 'es',
-            'fr': 'fr', 'fr-fr': 'fr', 'french': 'fr',
-            'de': 'de', 'de-de': 'de', 'german': 'de',
-            'it': 'it', 'it-it': 'it', 'italian': 'it',
-            'pt': 'pt', 'pt-br': 'pt', 'pt-pt': 'pt', 'portuguese': 'pt',
-            'ru': 'ru', 'ru-ru': 'ru', 'russian': 'ru',
-            'ja': 'ja', 'ja-jp': 'ja', 'japanese': 'ja',
-            'ko': 'ko', 'ko-kr': 'ko', 'korean': 'ko',
+            'es': 'es', 'es-es': 'es', 'es-mx': 'es', 'spanish': 'es', 'espanol': 'es', 'español': 'es',
+            'fr': 'fr', 'fr-fr': 'fr', 'french': 'fr', 'francais': 'fr', 'français': 'fr',
+            'de': 'de', 'de-de': 'de', 'german': 'de', 'deutsch': 'de',
+            'it': 'it', 'it-it': 'it', 'italian': 'it', 'italiano': 'it',
+            'pt': 'pt', 'pt-br': 'pt', 'pt-pt': 'pt', 'portuguese': 'pt', 'portugues': 'pt', 'português': 'pt',
+            'ru': 'ru', 'ru-ru': 'ru', 'russian': 'ru', 'русский': 'ru',
+            'ja': 'ja', 'ja-jp': 'ja', 'japanese': 'ja', '日本語': 'ja',
+            'ko': 'ko', 'ko-kr': 'ko', 'korean': 'ko', '한국어': 'ko',
             'zh': 'zh', 'zh-cn': 'zh', 'zh-tw': 'zh', 'chinese': 'zh', '中文': 'zh', '简体中文': 'zh', '繁體中文': 'zh', '繁体中文': 'zh',
-            'ar': 'ar', 'ar-sa': 'ar', 'arabic': 'ar',
-            'hi': 'hi', 'hi-in': 'hi', 'hindi': 'hi'
+            'ar': 'ar', 'ar-sa': 'ar', 'arabic': 'ar', 'العربية': 'ar',
+            'hi': 'hi', 'hi-in': 'hi', 'hindi': 'hi', 'हिन्दी': 'hi', 'हिंदी': 'hi'
         };
         if (languageCodeMap[normalized]) return languageCodeMap[normalized];
         const base = normalized.split('-')[0];
@@ -2905,27 +2953,39 @@ class OllamaAPI {
             'es-es': 'Spanish',
             'es-mx': 'Spanish',
             'spanish': 'Spanish',
+            'espanol': 'Spanish',
+            'español': 'Spanish',
             'fr': 'French',
             'fr-fr': 'French',
             'french': 'French',
+            'francais': 'French',
+            'français': 'French',
             'de': 'German',
             'de-de': 'German',
             'german': 'German',
+            'deutsch': 'German',
             'it': 'Italian',
-            'it-IT': 'Italian',
+            'it-it': 'Italian',
             'italian': 'Italian',
+            'italiano': 'Italian',
             'pt': 'Portuguese',
-            'pt-BR': 'Portuguese',
-            'pt-PT': 'Portuguese',
+            'pt-br': 'Portuguese',
+            'pt-pt': 'Portuguese',
             'portuguese': 'Portuguese',
+            'portugues': 'Portuguese',
+            'português': 'Portuguese',
             'ru': 'Russian',
-            'ru-RU': 'Russian',
+            'ru-ru': 'Russian',
             'russian': 'Russian',
+            'русский': 'Russian',
             'ja': 'Japanese',
-            'ja-JP': 'Japanese',
+            'ja-jp': 'Japanese',
             'japanese': 'Japanese',
+            '日本語': 'Japanese',
             'ko': 'Korean',
-            'ko-KR': 'Korean',
+            'ko-kr': 'Korean',
+            'korean': 'Korean',
+            '한국어': 'Korean',
             'zh': 'Chinese',
             'zh-cn': 'Chinese',
             'zh-tw': 'Chinese',
@@ -2937,9 +2997,12 @@ class OllamaAPI {
             'ar': 'Arabic',
             'ar-sa': 'Arabic',
             'arabic': 'Arabic',
+            'العربية': 'Arabic',
             'hi': 'Hindi',
             'hi-in': 'Hindi',
             'hindi': 'Hindi',
+            'हिन्दी': 'Hindi',
+            'हिंदी': 'Hindi',
             'nl': 'Dutch',
             'nl-nl': 'Dutch',
             'dutch': 'Dutch',
@@ -3018,10 +3081,11 @@ class OllamaAPI {
         };
 
         // Get base language code (e.g., 'en-US' -> 'en')
-        const baseCode = langCode.toLowerCase().split('-')[0];
+        const normalized = String(langCode || '').trim().toLowerCase();
+        const baseCode = normalized.split('-')[0];
 
         // Try exact match first, then base code, then default to English
-        return languageMap[langCode.toLowerCase()] ||
+        return languageMap[normalized] ||
             languageMap[baseCode] ||
             'English';
     }
@@ -3267,13 +3331,13 @@ class OllamaAPI {
 
             if (response.status === 429) {
                 const errorText = await response.text();
-                alert(this.getOllamaRateLimitMessage());
+                this.showBlockingOllamaWarning(this.getOllamaRateLimitMessage(), { scope: 'continuation-rate-limit' });
                 aiDiv.remove();
                 throw new Error(`${this.getOllamaRateLimitMessage()}${errorText ? `\n${errorText}` : ''}`);
             }
 
             if (response.status === 500) {
-                alert(Lang.get('ollamaContextSizeError'));
+                this.showBlockingOllamaWarning(Lang.get('ollamaContextSizeError'), { scope: 'continuation-500' });
                 aiDiv.remove();
                 return false;
             }
@@ -3316,7 +3380,7 @@ class OllamaAPI {
                                 }
 
                                 if (this.contextLimitReached) {
-                                    alert(Lang.get('ollamaContextSizeError'));
+                                    this.showBlockingOllamaWarning(Lang.get('ollamaContextSizeError'), { scope: 'continuation-context-limit' });
                                     this.resetContext();
                                 }
 
@@ -3405,7 +3469,7 @@ class OllamaAPI {
                                 }
 
                                 if (this.contextLimitReached) {
-                                    alert(Lang.get('ollamaContextSizeError'));
+                                    this.showBlockingOllamaWarning(Lang.get('ollamaContextSizeError'), { scope: 'continuation-context-limit-tail' });
                                     this.resetContext();
                                 }
 
@@ -3664,7 +3728,7 @@ class OllamaAPI {
                 }
             } catch (error) {
                 console.error('Error continuing conversation:', error);
-                alert(Lang.get('ollamaContinuationError'));
+                this.showBlockingOllamaWarning(Lang.get('ollamaContinuationError'), { scope: 'continuation-error' });
                 // Restore the continue button if there was an error
                 aiReplies.appendChild(continuationDiv);
                 // Remove the user message we added

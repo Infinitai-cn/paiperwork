@@ -148,7 +148,11 @@ static async loadLanguage(lang) {
 
     // Register a language when its file is loaded
     static registerLanguage(langCode, translations) {
-        this.loadedLanguages[langCode] = translations;
+        const existingTranslations = this.loadedLanguages[langCode] || {};
+        this.loadedLanguages[langCode] = {
+            ...existingTranslations,
+            ...(translations || {})
+        };
        //console.log(`Language ${langCode} registered with ${Object.keys(translations).length} translations`);
     }
 }

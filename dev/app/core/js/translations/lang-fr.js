@@ -463,6 +463,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         datavizNotAvailable: "DataViz n'est pas disponible pour le moment. Veuillez réessayer plus tard.",
         datavizGenerationFailed: "Échec de la génération du graphique. Veuillez réessayer.",
         researchStarted: "Recherche commencée pour \"{query}\". Collecte des informations...",
+        researchRefiningStarted: "Affinage de la recherche existante avec votre nouvelle demande. Collecte d’informations supplémentaires...",
         researchExitTip: "Quand vous avez terminé, répondez \"non\", \"non merci\" ou dites \"j'ai terminé\" pour fermer le mode recherche.",
         researchInProgress: "Recherche en cours : collecte et synthèse des résultats.",
         researchNoTopic: "La demande de recherche a été reçue, mais aucun sujet n'a été détecté. Veuillez fournir une question de recherche claire.",

@@ -572,6 +572,25 @@ class Chat {
         const activeDocumentConversation = (window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function')
             ? (window.RAG_Utils.getActiveDocumentConversation(conversationScopeKey) || null)
             : null;
+        const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
+            ? window.__paiperworkWhatsappActiveRequest
+            : null;
+        const whatsappTargetConversationGroup = Number(whatsappRequestScope && whatsappRequestScope.targetConversationGroup);
+
+        if (Number.isInteger(whatsappTargetConversationGroup) && whatsappTargetConversationGroup > 0) {
+            if (window.currentConversationGroup !== whatsappTargetConversationGroup) {
+                if (window.chatTab && typeof window.chatTab.loadSessionConversation === 'function') {
+                    await window.chatTab.loadSessionConversation({
+                        group_id: whatsappTargetConversationGroup,
+                        preview: whatsappRequestScope?.sessionPreview || 'WhatsApp conversation',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                window.currentConversationGroup = whatsappTargetConversationGroup;
+            }
+
+            window.forceNewConversationGroup = false;
+        }
 
         // Check if we're in Documents tab (for global document search)
         const isDocumentsTabActive = document.querySelector('.tab-button[data-tab="documents"]')?.classList.contains('active');
@@ -604,10 +623,14 @@ class Chat {
 
         // FIXED: Check if we only have welcome messages (no real conversation) OR no currentConversationGroup
         const onlyWelcomeMessages = welcomeMessage && messageCount === 0;
-        const noActiveGroup = !window.currentConversationGroup;
+        const noActiveGroup = !(Number.isInteger(whatsappTargetConversationGroup) && whatsappTargetConversationGroup > 0)
+            && !window.currentConversationGroup;
 
         // If chat area is empty, only contains welcome message, or no active conversation group, treat this as a new conversation group
         let forceNewGroup = window.forceNewConversationGroup === true || noExistingMessages || onlyWelcomeMessages || noActiveGroup;
+        if (Number.isInteger(whatsappTargetConversationGroup) && whatsappTargetConversationGroup > 0) {
+            forceNewGroup = false;
+        }
 
         const sendButton = document.getElementById('send-prompt');
         const promptInput = document.getElementById('prompt-input');
@@ -747,9 +770,6 @@ class Chat {
         }
 
         const isGemma3 = modelSelector.value.toLowerCase().includes('gemma3');
-        const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
-            ? window.__paiperworkWhatsappActiveRequest
-            : null;
         const applyWhatsappRequestMetadata = (element) => {
             if (!element || !whatsappRequestScope || !whatsappRequestScope.id) {
                 return;
@@ -779,9 +799,34 @@ class Chat {
         userDiv.dataset.messageId = conversationMessageIds.userMessageId;
     applyWhatsappRequestMetadata(userDiv);
 
+        const extractVisiblePromptFromAutomationPrompt = (rawPrompt) => {
+            const promptText = String(rawPrompt || '').trim();
+            if (!promptText) {
+                return '';
+            }
+
+            const hiddenPromptPrefixes = [
+                'Operate only on the cached Knowledge Base entry below.',
+                'Operate only on the cached summary below.',
+                'Operate only on the cached research report below.',
+                'Operate only on the assistant answer below from the active document-questioning conversation.'
+            ];
+
+            if (!hiddenPromptPrefixes.some(prefix => promptText.startsWith(prefix))) {
+                return '';
+            }
+
+            const requestMatch = promptText.match(/(?:^|\n)(?:User request|Current user request):\s*([^\n]+)/i);
+            return requestMatch && requestMatch[1]
+                ? requestMatch[1].trim()
+                : '';
+        };
+
+        const automationVisiblePrompt = extractVisiblePromptFromAutomationPrompt(prompt);
+
         const visiblePrompt = whatsappRequestScope && typeof whatsappRequestScope.displayUserText === 'string' && whatsappRequestScope.displayUserText.trim()
             ? whatsappRequestScope.displayUserText.trim()
-            : prompt;
+            : automationVisiblePrompt || prompt;
 
         userDiv.innerHTML = `<div class="message-bubble">${visiblePrompt}</div>`;
 

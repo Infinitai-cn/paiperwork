@@ -357,7 +357,7 @@ func (m *DeviceManager) pruneStaleRecordsForLoggedInInstance(current *DeviceInst
 
 	records, err := m.storage.ListDeviceRecords()
 	if err != nil {
-		logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to list device records while pruning stale entries for %s", currentID)
+		logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to list device records while pruning stale entries for %s", logmask.MaskPhoneNumber(currentID))
 		return
 	}
 
@@ -388,16 +388,16 @@ func (m *DeviceManager) pruneStaleRecordsForLoggedInInstance(current *DeviceInst
 		}
 
 		if err := m.storage.DeleteDeviceData(staleID); err != nil {
-			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete stale device data for %s", staleID)
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete stale device data for %s", logmask.MaskPhoneNumber(staleID))
 		}
 		if err := m.storage.DeleteDeviceRecord(staleID); err != nil {
-			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete stale device record for %s", staleID)
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete stale device record for %s", logmask.MaskPhoneNumber(staleID))
 		}
 
 		m.mu.Lock()
 		delete(m.devices, staleID)
 		m.mu.Unlock()
-		logrus.Infof("[DEVICE_MANAGER] pruned stale device entry %s after %s became the active logged-in device", staleID, currentID)
+		logrus.Infof("[DEVICE_MANAGER] pruned stale device entry %s after %s became the active logged-in device", logmask.MaskPhoneNumber(staleID), logmask.MaskPhoneNumber(currentID))
 	}
 }
 
@@ -419,7 +419,7 @@ func (m *DeviceManager) PurgeDevice(ctx context.Context, deviceID string) error 
 	if inst, ok := m.GetDevice(deviceID); ok && inst != nil {
 		if cli := inst.GetClient(); cli != nil {
 			if err := cli.Logout(ctx); err != nil {
-				logrus.WithError(err).Warnf("[DEVICE_MANAGER] logout failed for device %s", deviceID)
+				logrus.WithError(err).Warnf("[DEVICE_MANAGER] logout failed for device %s", logmask.MaskPhoneNumber(deviceID))
 				recordErr(err)
 			}
 			cli.Disconnect()
@@ -429,7 +429,7 @@ func (m *DeviceManager) PurgeDevice(ctx context.Context, deviceID string) error 
 	// Delete chatstorage data for this device
 	if m.storage != nil {
 		if err := m.storage.DeleteDeviceData(deviceID); err != nil {
-			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete chatstorage for device %s", deviceID)
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete chatstorage for device %s", logmask.MaskPhoneNumber(deviceID))
 			recordErr(err)
 		}
 	}
@@ -508,7 +508,7 @@ func (m *DeviceManager) PurgeLoggedOutDevice(ctx context.Context, deviceID strin
 
 	if m.storage != nil {
 		if err := m.storage.DeleteDeviceData(deviceID); err != nil {
-			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete chatstorage for remotely logged-out device %s", deviceID)
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete chatstorage for remotely logged-out device %s", logmask.MaskPhoneNumber(deviceID))
 			recordErr(err)
 		} else {
 			chatStorageDeleted = true
@@ -589,11 +589,11 @@ func (m *DeviceManager) CreateDevice(ctx context.Context, requestedID string) (*
 			CreatedAt:   instance.CreatedAt(),
 			UpdatedAt:   instance.CreatedAt(),
 		}); err != nil {
-			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to persist device %s", id)
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to persist device %s", logmask.MaskPhoneNumber(id))
 		}
 	}
 
-	logrus.WithContext(ctx).Infof("[DEVICE_MANAGER] created device placeholder %s", id)
+	logrus.WithContext(ctx).Infof("[DEVICE_MANAGER] created device placeholder %s", logmask.MaskPhoneNumber(id))
 	return instance, nil
 }
 
@@ -788,7 +788,7 @@ func (m *DeviceManager) loadFromRegistry(records []*domainChatStorage.DeviceReco
 		// Skip auto-created devices if manual device with same JID exists
 		isAutoCreated := strings.Contains(rec.DeviceID, "@")
 		if isAutoCreated && manualDeviceJIDs[rec.DeviceID] {
-			logrus.Warnf("[DEVICE_MANAGER] removing auto-created device %s", rec.DeviceID)
+			logrus.Warnf("[DEVICE_MANAGER] removing auto-created device %s", logmask.MaskPhoneNumber(rec.DeviceID))
 			_ = m.storage.DeleteDeviceRecord(rec.DeviceID)
 			continue
 		}
@@ -796,7 +796,7 @@ func (m *DeviceManager) loadFromRegistry(records []*domainChatStorage.DeviceReco
 		// Skip duplicate JIDs
 		if rec.JID != "" {
 			if seenJIDs[rec.JID] {
-				logrus.Warnf("[DEVICE_MANAGER] removing duplicate JID device %s", rec.DeviceID)
+				logrus.Warnf("[DEVICE_MANAGER] removing duplicate JID device %s", logmask.MaskPhoneNumber(rec.DeviceID))
 				_ = m.storage.DeleteDeviceRecord(rec.DeviceID)
 				continue
 			}
@@ -915,7 +915,7 @@ func (m *DeviceManager) EnsureClient(ctx context.Context, deviceID string) (*Dev
 
 	inst.SetOnLoggedOut(func(deviceID string) {
 		if err := m.PurgeLoggedOutDevice(context.Background(), deviceID); err != nil {
-			logrus.WithError(err).Warnf("[DEVICE_MANAGER] remote logout purge completed with warnings for %s", deviceID)
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] remote logout purge completed with warnings for %s", logmask.MaskPhoneNumber(deviceID))
 		}
 	})
 

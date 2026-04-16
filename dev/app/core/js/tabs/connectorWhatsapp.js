@@ -86,7 +86,7 @@ Instructions:
     - Example: previous request "Create a presentation about our 2026 roadmap" plus refinement "make it more minimal and add moving ornaments" should produce a merged_prompt that already reflects the updated presentation direction.
 - For ambiguous conversational text in any language, default to "chat".
 - Decide ONLY one tool per request; do not emit multiple tool values.
-- Ignore any internal "thinking" markers or tags (for example: <think>...</think>, <thinking>...</thinking>, and text like "🤖 Thinking..."). Treat those as not part of the user's request.
+- Ignore any internal "thinking" markers or tags (for example: <think>...</think>, <thinking>...</thinking>, and text like "💬 Thinking..."). Treat those as not part of the user's request.
 - Handle multi-language requests robustly using these keyword signals.
 - Prefer "chat+websearch" when the user explicitly requests web lookups, asks for current events, requests citations, or asks for verifiable/up-to-date facts.
 - Prefer "research" when the user asks for a research-style workflow, comprehensive topic analysis, or actionable insights (examples: "research the latest AI trends", "prepare a report on market dynamics", "investigate competitor strategies", "what is the best approach for market research?").
@@ -173,7 +173,9 @@ class ConnectorWhatsapp {
             phone: normalizedPhone,
             replyTarget: normalizedReplyTarget,
             deviceId: normalizedDeviceId,
-            displayUserText: ''
+            displayUserText: '',
+            targetConversationGroup: null,
+            sessionPreview: ''
         };
     }
 
@@ -954,18 +956,19 @@ class ConnectorWhatsapp {
     }
 
     async _sendWhatsappDocumentModeActivatedMessage(phone, language, documentName) {
+        const resolvedLanguage = this._resolveWhatsappReplyLanguage(language);
         const modeActivatedText = await this._getLocalizedLangText(
-            language,
+            resolvedLanguage,
             'ragDocumentModeActivated',
             'Document questioning mode activated for'
         );
         const exitTipText = await this._getLocalizedLangText(
-            language,
+            resolvedLanguage,
             'ragDocumentModeExitTip',
             'When you are done, reply with "exit document mode" or say "I am finished".'
         );
-        await this.postWhatsappText(phone, `🤖 ${modeActivatedText}: ${documentName}`);
-        await this.postWhatsappText(phone, `🤖 ${exitTipText}`);
+        await this.postWhatsappText(phone, `💬 ${modeActivatedText}: ${documentName}`);
+        await this.postWhatsappText(phone, `💬 ${exitTipText}`);
     }
 
     _getWhatsappOrchestratorContext(phone) {
@@ -1140,6 +1143,30 @@ class ConnectorWhatsapp {
         return this._setWhatsappArtifactSession(phone, null, existingPhoneContext);
     }
 
+    _resolveWhatsappReplyLanguage(language = null, phoneContext = null, followUpSession = null) {
+        const candidates = [
+            language,
+            followUpSession && followUpSession.language,
+            phoneContext && phoneContext.language,
+            this._getActiveWhatsappReplyLanguage(),
+            (typeof Lang !== 'undefined' && typeof Lang.getCurrentLanguage === 'function') ? Lang.getCurrentLanguage() : null,
+            'English'
+        ];
+
+        for (const candidate of candidates) {
+            const normalized = this._normalizeLanguage(candidate);
+            if (normalized) {
+                return normalized;
+            }
+            const trimmed = String(candidate || '').trim();
+            if (trimmed) {
+                return trimmed;
+            }
+        }
+
+        return 'English';
+    }
+
     _getWhatsappFollowUpSession(phoneContext = null) {
         const session = phoneContext && typeof phoneContext === 'object' ? phoneContext.followUpSession : null;
         if (!session || typeof session !== 'object') {
@@ -1168,6 +1195,7 @@ class ConnectorWhatsapp {
             kind,
             active: session.active !== false,
             awaitingFollowUpConfirmation: !!session.awaitingFollowUpConfirmation,
+            language: this._normalizeLanguage(session.language) || String(session.language || '').trim(),
             basePrompt: basePrompt || currentPrompt,
             currentPrompt: currentPrompt || basePrompt,
             sourceText,
@@ -1193,8 +1221,14 @@ class ConnectorWhatsapp {
         } else {
             const normalizedSession = this._getWhatsappFollowUpSession({ followUpSession: session });
             if (normalizedSession) {
+                const resolvedLanguage = this._resolveWhatsappReplyLanguage(
+                    normalizedSession.language || session.language,
+                    phoneContext,
+                    normalizedSession
+                );
                 phoneContext.followUpSession = {
                     ...normalizedSession,
+                    language: resolvedLanguage,
                     active: true,
                     updatedAt: new Date().toISOString()
                 };
@@ -1446,8 +1480,11 @@ class ConnectorWhatsapp {
         }
 
         const explicitTarget = this._detectWhatsappExplicitWorkflowTarget(text, orchTool);
+        const explicitKnowledgeBrowseFromEntry = activeSession.kind === 'knowledge-entry'
+            && explicitTarget === 'knowledge'
+            && this._isKnowledgeIntent(text);
         const retainsCurrentSession = !explicitTarget
-            || explicitTarget === activeSession.tool
+            || (explicitTarget === activeSession.tool && !explicitKnowledgeBrowseFromEntry)
             || (explicitTarget === 'document-check' && activeSession.tool === 'document-check');
 
         return {
@@ -1582,7 +1619,7 @@ class ConnectorWhatsapp {
         return candidate || rawText;
     }
 
-    async _sendWhatsappFollowUpSessionQuestion(phone, kind, language = null) {
+    async _sendWhatsappFollowUpSessionQuestion(phone, kind, language = null, phoneContext = null) {
         const keyMap = {
             research: ['researchFollowUpQuestion', 'Do you want to continue refining this research?'],
             presentation: ['presentationFollowUpQuestion', 'Do you want to make more changes to this presentation?'],
@@ -1591,12 +1628,18 @@ class ConnectorWhatsapp {
         };
         const [key, fallback] = keyMap[kind] || [];
         if (!key) return;
-        const questionText = await this._getLocalizedLangText(language, key, fallback);
-        await this.postWhatsappText(phone, `🤖 ${questionText}`);
+        const resolvedContext = (phoneContext && typeof phoneContext === 'object')
+            ? phoneContext
+            : ((await this._getWhatsappPhoneContext(phone)) || {});
+        const followUpSession = this._getWhatsappFollowUpSession(resolvedContext);
+        const resolvedLanguage = this._resolveWhatsappReplyLanguage(language, resolvedContext, followUpSession);
+        const questionText = await this._getLocalizedLangText(resolvedLanguage, key, fallback);
+        await this.postWhatsappText(phone, `💬 ${questionText}`);
     }
 
     async _handleWhatsappFollowUpSessionClose(phone, language = null, phoneContext = null) {
         const session = this._getWhatsappFollowUpSession(phoneContext);
+        const resolvedLanguage = this._resolveWhatsappReplyLanguage(language, phoneContext, session);
         let updatedContext = phoneContext;
         if (session && session.kind === 'document-summary') {
             this._exitWhatsappDocumentScope(phone);
@@ -1612,14 +1655,15 @@ class ConnectorWhatsapp {
         };
         const [key, fallback] = keyMap[session && session.kind] || [];
         if (key) {
-            const closedText = await this._getLocalizedLangText(language, key, fallback);
-            await this.postWhatsappText(phone, `🤖 ${closedText}`);
+            const closedText = await this._getLocalizedLangText(resolvedLanguage, key, fallback);
+            await this.postWhatsappText(phone, `💬 ${closedText}`);
         }
         return updatedContext;
     }
 
     async _continueWhatsappDocumentSummarySession(phone, language = null, phoneContext = null, options = {}) {
         const session = this._getWhatsappFollowUpSession(phoneContext);
+        const resolvedLanguage = this._resolveWhatsappReplyLanguage(language, phoneContext, session);
         if (!session || session.kind !== 'document-summary') {
             return phoneContext;
         }
@@ -1636,37 +1680,39 @@ class ConnectorWhatsapp {
                 updatedContext = await this._clearWhatsappFollowUpSession(phone, updatedContext);
                 if (options.announce !== false) {
                     const continueText = await this._getLocalizedLangText(
-                        language,
+                        resolvedLanguage,
                         'ragDocumentSummaryFollowUpContinue',
                         'Document questioning mode is active again. Ask me what you want to know about the document.'
                     );
                     const exitTipText = await this._getLocalizedLangText(
-                        language,
+                        resolvedLanguage,
                         'ragDocumentModeExitTip',
                         'When you are done, reply with "exit document mode" or say "I am finished".'
                     );
-                    await this.postWhatsappText(phone, `🤖 ${continueText}`);
-                    await this.postWhatsappText(phone, `🤖 ${exitTipText}`);
+                    await this.postWhatsappText(phone, `💬 ${continueText}`);
+                    await this.postWhatsappText(phone, `💬 ${exitTipText}`);
                 }
                 return updatedContext;
             }
         }
 
-        return this._handleWhatsappFollowUpSessionClose(phone, language, updatedContext);
+        return this._handleWhatsappFollowUpSessionClose(phone, resolvedLanguage, updatedContext);
     }
 
     async _handleWhatsappFollowUpSessionContinue(phone, language = null, phoneContext = null) {
         const session = this._getWhatsappFollowUpSession(phoneContext);
+        const resolvedLanguage = this._resolveWhatsappReplyLanguage(language, phoneContext, session);
         if (!session) {
             return phoneContext;
         }
 
         if (session.kind === 'document-summary') {
-            return this._continueWhatsappDocumentSummarySession(phone, language, phoneContext, { announce: true });
+            return this._continueWhatsappDocumentSummarySession(phone, resolvedLanguage, phoneContext, { announce: true });
         }
 
         const updatedContext = await this._setWhatsappFollowUpSession(phone, {
             ...session,
+            language: resolvedLanguage,
             active: true,
             awaitingFollowUpConfirmation: false
         }, phoneContext);
@@ -1677,8 +1723,8 @@ class ConnectorWhatsapp {
         };
         const [key, fallback] = keyMap[session.kind] || [];
         if (key) {
-            const continueText = await this._getLocalizedLangText(language, key, fallback);
-            await this.postWhatsappText(phone, `🤖 ${continueText}`);
+            const continueText = await this._getLocalizedLangText(resolvedLanguage, key, fallback);
+            await this.postWhatsappText(phone, `💬 ${continueText}`);
         }
         return updatedContext;
     }
@@ -1959,6 +2005,10 @@ class ConnectorWhatsapp {
             'traduza', 'traduz', 'reescreva', 'resuma', 'encurte', 'torne', 'converta',
             'traduire', 'traduis', 'reformule', 'reecris', 'réécris', 'raccourcis', 'developpe', 'développe', 'mets', 'convertis',
             'ubersetze', 'übersetze', 'umschreiben', 'kurzer', 'kuerzer', 'lange', 'langer', 'länger', 'mache', 'wandle', 'fasse',
+            'tradurre', 'traduci', 'riscrivi', 'riformula', 'accorcia', 'riassumi', 'rendilo', 'mettilo', 'converti', 'adatta', 'semplifica', 'migliora', 'formatta',
+            'переведи', 'перевести', 'перевод', 'перефразируй', 'перепиши', 'сократи', 'расширь', 'упрости', 'улучши', 'адаптируй', 'преобразуй', 'сделай', 'оформи',
+            'ترجم', 'ترجمة', 'اعد', 'أعد', 'أعد صياغة', 'اعد صياغة', 'اختصر', 'لخص', 'لخّص', 'وسع', 'وسّع', 'بسّط', 'بسط', 'حسن', 'حسّن', 'حول', 'حوّل', 'نسق', 'نسّق',
+            'अनुवाद', 'अनुवाद करो', 'अनुवाद करें', 'अनुवादित', 'फिर से लिखो', 'फिर से लिखें', 'पुनर्लेखन', 'संक्षिप्त करो', 'संक्षेप करो', 'सारांश बनाओ', 'सरल बनाओ', 'सुधारो', 'बदल दो', 'रूपांतरित करो', 'फ़ॉर्मेट करो', 'फॉर्मेट करो',
             '翻译', '翻譯', '改写', '改寫', '重写', '重寫', '缩短', '縮短', '扩展', '擴展', '简化', '簡化', '要点', '要點', '列表', '表格',
             '翻訳', '書き直し', '短く', '長く', '箇条書き', '表に',
             '번역', '다시', '짧게', '길게', '글머리표', '표로'
@@ -1972,6 +2022,10 @@ class ConnectorWhatsapp {
             'resumo', 'lista', 'tabela', 'email', 'paragrafos', 'parágrafos',
             'resume', 'résumé', 'liste', 'tableau', 'email', 'paragraphes',
             'zusammenfassung', 'liste', 'tabelle', 'absatze', 'absätze',
+            'riassunto', 'elenco', 'tabella', 'email', 'paragrafi',
+            'резюме', 'список', 'таблица', 'письмо', 'абзац', 'абзацы',
+            'ملخص', 'قائمة', 'جدول', 'بريد', 'فقرة', 'فقرات',
+            'सारांश', 'सूची', 'तालिका', 'ईमेल', 'अनुच्छेद', 'अनुच्छेदों',
             '摘要', '总结', '概述', '列表', '表格', '段落',
             '要約', '箇条書き', '表', '段落',
             '요약', '목록', '표', '문단'
@@ -2499,7 +2553,7 @@ class ConnectorWhatsapp {
             'whatsappArtifactFollowUpQuestion',
             'Do you want to make further modifications to this miniapp?'
         );
-        await this.postWhatsappText(phone, `🤖 ${questionText}`);
+        await this.postWhatsappText(phone, `💬 ${questionText}`);
     }
 
     async _handleWhatsappArtifactSessionClose(phone, language = null, phoneContext = null) {
@@ -2509,7 +2563,7 @@ class ConnectorWhatsapp {
             'whatsappArtifactFollowUpClosed',
             'Okay, artifact modification mode is closed.'
         );
-        await this.postWhatsappText(phone, `🤖 ${closedText}`);
+        await this.postWhatsappText(phone, `💬 ${closedText}`);
         return updatedContext;
     }
 
@@ -2525,7 +2579,7 @@ class ConnectorWhatsapp {
             'whatsappArtifactFollowUpContinue',
             'Tell me what you want to change in the miniapp.'
         );
-        await this.postWhatsappText(phone, `🤖 ${continueText}`);
+        await this.postWhatsappText(phone, `💬 ${continueText}`);
         return updatedContext;
     }
 
@@ -2806,11 +2860,11 @@ class ConnectorWhatsapp {
         const lower = candidate.toLowerCase();
 
         // Basic keyword detection - Broader Spanish coverage for no accent/no greeting cases.
-        if (/\b(hola|gracias|¿|¡|ñ|á|é|í|ó|ú|adiós|por qué|cómo|debes|tengo|viento|hace|mañana|ayer|hoy|usted|nosotros|estoy|estamos|es|soy|ser|estar)\b/.test(lower)) return 'Spanish';
+        if (/\b(hola|gracias|adiós|adios|por qué|porque|cómo|como|debes|tengo|viento|hace|mañana|manana|ayer|hoy|usted|ustedes|nosotros|estoy|estamos|soy|ser|estar|resumen|resumelo|resúmelo|resumir|traducelo|tradúcelo|traducir|muestrame|muéstrame|documentos|pregunta|preguntas|español|espanol)\b|[¿¡ñáéíóú]/.test(lower)) return 'Spanish';
         if (/\b(bonjour|merci|s'il vous plaît|à bientôt|oui|non|aujourd'hui|comment|je|tu|nous|vous)\b/.test(lower)) return 'French';
         if (/\b(hallo|danke|bitte|schön|tschüss|morgen|heute|gestern|ich|du|wir|ihr)\b/.test(lower)) return 'German';
         if (/\b(ciao|per favore|grazie|buongiorno|arrivederci|domani|oggi|ieri|io|tu|noi|voi)\b/.test(lower)) return 'Italian';
-        if (/\b(olá|obrigado|por favor|até logo|hoje|amanhã|ontem|eu|você|nós|eles)\b/.test(lower)) return 'Portuguese';
+        if (/\b(olá|obrigado|por favor|até logo|hoje|amanhã|ontem|eu|você|vocês|nós|eles|resumo|traduzir|português)\b/.test(lower)) return 'Portuguese';
         if (/\b(你好|谢谢|请|再见)\b/.test(candidate)) return 'Chinese';
         if (/\b(こんにちは|ありがとう|お願いします|さようなら)\b/.test(candidate)) return 'Japanese';
         if (/\b(안녕하세요|감사합니다|제발|안녕)\b/.test(candidate)) return 'Korean';
@@ -2818,34 +2872,88 @@ class ConnectorWhatsapp {
         // Fallback: script heuristics for Cyrillic languages
         if (/[\u0400-\u04FF]/.test(candidate)) return 'Russian';
 
-        // default: English (or unknown)
+        // Unknown or low-signal text should not overwrite an already known conversation language.
+        return null;
+    }
+
+    _resolveWhatsappInteractionLanguage(language = null, text = '', phoneContext = null, followUpSession = null) {
+        const detectedLanguage = this._detectLanguage(text);
+        const candidates = [
+            language,
+            followUpSession && followUpSession.language,
+            phoneContext && phoneContext.language,
+            detectedLanguage,
+            this._getActiveWhatsappReplyLanguage(),
+            'English'
+        ];
+
+        for (const candidate of candidates) {
+            const normalized = this._normalizeLanguage(candidate);
+            if (normalized) {
+                return normalized;
+            }
+
+            const trimmed = String(candidate || '').trim();
+            if (trimmed) {
+                return trimmed;
+            }
+        }
+
         return 'English';
     }
 
     _normalizeLanguage(language) {
         if (!language) return null;
-        const normalized = String(language).trim().toLowerCase();
+        const raw = String(language).trim();
+        const normalized = raw.toLowerCase();
+        const sanitized = normalized
+            .replace(/["'`]+/g, '')
+            .replace(/[()\[\]{}]/g, ' ')
+            .replace(/[.,;:!?]+$/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
         if (!normalized) return null;
 
         const map = {
             'en': 'English', 'en-us': 'English', 'en-gb': 'English', 'english': 'English',
-            'es': 'Spanish', 'es-es': 'Spanish', 'es-mx': 'Spanish', 'spanish': 'Spanish',
-            'fr': 'French', 'fr-fr': 'French', 'french': 'French',
-            'de': 'German', 'de-de': 'German', 'german': 'German',
-            'it': 'Italian', 'it-it': 'Italian', 'italian': 'Italian',
-            'pt': 'Portuguese', 'pt-br': 'Portuguese', 'pt-pt': 'Portuguese', 'portuguese': 'Portuguese',
-            'ru': 'Russian', 'ru-ru': 'Russian', 'russian': 'Russian',
-            'ja': 'Japanese', 'ja-jp': 'Japanese', 'japanese': 'Japanese',
-            'ko': 'Korean', 'ko-kr': 'Korean', 'korean': 'Korean',
+            'es': 'Spanish', 'es-es': 'Spanish', 'es-mx': 'Spanish', 'spanish': 'Spanish', 'espanol': 'Spanish', 'español': 'Spanish',
+            'fr': 'French', 'fr-fr': 'French', 'french': 'French', 'francais': 'French', 'français': 'French',
+            'de': 'German', 'de-de': 'German', 'german': 'German', 'deutsch': 'German',
+            'it': 'Italian', 'it-it': 'Italian', 'italian': 'Italian', 'italiano': 'Italian',
+            'pt': 'Portuguese', 'pt-br': 'Portuguese', 'pt-pt': 'Portuguese', 'portuguese': 'Portuguese', 'portugues': 'Portuguese', 'português': 'Portuguese',
+            'ru': 'Russian', 'ru-ru': 'Russian', 'russian': 'Russian', 'русский': 'Russian',
+            'ja': 'Japanese', 'ja-jp': 'Japanese', 'japanese': 'Japanese', '日本語': 'Japanese',
+            'ko': 'Korean', 'ko-kr': 'Korean', 'korean': 'Korean', '한국어': 'Korean',
             'zh': 'Chinese', 'zh-cn': 'Chinese', 'zh-tw': 'Chinese', 'chinese': 'Chinese',
-            '中文': 'Chinese', '简体中文': 'Chinese', '繁體中文': 'Chinese', '繁体中文': 'Chinese'
+            '中文': 'Chinese', '简体中文': 'Chinese', '繁體中文': 'Chinese', '繁体中文': 'Chinese',
+            'ar': 'Arabic', 'ar-sa': 'Arabic', 'arabic': 'Arabic', 'العربية': 'Arabic',
+            'hi': 'Hindi', 'hi-in': 'Hindi', 'hindi': 'Hindi', 'हिन्दी': 'Hindi', 'हिंदी': 'Hindi'
         };
 
+        if (map[sanitized]) return map[sanitized];
         if (map[normalized]) return map[normalized];
-        const base = normalized.split('-')[0];
+        const base = sanitized.split('-')[0];
         if (map[base]) return map[base];
 
-        return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+        const keywordMap = [
+            ['spanish', 'Spanish'], ['espanol', 'Spanish'], ['español', 'Spanish'],
+            ['french', 'French'], ['francais', 'French'], ['français', 'French'],
+            ['german', 'German'], ['deutsch', 'German'],
+            ['italian', 'Italian'], ['italiano', 'Italian'],
+            ['portuguese', 'Portuguese'], ['portugues', 'Portuguese'], ['português', 'Portuguese'],
+            ['russian', 'Russian'], ['русский', 'Russian'],
+            ['japanese', 'Japanese'], ['日本語', 'Japanese'],
+            ['korean', 'Korean'], ['한국어', 'Korean'],
+            ['chinese', 'Chinese'], ['中文', 'Chinese'], ['简体中文', 'Chinese'], ['繁體中文', 'Chinese'], ['繁体中文', 'Chinese'],
+            ['arabic', 'Arabic'], ['العربية', 'Arabic'],
+            ['hindi', 'Hindi'], ['हिन्दी', 'Hindi'], ['हिंदी', 'Hindi']
+        ];
+
+        for (const [token, canonical] of keywordMap) {
+            if (sanitized.includes(token)) return canonical;
+        }
+
+        return sanitized.charAt(0).toUpperCase() + sanitized.slice(1);
     }
 
     _isWhatsappLowSignalControlReply(text) {
@@ -2880,24 +2988,61 @@ class ConnectorWhatsapp {
 
     _languageToCode(language) {
         const normalized = String(language || '').trim().toLowerCase();
+        const sanitized = normalized
+            .replace(/["'`]+/g, '')
+            .replace(/[()\[\]{}]/g, ' ')
+            .replace(/[.,;:!?]+$/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
         const map = {
             english: 'en', en: 'en', 'en-us': 'en', 'en-gb': 'en',
-            spanish: 'es', es: 'es', 'es-es': 'es', 'es-mx': 'es',
-            french: 'fr', fr: 'fr', 'fr-fr': 'fr',
-            german: 'de', de: 'de', 'de-de': 'de',
-            italian: 'it', it: 'it', 'it-it': 'it',
-            portuguese: 'pt', pt: 'pt', 'pt-br': 'pt', 'pt-pt': 'pt',
-            russian: 'ru', ru: 'ru', 'ru-ru': 'ru',
-            japanese: 'ja', ja: 'ja', 'ja-jp': 'ja',
-            korean: 'ko', ko: 'ko', 'ko-kr': 'ko',
-            chinese: 'zh', zh: 'zh', 'zh-cn': 'zh', 'zh-tw': 'zh'
+            spanish: 'es', espanol: 'es', 'español': 'es', es: 'es', 'es-es': 'es', 'es-mx': 'es',
+            french: 'fr', francais: 'fr', 'français': 'fr', fr: 'fr', 'fr-fr': 'fr',
+            german: 'de', deutsch: 'de', de: 'de', 'de-de': 'de',
+            italian: 'it', italiano: 'it', it: 'it', 'it-it': 'it',
+            portuguese: 'pt', portugues: 'pt', 'português': 'pt', pt: 'pt', 'pt-br': 'pt', 'pt-pt': 'pt',
+            russian: 'ru', 'русский': 'ru', ru: 'ru', 'ru-ru': 'ru',
+            japanese: 'ja', '日本語': 'ja', ja: 'ja', 'ja-jp': 'ja',
+            korean: 'ko', '한국어': 'ko', ko: 'ko', 'ko-kr': 'ko',
+            chinese: 'zh', zh: 'zh', 'zh-cn': 'zh', 'zh-tw': 'zh', '中文': 'zh', '简体中文': 'zh', '繁體中文': 'zh', '繁体中文': 'zh',
+            arabic: 'ar', 'العربية': 'ar', ar: 'ar', 'ar-sa': 'ar',
+            hindi: 'hi', 'हिन्दी': 'hi', 'हिंदी': 'hi', hi: 'hi', 'hi-in': 'hi'
         };
-        return map[normalized] || map[normalized.split('-')[0]] || null;
+
+        if (map[sanitized]) return map[sanitized];
+        if (map[normalized]) return map[normalized];
+
+        const base = sanitized.split('-')[0];
+        if (map[base]) return map[base];
+
+        const keywordMap = [
+            ['spanish', 'es'], ['espanol', 'es'], ['español', 'es'],
+            ['french', 'fr'], ['francais', 'fr'], ['français', 'fr'],
+            ['german', 'de'], ['deutsch', 'de'],
+            ['italian', 'it'], ['italiano', 'it'],
+            ['portuguese', 'pt'], ['portugues', 'pt'], ['português', 'pt'],
+            ['russian', 'ru'], ['русский', 'ru'],
+            ['japanese', 'ja'], ['日本語', 'ja'],
+            ['korean', 'ko'], ['한국어', 'ko'],
+            ['chinese', 'zh'], ['中文', 'zh'], ['简体中文', 'zh'], ['繁體中文', 'zh'], ['繁体中文', 'zh'],
+            ['arabic', 'ar'], ['العربية', 'ar'],
+            ['hindi', 'hi'], ['हिन्दी', 'hi'], ['हिंदी', 'hi']
+        ];
+
+        for (const [token, code] of keywordMap) {
+            if (sanitized.includes(token)) return code;
+        }
+
+        return null;
     }
 
     async _getLocalizedLangText(language, key, fallback, params = null) {
         try {
-            const langCode = this._languageToCode(language) || this._languageToCode(this._normalizeLanguage(language)) || Lang.getCurrentLanguage() || 'en';
+            const langCode = this._languageToCode(language)
+                || this._languageToCode(this._normalizeLanguage(language))
+                || this._languageToCode(this._getActiveWhatsappReplyLanguage())
+                || Lang.getCurrentLanguage()
+                || 'en';
             if (typeof Lang.loadLanguage === 'function') {
                 await Lang.loadLanguage(langCode);
             }
@@ -2948,7 +3093,7 @@ class ConnectorWhatsapp {
             'Sorry, I could not send the AI reply this time. Please try again in a moment.'
         );
 
-        await this.postWhatsappText(targetPhone, `🤖 ${unavailableText}`);
+        await this.postWhatsappText(targetPhone, `💬 ${unavailableText}`);
     }
 
     async _ensureDocumentsTabReady() {
@@ -3013,20 +3158,40 @@ class ConnectorWhatsapp {
 
     _localizedThinkingText(language) {
         const lang = (language || 'English').toLowerCase();
-        if (lang.includes('spanish') || lang.startsWith('es')) return '🤖 Pensando...';
-        if (lang.includes('french') || lang.startsWith('fr')) return '🤖 Réflexion en cours...';
-        if (lang.includes('german') || lang.startsWith('de')) return '🤖 Denken...';
-        if (lang.includes('italian') || lang.startsWith('it')) return '🤖 Sto pensando...';
-        if (lang.includes('portuguese') || lang.startsWith('pt')) return '🤖 Pensando...';
-        if (lang.includes('chinese') || lang.startsWith('zh')) return '🤖 正在思考...';
-        if (lang.includes('japanese') || lang.startsWith('ja')) return '🤖 考えています...';
-        if (lang.includes('korean') || lang.startsWith('ko')) return '🤖 생각 중...';
-        if (lang.includes('russian') || lang.startsWith('ru')) return '🤖 Думаю...';
-        return '🤖 Thinking...';
+        if (lang.includes('spanish') || lang.startsWith('es')) return '💬 Pensando...';
+        if (lang.includes('french') || lang.startsWith('fr')) return '💬 Réflexion en cours...';
+        if (lang.includes('german') || lang.startsWith('de')) return '💬 Denken...';
+        if (lang.includes('italian') || lang.startsWith('it')) return '💬 Sto pensando...';
+        if (lang.includes('portuguese') || lang.startsWith('pt')) return '💬 Pensando...';
+        if (lang.includes('chinese') || lang.startsWith('zh')) return '💬 正在思考...';
+        if (lang.includes('japanese') || lang.startsWith('ja')) return '💬 考えています...';
+        if (lang.includes('korean') || lang.startsWith('ko')) return '💬 생각 중...';
+        if (lang.includes('russian') || lang.startsWith('ru')) return '💬 Думаю...';
+        return '💬 Thinking...';
+    }
+
+    _getWhatsappResearchRefiningFallback(language) {
+        const normalizedLanguage = this._normalizeLanguage(language) || 'English';
+        const fallbacks = {
+            English: 'Refining the existing research with your new request. Gathering additional insights...',
+            Spanish: 'Refinando la investigación existente con tu nueva solicitud. Reuniendo información adicional...',
+            French: 'Affinage de la recherche existante avec votre nouvelle demande. Collecte d’informations supplémentaires...',
+            German: 'Die bestehende Recherche wird mit Ihrer neuen Anfrage verfeinert. Zusätzliche Erkenntnisse werden gesammelt...',
+            Italian: 'Sto affinando la ricerca esistente con la tua nuova richiesta. Raccolgo ulteriori informazioni...',
+            Portuguese: 'Refinando a pesquisa existente com o seu novo pedido. Reunindo informações adicionais...',
+            Chinese: '正在根据你的新请求细化现有研究。正在收集更多见解...',
+            Japanese: '新しい依頼に基づいて、既存の調査をさらに洗練しています。追加の情報を収集中です...',
+            Korean: '새 요청을 반영해 기존 연구를 보완하고 있습니다. 추가 정보를 수집하는 중입니다...',
+            Russian: 'Уточняю текущее исследование с учетом вашего нового запроса. Собираю дополнительные сведения...',
+            Arabic: 'جارٍ تحسين البحث الحالي بناءً على طلبك الجديد. يتم جمع معلومات إضافية...',
+            Hindi: 'आपके नए अनुरोध के साथ मौजूदा शोध को परिष्कृत किया जा रहा है। अतिरिक्त जानकारी एकत्र की जा रही है...'
+        };
+
+        return fallbacks[normalizedLanguage] || fallbacks.English;
     }
 
     async _executeDocumentSummary(phone, match, hashedMasterKey, language = null, options = {}) {
-        const botPrefix = '🤖 ';
+        const botPrefix = '💬 ';
         console.info('[ConnectorWhatsapp][debug] _executeDocumentSummary invoked for', { phone, match, hashedMasterKey });
         if (!match) {
             console.info('[ConnectorWhatsapp][debug] _executeDocumentSummary skipping: no matched document');
@@ -3124,7 +3289,7 @@ class ConnectorWhatsapp {
             'whatsappSummaryPresentationWorkflowStart',
             'I will summarize the document first, then create a presentation from that summary.'
         );
-        await this.postWhatsappText(replyTarget || phone, `🤖 ${workflowStartText}`);
+        await this.postWhatsappText(replyTarget || phone, `💬 ${workflowStartText}`);
 
         const summaryText = await this._executeDocumentSummary(phone, matchedDocument, hashedMasterKey, language, {
             workflow: 'summary-presentation',
@@ -3165,7 +3330,7 @@ class ConnectorWhatsapp {
             'whatsappSummaryPresentationWorkflowStart',
             'I will summarize the document first, then create a presentation from that summary.'
         );
-        await this.postWhatsappText(replyTarget || phone, `🤖 ${workflowStartText}`);
+        await this.postWhatsappText(replyTarget || phone, `💬 ${workflowStartText}`);
 
         const summaryText = await this._executeDocumentSummary(phone, matchedDocument, hashedMasterKey, language, {
             workflow: 'summary-presentation',
@@ -3215,7 +3380,7 @@ class ConnectorWhatsapp {
 
         const chunkSize = 1500;
         if (text.length <= chunkSize) {
-            await this.postWhatsappText(phone, `🤖 ${resultPrefix}:\n${text}`);
+            await this.postWhatsappText(phone, `💬 ${resultPrefix}:\n${text}`);
             return;
         }
 
@@ -3225,7 +3390,7 @@ class ConnectorWhatsapp {
             const partLabel = resultPartPrefix
                 .replace('{current}', String(idx + 1))
                 .replace('{total}', String(chunks.length));
-            const prefix = `🤖 ${partLabel}:\n`;
+            const prefix = `💬 ${partLabel}:\n`;
             await this.postWhatsappText(phone, prefix + chunks[idx]);
         }
     }
@@ -3563,7 +3728,7 @@ class ConnectorWhatsapp {
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .toLowerCase()
-            .replace(/[^a-z0-9\u00C0-\u017F\u3040-\u30FF\u3400-\u9FFF\uF900-\uFAFF\uAC00-\uD7AF]+/gi, ' ')
+            .replace(/[^a-z0-9\u00C0-\u017F\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0900-\u097F\u3040-\u30FF\u3400-\u9FFF\uF900-\uFAFF\uAC00-\uD7AF]+/gi, ' ')
             .trim();
     }
 
@@ -3796,6 +3961,25 @@ class ConnectorWhatsapp {
             }
         }
 
+        const colonMatch = normalized.match(/^([^:：\n]+)[:：]\s*([\s\S]+)$/);
+        if (colonMatch) {
+            const header = this._normalizeWhatsappResearchReportText(colonMatch[1]);
+            const remainder = this._normalizeWhatsappResearchReportText(colonMatch[2]);
+            const normalizedHeader = this._normalizeDocumentIntentKeymapText(header);
+            const sourceCueTokens = this._getPresentationKeymapTokens('sourceCues');
+            if (
+                header
+                && remainder.length >= 40
+                && this._isPresentationIntent(header)
+                && this._textMatchesDocumentKeymapTokens(normalizedHeader, sourceCueTokens)
+            ) {
+                return {
+                    sourceText: remainder,
+                    extraRequestText: header
+                };
+            }
+        }
+
         const lines = normalized.split('\n');
         if (lines.length > 1) {
             const header = String(lines[0] || '').trim();
@@ -3830,6 +4014,22 @@ class ConnectorWhatsapp {
             const match = normalized.match(pattern);
             const header = match && match[1] ? this._normalizeWhatsappResearchReportText(match[1]) : '';
             if (header && this._isPresentationIntent(header)) {
+                return header;
+            }
+        }
+
+        const colonMatch = normalized.match(/^([^:：\n]+)[:：]\s*([\s\S]+)$/);
+        if (colonMatch) {
+            const header = this._normalizeWhatsappResearchReportText(colonMatch[1]);
+            const remainder = this._normalizeWhatsappResearchReportText(colonMatch[2]);
+            const normalizedHeader = this._normalizeDocumentIntentKeymapText(header);
+            const sourceCueTokens = this._getPresentationKeymapTokens('sourceCues');
+            if (
+                header
+                && remainder.length >= 40
+                && this._isPresentationIntent(header)
+                && this._textMatchesDocumentKeymapTokens(normalizedHeader, sourceCueTokens)
+            ) {
                 return header;
             }
         }
@@ -3936,6 +4136,37 @@ class ConnectorWhatsapp {
         }
 
         return [...new Set(collected.map(token => String(token || '').trim()).filter(Boolean))];
+    }
+
+    _getWhatsappFollowUpCloseCueExamples(language = null, maxExamples = 3) {
+        const groups = window.Keymaps && window.Keymaps.meta && window.Keymaps.meta.followUpCloseCueGroups
+            ? window.Keymaps.meta.followUpCloseCueGroups
+            : {};
+        const normalizedLanguage = this._normalizeLanguage(language) || 'English';
+        const group = groups[normalizedLanguage] || groups.English || [];
+        return group.slice(0, Math.max(1, maxExamples)).map(token => String(token || '').trim()).filter(Boolean);
+    }
+
+    _getWhatsappKnowledgeCollectionsExitTip(language = null) {
+        const examples = this._getWhatsappFollowUpCloseCueExamples(language, 3);
+        const formattedExamples = examples.map(token => `"${token}"`).join(', ');
+        const normalizedLanguage = this._normalizeLanguage(language) || 'English';
+        const templates = {
+            English: `To leave Knowledge Base mode, reply with ${formattedExamples}.`,
+            Spanish: `Para salir del modo de Base de Conocimientos, responde con ${formattedExamples}.`,
+            Portuguese: `Para sair do modo da Base de Conhecimento, responda com ${formattedExamples}.`,
+            French: `Pour quitter le mode base de connaissances, répondez avec ${formattedExamples}.`,
+            German: `Um den Wissensdatenbank-Modus zu verlassen, antworten Sie mit ${formattedExamples}.`,
+            Italian: `Per uscire dalla modalita Base di Conoscenza, rispondi con ${formattedExamples}.`,
+            Russian: `Чтобы выйти из режима базы знаний, ответьте ${formattedExamples}.`,
+            Chinese: `要退出知识库模式，请回复 ${formattedExamples}。`,
+            Japanese: `ナレッジベースモードを終了するには、${formattedExamples} と返信してください。`,
+            Korean: `지식 베이스 모드를 종료하려면 ${formattedExamples}라고 답장하세요.`,
+            Arabic: `للخروج من وضع قاعدة المعرفة، رد بـ ${formattedExamples}.`,
+            Hindi: `नॉलेज बेस मोड से बाहर निकलने के लिए ${formattedExamples} में से किसी एक के साथ उत्तर दें।`
+        };
+
+        return templates[normalizedLanguage] || templates.English;
     }
 
     _getModelKeymapConfig() {
@@ -4211,12 +4442,13 @@ class ConnectorWhatsapp {
         const normalizedText = this._normalizeDocumentIntentKeymapText(text);
         const explicitDocumentAction = options.explicitDocumentAction || null;
         const activeSessionRouting = this._resolveWhatsappDeterministicWorkflowRouting(text, phoneContext, options.currentTool || 'chat');
+        const resolvedLanguage = this._resolveWhatsappInteractionLanguage(options.language, normalizedText, phoneContext);
         const buildFallbackDecision = (entry = null, reason = 'deterministic fallback') => ({
             tool: entry && entry.qualifies ? entry.tool : 'chat',
             document: entry && entry.tool === 'document-check' ? String(entry.document || '') : '',
             confidence: entry && entry.qualifies ? Math.min(0.85, 0.45 + (Math.max(entry.score, 0) * 0.02)) : 0.45,
             reason,
-            language: options.language || this._detectLanguage(normalizedText) || 'English',
+            language: resolvedLanguage,
             source: 'deterministic-fallback'
         });
 
@@ -4231,7 +4463,7 @@ class ConnectorWhatsapp {
                     document: explicitDocumentAction.match.documentName || '',
                     confidence: 0.99,
                     reason: 'Deterministic explicit document switch.',
-                    language: options.language || this._detectLanguage(text) || 'English',
+                    language: resolvedLanguage,
                     source: 'deterministic'
                 },
                 scores: []
@@ -4249,7 +4481,7 @@ class ConnectorWhatsapp {
                         : '',
                     confidence: 0.98,
                     reason: `Deterministically retained active ${activeSessionRouting.activeSession.kind} session.`,
-                    language: options.language || this._detectLanguage(text) || 'English',
+                    language: resolvedLanguage,
                     source: 'deterministic'
                 },
                 scores: []
@@ -4283,7 +4515,7 @@ class ConnectorWhatsapp {
             document: top.tool === 'document-check' ? String(top.document || '') : '',
             confidence: Math.min(0.99, 0.55 + (top.score * 0.03)),
             reason: `Deterministic workflow score selected ${top.tool}: ${top.reasonParts.join('; ')}`.trim(),
-            language: options.language || this._detectLanguage(normalizedText) || 'English',
+            language: resolvedLanguage,
             source: 'deterministic',
             deterministicScores: scores.map(entry => ({
                 tool: entry.tool,
@@ -4902,7 +5134,7 @@ class ConnectorWhatsapp {
             return false;
         }
 
-        const botPrefix = '🤖 ';
+        const botPrefix = '💬 ';
         const { modelSelector, models } = await this._loadWhatsappAvailableModels();
         const modelLocked = await this._getWhatsappModelLockState();
 
@@ -5291,7 +5523,7 @@ class ConnectorWhatsapp {
             htmlLength: normalizedHtml.length,
             htmlPreview: normalizedHtml.slice(0, 120)
         });
-        await this.postWhatsappFile(phone, blob, filename, `🤖 ${title}`);
+        await this.postWhatsappFile(phone, blob, filename, `💬 ${title}`);
         console.info('[ConnectorWhatsapp][presentation] Saved presentation file post completed', {
             id: presentationItem.id,
             title,
@@ -5303,13 +5535,13 @@ class ConnectorWhatsapp {
             'presentationSent',
             'Presentation created and sent as an HTML file.'
         );
-        await this.postWhatsappText(phone, `🤖 ${sentText}`);
+        await this.postWhatsappText(phone, `💬 ${sentText}`);
         return true;
     }
 
     async _handleWhatsappSavedPresentations(phone, requestText, language = null) {
         const presentations = await this._getSavedPromptablePresentationsForWhatsapp();
-        const botPrefix = '🤖 ';
+        const botPrefix = '💬 ';
         const pendingSelection = this._getPendingPresentationSelection(phone);
         const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
 
@@ -5638,20 +5870,20 @@ class ConnectorWhatsapp {
         const title = String(artifactItem.title || 'Artifact Miniapp').trim() || 'Artifact Miniapp';
         const filename = this._sanitizeWhatsappArtifactFilename(title);
         const blob = new Blob([normalizedHtml], { type: 'text/html' });
-        await this.postWhatsappFile(phone, blob, filename, `🤖 ${title}`);
+        await this.postWhatsappFile(phone, blob, filename, `💬 ${title}`);
 
         const sentText = await this._getLocalizedLangText(
             language,
             'whatsappArtifactSavedSent',
             'Saved miniapp sent as an HTML file.'
         );
-        await this.postWhatsappText(phone, `🤖 ${sentText}`);
+        await this.postWhatsappText(phone, `💬 ${sentText}`);
         return true;
     }
 
     async _handleWhatsappSavedArtifacts(phone, requestText, language = null) {
         const artifacts = await this._getSavedArtifactsForWhatsapp();
-        const botPrefix = '🤖 ';
+        const botPrefix = '💬 ';
         const pendingSelection = this._getPendingArtifactSelection(phone);
         const normalizedRequest = this._normalizeWhatsappResearchReportText(requestText);
 
@@ -5887,7 +6119,7 @@ class ConnectorWhatsapp {
             'Opening Knowledge Base entry: {title}',
             { title: entryTitle }
         );
-        await this.postWhatsappText(phone, `🤖 ${introText}`);
+        await this.postWhatsappText(phone, `💬 ${introText}`);
 
         const chunks = this._splitWhatsappTextIntoChunks(entryContent, 1500);
         if (!chunks.length) {
@@ -5896,10 +6128,13 @@ class ConnectorWhatsapp {
 
         for (let index = 0; index < chunks.length; index += 1) {
             const prefix = index === 0
-                ? `🤖 ${collectionName} / ${entryTitle}\n\n`
+                ? `💬 ${collectionName} / ${entryTitle}\n\n`
                 : '';
             await this.postWhatsappText(phone, prefix + chunks[index]);
         }
+
+        this._clearPendingKnowledgeCollectionSelection(phone);
+        this._clearPendingKnowledgeEntrySelection(phone);
 
         let phoneContext = existingPhoneContext;
         phoneContext = (await this._setWhatsappKnowledgeEntryMemory(phone, {
@@ -5929,7 +6164,7 @@ class ConnectorWhatsapp {
     }
 
     async _handleWhatsappKnowledgeBase(phone, requestText, language = null, phoneContext = null) {
-        const botPrefix = '🤖 ';
+        const botPrefix = '💬 ';
         const collections = await this._getSavedKnowledgeCollectionsForWhatsapp();
         const pendingCollectionSelection = this._getPendingKnowledgeCollectionSelection(phone);
         const pendingEntrySelection = this._getPendingKnowledgeEntrySelection(phone);
@@ -6038,8 +6273,9 @@ class ConnectorWhatsapp {
                 'whatsappKnowledgeChooseCollectionTip',
                 'Reply with the collection number or title to list its entries.'
             );
+            const exitTipText = this._getWhatsappKnowledgeCollectionsExitTip(language);
             const names = listItems.map((item, index) => `${index + 1}. ${item.name || 'Collection'}`).join('\n');
-            await this.postWhatsappText(phone, `${botPrefix}${promptText}\n${names}\n${tipText}`);
+            await this.postWhatsappText(phone, `${botPrefix}${promptText}\n${names}\n${tipText}\n${exitTipText}`);
             return { continueToChat: false };
         }
 
@@ -6259,7 +6495,7 @@ class ConnectorWhatsapp {
                 'datavizNotAvailable',
                 'DataViz is not available right now. Please try again later.'
             );
-            await this.postWhatsappText(phone, `🤖 ${unavailableText}`);
+            await this.postWhatsappText(phone, `💬 ${unavailableText}`);
             return true;
         }
 
@@ -6274,7 +6510,7 @@ class ConnectorWhatsapp {
             `Creating ${chartType} chart...`,
             { type: chartType }
         );
-        await this.postWhatsappText(phone, `🤖 ${creatingText}`);
+        await this.postWhatsappText(phone, `💬 ${creatingText}`);
 
         try {
             await window.dataViz.createVisualization(chartType, promptText);
@@ -6312,7 +6548,7 @@ class ConnectorWhatsapp {
                     'datavizGeneratedSuccess',
                     'Chart generated successfully, sending image...'
                 );
-                await this.postWhatsappText(phone, `🤖 ${successText}`);
+                await this.postWhatsappText(phone, `💬 ${successText}`);
                 await this.postWhatsappImage(phone, capturedDataUrl, `${chartType}-chart.png`);
 
                 // Close chart window in paiperwork after successful send
@@ -6334,7 +6570,7 @@ class ConnectorWhatsapp {
                 'datavizGeneratedFallback',
                 'Chart generated but could not capture image via export workflow. Please view the chart window.'
             );
-            await this.postWhatsappText(phone, `🤖 ${fallbackText}`);
+            await this.postWhatsappText(phone, `💬 ${fallbackText}`);
             return true;
         } catch (err) {
             console.error('ConnectorWhatsapp: _handleWhatsappDataViz failed', err);
@@ -6343,7 +6579,7 @@ class ConnectorWhatsapp {
                 'datavizGenerationFailed',
                 'Failed to generate the chart. Please try again.'
             );
-            await this.postWhatsappText(phone, `🤖 ${failedText}`);
+            await this.postWhatsappText(phone, `💬 ${failedText}`);
             return true;
         }
     }
@@ -6563,7 +6799,7 @@ class ConnectorWhatsapp {
         }
 
         const abortController = new AbortController();
-        const timeoutMs = 5 * 60 * 1000;
+        const timeoutMs = 15 * 60 * 1000;
         let timeoutTriggered = false;
         const previousWebSearchState = !!workflow.isPromptableWebSearchEnabled;
         const timeoutId = setTimeout(() => {
@@ -6610,7 +6846,7 @@ class ConnectorWhatsapp {
             return workflow.currentPresentationHtml || htmlContent;
         } catch (err) {
             if (timeoutTriggered) {
-                const timeoutError = new Error('Promptable presentation generation timed out after 5 minutes.');
+                const timeoutError = new Error('Promptable presentation generation timed out after 15 minutes.');
                 timeoutError.code = 'PROMPTABLE_PRESENTATION_TIMEOUT';
                 throw timeoutError;
             }
@@ -6663,7 +6899,7 @@ class ConnectorWhatsapp {
                 'presentationNotAvailable',
                 'SlideForge promptable presentation is not available right now. Please try again later.'
             );
-            await this.postWhatsappText(phone, `🤖 ${unavailableText}`);
+            await this.postWhatsappText(phone, `💬 ${unavailableText}`);
             return false;
         }
 
@@ -6703,7 +6939,7 @@ class ConnectorWhatsapp {
                 : 'Creating a promptable SlideForge presentation with {slides} slides...',
             { slides: slideCount }
         );
-        await this.postWhatsappText(phone, `🤖 ${creatingText}`);
+        await this.postWhatsappText(phone, `💬 ${creatingText}`);
 
         try {
             const htmlContent = await this._generateWhatsappPromptablePresentationHtml(
@@ -6732,7 +6968,7 @@ class ConnectorWhatsapp {
                 console.warn('[ConnectorWhatsapp][presentation] Failed to autosave promptable presentation before WhatsApp send', saveErr);
             }
 
-            await this.postWhatsappFile(phone, blob, filename, `🤖 ${title}`);
+            await this.postWhatsappFile(phone, blob, filename, `💬 ${title}`);
 
             phoneContext = (await this._setWhatsappFollowUpSession(phone, {
                 kind: 'presentation',
@@ -6761,7 +6997,7 @@ class ConnectorWhatsapp {
                 'presentationSent',
                 'Presentation created and sent as an HTML file.'
             );
-            await this.postWhatsappText(phone, `🤖 ${sentText}`);
+            await this.postWhatsappText(phone, `💬 ${sentText}`);
             await this._sendWhatsappFollowUpSessionQuestion(phone, 'presentation', language);
             return true;
         } catch (err) {
@@ -6773,7 +7009,7 @@ class ConnectorWhatsapp {
                     'presentationTimeoutRetry',
                     'Presentation creation timed out due to an unexpected error. Please try again.'
                 );
-                await this.postWhatsappText(phone, `🤖 ${timeoutText}`);
+                await this.postWhatsappText(phone, `💬 ${timeoutText}`);
                 return false;
             }
             const failedText = await this._getLocalizedLangText(
@@ -6781,7 +7017,7 @@ class ConnectorWhatsapp {
                 'presentationFailed',
                 'Presentation generation failed. Please try again later.'
             );
-            await this.postWhatsappText(phone, `🤖 ${failedText}`);
+            await this.postWhatsappText(phone, `💬 ${failedText}`);
             return false;
         }
     }
@@ -6819,7 +7055,7 @@ class ConnectorWhatsapp {
                 'whatsappArtifactNotAvailable',
                 'Artifacts miniapp generation is not available right now. Please try again later.'
             );
-            await this.postWhatsappText(phone, `🤖 ${unavailableText}`);
+            await this.postWhatsappText(phone, `💬 ${unavailableText}`);
             return false;
         }
 
@@ -6851,7 +7087,7 @@ class ConnectorWhatsapp {
                 ? 'Creating your miniapp with web research to enrich it...'
                 : 'Creating your miniapp...'
         );
-        await this.postWhatsappText(phone, `🤖 ${creatingText}`);
+        await this.postWhatsappText(phone, `💬 ${creatingText}`);
 
         try {
             const artifactResult = await this._generateWhatsappArtifactHtml(effectiveArtifactPrompt, useWebSearch);
@@ -6889,7 +7125,7 @@ class ConnectorWhatsapp {
             }, phoneContext)) || phoneContext;
 
             const blob = new Blob([normalizedHtml], { type: 'text/html' });
-            await this.postWhatsappFile(phone, blob, filename, `🤖 ${title}`);
+            await this.postWhatsappFile(phone, blob, filename, `💬 ${title}`);
             console.info('[ConnectorWhatsapp][artifact] Artifact file posted to WhatsApp', {
                 phone,
                 title,
@@ -6904,7 +7140,7 @@ class ConnectorWhatsapp {
                 'whatsappArtifactSent',
                 'Miniapp created, saved, and sent as an HTML file.'
             );
-            await this.postWhatsappText(phone, `🤖 ${sentText}`);
+            await this.postWhatsappText(phone, `💬 ${sentText}`);
             await this._sendWhatsappArtifactFollowUpQuestion(phone, language);
             return true;
         } catch (err) {
@@ -6915,7 +7151,7 @@ class ConnectorWhatsapp {
                 'whatsappArtifactFailed',
                 'Miniapp generation failed. Please try again later.'
             );
-            await this.postWhatsappText(phone, `🤖 ${failedText}`);
+            await this.postWhatsappText(phone, `💬 ${failedText}`);
             return false;
         }
     }
@@ -7087,7 +7323,7 @@ class ConnectorWhatsapp {
         s = s.replace(/<think[^>]*>[\s\S]*?<\/think>/gi, ' ');
         s = s.replace(/<thinking[^>]*>[\s\S]*?<\/thinking>/gi, ' ');
         s = s.replace(/\[\[?THINK\]?\]/gi, ' ');
-        s = s.replace(/🤖\s*Thinking\.\.\./gi, ' ');
+        s = s.replace(/💬\s*Thinking\.\.\./gi, ' ');
         s = s.replace(/\bThinking\.\.\.\b/gi, ' ');
         // Remove any leftover XML/HTML tags that are clearly internal
         s = s.replace(/<[^>]+>/g, ' ');
@@ -7230,11 +7466,12 @@ class ConnectorWhatsapp {
             };
 
             if (msg.whatsappRegenerate.missingPreviousPrompt) {
+                const resolvedLanguage = this._resolveWhatsappInteractionLanguage(null, cleanedOriginal, phoneContext);
                 msg.orchestrator = {
                     tool: 'chat',
                     confidence: 1,
                     reason: 'regenerate_requested_without_previous_prompt',
-                    language: this._detectLanguage(cleanedOriginal) || 'English'
+                    language: resolvedLanguage
                 };
                 return msg;
             }
@@ -7257,7 +7494,7 @@ class ConnectorWhatsapp {
 
             const deterministicRouting = await this._buildWhatsappDeterministicRoutingDecision(routingIntentText || cleaned, phoneContext, {
                 phone: normalizedPhone,
-                language: this._detectLanguage(cleaned) || 'English',
+                language: this._resolveWhatsappInteractionLanguage(null, cleaned, phoneContext),
                 explicitDocumentAction,
                 currentTool: 'chat'
             });
@@ -7402,8 +7639,7 @@ class ConnectorWhatsapp {
             }
 
             if (!decision.language) {
-                const autoLang = this._detectLanguage(cleaned);
-                if (autoLang) decision.language = autoLang;
+                decision.language = this._resolveWhatsappInteractionLanguage(null, cleaned, phoneContext);
             }
 
             console.info('[ConnectorWhatsapp][orchestrator] Final routing decision', {
@@ -7432,8 +7668,9 @@ class ConnectorWhatsapp {
             const mergedPrompt = this._normalizeWhatsappResearchReportText(msg?.orchestrator?.mergedPrompt || '');
             const query = queryFromOrch || mergedPrompt || String(msg?.body || '').trim();
             const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
-            const language = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(query) || 'English';
             const phoneContext = (await this._getWhatsappPhoneContext(phone)) || {};
+            const followUpSession = this._getWhatsappFollowUpSession(phoneContext);
+            const language = this._resolveWhatsappInteractionLanguage(msg?.user_language || msg?.orchestrator?.language, query, phoneContext, followUpSession);
 
             if (!query) {
                 const noTopicText = await this._getLocalizedLangText(
@@ -7441,7 +7678,7 @@ class ConnectorWhatsapp {
                     'researchNoTopic',
                     'Research request received but no topic was detected. Please provide a clear research question.'
                 );
-                await this.postWhatsappText(phone, `🤖 ${noTopicText}`);
+                await this.postWhatsappText(phone, `💬 ${noTopicText}`);
                 return { continueToChat: false };
             }
 
@@ -7500,24 +7737,36 @@ class ConnectorWhatsapp {
                 const effectiveQuery = researchPromptResolution && researchPromptResolution.prompt
                     ? researchPromptResolution.prompt
                     : query;
-                const startedText = await this._getLocalizedLangText(
-                    language,
-                    'researchStarted',
-                    `Research has started for "${query}". Gathering insights...`,
-                    { query }
-                );
+                const startedText = researchPromptResolution && researchPromptResolution.isFollowUp
+                    ? await this._getLocalizedLangText(
+                        language,
+                        'researchRefiningStarted',
+                        this._getWhatsappResearchRefiningFallback(language)
+                    )
+                    : await this._getLocalizedLangText(
+                        language,
+                        'researchStarted',
+                        `Research has started for "${query}". Gathering insights...`,
+                        { query }
+                    );
                 const researchExitTipText = await this._getLocalizedLangText(
                     language,
                     'researchExitTip',
                     'When you are done, reply with "no", "no thanks", or say "I am finished" to close research mode.'
                 );
-                await this.postWhatsappText(phone, `🤖 ${startedText}`);
-                await this.postWhatsappText(phone, `🤖 ${researchExitTipText}`);
+                await this.postWhatsappText(phone, `💬 ${startedText}`);
+                await this.postWhatsappText(phone, `💬 ${researchExitTipText}`);
                 if (researchInput) {
                     researchInput.value = effectiveQuery;
                 }
                 const researchAutomation = window.researchTab.researchAutomation;
-                const report = await researchAutomation.performResearch();
+                let report = null;
+                researchAutomation.forcedQueryLanguage = language;
+                try {
+                    report = await researchAutomation.performResearch();
+                } finally {
+                    researchAutomation.forcedQueryLanguage = null;
+                }
                 const wasCancelled = (
                     report == null || String(report).trim() === ''
                 ) && !!(researchAutomation && researchAutomation.isCancelled);
@@ -7549,7 +7798,7 @@ class ConnectorWhatsapp {
                     'researchInProgress',
                     'Research in progress: collecting and summarizing results.'
                 );
-                await this.postWhatsappText(phone, `🤖 ${inProgressText}`);
+                await this.postWhatsappText(phone, `💬 ${inProgressText}`);
 
                 const whatsappResearchReportBody = this._getResearchReportTextForWhatsapp(report);
                 const whatsappResearchSources = this._getResearchSourcesTextForWhatsapp();
@@ -7589,7 +7838,7 @@ class ConnectorWhatsapp {
                         'researchCompletedEmpty',
                         'Research completed, but report text was empty or unavailable. Please check the Research tab.'
                     );
-                    await this.postWhatsappText(phone, `🤖 ${completedEmptyText}`);
+                    await this.postWhatsappText(phone, `💬 ${completedEmptyText}`);
                     await this._closeWhatsappResearchWindows();
                 }
 
@@ -7601,18 +7850,20 @@ class ConnectorWhatsapp {
                 'researchModuleNotReady',
                 'Research flow initiated, but research module is not ready yet. Please try again shortly.'
             );
-            await this.postWhatsappText(phone, `🤖 ${moduleNotReadyText}`);
+            await this.postWhatsappText(phone, `💬 ${moduleNotReadyText}`);
             return { continueToChat: false };
         } catch (err) {
             console.error('ConnectorWhatsapp: handleOrchestratorResearch error', err);
             const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
-            const language = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(String(msg?.body || '')) || 'English';
+            const phoneContext = (await this._getWhatsappPhoneContext(phone)) || {};
+            const followUpSession = this._getWhatsappFollowUpSession(phoneContext);
+            const language = this._resolveWhatsappInteractionLanguage(msg?.user_language || msg?.orchestrator?.language, String(msg?.body || ''), phoneContext, followUpSession);
             const failedText = await this._getLocalizedLangText(
                 language,
                 'researchFailedStart',
                 'Failed to start research workflow. Please try again.'
             );
-            await this.postWhatsappText(phone, `🤖 ${failedText}`);
+            await this.postWhatsappText(phone, `💬 ${failedText}`);
             return { continueToChat: false };
         }
     }
@@ -7622,11 +7873,11 @@ class ConnectorWhatsapp {
             const rawBody = String(msg?.orchestrator?.mergedPrompt || msg?.body || '').trim();
             const docName = String(msg?.orchestrator?.document || '').trim();
             const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
-            const language = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(rawBody) || 'English';
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             const phoneContext = phone ? ((await this._getWhatsappPhoneContext(phone)) || {}) : {};
             const activeFollowUpSession = this._getWhatsappFollowUpSession(phoneContext);
             const documentSummaryMemory = this._getWhatsappDocumentSummaryMemory(phoneContext);
+            const language = this._resolveWhatsappInteractionLanguage(msg?.user_language || msg?.orchestrator?.language, rawBody, phoneContext, activeFollowUpSession);
 
             msg.body = rawBody;
 
@@ -7666,7 +7917,7 @@ class ConnectorWhatsapp {
                 }
             }
 
-            const botPrefix = '🤖 ';
+            const botPrefix = '💬 ';
             const explicitPending = this._getPendingDocSelection(phone);
             const activeScopedDocument = this._getWhatsappActiveDocumentScope(phone);
             const followUpDocument = activeFollowUpSession
@@ -8051,7 +8302,9 @@ class ConnectorWhatsapp {
         } catch (err) {
             console.error('ConnectorWhatsapp: handleOrchestratorDocumentCheck error', err);
             const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
-            const language = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(String(msg?.body || '')) || 'English';
+            const phoneContext = phone ? ((await this._getWhatsappPhoneContext(phone)) || {}) : {};
+            const followUpSession = this._getWhatsappFollowUpSession(phoneContext);
+            const language = this._resolveWhatsappInteractionLanguage(msg?.user_language || msg?.orchestrator?.language, String(msg?.body || ''), phoneContext, followUpSession);
             const errorText = await this._getLocalizedLangText(
                 language,
                 'ragDocumentCheckError',
@@ -8136,22 +8389,23 @@ class ConnectorWhatsapp {
             }
             const regenerateState = msg && msg.whatsappRegenerate ? msg.whatsappRegenerate : null;
             if (regenerateState && regenerateState.requested && regenerateState.missingPreviousPrompt) {
-                const missingPromptLanguage = msg?.user_language || msg?.orchestrator?.language || this._detectLanguage(userText) || 'English';
+                const missingPromptLanguage = this._resolveWhatsappInteractionLanguage(msg?.user_language || msg?.orchestrator?.language, userText, phoneContext);
                 const noPromptText = await this._getLocalizedLangText(
                     missingPromptLanguage,
                     'whatsappRegenerateMissingPrompt',
                     'Sorry, I could not find a previous prompt to reuse yet. Send a normal message first, then ask me to regenerate it.'
                 );
-                await this.postWhatsappText(replyTarget, `🤖 ${noPromptText}`);
+                await this.postWhatsappText(replyTarget, `💬 ${noPromptText}`);
                 return;
             }
             let routingIntentText = this._getWhatsappRoutingIntentText(userText);
             phoneContext = (phoneContext && typeof phoneContext === 'object')
                 ? phoneContext
                 : ((await this._getWhatsappPhoneContext(normalizedPhone)) || {});
+            const activeFollowUpSession = this._getWhatsappFollowUpSession(phoneContext);
             const inferredLanguage = this._detectLanguage(routingIntentText || userText);
             const hasActiveWorkflowSession = !!this._getWhatsappArtifactSession(phoneContext)
-                || !!this._getWhatsappFollowUpSession(phoneContext);
+                || !!activeFollowUpSession;
             const preserveExistingLanguageForControlReply = !!phoneContext?.language
                 && hasActiveWorkflowSession
                 && this._isWhatsappLowSignalControlReply(routingIntentText || userText);
@@ -8160,6 +8414,18 @@ class ConnectorWhatsapp {
                 phoneContext = (await this._ensureWhatsappBotConversationThread(msg, normalizedPhone, phoneContext)) || phoneContext;
             } else {
                 phoneContext = (await this._ensureWhatsappPersonalConversationThread(msg, normalizedPhone, phoneContext)) || phoneContext;
+            }
+
+            if (requestScope) {
+                const targetConversationGroup = this._isWhatsappBotMode()
+                    ? Number(phoneContext.botConversationGroup || 0)
+                    : Number(phoneContext.personalConversationGroup || 0);
+                const sessionPreview = this._isWhatsappBotMode()
+                    ? String(phoneContext.botThreadLabel || '').trim()
+                    : String(phoneContext.personalThreadLabel || '').trim();
+
+                requestScope.targetConversationGroup = targetConversationGroup > 0 ? targetConversationGroup : null;
+                requestScope.sessionPreview = sessionPreview;
             }
 
             let docModeAction = null;
@@ -8200,7 +8466,7 @@ class ConnectorWhatsapp {
             if (!orchTool) {
                 const fallbackRouting = await this._buildWhatsappDeterministicRoutingDecision(routingIntentText || userText, phoneContext, {
                     phone: normalizedPhone,
-                    language: inferredLanguage || phoneContext.language || 'English',
+                    language: this._resolveWhatsappInteractionLanguage(null, routingIntentText || userText, phoneContext, activeFollowUpSession),
                     currentTool: 'chat'
                 });
                 orchTool = fallbackRouting && fallbackRouting.decision && fallbackRouting.decision.tool
@@ -8226,12 +8492,13 @@ class ConnectorWhatsapp {
                 await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
             }
 
-            if (!orchestratorLanguage && !preserveExistingLanguageForControlReply && inferredLanguage && inferredLanguage !== phoneContext.language) {
-                phoneContext.language = inferredLanguage;
+            const resolvedLanguage = this._resolveWhatsappInteractionLanguage(orchestratorLanguage, routingIntentText || userText, phoneContext, activeFollowUpSession);
+
+            if (!preserveExistingLanguageForControlReply && resolvedLanguage && resolvedLanguage !== phoneContext.language) {
+                phoneContext.language = resolvedLanguage;
                 await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
             }
 
-            const resolvedLanguage = orchestratorLanguage || phoneContext.language || inferredLanguage || 'English';
             msg.user_language = resolvedLanguage;
             // Avoid mutating potentially frozen orchestrator objects
             const baseOrch = msg.orchestrator || {};
@@ -8370,7 +8637,6 @@ class ConnectorWhatsapp {
                             }, phoneContext)) || phoneContext;
                         }
                     } else if (retainedSession.kind === 'knowledge-entry') {
-                        knowledgeEntryTransformIntent = true;
                         if (retainedSession.awaitingFollowUpConfirmation) {
                             phoneContext = (await this._setWhatsappFollowUpSession(normalizedPhone, {
                                 ...(retainedSession.session || {}),
@@ -8391,6 +8657,12 @@ class ConnectorWhatsapp {
                         previousTool: deterministicWorkflowRouting.activeSession.tool,
                         explicitTarget: deterministicWorkflowRouting.explicitTarget
                     });
+
+                    orchTool = deterministicWorkflowRouting.explicitTarget === 'summary-presentation'
+                        ? 'presentation'
+                        : deterministicWorkflowRouting.explicitTarget;
+                    msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: orchTool || 'chat' });
+                    window.lastOrchestratorDecision = msg.orchestrator;
                 }
             }
 
@@ -8444,7 +8716,6 @@ class ConnectorWhatsapp {
                 phoneContext = (await this._clearWhatsappArtifactSession(normalizedPhone, phoneContext)) || phoneContext;
             }
 
-            const activeFollowUpSession = this._getWhatsappFollowUpSession(phoneContext);
             let allowDocumentSummaryMemoryFollowUp = false;
             const followUpToolMap = {
                 research: 'research',
@@ -8525,12 +8796,22 @@ class ConnectorWhatsapp {
             }
 
             if (knowledgeEntryTransformIntent) {
-                orchTool = 'knowledge';
                 const transformPrompt = this._composeWhatsappKnowledgeEntryTransformPrompt(userText, phoneContext, resolvedLanguage);
                 if (transformPrompt && transformPrompt.prompt) {
+                    console.info('[ConnectorWhatsapp][knowledge-entry] Transforming cached Knowledge Base entry via chat pipeline', {
+                        phone: normalizedPhone,
+                        collectionId: transformPrompt.collectionId,
+                        collectionName: transformPrompt.collectionName,
+                        entryId: transformPrompt.entryId,
+                        entryTitle: transformPrompt.entryTitle,
+                        requestText: transformPrompt.requestText,
+                        sourceLength: transformPrompt.sourceText.length
+                    });
+
                     msg.body = transformPrompt.prompt;
+                    orchTool = 'chat';
                     msg.orchestrator = Object.assign({}, msg.orchestrator, {
-                        tool: 'knowledge',
+                        tool: 'chat',
                         mergedPrompt: transformPrompt.prompt
                     });
                     msg.__whatsappDisplayUserText = transformPrompt.requestText || userText;
@@ -8545,6 +8826,9 @@ class ConnectorWhatsapp {
                     if (requestScope) {
                         requestScope.knowledgeTransform = { ...msg.__whatsappKnowledgeTransform };
                     }
+                    this._clearPendingKnowledgeCollectionSelection(normalizedPhone);
+                    this._clearPendingKnowledgeEntrySelection(normalizedPhone);
+                    window.lastOrchestratorDecision = msg.orchestrator;
                 }
             }
 
@@ -9068,7 +9352,7 @@ class ConnectorWhatsapp {
                 if (seg.type === 'text') {
                     let content = this._normalizeWhatsappReplyText(seg.text || '');
                     if (!content || !content.trim()) continue;
-                    const prefix = firstMessage ? '🤖 ' : '';
+                    const prefix = firstMessage ? '💬 ' : '';
                     try {
                         if (typeof this.postWhatsappText === 'function') {
                             await this.postWhatsappText(targetPhone, prefix + content);
@@ -9090,7 +9374,7 @@ class ConnectorWhatsapp {
                                 'whatsappHtmlSnippetCaption',
                                 'HTML snippet'
                             );
-                            const caption = `${firstMessage ? '🤖 ' : ''}${snippetCaptionText}`;
+                            const caption = `${firstMessage ? '💬 ' : ''}${snippetCaptionText}`;
                             if (typeof this.postWhatsappFile === 'function') {
                                 await this.postWhatsappFile(targetPhone, blob, filename, caption);
                             }
@@ -9099,7 +9383,7 @@ class ConnectorWhatsapp {
                             try {
                                 const fence = '```html\n' + raw + '\n```';
                                 if (typeof this.postWhatsappText === 'function') {
-                                    await this.postWhatsappText(targetPhone, (firstMessage ? '🤖 ' : '') + fence);
+                                    await this.postWhatsappText(targetPhone, (firstMessage ? '💬 ' : '') + fence);
                                 }
                             } catch (_e) {}
                         }
@@ -9107,7 +9391,7 @@ class ConnectorWhatsapp {
                         try {
                             const fence = '```' + (seg.lang || '') + '\n' + raw + '\n```';
                             if (typeof this.postWhatsappText === 'function') {
-                                await this.postWhatsappText(targetPhone, (firstMessage ? '🤖 ' : '') + fence);
+                                await this.postWhatsappText(targetPhone, (firstMessage ? '💬 ' : '') + fence);
                             }
                         } catch (err) {
                             console.warn('ConnectorWhatsapp: Failed to send WhatsApp code segment via connectors:', err);
