@@ -56,6 +56,8 @@
     
     <script>
         // Dynamic content loading based on language
+        let currentHelpContentScript = null;
+
         document.addEventListener('DOMContentLoaded', async function() {
             try {
                 // Initialize language system and wait for it to complete
@@ -92,7 +94,8 @@
                     }
                     
                     // Reload content for new language
-                    loadHelpContentForLanguage(newLanguage);
+                    const activeSection = getActiveHelpSection();
+                    loadHelpContentForLanguage(newLanguage, { preferredSection: activeSection });
                 } catch (error) {
                     console.error('Failed to load language:', newLanguage, error);
                 }
@@ -104,20 +107,45 @@
             }
         });
         
-        function loadHelpContentForLanguage(language) {
+        function getActiveHelpSection() {
+            const activeNavItem = document.querySelector('.nav-item.active');
+            return activeNavItem ? activeNavItem.getAttribute('data-section') : '';
+        }
+
+        function resetHelpContentState() {
+            window.helpContentLoaded = false;
+            window.helpContent = null;
+
+            if (currentHelpContentScript && currentHelpContentScript.parentNode) {
+                currentHelpContentScript.parentNode.removeChild(currentHelpContentScript);
+            }
+            currentHelpContentScript = null;
+        }
+
+        function loadHelpContentForLanguage(language, options = {}) {
+            const preferredSection = options && options.preferredSection ? String(options.preferredSection).trim() : '';
+            resetHelpContentState();
+
+            const target = document.getElementById('help-content-target');
+            if (target) {
+                target.innerHTML = '<p id="loading-message">Loading help content...</p>';
+            }
+
             const script = document.createElement('script');
             script.src = `js/help-content-${language}.js`;
+            script.dataset.helpContentLanguage = language;
+            currentHelpContentScript = script;
             
             script.onload = function() {
                 //console.log(`Help content loaded for language: ${language}`);
                 window.helpContentLoaded = true;
-                initializeHelpPage();
+                initializeHelpPage(preferredSection);
             };
             
             script.onerror = function() {
                 console.warn(`Failed to load help content for ${language}, falling back to English`);
                 if (language !== 'en') {
-                    loadHelpContentForLanguage('en');
+                    loadHelpContentForLanguage('en', options);
                 } else {
                     console.error('Failed to load English help content');
                     document.getElementById('help-content-target').innerHTML = 
@@ -128,7 +156,7 @@
             document.head.appendChild(script);
         }
         
-        function initializeHelpPage() {
+        function initializeHelpPage(preferredSection = '') {
             //console.log("Help page initialized");
 
             const helpLegend = document.getElementById('help-navigation-legend');
@@ -145,14 +173,17 @@
             // Setup tab navigation
             setupNavigation();
             
-            // Load first section by default
-            const firstSection = Object.keys(window.helpContent)[0];
-            if (firstSection) {
-                loadSectionContent(firstSection);
-                // Set first nav item as active
-                const firstNavItem = document.querySelector('.nav-item');
-                if (firstNavItem) {
-                    firstNavItem.classList.add('active');
+            // Load the preferred section when available, otherwise fall back to the first section.
+            const availableSections = Object.keys(window.helpContent || {});
+            const initialSection = preferredSection && availableSections.includes(preferredSection)
+                ? preferredSection
+                : availableSections[0];
+
+            if (initialSection) {
+                loadSectionContent(initialSection);
+                const initialNavItem = document.querySelector(`.nav-item[data-section="${initialSection}"]`) || document.querySelector('.nav-item');
+                if (initialNavItem) {
+                    initialNavItem.classList.add('active');
                 }
             }
         }
