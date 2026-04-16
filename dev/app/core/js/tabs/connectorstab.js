@@ -38,6 +38,7 @@ class ConnectorsTab {
         this.whatsappBotModeButton = null;
         this.whatsappModelLockButton = null;
         this.whatsappPairNewDeviceButton = null;
+        this.whatsappClearContextsButton = null;
         this.whatsappDeleteAllPairedButton = null;
         this.whatsappModelLocked = false;
         this.whatsappUnpairButton = null;
@@ -91,6 +92,9 @@ class ConnectorsTab {
                     <div class="whatsapp-new-device-button-container" style="margin-top:16px;">
                         <button id="whatsapp-pair-new-device-btn" class="connectors-mode-button connectors-mode-button-full" title="Pair a new WhatsApp device">Pair new device</button>
                     </div>
+                    <div class="whatsapp-clear-contexts-button-container" style="margin-top:12px;">
+                        <button id="whatsapp-clear-contexts-btn" class="connectors-mode-button connectors-mode-button-full" title="Clear WhatsApp Contexts">Clear WhatsApp Contexts</button>
+                    </div>
                     <div class="whatsapp-delete-all-devices-button-container" style="margin-top:12px;">
                         <button id="whatsapp-delete-all-paired-btn" class="connectors-mode-button connectors-mode-button-full connectors-mode-button-danger" title="Delete paired device(s)">Delete paired device(s)</button>
                     </div>
@@ -122,6 +126,7 @@ class ConnectorsTab {
         this.whatsappBotModeButton = document.getElementById('whatsapp-bot-mode-btn');
         this.whatsappModelLockButton = document.getElementById('whatsapp-model-lock-btn');
         this.whatsappPairNewDeviceButton = document.getElementById('whatsapp-pair-new-device-btn');
+        this.whatsappClearContextsButton = document.getElementById('whatsapp-clear-contexts-btn');
         this.whatsappDeleteAllPairedButton = document.getElementById('whatsapp-delete-all-paired-btn');
 
         if (this.whatsappPersonalModeButton) {
@@ -146,6 +151,9 @@ class ConnectorsTab {
                 }
                 await this.startWhatsappFreshPairing();
             });
+        }
+        if (this.whatsappClearContextsButton && window.DatabaseTab && typeof window.DatabaseTab.bindClearWhatsappPhoneContextsButton === 'function') {
+            window.DatabaseTab.bindClearWhatsappPhoneContextsButton(this.whatsappClearContextsButton);
         }
         if (this.whatsappDeleteAllPairedButton) {
             this.whatsappDeleteAllPairedButton.addEventListener('click', async () => {
@@ -1058,6 +1066,28 @@ class ConnectorsTab {
                 this.whatsappDeleteAllPairedButton.style.borderColor = '#b91c1c';
                 this.whatsappDeleteAllPairedButton.style.color = '#ffffff';
                 this.whatsappDeleteAllPairedButton.style.cursor = 'pointer';
+            }
+        }
+
+        if (this.whatsappClearContextsButton) {
+            this.whatsappClearContextsButton.style.width = '100%';
+            this.whatsappClearContextsButton.style.padding = '12px 16px';
+            this.whatsappClearContextsButton.style.borderRadius = '8px';
+            this.whatsappClearContextsButton.style.fontWeight = '600';
+            const clearContextsDisabled = this.serverStopping || this._isWhatsappRestartBlocked();
+            this.whatsappClearContextsButton.disabled = clearContextsDisabled;
+            this.whatsappClearContextsButton.textContent = (window.Lang && typeof Lang.get === 'function' && Lang.get('clearWhatsappPhoneContextsButton')) || 'Clear WhatsApp Contexts';
+            this.whatsappClearContextsButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('clearWhatsappPhoneContextsButton')) || 'Clear WhatsApp Contexts';
+            if (clearContextsDisabled) {
+                this.whatsappClearContextsButton.style.backgroundColor = '#c4c4ca';
+                this.whatsappClearContextsButton.style.borderColor = '#a8a8b3';
+                this.whatsappClearContextsButton.style.color = '#575f6b';
+                this.whatsappClearContextsButton.style.cursor = 'not-allowed';
+            } else {
+                this.whatsappClearContextsButton.style.backgroundColor = '#c2410c';
+                this.whatsappClearContextsButton.style.borderColor = '#9a3412';
+                this.whatsappClearContextsButton.style.color = '#ffffff';
+                this.whatsappClearContextsButton.style.cursor = 'pointer';
             }
         }
 

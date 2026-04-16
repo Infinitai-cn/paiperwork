@@ -2901,14 +2901,6 @@ window.helpContent = {
                     <li><strong>解决方案3：</strong>清理后运行数据库优化</li>
                 </ul>
 
-                <h4>清除 WhatsApp 上下文</h4>
-                <p>如果长时间使用后 WhatsApp 回复开始变得臃肿，您可以只清除按手机保存的 WhatsApp 上下文，而无需删除数据库中的其他内容。</p>
-                <ol>
-                    <li>在数据库选项卡中点击“清除 WhatsApp 上下文”</li>
-                    <li>这会删除按手机保存的 WhatsApp 上下文记忆，并重置当前运行中的 WhatsApp 上下文</li>
-                    <li>已配对设备的信息会被保留，仍可在 Connectors 选项卡中通过“Delete paired device(s)”进行管理</li>
-                </ol>
-                
                 <h4>最后手段：数据库重置</h4>
                 <p>如果持续出现问题且正常维护无效：</p>
                                 <ol>
@@ -2931,7 +2923,7 @@ window.helpContent = {
         intro: [
             "注意：出于用户安全和隐私原因，托管在 Huggingface 上的 Paiperwork 在线版本不包含 WhatsApp 功能。",
             "连接器用于把 Paiperwork 与 WhatsApp 配对。连接器请求只会使用 Paiperwork 内部已有的资源，不会访问您的操作系统、内存、硬盘或任意外部文件。",
-            "如果要接收传入的 WhatsApp 消息，请保持运行 Paiperwork 的浏览器标签页处于激活状态，并确保电脑不会进入睡眠。注意：如果您使用的是 Paiperwork 的 Huggingface Spaces 版本，服务器可能会因闲置而停止运行（Huggingface 规则）。",
+            "如果要接收传入的 WhatsApp 消息，请保持运行 Paiperwork 的浏览器标签页处于激活状态，并确保电脑不会进入睡眠。",
             "文档、研究、演示文稿和工件工作流可能会进入专用的后续模式。请使用对应的退出短语来结束该模式。"
         ],
         articles: [
@@ -2945,6 +2937,13 @@ window.helpContent = {
                     <li><strong>机器人模式：</strong>在您的 WhatsApp 联系人列表中的人可以与已配对的 Paiperwork 实例对话。除非您明确想这样做，否则建议使用单独的号码。<br><strong>2.1.</strong> 您可以在 Chat 选项卡中修改 System Prompt，从而提升用户与机器人的交互体验。<br><strong>2.2.</strong> 您联系人列表中的任何 WhatsApp 用户都可以访问已启用的连接器功能，以及可通过连接器访问的已存储文档。<br><strong>2.3.</strong> 为了避免滥用和垃圾信息，您不能从 Paiperwork 主动向 WhatsApp 用户发起消息。<br><strong>2.4.</strong> 如果您在机器人模式下关闭服务器，所有待处理的用户消息都会排队等待下次服务器启动，然后逐条处理。如果您想跳过这些消息，请以个人模式启动服务器；除您发给自己的消息外，所有传入消息都会被忽略。</li>
                 </ol>
                 <p>点击 <strong>Start server</strong>，首次配对时扫描二维码。您可以随时停止服务器，这会停止双向消息路由。</p>
+                <h4>清除 WhatsApp 上下文</h4>
+                <p>如果长时间使用后 WhatsApp 回复开始变得臃肿，您可以只清除按手机保存的 WhatsApp 上下文，而无需删除数据库中的其他内容。</p>
+                <ol>
+                    <li>在连接器选项卡中点击“清除 WhatsApp 上下文”</li>
+                    <li>这会删除按手机保存的 WhatsApp 上下文记忆，并重置当前运行中的 WhatsApp 上下文</li>
+                    <li>已配对设备的信息会被保留，仍可通过“Delete paired device(s)”进行管理</li>
+                </ol>
                 <p>如果您想彻底解除 Paiperwork 配对，请在手机 WhatsApp 的 <strong>Linked devices</strong> 中操作。</p>
             `,
             },

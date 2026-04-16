@@ -2897,14 +2897,6 @@ window.helpContent = {
                     <li><strong>Lösung 3:</strong> Führen Sie Datenbankoptimierung nach der Bereinigung durch</li>
                 </ul>
 
-                <h4>WhatsApp-Kontexte löschen</h4>
-                <p>Wenn WhatsApp-Antworten nach längerer Nutzung aufgebläht wirken, können Sie nur die gespeicherten WhatsApp-Kontexte pro Telefon löschen, ohne den Rest Ihrer Datenbank zu entfernen.</p>
-                <ol>
-                    <li>Klicken Sie im Datenbank-Tab auf "WhatsApp-Kontexte löschen"</li>
-                    <li>Dadurch werden die gespeicherten WhatsApp-Kontexte pro Telefon entfernt und der aktuelle WhatsApp-Laufzeitkontext zurückgesetzt</li>
-                    <li>Informationen zu gekoppelten Geräten bleiben erhalten und können weiterhin im Connectors-Tab mit "Delete paired device(s)" verwaltet werden</li>
-                </ol>
-                
                 <h4>Letzter Ausweg: Datenbank-Reset</h4>
                 <p>Wenn anhaltende Probleme auftreten und normale Wartung nicht hilft:</p>
                 <ol>
@@ -2927,7 +2919,7 @@ window.helpContent = {
         intro: [
             "Hinweis: Die online auf Huggingface gehostete Version von Paiperwork enthält aus Gründen der Sicherheit und Privatsphäre der Nutzer keine WhatsApp-Funktionalität.",
             "Verbindungen koppeln Paiperwork mit WhatsApp. Anfragen verwenden nur Ressourcen, die bereits in Paiperwork vorhanden sind, und greifen nicht auf Betriebssystem, Speicher, Festplatte oder beliebige externe Dateien zu.",
-            "Damit eingehende WhatsApp-Nachrichten ankommen, muss der Browser-Tab mit Paiperwork aktiv bleiben und der Computer wach bleiben. Hinweis: Wenn Sie die Huggingface-Spaces-Version von Paiperwork verwenden, kann der Server wegen Inaktivität stoppen (Huggingface-Regeln).",
+            "Damit eingehende WhatsApp-Nachrichten ankommen, muss der Browser-Tab mit Paiperwork aktiv bleiben und der Computer wach bleiben.",
             "Dokumente, Recherchen, Präsentationen und Artefakte können einen speziellen Nachverfolgungsmodus öffnen. Bleiben Sie in diesem Modus, bis Sie ihn mit dem passenden Beendigungsbefehl schließen."
         ],
         articles: [
@@ -2941,6 +2933,13 @@ window.helpContent = {
                     <li><strong>Bot-Modus:</strong> Personen aus Ihrer WhatsApp-Kontaktliste können mit der gekoppelten Paiperwork-Instanz sprechen. Verwenden Sie am besten eine separate Nummer, außer Sie möchten dieses Verhalten ausdrücklich mit Ihrem Hauptkonto.<br><strong>2.1.</strong> Sie können die Nutzererfahrung mit dem Bot verbessern, indem Sie den System Prompt im Chat-Tab anpassen.<br><strong>2.2.</strong> Jeder WhatsApp-Nutzer in Ihrer Kontaktliste kann auf aktivierte Connector-Funktionen und auf gespeicherte Dokumente zugreifen, die über den Connector verfügbar sind.<br><strong>2.3.</strong> Sie können keine Nachrichten von Paiperwork aus an WhatsApp-Nutzer initiieren, um Missbrauch und Spam zu vermeiden.<br><strong>2.4.</strong> Wenn Sie den Server im Bot-Modus schließen, bleiben ausstehende Nutzernachrichten in einer Warteschlange bis zum nächsten Serverstart und werden dann nacheinander verarbeitet. Wenn Sie diese Nachrichten überspringen möchten, starten Sie den Server im persönlichen Modus; alle eingehenden Nachrichten werden ignoriert, außer denjenigen, die Sie an sich selbst senden.</li>
                 </ol>
                 <p>Klicken Sie auf <strong>Start server</strong> und scannen Sie beim ersten Koppeln den QR-Code. Sie können den Server jederzeit stoppen, wodurch die Nachrichtenweiterleitung in beide Richtungen endet.</p>
+                <h4>WhatsApp-Kontexte löschen</h4>
+                <p>Wenn WhatsApp-Antworten nach längerer Nutzung aufgebläht wirken, können Sie nur die gespeicherten WhatsApp-Kontexte pro Telefon löschen, ohne den Rest Ihrer Datenbank zu entfernen.</p>
+                <ol>
+                    <li>Klicken Sie im Verbindungen-Tab auf "WhatsApp-Kontexte löschen"</li>
+                    <li>Dadurch werden die gespeicherten WhatsApp-Kontexte pro Telefon entfernt und der aktuelle WhatsApp-Laufzeitkontext zurückgesetzt</li>
+                    <li>Informationen zu gekoppelten Geräten bleiben erhalten und können weiterhin mit "Delete paired device(s)" verwaltet werden</li>
+                </ol>
                 <p>Wenn Sie die Paiperwork-Kopplung vollständig entfernen möchten, tun Sie dies auf Ihrem Telefon in WhatsApp unter <strong>Linked devices</strong>.</p>
             `,
             },
