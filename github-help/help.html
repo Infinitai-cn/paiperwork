@@ -32,6 +32,7 @@
             <div class="help-navigation" id="help-navigation">
                 <!-- Navigation will be populated dynamically -->
             </div>
+            <div class="help-navigation-legend" id="help-navigation-legend">Tab buttons can be scrolled sideways</div>
         </div>
 
         <div id="help-content-target" class="help-content">
@@ -84,6 +85,11 @@
                     const url = new URL(window.location);
                     url.searchParams.set('lang', newLanguage);
                     window.history.pushState({}, '', url);
+
+                    const helpLegend = document.getElementById('help-navigation-legend');
+                    if (helpLegend) {
+                        helpLegend.textContent = Lang.get('helpTabsScrollableLegend') || 'Tab buttons can be scrolled sideways';
+                    }
                     
                     // Reload content for new language
                     loadHelpContentForLanguage(newLanguage);
@@ -124,6 +130,11 @@
         
         function initializeHelpPage() {
             //console.log("Help page initialized");
+
+            const helpLegend = document.getElementById('help-navigation-legend');
+            if (helpLegend && window.Lang) {
+                helpLegend.textContent = Lang.get('helpTabsScrollableLegend') || 'Tab buttons can be scrolled sideways';
+            }
             
             // Set logo based on theme
             setAppropriateHelpImage();

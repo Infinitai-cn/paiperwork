@@ -136,6 +136,15 @@
             gap: 10px;
         }
 
+        .help-navigation-legend {
+            display: none;
+            margin-top: 10px;
+            text-align: right;
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
         .nav-item {
             cursor: pointer;
             border-radius: 4px;
@@ -421,6 +430,12 @@
                 padding-bottom: 2px;
             }
 
+            .help-navigation-legend {
+                display: block;
+                margin-top: 8px;
+                font-size: 11px;
+            }
+
             .nav-item {
                 width: auto;
                 min-width: 110px;
@@ -456,6 +471,10 @@
             .help-navigation-wrapper {
                 padding-bottom: 10px;
                 margin-bottom: 16px;
+            }
+
+            .help-navigation-legend {
+                padding-right: 2px;
             }
 
             .help-navigation {

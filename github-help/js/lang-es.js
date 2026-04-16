@@ -11,6 +11,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         loadingHelpContent: 'Cargando contenido de ayuda...',
         returnButton: 'Volver',
         loadingContent: 'Cargando contenido, por favor espera...',
+        helpTabsScrollableLegend: 'Los botones de pestañas se pueden desplazar lateralmente',
         contentComingSoon: 'El contenido para esta sección estará disponible pronto.',
         inThisSection: 'En Esta Sección:',
         noArticlesAvailable: 'No hay artículos disponibles para esta sección.',

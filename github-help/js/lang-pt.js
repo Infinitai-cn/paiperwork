@@ -10,6 +10,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         loadingHelpContent: 'Carregando conteúdo de ajuda...',
         returnButton: 'Voltar',
         loadingContent: 'Carregando conteúdo, por favor aguarde...',
+        helpTabsScrollableLegend: 'Os botões das abas podem ser deslocados lateralmente',
         contentComingSoon: 'Conteúdo para esta seção em breve.',
         inThisSection: 'Nesta Seção:',
         noArticlesAvailable: 'Nenhum artigo disponível para esta seção.',
