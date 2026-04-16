@@ -50,6 +50,9 @@ static async loadLanguage(lang) {
                 // Need to navigate to github-help first
                 langPath = `github-help/js/lang-${lang}.js`;
             }
+        } else {
+            // Local/file-based help page loads from github-help/, so keep paths relative.
+            langPath = `js/lang-${lang}.js`;
         } 
         
         //console.log('Using language path:', langPath); // Debug log
