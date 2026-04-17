@@ -2918,6 +2918,7 @@ window.helpContent = {
         title: "Verbindungen",
         intro: [
             "Hinweis: Die online auf Huggingface gehostete Version von Paiperwork enthält aus Gründen der Sicherheit und Privatsphäre der Nutzer keine WhatsApp-Funktionalität.",
+            "Unterstützte Sprachen für den WhatsApp-Orchestrator: Englisch, Spanisch, Portugiesisch, Deutsch, Chinesisch, Französisch, Japanisch, Koreanisch und Russisch.",
             "Verbindungen koppeln Paiperwork mit WhatsApp. Anfragen verwenden nur Ressourcen, die bereits in Paiperwork vorhanden sind, und greifen nicht auf Betriebssystem, Speicher, Festplatte oder beliebige externe Dateien zu.",
             "Damit eingehende WhatsApp-Nachrichten ankommen, muss der Browser-Tab mit Paiperwork aktiv bleiben und der Computer wach bleiben.",
             "Dokumente, Recherchen, Präsentationen und Artefakte können einen speziellen Nachverfolgungsmodus öffnen. Bleiben Sie in diesem Modus, bis Sie ihn mit dem passenden Beendigungsbefehl schließen."

@@ -69,6 +69,7 @@ echo "🧹 Cleaning previous dev binaries..."
 rm -f "$SCRIPT_DIR/../Paiperwork-server-dev-osx"
 rm -f "$SCRIPT_DIR/../Paiperwork-server-dev-win.exe"
 rm -f "$SCRIPT_DIR/../Paiperwork-server-dev-linux"
+rm -f "$SCRIPT_DIR/../Paiperwork-server-dev-osx-intel"
 
 echo "📦 Building executables..."
 

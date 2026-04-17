@@ -2942,6 +2942,7 @@ window.helpContent = {
         title: "Conectores",
         intro: [
             "Nota: la versión online de Paiperwork alojada en Huggingface no incluye la funcionalidad de WhatsApp por motivos de seguridad y privacidad del usuario.",
+            "Idiomas compatibles con el orquestador de WhatsApp: inglés, español, portugués, alemán, chino, francés, japonés, coreano y ruso.",
             "Los conectores enlazan Paiperwork con WhatsApp. Las solicitudes solo usan recursos ya disponibles dentro de Paiperwork y no acceden a tu sistema operativo, memoria, disco duro ni archivos externos arbitrarios.",
             "Para recibir mensajes entrantes de WhatsApp, mantén activa la pestaña del navegador donde está Paiperwork y evita que el equipo entre en reposo.",
             "Los documentos, investigaciones, presentaciones y artefactos pueden abrir un modo de seguimiento dedicado. Permanece en ese modo hasta cerrarlo con la frase de salida correspondiente."

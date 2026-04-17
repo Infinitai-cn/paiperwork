@@ -333,7 +333,7 @@ class DatabaseTab {
                         <div class="db-breakdown-card">
                             <div class="db-breakdown-title">WhatsApp</div>
                             <div class="db-breakdown-size">${breakdown.whatsapp?.formatted || '-'}</div>
-                            <div class="db-breakdown-meta">${openState.whatsapp ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseSessionsLabel') || 'Sessions'}: ${breakdown.whatsapp?.sessions || 0} | ${Lang.get('databaseContextsLabel') || 'Contexts'}: ${breakdown.whatsapp?.contexts || 0}</div>
+                            <div class="db-breakdown-meta">${openState.whatsapp ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseSessionsLabel') || 'Sessions'}: ${breakdown.whatsapp?.sessions || 0} (${breakdown.whatsapp?.sessionFormatted || '0 B'}) | ${Lang.get('databaseContextsLabel') || 'Contexts'}: ${breakdown.whatsapp?.contexts || 0} (${breakdown.whatsapp?.contextFormatted || '0 B'})</div>
                         </div>
                     </div>
                 </div>

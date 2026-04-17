@@ -2922,6 +2922,7 @@ window.helpContent = {
         title: "连接器",
         intro: [
             "注意：出于用户安全和隐私原因，托管在 Huggingface 上的 Paiperwork 在线版本不包含 WhatsApp 功能。",
+            "WhatsApp 编排器支持的语言：英语、西班牙语、葡萄牙语、德语、中文、法语、日语、韩语和俄语。",
             "连接器用于把 Paiperwork 与 WhatsApp 配对。连接器请求只会使用 Paiperwork 内部已有的资源，不会访问您的操作系统、内存、硬盘或任意外部文件。",
             "如果要接收传入的 WhatsApp 消息，请保持运行 Paiperwork 的浏览器标签页处于激活状态，并确保电脑不会进入睡眠。",
             "文档、研究、演示文稿和工件工作流可能会进入专用的后续模式。请使用对应的退出短语来结束该模式。"
