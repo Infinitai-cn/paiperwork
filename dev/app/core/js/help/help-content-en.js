@@ -2957,6 +2957,7 @@ window.helpContent = {
         title: "Connectors",
         intro: [
             "Note: The Paiperwork online version hosted on Huggingface does not include WhatsApp functionality for user safety and privacy reasons.",
+            "Supported WhatsApp orchestrator languages: English, Spanish, Portuguese, German, Chinese, French, Japanese, Korean, and Russian.",
             "Connectors pair Paiperwork with WhatsApp. Requests only use resources already available inside Paiperwork and do not access your operating system, memory, hard disk, or arbitrary external files.",
             "To receive incoming WhatsApp messages, keep the Paiperwork browser tab active and keep your computer awake.",
             "Documents, research, presentations, and artifacts can open a dedicated follow-up mode. Stay in that mode until you close it with the corresponding exit cue."

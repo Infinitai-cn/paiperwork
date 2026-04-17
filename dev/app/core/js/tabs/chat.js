@@ -569,6 +569,7 @@ class Chat {
     async handleSendButtonClick() {
         const aiReplies = document.querySelector('.ai-replies');
         const conversationScopeKey = this.documentConversationScopeKey || 'ui';
+        const allowGlobalDocumentFallback = conversationScopeKey === 'ui';
         const activeDocumentConversation = (window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function')
             ? (window.RAG_Utils.getActiveDocumentConversation(conversationScopeKey) || null)
             : null;
@@ -596,7 +597,8 @@ class Chat {
         const isDocumentsTabActive = document.querySelector('.tab-button[data-tab="documents"]')?.classList.contains('active');
 
         // Check if document questioning mode is active (specific document)
-        const activeDocumentId = activeDocumentConversation?.documentId || localStorage.getItem('ragQuestioningDocumentId');
+        const activeDocumentId = activeDocumentConversation?.documentId
+            || (allowGlobalDocumentFallback ? localStorage.getItem('ragQuestioningDocumentId') : null);
         /*console.info('[Chat][debug] handleSendButtonClick scope state', {
             conversationScopeKey,
             activeDocumentConversation,
@@ -744,6 +746,8 @@ class Chat {
                     if (typeof window.RAG_Utils.exitDocumentConversationScope === 'function') {
                         window.RAG_Utils.exitDocumentConversationScope(conversationScopeKey);
                     }
+                    promptInput.value = '';
+                    return;
                 } else if (documentModeAction && (documentModeAction.action === 'enter' || documentModeAction.action === 'switch') && documentModeAction.match && documentModeAction.match.documentId) {
                     let enabled = false;
                     if (conversationScopeKey === 'ui') {
@@ -816,10 +820,39 @@ class Chat {
                 return '';
             }
 
-            const requestMatch = promptText.match(/(?:^|\n)(?:User request|Current user request):\s*([^\n]+)/i);
-            return requestMatch && requestMatch[1]
-                ? requestMatch[1].trim()
-                : '';
+            const normalizedPromptText = promptText.replace(/\s+/g, ' ').trim();
+            const requestLabels = ['User request:', 'Current user request:'];
+            const stopLabels = [
+                'Cached research report:',
+                'Cached summary:',
+                'Cached Knowledge Base entry:',
+                'Cached knowledge base entry:',
+                'Assistant answer:',
+                'Cached assistant answer:'
+            ];
+
+            for (const label of requestLabels) {
+                const labelIndex = normalizedPromptText.toLowerCase().indexOf(label.toLowerCase());
+                if (labelIndex < 0) {
+                    continue;
+                }
+
+                const requestStart = labelIndex + label.length;
+                let requestEnd = normalizedPromptText.length;
+                for (const stopLabel of stopLabels) {
+                    const stopIndex = normalizedPromptText.toLowerCase().indexOf(stopLabel.toLowerCase(), requestStart);
+                    if (stopIndex >= 0 && stopIndex < requestEnd) {
+                        requestEnd = stopIndex;
+                    }
+                }
+
+                const extracted = normalizedPromptText.slice(requestStart, requestEnd).trim();
+                if (extracted) {
+                    return extracted;
+                }
+            }
+
+            return '';
         };
 
         const automationVisiblePrompt = extractVisiblePromptFromAutomationPrompt(prompt);
@@ -1099,12 +1132,13 @@ class Chat {
             const scopedDocument = (window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function')
                 ? (window.RAG_Utils.getActiveDocumentConversation(conversationScopeKey) || null)
                 : null;
-            const documentId = scopedDocument?.documentId || localStorage.getItem('ragQuestioningDocumentId');
+            const documentId = scopedDocument?.documentId
+                || (allowGlobalDocumentFallback ? localStorage.getItem('ragQuestioningDocumentId') : null);
             // Also allow triggering the document+websearch flow when the Documents tab is selected
             const isDocumentsTabSelected = document.querySelector('.tab-button[data-tab="documents"]')?.classList.contains('active');
             let documentName;
             documentName = scopedDocument?.documentName || null;
-            if (!documentName) {
+            if (!documentName && allowGlobalDocumentFallback) {
                 try {
                     documentName = await PaiperworkDB.secureLocalStorageGet('ragQuestioningDocumentName');
                 } catch (err) {

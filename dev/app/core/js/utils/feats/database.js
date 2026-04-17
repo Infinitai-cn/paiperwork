@@ -7949,6 +7949,19 @@ class PaiperworkDB {
                 }
             };
 
+            const multiColumnBytes = (sqlDb, tableName, columnNames = []) => {
+                try {
+                    if (!tableExists(sqlDb, tableName) || !Array.isArray(columnNames) || !columnNames.length) return 0;
+                    const expression = columnNames
+                        .map(columnName => `COALESCE(LENGTH(${columnName}), 0)`)
+                        .join(' + ');
+                    const result = sqlDb.exec(`SELECT COALESCE(SUM(${expression}), 0) FROM ${tableName}`);
+                    return Number(result?.[0]?.values?.[0]?.[0] || 0);
+                } catch (_error) {
+                    return 0;
+                }
+            };
+
             // Get total database size across all dedicated role databases.
             const exportedDb = db.export();
             const exportedRagDb = ragDb.export();
@@ -7997,6 +8010,8 @@ class PaiperworkDB {
             const whatsappSettingsCount = countRows(whatsappDb, whatsappSettingsTable);
             const whatsappContextsCount = countRows(whatsappDb, whatsappContextsTable);
             const whatsappSessionsCount = countRows(whatsappDb, whatsappSessionsTable);
+            const whatsappContextsPayloadBytes = textColumnBytes(whatsappDb, whatsappContextsTable, 'context');
+            const whatsappSessionsPayloadBytes = multiColumnBytes(whatsappDb, whatsappSessionsTable, ['session_blob', 'metadata_blob']);
 
             // Check for orphaned chunks (chunks with no parent document) - guard if either table is missing
             let orphanedCount = 0;
@@ -8069,7 +8084,11 @@ class PaiperworkDB {
                         formatted: this.formatFileSize(whatsappSizeBytes),
                         settings: whatsappSettingsCount,
                         contexts: whatsappContextsCount,
-                        sessions: whatsappSessionsCount
+                        sessions: whatsappSessionsCount,
+                        contextBytes: whatsappContextsPayloadBytes,
+                        contextFormatted: this.formatFileSize(whatsappContextsPayloadBytes),
+                        sessionBytes: whatsappSessionsPayloadBytes,
+                        sessionFormatted: this.formatFileSize(whatsappSessionsPayloadBytes)
                     }
                 },
                 documents: {

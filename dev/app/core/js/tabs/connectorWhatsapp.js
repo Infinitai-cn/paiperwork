@@ -175,7 +175,10 @@ class ConnectorWhatsapp {
             deviceId: normalizedDeviceId,
             displayUserText: '',
             targetConversationGroup: null,
-            sessionPreview: ''
+            sessionPreview: '',
+            previousConversationGroup: null,
+            previousForceNewConversationGroup: null,
+            previousDocumentConversationScopeKey: 'ui'
         };
     }
 
@@ -218,23 +221,48 @@ class ConnectorWhatsapp {
         }
 
         const normalizedPhone = String(snapshot.phone || '').replace(/@.*$/g, '').trim();
-        this._setWhatsappOrchestratorContext(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.orchestratorContext || []));
-        this._setPendingDocSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingDocSelection || null));
-        this._setPendingPresentationSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingPresentationSelection || null));
-        this._setPendingArtifactSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingArtifactSelection || null));
-        this._setPendingKnowledgeCollectionSelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingKnowledgeCollectionSelection || null));
-        this._setPendingKnowledgeEntrySelection(normalizedPhone, this._cloneWhatsappQueueValue(snapshot.pendingKnowledgeEntrySelection || null));
+        const currentPhoneContext = (await this._getWhatsappPhoneContext(normalizedPhone)) || {};
+        const mergedPhoneContext = {
+            ...this._cloneWhatsappQueueValue(snapshot.phoneContext || {}),
+            ...this._cloneWhatsappQueueValue(currentPhoneContext)
+        };
 
-        const activeDocumentScope = snapshot.activeDocumentScope && snapshot.activeDocumentScope.id
-            ? this._cloneWhatsappQueueValue(snapshot.activeDocumentScope)
-            : null;
+        const currentOrchestratorContext = this._getWhatsappOrchestratorContext(normalizedPhone);
+        this._setWhatsappOrchestratorContext(
+            normalizedPhone,
+            this._cloneWhatsappQueueValue(currentOrchestratorContext && currentOrchestratorContext.length
+                ? currentOrchestratorContext
+                : (snapshot.orchestratorContext || []))
+        );
+
+        const currentPendingDocSelection = this._getPendingDocSelection(normalizedPhone);
+        this._setPendingDocSelection(normalizedPhone, this._cloneWhatsappQueueValue(currentPendingDocSelection || snapshot.pendingDocSelection || null));
+
+        const currentPendingPresentationSelection = this._getPendingPresentationSelection(normalizedPhone);
+        this._setPendingPresentationSelection(normalizedPhone, this._cloneWhatsappQueueValue(currentPendingPresentationSelection || snapshot.pendingPresentationSelection || null));
+
+        const currentPendingArtifactSelection = this._getPendingArtifactSelection(normalizedPhone);
+        this._setPendingArtifactSelection(normalizedPhone, this._cloneWhatsappQueueValue(currentPendingArtifactSelection || snapshot.pendingArtifactSelection || null));
+
+        const currentPendingKnowledgeCollectionSelection = this._getPendingKnowledgeCollectionSelection(normalizedPhone);
+        this._setPendingKnowledgeCollectionSelection(normalizedPhone, this._cloneWhatsappQueueValue(currentPendingKnowledgeCollectionSelection || snapshot.pendingKnowledgeCollectionSelection || null));
+
+        const currentPendingKnowledgeEntrySelection = this._getPendingKnowledgeEntrySelection(normalizedPhone);
+        this._setPendingKnowledgeEntrySelection(normalizedPhone, this._cloneWhatsappQueueValue(currentPendingKnowledgeEntrySelection || snapshot.pendingKnowledgeEntrySelection || null));
+
+        const currentActiveDocumentScope = this._getWhatsappActiveDocumentScope(normalizedPhone);
+        const activeDocumentScope = currentActiveDocumentScope && currentActiveDocumentScope.id
+            ? this._cloneWhatsappQueueValue(currentActiveDocumentScope)
+            : (snapshot.activeDocumentScope && snapshot.activeDocumentScope.id
+                ? this._cloneWhatsappQueueValue(snapshot.activeDocumentScope)
+                : null);
         if (activeDocumentScope && activeDocumentScope.id) {
             await this._activateWhatsappDocumentScope(normalizedPhone, activeDocumentScope);
         } else {
             this._exitWhatsappDocumentScope(normalizedPhone);
         }
 
-        return this._cloneWhatsappQueueValue(snapshot.phoneContext || {});
+        return mergedPhoneContext;
     }
 
     _setWhatsappActiveRequestScope(scope) {
@@ -498,11 +526,27 @@ class ConnectorWhatsapp {
         return /@g\.us\s*$/i.test(String(chatId || '').trim());
     }
 
+    _getWhatsappIncomingParticipantKey(msg) {
+        return this._normalizeWhatsappIdentity(msg?.from || msg?.fromJid || msg?.participant || msg?.sender || '');
+    }
+
+    _buildWhatsappBotGroupParticipantKey(chatId, participantKey) {
+        const normalizedChatId = this._normalizeWhatsappIdentity(chatId);
+        const normalizedParticipantKey = this._normalizeWhatsappIdentity(participantKey);
+        if (!normalizedChatId) {
+            return normalizedParticipantKey;
+        }
+        if (!normalizedParticipantKey) {
+            return normalizedChatId;
+        }
+        return `group:${normalizedChatId}|participant:${normalizedParticipantKey}`;
+    }
+
     _getWhatsappIncomingThreadKey(msg) {
         if (this._isWhatsappBotMode()) {
             const chatId = String(msg?.chat_id || '').trim();
             if (this._isWhatsappGroupChatId(chatId)) {
-                return this._normalizeWhatsappIdentity(chatId);
+                return this._buildWhatsappBotGroupParticipantKey(chatId, this._getWhatsappIncomingParticipantKey(msg));
             }
             return this._normalizeWhatsappIdentity(msg?.from || msg?.fromJid || msg?.chat_id || msg?.from_name);
         }
@@ -517,12 +561,12 @@ class ConnectorWhatsapp {
         const chatId = String(msg?.chat_id || '').trim();
         const isGroup = this._isWhatsappGroupChatId(chatId);
         const senderName = String(msg?.from_name || '').trim();
-        const senderPhone = this._normalizeWhatsappIdentity(msg?.from || msg?.fromJid || msg?.chat_id);
+        const senderPhone = this._getWhatsappIncomingParticipantKey(msg) || this._normalizeWhatsappIdentity(msg?.chat_id);
         const identity = senderName && senderPhone
             ? `${senderName} (${senderPhone})`
             : (senderName || senderPhone || 'Unknown user');
         if (isGroup) {
-            return `Group conversation ${this._normalizeWhatsappIdentity(chatId)} started by ${identity}`;
+            return `Group conversation ${this._normalizeWhatsappIdentity(chatId)} participant ${identity}`;
         }
         return `Conversation started by ${identity}`;
     }
@@ -561,6 +605,11 @@ class ConnectorWhatsapp {
 
     _getWhatsappPendingReplyDeviceId(chatId = '') {
         const requestedTarget = String(chatId || '').trim();
+        const pendingReplyTarget = String(
+            window.chatInstance?.whatsappPendingReplyChatId
+            || window.chat?.whatsappPendingReplyChatId
+            || ''
+        ).trim();
         const pendingReplyDeviceId = String(
             window.chatInstance?.whatsappPendingReplyDeviceId
             || window.chat?.whatsappPendingReplyDeviceId
@@ -576,10 +625,36 @@ class ConnectorWhatsapp {
             || ''
         );
         const normalizedRequestedTarget = this._normalizeWhatsappIdentity(requestedTarget);
+        if (requestedTarget && pendingReplyTarget && requestedTarget === pendingReplyTarget) {
+            return pendingReplyDeviceId;
+        }
         if (!requestedTarget || !pendingIdentityKey || normalizedRequestedTarget === pendingIdentityKey) {
             return pendingReplyDeviceId;
         }
         return '';
+    }
+
+    async _createWhatsappConversationGroup(hashedMasterKey, threadLabel) {
+        const previousConversationGroup = window.currentConversationGroup;
+        const previousForceNewConversationGroup = window.forceNewConversationGroup;
+        try {
+            const bootstrapAssistantMessage = '<div class="ai-response-container whatsapp-thread-bootstrap" style="display:none" data-whatsapp-thread-bootstrap="true"></div>';
+            const created = await PaiperworkDB.storeConversationOnly(
+                hashedMasterKey,
+                threadLabel,
+                bootstrapAssistantMessage,
+                true,
+                null
+            );
+            const createdGroup = Number(window.currentConversationGroup || 0);
+            return {
+                created: !!created,
+                conversationGroup: createdGroup > 0 ? createdGroup : 0
+            };
+        } finally {
+            window.currentConversationGroup = previousConversationGroup;
+            window.forceNewConversationGroup = previousForceNewConversationGroup;
+        }
     }
 
     _getWhatsappOutgoingRequestUrl(basePath, chatId = '') {
@@ -670,21 +745,14 @@ class ConnectorWhatsapp {
         }
 
         if (!hasExistingGroup) {
-            const bootstrapAssistantMessage = '<div class="ai-response-container whatsapp-thread-bootstrap" style="display:none" data-whatsapp-thread-bootstrap="true"></div>';
-            const created = await PaiperworkDB.storeConversationOnly(
-                hashedMasterKey,
-                threadLabel,
-                bootstrapAssistantMessage,
-                true,
-                null
-            );
+            const createdGroup = await this._createWhatsappConversationGroup(hashedMasterKey, threadLabel);
 
-            if (!created || !window.currentConversationGroup) {
+            if (!createdGroup.created || !createdGroup.conversationGroup) {
                 console.warn('ConnectorWhatsapp: failed to create bot conversation group', { threadKey: normalizedThreadKey });
                 return phoneContext;
             }
 
-            conversationGroup = Number(window.currentConversationGroup || 0);
+            conversationGroup = createdGroup.conversationGroup;
             phoneContext.botConversationStartedAt = phoneContext.botConversationStartedAt || new Date().toISOString();
             createdNewGroup = true;
         }
@@ -692,6 +760,16 @@ class ConnectorWhatsapp {
         phoneContext.botConversationGroup = conversationGroup;
         phoneContext.botThreadLabel = threadLabel;
         await this._setWhatsappPhoneContext(normalizedThreadKey, phoneContext);
+
+        if (this._isWhatsappGroupChatId(msg?.chat_id || '')) {
+            console.info('[ConnectorWhatsapp][group] Ensured participant-scoped bot conversation thread', {
+                groupChatId: String(msg?.chat_id || '').trim(),
+                participant: this._getWhatsappIncomingParticipantKey(msg),
+                threadKey: normalizedThreadKey,
+                conversationGroup,
+                createdNewGroup
+            });
+        }
 
         try {
             if (!createdNewGroup && window.chatInstance && typeof window.chatInstance.refreshConversationListIfNeeded === 'function') {
@@ -745,21 +823,14 @@ class ConnectorWhatsapp {
         }
 
         if (!hasExistingGroup) {
-            const bootstrapAssistantMessage = '<div class="ai-response-container whatsapp-thread-bootstrap" style="display:none" data-whatsapp-thread-bootstrap="true"></div>';
-            const created = await PaiperworkDB.storeConversationOnly(
-                hashedMasterKey,
-                threadLabel,
-                bootstrapAssistantMessage,
-                true,
-                null
-            );
+            const createdGroup = await this._createWhatsappConversationGroup(hashedMasterKey, threadLabel);
 
-            if (!created || !window.currentConversationGroup) {
+            if (!createdGroup.created || !createdGroup.conversationGroup) {
                 console.warn('ConnectorWhatsapp: failed to create personal conversation group', { threadKey: normalizedThreadKey });
                 return phoneContext;
             }
 
-            conversationGroup = Number(window.currentConversationGroup || 0);
+            conversationGroup = createdGroup.conversationGroup;
             phoneContext.personalConversationStartedAt = phoneContext.personalConversationStartedAt || new Date().toISOString();
             createdNewGroup = true;
         }
@@ -900,16 +971,20 @@ class ConnectorWhatsapp {
         return `whatsapp:${String(phone || '').replace(/@.*$/g, '').trim()}`;
     }
 
+    _isScopedWhatsappDocumentConversationAvailable() {
+        return !!(window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function');
+    }
+
     _isWhatsappDocumentScopeActive(phone) {
-        if (window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function') {
+        if (this._isScopedWhatsappDocumentConversationAvailable()) {
             const active = window.RAG_Utils.getActiveDocumentConversation(this._getWhatsappDocumentScopeKey(phone));
             return !!(active && active.documentId);
         }
-        return !!localStorage.getItem('ragQuestioningDocumentId');
+        return false;
     }
 
     _getWhatsappActiveDocumentScope(phone) {
-        if (window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function') {
+        if (this._isScopedWhatsappDocumentConversationAvailable()) {
             const active = window.RAG_Utils.getActiveDocumentConversation(this._getWhatsappDocumentScopeKey(phone));
             if (active && active.documentId) {
                 return {
@@ -918,26 +993,13 @@ class ConnectorWhatsapp {
                 };
             }
         }
-
-        const activeDocumentId = String(localStorage.getItem('ragQuestioningDocumentId') || '').trim();
-        if (!activeDocumentId) {
-            return null;
-        }
-
-        return {
-            id: activeDocumentId,
-            name: String(localStorage.getItem('ragQuestioningDocumentName') || '').trim()
-        };
+        return null;
     }
 
     async _activateWhatsappDocumentScope(phone, documentInfo) {
         const scopeKey = this._getWhatsappDocumentScopeKey(phone);
         if (window.RAG_Utils && typeof window.RAG_Utils.activateDocumentConversationScope === 'function') {
             return window.RAG_Utils.activateDocumentConversationScope(scopeKey, documentInfo, { force: true });
-        }
-        const questionFn = (typeof enableDocumentQuestioningMode === 'function' && enableDocumentQuestioningMode) || (window.RAG_Utils && window.RAG_Utils.enableDocumentQuestioningMode);
-        if (typeof questionFn === 'function') {
-            return questionFn(documentInfo.id, { force: true });
         }
         return false;
     }
@@ -946,13 +1008,11 @@ class ConnectorWhatsapp {
         const scopeKey = this._getWhatsappDocumentScopeKey(phone);
         if (window.RAG_Utils && typeof window.RAG_Utils.exitDocumentConversationScope === 'function') {
             window.RAG_Utils.exitDocumentConversationScope(scopeKey);
-            return;
         }
-        if (typeof exitDocumentQuestioningMode === 'function') {
-            exitDocumentQuestioningMode();
-        } else if (window.RAG_Utils && typeof window.RAG_Utils.exitDocumentQuestioningMode === 'function') {
-            window.RAG_Utils.exitDocumentQuestioningMode();
-        }
+    }
+
+    _getWhatsappScopedReplyTarget(requestScope = null) {
+        return String(requestScope && requestScope.replyTarget ? requestScope.replyTarget : '').trim();
     }
 
     async _sendWhatsappDocumentModeActivatedMessage(phone, language, documentName) {
@@ -969,6 +1029,16 @@ class ConnectorWhatsapp {
         );
         await this.postWhatsappText(phone, `💬 ${modeActivatedText}: ${documentName}`);
         await this.postWhatsappText(phone, `💬 ${exitTipText}`);
+    }
+
+    async _sendWhatsappDocumentModeClosedMessage(phone, language = null, phoneContext = null) {
+        const resolvedLanguage = this._resolveWhatsappReplyLanguage(language, phoneContext);
+        const closedText = await this._getLocalizedLangText(
+            resolvedLanguage,
+            'ragReturnToChat',
+            'Returned to regular chat mode'
+        );
+        await this.postWhatsappText(phone, `💬 ${closedText}`);
     }
 
     _getWhatsappOrchestratorContext(phone) {
@@ -2782,6 +2852,56 @@ class ConnectorWhatsapp {
         return false;
     }
 
+    _stripWhatsappModelCommandLeadIn(text) {
+        let normalized = this._normalizeDocumentIntentKeymapText(text);
+        if (!normalized) return '';
+
+        const leadInTokens = [
+            'please', 'por favor', 'bitte', 'per favore', 's il vous plait', 's il te plait',
+            'can you', 'could you', 'would you', 'will you',
+            'puedes', 'podrias', 'podrías', 'puede',
+            'podes', 'pode', 'voce pode', 'você pode',
+            'peux tu', 'peux tu', 'pourrais tu', 'pourriez vous',
+            'kannst du', 'konntest du', 'könntest du',
+            'puoi', 'potresti',
+            'hey', 'hi', 'hello', 'hola', 'ola', 'olá', 'bonjour', 'hallo', 'ciao',
+            'paiperwork', 'assistant'
+        ]
+            .map(token => this._normalizeDocumentIntentKeymapText(token))
+            .filter(Boolean)
+            .sort((left, right) => right.length - left.length);
+
+        let changed = true;
+        while (changed && normalized) {
+            changed = false;
+            for (const token of leadInTokens) {
+                if (normalized === token) {
+                    normalized = '';
+                    changed = true;
+                    break;
+                }
+                if (normalized.startsWith(`${token} `)) {
+                    normalized = normalized.slice(token.length).trim();
+                    changed = true;
+                    break;
+                }
+            }
+        }
+
+        return normalized;
+    }
+
+    _isWhatsappBareUseModelSwitchCommand(text, useMatch = '') {
+        const normalizedText = this._normalizeDocumentIntentKeymapText(text);
+        const normalizedUseMatch = this._normalizeDocumentIntentKeymapText(useMatch);
+        if (!normalizedText || !normalizedUseMatch) {
+            return false;
+        }
+
+        const stripped = this._stripWhatsappModelCommandLeadIn(normalizedText);
+        return stripped === normalizedUseMatch || stripped.startsWith(`${normalizedUseMatch} `);
+    }
+
     async _beginWhatsappModelRoutingSession(phone, phoneContext = null) {
         const normalizedPhone = String(phone || '').replace(/@.*$/g, '').trim();
         let selectedModel = (document.getElementById('model-selector') && document.getElementById('model-selector').value)
@@ -4163,6 +4283,23 @@ class ConnectorWhatsapp {
         return group.slice(0, Math.max(1, maxExamples)).map(token => String(token || '').trim()).filter(Boolean);
     }
 
+    _getWhatsappWorkflowCloseCueExamples(kind, language = null, maxExamples = 3) {
+        const normalizedKind = String(kind || '').trim().toLowerCase();
+        const normalizedLanguage = this._normalizeLanguage(language) || 'English';
+
+        if (normalizedKind === 'research') {
+            const groups = window.Keymaps && window.Keymaps.meta && window.Keymaps.meta.researchExitCueGroups
+                ? window.Keymaps.meta.researchExitCueGroups
+                : {};
+            const group = groups[normalizedLanguage] || groups.English || [];
+            if (group.length) {
+                return group.slice(0, Math.max(1, maxExamples)).map(token => String(token || '').trim()).filter(Boolean);
+            }
+        }
+
+        return this._getWhatsappFollowUpCloseCueExamples(language, maxExamples);
+    }
+
     _getWhatsappKnowledgeCollectionsExitTip(language = null) {
         const examples = this._getWhatsappFollowUpCloseCueExamples(language, 3);
         const formattedExamples = examples.map(token => `"${token}"`).join(', ');
@@ -4187,14 +4324,28 @@ class ConnectorWhatsapp {
 
     _getWhatsappWorkflowExitTip(kind, language = null) {
         const normalizedKind = String(kind || '').trim().toLowerCase();
-        if (normalizedKind !== 'presentation' && normalizedKind !== 'artifact') {
+        if (normalizedKind !== 'research' && normalizedKind !== 'presentation' && normalizedKind !== 'artifact') {
             return '';
         }
 
-        const examples = this._getWhatsappFollowUpCloseCueExamples(language, 3);
+        const examples = this._getWhatsappWorkflowCloseCueExamples(normalizedKind, language, 3);
         const formattedExamples = examples.map(token => `"${token}"`).join(', ');
         const normalizedLanguage = this._normalizeLanguage(language) || 'English';
         const templatesByKind = {
+            research: {
+                English: `To leave research mode, reply with ${formattedExamples}.`,
+                Spanish: `Para salir del modo de investigación, responde con ${formattedExamples}.`,
+                Portuguese: `Para sair do modo de pesquisa, responda com ${formattedExamples}.`,
+                French: `Pour quitter le mode recherche, répondez avec ${formattedExamples}.`,
+                German: `Um den Recherchemodus zu verlassen, antworten Sie mit ${formattedExamples}.`,
+                Italian: `Per uscire dalla modalità ricerca, rispondi con ${formattedExamples}.`,
+                Russian: `Чтобы выйти из режима исследования, ответьте ${formattedExamples}.`,
+                Chinese: `要退出研究模式，请回复 ${formattedExamples}。`,
+                Japanese: `リサーチモードを終了するには、${formattedExamples} と返信してください。`,
+                Korean: `리서치 모드를 종료하려면 ${formattedExamples}라고 답장하세요.`,
+                Arabic: `للخروج من وضع البحث، رد بـ ${formattedExamples}.`,
+                Hindi: `रिसर्च मोड से बाहर निकलने के लिए ${formattedExamples} में से किसी एक के साथ उत्तर दें।`
+            },
             presentation: {
                 English: `To leave presentation mode, reply with ${formattedExamples}.`,
                 Spanish: `Para salir del modo de presentación, responde con ${formattedExamples}.`,
@@ -4481,6 +4632,13 @@ class ConnectorWhatsapp {
             knowledgeScore.score += 7;
             knowledgeScore.qualifies = true;
             knowledgeScore.reasonParts.push('pending_knowledge_selection');
+        }
+
+        const researchScore = scores.find(entry => entry.tool === 'research');
+        if (researchScore && this._isResearchIntent(text)) {
+            researchScore.score += 7;
+            researchScore.qualifies = true;
+            researchScore.reasonParts.push('research_intent_helper');
         }
 
         const webSearchScore = scores.find(entry => entry.tool === 'chat+websearch');
@@ -4792,6 +4950,7 @@ class ConnectorWhatsapp {
     _extractWhatsappRequestedModelName(text) {
         const removableTokens = [
             ...this._getModelKeymapTokens('actions.use'),
+            ...this._getModelKeymapTokens('actions.current'),
             ...this._getModelKeymapTokens('nouns'),
             ...this._getModelKeymapTokens('providers.local'),
             ...this._getModelKeymapTokens('providers.cloud'),
@@ -4813,7 +4972,7 @@ class ConnectorWhatsapp {
             'attuale', 'selezionato', 'attivo', 'in uso', 'stai usando',
             'текущ', 'выбран', 'активн', 'использу',
             '当前', '已选', '使用中', '现在用', '现在选择',
-            '現在', '選択中', '使用中', '今使って',
+            '現在', '選択中', '選択されて', '使用中', '今使って', '今のモデル',
             '현재', '선택된', '사용 중', '지금 쓰는'
         ];
         const questionHints = [
@@ -4846,6 +5005,19 @@ class ConnectorWhatsapp {
         const hasExplicitListPhrase = !!(listMatch && listMatch.split(/\s+/).length > 1);
         const isCurrentQuestion = this._isWhatsappCurrentModelQuestion(normalizedText, hasModelNoun);
         const provider = this._detectWhatsappRequestedModelProvider(rawText);
+        const requestedModelName = String(this._extractWhatsappRequestedModelName(rawText) || '').trim();
+        const hasSpecificModelName = this._looksLikeSpecificWhatsappModelName(requestedModelName);
+        const isBareUseSwitchCommand = useMatch
+            ? this._isWhatsappBareUseModelSwitchCommand(rawText, useMatch)
+            : false;
+
+        if (useMatch && (hasModelNoun || provider || (hasSpecificModelName && isBareUseSwitchCommand))) {
+            return {
+                type: 'switch',
+                provider,
+                requestedModelName
+            };
+        }
 
         if ((currentMatch && (hasModelNoun || currentMatch.split(/\s+/).length > 1)) || isCurrentQuestion) {
             return { type: 'current' };
@@ -4859,9 +5031,7 @@ class ConnectorWhatsapp {
             return null;
         }
 
-        const requestedModelName = String(this._extractWhatsappRequestedModelName(rawText) || '').trim();
-        const hasSpecificModelName = this._looksLikeSpecificWhatsappModelName(requestedModelName);
-        if (!hasModelNoun && !provider && !hasSpecificModelName) {
+        if (!hasModelNoun && !provider && !(hasSpecificModelName && isBareUseSwitchCommand)) {
             return null;
         }
 
@@ -7833,8 +8003,14 @@ class ConnectorWhatsapp {
                     'researchExitTip',
                     'When you are done, reply with "no", "no thanks", or say "I am finished" to close research mode.'
                 );
+                const inProgressText = await this._getLocalizedLangText(
+                    language,
+                    'researchInProgress',
+                    'Research in progress: collecting and summarizing results.'
+                );
                 await this.postWhatsappText(phone, `💬 ${startedText}`);
-                await this.postWhatsappText(phone, `💬 ${researchExitTipText}`);
+                await this.postWhatsappText(phone, `💬 ${this._getWhatsappWorkflowExitTip('research', language) || researchExitTipText}`);
+                await this.postWhatsappText(phone, `💬 ${inProgressText}`);
                 if (researchInput) {
                     researchInput.value = effectiveQuery;
                 }
@@ -7871,13 +8047,6 @@ class ConnectorWhatsapp {
                     await this._closeWhatsappResearchWindows();
                     return { continueToChat: false };
                 }
-
-                const inProgressText = await this._getLocalizedLangText(
-                    language,
-                    'researchInProgress',
-                    'Research in progress: collecting and summarizing results.'
-                );
-                await this.postWhatsappText(phone, `💬 ${inProgressText}`);
 
                 const whatsappResearchReportBody = this._getResearchReportTextForWhatsapp(report);
                 const whatsappResearchSources = this._getResearchSourcesTextForWhatsapp();
@@ -8073,7 +8242,11 @@ class ConnectorWhatsapp {
             const explicitQuestionToDocMatch = userIntentText.match(/\b(?:ask|make)\s+(?:a\s+)?question\s+(?:to|about)\s+([\w\-@\.\s]+)$/i);
             const extractedDocumentHint = explicitQuestionToDocMatch ? explicitQuestionToDocMatch[1].trim() : '';
 
-            const shouldListDocs = !userIntentText || /\b(check|list|show|open|review|browse).*\b(documents?|files?|reports?|pdfs?)\b/i.test(userIntentText);
+            const hasDocumentNounCue = this._textMatchesDocumentKeymapTokens(userIntentText, this._getDocumentKeymapTokens('nouns'));
+            const hasDocumentBrowseCue = this._textMatchesDocumentKeymapTokens(userIntentText, this._getDocumentKeymapTokens('actions.browse'));
+            const asksGenericDocumentQuestion = !extractedDocumentHint && hasDocumentNounCue && this._isQuestionIntent(userIntentText);
+            const shouldListDocs = !userIntentText
+                || (((hasDocumentNounCue && hasDocumentBrowseCue) || asksGenericDocumentQuestion) && !this._isSummaryIntent(userIntentText));
             if (shouldListDocs) {
                 this._clearPendingDocSelection(phone);
                 if (docs.length === 0) {
@@ -8448,7 +8621,22 @@ class ConnectorWhatsapp {
             const normalizedPhone = this._getWhatsappIncomingThreadKey(msg);
             const replyTarget = this._getWhatsappIncomingReplyTarget(msg) || normalizedPhone;
             requestScope = this._createWhatsappRequestScope(normalizedPhone, replyTarget, String(msg?.device_id || '').trim());
+            requestScope.previousConversationGroup = Number.isInteger(window.currentConversationGroup)
+                ? window.currentConversationGroup
+                : null;
+            requestScope.previousForceNewConversationGroup = window.forceNewConversationGroup === true;
+            requestScope.previousDocumentConversationScopeKey = window.chatInstance?.documentConversationScopeKey || 'ui';
             const queueSnapshot = msg && msg.__whatsappQueueSnapshot ? msg.__whatsappQueueSnapshot : null;
+
+            if (this._isWhatsappBotMode() && this._isWhatsappGroupChatId(msg?.chat_id || '')) {
+                console.info('[ConnectorWhatsapp][group] Processing participant-scoped group message', {
+                    groupChatId: String(msg?.chat_id || '').trim(),
+                    participant: this._getWhatsappIncomingParticipantKey(msg),
+                    threadKey: normalizedPhone,
+                    replyTarget,
+                    deviceId: String(msg?.device_id || '').trim()
+                });
+            }
 
             if (this._isWhatsappBotMode() && typeof this.postWhatsappPresence === 'function') {
                 await this._ensureWhatsappPresenceStartedIfNeeded(replyTarget);
@@ -8517,12 +8705,20 @@ class ConnectorWhatsapp {
                         orchestratorTool: orchTool
                     });
                     if (docModeAction && docModeAction.action === 'exit') {
+                        const exitReplyLanguage = this._resolveWhatsappInteractionLanguage(
+                            msg?.user_language || msg?.orchestrator?.language,
+                            routingIntentText || userText,
+                            phoneContext,
+                            activeFollowUpSession
+                        );
                         this._exitWhatsappDocumentScope(normalizedPhone);
                         this._clearPendingDocSelection(normalizedPhone);
                         phoneContext = (await this._clearWhatsappDocumentSummaryMemory(normalizedPhone, phoneContext)) || phoneContext;
                         phoneContext = (await this._clearWhatsappFollowUpSession(normalizedPhone, phoneContext)) || phoneContext;
                         pendingDoc = null;
                         docModeActive = false;
+                        await this._sendWhatsappDocumentModeClosedMessage(replyTarget || normalizedPhone, exitReplyLanguage, phoneContext);
+                        return;
                     } else if (docModeAction && (docModeAction.action === 'enter' || docModeAction.action === 'switch') && docModeAction.match && docModeAction.match.documentId) {
                         explicitDocumentSwitch = true;
                         orchTool = 'document-check';
@@ -8843,6 +9039,9 @@ class ConnectorWhatsapp {
                     const researchResult = await this.handleOrchestratorResearch(msg);
                     if (researchResult && researchResult.continueToChat && msg && msg.__whatsappResearchTransform && requestScope) {
                         requestScope.researchTransform = { ...msg.__whatsappResearchTransform };
+                        if (msg.__whatsappResearchTransform.requestText) {
+                            requestScope.displayUserText = String(msg.__whatsappResearchTransform.requestText).trim();
+                        }
                     }
                     if (!researchResult || !researchResult.continueToChat) return;
                 } catch (e) {
@@ -8981,14 +9180,14 @@ class ConnectorWhatsapp {
 
             // Post presence/thinking to the phone (best-effort)
             try {
-                if (window.chatInstance && window.chatInstance.whatsappPendingReplyChatId && typeof this.postWhatsappPresence === 'function') {
-                    await this._startWhatsappPresenceKeepAlive(window.chatInstance.whatsappPendingReplyChatId);
+                if (replyTarget && typeof this.postWhatsappPresence === 'function') {
+                    await this._startWhatsappPresenceKeepAlive(replyTarget, requestScope);
 
                     const shouldSendThinking = !(msg?.orchestrator && msg.orchestrator.think === false);
                     if (shouldSendThinking && typeof this.postWhatsappText === 'function') {
                         const language = msg?.user_language || resolvedLanguage || 'English';
                         const thinkingText = this._localizedThinkingText(language);
-                        await this.postWhatsappText(window.chatInstance.whatsappPendingReplyChatId, thinkingText);
+                        await this.postWhatsappText(replyTarget, thinkingText);
                     }
                 }
             } catch (e) {
@@ -9037,13 +9236,17 @@ class ConnectorWhatsapp {
                     await this._ensureWhatsappWebSearchMode(false);
                 }
             } catch (_) {}
-            try { await this._postWhatsappPresenceStopIfNeeded(); } catch (_) {}
+            try { await this._postWhatsappPresenceStopIfNeeded(replyTarget, requestScope); } catch (_) {}
             try {
                 this._clearWhatsappPendingReplyContext();
                 this._clearWhatsappActiveRequestScope(requestScope);
                 if (window.chatInstance) {
-                    window.chatInstance.documentConversationScopeKey = 'ui';
+                    window.chatInstance.documentConversationScopeKey = requestScope?.previousDocumentConversationScopeKey || 'ui';
                 }
+                window.forceNewConversationGroup = requestScope?.previousForceNewConversationGroup === true;
+                window.currentConversationGroup = Number.isInteger(requestScope?.previousConversationGroup)
+                    ? requestScope.previousConversationGroup
+                    : null;
             } catch(_) {}
             this._whatsappIncomingProcessing = false;
             try {
@@ -9059,19 +9262,19 @@ class ConnectorWhatsapp {
         }
     }
 
-    async _startWhatsappPresenceKeepAlive(chatId) {
+    async _startWhatsappPresenceKeepAlive(chatId, requestScope = null) {
         const target = this._getResolvedWhatsappOutgoingTarget(
-            chatId || this._whatsappPresenceChatId || window.chat?.whatsappPendingReplyChatId || window.chatInstance?.whatsappPendingReplyChatId || ''
+            chatId || this._getWhatsappScopedReplyTarget(requestScope) || this._whatsappPresenceChatId || window.chat?.whatsappPendingReplyChatId || window.chatInstance?.whatsappPendingReplyChatId || ''
         );
         if (!target || typeof this.postWhatsappPresence !== 'function') return;
 
         if (this._whatsappPresenceKeepAliveTimer && this._whatsappPresenceChatId === target) {
-            await this._ensureWhatsappPresenceStartedIfNeeded(target);
+            await this._ensureWhatsappPresenceStartedIfNeeded(target, requestScope);
             return;
         }
 
         this._clearWhatsappPresenceKeepAliveTimer();
-        await this._ensureWhatsappPresenceStartedIfNeeded(target);
+        await this._ensureWhatsappPresenceStartedIfNeeded(target, requestScope);
 
         this._whatsappPresenceKeepAliveTimer = setInterval(() => {
             if (!this._whatsappPresenceStarted || this._whatsappPresenceChatId !== target || typeof this.postWhatsappPresence !== 'function') {
@@ -9084,15 +9287,15 @@ class ConnectorWhatsapp {
     }
 
     // Ensure presence 'start' is posted once for the given chatId (or current chat if omitted)
-    async _ensureWhatsappPresenceStartedIfNeeded(chatId) {
+    async _ensureWhatsappPresenceStartedIfNeeded(chatId, requestScope = null) {
         try {
             const target = this._getResolvedWhatsappOutgoingTarget(
-                chatId || this._whatsappPresenceChatId || window.chat?.whatsappPendingReplyChatId || window.chatInstance?.whatsappPendingReplyChatId || ''
+                chatId || this._getWhatsappScopedReplyTarget(requestScope) || this._whatsappPresenceChatId || window.chat?.whatsappPendingReplyChatId || window.chatInstance?.whatsappPendingReplyChatId || ''
             );
             if (!target) return;
             if (this._whatsappPresenceStarted && this._whatsappPresenceChatId === target) return;
             if (this._whatsappPresenceStarted && this._whatsappPresenceChatId && this._whatsappPresenceChatId !== target) {
-                await this._postWhatsappPresenceStopIfNeeded(this._whatsappPresenceChatId);
+                await this._postWhatsappPresenceStopIfNeeded(this._whatsappPresenceChatId, requestScope);
             }
             if (typeof this.postWhatsappPresence === 'function') {
                 await this.postWhatsappPresence(target, 'start');
@@ -9105,11 +9308,11 @@ class ConnectorWhatsapp {
     }
 
     // Post presence 'stop' for the given chatId (or current chat if omitted)
-    async _postWhatsappPresenceStopIfNeeded(chatId) {
+    async _postWhatsappPresenceStopIfNeeded(chatId, requestScope = null) {
         try {
             this._clearWhatsappPresenceKeepAliveTimer();
             const target = this._getResolvedWhatsappOutgoingTarget(
-                chatId || this._whatsappPresenceChatId || window.chat?.whatsappPendingReplyChatId || window.chatInstance?.whatsappPendingReplyChatId || ''
+                chatId || this._getWhatsappScopedReplyTarget(requestScope) || this._whatsappPresenceChatId || window.chat?.whatsappPendingReplyChatId || window.chatInstance?.whatsappPendingReplyChatId || ''
             );
             if (!target) return;
             if (typeof this.postWhatsappPresence === 'function') {
@@ -9322,7 +9525,7 @@ class ConnectorWhatsapp {
     // Send the assistant's most recent response to the given phone (multi-part: text/code/attachments)
     async maybeSendWhatsappReply(chatId, requestScope = null) {
         try {
-            const targetPhone = chatId || (window.chat && window.chat.whatsappPendingReplyChatId) || null;
+            const targetPhone = chatId || this._getWhatsappScopedReplyTarget(requestScope) || (window.chat && window.chat.whatsappPendingReplyChatId) || null;
             if (!targetPhone) return;
             const language = this._getActiveWhatsappReplyLanguage();
 

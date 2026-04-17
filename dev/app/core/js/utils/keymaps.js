@@ -11,6 +11,7 @@ const documentKeymap = {
         'document', 'documents', 'dossier', 'dossiers', 'fichier', 'fichiers', 'rapport', 'rapports',
         'dokument', 'dokumente', 'datei', 'dateien', 'bericht', 'berichte',
         'documento', 'documenti', 'file', 'files', 'rapporto', 'rapporti', 'contratto', 'contratti',
+        'документ', 'документы', 'файл', 'файлы', 'отчет', 'отчеты', 'отчёт', 'отчёты', 'договор', 'договоры',
         '文档', '文件', '资料', '檔案', '档案',
         'ドキュメント', '文書', 'ファイル', '資料', 'レポート', '契約書',
         '문서', '파일', '자료', '보고서', '계약서'
@@ -23,6 +24,7 @@ const documentKeymap = {
             'afficher', 'liste', 'lister', 'ouvrir', 'parcourir', 'examiner', 'voir', 'chercher', 'choisir', 'selectionner', 'sélectionner',
             'zeigen', 'liste', 'auflisten', 'offnen', 'öffnen', 'durchsuchen', 'prufen', 'prüfen', 'ansehen', 'finden', 'auswahlen', 'auswählen',
             'mostrare', 'elencare', 'aprire', 'sfogliare', 'rivedere', 'vedere', 'cercare', 'scegliere', 'selezionare',
+            'показать', 'список', 'перечислить', 'открыть', 'просмотреть', 'проверить', 'посмотреть', 'найти', 'выбрать',
             '查看', '显示', '列出', '打开', '浏览', '选择', '查找',
             '表示', '一覧', '開く', '閲覧', '確認', '選択', '探す',
             '보여', '목록', '열기', '찾아', '선택', '확인', '검토'
@@ -34,6 +36,7 @@ const documentKeymap = {
             'resume', 'résumé', 'resumer', 'résumer', 'synthese', 'synthèse',
             'zusammenfassung', 'zusammenfassen', 'kurzfassung',
             'riassunto', 'riassumere', 'sintesi',
+            'сводка', 'резюме', 'суммировать', 'кратко изложить',
             '总结', '摘要', '概要',
             '要約', 'まとめ',
             '요약', '정리'
@@ -45,6 +48,7 @@ const documentKeymap = {
             'question', 'questions', 'demander', 'exppliquer', 'expliquer', 'decrire', 'décrire', 'parler de',
             'frage', 'fragen', 'erklaren', 'erklären', 'beschreiben',
             'domanda', 'domande', 'chiedere', 'spiegare', 'descrivere',
+            'вопрос', 'вопросы', 'спросить', 'объяснить', 'описать', 'рассказать о',
             '问题', '提问', '询问', '解释', '描述',
             '質問', '聞く', '説明', '記述',
             '질문', '물어', '설명', '묘사'
@@ -56,6 +60,7 @@ const documentKeymap = {
             'quitter le mode document', 'revenir au chat normal',
             'dokumentmodus verlassen', 'zuruck zum normalen chat', 'zurück zum normalen chat',
             'uscire dalla modalita documento', 'uscire dalla modalità documento', 'torna alla chat normale',
+            'выйти из режима документов', 'выйти из режима документа', 'вернуться в обычный чат',
             '退出文档模式', '退出', '关闭文档模式', '离开文档模式', '返回普通聊天',
             'ドキュメントモードを終了', '通常チャットに戻る',
             '문서 모드 종료', '일반 채팅으로 돌아가기'
@@ -68,6 +73,7 @@ const documentKeymap = {
         'qui', 'quoi', 'quand', 'ou', 'où', 'pourquoi', 'comment',
         'wer', 'was', 'wann', 'wo', 'warum', 'wie', 'welche', 'welcher', 'welches',
         'chi', 'cosa', 'quando', 'dove', 'perche', 'perché', 'come', 'quale',
+        'кто', 'что', 'когда', 'где', 'почему', 'как', 'какой', 'какая', 'какие',
         '谁', '什么', '何时', '哪里', '为什么', '怎么',
         '誰', '何', 'いつ', 'どこ', 'なぜ', 'どう',
         '누구', '무엇', '언제', '어디', '왜', '어떻게'
@@ -79,6 +85,7 @@ const documentKeymap = {
         'bonjour', 'salut', 'merci',
         'hallo', 'danke',
         'ciao', 'grazie',
+        'привет', 'спасибо',
         '你好', '谢谢',
         'こんにちは', 'ありがとう',
         '안녕', '감사'
@@ -106,6 +113,21 @@ const commonFollowUpCloseCueGroups = {
     Hindi: ['नहीं', 'नहीं धन्यवाद', 'मैं समाप्त कर चुका हूं', 'मैं समाप्त कर चुकी हूं', 'खत्म', 'हो गया', 'बस', 'और बदलाव नहीं']
 };
 
+const researchExitCueGroups = {
+    English: ['exit research mode', 'leave research mode', 'close research mode', 'stop research mode'],
+    Spanish: ['salir del modo de investigación', 'salir del modo de investigacion', 'cerrar el modo de investigación', 'cerrar el modo de investigacion'],
+    Portuguese: ['sair do modo de pesquisa', 'fechar o modo de pesquisa', 'encerrar o modo de pesquisa'],
+    French: ['quitter le mode recherche', 'fermer le mode recherche', 'sortir du mode recherche'],
+    German: ['recherchemodus verlassen', 'recherchemodus schließen', 'recherchemodus schliessen'],
+    Italian: ['uscire dalla modalità ricerca', 'uscire dalla modalita ricerca', 'chiudere la modalità ricerca', 'chiudere la modalita ricerca'],
+    Russian: ['выйти из режима исследования', 'закрыть режим исследования', 'завершить режим исследования'],
+    Chinese: ['退出研究模式', '关闭研究模式'],
+    Japanese: ['リサーチモードを終了', 'リサーチモードを閉じる', '研究モードを終了'],
+    Korean: ['리서치 모드 종료', '리서치 모드 닫기', '연구 모드 종료'],
+    Arabic: ['الخروج من وضع البحث', 'إغلاق وضع البحث', 'اغلاق وضع البحث', 'إنهاء وضع البحث'],
+    Hindi: ['रिसर्च मोड से बाहर निकलो', 'रिसर्च मोड बंद करो', 'शोध मोड से बाहर निकलो', 'शोध मोड बंद करो']
+};
+
 const commonFollowUpContinueCueGroups = {
     English: ['yes', 'yes please', 'sure', 'ok', 'okay', 'continue', 'keep going', 'more changes', 'modify more', 'lets continue', "let's continue"],
     Spanish: ['si', 'sí', 'si por favor', 'sí por favor', 'claro', 'vale', 'continuar', 'sigue', 'mas cambios', 'más cambios'],
@@ -124,6 +146,7 @@ const commonFollowUpContinueCueGroups = {
 const flattenCueGroups = (groups) => [...new Set(Object.values(groups).flat())];
 
 const commonFollowUpCloseCues = flattenCueGroups(commonFollowUpCloseCueGroups);
+const researchExitCues = flattenCueGroups(researchExitCueGroups);
 
 const commonFollowUpContinueCues = flattenCueGroups(commonFollowUpContinueCueGroups);
 
@@ -135,6 +158,7 @@ const researchKeymap = {
         'recherche', 'rechercher', 'analyser', 'analyse', 'etudier', 'étudier', 'explorer', 'examiner',
         'forschung', 'recherchieren', 'analysieren', 'analyse', 'untersuchen', 'studieren',
         'ricerca', 'ricercare', 'analizzare', 'analisi', 'studiare', 'esplorare', 'esaminare',
+        'исследование', 'исследовать', 'изучить', 'анализ', 'проанализировать',
         '研究', '调查', '調査', '研究する', '조사', '연구', '분석'
     ],
     actions: {
@@ -145,6 +169,7 @@ const researchKeymap = {
             'preparer', 'préparer', 'creer', 'créer', 'rediger', 'rédiger', 'generer', 'générer', 'compiler',
             'erstellen', 'vorbereiten', 'schreiben', 'generieren', 'zusammenstellen',
             'preparare', 'creare', 'scrivere', 'generare', 'compilare',
+            'подготовить', 'создать', 'написать', 'сгенерировать', 'собрать',
             '准备', '创建', '生成', '撰写', '整理',
             '作成', '準備', '生成', '書く', 'まとめる',
             '준비', '작성', '생성', '정리'
@@ -156,6 +181,7 @@ const researchKeymap = {
             'comparer', 'comparaison',
             'vergleichen', 'vergleich',
             'confrontare', 'comparazione',
+            'сравнить', 'сравнение',
             '比较', '对比',
             '比較',
             '비교'
@@ -168,6 +194,7 @@ const researchKeymap = {
         'rapport', 'rapports', 'constatations', 'opportunites', 'opportunités', 'strategie', 'stratégie', 'synthese', 'synthèse',
         'bericht', 'berichte', 'erkenntnisse', 'chancen', 'strategie', 'strategien',
         'rapporto', 'rapporti', 'risultati', 'opportunita', 'opportunità', 'strategia', 'strategie',
+        'отчет', 'отчеты', 'отчёт', 'отчёты', 'вывод', 'выводы', 'возможность', 'возможности', 'стратегия', 'стратегии',
         '报告', '洞察', '机会', '策略', '结论',
         'レポート', '洞察', '機会', '戦略', '結論',
         '보고서', '인사이트', '기회', '전략', '결과'
@@ -179,11 +206,12 @@ const researchKeymap = {
         'dernier', 'derniere', 'dernière', 'actuel', 'recente', 'récente', 'approfondi', 'complet', 'detaille', 'détaillé', 'marche', 'marché', 'concurrent', 'industrie', 'tendance', 'tendances',
         'aktuell', 'neueste', 'letzte', 'tief', 'umfassend', 'detailliert', 'markt', 'wettbewerber', 'branche', 'trend', 'trends',
         'attuale', 'recente', 'approfondito', 'completo', 'dettagliato', 'mercato', 'concorrente', 'industria', 'tendenza', 'tendenze',
+        'последние', 'актуальные', 'недавние', 'глубокий', 'подробный', 'рынок', 'конкурент', 'конкуренты', 'отрасль', 'тренд', 'тренды',
         '最新', '当前', '最近', '深入', '全面', '详细', '市场', '竞争对手', '行业', '趋势',
         '最新', '現在', '最近', '詳細', '包括的', '市場', '競合', '業界', '動向', 'トレンド',
         '최신', '현재', '최근', '심층', '종합', '상세', '시장', '경쟁사', '업계', '동향', '트렌드'
     ],
-    followUpCloseCues: commonFollowUpCloseCues,
+    followUpCloseCues: [...new Set([...commonFollowUpCloseCues, ...researchExitCues])],
     followUpContinueCues: commonFollowUpContinueCues
 };
 
@@ -536,7 +564,7 @@ const modelKeymap = {
             'modello attuale', 'modello selezionato', 'modello attivo', 'modello in uso', 'quale modello e selezionato', 'quale modello è selezionato', 'quale modello stai usando',
             'текущая модель', 'выбранная модель', 'активная модель', 'какая модель выбрана', 'какую модель ты используешь',
             '当前模型', '已选模型', '正在使用的模型', '现在用的模型', '现在选择的模型',
-            '現在のモデル', '選択中のモデル', '使用中のモデル', '今使っているモデル',
+            '現在のモデル', '選択中のモデル', '使用中のモデル', '今使っているモデル', '今のモデル', '現在選択されているモデル', '今選択されているモデル',
             '현재 모델', '선택된 모델', '사용 중인 모델', '지금 쓰는 모델'
         ],
         list: [
@@ -559,8 +587,8 @@ const modelKeymap = {
             'verwende', 'nutze', 'benutze', 'modell verwenden', 'wechsle zu', 'wechsel zu', 'wechsle das modell zu', 'wechsel das modell zu', 'andere das modell zu', 'ändere das modell zu', 'setze modell auf', 'setze das modell auf', 'auswahlen', 'auswählen', 'wahlen', 'wählen',
             'usa', 'usa modello', 'passa a', 'passa il modello a', 'cambia a', 'cambia il modello a', 'imposta il modello', 'imposta il modello su', 'seleziona', 'scegli',
             'используй', 'используй модель', 'переключи на', 'смени на', 'выбери', 'установи модель',
-            '使用', '使用模型', '切换到', '改用', '选择', '设为模型',
-            '使う', 'モデルを使う', '切り替え', '変更して', '選択',
+            '使用', '使用模型', '切换到', '改用', '改为', '把当前模型改为', '将当前模型改为', '把模型改为', '将模型改为', '选择', '设为模型',
+            '使う', 'モデルを使う', '切り替え', 'に切り替え', 'へ切り替え', '切り替える', '変更して', '変更する', '選択',
             '사용', '모델 사용', '바꿔', '전환', '선택', '모델로 설정'
         ]
     },
@@ -598,8 +626,8 @@ const modelKeymap = {
         'bitte', 'mein', 'meine', 'das', 'der', 'die', 'den', 'zu', 'jetzt',
         'per favore', 'mio', 'mia', 'miei', 'mie', 'il', 'la', 'i', 'le', 'per', 'adesso',
         'пожалуйста', 'мой', 'моя', 'мои', 'для', 'сейчас',
-        '请', '我的', '现在',
-        'お願いします', '私の', '今',
+        '请', '我的', '现在', '把', '将',
+        'お願いします', '私の', '今', 'を', 'に', 'へ',
         '제발', '내', '지금'
     ]
 };
@@ -654,7 +682,7 @@ const webSearchKeymap = {
         'im web suchen', 'online suchen', 'nutze das internet', 'nutze websuche', 'mit websuche',
         'cerca online', 'cerca sul web', 'usa internet', 'usa il web', 'con ricerca web',
         'ищи в интернете', 'поиск в интернете', 'используй интернет', 'с веб-поиском',
-        '在线搜索', '搜索网络', '搜索互联网', '使用网络搜索', '使用互联网',
+        '在线搜索', '在线查找', '搜索网络', '搜索互联网', '使用网络搜索', '使用互联网',
         'ウェブで検索', 'オンラインで検索', 'ウェブ検索を使う', 'インターネットを使う',
         '웹 검색', '온라인 검색', '인터넷 검색', '웹 검색 사용'
     ],
@@ -864,7 +892,7 @@ const workflowRules = {
             { id: 'researchCompare', tokens: researchKeymap.actions.compare, wholeWordOnly: true }
         ],
         strong: [
-            { id: 'researchExplicit', tokens: ['research', 'investigate', 'market research', 'competitive analysis', 'trend report'], wholeWordOnly: true }
+            { id: 'researchExplicit', tokens: ['research', 'investigate', 'market research', 'competitive analysis', 'trend report', ...researchKeymap.intent], wholeWordOnly: true }
         ],
         negative: [
             { id: 'documentNoun', tokens: documentKeymap.nouns, wholeWordOnly: true },
@@ -927,6 +955,7 @@ window.Keymaps = {
     workflowRules,
     meta: {
         followUpCloseCueGroups: commonFollowUpCloseCueGroups,
-        followUpContinueCueGroups: commonFollowUpContinueCueGroups
+        followUpContinueCueGroups: commonFollowUpContinueCueGroups,
+        researchExitCueGroups
     }
 };
