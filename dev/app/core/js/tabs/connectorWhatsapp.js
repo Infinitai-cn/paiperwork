@@ -1533,6 +1533,10 @@ class ConnectorWhatsapp {
             return 'summary-presentation';
         }
 
+        if (this._isSummaryToArtifactWorkflowIntent(normalizedText) || this._isResearchToArtifactWorkflowIntent(normalizedText)) {
+            return 'artifact';
+        }
+
         if (!!this._parseWhatsappModelCommand(normalizedText)) {
             return 'chat';
         }
@@ -2746,6 +2750,43 @@ class ConnectorWhatsapp {
         const canonicalPrompt = session && (session.currentPrompt || session.basePrompt)
             ? this._normalizeWhatsappResearchReportText(session.currentPrompt || session.basePrompt)
             : '';
+        const cachedSourceContext = this._resolveWhatsappArtifactSourceContext(phoneContext, options);
+
+        if (!isFollowUp && cachedSourceContext && !this._isSavedArtifactIntent(normalizedRequest)) {
+            const artifactRequest = mergedPrompt || normalizedRequest || 'Create a miniapp based on this cached source.';
+            const sourceKindLabel = cachedSourceContext.kind === 'research'
+                ? 'research report'
+                : (cachedSourceContext.kind === 'knowledge-entry' ? 'Knowledge Base entry' : 'document summary');
+            const sourceHeader = cachedSourceContext.kind === 'research'
+                ? 'Cached research report:'
+                : (cachedSourceContext.kind === 'knowledge-entry' ? 'Cached Knowledge Base entry:' : 'Cached document summary:');
+            const sourcePrompt = [
+                `Create a single self-contained HTML miniapp based only on the cached ${sourceKindLabel} below.`,
+                'Use the cached source as the content basis for the miniapp.',
+                cachedSourceContext.kind === 'research'
+                    ? 'Do not perform a new web search or a new research run.'
+                    : (cachedSourceContext.kind === 'knowledge-entry'
+                        ? 'Do not browse or load a different Knowledge Base entry. Work only from the cached entry below.'
+                        : 'Do not ask for the original document or re-summarize it.'),
+                'Do not add facts that are not present in the cached source.',
+                cachedSourceContext.title ? `Source title: ${cachedSourceContext.title}` : '',
+                `Miniapp request: ${artifactRequest}`,
+                sourceHeader,
+                cachedSourceContext.sourceText
+            ].filter(Boolean).join('\n\n');
+
+            return {
+                prompt: sourcePrompt,
+                isFollowUp: false,
+                basePrompt: sourcePrompt,
+                currentPrompt: sourcePrompt,
+                modifications: [],
+                session,
+                usedMergedPrompt: !!mergedPrompt,
+                derivedFromCachedSource: true,
+                sourceKind: cachedSourceContext.kind
+            };
+        }
 
         if (!isFollowUp) {
             return {
@@ -2790,6 +2831,67 @@ class ConnectorWhatsapp {
             session,
             usedMergedPrompt: false
         };
+    }
+
+    _resolveWhatsappArtifactSourceContext(phoneContext = null, options = {}) {
+        const explicitContext = options && options.cachedSourceContext && typeof options.cachedSourceContext === 'object'
+            ? options.cachedSourceContext
+            : null;
+        const explicitKind = String(explicitContext && explicitContext.kind ? explicitContext.kind : '').trim().toLowerCase();
+        const explicitSourceText = this._normalizeWhatsappResearchReportText(explicitContext && explicitContext.sourceText ? explicitContext.sourceText : '');
+        if (explicitSourceText && (explicitKind === 'document-summary' || explicitKind === 'research' || explicitKind === 'knowledge-entry')) {
+            return {
+                kind: explicitKind,
+                sourceText: explicitSourceText,
+                title: String(explicitContext.title || explicitContext.documentName || '').trim(),
+                documentId: String(explicitContext.documentId || '').trim(),
+                documentName: String(explicitContext.documentName || '').trim()
+            };
+        }
+
+        const followUpSession = this._getWhatsappFollowUpSession(phoneContext);
+        if (followUpSession
+            && followUpSession.active
+            && (followUpSession.kind === 'document-summary' || followUpSession.kind === 'research' || followUpSession.kind === 'knowledge-entry')
+            && followUpSession.sourceText) {
+            return {
+                kind: followUpSession.kind,
+                sourceText: this._normalizeWhatsappResearchReportText(followUpSession.sourceText),
+                title: String(followUpSession.title || followUpSession.documentName || '').trim(),
+                documentId: String(followUpSession.documentId || '').trim(),
+                documentName: String(followUpSession.documentName || '').trim()
+            };
+        }
+
+        if (options && options.allowDocumentSummaryMemoryFollowUp) {
+            const summaryMemory = this._getWhatsappDocumentSummaryMemory(phoneContext);
+            const summaryText = this._normalizeWhatsappResearchReportText(summaryMemory && summaryMemory.sourceText ? summaryMemory.sourceText : '');
+            if (summaryText) {
+                return {
+                    kind: 'document-summary',
+                    sourceText: summaryText,
+                    title: String(summaryMemory.title || summaryMemory.documentName || '').trim(),
+                    documentId: String(summaryMemory.documentId || '').trim(),
+                    documentName: String(summaryMemory.documentName || '').trim()
+                };
+            }
+        }
+
+        if (options && options.allowKnowledgeEntryMemoryFollowUp) {
+            const knowledgeEntryMemory = this._getWhatsappKnowledgeEntryMemory(phoneContext);
+            const knowledgeText = this._normalizeWhatsappResearchReportText(knowledgeEntryMemory && knowledgeEntryMemory.sourceText ? knowledgeEntryMemory.sourceText : '');
+            if (knowledgeText) {
+                return {
+                    kind: 'knowledge-entry',
+                    sourceText: knowledgeText,
+                    title: String(knowledgeEntryMemory.title || knowledgeEntryMemory.entryTitle || '').trim(),
+                    documentId: String(knowledgeEntryMemory.entryId || '').trim(),
+                    documentName: String(knowledgeEntryMemory.collectionName || '').trim()
+                };
+            }
+        }
+
+        return null;
     }
 
     _buildWhatsappArtifactOrchestratorHint(requestText, phoneContext = null) {
@@ -3845,6 +3947,55 @@ class ConnectorWhatsapp {
 
         return /(then|and then|after that|afterwards|using the summary|with the summary|using summary|with summary|y luego|despues|después|depois|ensuite|puis|apres|après|danach|然后|之后|之後|その後|다음|그 다음)/i.test(rawText)
             || /summary.*presentation|presentation.*summary/i.test(normalized);
+    }
+
+    _isSummaryToArtifactWorkflowIntent(text) {
+        const rawText = String(text || '').trim();
+        if (!rawText) return false;
+
+        const normalized = this._normalizeDocumentIntentKeymapText(rawText);
+        if (!normalized) return false;
+
+        const workflowTokens = this._getArtifactKeymapTokens('workflows.summaryToArtifact');
+        if (this._textMatchesDocumentKeymapTokens(rawText, workflowTokens)) {
+            return true;
+        }
+
+        const hasSummaryIntent = this._isSummaryIntent(normalized);
+        const hasArtifactMention = this._textMatchesDocumentKeymapTokens(rawText, this._getArtifactKeymapTokens('intent'));
+        if (!hasSummaryIntent || !hasArtifactMention) {
+            return false;
+        }
+
+        if (/(summar(?:y|ize)|résum|resum|resumo|zusammenfass|摘要|总结|概述).*(miniapp|mini app|mini-app|artifact|artifacts|artefact|artefacts)/i.test(rawText)) {
+            return true;
+        }
+
+        return /(miniapp|mini app|mini-app|artifact|artifacts|artefact|artefacts).*(summar(?:y|ize)|résum|resum|resumo|zusammenfass|摘要|总结|概述)/i.test(rawText)
+            || /summary.*(miniapp|mini app|mini-app|artifact)|(?:miniapp|mini app|mini-app|artifact).*summary/i.test(normalized);
+    }
+
+    _isResearchToArtifactWorkflowIntent(text) {
+        const rawText = String(text || '').trim();
+        if (!rawText) return false;
+
+        const normalized = this._normalizeDocumentIntentKeymapText(rawText);
+        if (!normalized) return false;
+
+        const workflowTokens = this._getArtifactKeymapTokens('workflows.researchToArtifact');
+        if (this._textMatchesDocumentKeymapTokens(rawText, workflowTokens)) {
+            return true;
+        }
+
+        const hasResearchIntent = this._isResearchIntent(rawText);
+        const hasArtifactMention = this._textMatchesDocumentKeymapTokens(rawText, this._getArtifactKeymapTokens('intent'));
+        if (!hasResearchIntent || !hasArtifactMention) {
+            return false;
+        }
+
+        return /(research|report|reports|investigation|analyse|analyze|analysis|findings|insights).*(miniapp|mini app|mini-app|artifact|artifacts|artefact|artefacts)/i.test(rawText)
+            || /(miniapp|mini app|mini-app|artifact|artifacts|artefact|artefacts).*(research|report|reports|investigation|analyse|analyze|analysis|findings|insights)/i.test(rawText)
+            || /research.*(miniapp|mini app|mini-app|artifact)|(?:miniapp|mini app|mini-app|artifact).*research/i.test(normalized);
     }
 
     _isQuestionIntent(text) {
@@ -7308,6 +7459,9 @@ class ConnectorWhatsapp {
         let phoneContext = (await this._getWhatsappPhoneContext(phone)) || {};
         const orchestratorMergedPrompt = this._normalizeWhatsappResearchReportText(options && options.orchestratorMergedPrompt ? options.orchestratorMergedPrompt : '');
         const originalRequestText = this._normalizeWhatsappResearchReportText(options && options.originalRequestText ? options.originalRequestText : requestText);
+        const cachedSourceContext = options && options.cachedSourceContext && typeof options.cachedSourceContext === 'object'
+            ? options.cachedSourceContext
+            : null;
 
         console.info('[ConnectorWhatsapp][artifact] Handling WhatsApp artifact request', {
             phone,
@@ -7342,7 +7496,9 @@ class ConnectorWhatsapp {
         this._clearPendingArtifactSelection(phone);
 
         const artifactPromptResolution = this._composeWhatsappArtifactPrompt(originalRequestText, phoneContext, {
-            mergedPrompt: orchestratorMergedPrompt
+            mergedPrompt: orchestratorMergedPrompt,
+            cachedSourceContext,
+            allowKnowledgeEntryMemoryFollowUp: !!(options && options.allowKnowledgeEntryMemoryFollowUp)
         });
         const effectiveArtifactPrompt = artifactPromptResolution && artifactPromptResolution.prompt
             ? artifactPromptResolution.prompt
@@ -7356,6 +7512,8 @@ class ConnectorWhatsapp {
             basePrompt: String(artifactPromptResolution && artifactPromptResolution.basePrompt ? artifactPromptResolution.basePrompt : ''),
             currentPrompt: String(artifactPromptResolution && artifactPromptResolution.currentPrompt ? artifactPromptResolution.currentPrompt : ''),
             effectiveArtifactPrompt: String(effectiveArtifactPrompt || ''),
+            derivedFromCachedSource: !!(artifactPromptResolution && artifactPromptResolution.derivedFromCachedSource),
+            sourceKind: String(artifactPromptResolution && artifactPromptResolution.sourceKind ? artifactPromptResolution.sourceKind : ''),
             modificationsCount: artifactPromptResolution && Array.isArray(artifactPromptResolution.modifications)
                 ? artifactPromptResolution.modifications.length
                 : 0
@@ -9048,6 +9206,8 @@ class ConnectorWhatsapp {
             }
 
             let allowDocumentSummaryMemoryFollowUp = false;
+            let allowKnowledgeEntryMemoryFollowUp = false;
+            let artifactCachedSourceContext = null;
             const followUpToolMap = {
                 research: 'research',
                 presentation: 'presentation',
@@ -9059,6 +9219,46 @@ class ConnectorWhatsapp {
                 const explicitSwitch = !!explicitSwitchTarget && explicitSwitchTarget !== followUpToolMap[activeFollowUpSession.kind];
                 if (explicitSwitch) {
                     allowDocumentSummaryMemoryFollowUp = activeFollowUpSession.kind === 'document-summary' && explicitSwitchTarget === 'presentation';
+                    allowKnowledgeEntryMemoryFollowUp = activeFollowUpSession.kind === 'knowledge-entry' && explicitSwitchTarget === 'artifact';
+                    if (explicitSwitchTarget === 'artifact') {
+                        if (activeFollowUpSession.kind === 'document-summary') {
+                            const cachedSummaryText = this._normalizeWhatsappResearchReportText(
+                                activeFollowUpSession.sourceText || documentSummaryMemory?.sourceText || ''
+                            );
+                            if (cachedSummaryText) {
+                                artifactCachedSourceContext = {
+                                    kind: 'document-summary',
+                                    sourceText: cachedSummaryText,
+                                    title: activeFollowUpSession.title || documentSummaryMemory?.title || activeFollowUpSession.documentName || documentSummaryMemory?.documentName || '',
+                                    documentId: activeFollowUpSession.documentId || documentSummaryMemory?.documentId || '',
+                                    documentName: activeFollowUpSession.documentName || documentSummaryMemory?.documentName || ''
+                                };
+                            }
+                        } else if (activeFollowUpSession.kind === 'research') {
+                            const cachedResearchText = this._normalizeWhatsappResearchReportText(activeFollowUpSession.sourceText || '');
+                            if (cachedResearchText) {
+                                artifactCachedSourceContext = {
+                                    kind: 'research',
+                                    sourceText: cachedResearchText,
+                                    title: activeFollowUpSession.title || 'Research Report'
+                                };
+                            }
+                        } else if (activeFollowUpSession.kind === 'knowledge-entry') {
+                            const knowledgeEntryMemory = this._getWhatsappKnowledgeEntryMemory(phoneContext);
+                            const cachedKnowledgeText = this._normalizeWhatsappResearchReportText(
+                                activeFollowUpSession.sourceText || knowledgeEntryMemory?.sourceText || ''
+                            );
+                            if (cachedKnowledgeText) {
+                                artifactCachedSourceContext = {
+                                    kind: 'knowledge-entry',
+                                    sourceText: cachedKnowledgeText,
+                                    title: activeFollowUpSession.title || knowledgeEntryMemory?.title || knowledgeEntryMemory?.entryTitle || '',
+                                    documentId: activeFollowUpSession.documentId || knowledgeEntryMemory?.entryId || '',
+                                    documentName: activeFollowUpSession.documentName || knowledgeEntryMemory?.collectionName || ''
+                                };
+                            }
+                        }
+                    }
                     phoneContext = (await this._clearWhatsappFollowUpSession(normalizedPhone, phoneContext)) || phoneContext;
                 }
             }
@@ -9114,7 +9314,9 @@ class ConnectorWhatsapp {
                 this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
                 await this._handleWhatsappArtifact(normalizedPhone, userText, resolvedLanguage, {
                     orchestratorMergedPrompt: msg?.orchestrator?.mergedPrompt || '',
-                    originalRequestText: userText
+                    originalRequestText: userText,
+                    cachedSourceContext: artifactCachedSourceContext,
+                    allowKnowledgeEntryMemoryFollowUp
                 });
                 return;
             }
