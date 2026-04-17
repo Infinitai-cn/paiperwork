@@ -518,6 +518,44 @@ const artifactKeymap = {
         '保存済みのミニアプリ', '保存済みのアーティファクト', '自分のミニアプリ', '自分のアーティファクト',
         '저장된 미니앱', '저장된 미니 앱', '저장된 아티팩트', '내 미니앱', '내 아티팩트'
     ],
+    sourceCues: [
+        'with this summary', 'with the summary', 'from this summary', 'from the summary', 'based on this summary', 'based on the summary', 'use this summary', 'use the summary',
+        'with this research', 'with the research', 'from this research', 'from the research', 'based on this research', 'based on the research', 'based on this report', 'based on the report', 'use this research', 'use the research', 'use this report', 'use the report',
+        'with this knowledge base entry', 'with this knowledge entry', 'with this entry', 'from this knowledge base entry', 'from this knowledge entry', 'from this entry', 'based on this knowledge base entry', 'based on this knowledge entry', 'based on this entry', 'use this knowledge base entry', 'use this knowledge entry', 'use this entry',
+        'con este resumen', 'con el resumen', 'a partir de este resumen', 'a partir del resumen', 'basado en este resumen', 'basado en el resumen', 'usa este resumen', 'usa el resumen',
+        'con esta investigación', 'con esta investigacion', 'con la investigación', 'con la investigacion', 'a partir de esta investigación', 'a partir de esta investigacion', 'a partir de la investigación', 'a partir de la investigacion', 'basado en esta investigación', 'basado en esta investigacion', 'basado en el informe', 'usa esta investigación', 'usa esta investigacion', 'usa la investigación', 'usa la investigacion', 'usa este informe', 'usa el informe',
+        'con esta entrada de la base de conocimiento', 'con esta entrada de conocimiento', 'con esta entrada', 'a partir de esta entrada de la base de conocimiento', 'a partir de esta entrada de conocimiento', 'a partir de esta entrada', 'basado en esta entrada de la base de conocimiento', 'basado en esta entrada de conocimiento', 'basado en esta entrada', 'usa esta entrada de la base de conocimiento', 'usa esta entrada de conocimiento', 'usa esta entrada',
+        'com este resumo', 'com o resumo', 'a partir deste resumo', 'a partir do resumo', 'baseado neste resumo', 'baseado no resumo', 'usa este resumo', 'usa o resumo',
+        'com esta pesquisa', 'com a pesquisa', 'a partir desta pesquisa', 'a partir da pesquisa', 'baseado nesta pesquisa', 'baseado na pesquisa', 'baseado neste relatório', 'baseado neste relatorio', 'baseado no relatório', 'baseado no relatorio', 'usa esta pesquisa', 'usa a pesquisa', 'usa este relatório', 'usa este relatorio', 'usa o relatório', 'usa o relatorio',
+        'com esta entrada da base de conhecimento', 'com esta entrada de conhecimento', 'com esta entrada', 'a partir desta entrada da base de conhecimento', 'a partir desta entrada de conhecimento', 'a partir desta entrada', 'baseado nesta entrada da base de conhecimento', 'baseado nesta entrada de conhecimento', 'baseado nesta entrada', 'usa esta entrada da base de conhecimento', 'usa esta entrada de conhecimento', 'usa esta entrada',
+        'avec ce resume', 'avec ce résumé', 'avec le resume', 'avec le résumé', 'a partir de ce resume', 'à partir de ce résumé', 'a partir du resume', 'à partir du résumé', 'base sur ce resume', 'basé sur ce résumé', 'utilise ce resume', 'utilise ce résumé', 'utilise le resume', 'utilise le résumé',
+        'avec cette recherche', 'avec la recherche', 'a partir de cette recherche', 'à partir de cette recherche', 'a partir de la recherche', 'à partir de la recherche', 'base sur cette recherche', 'basé sur cette recherche', 'base sur ce rapport', 'basé sur ce rapport', 'utilise cette recherche', 'utilise la recherche', 'utilise ce rapport', 'utilise le rapport',
+        'avec cette entree de la base de connaissances', 'avec cette entrée de la base de connaissances', 'avec cette entree de connaissance', 'avec cette entrée de connaissance', 'avec cette entree', 'avec cette entrée', 'a partir de cette entree de la base de connaissances', 'à partir de cette entrée de la base de connaissances', 'base sur cette entree de la base de connaissances', 'basé sur cette entrée de la base de connaissances', 'utilise cette entree de la base de connaissances', 'utilise cette entrée de la base de connaissances', 'utilise cette entree', 'utilise cette entrée',
+        'mit dieser zusammenfassung', 'mit der zusammenfassung', 'aus dieser zusammenfassung', 'aus der zusammenfassung', 'basierend auf dieser zusammenfassung', 'basierend auf der zusammenfassung', 'nutze diese zusammenfassung', 'nutze die zusammenfassung',
+        'mit dieser recherche', 'mit dem forschungsbericht', 'aus dieser recherche', 'aus dem forschungsbericht', 'basierend auf dieser recherche', 'basierend auf dem forschungsbericht', 'nutze diese recherche', 'nutze den forschungsbericht',
+        'mit diesem wissenseintrag', 'mit diesem eintrag', 'aus diesem wissenseintrag', 'aus diesem eintrag', 'basierend auf diesem wissenseintrag', 'basierend auf diesem eintrag', 'nutze diesen wissenseintrag', 'nutze diesen eintrag',
+        'con questo riassunto', 'con il riassunto', 'da questo riassunto', 'dal riassunto', 'basato su questo riassunto', 'basato sul riassunto', 'usa questo riassunto', 'usa il riassunto',
+        'con questa ricerca', 'con la ricerca', 'da questa ricerca', 'dalla ricerca', 'basato su questa ricerca', 'basato sulla ricerca', 'basato su questo rapporto', 'basato sul rapporto', 'usa questa ricerca', 'usa la ricerca', 'usa questo rapporto', 'usa il rapporto',
+        'con questa voce della base di conoscenza', 'con questa voce di conoscenza', 'con questa voce', 'da questa voce della base di conoscenza', 'da questa voce di conoscenza', 'da questa voce', 'basato su questa voce della base di conoscenza', 'basato su questa voce di conoscenza', 'basato su questa voce', 'usa questa voce della base di conoscenza', 'usa questa voce di conoscenza', 'usa questa voce',
+        'с этой сводкой', 'с этой сводки', 'из этой сводки', 'на основе этой сводки', 'на основе сводки', 'используй эту сводку', 'используй сводку',
+        'с этим исследованием', 'из этого исследования', 'на основе этого исследования', 'на основе исследования', 'на основе этого отчета', 'на основе этого отчёта', 'используй это исследование', 'используй исследование', 'используй этот отчет', 'используй этот отчёт',
+        'с этой записью базы знаний', 'с этой записью знаний', 'с этой записью', 'из этой записи базы знаний', 'из этой записи знаний', 'из этой записи', 'на основе этой записи базы знаний', 'на основе этой записи знаний', 'на основе этой записи', 'используй эту запись базы знаний', 'используй эту запись знаний', 'используй эту запись',
+        '用这份摘要', '根据这份摘要', '基于这份摘要', '使用这份摘要', '用摘要', '根据摘要',
+        '用这份研究', '根据这份研究', '基于这份研究', '使用这份研究', '用这份报告', '根据这份报告', '基于这份报告', '使用这份报告', '根据研究', '根据报告',
+        '用这个知识库条目', '根据这个知识库条目', '基于这个知识库条目', '使用这个知识库条目', '用这个条目', '根据这个条目',
+        'この要約で', 'この要約から', '要約から', '要約を使って', 'この要約を使って',
+        'このリサーチで', 'このリサーチから', 'リサーチから', 'このレポートで', 'このレポートから', 'レポートから', 'この研究を使って', 'このレポートを使って',
+        'このナレッジエントリで', 'このナレッジベースのエントリで', 'このエントリで', 'このナレッジエントリから', 'このナレッジベースのエントリから', 'このエントリから', 'このナレッジエントリを使って', 'このエントリを使って',
+        '이 요약으로', '이 요약에서', '요약으로', '요약을 사용해서', '이 요약을 사용해서',
+        '이 리서치로', '이 리서치에서', '리서치로', '이 보고서로', '이 보고서에서', '보고서로', '이 리서치를 사용해서', '이 보고서를 사용해서',
+        '이 지식 항목으로', '이 지식 베이스 항목으로', '이 항목으로', '이 지식 항목에서', '이 지식 베이스 항목에서', '이 항목에서', '이 지식 항목을 사용해서', '이 항목을 사용해서',
+        'باستخدام هذا الملخص', 'باستخدام الملخص', 'من هذا الملخص', 'استنادا إلى هذا الملخص', 'استنادًا إلى هذا الملخص', 'اعتمادا على هذا الملخص', 'اعتمادًا على هذا الملخص',
+        'باستخدام هذا البحث', 'باستخدام البحث', 'من هذا البحث', 'استنادا إلى هذا البحث', 'استنادًا إلى هذا البحث', 'باستخدام هذا التقرير', 'باستخدام التقرير', 'من هذا التقرير', 'استنادا إلى هذا التقرير', 'استنادًا إلى هذا التقرير',
+        'باستخدام إدخال قاعدة المعرفة هذا', 'باستخدام إدخال المعرفة هذا', 'باستخدام هذا الإدخال', 'من إدخال قاعدة المعرفة هذا', 'من إدخال المعرفة هذا', 'استنادا إلى إدخال قاعدة المعرفة هذا', 'استنادًا إلى إدخال قاعدة المعرفة هذا', 'استنادا إلى هذا الإدخال', 'استنادًا إلى هذا الإدخال',
+        'इस सारांश के साथ', 'इस सारांश से', 'इस सारांश के आधार पर', 'सारांश के आधार पर', 'इस सारांश का उपयोग करके',
+        'इस रिसर्च के साथ', 'इस रिसर्च से', 'इस शोध के साथ', 'इस शोध से', 'इस रिसर्च के आधार पर', 'इस शोध के आधार पर', 'इस रिपोर्ट के साथ', 'इस रिपोर्ट से', 'इस रिपोर्ट के आधार पर', 'इस रिसर्च का उपयोग करके', 'इस शोध का उपयोग करके', 'इस रिपोर्ट का उपयोग करके',
+        'इस नॉलेज बेस एंट्री के साथ', 'इस नॉलेज एंट्री के साथ', 'इस एंट्री के साथ', 'इस नॉलेज बेस एंट्री से', 'इस नॉलेज एंट्री से', 'इस एंट्री से', 'इस नॉलेज बेस एंट्री के आधार पर', 'इस नॉलेज एंट्री के आधार पर', 'इस एंट्री के आधार पर', 'इस नॉलेज बेस एंट्री का उपयोग करके', 'इस नॉलेज एंट्री का उपयोग करके', 'इस एंट्री का उपयोग करके'
+    ],
     followUpCloseCues: commonFollowUpCloseCues,
     followUpContinueCues: commonFollowUpContinueCues,
     webCues: [
@@ -531,13 +569,65 @@ const artifactKeymap = {
         '使用互联网', '使用网络', '使用网页搜索', '联网搜索', '使用在线资料',
         'インターネットを使って', 'ウェブを使って', 'ウェブ検索を使って', 'オンラインで検索して', 'オンライン情報を使って',
         '인터넷을 사용해서', '웹을 사용해서', '웹 검색을 사용해서', '온라인에서 검색해서', '온라인 자료를 사용해서'
-    ]
+    ],
+    workflows: {
+        summaryToArtifact: [
+            'summarize and create a miniapp', 'summarise and create a miniapp', 'summary and create a miniapp', 'summary and miniapp', 'summary miniapp',
+            'summarize then create a miniapp', 'summarise then create a miniapp', 'create a miniapp from the summary', 'make a miniapp from the summary', 'use the summary to create a miniapp',
+            'summarize and create an artifact', 'summary and artifact', 'create an artifact from the summary', 'use the summary to create an artifact',
+            'resumir y crear una miniaplicación', 'resumir y crear una miniaplicacion', 'resumen y crear una miniaplicación', 'resumen y crear una miniaplicacion', 'resumen y miniaplicación', 'resumen y miniaplicacion', 'resumen miniaplicación', 'resumen miniaplicacion', 'crear una miniaplicación con el resumen', 'crear una miniaplicacion con el resumen', 'usar el resumen para crear una miniaplicación', 'usar el resumen para crear una miniaplicacion',
+            'resumir e criar uma miniaplicação', 'resumir e criar uma miniaplicacao', 'resumo e criar uma miniaplicação', 'resumo e criar uma miniaplicacao', 'resumo e miniaplicação', 'resumo e miniaplicacao', 'resumo miniaplicação', 'resumo miniaplicacao', 'criar uma miniaplicação com o resumo', 'criar uma miniaplicacao com o resumo', 'usar o resumo para criar uma miniaplicação', 'usar o resumo para criar uma miniaplicacao',
+            'résumer et créer une miniapp', 'resumer et creer une miniapp', 'résumé et créer une miniapp', 'resume et creer une miniapp', 'résumé et miniapp', 'resume et miniapp', 'résumé miniapp', 'resume miniapp', 'créer une miniapp à partir du résumé', 'creer une miniapp a partir du resume', 'utiliser le résumé pour créer une miniapp', 'utiliser le resume pour creer une miniapp',
+            'zusammenfassen und eine miniapp erstellen', 'zusammenfassung und eine miniapp erstellen', 'zusammenfassung und miniapp', 'zusammenfassung miniapp', 'eine miniapp aus der zusammenfassung erstellen', 'mit der zusammenfassung eine miniapp erstellen',
+            'riassumere e creare una miniapp', 'riassunto e creare una miniapp', 'riassunto e miniapp', 'riassunto miniapp', 'creare una miniapp dal riassunto', 'usare il riassunto per creare una miniapp',
+            'сделать сводку и создать мини-приложение', 'сводка и мини-приложение', 'создать мини-приложение из сводки', 'использовать сводку для создания мини-приложения',
+            '总结并创建迷你应用', '摘要并创建迷你应用', '摘要和迷你应用', '总结和迷你应用', '根据摘要创建迷你应用', '用摘要创建迷你应用',
+            '要約してミニアプリを作成', '要約とミニアプリ', '要約ミニアプリ', '要約からミニアプリを作成', '要約を使ってミニアプリを作成',
+            '요약하고 미니앱 만들기', '요약과 미니앱', '요약 미니앱', '요약으로 미니앱 만들기', '요약을 사용해 미니앱 만들기',
+            'لخص وأنشئ ميني آب', 'لخص وأنشئ تطبيقا مصغرا', 'لخّص وأنشئ تطبيقًا مصغرًا', 'الملخص وميني آب', 'أنشئ ميني آب من الملخص', 'أنشئ تطبيقا مصغرا من الملخص', 'استخدم الملخص لإنشاء ميني آب',
+            'सारांश बनाओ और मिनीऐप बनाओ', 'सारांश और मिनीऐप', 'सारांश मिनीऐप', 'सारांश से मिनीऐप बनाओ', 'सारांश का उपयोग करके मिनीऐप बनाओ'
+        ],
+        researchToArtifact: [
+            'create a miniapp from this research', 'make a miniapp from this research', 'use this research to create a miniapp', 'create a miniapp from this report', 'use this report to create a miniapp',
+            'create an artifact from this research', 'use this research to create an artifact',
+            'crear una miniaplicación con esta investigación', 'crear una miniaplicacion con esta investigacion', 'hacer una miniaplicación con esta investigación', 'hacer una miniaplicacion con esta investigacion', 'usar esta investigación para crear una miniaplicación', 'usar esta investigacion para crear una miniaplicacion', 'crear una miniaplicación con este informe', 'crear una miniaplicacion con este informe',
+            'criar uma miniaplicação com esta pesquisa', 'criar uma miniaplicacao com esta pesquisa', 'fazer uma miniaplicação com esta pesquisa', 'fazer uma miniaplicacao com esta pesquisa', 'usar esta pesquisa para criar uma miniaplicação', 'usar esta pesquisa para criar uma miniaplicacao', 'criar uma miniaplicação com este relatório', 'criar uma miniaplicacao com este relatorio',
+            'créer une miniapp avec cette recherche', 'creer une miniapp avec cette recherche', 'utiliser cette recherche pour créer une miniapp', 'utiliser cette recherche pour creer une miniapp', 'créer une miniapp avec ce rapport', 'creer une miniapp avec ce rapport',
+            'eine miniapp aus dieser recherche erstellen', 'eine miniapp aus diesem forschungsbericht erstellen', 'diese recherche verwenden um eine miniapp zu erstellen', 'diesen forschungsbericht verwenden um eine miniapp zu erstellen',
+            'creare una miniapp da questa ricerca', 'usare questa ricerca per creare una miniapp', 'creare una miniapp da questo rapporto', 'usare questo rapporto per creare una miniapp',
+            'создать мини-приложение из этого исследования', 'использовать это исследование для создания мини-приложения', 'создать мини-приложение из этого отчета', 'создать мини-приложение из этого отчёта',
+            '根据这份研究创建迷你应用', '用这份研究创建迷你应用', '根据这份报告创建迷你应用', '用这份报告创建迷你应用',
+            'このリサーチからミニアプリを作成', 'このリサーチを使ってミニアプリを作成', 'このレポートからミニアプリを作成', 'このレポートを使ってミニアプリを作成',
+            '이 리서치로 미니앱 만들기', '이 리서치를 사용해 미니앱 만들기', '이 보고서로 미니앱 만들기', '이 보고서를 사용해 미니앱 만들기',
+            'أنشئ ميني آب من هذا البحث', 'أنشئ تطبيقا مصغرا من هذا البحث', 'استخدم هذا البحث لإنشاء ميني آب', 'أنشئ ميني آب من هذا التقرير', 'استخدم هذا التقرير لإنشاء ميني آب',
+            'इस रिसर्च से मिनीऐप बनाओ', 'इस रिसर्च का उपयोग करके मिनीऐप बनाओ', 'इस शोध से मिनीऐप बनाओ', 'इस रिपोर्ट से मिनीऐप बनाओ', 'इस रिपोर्ट का उपयोग करके मिनीऐप बनाओ'
+        ],
+        knowledgeToArtifact: [
+            'create a miniapp from this knowledge base entry', 'create a miniapp from this knowledge entry', 'create a miniapp from this entry', 'make a miniapp from this knowledge base entry', 'use this knowledge base entry to create a miniapp', 'use this entry to create a miniapp',
+            'create an artifact from this knowledge base entry', 'use this knowledge base entry to create an artifact',
+            'crear una miniaplicación con esta entrada de la base de conocimiento', 'crear una miniaplicacion con esta entrada de la base de conocimiento', 'crear una miniaplicación con esta entrada de conocimiento', 'crear una miniaplicacion con esta entrada de conocimiento', 'crear una miniaplicación con esta entrada', 'crear una miniaplicacion con esta entrada', 'usar esta entrada de la base de conocimiento para crear una miniaplicación', 'usar esta entrada para crear una miniaplicación',
+            'criar uma miniaplicação com esta entrada da base de conhecimento', 'criar uma miniaplicacao com esta entrada da base de conhecimento', 'criar uma miniaplicação com esta entrada de conhecimento', 'criar uma miniaplicacao com esta entrada de conhecimento', 'criar uma miniaplicação com esta entrada', 'criar uma miniaplicacao com esta entrada', 'usar esta entrada da base de conhecimento para criar uma miniaplicação', 'usar esta entrada para criar uma miniaplicação',
+            'créer une miniapp avec cette entrée de la base de connaissances', 'creer une miniapp avec cette entree de la base de connaissances', 'créer une miniapp avec cette entrée', 'creer une miniapp avec cette entree', 'utiliser cette entrée de la base de connaissances pour créer une miniapp', 'utiliser cette entrée pour créer une miniapp',
+            'eine miniapp aus diesem wissenseintrag erstellen', 'eine miniapp aus diesem eintrag erstellen', 'diesen wissenseintrag verwenden um eine miniapp zu erstellen', 'diesen eintrag verwenden um eine miniapp zu erstellen',
+            'creare una miniapp da questa voce della base di conoscenza', 'creare una miniapp da questa voce di conoscenza', 'creare una miniapp da questa voce', 'usare questa voce della base di conoscenza per creare una miniapp', 'usare questa voce per creare una miniapp',
+            'создать мини-приложение из этой записи базы знаний', 'создать мини-приложение из этой записи знаний', 'создать мини-приложение из этой записи', 'использовать эту запись базы знаний для создания мини-приложения', 'использовать эту запись для создания мини-приложения',
+            '根据这个知识库条目创建迷你应用', '用这个知识库条目创建迷你应用', '根据这个条目创建迷你应用', '用这个条目创建迷你应用',
+            'このナレッジエントリからミニアプリを作成', 'このナレッジベースのエントリからミニアプリを作成', 'このエントリからミニアプリを作成', 'このナレッジエントリを使ってミニアプリを作成', 'このエントリを使ってミニアプリを作成',
+            '이 지식 항목으로 미니앱 만들기', '이 지식 베이스 항목으로 미니앱 만들기', '이 항목으로 미니앱 만들기', '이 지식 항목을 사용해 미니앱 만들기', '이 항목을 사용해 미니앱 만들기',
+            'أنشئ ميني آب من إدخال قاعدة المعرفة هذا', 'أنشئ تطبيقا مصغرا من إدخال قاعدة المعرفة هذا', 'أنشئ ميني آب من هذا الإدخال', 'استخدم إدخال قاعدة المعرفة هذا لإنشاء ميني آب', 'استخدم هذا الإدخال لإنشاء ميني آب',
+            'इस नॉलेज बेस एंट्री से मिनीऐप बनाओ', 'इस नॉलेज एंट्री से मिनीऐप बनाओ', 'इस एंट्री से मिनीऐप बनाओ', 'इस नॉलेज बेस एंट्री का उपयोग करके मिनीऐप बनाओ', 'इस एंट्री का उपयोग करके मिनीऐप बनाओ'
+        ]
+    }
 };
 
 artifactKeymap.terms = [...new Set([
     ...artifactKeymap.intent,
     ...artifactKeymap.savedCues,
+    ...artifactKeymap.sourceCues,
     ...artifactKeymap.webCues,
+    ...artifactKeymap.workflows.summaryToArtifact,
+    ...artifactKeymap.workflows.researchToArtifact,
+    ...artifactKeymap.workflows.knowledgeToArtifact,
     ...Object.values(artifactKeymap.actions).flat()
 ])];
 
@@ -828,10 +918,14 @@ const workflowRules = {
         optional: [
             { id: 'artifactBrowse', tokens: artifactKeymap.actions.browse, wholeWordOnly: true },
             { id: 'artifactSend', tokens: artifactKeymap.actions.send, wholeWordOnly: true },
-            { id: 'artifactWeb', tokens: artifactKeymap.webCues, wholeWordOnly: true }
+            { id: 'artifactWeb', tokens: artifactKeymap.webCues, wholeWordOnly: true },
+            { id: 'artifactSourceCue', tokens: artifactKeymap.sourceCues, wholeWordOnly: true }
         ],
         strong: [
-            { id: 'savedArtifact', tokens: artifactKeymap.savedCues, wholeWordOnly: true }
+            { id: 'savedArtifact', tokens: artifactKeymap.savedCues, wholeWordOnly: true },
+            { id: 'summaryToArtifact', tokens: artifactKeymap.workflows.summaryToArtifact, wholeWordOnly: true },
+            { id: 'researchToArtifact', tokens: artifactKeymap.workflows.researchToArtifact, wholeWordOnly: true },
+            { id: 'knowledgeToArtifact', tokens: artifactKeymap.workflows.knowledgeToArtifact, wholeWordOnly: true }
         ],
         negative: [
             { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true },
