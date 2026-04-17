@@ -1729,6 +1729,25 @@ class OllamaAPI {
 
         let streamProcessor = null;
         let aiDiv = null;
+        const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
+            ? window.__paiperworkWhatsappActiveRequest
+            : null;
+        const applyWhatsappRequestMetadata = (element) => {
+            if (!element || !whatsappRequestScope || !whatsappRequestScope.id) {
+                return;
+            }
+
+            element.dataset.whatsappRequestId = whatsappRequestScope.id;
+            if (whatsappRequestScope.phone) {
+                element.dataset.whatsappPhone = whatsappRequestScope.phone;
+            }
+            if (whatsappRequestScope.replyTarget) {
+                element.dataset.whatsappReplyTarget = whatsappRequestScope.replyTarget;
+            }
+            if (whatsappRequestScope.deviceId) {
+                element.dataset.whatsappDeviceId = whatsappRequestScope.deviceId;
+            }
+        };
 
         try {
             // Get the original prompt before any thinking tags removal
@@ -2010,6 +2029,7 @@ class OllamaAPI {
             // Create AI message container
             aiDiv = document.createElement('div');
             aiDiv.className = 'assistant-message';
+            applyWhatsappRequestMetadata(aiDiv);
             aiReplies.appendChild(aiDiv);
 
             // Create the stream processor

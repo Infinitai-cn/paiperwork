@@ -1,3 +1,24 @@
+async function stopWhatsappGatewayForPreviousMasterKey(previousHashedMasterKey) {
+    const previousKey = String(previousHashedMasterKey || '').trim();
+    if (!previousKey) {
+        return;
+    }
+
+    const params = new URLSearchParams({ stop: 'true', user: previousKey });
+    try {
+        await fetch('/api/whatsapp/qr?' + params.toString(), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Paiperwork-User': previousKey
+            },
+            keepalive: true
+        });
+    } catch (error) {
+        console.warn('selection: failed to stop WhatsApp gateway for previous master key', error);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const startButton = document.getElementById('Start-button');
     Lang.initialize();
@@ -22,6 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Now it's safe to hash the masterkey
             const hashedMasterKey = await PaiperworkDB.hashMasterKeyValue(masterkey);
     
+            const previousHashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+            if (previousHashedMasterKey && previousHashedMasterKey !== hashedMasterKey) {
+                await stopWhatsappGatewayForPreviousMasterKey(previousHashedMasterKey);
+            }
+
             // Encrypt the masterkey
             const encryptedMasterKey = await PaiperworkDB.encrypt(hashedMasterKey, masterkey);
     
