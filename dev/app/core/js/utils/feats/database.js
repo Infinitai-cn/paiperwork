@@ -3075,6 +3075,9 @@ class PaiperworkDB {
 
             await this.saveToStorage(presentationsDb.export(), hashedMasterKey, 'presentations');
             return true;
+        } catch (error) {
+            console.error('savePromptablePresentationHtmlContent error:', error);
+            return false;
         } finally {
             try {
                 presentationsDb?.close?.();
@@ -3086,6 +3089,7 @@ class PaiperworkDB {
 
     // Save a promptable presentation metadata in main DB and HTML content in html DB.
     static async savePromptablePresentation(hashedMasterKey, payload) {
+        let db = null;
         try {
             if (!hashedMasterKey) throw new Error('Missing master key');
 
@@ -3106,7 +3110,7 @@ class PaiperworkDB {
             }
 
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
-            const db = existingDb ? new this.SQL.Database(existingDb) : new this.SQL.Database();
+            db = existingDb ? new this.SQL.Database(existingDb) : new this.SQL.Database();
 
             // Keep metadata in main database only.
             db.run(`
@@ -3135,22 +3139,32 @@ class PaiperworkDB {
                 ? idResult[0].values[0][0]
                 : null;
 
-            await this.saveToStorage(db.export(), hashedMasterKey);
-
             if (!insertedId) {
                 throw new Error('Could not create promptable presentation metadata record');
             }
 
-            await this.savePromptablePresentationHtmlContent(hashedMasterKey, insertedId, html);
+            const htmlSaved = await this.savePromptablePresentationHtmlContent(hashedMasterKey, insertedId, html);
+            if (!htmlSaved) {
+                throw new Error('Could not persist promptable presentation HTML content');
+            }
+
+            await this.saveToStorage(db.export(), hashedMasterKey);
             return insertedId;
         } catch (error) {
             console.error('savePromptablePresentation error:', error);
             throw error;
+        } finally {
+            try {
+                db?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
         }
     }
 
     // Load promptable presentation list metadata for a given masterkey
     static async getPromptablePresentations(hashedMasterKey) {
+        let db = null;
         try {
             if (!hashedMasterKey) return [];
 
@@ -3163,7 +3177,7 @@ class PaiperworkDB {
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
             if (!existingDb) return [];
 
-            const db = new this.SQL.Database(existingDb);
+            db = new this.SQL.Database(existingDb);
             const tableName = `promptable_presentations_${hashedMasterKey}`;
             const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
             if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
@@ -3179,16 +3193,68 @@ class PaiperworkDB {
                 return [];
             }
 
-            return rows[0].values.map(row => ({
+            const rawItems = rows[0].values.map(row => ({
                 id: row[0],
                 title: row[1] || '',
                 mode: hasModeColumn ? (row[2] || 'html') : 'html',
                 created_at: hasModeColumn ? (row[3] || '') : (row[2] || ''),
                 updated_at: hasModeColumn ? (row[4] || '') : (row[3] || '')
             }));
+
+            const pruneMetadataItems = async (items) => {
+                if (!items || !items.length) {
+                    return;
+                }
+
+                for (const item of items) {
+                    db.run(`DELETE FROM ${tableName} WHERE id = ?`, [item.id]);
+                }
+                await this.saveToStorage(db.export(), hashedMasterKey);
+            };
+
+            const htmlTableName = `promptable_presentations_html_${hashedMasterKey}`;
+            const existingPresentationsDb = await this.getExistingDatabase(hashedMasterKey, 'presentations');
+            if (!existingPresentationsDb) {
+                await pruneMetadataItems(rawItems);
+                return [];
+            }
+
+            const presentationsDb = new this.SQL.Database(existingPresentationsDb);
+            try {
+                const htmlTableCheck = presentationsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
+                if (!htmlTableCheck || !htmlTableCheck[0] || !htmlTableCheck[0].values.length) {
+                    await pruneMetadataItems(rawItems);
+                    return [];
+                }
+
+                const htmlRows = presentationsDb.exec(`SELECT presentation_id FROM ${htmlTableName}`);
+                const htmlIds = new Set((htmlRows && htmlRows[0] && htmlRows[0].values ? htmlRows[0].values : []).map(row => Number(row[0] || 0)).filter(Boolean));
+                const orphanedItems = rawItems.filter(item => !htmlIds.has(Number(item.id || 0)));
+
+                if (orphanedItems.length) {
+                    for (const orphaned of orphanedItems) {
+                        db.run(`DELETE FROM ${tableName} WHERE id = ?`, [orphaned.id]);
+                    }
+                    await this.saveToStorage(db.export(), hashedMasterKey);
+                }
+
+                return rawItems.filter(item => htmlIds.has(Number(item.id || 0)));
+            } finally {
+                try {
+                    presentationsDb.close();
+                } catch (_error) {
+                    // Ignore SQL.js close errors during cleanup.
+                }
+            }
         } catch (error) {
             console.error('getPromptablePresentations error:', error);
             return [];
+        } finally {
+            try {
+                db?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
         }
     }
 
@@ -3349,6 +3415,7 @@ class PaiperworkDB {
 
     // Delete a saved promptable presentation by id
     static async deletePromptablePresentation(hashedMasterKey, id) {
+        let db = null;
         let presentationsDb = null;
         try {
             if (!hashedMasterKey || !id) return false;
@@ -3362,15 +3429,12 @@ class PaiperworkDB {
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
             if (!existingDb) return false;
 
-            const db = new this.SQL.Database(existingDb);
+            db = new this.SQL.Database(existingDb);
             const tableName = `promptable_presentations_${hashedMasterKey}`;
             const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
             if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
                 return false;
             }
-
-            db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
-            await this.saveToStorage(db.export(), hashedMasterKey);
 
             const htmlTableName = `promptable_presentations_html_${hashedMasterKey}`;
             const existingPresentationsDb = await this.getExistingDatabase(hashedMasterKey, 'presentations');
@@ -3383,11 +3447,19 @@ class PaiperworkDB {
                 }
             }
 
+            db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
+            await this.saveToStorage(db.export(), hashedMasterKey);
+
             return true;
         } catch (error) {
             console.error('deletePromptablePresentation error:', error);
             return false;
         } finally {
+            try {
+                db?.close?.();
+            } catch (_error) {
+                // Ignore SQL.js close errors during cleanup.
+            }
             try {
                 presentationsDb?.close?.();
             } catch (_error) {
@@ -6367,6 +6439,97 @@ class PaiperworkDB {
         } catch (error) {
             console.error('Error loading conversations by group:', error);
             return { conversations: [], error };
+        }
+    }
+
+    static async findConversationGroupByInitialUserText(hashedMasterKey, expectedText, options = null) {
+        if (!hashedMasterKey || !expectedText) {
+            return 0;
+        }
+
+        try {
+            const db = await this.getDatabase(hashedMasterKey);
+            if (!db) {
+                return 0;
+            }
+
+            const queryResult = db.exec(`
+                SELECT conversation_group, conversation, role, timestamp
+                FROM conversations_${hashedMasterKey}
+                ORDER BY timestamp ASC
+            `);
+
+            if (!queryResult[0]?.values || !queryResult[0].values.length) {
+                return 0;
+            }
+
+            const expected = String(expectedText || '').replace(/<[^>]*>/g, '').trim();
+            const normalizedPhone = String(options?.normalizedPhone || '').replace(/@.*$/g, '').trim();
+            const exactCandidates = new Set([expected].filter(Boolean));
+            const seenGroups = new Set();
+
+            for (const row of queryResult[0].values) {
+                const groupId = Number(row[0] || 0);
+                if (!groupId || seenGroups.has(groupId)) {
+                    continue;
+                }
+
+                const encryptedConversation = row[1];
+                const encryptedRole = row[2];
+                if (!encryptedConversation || !encryptedRole) {
+                    continue;
+                }
+
+                let decryptedRole = '';
+                let decryptedMessage = '';
+                try {
+                    decryptedRole = await this.decrypt(hashedMasterKey, JSON.parse(encryptedRole));
+                    decryptedMessage = await this.decrypt(hashedMasterKey, JSON.parse(encryptedConversation));
+                } catch (_error) {
+                    continue;
+                }
+
+                if (decryptedRole !== 'user') {
+                    continue;
+                }
+
+                seenGroups.add(groupId);
+
+                let normalizedMessage = String(decryptedMessage || '').trim();
+                try {
+                    const parsedMessage = JSON.parse(normalizedMessage);
+                    if (parsedMessage && typeof parsedMessage === 'object' && parsedMessage.text !== undefined) {
+                        normalizedMessage = String(parsedMessage.text || '').trim();
+                    }
+                } catch (_error) {
+                    // Keep raw plaintext messages as-is.
+                }
+
+                normalizedMessage = normalizedMessage.replace(/<[^>]*>/g, '').trim();
+                if (!normalizedMessage) {
+                    continue;
+                }
+
+                if (exactCandidates.has(normalizedMessage)) {
+                    return groupId;
+                }
+
+                if (
+                    normalizedPhone
+                    && normalizedMessage.includes(`(${normalizedPhone})`)
+                    && (
+                        normalizedMessage.startsWith('Conversation started by ')
+                        || normalizedMessage.startsWith('Personal WhatsApp conversation for ')
+                    )
+                ) {
+                    return groupId;
+                }
+            }
+
+            return 0;
+        } catch (error) {
+            console.error('Error finding conversation group by initial user text:', error);
+            return 0;
         }
     }
 

@@ -1034,12 +1034,18 @@ func enforceWhatsappActiveUserAccess(w http.ResponseWriter, r *http.Request, req
 		return userKey, true
 	}
 
+	requestedScope := safeUserKeyForFilename(userKey)
+	activeScope := safeUserKeyForFilename(currentActiveUser)
+	log.Printf("enforceWhatsappActiveUserAccess: rejecting request active=%s requested=%s gatewayRunning=%v requireGatewayRunning=%v path=%s", activeScope, requestedScope, isGatewayRunning(), requireGatewayRunning, r.URL.Path)
+
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusConflict)
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"error":   "user mismatch",
-		"message": "WhatsApp gateway already active for another user. Stop and restart with current user key.",
+		"error":          "user mismatch",
+		"message":        "WhatsApp gateway already active for another user. Stop and restart with current user key.",
+		"activeScope":    activeScope,
+		"requestedScope": requestedScope,
 	})
 	return userKey, false
 }
@@ -5504,6 +5510,106 @@ func whatsappSendProxyHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "gateway-unavailable", http.StatusServiceUnavailable)
 }
 
+func whatsappSendLinkProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Paiperwork-User")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if !whatsappServerStarted {
+		log.Printf("whatsappSendLinkProxy: rejected because whatsapp server is stopped")
+		http.Error(w, "whatsapp-server-stopped", http.StatusServiceUnavailable)
+		return
+	}
+
+	userKey, allowed := enforceWhatsappActiveUserAccess(w, r, false)
+	if !allowed {
+		return
+	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	explicitDeviceID := strings.TrimSpace(r.URL.Query().Get("device_id"))
+	requestedDeviceID := getPreferredWhatsappDeviceIDFromRequest(r)
+	if explicitDeviceID != "" {
+		if isWhatsappFreshPairRequested(r) {
+			if shouldAcceptFreshPairDeviceCandidate(explicitDeviceID) {
+				requestedDeviceID = explicitDeviceID
+			}
+		} else if isPersistablePreferredWhatsappDeviceID(explicitDeviceID) {
+			requestedDeviceID = canonicalizePreferredWhatsappDeviceID(userKey, explicitDeviceID)
+		}
+	}
+
+	body, err := io.ReadAll(io.LimitReader(r.Body, 2*1024*1024))
+	if err != nil {
+		log.Printf("whatsappSendLinkProxy: failed to read body: %v", err)
+		http.Error(w, "bad-request", http.StatusBadRequest)
+		return
+	}
+
+	var outgoing struct {
+		Phone   string `json:"phone"`
+		To      string `json:"to"`
+		Link    string `json:"link"`
+		Caption string `json:"caption"`
+	}
+	if err := json.Unmarshal(body, &outgoing); err == nil {
+		chat := strings.TrimSpace(outgoing.Phone)
+		if chat == "" {
+			chat = strings.TrimSpace(outgoing.To)
+		}
+		content := strings.TrimSpace(outgoing.Caption)
+		if content == "" {
+			content = strings.TrimSpace(outgoing.Link)
+		}
+		if chat != "" && content != "" {
+			recordWhatsappOutgoingMessage(userKey, chat, content)
+			log.Printf("whatsappSendLinkProxy: recorded outgoing link body length=%d", len(content))
+		}
+		if explicitDeviceID == "" {
+			if routedDeviceID := resolveWhatsappChatDeviceRoute(userKey, chat, outgoing.Phone, outgoing.To); routedDeviceID != "" {
+				requestedDeviceID = routedDeviceID
+				log.Printf("whatsappSendLinkProxy: using chat-routed device %s for target %s", maskPhoneForLog(routedDeviceID), maskPhoneForLog(chat))
+			}
+		}
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resolvedDeviceID, derr := ensureWhatsappGatewayDevice(client, requestedDeviceID, false)
+	if derr != nil || strings.TrimSpace(resolvedDeviceID) == "" {
+		if derr != nil {
+			log.Printf("whatsappSendLinkProxy: cannot resolve device id: %v", derr)
+		} else {
+			log.Printf("whatsappSendLinkProxy: cannot resolve device id: empty")
+		}
+		http.Error(w, "gateway-unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	forwardURL := "http://127.0.0.1:3000/send/link?device_id=" + url.QueryEscape(strings.TrimSpace(resolvedDeviceID))
+	log.Printf("whatsappSendLinkProxy: attempting send-link route device=%s url=%s", maskPhoneForLog(resolvedDeviceID), maskURLForLog(forwardURL))
+	if resp, err := forwardWhatsAppSendRequest(client, forwardURL, body); err == nil {
+		defer resp.Body.Close()
+		w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+		w.WriteHeader(resp.StatusCode)
+		io.Copy(w, resp.Body)
+		return
+	} else {
+		log.Printf("whatsappSendLinkProxy: send-link route failed device=%s err=%v", maskPhoneForLog(resolvedDeviceID), err)
+	}
+
+	http.Error(w, "gateway-unavailable", http.StatusServiceUnavailable)
+}
+
 // Proxy chat presence (typing indicator) to the bundled gateway
 func whatsappPresenceProxyHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
@@ -7521,6 +7627,7 @@ func main() {
 	mux.HandleFunc("/api/whatsapp/devices", whatsappDevicesHandler)
 	mux.HandleFunc("/api/whatsapp/qr-image", whatsappQrImageHandler)
 	mux.HandleFunc("/api/whatsapp/send", whatsappSendProxyHandler)
+	mux.HandleFunc("/api/whatsapp/send-link", whatsappSendLinkProxyHandler)
 	mux.HandleFunc("/api/whatsapp/mode", whatsappModeHandler)
 	mux.HandleFunc("/api/whatsapp/presence", whatsappPresenceProxyHandler)
 	mux.HandleFunc("/api/whatsapp/send-file", whatsappSendFileProxyHandler)

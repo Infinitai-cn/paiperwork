@@ -657,6 +657,21 @@ class ConnectorWhatsapp {
         }
     }
 
+    async _recoverWhatsappConversationGroup(hashedMasterKey, threadLabel, normalizedThreadKey = '') {
+        if (!hashedMasterKey || !threadLabel || !PaiperworkDB || typeof PaiperworkDB.findConversationGroupByInitialUserText !== 'function') {
+            return 0;
+        }
+
+        try {
+            return Number(await PaiperworkDB.findConversationGroupByInitialUserText(hashedMasterKey, threadLabel, {
+                normalizedPhone: normalizedThreadKey
+            }) || 0);
+        } catch (err) {
+            console.warn('ConnectorWhatsapp: failed to recover existing WhatsApp conversation group', err);
+            return 0;
+        }
+    }
+
     _getWhatsappOutgoingRequestUrl(basePath, chatId = '') {
         const params = new URLSearchParams();
         const pendingReplyDeviceId = this._getWhatsappPendingReplyDeviceId(chatId);
@@ -745,6 +760,14 @@ class ConnectorWhatsapp {
         }
 
         if (!hasExistingGroup) {
+            const recoveredGroup = await this._recoverWhatsappConversationGroup(hashedMasterKey, threadLabel, normalizedThreadKey);
+            if (recoveredGroup > 0) {
+                conversationGroup = recoveredGroup;
+                hasExistingGroup = true;
+            }
+        }
+
+        if (!hasExistingGroup) {
             const createdGroup = await this._createWhatsappConversationGroup(hashedMasterKey, threadLabel);
 
             if (!createdGroup.created || !createdGroup.conversationGroup) {
@@ -819,6 +842,14 @@ class ConnectorWhatsapp {
                 hasExistingGroup = !!(existingGroup && Array.isArray(existingGroup.conversations) && existingGroup.conversations.length > 0);
             } catch (err) {
                 console.warn('ConnectorWhatsapp: failed to validate existing personal conversation group', err);
+            }
+        }
+
+        if (!hasExistingGroup) {
+            const recoveredGroup = await this._recoverWhatsappConversationGroup(hashedMasterKey, threadLabel, normalizedThreadKey);
+            if (recoveredGroup > 0) {
+                conversationGroup = recoveredGroup;
+                hasExistingGroup = true;
             }
         }
 
@@ -7504,6 +7535,31 @@ class ConnectorWhatsapp {
         }
     }
 
+    async postWhatsappLink(chatId, link, caption = '') {
+        const normalizedLink = this._normalizeWhatsappLinkUrl(link);
+        if (!chatId || !normalizedLink) return;
+        const normalizedPhone = this._getResolvedWhatsappOutgoingTarget(chatId);
+        try {
+            const response = await fetch(this._getWhatsappOutgoingRequestUrl('/api/whatsapp/send-link', chatId), {
+                method: 'POST',
+                headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({
+                    phone: normalizedPhone,
+                    link: normalizedLink,
+                    caption: String(caption || '').trim(),
+                    mode: window.whatsappSelectedMode || 'bot'
+                })
+            });
+            if (!response.ok) {
+                const responseText = await response.text().catch(() => '');
+                throw new Error(`WhatsApp send-link request failed with status ${response.status}${responseText ? `: ${responseText.slice(0, 200)}` : ''}`);
+            }
+        } catch (err) {
+            console.error('ConnectorWhatsapp: postWhatsappLink failed', err);
+            throw err;
+        }
+    }
+
     async postWhatsappPresence(chatId, action) {
         if (!chatId || !action) return;
         const normalizedPhone = this._getResolvedWhatsappOutgoingTarget(chatId);
@@ -9420,7 +9476,13 @@ class ConnectorWhatsapp {
 
         if (tagName === 'a') {
             const href = this._normalizeWhatsappLinkUrl(element.getAttribute('href') || element.href || '');
-            if (href) return href;
+            if (href) {
+                const label = String(element.textContent || '').replace(/\s+/g, ' ').trim();
+                if (label && label !== href) {
+                    return `[${label}](${href})`;
+                }
+                return href;
+            }
         }
 
         let content = '';
@@ -9464,7 +9526,6 @@ class ConnectorWhatsapp {
         let content = String(text || '').replace(/\u00a0/g, ' ').replace(/[\t\r]+/g, '');
         if (!content.trim()) return '';
 
-        content = content.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/gi, '$2');
         content = content.replace(/__HELP_ANCHOR_\d+__/g, '');
         content = content.replace(/\*([^*\n]+)\*\s*\n(?!\n)/g, '*$1*\n\n');
         content = content.replace(/\n\s*([.,;:!?])/g, '$1');
@@ -9481,7 +9542,7 @@ class ConnectorWhatsapp {
                 continue;
             }
 
-            const isStructuredLine = /^([\-*•]\s+|\d+\.\s+|https?:\/\/|\*[^*]+\*|[^|]+\s\|\s[^|]+)/i.test(line);
+            const isStructuredLine = /^([\-*•]\s+|\d+\.\s+|https?:\/\/|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|\*[^*]+\*|[^|]+\s\|\s[^|]+)/i.test(line);
             if (isStructuredLine) {
                 normalizedLines.push(line);
                 continue;
@@ -9496,6 +9557,127 @@ class ConnectorWhatsapp {
         }
 
         return normalizedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    _isWhatsappSourceCitationText(text) {
+        return /^\[\s*source\s+\d+\s*\]$/i.test(String(text || '').trim());
+    }
+
+    _stripWhatsappSourceCitations(text) {
+        return String(text || '')
+            .replace(/\s*\[\s*source\s+\d+\s*\]\s*/gi, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+    }
+
+    _sanitizeWhatsappLinkCaption(text) {
+        const stripped = this._stripWhatsappSourceCitations(text)
+            .replace(/^[\-*•]\s*/, '')
+            .replace(/^\d+\.\s*/, '')
+            .replace(/\s*[:\-–]+\s*$/g, '')
+            .trim();
+        if (!stripped) return '';
+        if (/^[\-*•]+$/.test(stripped)) return '';
+        return stripped;
+    }
+
+    _appendWhatsappDeliveryTextSegment(segments, value) {
+        const normalizedValue = this._stripWhatsappSourceCitations(value)
+            .replace(/^[\-*•]\s*$/g, '')
+            .trim();
+        if (!normalizedValue) return;
+        const lastSegment = segments.length ? segments[segments.length - 1] : null;
+        if (lastSegment && lastSegment.type === 'text') {
+            lastSegment.value = `${lastSegment.value}\n${normalizedValue}`.replace(/\n{3,}/g, '\n\n').trim();
+            return;
+        }
+        segments.push({ type: 'text', value: normalizedValue });
+    }
+
+    _looksLikeWhatsappStandaloneLinkLabel(text) {
+        const normalized = this._sanitizeWhatsappLinkCaption(text);
+        if (!normalized) return false;
+        if (/https?:\/\//i.test(normalized)) return false;
+        if (/^[\-*•]\s*/.test(normalized)) return false;
+        if (/^\d+\.\s*/.test(normalized)) return false;
+        if (normalized.length > 120) return false;
+        if (/^[*`_~]+|[*`_~]+$/g.test(normalized)) return false;
+        return true;
+    }
+
+    _extractWhatsappLinkSegments(text) {
+        const normalizedText = this._normalizeWhatsappReplyText(text);
+        if (!normalizedText) return [];
+
+        const lines = normalizedText
+            .split('\n')
+            .map(line => String(line || '').trim())
+            .filter(Boolean);
+        const segments = [];
+        const seenLinks = new Set();
+        const pattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?])/gi;
+
+        for (const line of lines) {
+            pattern.lastIndex = 0;
+            let cursor = 0;
+            let match;
+            let matchedAnyLink = false;
+            while ((match = pattern.exec(line)) !== null) {
+                matchedAnyLink = true;
+                const start = match.index;
+                const end = pattern.lastIndex;
+                const explicitLabel = String(match[1] || '').trim();
+                const rawUrl = match[2] || match[3] || '';
+                const normalizedUrl = this._normalizeWhatsappLinkUrl(rawUrl);
+                if (!normalizedUrl) {
+                    continue;
+                }
+
+                const leadingText = line.slice(cursor, start).trim();
+                let caption = this._sanitizeWhatsappLinkCaption(explicitLabel);
+                const explicitLabelIsCitation = this._isWhatsappSourceCitationText(explicitLabel);
+                const sanitizedLeadingText = this._sanitizeWhatsappLinkCaption(leadingText);
+
+                if (!caption || explicitLabelIsCitation) {
+                    if (sanitizedLeadingText) {
+                        caption = sanitizedLeadingText;
+                    }
+                }
+
+                if (seenLinks.has(normalizedUrl)) {
+                    cursor = end;
+                    continue;
+                }
+
+                if (sanitizedLeadingText && sanitizedLeadingText !== caption) {
+                    this._appendWhatsappDeliveryTextSegment(segments, sanitizedLeadingText);
+                }
+
+                if (!caption && !sanitizedLeadingText && segments.length) {
+                    const previousSegment = segments[segments.length - 1];
+                    if (previousSegment && previousSegment.type === 'text' && this._looksLikeWhatsappStandaloneLinkLabel(previousSegment.value)) {
+                        caption = this._sanitizeWhatsappLinkCaption(previousSegment.value);
+                        segments.pop();
+                    }
+                }
+
+                segments.push({ type: 'link', value: normalizedUrl, caption: caption || '' });
+                seenLinks.add(normalizedUrl);
+                cursor = end;
+            }
+
+            if (!matchedAnyLink) {
+                this._appendWhatsappDeliveryTextSegment(segments, line);
+                continue;
+            }
+
+            const trailingText = this._stripWhatsappSourceCitations(line.slice(cursor).trim());
+            if (trailingText) {
+                this._appendWhatsappDeliveryTextSegment(segments, trailingText);
+            }
+        }
+
+        return segments;
     }
 
     async _isWhatsappReplyPlaceholderText(text, language) {
@@ -9536,16 +9718,23 @@ class ConnectorWhatsapp {
                 ? `.assistant-message[data-whatsapp-request-id="${String(requestScope.id).replace(/"/g, '\\"')}"]`
                 : '.assistant-message';
             const assistantMessages = aiReplies.querySelectorAll(assistantSelector);
-            if (assistantMessages.length === 0) return;
+            if (assistantMessages.length === 0) {
+                await this._postWhatsappPresenceStopIfNeeded(targetPhone, requestScope);
+                return;
+            }
 
             const lastMessage = assistantMessages[assistantMessages.length - 1];
             if (lastMessage.classList.contains('cancelled-message') || lastMessage.querySelector('.cancel-note')) {
                 await this._sendWhatsappReplyUnavailableMessage(targetPhone, language);
+                await this._postWhatsappPresenceStopIfNeeded(targetPhone, requestScope);
                 return;
             }
 
             const responseContainer = lastMessage.querySelector('.ai-response-container') || lastMessage;
-            if (!responseContainer) return;
+            if (!responseContainer) {
+                await this._postWhatsappPresenceStopIfNeeded(targetPhone, requestScope);
+                return;
+            }
 
             const clone = responseContainer.cloneNode(true);
 
@@ -9602,6 +9791,7 @@ class ConnectorWhatsapp {
 
             if (!segments || segments.length === 0) {
                 await this._sendWhatsappReplyUnavailableMessage(targetPhone, language);
+                await this._postWhatsappPresenceStopIfNeeded(targetPhone, requestScope);
                 return;
             }
 
@@ -9622,6 +9812,7 @@ class ConnectorWhatsapp {
 
             if (meaningfulSegments.length === 0) {
                 await this._sendWhatsappReplyUnavailableMessage(targetPhone, language);
+                await this._postWhatsappPresenceStopIfNeeded(targetPhone, requestScope);
                 return;
             }
 
@@ -9634,16 +9825,50 @@ class ConnectorWhatsapp {
                 if (seg.type === 'text') {
                     let content = this._normalizeWhatsappReplyText(seg.text || '');
                     if (!content || !content.trim()) continue;
-                    const prefix = firstMessage ? '💬 ' : '';
-                    try {
-                        if (typeof this.postWhatsappText === 'function') {
-                            await this.postWhatsappText(targetPhone, prefix + content);
+                    const deliverySegments = this._extractWhatsappLinkSegments(content);
+                    const contextParts = [];
+                    for (const deliverySegment of deliverySegments) {
+                        if (!deliverySegment) continue;
+                        if (deliverySegment.type === 'text') {
+                            const textValue = String(deliverySegment.value || '').trim();
+                            if (!textValue) continue;
+                            const prefix = firstMessage ? '💬 ' : '';
+                            try {
+                                if (typeof this.postWhatsappText === 'function') {
+                                    await this.postWhatsappText(targetPhone, prefix + textValue);
+                                }
+                                contextParts.push(textValue);
+                            } catch (err) {
+                                console.warn('ConnectorWhatsapp: Failed to send WhatsApp text segment via connectors:', err);
+                            }
+                            firstMessage = false;
+                            continue;
                         }
-                        this._appendWhatsappOrchestratorContext(targetPhone, { role: 'assistant', text: content });
-                        await this._appendWhatsappPhoneConversationTurn(targetPhone, { role: 'assistant', text: content });
-                    } catch (err) {
-                        console.warn('ConnectorWhatsapp: Failed to send WhatsApp text segment via connectors:', err);
+
+                        if (deliverySegment.type === 'link') {
+                            const linkValue = String(deliverySegment.value || '').trim();
+                            const linkCaption = String(deliverySegment.caption || '').trim();
+                            if (!linkValue) continue;
+                            try {
+                                if (typeof this.postWhatsappLink === 'function') {
+                                    await this.postWhatsappLink(targetPhone, linkValue, linkCaption);
+                                }
+                            } catch (err) {
+                                console.warn('ConnectorWhatsapp: Failed to send WhatsApp link segment via connectors:', err);
+                                try {
+                                    const prefix = firstMessage ? '💬 ' : '';
+                                    if (typeof this.postWhatsappText === 'function') {
+                                        await this.postWhatsappText(targetPhone, prefix + (linkCaption ? `${linkCaption}: ${linkValue}` : linkValue));
+                                    }
+                                    contextParts.push(linkCaption ? `${linkCaption}: ${linkValue}` : linkValue);
+                                } catch (_fallbackErr) {}
+                            }
+                            firstMessage = false;
+                        }
                     }
+                    const contextText = contextParts.join('\n\n').trim() || content;
+                    this._appendWhatsappOrchestratorContext(targetPhone, { role: 'assistant', text: contextText });
+                    await this._appendWhatsappPhoneConversationTurn(targetPhone, { role: 'assistant', text: contextText });
                 } else if (seg.type === 'code') {
                     const raw = seg.code || '';
                     if (!raw || !raw.trim()) continue;

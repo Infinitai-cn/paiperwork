@@ -1022,7 +1022,8 @@ func (service serviceSend) SendLink(ctx context.Context, request domainSend.Link
 
 	metadata, err := utils.GetMetaDataFromURL(request.Link)
 	if err != nil {
-		return response, err
+		logrus.Warnf("SendLink: metadata fetch failed for %s: %v; continuing without preview metadata", request.Link, err)
+		metadata = utils.Metadata{}
 	}
 
 	// Log image dimensions if available, otherwise note it's a square image or dimensions not available
@@ -1033,13 +1034,24 @@ func (service serviceSend) SendLink(ctx context.Context, request domainSend.Link
 	}
 
 	// Create the message
+	messageText := strings.TrimSpace(request.Link)
+	if strings.TrimSpace(request.Caption) != "" {
+		messageText = fmt.Sprintf("%s\n%s", strings.TrimSpace(request.Caption), request.Link)
+	}
+
 	msg := &waE2E.Message{ExtendedTextMessage: &waE2E.ExtendedTextMessage{
-		Text:          proto.String(fmt.Sprintf("%s\n%s", request.Caption, request.Link)),
-		Title:         proto.String(metadata.Title),
-		MatchedText:   proto.String(request.Link),
-		Description:   proto.String(metadata.Description),
-		JPEGThumbnail: metadata.ImageThumb,
+		Text:        proto.String(messageText),
+		MatchedText: proto.String(request.Link),
 	}}
+	if strings.TrimSpace(metadata.Title) != "" {
+		msg.ExtendedTextMessage.Title = proto.String(metadata.Title)
+	}
+	if strings.TrimSpace(metadata.Description) != "" {
+		msg.ExtendedTextMessage.Description = proto.String(metadata.Description)
+	}
+	if len(metadata.ImageThumb) > 0 {
+		msg.ExtendedTextMessage.JPEGThumbnail = metadata.ImageThumb
+	}
 
 	if request.BaseRequest.IsForwarded {
 		msg.ExtendedTextMessage.ContextInfo = &waE2E.ContextInfo{

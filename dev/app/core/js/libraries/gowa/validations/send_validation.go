@@ -326,7 +326,6 @@ func ValidateSendLink(ctx context.Context, request domainSend.LinkRequest) error
 	err := validation.ValidateStructWithContext(ctx, &request,
 		validation.Field(&request.Phone, validation.Required),
 		validation.Field(&request.Link, validation.Required, is.URL),
-		validation.Field(&request.Caption, validation.Required),
 	)
 
 	if err != nil {
