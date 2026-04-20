@@ -82,6 +82,14 @@ const MODEL_PARAMETERS = {
     'top_k': 20,
     'top_p': 0.95
    },
+    'qwen3.6:35b-a3b-q8_0': {
+    'presence_penalty': 0.0,
+    'temperature': 0.6,
+    'top_k': 20,
+    'top_p': 0.95,
+    'min_p': 0.0,
+    'repetition_penalty': 1.0,
+   },
     'gemma4:26b-a4b-it-q8_0': {
     'presence_penalty': 1.5,
     'temperature': 1.0,

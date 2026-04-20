@@ -1714,8 +1714,10 @@ class ChatTab {
 
                     messageDiv.appendChild(container);
 
-                    // Saved HTML may contain old action labels from a different language.
-                    if (window.chat && typeof window.chat.localizeMessageActionButtons === 'function') {
+                    // Recreate assistant message actions when loading clean persisted HTML.
+                    if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
+                        window.chat.addMessageActionsToMessage(messageDiv);
+                    } else if (window.chat && typeof window.chat.localizeMessageActionButtons === 'function') {
                         window.chat.localizeMessageActionButtons(messageDiv);
                     }
 
