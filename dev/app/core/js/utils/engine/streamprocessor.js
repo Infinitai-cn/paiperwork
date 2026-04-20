@@ -2888,15 +2888,122 @@ class StreamProcessor {
         return null; // Let it remain as plain text rather than guessing
     }
     // Processes a code block element, restoring saved code and applying syntax highlighting.
+    static ensureSavedCodeBlockControls(codeBlock) {
+        if (!codeBlock) return null;
+
+        const pre = codeBlock.querySelector('pre');
+        const codeElement = codeBlock.querySelector('code');
+        if (!pre || !codeElement) return null;
+
+        let header = codeBlock.querySelector('.code-header');
+        if (!header) {
+            header = document.createElement('div');
+            header.className = 'code-header flex justify-between items-center';
+            codeBlock.appendChild(header);
+        }
+
+        let langElement = header.querySelector('.code-language') || codeBlock.querySelector('.code-language');
+        if (!langElement) {
+            langElement = document.createElement('span');
+            langElement.className = 'code-language';
+            header.insertBefore(langElement, header.firstChild || null);
+        } else if (langElement.parentNode !== header) {
+            header.insertBefore(langElement, header.firstChild || null);
+        }
+
+        let buttonsContainer = header.querySelector('.flex.gap-2');
+        if (!buttonsContainer) {
+            buttonsContainer = document.createElement('div');
+            buttonsContainer.className = 'flex gap-2';
+            header.appendChild(buttonsContainer);
+        }
+
+        let toggleButton = buttonsContainer.querySelector('.toggle-line-numbers');
+        if (!toggleButton) {
+            toggleButton = document.createElement('button');
+            toggleButton.className = 'toggle-line-numbers';
+            toggleButton.setAttribute('onclick', 'window.toggleCodeLineNumbers(this)');
+            toggleButton.style.cssText = `
+                padding: 2px 6px;
+                font-size: 10px;
+                background-color: var(--button-bg);
+                color: var(--text-color);
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                cursor: pointer;
+                margin-right: 8px;
+            `;
+            buttonsContainer.insertBefore(toggleButton, buttonsContainer.firstChild || null);
+        }
+        toggleButton.textContent = Lang.get('codeToggleLineNumbers') || '#';
+        toggleButton.title = Lang.get('codeToggleLineNumbersTitle') || 'Toggle line numbers';
+
+        let copyButton = buttonsContainer.querySelector('.code-copy-btn');
+        if (!copyButton) {
+            copyButton = document.createElement('button');
+            copyButton.className = 'code-copy-btn';
+            copyButton.setAttribute('onclick', 'window.copyCodeBlock(this)');
+            buttonsContainer.appendChild(copyButton);
+        }
+        copyButton.textContent = Lang.get('codeCopyButton') || 'Copy';
+
+        let copyWithLinesButton = buttonsContainer.querySelector('.code-copy-with-lines-btn');
+        if (!copyWithLinesButton) {
+            copyWithLinesButton = document.createElement('button');
+            copyWithLinesButton.className = 'code-copy-with-lines-btn';
+            copyWithLinesButton.setAttribute('onclick', 'window.copyCodeBlockWithLineNumbers(this)');
+            copyWithLinesButton.style.display = 'none';
+            buttonsContainer.appendChild(copyWithLinesButton);
+        }
+        copyWithLinesButton.textContent = Lang.get('codeCopyWithLinesButton') || 'Copy with #';
+
+        let lineNumbersContainer = codeBlock.querySelector('.line-numbers');
+        if (!lineNumbersContainer) {
+            lineNumbersContainer = document.createElement('div');
+            lineNumbersContainer.className = 'line-numbers';
+            lineNumbersContainer.style.cssText = `
+                position: absolute;
+                left: 0;
+                top: 0;
+                padding: 1em 0;
+                background-color: var(--bg-color, #f6f8fa);
+                border-right: 1px solid var(--border-color, #d1d9e0);
+                user-select: none;
+                display: none;
+                visibility: hidden;
+                width: 3em;
+                box-sizing: border-box;
+                font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+                font-size: 14px;
+                z-index: 1;
+            `;
+            pre.appendChild(lineNumbersContainer);
+        }
+
+        pre.style.position = 'relative';
+
+        return {
+            header,
+            langElement,
+            buttonsContainer,
+            copyButton,
+            copyWithLinesButton,
+            toggleButton,
+            lineNumbersContainer,
+            codeElement
+        };
+    }
+
     static processSavedCodeBlock(codeBlock) {
        //console.log('Processing saved code block');
 
         // Skip if not a valid code block
         if (!codeBlock) return;
 
-        // Get language and code element
-        const langElement = codeBlock.querySelector('.code-language');
-        const codeElement = codeBlock.querySelector('code');
+        const controls = this.ensureSavedCodeBlockControls(codeBlock);
+        if (!controls) return;
+
+        const { langElement, codeElement, copyWithLinesButton } = controls;
         if (!langElement || !codeElement) return;
 
         const language = langElement.textContent.toLowerCase();
@@ -2931,6 +3038,11 @@ class StreamProcessor {
 
         // Store the clean version
         codeElement.dataset.cleanCode = formattedCode;
+
+        const lineCount = formattedCode ? formattedCode.split('\n').length : 0;
+        if (copyWithLinesButton) {
+            copyWithLinesButton.style.display = lineCount > 1 ? 'inline-flex' : 'none';
+        }
 
         try {
             // Apply highlighting with special handling for HTML/markup
