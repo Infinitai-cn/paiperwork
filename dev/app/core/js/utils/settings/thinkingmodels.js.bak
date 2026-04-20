@@ -23,7 +23,7 @@ window.THINKING_MODELS = [
     'deepseek-v3.1',
     'glm-4.7-flash:q4_K_M',
     'glm-4.7-flash:q8_0',
-
+    'gemma4:26b-a4b-it-q8_0',
 ];
 
 // Function to extract base model name (remove quantization suffix)

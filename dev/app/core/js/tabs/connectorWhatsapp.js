@@ -6944,12 +6944,21 @@ class ConnectorWhatsapp {
         await this.postWhatsappText(phone, `💬 ${creatingText}`);
 
         try {
-            await window.dataViz.createVisualization(chartType, promptText);
+            // DataViz returns a PNG data URL after rendering when capture succeeds.
+            let capturedDataUrl = await window.dataViz.createVisualization(chartType, promptText);
 
-            // Follow the same export workflow as the chart view window to capture stable PNG output.
-            let capturedDataUrl = null;
+            // If direct capture was unavailable, retry through the current chart render state.
+            if (!capturedDataUrl && window.dataViz && typeof window.dataViz.captureChartAsDataUrl === 'function') {
+                try {
+                    capturedDataUrl = await window.dataViz.captureChartAsDataUrl();
+                } catch (captureErr) {
+                    console.warn('ConnectorWhatsapp: captureChartAsDataUrl fallback failed', captureErr);
+                }
+            }
+
+            // Final fallback: follow the export workflow and intercept the generated PNG data URL.
             let originalDownloadImage = null;
-            if (window.dataViz && typeof window.dataViz.exportChartAsPng === 'function') {
+            if (!capturedDataUrl && window.dataViz && typeof window.dataViz.exportChartAsPng === 'function') {
                 originalDownloadImage = window.dataViz.downloadImage;
                 window.dataViz.downloadImage = (dataUrl, filename) => {
                     capturedDataUrl = dataUrl;
