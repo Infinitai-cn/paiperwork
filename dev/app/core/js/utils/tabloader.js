@@ -15,7 +15,7 @@ class TabLoader {
                 scripts: ['js/tabs/documents_tab.js']
             },
             'dataviz': {
-                scripts: ['js/tabs/dataviz.js', 'js/tabs/dataviztab.js']
+                scripts: ['js/utils/charts/chartRenderer.js', 'js/utils/charts/piechart.js', 'js/utils/charts/barchart.js', 'js/utils/charts/linechart.js', 'js/utils/charts/scatterplotchart.js', 'js/utils/charts/areachart.js', 'js/utils/charts/radarchart.js', 'js/utils/charts/heatmap.js', 'js/utils/charts/bubblechart.js', 'js/tabs/dataviz.js', 'js/tabs/dataviztab.js']
             },
             'paperwork': {
                 scripts: [
