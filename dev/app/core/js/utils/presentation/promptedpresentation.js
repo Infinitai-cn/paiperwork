@@ -2618,6 +2618,7 @@ class PromptedPresentationWorkflow {
 		actionRow.style.display = 'flex';
 		actionRow.style.justifyContent = 'space-between';
 		actionRow.style.gap = '8px';
+		actionRow.style.flexWrap = 'wrap';
 
 		const restoreBtn = document.createElement('button');
 		restoreBtn.type = 'button';
@@ -2632,6 +2633,24 @@ class PromptedPresentationWorkflow {
 		restoreBtn.style.background = 'var(--background-color, #18181b)';
 		restoreBtn.style.color = 'var(--text-color, #ffffff)';
 
+		const importBtn = document.createElement('button');
+		importBtn.type = 'button';
+		importBtn.textContent = window.Lang
+			? (Lang.get('importImageButton') || 'Import image')
+			: 'Import image';
+		importBtn.style.height = '32px';
+		importBtn.style.padding = '0 10px';
+		importBtn.style.borderRadius = '8px';
+		importBtn.style.border = '1px solid var(--presentation-export-border, transparent)';
+		importBtn.style.cursor = 'pointer';
+		importBtn.style.background = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
+		importBtn.style.color = 'var(--presentation-export-color, #ffffff)';
+
+		const fileInput = document.createElement('input');
+		fileInput.type = 'file';
+		fileInput.accept = 'image/*';
+		fileInput.style.display = 'none';
+
 		const closeBtn = document.createElement('button');
 		closeBtn.type = 'button';
 		closeBtn.textContent = window.Lang ? (Lang.get('closeButton') || 'Close') : 'Close';
@@ -2644,6 +2663,7 @@ class PromptedPresentationWorkflow {
 		closeBtn.style.color = 'var(--text-color, #ffffff)';
 
 		actionRow.appendChild(restoreBtn);
+		actionRow.appendChild(importBtn);
 		actionRow.appendChild(closeBtn);
 
 		panel.appendChild(title);
@@ -2651,6 +2671,7 @@ class PromptedPresentationWorkflow {
 		panel.appendChild(status);
 		panel.appendChild(resultGrid);
 		panel.appendChild(actionRow);
+		panel.appendChild(fileInput);
 
 		this.overlay.appendChild(panel);
 
@@ -2660,6 +2681,8 @@ class PromptedPresentationWorkflow {
 		this.promptableImageEditorStatus = status;
 		this.promptableImageEditorResults = resultGrid;
 		this.promptableImageEditorRestoreBtn = restoreBtn;
+		this.promptableImageEditorImportBtn = importBtn;
+		this.promptableImageEditorFileInput = fileInput;
 
 		const runSearch = async () => {
 			await this.searchPromptableImagesFromEditor();
@@ -2680,6 +2703,21 @@ class PromptedPresentationWorkflow {
 			this.restorePromptableSelectedImage();
 		});
 
+		importBtn.addEventListener('click', () => {
+			fileInput.value = '';
+			fileInput.click();
+		});
+
+		fileInput.addEventListener('change', (event) => {
+			const selectedFile = event && event.target && event.target.files && event.target.files[0]
+				? event.target.files[0]
+				: null;
+			if (!selectedFile) {
+				return;
+			}
+			void this.importPromptableSelectedImageFromFile(selectedFile);
+		});
+
 		closeBtn.addEventListener('click', () => {
 			if (panel && panel.parentNode) {
 				panel.parentNode.removeChild(panel);
@@ -2690,6 +2728,8 @@ class PromptedPresentationWorkflow {
 			this.promptableImageEditorStatus = null;
 			this.promptableImageEditorResults = null;
 			this.promptableImageEditorRestoreBtn = null;
+			this.promptableImageEditorImportBtn = null;
+			this.promptableImageEditorFileInput = null;
 			this.resetPromptableImageSelectionVisuals();
 		});
 
@@ -3038,6 +3078,74 @@ class PromptedPresentationWorkflow {
 		);
 	}
 
+	static async importPromptableSelectedImageFromFile(file) {
+		if (!this.promptableSelectedImage) {
+			this.updatePromptableImageEditorStatus(
+				window.Lang
+					? (Lang.get('clickImageToEdit') || 'Click an image in the presentation to replace it.')
+					: 'Click an image in the presentation to replace it.',
+				'muted'
+			);
+			return;
+		}
+
+		if (!(file instanceof Blob) || !String(file.type || '').toLowerCase().startsWith('image/')) {
+			this.updatePromptableImageEditorStatus(
+				window.Lang
+					? (Lang.get('promptableLocalImageOnly') || 'Please choose a valid image file from your computer.')
+					: 'Please choose a valid image file from your computer.',
+				'error'
+			);
+			return;
+		}
+
+		const imageId = this.getPromptableImageStableId(this.promptableSelectedImage);
+		if (!this.promptableImageOriginalSrcById) {
+			this.promptableImageOriginalSrcById = {};
+		}
+		if (!this.promptableImageOriginalSrcById[imageId]) {
+			this.promptableImageOriginalSrcById[imageId] = this.promptableSelectedImage.getAttribute('src') || this.promptableSelectedImage.currentSrc || '';
+		}
+
+		this.updatePromptableImageEditorStatus(
+			window.Lang ? (Lang.get('importingImageLabel') || 'Importing image...') : 'Importing image...',
+			'info'
+		);
+
+		let dataUrl = '';
+		try {
+			dataUrl = await this.readPromptableBlobAsDataUrl(file);
+		} catch (error) {
+			this.updatePromptableImageEditorStatus(
+				String(error && error.message ? error.message : error),
+				'error'
+			);
+			return;
+		}
+
+		if (!dataUrl) {
+			this.updatePromptableImageEditorStatus(
+				window.Lang
+					? (Lang.get('promptableLocalImageReadFailed') || 'Failed to read the selected image file.')
+					: 'Failed to read the selected image file.',
+				'error'
+			);
+			return;
+		}
+
+		this.promptableSelectedImage.setAttribute('src', dataUrl);
+		this.promptableSelectedImage.removeAttribute('srcset');
+		this.promptableSelectedImage.src = dataUrl;
+		this.syncPromptableCurrentHtmlFromFrame(this.promptableEditingFrame);
+
+		this.updatePromptableImageEditorStatus(
+			window.Lang
+				? (Lang.get('imageImportedStatus') || 'Image imported from your computer. You can restore the original at any time.')
+				: 'Image imported from your computer. You can restore the original at any time.',
+			'info'
+		);
+	}
+
 	static restorePromptableSelectedImage() {
 		if (!this.promptableSelectedImage) {
 			this.updatePromptableImageEditorStatus(
@@ -3083,6 +3191,8 @@ class PromptedPresentationWorkflow {
 		this.promptableImageEditorStatus = null;
 		this.promptableImageEditorResults = null;
 		this.promptableImageEditorRestoreBtn = null;
+		this.promptableImageEditorImportBtn = null;
+		this.promptableImageEditorFileInput = null;
 	}
 
 	static isPromptableEditableTextCandidate(element) {
@@ -3774,6 +3884,8 @@ class PromptedPresentationWorkflow {
 		this.promptableImageEditorStatus = null;
 		this.promptableImageEditorResults = null;
 		this.promptableImageEditorRestoreBtn = null;
+		this.promptableImageEditorImportBtn = null;
+		this.promptableImageEditorFileInput = null;
 
 		const modeToggleWrap = document.createElement('div');
 		modeToggleWrap.style.display = 'flex';
