@@ -196,10 +196,10 @@ class OllamaAPI {
         }
 
         if (this.isWhatsappConnectorServerActive()) {
-            console.info('[OllamaAPI] Suppressed blocking warning while WhatsApp connector server is active', {
+            /*console.info('[OllamaAPI] Suppressed blocking warning while WhatsApp connector server is active', {
                 scope: String(options.scope || 'generic'),
                 message: normalizedMessage
-            });
+            });*/
             return false;
         }
 
@@ -214,10 +214,10 @@ class OllamaAPI {
         }
 
         if (this.isWhatsappConnectorServerActive()) {
-            console.info('[OllamaAPI] Suppressed blocking confirmation while WhatsApp connector server is active', {
+/*             console.info('[OllamaAPI] Suppressed blocking confirmation while WhatsApp connector server is active', {
                 scope: String(options.scope || 'generic'),
                 message: normalizedMessage
-            });
+            }); */
             return false;
         }
 
@@ -379,7 +379,7 @@ class OllamaAPI {
     static logStreamSummary(scope, details = {}) {
         if (!this.isStreamDebugEnabled()) return;
         try {
-            console.info('[StreamDebug] ' + scope, details);
+            //console.info('[StreamDebug] ' + scope, details);
         } catch (_err) {
             // Debug logging must never break response handling.
         }
@@ -507,15 +507,15 @@ class OllamaAPI {
         const requestedModel = String(modelName || '').trim();
         const normalizedModel = this.normalizeCloudModelName(requestedModel);
 
-        console.info('[CloudPull] ensureCloudModelPulled called', { modelName, requestedModel, normalizedModel });
+        //console.info('[CloudPull] ensureCloudModelPulled called', { modelName, requestedModel, normalizedModel });
 
         if (!normalizedModel) return normalizedModel;
         if (this.pulledCloudModels.has(normalizedModel)) {
-            console.info('[CloudPull] already pulled in session cache', { normalizedModel });
+            //console.info('[CloudPull] already pulled in session cache', { normalizedModel });
             return normalizedModel;
         }
 
-        console.info('[CloudPull] request start', { endpoint: 'http://localhost:11434/api/pull', model: normalizedModel });
+        //console.info('[CloudPull] request start', { endpoint: 'http://localhost:11434/api/pull', model: normalizedModel });
         const pullResponse = await fetch('http://localhost:11434/api/pull', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -554,7 +554,7 @@ class OllamaAPI {
                         const status = JSON.parse(line);
                         const statusText = String(status?.status || '').toLowerCase();
                         if (statusText) {
-                            console.info('[CloudPull] stream status', { model: normalizedModel, status: status.status });
+                            //('[CloudPull] stream status', { model: normalizedModel, status: status.status });
                         }
                         if (status?.error) {
                             console.error('[CloudPull] stream error', { model: normalizedModel, error: status.error });
@@ -572,7 +572,7 @@ class OllamaAPI {
                             const status = JSON.parse(tail);
                             const statusText = String(status?.status || '').toLowerCase();
                             if (statusText) {
-                                console.info('[CloudPull] stream status', { model: normalizedModel, status: status.status });
+                                //('[CloudPull] stream status', { model: normalizedModel, status: status.status });
                             }
                             if (status?.error) {
                                 console.error('[CloudPull] stream error', { model: normalizedModel, error: status.error });
@@ -588,7 +588,7 @@ class OllamaAPI {
         }
 
         this.pulledCloudModels.add(normalizedModel);
-        console.info('[CloudPull] completed and cached', { normalizedModel });
+        //console.info('[CloudPull] completed and cached', { normalizedModel });
         return normalizedModel;
     }
 
@@ -727,9 +727,9 @@ class OllamaAPI {
                 // Keep local selector usable during transient daemon startup by using cache.
                 if (Array.isArray(this._cachedLocalModels) && this._cachedLocalModels.length > 0) {
                     localModels = [...this._cachedLocalModels];
-                    console.info('OllamaAPI: using cached local models due to temporary local /api/tags failure', {
+                    /* console.info('OllamaAPI: using cached local models due to temporary local /api/tags failure', {
                         cachedCount: localModels.length
-                    });
+                    }); */
                 }
             } else {
                 localModels = [];
@@ -741,7 +741,7 @@ class OllamaAPI {
             } else if (cloudResponse.status === 'fulfilled' && cloudResponse.value.status === 429) {
                 console.warn('OllamaAPI: cloud model list rate-limited (429).', this.getOllamaRateLimitMessage());
             } else if (cloudResponse.status === 'rejected') {
-                console.info('OllamaAPI: cloud /api/cloud/tags unavailable or timed out; continuing with local models only');
+                //console.info('OllamaAPI: cloud /api/cloud/tags unavailable or timed out; continuing with local models only');
             }
 
             // If local tags include already pulled cloud models, keep them only in CLOUD MODELS.

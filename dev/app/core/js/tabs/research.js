@@ -46,7 +46,7 @@ class ResearchAutomation {
             console.warn('[ResearchAutomation] research-query-btn not found during initialize(). Watching for insertion');
             const observer = new MutationObserver((mutations, obs) => {
                 if (bindQueryButton()) {
-                    console.info('[ResearchAutomation] research-query-btn appeared and was bound successfully');
+                    //console.info('[ResearchAutomation] research-query-btn appeared and was bound successfully');
                     obs.disconnect();
                 }
             });
@@ -3141,13 +3141,13 @@ class ResearchAutomation {
             }
 
             // Debug the sources
-            console.log('All sources:', sources.map(s => ({
+            /*console.log('All sources:', sources.map(s => ({
                 title: s.title,
                 url: s.url.substring(0, 50) + '...',
                 isPdf: s.isPdf,
                 isUrlPdf: s.url.toLowerCase().includes('.pdf'),
                 contentLength: s.originalContent ? s.originalContent.length : 0
-            })));
+            })));*/
 
             // Count PDFs for debugging
             const pdfCount = sources.filter(s => s.isPdf || s.url.toLowerCase().includes('.pdf')).length;

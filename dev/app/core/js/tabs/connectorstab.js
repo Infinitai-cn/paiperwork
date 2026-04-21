@@ -955,7 +955,7 @@ class ConnectorsTab {
             qrSource: String(qrUrl || '').startsWith('data:') ? 'data-url' : 'proxy-url'
         };
 
-        console.info('ConnectorsTab: WhatsApp QR update', payload);
+        //console.info('ConnectorsTab: WhatsApp QR update', payload);
     }
 
     setWhatsappPairButtonState(isPaired) {
@@ -2423,9 +2423,9 @@ class ConnectorsTab {
 
         if (!Array.isArray(devices) || devices.length <= 1) {
             if (devices[0] && devices[0].deviceId) {
-                console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart auto-selecting single device', {
-                    deviceId: devices[0].deviceId
-                });
+                //console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart auto-selecting single device', {
+                    //deviceId: devices[0].deviceId
+                ///});
                 const selected = await this._selectSavedWhatsappDevice(devices[0].deviceId, devices);
                 return selected ? String(devices[0].deviceId || '').trim() : null;
             }
@@ -2435,7 +2435,7 @@ class ConnectorsTab {
         //console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart opening chooser modal');
         const chosenDeviceId = await this._showWhatsappDeviceChooserModal(devices);
         if (!chosenDeviceId) {
-            console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart chooser cancelled');
+            //console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart chooser cancelled');
             return null;
         }
 
@@ -4320,7 +4320,7 @@ class ConnectorsTab {
 
         this.whatsappWs.onerror = (err) => {
             if (!socketOpened && this.whatsappWebsocketShouldReconnect && this.serverStarted) {
-                console.info('ConnectorsTab: whatsapp websocket not ready yet; will retry');
+                //console.info('ConnectorsTab: whatsapp websocket not ready yet; will retry');
                 return;
             }
             console.warn('ConnectorsTab: whatsapp websocket error', err);

@@ -141,10 +141,10 @@ class Translate {
 		}
 
 		console.group('[Translate] runTransform');
-		console.log('file:', file.name);
-		console.log('scope:', scope);
-		console.log('scopeTarget:', scopeTarget);
-		console.log('instructionLength:', instruction.trim().length);
+		//console.log('file:', file.name);
+		//console.log('scope:', scope);
+		//console.log('scopeTarget:', scopeTarget);
+		//console.log('instructionLength:', instruction.trim().length);
 		console.groupEnd();
 		this.throwIfAborted(abortSignal);
 
@@ -325,17 +325,17 @@ class Translate {
 			ownsPdfDocument = true;
 		}
 
-		console.log('[Translate] document capabilities', {
+		/*console.log('[Translate] document capabilities', {
 			numPages: pdfDocument.numPages,
 			isPureXfa: !!pdfDocument.isPureXfa,
 			allXfaHtml: !!pdfDocument.allXfaHtml
-		});
+		});*/
 
 		const pageNumbers = this.normalizePageNumbers(scopeTarget.pageNumbers, pdfDocument.numPages);
 		console.group('[Translate] extractScopedTextBlocks');
-		console.log('pdfTotalPages:', pdfDocument.numPages);
-		console.log('scopeTargetPages(raw):', scopeTarget.pageNumbers);
-		console.log('scopeTargetPages(validated):', pageNumbers);
+		//console.log('pdfTotalPages:', pdfDocument.numPages);
+		//console.log('scopeTargetPages(raw):', scopeTarget.pageNumbers);
+		//console.log('scopeTargetPages(validated):', pageNumbers);
 		console.groupEnd();
 
 		const blocks = [];
@@ -350,8 +350,8 @@ class Translate {
 			let normalizedCount = 0;
 
 			console.group(`[Translate] page ${pageNumber}`);
-			console.log('textExtractionMode:', extractionAttempt.mode);
-			console.log('rawTextItemCount:', textItems.length);
+			//console.log('textExtractionMode:', extractionAttempt.mode);
+			//console.log('rawTextItemCount:', textItems.length);
 
 			const rawItemPreview = textItems.slice(0, 30).map((item, index) => {
 				const rawText = typeof item.str === 'string' ? item.str : '';
@@ -398,15 +398,15 @@ class Translate {
 				.map(block => ({ blockId: block.blockId, text: block.text }))
 				.slice(0, 60);
 
-			console.log('normalizedTextItemCount:', normalizedCount);
-			console.log('extractedBlocksOnPage:', pageBlocks.length);
+			//console.log('normalizedTextItemCount:', normalizedCount);
+			//console.log('extractedBlocksOnPage:', pageBlocks.length);
 			console.table(pageBlocks);
 			console.groupEnd();
 		}
 
 		console.group('[Translate] extraction summary');
-		console.log('totalExtractedBlocks:', blocks.length);
-		console.log('totalExtractedChars:', totalChars);
+		//console.log('totalExtractedBlocks:', blocks.length);
+		//console.log('totalExtractedChars:', totalChars);
 		console.groupEnd();
 
 		const diagnostics = {

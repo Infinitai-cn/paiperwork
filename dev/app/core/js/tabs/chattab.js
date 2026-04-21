@@ -392,7 +392,7 @@ class ChatTab {
     }
 
     showCloudModelPrepToast(message) {
-        console.info('[CloudPrep] Toast show:', message || 'Preparing cloud model...');
+        //console.info('[CloudPrep] Toast show:', message || 'Preparing cloud model...');
 
         const overlay = document.createElement('div');
         overlay.style.position = 'fixed';
@@ -444,7 +444,7 @@ class ChatTab {
             if (overlay.parentNode) {
                 overlay.parentNode.removeChild(overlay);
             }
-            console.info('[CloudPrep] Toast manually closed by user');
+            //console.info('[CloudPrep] Toast manually closed by user');
         });
 
         actions.appendChild(closeBtn);
@@ -455,7 +455,7 @@ class ChatTab {
         document.body.appendChild(overlay);
 
         return () => {
-            console.info('[CloudPrep] Toast close');
+            //console.info('[CloudPrep] Toast close');
             if (userClosed) {
                 return;
             }
@@ -507,15 +507,15 @@ class ChatTab {
 
     async prepareSelectedCloudModel(modelName, options = {}) {
         const modelNameStr = String(modelName || '').trim();
-        console.info('[CloudPrep] prepareSelectedCloudModel called', {
-            modelName: modelNameStr
-        });
+        //console.info('[CloudPrep] prepareSelectedCloudModel called', {
+            //modelName: modelNameStr
+        //});
         const selectedProvider = ((window.OllamaAPI && typeof window.OllamaAPI.getModelSource === 'function')
             ? (window.OllamaAPI.getModelSource(modelNameStr) || window.OllamaAPI.getSelectedModelSource?.() || 'local')
             : 'local');
-        console.info('[CloudPrep] provider resolved', { selectedProvider });
+        //console.info('[CloudPrep] provider resolved', { selectedProvider });
         if (selectedProvider !== 'cloud') {
-            console.info('[CloudPrep] skip: not a cloud model');
+            //console.info('[CloudPrep] skip: not a cloud model');
             return true;
         }
 
@@ -528,13 +528,13 @@ class ChatTab {
         const routing = await OllamaAPI.getApiRoutingForModel(modelName);
         const requiresDirectCloudKey = routing && routing.baseUrl === '/api/cloud';
         const hasCloudKey = !!(routing && routing.headers && routing.headers['Authorization']);
-        console.info('[CloudPrep] routing resolved', {
+        /*console.info('[CloudPrep] routing resolved', {
             source: routing?.source,
             baseUrl: routing?.baseUrl,
             apiModelName: routing?.modelName,
             hasCloudKey,
             requiresDirectCloudKey
-        });
+        });*/
         if (requiresDirectCloudKey && !hasCloudKey) {
             console.warn('[CloudPrep] skip: no cloud key available yet');
             closeToast();
@@ -544,13 +544,13 @@ class ChatTab {
         try {
             if (requiresDirectCloudKey) {
                 // Direct ollama.com routing does not use local daemon pull semantics.
-                console.info('[CloudPrep] direct cloud mode: skipping local pull, refreshing metadata only', {
-                    model: routing.modelName || modelName
-                });
+                //console.info('[CloudPrep] direct cloud mode: skipping local pull, refreshing metadata only', {
+                    //model: routing.modelName || modelName
+                //});
             } else {
-                console.info('[CloudPrep] pull start', { model: routing.modelName || modelName });
+                //console.info('[CloudPrep] pull start', { model: routing.modelName || modelName });
                 await OllamaAPI.ensureCloudModelPulled(routing.modelName || modelName, routing.headers);
-                console.info('[CloudPrep] pull success', { model: routing.modelName || modelName });
+                //console.info('[CloudPrep] pull success', { model: routing.modelName || modelName });
             }
             const nativeContext = await this.refreshModelMaximumContextLabel(modelNameStr);
             if (Number.isFinite(nativeContext) && nativeContext > 0) {
@@ -1014,12 +1014,12 @@ class ChatTab {
                         ? (window.OllamaAPI.getSelectedModelSource() || 'local')
                         : 'local');
                 const liveMasterKey = sessionStorage.getItem('hashedMasterKey') || hashedMasterKey;
-                console.info('[CloudPrep] model selector changed', {
+                /*console.info('[CloudPrep] model selector changed', {
                     selectedModel,
                     selectedProvider,
                     hasLiveMasterKey: !!liveMasterKey,
                     trustedEvent: !!(event && event.isTrusted)
-                });
+                });*/
 
                 this.updateContextCardsVisibility(selectedModel);
                //console.log('🔄 ChatTab: Model changed to:', selectedModel);
@@ -1073,7 +1073,7 @@ class ChatTab {
 
                 // For cloud models, ensure key exists and pre-pull model metadata on selection.
                 if (selectedProvider === 'cloud') {
-                    console.info('[CloudPrep] cloud model selected, ensuring key and preparing pull');
+                    //console.info('[CloudPrep] cloud model selected, ensuring key and preparing pull');
                     const keyCheckMasterKey = sessionStorage.getItem('hashedMasterKey');
                     const existingCloudKey = keyCheckMasterKey
                         ? this.normalizeCloudApiKey(await PaiperworkDB.getOllamaApiKey(keyCheckMasterKey))
@@ -1093,9 +1093,9 @@ class ChatTab {
                             let hasCloudKey = !!existingCloudKey;
                             if (!hasCloudKey) {
                                 hasCloudKey = await this.ensureCloudApiKeyForSend();
-                                console.info('[CloudPrep] ensureCloudApiKeyForSend result', { hasCloudKey });
+                                //console.info('[CloudPrep] ensureCloudApiKeyForSend result', { hasCloudKey });
                             } else {
-                                console.info('[CloudPrep] cloud key already present in DB, skipping key manager prompt');
+                                //console.info('[CloudPrep] cloud key already present in DB, skipping key manager prompt');
                             }
                             canPrepare = hasCloudKey;
 
@@ -4917,14 +4917,14 @@ class ChatTab {
                         });
                     }
 
-                    console.info('[CloudAuth] validateCloudApiKey result', {
+                    /*console.info('[CloudAuth] validateCloudApiKey result', {
                         status: response.status,
                         ok: response.ok,
                         modelName: modelName || '<empty>',
                         normalizedKeyLooksBearerPrefixed: /^Bearer\s+/i.test(normalized),
                         attempt: attemptNo,
                         reason: result.reason
-                    });
+                    });*/
 
                     return result;
                 } catch (error) {

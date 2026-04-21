@@ -1810,7 +1810,7 @@ body {
         if (code.includes('function') || code.includes('const ') ||
             code.includes('var ') || code.includes('let ') ||
             code.includes('return ') || code.includes('=> {') ||
-            code.includes('//console.log')) {
+            code.includes('console.log')) {
            //console.log('Detected JavaScript content');
             return 'javascript';
         }

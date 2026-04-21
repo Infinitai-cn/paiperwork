@@ -1074,13 +1074,13 @@ class PromptedPresentationWorkflow {
 		const finalTitle = (resolvedTitle || defaultTitle || 'Untitled presentation').trim();
 		const selectedMode = mode || (this.selectedPresentationMode === 'pdf' ? 'pdf' : 'html');
 
-		console.info('[PromptablePresentation] Saving presentation to DB', {
+		/* console.info('[PromptablePresentation] Saving presentation to DB', {
 			title: finalTitle,
 			mode: selectedMode,
 			htmlLength: htmlToSave.length,
 			hasMasterKey: !!hashedMasterKey,
 			masterKeyPrefix: String(hashedMasterKey).slice(0, 8)
-		});
+		}); */
 
 		const savedId = await dbApi.savePromptablePresentation(hashedMasterKey, {
 			title: finalTitle,
@@ -1089,9 +1089,9 @@ class PromptedPresentationWorkflow {
 		});
 
 		this.currentPresentationHtml = htmlToSave;
-		console.info('[PromptablePresentation] Save completed, refreshing saved presentations list');
+		//console.info('[PromptablePresentation] Save completed, refreshing saved presentations list');
 		await this.refreshSavedPresentations();
-		console.info('[PromptablePresentation] Saved presentations list refreshed');
+		//console.info('[PromptablePresentation] Saved presentations list refreshed');
 
 		return {
 			id: savedId,
@@ -4145,7 +4145,7 @@ class PromptedPresentationWorkflow {
 		saveBtn.style.background = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
 		saveBtn.style.color = 'var(--presentation-export-color, #ffffff)';
 		saveBtn.addEventListener('click', async () => {
-			console.info('[PromptablePresentation] Save presentation clicked');
+			//console.info('[PromptablePresentation] Save presentation clicked');
 			saveBtn.disabled = true;
 			const previousLabel = saveBtn.textContent;
 			saveBtn.textContent = window.Lang ? (Lang.get('savingButton') || 'Saving...') : 'Saving...';
@@ -4168,7 +4168,7 @@ class PromptedPresentationWorkflow {
 			} finally {
 				saveBtn.disabled = false;
 				saveBtn.textContent = previousLabel;
-				console.info('[PromptablePresentation] Save flow finished');
+				//console.info('[PromptablePresentation] Save flow finished');
 			}
 		});
 

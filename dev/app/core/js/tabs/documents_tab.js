@@ -2463,14 +2463,14 @@ function addDocumentSearchStyles() {
 }
 
 async function showDocumentSummary(documentId, documentTitle, hashedMasterKey, options = {}) {
-    console.info('[DocumentsTab][debug] showDocumentSummary called', {
+    /*console.info('[DocumentsTab][debug] showDocumentSummary called', {
         documentId,
         documentTitle,
         workflow: options?.workflow || null,
         sendToPhone: options?.sendToPhone || null,
         suppressWhatsappSend: options?.suppressWhatsappSend === true,
         closeAfterComplete: options?.closeAfterComplete === true
-    });
+    });*/
     // If a summary is already being generated, show a notification and return
     if (isSummaryGenerating) {
         showNotification(Lang.get('ragSummaryGenerating'));
@@ -2538,7 +2538,7 @@ async function showDocumentSummary(documentId, documentTitle, hashedMasterKey, o
        //console.log(`Document size: ${sizeInKB.toFixed(2)}KB, estimated tokens: ${estimatedTokens}, recommended context: ${recommendedContextSize}`);
 
         const isSummaryPresentationWorkflow = options && options.workflow === 'summary-presentation';
-        console.info('[DocumentsTab][debug] showDocumentSummary context evaluation', {
+        /*console.info('[DocumentsTab][debug] showDocumentSummary context evaluation', {
             documentId,
             documentTitle,
             contextSize,
@@ -2546,16 +2546,16 @@ async function showDocumentSummary(documentId, documentTitle, hashedMasterKey, o
             sizeInKB,
             recommendedContextSize,
             isSummaryPresentationWorkflow
-        });
+        });*/
 
         // If context is insufficient, warn the user
         if (contextSize < recommendedContextSize) {
             if (isSummaryPresentationWorkflow) {
-                console.info('[DocumentsTab][debug] showDocumentSummary auto-adjusting context for summary-presentation workflow', {
+                /*console.info('[DocumentsTab][debug] showDocumentSummary auto-adjusting context for summary-presentation workflow', {
                     documentId,
                     currentContextSize: contextSize,
                     recommendedContextSize
-                });
+                });*/
                 const contextSelector = document.getElementById('context-selector');
                 if (contextSelector) {
                     const availableOptions = Array.from(contextSelector.options)
@@ -2669,7 +2669,7 @@ async function showDocumentSummary(documentId, documentTitle, hashedMasterKey, o
 }
 // Function to continue with summary generation after context size check
 async function continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey, preLoadedChunks = null, preCalculatedSize = null, options = {}) {
-    console.info('[DocumentsTab][debug] continueWithSummaryGeneration started', {
+    /*console.info('[DocumentsTab][debug] continueWithSummaryGeneration started', {
         documentId,
         documentTitle,
         workflow: options?.workflow || null,
@@ -2678,7 +2678,7 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
         closeAfterComplete: options?.closeAfterComplete === true,
         usedPreloadedChunks: Array.isArray(preLoadedChunks),
         preCalculatedSize: preCalculatedSize || null
-    });
+    });*/
     // Set the flag to indicate we're generating a summary
     isSummaryGenerating = true;
 
@@ -3098,7 +3098,7 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
                 options.suppressWhatsappSend !== true &&
                 options.workflow !== 'summary-presentation'
             );
-            console.info('[DocumentsTab][debug] WhatsApp summary send decision', {
+            /*console.info('[DocumentsTab][debug] WhatsApp summary send decision', {
                 documentId,
                 documentTitle,
                 workflow: options?.workflow || null,
@@ -3106,14 +3106,14 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
                 suppressWhatsappSend: options?.suppressWhatsappSend === true,
                 shouldSendToWhatsapp,
                 summaryLength: cleanFinalSummary ? cleanFinalSummary.length : 0
-            });
+            });*/
             if (shouldSendToWhatsapp && (window.connectors && typeof window.connectors.postWhatsappText === 'function')) {
                 const phone = String(options.sendToPhone).replace(/@.*$/g, '');
-                console.info('[DocumentsTab][debug] Sending summary to WhatsApp', {
+                /*console.info('[DocumentsTab][debug] Sending summary to WhatsApp', {
                     documentId,
                     documentTitle,
                     phone
-                });
+                });*/
                 let textToSend = cleanFinalSummary || finalSummaryText || '';
                 if (textToSend) {
                     // Convert markdown links to plain text + URL so WhatsApp clients can click

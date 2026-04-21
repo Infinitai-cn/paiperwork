@@ -1953,7 +1953,7 @@ class Chat {
                             }))
                             : []
                     };
-                    console.info('[Chat][document-rag] Retrieved chunks for document questioning', JSON.stringify(documentRagLogPayload, null, 2));
+                    //console.info('[Chat][document-rag] Retrieved chunks for document questioning', JSON.stringify(documentRagLogPayload, null, 2));
 
                    //console.log(`Chat: RAG: Found ${ragResults.length} chunks from document ${documentId}`);
 
