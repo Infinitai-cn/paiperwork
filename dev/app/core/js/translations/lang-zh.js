@@ -252,6 +252,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 ollamaRateLimitExceeded: "已达到 Ollama Cloud 使用上限。您可能触发了每日或每周配额。请等待额度重置。请访问：https://ollama.com/settings 以确认您的使用情况。",
                 ollamaSubscriptionRequiredTitle: "需要订阅",
                 ollamaSubscriptionRequired: "此 Ollama Cloud 模型需要订阅。请升级您的 Ollama 套餐以获得访问权限。请访问：https://ollama.com/upgrade",
+                ollamaHighVolumeSubscriptionRequiredTitle: "高负载，需订阅访问",
+                ollamaHighVolumeSubscriptionRequired: "此 Ollama Cloud 模型当前负载较高。在平台扩容期间，需要订阅才能访问。请访问：https://ollama.com/upgrade",
                 artifactCloudLimitTitle: "已达到云端使用上限",
                 artifactCloudLimitBody: "已达到 Ollama Cloud 使用上限。您可能触发了每日或每周配额。请等待额度重置。请访问：https://ollama.com/settings 以确认您的使用情况。",
                 ollamaCloudApiKeyTitle: "需要 Ollama Cloud API 密钥",

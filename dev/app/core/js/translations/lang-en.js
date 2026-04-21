@@ -246,6 +246,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         ollamaRateLimitExceeded: "Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.",
         ollamaSubscriptionRequiredTitle: "Subscription required",
         ollamaSubscriptionRequired: "This Ollama Cloud model requires a subscription. Upgrade your Ollama plan to access it. Visit: https://ollama.com/upgrade",
+        ollamaHighVolumeSubscriptionRequiredTitle: "High volume, subscription required",
+        ollamaHighVolumeSubscriptionRequired: "This Ollama Cloud model is experiencing high volume. While capacity is being added, a subscription is required for access. Visit: https://ollama.com/upgrade",
         artifactCloudLimitTitle: "Cloud usage limit reached",
         artifactCloudLimitBody: "Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.",
         ollamaCloudApiKeyTitle: "Ollama Cloud API key required",
