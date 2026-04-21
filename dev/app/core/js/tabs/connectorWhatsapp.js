@@ -1996,12 +1996,12 @@ class ConnectorWhatsapp {
 
         if (isDocumentSummaryPresentationFollowUp) {
             const followUpPrompt = mergedPrompt || normalizedRequest;
-            console.log('[ConnectorWhatsapp][presentation] Using cached document summary for presentation follow-up', {
+            /*console.log('[ConnectorWhatsapp][presentation] Using cached document summary for presentation follow-up', {
                 summaryLength: canonicalSource.length,
                 summaryPreview: canonicalSource.slice(0, 600),
                 extraRequestText: followUpPrompt,
                 extraRequestLength: followUpPrompt.length
-            });
+            });*/
             return {
                 sourceText: canonicalSource,
                 extraRequestText: followUpPrompt,
@@ -2018,13 +2018,13 @@ class ConnectorWhatsapp {
 
         if (isDocumentSummaryMemoryPresentationFollowUp) {
             const followUpPrompt = mergedPrompt || normalizedRequest;
-            console.log('[ConnectorWhatsapp][presentation] Using cached document summary memory after workflow switch', {
+            /*console.log('[ConnectorWhatsapp][presentation] Using cached document summary memory after workflow switch', {
                 summaryLength: canonicalSource.length,
                 summaryPreview: canonicalSource.slice(0, 600),
                 extraRequestText: followUpPrompt,
                 extraRequestLength: followUpPrompt.length,
                 documentName: summaryMemory && summaryMemory.documentName ? summaryMemory.documentName : ''
-            });
+            });*/
             return {
                 sourceText: canonicalSource,
                 extraRequestText: followUpPrompt,
@@ -7200,7 +7200,7 @@ class ConnectorWhatsapp {
         const deriveCoverFromSourceSummary = !!(options && options.deriveCoverFromSourceSummary);
         const useWebSearch = !!(options && options.useWebSearch);
 
-        console.log('[ConnectorWhatsapp][presentation] Sending source text to PromptedPresentationWorkflow', {
+        /*console.log('[ConnectorWhatsapp][presentation] Sending source text to PromptedPresentationWorkflow', {
             slideCount: clampedSlideCount,
             useWebSearch,
             sourceLength: sanitizedSourceText.length,
@@ -7208,7 +7208,7 @@ class ConnectorWhatsapp {
             extraRequestLength: sanitizedExtraRequestText.length,
             extraRequestPreview: sanitizedExtraRequestText.slice(0, 300),
             deriveCoverFromSourceSummary
-        });
+        });*/
 
         workflow.savedSourceText = sanitizedSourceText;
         workflow.savedExtraRequestText = sanitizedExtraRequestText;
@@ -7358,7 +7358,7 @@ class ConnectorWhatsapp {
             || !!(activePresentationSession && activePresentationSession.kind === 'presentation' && activePresentationSession.useWebSearch);
         const slideCount = this._estimatePromptablePresentationSlides(effectiveSourceText);
 
-        console.log('[ConnectorWhatsapp][presentation] Resolved WhatsApp presentation request', {
+        /*console.log('[ConnectorWhatsapp][presentation] Resolved WhatsApp presentation request', {
             phone,
             useWebSearch,
             sourceLength: String(effectiveSourceText || '').length,
@@ -7368,7 +7368,7 @@ class ConnectorWhatsapp {
             isFollowUp: !!(presentationPromptResolution && presentationPromptResolution.isFollowUp),
             usedMergedPrompt: !!(presentationPromptResolution && presentationPromptResolution.usedMergedPrompt),
             deriveCoverFromSourceSummary: !!(presentationPromptResolution && presentationPromptResolution.deriveCoverFromSourceSummary)
-        });
+        });*/
         this._clearPendingPresentationSelection(phone);
 
         const creatingText = await this._getLocalizedLangText(
@@ -7605,7 +7605,7 @@ class ConnectorWhatsapp {
 
     startIncomingPolling() {
         if (this.incomingPollInterval) return;
-        console.log('ConnectorWhatsapp: startIncomingPolling');
+        //console.log('ConnectorWhatsapp: startIncomingPolling');
         this._pollWhatsappIncomingMessages().catch(err => console.warn('ConnectorWhatsapp: initial poll failed', err));
         this.incomingPollInterval = setInterval(() => {
             this._pollWhatsappIncomingMessages().catch(err => console.warn('ConnectorWhatsapp: poll failed', err));
