@@ -2,9 +2,7 @@
 logs.txt
 paiperwork.code-workspace
 .vscode
-paiperwork.md
 .config.env
 **/config.env
 **/storages/
 **/logs/
-Bugfixes.md
