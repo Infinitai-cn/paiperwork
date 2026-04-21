@@ -196,6 +196,38 @@ class Chat {
         return true;
     }
 
+    handleOllamaCloudAccessErrorInChat(error, aiReplies) {
+        const accessError = window.OllamaAPI && typeof window.OllamaAPI.getOllamaCloudAccessErrorDetails === 'function'
+            ? window.OllamaAPI.getOllamaCloudAccessErrorDetails(error)
+            : null;
+
+        if (!accessError) {
+            return false;
+        }
+
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'system-message';
+        errorDiv.innerHTML = `<div class="message-bubble error">${accessError.body}</div>`;
+        aiReplies.appendChild(errorDiv);
+        return true;
+    }
+
+    consumePendingCloudAccessErrorInChat(aiReplies) {
+        const pending = window.OllamaAPI && typeof window.OllamaAPI.consumePendingCloudAccessError === 'function'
+            ? window.OllamaAPI.consumePendingCloudAccessError()
+            : null;
+
+        if (!pending) {
+            return false;
+        }
+
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'system-message';
+        errorDiv.innerHTML = `<div class="message-bubble error">${pending.body}</div>`;
+        aiReplies.appendChild(errorDiv);
+        return true;
+    }
+
     // Initializes the chat system, sets up event listeners and global references
     async initialize() {
        //console.log('Chat: Initializing chat system');
@@ -2079,6 +2111,9 @@ class Chat {
                     // Skip the error for web search since it handles its own response
                     return;
                 } else {
+                    if (this.consumePendingCloudAccessErrorInChat(aiReplies)) {
+                        return;
+                    }
                     console.error('Chat: No response received from Ollama');
                     throw new Error('No response received from Ollama');
                 }
@@ -2319,6 +2354,8 @@ class Chat {
                 window.isGenerating = false;
                 this.isGenerating = false;
                 this.cleanupIncompleteResponses();
+            } else if (this.handleOllamaCloudAccessErrorInChat(error, aiReplies)) {
+                // Specific cloud-access message already shown.
             } else if (this.handleOllamaRateLimitInChat(error, aiReplies)) {
                 // Specific usage-limit message already shown.
             } else if (await this.handleCloudAuthFailureIfNeeded(error)) {

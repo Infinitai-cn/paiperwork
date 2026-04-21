@@ -739,6 +739,8 @@ class ArtworksTab {
                 const ratio = (width / height).toFixed(2);
 
                 // Store this info for use in prompts
+                this.imageWidth = width;
+                this.imageHeight = height;
                 this.imageOrientation = orientation;
                 this.imageRatio = ratio;
                 this.imageDimensions = `${width}×${height}`;
@@ -1303,7 +1305,7 @@ class ArtworksTab {
             switch (this.activeMode) {
                 // In the generateArtwork method, modify the style case:
                 case 'style':
-                    systemPrompt = `You are a skilled web/visual designer specializing in translating visual designs and colors from a picture into complete, functional HTML, CSS, and JavaScript code. When analyzing images, you focus on capturing the essence of the design while implementing the requested style transformation.
+                    systemPrompt = `You are a skilled web/visual designer specializing in turning a requested style direction into a complete, functional HTML webpage with embedded CSS and JavaScript. If an image is provided, use it as visual inspiration and optionally as page content or a background when requested. If no image is provided, you must still return a full HTML webpage that expresses the requested style direction.
 
                     Your responses MUST include:
                     1. A single, self-contained HTML file with all CSS embedded in <style> tags and all JavaScript in <script> tags.
@@ -1312,6 +1314,28 @@ class ArtworksTab {
                     4. Any necessary JavaScript for interactive elements or functionality.
                     5. Responsive design that works across screen sizes.
                     6. Only use standard web technologies (no frameworks or external dependencies).
+                    7. A complete webpage as the final answer every time, never a text explanation, partial snippet, markdown-only response, or design rationale.
+                    8. Return only the HTML document.
+                    9. Default to a real multi-section webpage structure rather than a single poster, card, slide, or isolated composition.
+
+                    DEFAULT PAGE STRUCTURE REQUIREMENTS:
+                    - Unless the user explicitly asks for a poster, flyer, splash screen, overlay, or single-panel composition, generate a full webpage.
+                    - A full webpage should usually include: a hero section, at least 2 additional content sections, and a footer.
+                    - When appropriate for the request, include navigation, feature areas, content blocks, CTA sections, testimonials, cards, or gallery areas.
+                    - The result should feel like a usable website or landing page, not just a styled canvas.
+                    - Use the requested style direction across the entire page, not only in one isolated area.
+                    - Prefer meaningful layout hierarchy and real webpage flow from top to bottom.
+                    - If the prompt is short or ambiguous, still choose a sensible website type and complete the page.
+                    - Do not return a bare artboard, billboard, poster, or centered single block unless the user explicitly requested that format.
+                    - Use normal responsive webpage sizing: html/body should behave like a browser page, not like a fixed poster canvas.
+                    - Do not set html, body, or a top-level wrapper to a large fixed pixel width or height intended to contain the entire page at once.
+                    - Let the page scroll vertically as a normal website. Do not try to fit the whole site into one giant composition area.
+                    - Avoid a single root wrapper whose purpose is centering or scaling the whole page like an artboard.
+                    - Always style BOTH html and body so they share the same background and do not reveal default white browser background.
+                    - Always prevent accidental horizontal overflow at the page root. Ensure the final page does not create a right-side white gutter or empty horizontal strip.
+                    - Prefer root rules like margin: 0; padding: 0; width: 100%; max-width: 100%; and overflow-x: hidden on html/body when appropriate.
+                    - Do not use 100vw on root-level wrappers when 100% is sufficient, because it can create horizontal overflow beside the page.
+                    - Sections, wrappers, and decorative elements must stay within the viewport width; no element should extend past the right edge unless the user explicitly asks for overflow effects.
     
                     ${this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked ?
                     `IMPORTANT: For the background image, use this exact placeholder string: "BACKGROUND_IMAGE_PLACEHOLDER".
@@ -1322,11 +1346,13 @@ class ArtworksTab {
                     DO NOT attempt to include the actual base64 data. The system will automatically replace this placeholder with the appropriate image data.`
                             : ''}
     
-                     Your code should be directly implementable and render correctly in modern browsers without any external resources. Format the code neatly with appropriate indentation and structure.`;
-                    userPrompt = `Transform the uploaded image into a new design with this style direction: ${this.elements.promptInput.value}.${this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked ?
-                        ' Use the uploaded image directly as a background image in appropriate sections of the design.' :
-                        ''
-                        }`;
+                                 Your code should be directly implementable and render correctly in modern browsers without any external resources. Format the code neatly with appropriate indentation and structure.`;
+                        userPrompt = `${this.imageBase64
+                            ? `Create a complete HTML webpage inspired by the uploaded image with this style direction: ${this.elements.promptInput.value}.`
+                            : `Create a complete HTML webpage with this style direction: ${this.elements.promptInput.value}.`}${this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked && this.imageBase64
+                            ? ' Use the uploaded image directly as a background image in appropriate sections of the design.'
+                                     : ''
+                                     } Build it as a real webpage with multiple sections unless I explicitly asked for a single-panel composition. Use standard responsive webpage behavior with normal vertical scrolling, not a fixed-size poster or one-screen artboard.`;
                     break;
 
                 case 'overlay': // Text Overlay mode
@@ -1345,6 +1371,11 @@ class ArtworksTab {
                     - ALWAYS use: background-repeat: no-repeat; to prevent image duplication
                     - USE background-size: 100% 100%; NOT cover (to avoid cropping)
                     - FOR PORTRAIT IMAGES: Set container with appropriate aspect ratio matching the image
+                    - THE FINAL VISIBLE ARTBOARD MUST MATCH THE IMAGE BOUNDS EXACTLY, with no outer padding, no centering frame, and no decorative border area around the image
+                    - DO NOT create wrapper padding, page margins, or empty background around the image
+                    - DO NOT use max-width, max-height, width: 100%, height: auto, or viewport-based sizing rules that can shrink the image inside a larger canvas
+                    - DO NOT add box-shadow, outline, border, or frame effects to the main image container unless the user explicitly asks for them
+                    - THE MAIN IMAGE CONTAINER MUST START AT THE TOP-LEFT OF THE page/artboard and fill the entire composition area exactly
                     
                     CRITICAL: For the background image, you MUST use this exact placeholder string:
                     "BACKGROUND_IMAGE_PLACEHOLDER" in a CSS url() function OR in an img tag src attribute.
@@ -1361,15 +1392,14 @@ class ArtworksTab {
                     DO NOT use JavaScript variables like window.backgroundImage or attempt to use dynamic code.
                     The placeholder will be replaced with the actual image data by the system.
                     
-                    Example CSS for perfect image fitting:
+                                        Example CSS for perfect image fitting with NO surrounding borders:
                     body {
                       background-color: #000; /* Black background for the entire page */
                       margin: 0;
                       padding: 0;
-                      display: flex;
-                      justify-content: center;
-                      align-items: center;
-                      min-height: 100vh;
+                                            width: ${this.imageDimensions ? this.imageDimensions.split('×')[0] : '100vw'}px;
+                                            height: ${this.imageDimensions ? this.imageDimensions.split('×')[1] : '100vh'}px;
+                                            overflow: hidden;
                     }
                     
                     .container {
@@ -1378,33 +1408,14 @@ class ArtworksTab {
                       background-size: 100% 100%; /* Fill completely without whitespace */
                       background-repeat: no-repeat;
                       background-position: center;
-                      width: 100%;
-                      max-width: min(95vw, calc(95vh * ${this.imageRatio}));
-                      max-height: min(95vh, calc(95vw / ${this.imageRatio}));
-                      margin: 0 auto;
+                                            width: ${this.imageDimensions ? this.imageDimensions.split('×')[0] : '100vw'}px;
+                                            height: ${this.imageDimensions ? this.imageDimensions.split('×')[1] : '100vh'}px;
+                                            margin: 0;
                       box-sizing: border-box;
                       overflow: hidden; /* Prevent any potential overflow */
                       position: relative; /* For absolute positioning of text elements */
-                    }
-                    
-                    /* For portrait images, add additional height control */
-                    @media (max-aspect-ratio: 1/1) {
-                      .container {
-                        height: auto;
-                        max-height: 100vh;
-                      }
-                    }
-                    
-                    /* Add a wrapper div to ensure proper centering with black background */
-                    .page-wrapper {
-                      background-color: #000;
-                      width: 100%;
-                      min-height: 100vh;
-                      display: flex;
-                      justify-content: center;
-                      align-items: center;
-                      padding: 20px;
-                      box-sizing: border-box;
+                                            top: 0;
+                                            left: 0;
                     }
                                 
                     CRITICAL: RESPECT THE ORIGINAL IMAGE ASPECT RATIO. Portrait images MUST remain portrait in your implementation. NEVER display a portrait image in landscape orientation by multiplying it horizontally.
@@ -1415,6 +1426,8 @@ class ArtworksTab {
                     - Use modern CSS (flexbox, grid) for positioning.
                     - Maintain the original aspect ratio of the image (especially important for portrait images).
                     - NEVER duplicate the background image horizontally or vertically.
+                    - NOT include any wrapper whose only purpose is centering the image inside a larger viewport.
+                    - Make the main composition canvas exactly the same size as the source image so the exported PNG has no border area.
                     `;
                     userPrompt = `Create text overlays for this product image with the following text:
                     ${this.elements.promptInput.value}
@@ -1607,48 +1620,40 @@ class ArtworksTab {
                             }
                         }
 
-                        // For Text Overlay mode or when "Use as background" is checked, ensure we inject the image properly
-                        if ((this.activeMode === 'overlay') ||
-                            (this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked)) {
+                        // Keep overlay HTML lightweight in the editor and resolve the image only at preview/export time.
+                        if (this.activeMode !== 'overlay' &&
+                            this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked) {
+                            const injectedImageUrl = imageUrl;
 
-                            // Replace placeholders with the blob URL instead of the full base64 string
                             fullResponse = fullResponse.replace(
                                 /url\(['"]?BACKGROUND_IMAGE_PLACEHOLDER['"]?\)/gi,
-                                `url('${imageUrl}')`
+                                `url('${injectedImageUrl}')`
                             );
 
-                            // Also replace any existing window.backgroundImage references
                             fullResponse = fullResponse.replace(
                                 /url\(['"]?window\.backgroundImage['"]?\)/gi,
-                                `url('${imageUrl}')`
+                                `url('${injectedImageUrl}')`
                             );
 
                             fullResponse = fullResponse.replace(
                                 /url\(window\.backgroundImage\)/gi,
-                                `url('${imageUrl}')`
+                                `url('${injectedImageUrl}')`
                             );
 
                             fullResponse = fullResponse.replace(
                                 /url\(\s*window\s*\[\s*['"]backgroundImage['"]\s*\]\s*\)/gi,
-                                `url('${imageUrl}')`
+                                `url('${injectedImageUrl}')`
                             );
-                            // 3. NEW: Handle <img> tags with the placeholder as src attribute
+
                             fullResponse = fullResponse.replace(
                                 /<img\s+[^>]*src\s*=\s*["']BACKGROUND_IMAGE_PLACEHOLDER["'][^>]*>/gi,
-                                (match) => {
-                                    return match.replace(/src\s*=\s*["']BACKGROUND_IMAGE_PLACEHOLDER["']/gi, `src="${imageUrl}"`);
-                                }
+                                (match) => match.replace(/src\s*=\s*["']BACKGROUND_IMAGE_PLACEHOLDER["']/gi, `src="${injectedImageUrl}"`)
                             );
 
-                            // 4. NEW: Also handle unquoted src attributes (less common but possible)
                             fullResponse = fullResponse.replace(
                                 /<img\s+[^>]*src\s*=\s*BACKGROUND_IMAGE_PLACEHOLDER[^>]*>/gi,
-                                (match) => {
-                                    return match.replace(/src\s*=\s*BACKGROUND_IMAGE_PLACEHOLDER/gi, `src="${imageUrl}"`);
-                                }
+                                (match) => match.replace(/src\s*=\s*BACKGROUND_IMAGE_PLACEHOLDER/gi, `src="${injectedImageUrl}"`)
                             );
-
-                           //console.log('ArtworksTab: Injected blob URL for background image to improve performance');
                         }
 
                         // Create the preview with the improved image handling
@@ -1659,7 +1664,13 @@ class ArtworksTab {
                             // Always pass the blob URL for overlay mode, otherwise respect checkbox
                             (this.activeMode === 'overlay') ||
                                 (this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked) ?
-                                imageUrl : null
+                                (this.activeMode === 'overlay' ? (imageUrl || this.imageBase64) : imageUrl) : null,
+                            {
+                                previewMode: this.activeMode,
+                                sourceImageWidth: this.activeMode === 'overlay' && this.imageWidth ? this.imageWidth : 0,
+                                sourceImageHeight: this.activeMode === 'overlay' && this.imageHeight ? this.imageHeight : 0,
+                                exportBackgroundImage: this.activeMode === 'overlay' && this.imageBase64 ? this.imageBase64 : (imageUrl || null),
+                            }
                         );
 
                         // Set up cleanup function for when preview window is closed

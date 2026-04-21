@@ -4,6 +4,7 @@ class OllamaAPI {
     static cloudModelNames = new Set();
     static pulledCloudModels = new Set();
     static taggedVisualModelNames = new Set();
+    static pendingCloudAccessError = null;
 
     static _cachedThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
         ? window.ThinkingState.getEffectiveThinkingEnabled()
@@ -110,21 +111,35 @@ class OllamaAPI {
             || 'This Ollama Cloud model requires a subscription. Upgrade your Ollama plan to access it. Visit: https://ollama.com/upgrade';
     }
 
+    static getOllamaHighVolumeSubscriptionMessage() {
+        return (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaHighVolumeSubscriptionRequired'))
+            || 'This Ollama Cloud model is experiencing high volume. While capacity is being added, a subscription is required for access. Visit: https://ollama.com/upgrade';
+    }
+
     static getOllamaCloudAccessErrorDetails(error) {
         const rawMessage = String(error && error.message ? error.message : error || '');
         const message = rawMessage.toLowerCase();
         const directStatus = Number(error?.status || error?.statusCode || error?.response?.status || NaN);
 
-        const isSubscriptionRequired = directStatus === 403
-            || message.includes('requires a subscription')
+        const isHighVolumeSubscription = message.includes('model is experiencing high volume')
+            || message.includes('while capacity is being added');
+
+        const hasSubscriptionLanguage = message.includes('requires a subscription')
+            || message.includes('subscription is required')
+            || message.includes('subscription required for access')
             || message.includes('upgrade for access')
-            || message.includes('ollama.com/upgrade');
+            || message.includes('ollama.com/upgrade')
+            || isHighVolumeSubscription;
+
+        const isSubscriptionRequired = hasSubscriptionLanguage
+            || (directStatus === 403 && hasSubscriptionLanguage);
 
         if (isSubscriptionRequired) {
             return {
-                type: 'subscription-required',
-                title: (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaSubscriptionRequiredTitle')) || 'Subscription required',
-                body: this.getOllamaSubscriptionRequiredMessage(),
+                type: isHighVolumeSubscription ? 'high-volume-subscription-required' : 'subscription-required',
+                title: (window.Lang && typeof Lang.get === 'function' && Lang.get(isHighVolumeSubscription ? 'ollamaHighVolumeSubscriptionRequiredTitle' : 'ollamaSubscriptionRequiredTitle'))
+                    || (isHighVolumeSubscription ? 'High volume, subscription required' : 'Subscription required'),
+                body: isHighVolumeSubscription ? this.getOllamaHighVolumeSubscriptionMessage() : this.getOllamaSubscriptionRequiredMessage(),
                 link: 'https://ollama.com/upgrade'
             };
         }
@@ -139,6 +154,28 @@ class OllamaAPI {
         }
 
         return null;
+    }
+
+    static rememberCloudAccessError(error) {
+        const details = this.getOllamaCloudAccessErrorDetails(error);
+        this.pendingCloudAccessError = details
+            ? {
+                ...details,
+                rawMessage: String(error && error.message ? error.message : error || '').trim(),
+                timestamp: Date.now()
+            }
+            : null;
+        return this.pendingCloudAccessError;
+    }
+
+    static consumePendingCloudAccessError() {
+        const pending = this.pendingCloudAccessError;
+        this.pendingCloudAccessError = null;
+        return pending;
+    }
+
+    static clearPendingCloudAccessError() {
+        this.pendingCloudAccessError = null;
     }
 
     static isWhatsappConnectorServerActive() {
@@ -1094,6 +1131,7 @@ class OllamaAPI {
     // `forceThink` can be used by callers to explicitly enable/disable native "think"
     // behavior for a single request. `null` means respect the user/global setting.
     static async sendToOllama(userPrompt, systemPrompt, contextSize, previousContext = null, abortSignal = null, requestId = null, streamProcessor = null, forceThink = null) {
+		this.clearPendingCloudAccessError();
        //console.log('Normal OllamaAPI: Sending to Ollama...');
 
         const modelSelector = document.getElementById('model-selector');
@@ -1600,8 +1638,10 @@ class OllamaAPI {
 
             const cloudAccessError = this.getOllamaCloudAccessErrorDetails(error);
             if (cloudAccessError) {
+                this.rememberCloudAccessError(error);
                 this.showBlockingOllamaWarning(cloudAccessError.body, { scope: `send-to-ollama-${cloudAccessError.type}` });
             } else {
+                this.clearPendingCloudAccessError();
                 this.showBlockingOllamaWarning(Lang.get('ollamaConnectionError'), { scope: 'send-to-ollama-connection' });
             }
             return null;

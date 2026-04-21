@@ -248,6 +248,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         ollamaRateLimitExceeded: "Se alcanzó el límite de uso de Ollama Cloud. Es posible que haya alcanzado un límite diario o semanal. Espere el reinicio. Visite: https://ollama.com/settings para confirmar su uso.",
         ollamaSubscriptionRequiredTitle: "Se requiere suscripción",
         ollamaSubscriptionRequired: "Este modelo de Ollama Cloud requiere una suscripción. Actualice su plan de Ollama para acceder. Visite: https://ollama.com/upgrade",
+        ollamaHighVolumeSubscriptionRequiredTitle: "Alto volumen, suscripción requerida",
+        ollamaHighVolumeSubscriptionRequired: "Este modelo de Ollama Cloud está experimentando un alto volumen. Mientras se agrega capacidad, se requiere una suscripción para acceder. Visite: https://ollama.com/upgrade",
         artifactCloudLimitTitle: "Límite de uso en la nube alcanzado",
         artifactCloudLimitBody: "Se alcanzó el límite de uso de Ollama Cloud. Es posible que haya alcanzado un límite diario o semanal. Espere el reinicio. Visite: https://ollama.com/settings para confirmar su uso.",
         ollamaCloudApiKeyTitle: "Se requiere clave API de Ollama Cloud",
