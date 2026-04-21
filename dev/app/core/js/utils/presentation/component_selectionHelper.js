@@ -707,7 +707,7 @@ class selectionHelper {
                             if (pwId && typeof window.presentationPreview !== 'undefined' && window.presentationPreview && typeof window.presentationPreview.updateParsedSlideImage === 'function') {
                                 try {
                                     window.presentationPreview.updateParsedSlideImage(pwId, base64);
-                                    console.info('[selectionHelper] persisted image replacement to parsedSlides pwId=', pwId);
+                                    //console.info('[selectionHelper] persisted image replacement to parsedSlides pwId=', pwId);
                                 } catch (err) {
                                     console.warn('[selectionHelper] updateParsedSlideImage failed', err);
                                 }
@@ -841,7 +841,7 @@ class selectionHelper {
                             if (pwId && typeof window.presentationPreview !== 'undefined' && window.presentationPreview && typeof window.presentationPreview.updateParsedSlideImage === 'function') {
                                 try {
                                     window.presentationPreview.updateParsedSlideImage(pwId, dataUrl);
-                                    console.info('[selectionHelper] persisted imported image to parsedSlides pwId=', pwId);
+                                    //console.info('[selectionHelper] persisted imported image to parsedSlides pwId=', pwId);
                                 } catch (err) {
                                     console.warn('[selectionHelper] updateParsedSlideImage failed', err);
                                 }

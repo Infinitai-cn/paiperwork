@@ -20,7 +20,7 @@ class DatabaseTab {
         await this.refreshDatabaseStats();
 
         if (!openState.main || !openState.rag || !openState.presentations || !openState.artifacts || !openState.kb || !openState.whatsapp) {
-            console.info('DatabaseTab: One or more DB roles were not open; opened on-demand for stats.');
+            //console.info('DatabaseTab: One or more DB roles were not open; opened on-demand for stats.');
         }
         
         this.initialized = true;
@@ -581,7 +581,7 @@ class DatabaseTab {
             // Check if DBs are already open before acting on them.
             const openState = PaiperworkDB.getOpenDatabaseState(this.hashedMasterKey);
             if (!openState.main || !openState.rag || !openState.presentations || !openState.artifacts || !openState.kb || !openState.whatsapp) {
-                console.info('DatabaseTab: Refreshing stats with on-demand DB open.', openState);
+                //console.info('DatabaseTab: Refreshing stats with on-demand DB open.', openState);
             }
             // Refresh when tab becomes active
             this.refreshDatabaseStats();

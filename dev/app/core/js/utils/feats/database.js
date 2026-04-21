@@ -754,10 +754,10 @@ class PaiperworkDB {
         const inspection = await this.inspectImportedMainDatabase(mainDbBytes);
         const detectedHashes = inspection.detectedHashes || [];
 
-        console.info('PaiperworkDB: Import backup hash inspection', {
+        /* console.info('PaiperworkDB: Import backup hash inspection', {
             currentHashPrefix: String(hashedMasterKey || '').slice(0, 8),
             detectedHashPrefixes: detectedHashes.map(hash => String(hash).slice(0, 8))
-        });
+        }); */
 
         if (detectedHashes.length > 0 && !detectedHashes.includes(hashedMasterKey)) {
             throw new Error('Backup belongs to a different master key. Log in with the original master key before importing.');
@@ -805,7 +805,7 @@ class PaiperworkDB {
                 images: imagesDb?.length || 0,
                 whatsapp: whatsappDb?.length || 0
             };
-            console.info('PaiperworkDB: Export bundle role sizes (bytes):', roleSizes);
+            //console.info('PaiperworkDB: Export bundle role sizes (bytes):', roleSizes);
 
             const payload = {
                 format: this.DB_BUNDLE_FORMAT,
@@ -871,11 +871,11 @@ class PaiperworkDB {
                 throw new Error('Invalid Paiperwork backup bundle');
             }
 
-            console.info('PaiperworkDB: Starting bundle import', {
+            /* console.info('PaiperworkDB: Starting bundle import', {
                 format: parsed.format,
                 currentHashPrefix: String(hashedMasterKey || '').slice(0, 8),
                 availableRoles: Object.keys(parsed.dbs || {})
-            });
+            }); */
 
             const isLegacyBundle = parsed.format === this.LEGACY_DB_BUNDLE_FORMAT;
             const allRoles = isLegacyBundle
@@ -2307,10 +2307,10 @@ class PaiperworkDB {
                 try {
                     const migrationResult = await this.migrateLegacyKnowledgeCollectionsToDedicatedDb(db, hashedMasterKey);
                     if (migrationResult?.migratedCollections > 0) {
-                        console.info(
+                        /* console.info(
                             `DATABASE MIGRATION: Moved ${migrationResult.migratedEntries} KB entries ` +
                             `from ${migrationResult.migratedCollections} collections to dedicated KB database.`
-                        );
+                        ); */
                     }
                 } catch (error) {
                     console.error('DATABASE MIGRATION: Error migrating legacy KB entries', error);
@@ -2542,10 +2542,10 @@ class PaiperworkDB {
                 try {
                     const migrationResult = await this.migrateLegacyHtmlRoleDbToDedicatedRoles(hashedMasterKey);
                     if (migrationResult.migratedPresentationRows > 0 || migrationResult.migratedArtifactRows > 0) {
-                        console.info(
+                        /* console.info(
                             `DATABASE MIGRATION: Migrated ${migrationResult.migratedPresentationRows} presentation payload rows ` +
                             `and ${migrationResult.migratedArtifactRows} artifact payload rows from legacy html DB.`
-                        );
+                        ); */
                     }
                 } catch (error) {
                     console.error('DATABASE MIGRATION: Error migrating legacy html role DB', error);
@@ -3262,11 +3262,11 @@ class PaiperworkDB {
     static async loadPromptablePresentationHtml(hashedMasterKey, id) {
         let presentationsDb = null;
         try {
-            console.info('[PaiperworkDB][presentation] loadPromptablePresentationHtml start', {
+            /* console.info('[PaiperworkDB][presentation] loadPromptablePresentationHtml start', {
                 hasHashedMasterKey: !!hashedMasterKey,
                 hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
                 id
-            });
+            }); */
             if (!hashedMasterKey || !id) return '';
 
             await this.initializeDatabase(hashedMasterKey);
@@ -3320,12 +3320,12 @@ class PaiperworkDB {
                 return '';
             }
 
-            console.info('[PaiperworkDB][presentation] HTML row loaded', {
+            /* console.info('[PaiperworkDB][presentation] HTML row loaded', {
                 hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
                 id,
                 storedLength: String(encryptedStr).length,
                 storedPreview: String(encryptedStr).slice(0, 120)
-            });
+            }); */
 
             const looksLikeHtml = (value) => {
                 const normalized = String(value || '').trim();
@@ -3340,31 +3340,31 @@ class PaiperworkDB {
             };
 
             if (looksLikeHtml(encryptedStr)) {
-                console.info('[PaiperworkDB][presentation] Returning raw stored HTML', {
+                /* console.info('[PaiperworkDB][presentation] Returning raw stored HTML', {
                     hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
                     id,
                     htmlLength: String(encryptedStr).trim().length
-                });
+                }); */
                 return String(encryptedStr).trim();
             }
 
             try {
                 const parsedEncrypted = JSON.parse(encryptedStr);
                 if (typeof parsedEncrypted === 'string' && looksLikeHtml(parsedEncrypted)) {
-                    console.info('[PaiperworkDB][presentation] Returning HTML from parsed JSON string', {
+                    /* console.info('[PaiperworkDB][presentation] Returning HTML from parsed JSON string', {
                         hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
                         id,
                         htmlLength: parsedEncrypted.trim().length
-                    });
+                    }); */
                     return parsedEncrypted.trim();
                 }
                 const decrypted = await this.decrypt(hashedMasterKey, parsedEncrypted);
                 if (decrypted) {
-                    console.info('[PaiperworkDB][presentation] Returning decrypted HTML', {
+                    /* console.info('[PaiperworkDB][presentation] Returning decrypted HTML', {
                         hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
                         id,
                         htmlLength: String(decrypted).length
-                    });
+                    }); */
                     return decrypted;
                 }
             } catch (_error) {
@@ -3380,11 +3380,11 @@ class PaiperworkDB {
                 const normalizedStored = String(encryptedStr || '').trim();
                 const unquotedStored = normalizedStored.replace(/^"|"$/g, '');
                 if (looksLikeHtml(unquotedStored)) {
-                    console.info('[PaiperworkDB][presentation] Returning unquoted legacy HTML', {
+                    /* console.info('[PaiperworkDB][presentation] Returning unquoted legacy HTML', {
                         hashedMasterKeyPrefix: String(hashedMasterKey || '').slice(0, 8),
                         id,
                         htmlLength: unquotedStored.length
-                    });
+                    }); */
                     return unquotedStored;
                 }
             } catch (_error) {
