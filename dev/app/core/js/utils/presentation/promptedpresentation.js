@@ -3570,7 +3570,7 @@ class PromptedPresentationWorkflow {
 		const systemPrompt = mode === 'pdf'
 			? this.buildPdfPresentationSystemPrompt()
 			: this.buildArtisticPresentationSystemPrompt();
-		console.log(
+		/*console.log(
 			`[PromptedPresentationWorkflow] generatePresentationHtml payload\n${JSON.stringify({
 				mode,
 				model,
@@ -3579,7 +3579,7 @@ class PromptedPresentationWorkflow {
 				systemLength: String(systemPrompt || '').length,
 				system: String(systemPrompt || '')
 			}, null, 2)}`
-		);
+		);*/
 
 		const requestBody = {
 			model,

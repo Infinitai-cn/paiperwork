@@ -610,7 +610,7 @@ class ArtworkPreviewWindow {
         const iframeWindow = iframe ? iframe.contentWindow : null;
         const iframeDoc = iframe ? (iframe.contentDocument || iframeWindow?.document) : null;
         if (!iframeWindow || !iframeDoc || !iframeDoc.body) {
-            console.warn('ArtworkPreviewWindow[text-overlay]: missing iframe context while measuring bounds');
+            //console.warn('ArtworkPreviewWindow[text-overlay]: missing iframe context while measuring bounds');
             return null;
         }
 
@@ -715,16 +715,16 @@ class ArtworkPreviewWindow {
         }
 
         if (!bestMatch) {
-            console.warn('ArtworkPreviewWindow[text-overlay]: no suitable bounds candidate found', {
+            /*console.warn('ArtworkPreviewWindow[text-overlay]: no suitable bounds candidate found', {
                 docWidth,
                 docHeight,
                 candidateCount: debugCandidates.length,
-            });
+            });*/
             return null;
         }
 
         debugCandidates.sort((left, right) => right.score - left.score);
-        console.info('ArtworkPreviewWindow[text-overlay]: top bounds candidates', {
+        /*console.info('ArtworkPreviewWindow[text-overlay]: top bounds candidates', {
             docWidth,
             docHeight,
             bestMatch: {
@@ -737,7 +737,7 @@ class ArtworkPreviewWindow {
                 score: Math.round(bestMatch.score),
             },
             topCandidates: debugCandidates.slice(0, 5),
-        });
+        });*/
 
         return {
             element: bestMatch.element,
@@ -894,12 +894,12 @@ img.container,
             artboard.style.transform = 'none';
         }
 
-        console.info('ArtworkPreviewWindow[text-overlay]: normalized iframe document to source image size', {
+        /*console.info('ArtworkPreviewWindow[text-overlay]: normalized iframe document to source image size', {
             sourceImageWidth: this.sourceImageWidth,
             sourceImageHeight: this.sourceImageHeight,
             hasPageWrapper: !!pageWrapper,
             hasArtboard: !!artboard,
-        });
+        });*/
     }
 
     getTextOverlayEditableElements(root) {
@@ -1112,13 +1112,13 @@ body {
         this.container.style.top = `${Math.max(16, Math.round((window.innerHeight - finalHeight) / 2))}px`;
         this.didAutoSizeTextOverlayWindow = true;
         this.textOverlayAutoSizeArea = boundsArea;
-        console.info('ArtworkPreviewWindow[text-overlay]: auto-sized window from bounds', {
+        /*console.info('ArtworkPreviewWindow[text-overlay]: auto-sized window from bounds', {
             sourceImageWidth: this.sourceImageWidth,
             sourceImageHeight: this.sourceImageHeight,
             bounds,
             finalWidth,
             finalHeight,
-        });
+        });*/
     }
 
     syncTextOverlayPreviewLayout() {
@@ -1145,7 +1145,7 @@ body {
         const bounds = sourceBounds || renderedBounds || this.textOverlayFrameBounds || measuredViewportBounds;
 
         if (!bounds) {
-            console.warn('ArtworkPreviewWindow[text-overlay]: no bounds available, using full preview iframe size');
+            //console.warn('ArtworkPreviewWindow[text-overlay]: no bounds available, using full preview iframe size');
             this.previewFrame.style.width = '100%';
             this.previewFrame.style.height = '100%';
             return;
@@ -1175,7 +1175,7 @@ body {
         this.previewFrame.style.left = '0';
         this.previewFrame.style.transformOrigin = 'top left';
         this.previewFrame.style.transform = `scale(${scale})`;
-        console.info('ArtworkPreviewWindow[text-overlay]: applied preview layout', {
+        /*console.info('ArtworkPreviewWindow[text-overlay]: applied preview layout', {
             sourceBounds,
             bounds,
             measuredViewportBounds,
@@ -1186,7 +1186,7 @@ body {
             iframeHeight: this.previewFrame.style.height,
             containerWidth: this.container.style.width,
             containerHeight: this.container.style.height,
-        });
+        });*/
     }
     // Sets up all event listeners for the preview window (buttons, drag, etc.)
     setupEventListeners() {
@@ -2314,7 +2314,7 @@ body {
                 height: viewportHeight,
             };
 
-            console.info('ArtworkPreviewWindow[text-overlay]: export capture target', {
+            /*console.info('ArtworkPreviewWindow[text-overlay]: export capture target', {
                 targetTag: body?.tagName || '',
                 targetClassName: body?.className || '',
                 captureWidth: Math.round(overlayBounds.width),
@@ -2325,7 +2325,7 @@ body {
                 usingOverlayElementTarget: false,
                 outputWidth: this.sourceImageWidth,
                 outputHeight: this.sourceImageHeight,
-            });
+            });*/
 
             return {
                 target: body,
@@ -2361,7 +2361,7 @@ body {
         const target = useOverlayTarget ? overlayCaptureCandidate.element : (docElement || body);
 
         if (this.isTextOverlayPreview) {
-            console.info('ArtworkPreviewWindow[text-overlay]: export capture target', {
+            /*console.info('ArtworkPreviewWindow[text-overlay]: export capture target', {
                 targetTag: target?.tagName || '',
                 targetClassName: target?.className || '',
                 captureWidth: Math.round(captureWidth),
@@ -2370,7 +2370,7 @@ body {
                 captureY: Math.round(captureY),
                 backgroundColor,
                 usingOverlayElementTarget: useOverlayTarget,
-            });
+            });*/
         }
 
         return {
@@ -2396,17 +2396,29 @@ body {
         const docElement = clonedDoc.documentElement;
         const body = clonedDoc.body;
         const isTransparentOverlayExport = this.isTextOverlayPreview && captureMetrics.backgroundColor == null;
+
+        if (this.isTextOverlayPreview) {
+            this.normalizeTextOverlayDocument(clonedDoc);
+
+            const editableElements = Array.from(clonedDoc.querySelectorAll('[data-artwork-editable-text="true"]'));
+            editableElements.forEach((element) => {
+                element.removeAttribute('contenteditable');
+                element.style.outline = 'none';
+                element.style.caretColor = 'transparent';
+            });
+        }
+
         if (docElement) {
             docElement.style.width = `${captureMetrics.windowWidth}px`;
             docElement.style.height = `${captureMetrics.windowHeight}px`;
-            docElement.style.overflow = 'visible';
+            docElement.style.overflow = this.isTextOverlayPreview ? 'hidden' : 'visible';
             docElement.style.backgroundColor = isTransparentOverlayExport ? 'transparent' : captureMetrics.backgroundColor;
         }
 
         if (body) {
             body.style.width = `${captureMetrics.windowWidth}px`;
             body.style.height = `${captureMetrics.windowHeight}px`;
-            body.style.overflow = 'visible';
+            body.style.overflow = this.isTextOverlayPreview ? 'hidden' : 'visible';
             body.style.backgroundColor = isTransparentOverlayExport ? 'transparent' : captureMetrics.backgroundColor;
         }
 
@@ -2415,6 +2427,12 @@ body {
             if (pageWrapper) {
                 pageWrapper.style.backgroundColor = 'transparent';
                 pageWrapper.style.background = 'transparent';
+                pageWrapper.style.overflow = 'hidden';
+            }
+
+            const artboard = body?.querySelector('.container, img.container, [class*="container"]');
+            if (artboard) {
+                artboard.style.overflow = 'hidden';
             }
         }
     }
@@ -2439,13 +2457,13 @@ body {
         }
 
         exportContext.drawImage(canvas, 0, 0, outputWidth, outputHeight);
-        console.info('ArtworkPreviewWindow[text-overlay]: resized export canvas to source image dimensions', {
+        /*console.info('ArtworkPreviewWindow[text-overlay]: resized export canvas to source image dimensions', {
             renderedWidth: canvas.width,
             renderedHeight: canvas.height,
             outputWidth,
             outputHeight,
             renderedOverlayBounds: captureMetrics.renderedOverlayBounds,
-        });
+        });*/
         return exportCanvas;
     }
 
@@ -2475,15 +2493,15 @@ body {
             exportContext.clearRect(0, 0, outputWidth, outputHeight);
             exportContext.drawImage(backgroundImage, 0, 0, outputWidth, outputHeight);
             exportContext.drawImage(resizedCanvas, 0, 0, outputWidth, outputHeight);
-            console.info('ArtworkPreviewWindow[text-overlay]: composited source background image into export canvas', {
+            /*console.info('ArtworkPreviewWindow[text-overlay]: composited source background image into export canvas', {
                 outputWidth,
                 outputHeight,
                 overlayCanvasWidth: resizedCanvas.width,
                 overlayCanvasHeight: resizedCanvas.height,
-            });
+            });*/
             return exportCanvas;
         } catch (error) {
-            console.warn('ArtworkPreviewWindow[text-overlay]: failed composing source background image into export canvas', error);
+            //console.warn('ArtworkPreviewWindow[text-overlay]: failed composing source background image into export canvas', error);
             return resizedCanvas;
         }
     }
