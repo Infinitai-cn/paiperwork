@@ -244,6 +244,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         ollamaSelectModelPrompt: "Please select a model before sending a message.",
         ollamaConnectionError: "Connection to Ollama failed. Verify Ollama is running and try again.",
         ollamaRateLimitExceeded: "Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.",
+        ollamaSubscriptionRequiredTitle: "Subscription required",
+        ollamaSubscriptionRequired: "This Ollama Cloud model requires a subscription. Upgrade your Ollama plan to access it. Visit: https://ollama.com/upgrade",
         artifactCloudLimitTitle: "Cloud usage limit reached",
         artifactCloudLimitBody: "Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.",
         ollamaCloudApiKeyTitle: "Ollama Cloud API key required",
