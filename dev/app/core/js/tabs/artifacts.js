@@ -358,6 +358,872 @@ class ArtifactsWindow {
 		return { routing, options };
 	}
 
+	static getArtifactImageEditorHelper() {
+		if (typeof window !== 'undefined' && window.PromptedPresentationWorkflow) {
+			return window.PromptedPresentationWorkflow;
+		}
+		if (typeof PromptedPresentationWorkflow !== 'undefined') {
+			return PromptedPresentationWorkflow;
+		}
+		return null;
+	}
+
+	static getArtifactImageProxyBaseUrl(useAbsolute = true) {
+		const helper = this.getArtifactImageEditorHelper();
+		if (helper && typeof helper.getPromptableImageProxyBaseUrl === 'function') {
+			return helper.getPromptableImageProxyBaseUrl(useAbsolute);
+		}
+
+		const proxyPath = '/api/proxy/fetch-image?url=';
+		if (!useAbsolute || typeof window === 'undefined' || !window.location || !/^https?:$/i.test(window.location.protocol || '')) {
+			return proxyPath;
+		}
+		return `${window.location.origin}${proxyPath}`;
+	}
+
+	static buildArtifactProxiedImageUrl(rawUrl, useAbsolute = true) {
+		const helper = this.getArtifactImageEditorHelper();
+		if (helper && typeof helper.buildPromptableProxiedImageUrl === 'function') {
+			return helper.buildPromptableProxiedImageUrl(rawUrl, useAbsolute);
+		}
+
+		const value = String(rawUrl || '').trim();
+		if (!value || /^data:|^blob:/i.test(value)) {
+			return value;
+		}
+		if (!/^https?:\/\//i.test(value) || value.includes('/api/proxy/fetch-image?url=')) {
+			return value;
+		}
+		return `${this.getArtifactImageProxyBaseUrl(useAbsolute)}${encodeURIComponent(value)}`;
+	}
+
+	static async readArtifactBlobAsDataUrl(blob) {
+		const helper = this.getArtifactImageEditorHelper();
+		if (helper && typeof helper.readPromptableBlobAsDataUrl === 'function') {
+			return await helper.readPromptableBlobAsDataUrl(blob);
+		}
+
+		return await new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onloadend = () => resolve(reader.result || '');
+			reader.onerror = reject;
+			reader.readAsDataURL(blob);
+		});
+	}
+
+	static async fetchArtifactImageAsDataUrl(rawUrl, abortSignal = null) {
+		const helper = this.getArtifactImageEditorHelper();
+		if (helper && typeof helper.fetchPromptableImageAsDataUrl === 'function') {
+			return await helper.fetchPromptableImageAsDataUrl(rawUrl, abortSignal);
+		}
+
+		const value = String(rawUrl || '').trim();
+		if (!value) {
+			return '';
+		}
+		if (/^data:/i.test(value)) {
+			return value;
+		}
+
+		const response = await fetch(this.buildArtifactProxiedImageUrl(value, false), { signal: abortSignal || undefined });
+		if (!response.ok) {
+			throw new Error(`Image fetch failed with status ${response.status}`);
+		}
+
+		return await this.readArtifactBlobAsDataUrl(await response.blob());
+	}
+
+	static async searchArtifactImageUrls(query, count = 18) {
+		const helper = this.getArtifactImageEditorHelper();
+		if (helper && typeof helper.searchPromptableImageUrls === 'function') {
+			return await helper.searchPromptableImageUrls(query, count);
+		}
+
+		const q = String(query || '').trim();
+		if (!q) {
+			return [];
+		}
+
+		let urls = [];
+		try {
+			const multiResp = await fetch(`/api/proxy/image-search-multi?q=${encodeURIComponent(q)}`);
+			if (multiResp && multiResp.ok) {
+				const multiData = await multiResp.json();
+				const multiList = Array.isArray(multiData && multiData.images)
+					? multiData.images
+					: Array.isArray(multiData && multiData.results)
+						? multiData.results
+						: Array.isArray(multiData && multiData.hits)
+							? multiData.hits
+							: [];
+
+				multiList.forEach((entry) => {
+					if (typeof entry === 'string' && /^https?:\/\//i.test(entry)) {
+						urls.push(entry);
+						return;
+					}
+					if (!entry || typeof entry !== 'object') {
+						return;
+					}
+					const candidate = entry.imageUrl || entry.url || entry.src || entry.webformatURL || '';
+					if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate)) {
+						urls.push(candidate);
+					}
+				});
+			}
+		} catch (_error) {
+		}
+
+		if (urls.length < count) {
+			try {
+				const singleResp = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(q)}`);
+				if (singleResp && singleResp.ok) {
+					const singleData = await singleResp.json();
+					const visit = (value, depth = 0) => {
+						if (!value || depth > 6) {
+							return;
+						}
+						if (typeof value === 'string') {
+							if (/^https?:\/\//i.test(value)) {
+								urls.push(value);
+							}
+							return;
+						}
+						if (Array.isArray(value)) {
+							value.forEach((item) => visit(item, depth + 1));
+							return;
+						}
+						if (typeof value === 'object') {
+							['imageUrl', 'url', 'src', 'previewURL', 'largeImageURL', 'thumb', 'thumbnail', 'webformatURL'].forEach((key) => {
+								if (typeof value[key] === 'string' && /^https?:\/\//i.test(value[key])) {
+									urls.push(value[key]);
+								}
+							});
+							Object.values(value).forEach((nested) => visit(nested, depth + 1));
+						}
+					};
+					visit(singleData, 0);
+				}
+			} catch (_error) {
+			}
+		}
+
+		return Array.from(new Set(urls)).filter((url) => /^https?:\/\//i.test(url)).slice(0, count);
+	}
+
+	static serializeArtifactDocument(documentRef) {
+		const helper = this.getArtifactImageEditorHelper();
+		if (helper && typeof helper.serializePromptableDocument === 'function') {
+			return helper.serializePromptableDocument(documentRef);
+		}
+
+		if (!documentRef || !documentRef.documentElement) {
+			return '';
+		}
+
+		let doctype = '';
+		if (documentRef.doctype && documentRef.doctype.name) {
+			doctype = `<!DOCTYPE ${documentRef.doctype.name}>`;
+		}
+		const body = documentRef.documentElement.outerHTML;
+		return doctype ? `${doctype}\n${body}` : body;
+	}
+
+	static async inlineArtifactImages(documentRef, abortSignal = null) {
+		if (!documentRef || typeof documentRef.querySelectorAll !== 'function') {
+			return;
+		}
+
+		const images = Array.from(documentRef.querySelectorAll('img'));
+		for (const imageElement of images) {
+			if (!imageElement) {
+				continue;
+			}
+
+			const currentSrc = String(imageElement.getAttribute('src') || imageElement.currentSrc || '').trim();
+			if (!currentSrc || /^data:|^blob:/i.test(currentSrc)) {
+				continue;
+			}
+
+			try {
+				const dataUrl = await this.fetchArtifactImageAsDataUrl(currentSrc, abortSignal);
+				if (!dataUrl) {
+					continue;
+				}
+				imageElement.setAttribute('src', dataUrl);
+				imageElement.removeAttribute('srcset');
+			} catch (_inlineError) {
+				// Leave the existing image reference unchanged if embedding fails.
+			}
+		}
+	}
+
+	static async buildStandaloneArtifactHtml(htmlContent, abortSignal = null) {
+		const normalizedHtml = String(htmlContent || '').trim();
+		if (!normalizedHtml) {
+			return '';
+		}
+
+		let documentRef = null;
+		try {
+			const parser = new DOMParser();
+			documentRef = parser.parseFromString(normalizedHtml, 'text/html');
+		} catch (_error) {
+			return normalizedHtml;
+		}
+
+		if (!documentRef || !documentRef.body) {
+			return normalizedHtml;
+		}
+
+		await this.inlineArtifactImages(documentRef, abortSignal);
+		return this.serializeArtifactDocument(documentRef);
+	}
+
+	static syncCurrentArtifactHtmlFromFrame(frame = null) {
+		const targetFrame = frame || this.renderFrame;
+		if (!targetFrame || !targetFrame.contentDocument || !targetFrame.contentDocument.documentElement) {
+			return;
+		}
+
+		this.currentArtifactHtml = this.serializeArtifactDocument(targetFrame.contentDocument);
+		if (this.codeEditor) {
+			this.setCodeEditorValue(this.currentArtifactHtml);
+		}
+		this.schedulePersistCurrentArtifactHtml();
+	}
+
+	static schedulePersistCurrentArtifactHtml() {
+		if (!this.currentArtifactId || !this.currentArtifactHtml) {
+			return;
+		}
+
+		if (this.persistArtifactHtmlTimer) {
+			clearTimeout(this.persistArtifactHtmlTimer);
+		}
+
+		this.persistArtifactHtmlTimer = setTimeout(() => {
+			this.persistArtifactHtmlTimer = null;
+			void this.persistCurrentArtifactHtml();
+		}, 250);
+	}
+
+	static async persistCurrentArtifactHtml() {
+		if (!this.currentArtifactId) {
+			return false;
+		}
+
+		const hashedMasterKey = this.getActiveHashedMasterKey();
+		const dbApi = this.getDatabaseApi();
+		const html = String(this.currentArtifactHtml || '').trim();
+		if (!hashedMasterKey || !dbApi || !html) {
+			return false;
+		}
+
+		try {
+			if (typeof dbApi.updateArtifact === 'function') {
+				await dbApi.updateArtifact(hashedMasterKey, this.currentArtifactId, {
+					title: this.currentArtifactTitle || this.extractArtifactTitle(html),
+					html,
+					prompt: this.normalizeArtifactPromptText(this.currentArtifactPrompt || ''),
+				});
+				return true;
+			}
+
+			if (typeof dbApi.saveArtifactHtmlContent === 'function') {
+				await dbApi.saveArtifactHtmlContent(hashedMasterKey, this.currentArtifactId, html);
+				return true;
+			}
+		} catch (error) {
+			console.error('[ArtifactsWindow] Persist artifact HTML failed:', error);
+		}
+
+		return false;
+	}
+
+	static async cacheArtifactFrameImages(frame = null) {
+		const targetFrame = frame || this.renderFrame;
+		const frameDocument = targetFrame && targetFrame.contentDocument ? targetFrame.contentDocument : null;
+		if (!frameDocument || !frameDocument.documentElement) {
+			return false;
+		}
+
+		const images = Array.from(frameDocument.querySelectorAll('img'));
+		if (!images.length) {
+			return false;
+		}
+
+		let mutated = false;
+		for (const imageElement of images) {
+			const currentSrc = String(imageElement.getAttribute('src') || imageElement.currentSrc || '').trim();
+			if (!currentSrc || /^data:|^blob:/i.test(currentSrc)) {
+				continue;
+			}
+
+			try {
+				const dataUrl = await this.fetchArtifactImageAsDataUrl(currentSrc);
+				if (!dataUrl || dataUrl === currentSrc) {
+					continue;
+				}
+				imageElement.setAttribute('src', dataUrl);
+				imageElement.removeAttribute('srcset');
+				imageElement.src = dataUrl;
+				mutated = true;
+			} catch (_error) {
+			}
+		}
+
+		if (!mutated) {
+			return false;
+		}
+
+		this.currentArtifactHtml = this.serializeArtifactDocument(frameDocument);
+		if (this.codeEditor) {
+			this.setCodeEditorValue(this.currentArtifactHtml);
+		}
+		this.schedulePersistCurrentArtifactHtml();
+		return true;
+	}
+
+	static resetArtifactImageSelectionVisuals() {
+		if (!this.artifactSelectedImage) {
+			return;
+		}
+
+		try {
+			this.artifactSelectedImage.style.outline = this.artifactSelectedImage.dataset.pwArtifactOutline || '';
+			this.artifactSelectedImage.style.outlineOffset = this.artifactSelectedImage.dataset.pwArtifactOutlineOffset || '';
+			delete this.artifactSelectedImage.dataset.pwArtifactOutline;
+			delete this.artifactSelectedImage.dataset.pwArtifactOutlineOffset;
+		} catch (_error) {
+		}
+
+		this.artifactSelectedImage = null;
+	}
+
+	static updateArtifactImageEditorStatus(message, type = 'info') {
+		if (!this.artifactImageEditorStatus) {
+			return;
+		}
+
+		this.artifactImageEditorStatus.textContent = message || '';
+		this.artifactImageEditorStatus.style.color = type === 'error' ? '#ef4444' : 'var(--text-color, #ffffff)';
+		this.artifactImageEditorStatus.style.opacity = type === 'muted' ? '0.75' : '1';
+	}
+
+	static ensureArtifactImageEditorPanel() {
+		if (this.artifactImageEditorPanel && this.overlay && this.overlay.contains(this.artifactImageEditorPanel)) {
+			return;
+		}
+		if (!this.overlay) {
+			return;
+		}
+
+		const panel = document.createElement('div');
+		panel.style.position = 'absolute';
+		panel.style.left = '50%';
+		panel.style.top = '50%';
+		panel.style.transform = 'translate(-50%, -50%)';
+		panel.style.width = '340px';
+		panel.style.maxHeight = '55vh';
+		panel.style.display = 'flex';
+		panel.style.flexDirection = 'column';
+		panel.style.gap = '8px';
+		panel.style.padding = '10px';
+		panel.style.borderRadius = '10px';
+		panel.style.border = '1px solid var(--border-color, #404040)';
+		panel.style.background = 'var(--presentation-modal-bg, var(--panel-background, #222426))';
+		panel.style.boxShadow = 'var(--presentation-modal-box-shadow, 0 8px 32px rgba(0,0,0,0.18))';
+		panel.style.zIndex = '10030';
+
+		const title = document.createElement('div');
+		title.textContent = window.Lang ? (Lang.get('replaceImageLabel') || 'Replace image') : 'Replace image';
+		title.style.fontWeight = '600';
+		title.style.fontSize = '13px';
+
+		const inputRow = document.createElement('div');
+		inputRow.style.display = 'flex';
+		inputRow.style.alignItems = 'center';
+		inputRow.style.gap = '8px';
+
+		const searchInput = document.createElement('input');
+		searchInput.type = 'text';
+		searchInput.placeholder = window.Lang ? (Lang.get('searchImagesPlaceholder') || 'Search images') : 'Search images';
+		searchInput.style.flex = '1 1 auto';
+		searchInput.style.height = '34px';
+		searchInput.style.padding = '0 10px';
+		searchInput.style.borderRadius = '8px';
+		searchInput.style.border = '1px solid var(--border-color, #404040)';
+		searchInput.style.background = 'var(--background-color, #18181b)';
+		searchInput.style.color = 'var(--text-color, #ffffff)';
+		searchInput.style.outline = 'none';
+
+		const searchBtn = document.createElement('button');
+		searchBtn.type = 'button';
+		searchBtn.textContent = window.Lang ? (Lang.get('searchButton') || 'Search') : 'Search';
+		searchBtn.style.height = '34px';
+		searchBtn.style.padding = '0 12px';
+		searchBtn.style.borderRadius = '8px';
+		searchBtn.style.border = '1px solid var(--presentation-export-border, transparent)';
+		searchBtn.style.cursor = 'pointer';
+		searchBtn.style.background = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
+		searchBtn.style.color = 'var(--presentation-export-color, #ffffff)';
+
+		inputRow.appendChild(searchInput);
+		inputRow.appendChild(searchBtn);
+
+		const status = document.createElement('div');
+		status.style.fontSize = '12px';
+		status.style.lineHeight = '1.35';
+		status.style.minHeight = '16px';
+		status.style.color = 'var(--text-color, #ffffff)';
+		status.style.opacity = '0.78';
+
+		const resultGrid = document.createElement('div');
+		resultGrid.style.display = 'grid';
+		resultGrid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
+		resultGrid.style.gap = '8px';
+		resultGrid.style.maxHeight = '260px';
+		resultGrid.style.overflow = 'auto';
+
+		const actionRow = document.createElement('div');
+		actionRow.style.display = 'flex';
+		actionRow.style.justifyContent = 'space-between';
+		actionRow.style.gap = '8px';
+		actionRow.style.flexWrap = 'wrap';
+
+		const restoreBtn = document.createElement('button');
+		restoreBtn.type = 'button';
+		restoreBtn.textContent = window.Lang ? (Lang.get('restoreOriginalButton') || 'Restore original') : 'Restore original';
+		restoreBtn.style.height = '32px';
+		restoreBtn.style.padding = '0 10px';
+		restoreBtn.style.borderRadius = '8px';
+		restoreBtn.style.border = '1px solid var(--border-color, #404040)';
+		restoreBtn.style.cursor = 'pointer';
+		restoreBtn.style.background = 'var(--background-color, #18181b)';
+		restoreBtn.style.color = 'var(--text-color, #ffffff)';
+
+		const importBtn = document.createElement('button');
+		importBtn.type = 'button';
+		importBtn.textContent = window.Lang ? (Lang.get('importImageButton') || 'Import image') : 'Import image';
+		importBtn.style.height = '32px';
+		importBtn.style.padding = '0 10px';
+		importBtn.style.borderRadius = '8px';
+		importBtn.style.border = '1px solid var(--presentation-export-border, transparent)';
+		importBtn.style.cursor = 'pointer';
+		importBtn.style.background = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
+		importBtn.style.color = 'var(--presentation-export-color, #ffffff)';
+
+		const fileInput = document.createElement('input');
+		fileInput.type = 'file';
+		fileInput.accept = 'image/*';
+		fileInput.style.display = 'none';
+
+		const closeBtn = document.createElement('button');
+		closeBtn.type = 'button';
+		closeBtn.textContent = window.Lang ? (Lang.get('closeButton') || 'Close') : 'Close';
+		closeBtn.style.height = '32px';
+		closeBtn.style.padding = '0 10px';
+		closeBtn.style.borderRadius = '8px';
+		closeBtn.style.border = '1px solid var(--border-color, #404040)';
+		closeBtn.style.cursor = 'pointer';
+		closeBtn.style.background = 'var(--background-color, #18181b)';
+		closeBtn.style.color = 'var(--text-color, #ffffff)';
+
+		actionRow.appendChild(restoreBtn);
+		actionRow.appendChild(importBtn);
+		actionRow.appendChild(closeBtn);
+
+		panel.appendChild(title);
+		panel.appendChild(inputRow);
+		panel.appendChild(status);
+		panel.appendChild(resultGrid);
+		panel.appendChild(actionRow);
+		panel.appendChild(fileInput);
+		this.overlay.appendChild(panel);
+
+		this.artifactImageEditorPanel = panel;
+		this.artifactImageEditorInput = searchInput;
+		this.artifactImageEditorSearchBtn = searchBtn;
+		this.artifactImageEditorStatus = status;
+		this.artifactImageEditorResults = resultGrid;
+		this.artifactImageEditorRestoreBtn = restoreBtn;
+		this.artifactImageEditorImportBtn = importBtn;
+		this.artifactImageEditorFileInput = fileInput;
+
+		const runSearch = async () => {
+			await this.searchArtifactImagesFromEditor();
+		};
+
+		searchBtn.addEventListener('click', () => { runSearch(); });
+		searchInput.addEventListener('keydown', (event) => {
+			if (event.key === 'Enter') {
+				event.preventDefault();
+				runSearch();
+			}
+		});
+		restoreBtn.addEventListener('click', () => { this.restoreArtifactSelectedImage(); });
+		importBtn.addEventListener('click', () => {
+			fileInput.value = '';
+			fileInput.click();
+		});
+		fileInput.addEventListener('change', (event) => {
+			const selectedFile = event && event.target && event.target.files && event.target.files[0] ? event.target.files[0] : null;
+			if (!selectedFile) {
+				return;
+			}
+			void this.importArtifactSelectedImageFromFile(selectedFile);
+		});
+		closeBtn.addEventListener('click', () => {
+			if (panel && panel.parentNode) {
+				panel.parentNode.removeChild(panel);
+			}
+			this.artifactImageEditorPanel = null;
+			this.artifactImageEditorInput = null;
+			this.artifactImageEditorSearchBtn = null;
+			this.artifactImageEditorStatus = null;
+			this.artifactImageEditorResults = null;
+			this.artifactImageEditorRestoreBtn = null;
+			this.artifactImageEditorImportBtn = null;
+			this.artifactImageEditorFileInput = null;
+			this.resetArtifactImageSelectionVisuals();
+		});
+
+		this.updateArtifactImageEditorStatus(
+			window.Lang ? (Lang.get('clickImageToEdit') || 'Click an image in the artifact to replace it.') : 'Click an image in the artifact to replace it.',
+			'muted'
+		);
+		this.positionArtifactImageEditorPanelCentered();
+	}
+
+	static positionArtifactImageEditorPanelCentered(frame = null) {
+		const panel = this.artifactImageEditorPanel;
+		const activeFrame = frame || this.artifactEditingFrame || this.renderFrame;
+		if (!panel || !this.overlay) {
+			return;
+		}
+
+		const overlayRect = this.overlay.getBoundingClientRect();
+		if (!overlayRect || !Number.isFinite(overlayRect.top)) {
+			return;
+		}
+
+		let left = overlayRect.width / 2;
+		let top = overlayRect.height / 2;
+		if (activeFrame) {
+			const frameRect = activeFrame.getBoundingClientRect();
+			if (frameRect && Number.isFinite(frameRect.left) && Number.isFinite(frameRect.top)) {
+				left = (frameRect.left - overlayRect.left) + (frameRect.width / 2);
+				top = (frameRect.top - overlayRect.top) + (frameRect.height / 2);
+			}
+		}
+
+		panel.style.left = `${Math.round(left)}px`;
+		panel.style.top = `${Math.round(top)}px`;
+		panel.style.transform = 'translate(-50%, -50%)';
+		panel.style.right = 'auto';
+		panel.style.bottom = 'auto';
+	}
+
+	static getArtifactImageStableId(imageElement) {
+		if (!imageElement) {
+			return '';
+		}
+		let imageId = imageElement.getAttribute('data-pw-artifact-image-id') || '';
+		if (!imageId) {
+			imageId = `artifact-img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+			imageElement.setAttribute('data-pw-artifact-image-id', imageId);
+		}
+		return imageId;
+	}
+
+	static selectArtifactImage(imageElement, frame) {
+		if (!imageElement || !frame) {
+			return;
+		}
+
+		this.resetArtifactImageSelectionVisuals();
+		this.ensureArtifactImageEditorPanel();
+
+		const imageId = this.getArtifactImageStableId(imageElement);
+		if (!this.artifactImageOriginalSrcById) {
+			this.artifactImageOriginalSrcById = {};
+		}
+		if (!this.artifactImageOriginalSrcById[imageId]) {
+			this.artifactImageOriginalSrcById[imageId] = imageElement.getAttribute('src') || imageElement.currentSrc || '';
+		}
+
+		imageElement.dataset.pwArtifactOutline = imageElement.style.outline || '';
+		imageElement.dataset.pwArtifactOutlineOffset = imageElement.style.outlineOffset || '';
+		imageElement.style.outline = '3px solid var(--accent-color, #4f46e5)';
+		imageElement.style.outlineOffset = '2px';
+
+		this.artifactSelectedImage = imageElement;
+		this.artifactEditingFrame = frame;
+		this.positionArtifactImageEditorPanelCentered(frame);
+		this.updateArtifactImageEditorStatus(
+			window.Lang ? (Lang.get('imageSelectedStatus') || 'Image selected. Search and click a thumbnail to replace it.') : 'Image selected. Search and click a thumbnail to replace it.',
+			'info'
+		);
+
+		if (this.artifactImageEditorInput) {
+			this.artifactImageEditorInput.focus();
+		}
+	}
+
+	static renderArtifactImageSearchResults(urls) {
+		if (!this.artifactImageEditorResults) {
+			return;
+		}
+		this.artifactImageEditorResults.innerHTML = '';
+
+		(urls || []).forEach((url) => {
+			if (!/^https?:\/\//i.test(String(url || '').trim())) {
+				return;
+			}
+
+			const thumbBtn = document.createElement('button');
+			thumbBtn.type = 'button';
+			thumbBtn.style.padding = '0';
+			thumbBtn.style.borderRadius = '8px';
+			thumbBtn.style.border = '1px solid var(--border-color, #404040)';
+			thumbBtn.style.overflow = 'hidden';
+			thumbBtn.style.cursor = 'pointer';
+			thumbBtn.style.background = 'var(--background-color, #18181b)';
+			thumbBtn.style.height = '74px';
+
+			const img = document.createElement('img');
+			img.src = this.buildArtifactProxiedImageUrl(url, true) || url;
+			img.alt = 'search-result';
+			img.style.width = '100%';
+			img.style.height = '100%';
+			img.style.objectFit = 'cover';
+			thumbBtn.appendChild(img);
+			thumbBtn.addEventListener('click', () => {
+				void this.replaceArtifactSelectedImage(url);
+			});
+			this.artifactImageEditorResults.appendChild(thumbBtn);
+		});
+
+		this.positionArtifactImageEditorPanelCentered();
+	}
+
+	static async searchArtifactImagesFromEditor() {
+		if (!this.artifactImageEditorInput) {
+			return;
+		}
+		const query = String(this.artifactImageEditorInput.value || '').trim();
+		if (!query) {
+			this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('searchQueryRequired') || 'Enter an image search query.') : 'Enter an image search query.', 'muted');
+			return;
+		}
+
+		this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('searchingImagesLabel') || 'Searching images...') : 'Searching images...', 'info');
+		if (this.artifactImageEditorSearchBtn) {
+			this.artifactImageEditorSearchBtn.disabled = true;
+		}
+
+		try {
+			const urls = await this.searchArtifactImageUrls(query, 18);
+			this.renderArtifactImageSearchResults(urls);
+			if (!urls.length) {
+				this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('webSearchNoResultsFound') || 'No results found') : 'No results found', 'muted');
+				return;
+			}
+			this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('clickThumbnailToReplace') || 'Click a thumbnail to replace the selected image.') : 'Click a thumbnail to replace the selected image.', 'info');
+		} catch (error) {
+			console.error('[ArtifactsWindow] Image search failed', error);
+			this.updateArtifactImageEditorStatus(String(error && error.message ? error.message : error), 'error');
+		} finally {
+			if (this.artifactImageEditorSearchBtn) {
+				this.artifactImageEditorSearchBtn.disabled = false;
+			}
+		}
+	}
+
+	static async replaceArtifactSelectedImage(url) {
+		if (!this.artifactSelectedImage || !url) {
+			this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('clickImageToEdit') || 'Click an image in the artifact to replace it.') : 'Click an image in the artifact to replace it.', 'muted');
+			return;
+		}
+
+		const normalizedUrl = String(url || '').trim();
+		if (!/^https?:\/\//i.test(normalizedUrl) && !/^data:/i.test(normalizedUrl)) {
+			this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('promptableDirectLinkOnly') || 'Only direct image links (http/https) are allowed.') : 'Only direct image links (http/https) are allowed.', 'error');
+			return;
+		}
+
+		const imageId = this.getArtifactImageStableId(this.artifactSelectedImage);
+		if (!this.artifactImageOriginalSrcById) {
+			this.artifactImageOriginalSrcById = {};
+		}
+		if (!this.artifactImageOriginalSrcById[imageId]) {
+			this.artifactImageOriginalSrcById[imageId] = this.artifactSelectedImage.getAttribute('src') || this.artifactSelectedImage.currentSrc || '';
+		}
+
+		this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('searchingImagesLabel') || 'Searching images...') : 'Searching images...', 'info');
+		let dataUrl = normalizedUrl;
+		try {
+			dataUrl = await this.fetchArtifactImageAsDataUrl(normalizedUrl);
+		} catch (error) {
+			this.updateArtifactImageEditorStatus(String(error && error.message ? error.message : error), 'error');
+			return;
+		}
+
+		this.artifactSelectedImage.setAttribute('src', dataUrl);
+		this.artifactSelectedImage.removeAttribute('srcset');
+		this.artifactSelectedImage.src = dataUrl;
+		this.syncCurrentArtifactHtmlFromFrame(this.artifactEditingFrame);
+		this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('imageReplacedStatus') || 'Image replaced. You can restore the original at any time.') : 'Image replaced. You can restore the original at any time.', 'info');
+	}
+
+	static async importArtifactSelectedImageFromFile(file) {
+		if (!this.artifactSelectedImage) {
+			this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('clickImageToEdit') || 'Click an image in the artifact to replace it.') : 'Click an image in the artifact to replace it.', 'muted');
+			return;
+		}
+		if (!(file instanceof Blob) || !String(file.type || '').toLowerCase().startsWith('image/')) {
+			this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('promptableLocalImageOnly') || 'Please choose a valid image file from your computer.') : 'Please choose a valid image file from your computer.', 'error');
+			return;
+		}
+
+		const imageId = this.getArtifactImageStableId(this.artifactSelectedImage);
+		if (!this.artifactImageOriginalSrcById) {
+			this.artifactImageOriginalSrcById = {};
+		}
+		if (!this.artifactImageOriginalSrcById[imageId]) {
+			this.artifactImageOriginalSrcById[imageId] = this.artifactSelectedImage.getAttribute('src') || this.artifactSelectedImage.currentSrc || '';
+		}
+
+		this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('importingImageLabel') || 'Importing image...') : 'Importing image...', 'info');
+		let dataUrl = '';
+		try {
+			dataUrl = await this.readArtifactBlobAsDataUrl(file);
+		} catch (error) {
+			this.updateArtifactImageEditorStatus(String(error && error.message ? error.message : error), 'error');
+			return;
+		}
+		if (!dataUrl) {
+			this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('promptableLocalImageReadFailed') || 'Failed to read the selected image file.') : 'Failed to read the selected image file.', 'error');
+			return;
+		}
+
+		this.artifactSelectedImage.setAttribute('src', dataUrl);
+		this.artifactSelectedImage.removeAttribute('srcset');
+		this.artifactSelectedImage.src = dataUrl;
+		this.syncCurrentArtifactHtmlFromFrame(this.artifactEditingFrame);
+		this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('imageImportedStatus') || 'Image imported from your computer. You can restore the original at any time.') : 'Image imported from your computer. You can restore the original at any time.', 'info');
+	}
+
+	static restoreArtifactSelectedImage() {
+		if (!this.artifactSelectedImage) {
+			this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('clickImageToEdit') || 'Click an image in the artifact to replace it.') : 'Click an image in the artifact to replace it.', 'muted');
+			return;
+		}
+
+		const imageId = this.getArtifactImageStableId(this.artifactSelectedImage);
+		const originalSrc = this.artifactImageOriginalSrcById ? this.artifactImageOriginalSrcById[imageId] : '';
+		if (!originalSrc) {
+			this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('noOriginalImageStored') || 'No original image stored for this element.') : 'No original image stored for this element.', 'error');
+			return;
+		}
+
+		this.artifactSelectedImage.setAttribute('src', originalSrc);
+		this.artifactSelectedImage.removeAttribute('srcset');
+		this.artifactSelectedImage.src = originalSrc;
+		this.syncCurrentArtifactHtmlFromFrame(this.artifactEditingFrame);
+		this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('imageRestoredStatus') || 'Original image restored.') : 'Original image restored.', 'info');
+	}
+
+	static clearArtifactImageEditorArtifacts() {
+		this.resetArtifactImageSelectionVisuals();
+		if (this.artifactImageEditorPanel && this.artifactImageEditorPanel.parentNode) {
+			this.artifactImageEditorPanel.parentNode.removeChild(this.artifactImageEditorPanel);
+		}
+		this.artifactImageEditorPanel = null;
+		this.artifactImageEditorInput = null;
+		this.artifactImageEditorSearchBtn = null;
+		this.artifactImageEditorStatus = null;
+		this.artifactImageEditorResults = null;
+		this.artifactImageEditorRestoreBtn = null;
+		this.artifactImageEditorImportBtn = null;
+		this.artifactImageEditorFileInput = null;
+	}
+
+	static attachArtifactFrameImageClickHandler(frame) {
+		if (!frame) {
+			return;
+		}
+		if (this.artifactFrame && this.artifactFrame !== frame && this.artifactFrameLoadHandler) {
+			this.artifactFrame.removeEventListener('load', this.artifactFrameLoadHandler);
+		}
+		this.artifactFrame = frame;
+
+		const bindDocumentHandler = () => {
+			if (!frame.contentDocument) {
+				return;
+			}
+			if (this.artifactFrameDocument && this.artifactFrameImageClickHandler) {
+				this.artifactFrameDocument.removeEventListener('click', this.artifactFrameImageClickHandler, true);
+			}
+
+			const frameDocument = frame.contentDocument;
+			const styleId = 'pw-artifact-image-edit-style';
+			if (!frameDocument.getElementById(styleId)) {
+				const style = frameDocument.createElement('style');
+				style.id = styleId;
+				style.textContent = 'img { cursor: pointer !important; }';
+				frameDocument.head && frameDocument.head.appendChild(style);
+			}
+
+			const imageClickHandler = (event) => {
+				if (!event || !event.target || typeof event.target.closest !== 'function') {
+					return;
+				}
+				const imageElement = event.target.closest('img');
+				if (!imageElement) {
+					return;
+				}
+				event.preventDefault();
+				event.stopPropagation();
+				this.selectArtifactImage(imageElement, frame);
+			};
+
+			frameDocument.addEventListener('click', imageClickHandler, true);
+			this.artifactFrameDocument = frameDocument;
+			this.artifactFrameImageClickHandler = imageClickHandler;
+		};
+
+		const onLoad = () => {
+			this.clearArtifactImageEditorArtifacts();
+			bindDocumentHandler();
+			void this.cacheArtifactFrameImages(frame);
+		};
+		frame.addEventListener('load', onLoad);
+		this.artifactFrameLoadHandler = onLoad;
+
+		if (frame.contentDocument && frame.contentDocument.readyState !== 'loading') {
+			bindDocumentHandler();
+			void this.cacheArtifactFrameImages(frame);
+		}
+	}
+
+	static teardownArtifactFrameImageClickHandler() {
+		if (this.artifactFrame && this.artifactFrameLoadHandler) {
+			this.artifactFrame.removeEventListener('load', this.artifactFrameLoadHandler);
+		}
+		if (this.artifactFrameDocument && this.artifactFrameImageClickHandler) {
+			this.artifactFrameDocument.removeEventListener('click', this.artifactFrameImageClickHandler, true);
+		}
+
+		this.artifactFrame = null;
+		this.artifactFrameLoadHandler = null;
+		this.artifactFrameDocument = null;
+		this.artifactFrameImageClickHandler = null;
+		this.artifactEditingFrame = null;
+		this.clearArtifactImageEditorArtifacts();
+	}
+
 	static buildArtifactSystemPrompt() {
 		return [
 			'You are an elite software engineer and creative technical architect specialized in HTML, CSS, JavaScript, and modern web tooling.',
@@ -1210,7 +2076,8 @@ class ArtifactsWindow {
 	static async saveArtifactToLibrary({ htmlContent = '', title = '', prompt = '' } = {}) {
 		const hashedMasterKey = this.getActiveHashedMasterKey();
 		const dbApi = this.getDatabaseApi();
-		const normalizedHtml = String(htmlContent || '').trim();
+		const standaloneHtml = await this.buildStandaloneArtifactHtml(htmlContent);
+		const normalizedHtml = String(standaloneHtml || htmlContent || '').trim();
 
 		if (!hashedMasterKey || !dbApi || typeof dbApi.saveArtifact !== 'function') {
 			throw new Error('Artifact database API unavailable.');
@@ -1964,6 +2831,11 @@ class ArtifactsWindow {
 			this.setGenerationStatus('');
 			this.setRequestProgressVisible(false);
 			this.resetArtifactConversationContext();
+			this.teardownArtifactFrameImageClickHandler();
+			if (this.persistArtifactHtmlTimer) {
+				clearTimeout(this.persistArtifactHtmlTimer);
+				this.persistArtifactHtmlTimer = null;
+			}
 
 			if (this.fullscreenChangeHandler) {
 				document.removeEventListener('fullscreenchange', this.fullscreenChangeHandler);
@@ -1984,6 +2856,8 @@ class ArtifactsWindow {
 			this.requestProgressTrack = null;
 			this.requestProgressBar = null;
 			this.currentArtifactPrompt = '';
+			this.currentArtifactId = null;
+			this.currentArtifactTitle = '';
 			this.codeEditor = null;
 			this.codeEditorShell = null;
 			this.codePreview = null;
@@ -2033,23 +2907,35 @@ class ArtifactsWindow {
 				return;
 			}
 
-			const defaultTitle = this.extractArtifactTitle(htmlToSave);
-			const chosenTitle = await this.promptArtifactName(defaultTitle);
-			if (chosenTitle === null) {
-				return;
+			const defaultTitle = this.currentArtifactTitle || this.extractArtifactTitle(htmlToSave);
+			let finalTitle = (defaultTitle || this.t('artifactUntitled', 'Untitled artifact')).trim();
+			if (!this.currentArtifactId) {
+				const chosenTitle = await this.promptArtifactName(defaultTitle);
+				if (chosenTitle === null) {
+					return;
+				}
+				finalTitle = (chosenTitle || defaultTitle || this.t('artifactUntitled', 'Untitled artifact')).trim();
 			}
-			const finalTitle = (chosenTitle || defaultTitle || this.t('artifactUntitled', 'Untitled artifact')).trim();
 
 			saveArtifactBtn.disabled = true;
 			const previousLabel = saveArtifactBtn.textContent;
 			saveArtifactBtn.textContent = this.t('savingButton', 'Saving...');
 
 			try {
-				await dbApi.saveArtifact(hashedMasterKey, {
-					title: finalTitle,
-					html: htmlToSave,
-					prompt: promptToSave,
-				});
+				if (this.currentArtifactId && typeof dbApi.updateArtifact === 'function') {
+					await dbApi.updateArtifact(hashedMasterKey, this.currentArtifactId, {
+						title: finalTitle,
+						html: htmlToSave,
+						prompt: promptToSave,
+					});
+				} else {
+					this.currentArtifactId = await dbApi.saveArtifact(hashedMasterKey, {
+						title: finalTitle,
+						html: htmlToSave,
+						prompt: promptToSave,
+					});
+				}
+				this.currentArtifactTitle = finalTitle;
 				await this.refreshSavedArtifacts();
 			} catch (error) {
 				console.error('[ArtifactsWindow] Save artifact failed:', error);
@@ -2094,6 +2980,8 @@ class ArtifactsWindow {
 
 			const abortController = new AbortController();
 			this.currentAbortController = abortController;
+			this.currentArtifactId = null;
+			this.currentArtifactTitle = '';
 			this.setViewMode('code');
 			if (this.codeEditor) {
 				this.setCodeEditorValue('');
@@ -2258,6 +3146,10 @@ class ArtifactsWindow {
 		this.renderFrame = bodyFrame;
 		this.sidebarList = sidebarList;
 		this.sidebarEmpty = sidebarEmpty;
+		this.artifactImageOriginalSrcById = {};
+		this.attachArtifactFrameImageClickHandler(bodyFrame);
+		this.currentArtifactId = this.currentArtifactId || null;
+		this.currentArtifactTitle = this.currentArtifactTitle || '';
 		this.currentArtifactHtml = this.currentArtifactHtml || this.getDefaultArtifactHtml();
 		if (typeof this.currentArtifactPrompt !== 'string') {
 			this.currentArtifactPrompt = '';
@@ -2312,6 +3204,10 @@ class ArtifactsWindow {
 	}
 
 	static isCloudUsageLimitError(error) {
+		if (window.OllamaAPI && typeof window.OllamaAPI.getOllamaCloudAccessErrorDetails === 'function') {
+			return !!window.OllamaAPI.getOllamaCloudAccessErrorDetails(error);
+		}
+
 		const rawMessage = String((error && (error.message || error)) || '').toLowerCase();
 		if (!rawMessage) {
 			return false;
@@ -2320,7 +3216,8 @@ class ArtifactsWindow {
 		return rawMessage.includes('ollama cloud usage limit')
 			|| rawMessage.includes('weekly usage limit')
 			|| rawMessage.includes('daily or weekly limit')
-			|| (rawMessage.includes('usage limit') && rawMessage.includes('ollama.com/upgrade'));
+			|| rawMessage.includes('requires a subscription')
+			|| rawMessage.includes('upgrade for access');
 	}
 
 	static showCloudUsageLimitPreviewNotice(error) {
@@ -2328,11 +3225,15 @@ class ArtifactsWindow {
 			return;
 		}
 
-		const title = this.t('artifactCloudLimitTitle', 'Cloud usage limit reached');
-		const body = this.t(
+		const accessError = window.OllamaAPI && typeof window.OllamaAPI.getOllamaCloudAccessErrorDetails === 'function'
+			? window.OllamaAPI.getOllamaCloudAccessErrorDetails(error)
+			: null;
+		const title = accessError?.title || this.t('artifactCloudLimitTitle', 'Cloud usage limit reached');
+		const body = accessError?.body || this.t(
 			'artifactCloudLimitBody',
 			'Your Ollama Cloud usage limit was reached. Please wait for reset or upgrade your Ollama plan.',
 		);
+		const link = accessError?.link || 'https://ollama.com/settings';
 		const detail = String((error && (error.message || error)) || '').trim();
 		const safeDetail = this.escapeHtml(detail);
 
@@ -2405,7 +3306,7 @@ class ArtifactsWindow {
 	<main class="card">
 		<h1>${this.escapeHtml(title)}</h1>
 		<p>${this.escapeHtml(body)}</p>
-		<p><a href="https://ollama.com/settings" target="_blank" rel="noopener noreferrer">https://ollama.com/settings</a></p>
+		<p><a href="${this.escapeHtml(link)}" target="_blank" rel="noopener noreferrer">${this.escapeHtml(link)}</a></p>
 		${safeDetail ? `<pre>${safeDetail}</pre>` : ''}
 	</main>
 </body>
@@ -2459,6 +3360,7 @@ class ArtifactsWindow {
 			return;
 		}
 		const html = this.currentArtifactHtml || this.getDefaultArtifactHtml();
+		this.clearArtifactImageEditorArtifacts();
 		this.renderFrame.srcdoc = this.normalizeYouTubeEmbeds(html);
 	}
 
@@ -2604,6 +3506,8 @@ class ArtifactsWindow {
 					return;
 				}
 
+				this.currentArtifactId = item.id;
+				this.currentArtifactTitle = String(item.title || this.extractArtifactTitle(html) || '').trim();
 				this.currentArtifactHtml = html;
 				this.currentArtifactPrompt = this.normalizeArtifactPromptText(item.prompt_text || '');
 				if (this.codeEditor) {
@@ -2664,6 +3568,11 @@ class ArtifactsWindow {
 				if (!deleted) {
 					deleteBtn.disabled = false;
 					return;
+				}
+
+				if (this.currentArtifactId === item.id) {
+					this.currentArtifactId = null;
+					this.currentArtifactTitle = '';
 				}
 
 				await this.refreshSavedArtifacts();
@@ -2739,9 +3648,15 @@ class ArtifactsWindow {
 			return;
 		}
 
-		const title = this.extractArtifactTitle(htmlContent);
+		const standaloneHtml = await this.buildStandaloneArtifactHtml(htmlContent);
+		const finalHtml = (standaloneHtml || htmlContent).trim();
+		const title = this.extractArtifactTitle(finalHtml);
 		const filename = `${this.sanitizeHtmlFilename(title)}.html`;
-		const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+		const blob = new Blob([finalHtml], { type: 'text/html;charset=utf-8' });
+		this.currentArtifactHtml = finalHtml;
+		if (this.codeEditor) {
+			this.setCodeEditorValue(finalHtml);
+		}
 
 		if (window && typeof window.showSaveFilePicker === 'function') {
 			try {
@@ -2776,7 +3691,9 @@ class ArtifactsWindow {
 
 	static async saveHtmlToDisk(title, htmlContent) {
 		const filename = `${this.sanitizeHtmlFilename(title)}.html`;
-		const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+		const standaloneHtml = await this.buildStandaloneArtifactHtml(htmlContent);
+		const finalHtml = (standaloneHtml || htmlContent || '').trim();
+		const blob = new Blob([finalHtml], { type: 'text/html;charset=utf-8' });
 
 		if (window && typeof window.showSaveFilePicker === 'function') {
 			try {

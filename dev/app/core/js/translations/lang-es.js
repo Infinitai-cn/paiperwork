@@ -246,6 +246,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         ollamaSelectModelPrompt: "Por favor, seleccione un modelo antes de enviar un mensaje.",
         ollamaConnectionError: "Falló la conexión a Ollama. Verifique que Ollama esté ejecutándose e inténtelo de nuevo.",
         ollamaRateLimitExceeded: "Se alcanzó el límite de uso de Ollama Cloud. Es posible que haya alcanzado un límite diario o semanal. Espere el reinicio. Visite: https://ollama.com/settings para confirmar su uso.",
+        ollamaSubscriptionRequiredTitle: "Se requiere suscripción",
+        ollamaSubscriptionRequired: "Este modelo de Ollama Cloud requiere una suscripción. Actualice su plan de Ollama para acceder. Visite: https://ollama.com/upgrade",
         artifactCloudLimitTitle: "Límite de uso en la nube alcanzado",
         artifactCloudLimitBody: "Se alcanzó el límite de uso de Ollama Cloud. Es posible que haya alcanzado un límite diario o semanal. Espere el reinicio. Visite: https://ollama.com/settings para confirmar su uso.",
         ollamaCloudApiKeyTitle: "Se requiere clave API de Ollama Cloud",

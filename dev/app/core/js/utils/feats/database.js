@@ -3559,6 +3559,59 @@ class PaiperworkDB {
         }
     }
 
+    static async updateArtifact(hashedMasterKey, artifactId, payload) {
+        try {
+            if (!hashedMasterKey) throw new Error('Missing master key');
+            if (!artifactId) throw new Error('Missing artifact id');
+
+            const html = payload && typeof payload.html === 'string' ? payload.html : '';
+            if (!html.trim()) {
+                throw new Error('Missing artifact HTML');
+            }
+
+            const title = (payload && payload.title ? String(payload.title) : '').trim() || 'Untitled artifact';
+            const promptText = payload && typeof payload.prompt === 'string' ? payload.prompt : '';
+            const now = new Date().toISOString();
+            const tableName = `artifacts_${hashedMasterKey}`;
+
+            await this.initializeDatabase(hashedMasterKey);
+
+            if (!this.SQL) {
+                this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+            }
+
+            const db = await this.getDatabase(hashedMasterKey, 'main', true);
+
+            db.run(`
+                CREATE TABLE IF NOT EXISTS ${tableName} (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT,
+                    prompt_text TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            `);
+
+            const tableInfo = db.exec(`PRAGMA table_info(${tableName})`);
+            const hasPromptColumn = !!(tableInfo && tableInfo[0] && tableInfo[0].values && tableInfo[0].values.some((row) => row[1] === 'prompt_text'));
+            if (!hasPromptColumn) {
+                db.run(`ALTER TABLE ${tableName} ADD COLUMN prompt_text TEXT`);
+            }
+
+            db.run(
+                `UPDATE ${tableName} SET title = ?, prompt_text = ?, updated_at = ? WHERE id = ?`,
+                [title, promptText, now, artifactId]
+            );
+
+            await this.saveToStorage(db.export(), hashedMasterKey);
+            await this.saveArtifactHtmlContent(hashedMasterKey, artifactId, html);
+            return true;
+        } catch (error) {
+            console.error('updateArtifact error:', error);
+            throw error;
+        }
+    }
+
     // Load artifact list metadata for a given masterkey
     static async getArtifacts(hashedMasterKey) {
         try {

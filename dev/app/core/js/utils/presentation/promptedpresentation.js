@@ -426,13 +426,18 @@ class PromptedPresentationWorkflow {
 	}
 
 	static isCloudUsageLimitError(error) {
+		if (window.OllamaAPI && typeof window.OllamaAPI.getOllamaCloudAccessErrorDetails === 'function') {
+			return !!window.OllamaAPI.getOllamaCloudAccessErrorDetails(error);
+		}
+
 		const message = String(error && error.message ? error.message : error || '').toLowerCase();
 		return message.includes('429')
 			|| message.includes('too many requests')
 			|| message.includes('weekly usage')
 			|| message.includes('daily limit')
 			|| message.includes('usage limit')
-			|| message.includes('ollama.com/upgrade');
+			|| message.includes('requires a subscription')
+			|| message.includes('upgrade for access');
 	}
 
 	static showCloudUsageLimitNotice(error, renderArea) {
@@ -442,8 +447,12 @@ class PromptedPresentationWorkflow {
 
 		const rawMessage = String(error && error.message ? error.message : error || '');
 		const safeMessage = this.escapeNoticeHtml(rawMessage);
-		const title = (window.Lang && Lang.get('artifactCloudLimitTitle')) || 'Cloud usage limit reached';
-		const body = (window.Lang && Lang.get('artifactCloudLimitBody')) || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.';
+		const accessError = window.OllamaAPI && typeof window.OllamaAPI.getOllamaCloudAccessErrorDetails === 'function'
+			? window.OllamaAPI.getOllamaCloudAccessErrorDetails(error)
+			: null;
+		const title = accessError?.title || ((window.Lang && Lang.get('artifactCloudLimitTitle')) || 'Cloud usage limit reached');
+		const body = accessError?.body || ((window.Lang && Lang.get('artifactCloudLimitBody')) || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.');
+		const link = accessError?.link || 'https://ollama.com/settings';
 
 		if (renderArea) {
 			renderArea.innerHTML = `
@@ -451,7 +460,7 @@ class PromptedPresentationWorkflow {
 					<div style="font-weight:700;margin-bottom:8px;color:#ef4444;">${this.escapeNoticeHtml(title)}</div>
 					<div style="white-space:pre-wrap;line-height:1.5;margin-bottom:10px;">${this.escapeNoticeHtml(body)}</div>
 					<div style="white-space:pre-wrap;line-height:1.45;opacity:0.95;margin-bottom:10px;">${safeMessage}</div>
-					<a href="https://ollama.com/settings" target="_blank" rel="noopener noreferrer" style="color:#f87171;text-decoration:underline;">https://ollama.com/settings</a>
+					<a href="${this.escapeNoticeHtml(link)}" target="_blank" rel="noopener noreferrer" style="color:#f87171;text-decoration:underline;">${this.escapeNoticeHtml(link)}</a>
 				</div>
 			`;
 			return true;
@@ -482,7 +491,7 @@ class PromptedPresentationWorkflow {
 			<div style="font-weight:700;margin-bottom:8px;color:#ef4444;">${this.escapeNoticeHtml(title)}</div>
 			<div style="line-height:1.5;margin-bottom:10px;">${this.escapeNoticeHtml(body)}</div>
 			<div style="white-space:pre-wrap;line-height:1.45;opacity:0.95;margin-bottom:10px;">${safeMessage}</div>
-			<a href="https://ollama.com/settings" target="_blank" rel="noopener noreferrer" style="color:#f87171;text-decoration:underline;">https://ollama.com/settings</a>
+			<a href="${this.escapeNoticeHtml(link)}" target="_blank" rel="noopener noreferrer" style="color:#f87171;text-decoration:underline;">${this.escapeNoticeHtml(link)}</a>
 			<div style="display:flex;justify-content:flex-end;margin-top:14px;">
 				<button type="button" class="promptable-usage-limit-close" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border-color,#374151);background:var(--button-bg,#111827);color:var(--text-color,#f9fafb);cursor:pointer;">OK</button>
 			</div>

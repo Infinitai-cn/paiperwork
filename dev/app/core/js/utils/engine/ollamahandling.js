@@ -105,6 +105,42 @@ class OllamaAPI {
             || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.';
     }
 
+    static getOllamaSubscriptionRequiredMessage() {
+        return (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaSubscriptionRequired'))
+            || 'This Ollama Cloud model requires a subscription. Upgrade your Ollama plan to access it. Visit: https://ollama.com/upgrade';
+    }
+
+    static getOllamaCloudAccessErrorDetails(error) {
+        const rawMessage = String(error && error.message ? error.message : error || '');
+        const message = rawMessage.toLowerCase();
+        const directStatus = Number(error?.status || error?.statusCode || error?.response?.status || NaN);
+
+        const isSubscriptionRequired = directStatus === 403
+            || message.includes('requires a subscription')
+            || message.includes('upgrade for access')
+            || message.includes('ollama.com/upgrade');
+
+        if (isSubscriptionRequired) {
+            return {
+                type: 'subscription-required',
+                title: (window.Lang && typeof Lang.get === 'function' && Lang.get('ollamaSubscriptionRequiredTitle')) || 'Subscription required',
+                body: this.getOllamaSubscriptionRequiredMessage(),
+                link: 'https://ollama.com/upgrade'
+            };
+        }
+
+        if (this.isOllamaRateLimitError(error)) {
+            return {
+                type: 'usage-limit',
+                title: (window.Lang && typeof Lang.get === 'function' && Lang.get('artifactCloudLimitTitle')) || 'Cloud usage limit reached',
+                body: this.getOllamaRateLimitMessage(),
+                link: 'https://ollama.com/settings'
+            };
+        }
+
+        return null;
+    }
+
     static isWhatsappConnectorServerActive() {
         const connectorsTab = window.connectorsTab;
         if (!connectorsTab || typeof connectorsTab !== 'object') {
@@ -176,8 +212,11 @@ class OllamaAPI {
             || message.includes('weekly usage')
             || message.includes('daily limit')
             || message.includes('usage limit')
-            || message.includes('ollama.com/upgrade')
             || message.includes('ollama.com/settings');
+    }
+
+    static isOllamaSubscriptionRequiredError(error) {
+        return !!(this.getOllamaCloudAccessErrorDetails(error)?.type === 'subscription-required');
     }
     
     static normalizeConversationText(text, maxChars = 1200) {
@@ -1559,8 +1598,9 @@ class OllamaAPI {
                 throw error;
             }
 
-            if (this.isOllamaRateLimitError(error)) {
-                this.showBlockingOllamaWarning(this.getOllamaRateLimitMessage(), { scope: 'send-to-ollama-rate-limit' });
+            const cloudAccessError = this.getOllamaCloudAccessErrorDetails(error);
+            if (cloudAccessError) {
+                this.showBlockingOllamaWarning(cloudAccessError.body, { scope: `send-to-ollama-${cloudAccessError.type}` });
             } else {
                 this.showBlockingOllamaWarning(Lang.get('ollamaConnectionError'), { scope: 'send-to-ollama-connection' });
             }
@@ -2586,9 +2626,12 @@ class OllamaAPI {
             }
 
             if (!response.ok) {
+                const errorText = await response.text();
                 if (response.status === 429) {
-                    const errorText = await response.text();
                     throw new Error(`${this.getOllamaRateLimitMessage()}${errorText ? `\n${errorText}` : ''}`);
+                }
+                if (response.status === 403 && this.isOllamaSubscriptionRequiredError({ status: response.status, message: errorText })) {
+                    throw new Error(`${this.getOllamaSubscriptionRequiredMessage()}${errorText ? `\n${errorText}` : ''}`);
                 }
 
                 if (response.status === 500) {
@@ -2596,7 +2639,6 @@ class OllamaAPI {
                     return null;
                 }
 
-                const errorText = await response.text();
                 console.error('OllamaAPI: Error response from server:', errorText);
                 throw new Error(`Server error: ${response.status} - ${errorText.substring(0, 100)}`);
             }
@@ -2610,8 +2652,9 @@ class OllamaAPI {
                 throw error; // Rethrow so the caller knows it was aborted
             }
 
-            if (this.isOllamaRateLimitError(error)) {
-                this.showBlockingOllamaWarning(this.getOllamaRateLimitMessage(), { scope: 'image-send-rate-limit' });
+            const cloudAccessError = this.getOllamaCloudAccessErrorDetails(error);
+            if (cloudAccessError) {
+                this.showBlockingOllamaWarning(cloudAccessError.body, { scope: `image-send-${cloudAccessError.type}` });
             } else {
                 this.showBlockingOllamaWarning(Lang.get('ollamaConnectionError') + ': ' + error.message, { scope: 'image-send-connection' });
             }
