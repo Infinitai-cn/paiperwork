@@ -6,14 +6,40 @@
     <title>Paiperwork Video Demos</title>
     <style>
         :root {
+            color-scheme: light dark;
             --bg: #f7fbff;
             --surface: #ffffff;
             --border: #d9e3f2;
             --text: #0f172a;
             --muted: #667085;
-            --accent: #1d4ed8;
-            --accent-soft: rgba(29, 78, 216, 0.14);
+            --accent: #4f46e5;
+            --accent-soft: rgba(79, 70, 229, 0.12);
             --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+            --modal-bg: #ffffff;
+            --modal-header-bg: rgba(255, 255, 255, 0.96);
+            --modal-header-text: #0f172a;
+            --modal-close: #475569;
+            --video-bg: #000;
+            --button-hover: #3730a3;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #121827;
+                --surface: #1f2937;
+                --border: #334155;
+                --text: #e2e8f0;
+                --muted: #94a3b8;
+                --accent: #8b5cf6;
+                --accent-soft: rgba(139, 92, 246, 0.16);
+                --shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+                --modal-bg: #0f172a;
+                --modal-header-bg: rgba(15, 23, 42, 0.95);
+                --modal-header-text: #f8fafc;
+                --modal-close: #cbd5e1;
+                --video-bg: #000;
+                --button-hover: #7c3aed;
+            }
         }
 
         * {
@@ -119,7 +145,7 @@
         }
 
         .card button:hover {
-            background: #1e40af;
+            background: var(--button-hover);
         }
 
         .modal {
@@ -140,7 +166,7 @@
         .modal-panel {
             width: min(960px, 100%);
             max-height: 90vh;
-            background: #0f172a;
+            background: var(--modal-bg);
             border-radius: 24px;
             overflow: hidden;
             box-shadow: 0 24px 80px rgba(15, 23, 42, 0.32);
@@ -151,19 +177,19 @@
             justify-content: space-between;
             align-items: center;
             padding: 16px 20px;
-            background: rgba(15, 23, 42, 0.96);
+            background: var(--modal-header-bg);
         }
 
         .modal-header h2 {
             margin: 0;
             font-size: 1.1rem;
-            color: #f8fafc;
+            color: var(--modal-header-text);
         }
 
         .modal-close {
             border: none;
             background: transparent;
-            color: #cbd5e1;
+            color: var(--modal-close);
             font-size: 1rem;
             cursor: pointer;
         }
@@ -172,7 +198,7 @@
             width: 100%;
             height: auto;
             display: block;
-            background: #000;
+            background: var(--video-bg);
         }
 
         .footer-link {
