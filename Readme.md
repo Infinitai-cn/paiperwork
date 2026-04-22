@@ -10,7 +10,7 @@ Paiperwork is a local-first AI Javascript Desktop application (not intended for 
 
 Watch the walkthroughs in a floating video player.
 
-- View the gallery: [https://Infinitai-cn.github.io/paiperwork/github-help/video-demos.html](https://Infinitai-cn.github.io/paiperwork/github-help/video-demos.html)
+- View the gallery: <a href="https://Infinitai-cn.github.io/paiperwork/github-help/video-demos.html" target="_blank" rel="noopener noreferrer">Open video demo gallery</a>
 
 ## Credits & Acknowledgments
 
