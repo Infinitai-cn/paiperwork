@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paiperwork Video Demos</title>
+    <style>
+        :root {
+            --bg: #f7fbff;
+            --surface: #ffffff;
+            --border: #d9e3f2;
+            --text: #0f172a;
+            --muted: #667085;
+            --accent: #1d4ed8;
+            --accent-soft: rgba(29, 78, 216, 0.14);
+            --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--text);
+            background: var(--bg);
+        }
+
+        body, button {
+            font-family: inherit;
+        }
+
+        main {
+            width: min(1120px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 32px 0 56px;
+        }
+
+        header {
+            margin-bottom: 28px;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            line-height: 1.05;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.75;
+            max-width: 740px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+            margin-top: 24px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            transition: transform 160ms ease;
+        }
+
+        .card-icon {
+            width: 100%;
+            height: 140px;
+            display: grid;
+            place-items: center;
+            border-radius: 18px;
+            background: var(--accent-soft);
+            margin-bottom: 18px;
+        }
+
+        .card-icon svg {
+            width: 54px;
+            height: 54px;
+            color: var(--accent);
+        }
+
+        .card-title {
+            margin: 0 0 8px;
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .card-description {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.96rem;
+            line-height: 1.6;
+        }
+
+        .card button {
+            margin-top: 18px;
+            width: 100%;
+            border: none;
+            background: var(--accent);
+            color: #fff;
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-size: 0.98rem;
+            cursor: pointer;
+        }
+
+        .card button:hover {
+            background: #1e40af;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 25, 47, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 20;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-panel {
+            width: min(960px, 100%);
+            max-height: 90vh;
+            background: #0f172a;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 24px 80px rgba(15, 23, 42, 0.32);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: rgba(15, 23, 42, 0.96);
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: #f8fafc;
+        }
+
+        .modal-close {
+            border: none;
+            background: transparent;
+            color: #cbd5e1;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+            background: #000;
+        }
+
+        .footer-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 18px;
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <header>
+            <h1>Paiperwork Video Demos</h1>
+            <p>Watch Paiperwork walkthroughs inside a dedicated demo gallery. Click any card to open the video in a floating player.</p>
+        </header>
+
+        <section class="grid" id="demoGrid"></section>
+    </main>
+
+    <div class="modal" id="videoModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h2 id="modalTitle">Video Preview</h2>
+                <button class="modal-close" id="closeModal" aria-label="Close video">Close</button>
+            </div>
+            <video id="demoVideo" controls playsinline></video>
+        </div>
+    </div>
+
+    <script>
+        const DEMOS = [
+            {
+                title: "Slide forge",
+                description: "Presentation and slide creation walkthrough.",
+                source: "Paiperwork%20videos/Slide%20forge.MP4"
+            },
+            {
+                title: "Slideforge 2",
+                description: "Second guided demo on slide design.",
+                source: "Paiperwork%20videos/Slideforge%202.MP4"
+            },
+            {
+                title: "Research",
+                description: "Research assistant and document workflows.",
+                source: "Paiperwork%20videos/Research.MP4"
+            },
+            {
+                title: "Microcanvas",
+                description: "Canvas and visual creation demo.",
+                source: "Paiperwork%20videos/Microcanvas.mp4"
+            },
+            {
+                title: "Artifacts",
+                description: "Artifacts generation and export demo.",
+                source: "Paiperwork%20videos/Artifacts.mp4"
+            }
+        ];
+
+        const grid = document.getElementById("demoGrid");
+        const modal = document.getElementById("videoModal");
+        const video = document.getElementById("demoVideo");
+        const closeModal = document.getElementById("closeModal");
+        const modalTitle = document.getElementById("modalTitle");
+
+        DEMOS.forEach((demo) => {
+            const card = document.createElement("article");
+            card.className = "card";
+            card.innerHTML = `
+                <div class="card-icon">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M4 5.25C4 4.007 5.007 3 6.25 3h11.5C18.993 3 20 4.007 20 5.25v13.5c0 1.243-1.007 2.25-2.25 2.25H6.25C5.007 21 4 19.993 4 18.75V5.25zM9.75 8.5v7l6.25-3.5-6.25-3.5z"></path>
+                    </svg>
+                </div>
+                <h3 class="card-title">${demo.title}</h3>
+                <p class="card-description">${demo.description}</p>
+                <button type="button">Play video</button>
+            `;
+            const button = card.querySelector("button");
+            button.addEventListener("click", () => openPlayer(demo));
+            grid.appendChild(card);
+        });
+
+        function openPlayer(demo) {
+            modalTitle.textContent = demo.title;
+            video.src = demo.source;
+            video.load();
+            video.play().catch(() => {
+                // autoplay may be blocked on some browsers.
+            });
+            modal.classList.add("active");
+        }
+
+        function closePlayer() {
+            modal.classList.remove("active");
+            video.pause();
+            video.removeAttribute("src");
+            video.load();
+        }
+
+        closeModal.addEventListener("click", closePlayer);
+        modal.addEventListener("click", (event) => {
+            if (event.target === modal) {
+                closePlayer();
+            }
+        });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && modal.classList.contains("active")) {
+                closePlayer();
+            }
+        });
+    </script>
+</body>
+</html>
