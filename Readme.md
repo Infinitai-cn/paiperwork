@@ -8,45 +8,9 @@ Paiperwork is a local-first AI Javascript Desktop application (not intended for 
 
 ## Demo Videos
 
-Explore Paiperwork with quick, hands-on walkthroughs. Click any video card to open the demo file.
+GitHub’s repository viewer cannot play large video files directly. For the best experience, open the dedicated demo gallery page to watch the walkthroughs in a floating video player.
 
-<table>
-  <tr>
-    <td align="center">
-      <a href="github-help/Paiperwork%20videos/Slide%20forge.MP4">
-        <img src="https://img.icons8.com/ios-filled/80/000000/video.png" alt="Slide forge" width="120" />
-        <br />Slide forge
-      </a>
-    </td>
-    <td align="center">
-      <a href="github-help/Paiperwork%20videos/Slideforge%202.MP4">
-        <img src="https://img.icons8.com/ios-filled/80/000000/video.png" alt="Slideforge 2" width="120" />
-        <br />Slideforge 2
-      </a>
-    </td>
-    <td align="center">
-      <a href="github-help/Paiperwork%20videos/Research.MP4">
-        <img src="https://img.icons8.com/ios-filled/80/000000/video.png" alt="Research" width="120" />
-        <br />Research
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <a href="github-help/Paiperwork%20videos/Microcanvas.mp4">
-        <img src="https://img.icons8.com/ios-filled/80/000000/video.png" alt="Microcanvas" width="120" />
-        <br />Microcanvas
-      </a>
-    </td>
-    <td align="center">
-      <a href="github-help/Paiperwork%20videos/Artifacts.mp4">
-        <img src="https://img.icons8.com/ios-filled/80/000000/video.png" alt="Artifacts" width="120" />
-        <br />Artifacts
-      </a>
-    </td>
-    <td></td>
-  </tr>
-</table>
+- View the gallery: [https://Infinitai-cn.github.io/paiperwork/github-help/video-demos.html](https://Infinitai-cn.github.io/paiperwork/github-help/video-demos.html)
 
 ## Credits & Acknowledgments
 
