@@ -1776,17 +1776,18 @@ window.helpContent = {
                     
                     <h4>Requisitos y Configuración</h4>
                     <ul>
-                        <li><strong>Modelo de IA Visual Requerido</strong> - Necesitas un modelo con capacidades de visión instalado en Ollama (LLaVA, Gemma3, Phi3-Vision, etc.)</li>
+                        <li><strong>Modelo de IA Visual Requerido</strong> - Necesitas un modelo con capacidades de visión instalado en Ollama (Gemma4, Qwen3.5, Qwen3.6, Kimi u otro modelo con capacidades de visión en Ollama)</li>
                         <li><strong>Selección de Modelo</strong> - Elige tu modelo visual del menú desplegable en la parte superior de la pestaña</li>
                         <li><strong>Requisitos de Imagen</strong> - Sube imágenes claras y de alta calidad (máx 5MB) en formato PNG, JPEG, GIF o WebP</li>
+                        <li><strong>Edición de superposición de texto</strong> - El modo Superposición de texto te permite editar el texto generado directamente en la vista previa.</li>
+                        <li><strong>Edición de transferencia de estilo</strong> - El modo Transferencia de estilo te permite editar el texto en la vista previa y reemplazar imágenes en el resultado.</li>
                     </ul>
-                    
                     <h4>Modelos Visuales Compatibles</h4>
                     <ul>
-                        <li><strong>Mistral-small3.1</strong> - Modelo visual de Mistral con capacidades excelentes y soporte multiidioma</li>
-                        <li><strong>Gemma3</strong> - Modelo visual de Google con fuertes capacidades de generación de código</li>
-                        <li><strong>LLaVA & BakLLaVA</strong> - Variantes del Asistente de Lenguaje Grande y Visión</li>
-                        <li><strong>Phi3-Vision</strong> - Modelo de visión de Microsoft con buen entendimiento de diseño</li>
+                        <li><strong>Gemma4</strong> - El último modelo visual de Google con fuerte comprensión de imágenes y razonamiento consciente del código</li>
+                        <li><strong>Qwen3.5</strong> - Modelo de visión de alto rendimiento con excelentes capacidades multimodales</li>
+                        <li><strong>Qwen3.6</strong> - Modelo de visión avanzado con mejor manejo de diseño, maquetación y texto</li>
+                        <li><strong>Kimi</strong> - Modelo eficiente con capacidades de visión para vistas previas rápidas de diseño y flujos de trabajo orientados a imágenes</li>
                         <li>Cualquier otro modelo de Ollama con capacidades de visión</li>
                     </ul>
                     
@@ -1813,7 +1814,7 @@ window.helpContent = {
                 <h4>Flujo de Trabajo Completo</h4>
                 <ol>
                     <li><strong>Seleccionar Modelo Visual</strong> - Elige del menú desplegable (selección guardada para sesiones futuras)</li>
-                    <li><strong>Elegir Modo de Diseño</strong> - Selecciona Transferencia de Estilo HTML, Superposición de Texto o Fundamento de Diseño</li>
+                    <li><strong>Elegir Modo de Diseño</strong> - Selecciona Transferencia de Estilo HTML o Superposición de Texto</li>
                     <li><strong>Subir Imagen</strong> - Arrastra/suelta o haz clic para subir (el sistema analiza dimensiones y orientación)</li>
                     <li><strong>Escribir Instrucciones</strong> - Proporciona orientación específica (el texto de marcador de posición cambia según el modo)</li>
                     <li><strong>Generar y Vista Previa</strong> - Haz clic en "Generar Diseño" o presiona Enter; los resultados se abren en ventana de vista previa interactiva</li>
@@ -1835,14 +1836,6 @@ window.helpContent = {
                     <li>Genera HTML/CSS responsivo para superposiciones de texto</li>
                     <li>Considera dimensiones de imagen y orientación para posicionamiento apropiado</li>
                     <li>Ideal para materiales de marketing, banners y exhibiciones de productos</li>
-                </ul>
-                
-                <h5>Fundamento de Diseño</h5>
-                <ul>
-                    <li>Proporciona análisis profesional de opciones y principios de diseño</li>
-                    <li>Explica teoría del color, tipografía, diseño y jerarquía visual</li>
-                    <li>Ofrece perspectivas sobre el impacto de la experiencia del usuario</li>
-                    <li>Excelente para aprender principios de diseño o entender diseños exitosos</li>
                 </ul>
                 
                 <h4>Gestión de Imágenes</h4>
@@ -1886,14 +1879,6 @@ window.helpContent = {
                 <h5>Promoción de Evento</h5>
                 <p class="example-prompt">"Crea superposición de texto promocional: Título del evento: 'Festival de Música de Verano 2024', Fecha: '15-17 de Julio, 2024', Ubicación: 'Central Park, NYC', Artistas principales: 'Artistas Destacados Por Anunciar', Información de boletos: 'Preventa $89', Botón: 'Obtener Boletos'"</p>
                 
-                <h4>Ejemplos de Fundamento de Diseño</h4>
-                
-                <h5>Análisis de Diseño</h5>
-                <p class="example-prompt">"Analiza el diseño y composición de este diseño. Explica cómo la jerarquía visual guía la atención del usuario y cómo las opciones de espaciado y alineación impactan la legibilidad y el flujo del usuario."</p>
-                
-                <h5>Psicología del Color</h5>
-                <p class="example-prompt">"Examina las opciones de color en este diseño y explica su impacto psicológico. ¿Cómo afectan estos colores las emociones del usuario y la toma de decisiones? ¿Qué comunica esta paleta de colores sobre la marca?"</p>
-                
                 <h4>Escribiendo Instrucciones Efectivas</h4>
                 <ul>
                     <li><strong>Sé Específico</strong> - Incluye estilo de diseño, audiencia objetivo y componentes clave necesarios</li>
@@ -1906,7 +1891,6 @@ window.helpContent = {
                 <ul>
                     <li><strong>Transferencia de Estilo</strong> - Usa imágenes con elementos de diseño distintos y esquemas de color claros</li>
                     <li><strong>Superposición de Texto</strong> - Selecciona imágenes con áreas claras para colocación de texto</li>
-                    <li><strong>Fundamento de Diseño</strong> - Elige diseños profesionales con elementos intencionales</li>
                     <li><strong>La Calidad Importa</strong> - Imágenes de alta resolución con buena iluminación producen mejores resultados</li>
                 </ul>
                 

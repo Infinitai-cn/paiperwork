@@ -1647,6 +1647,10 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 artworkCode: "代码",
                 artworkPreview: "预览",
                 artworkExportPNG: "导出PNG",
+                artworkExportHTML: "导出HTML",
+                artworkExportingHTML: "导出HTML中...",
+                artworkExportSuccessHTML: "HTML导出成功！",
+                artworkExportDownloadedHTML: "您的HTML已下载。",
                 artworkClose: "关闭",
 
                 // Background image
@@ -1660,12 +1664,13 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
 
                 // Download image
                 artworkExportingPNG: "导出PNG中...",
-                artworkExportWait: "请等待我们生成您的图片。",
+                artworkExportingHTML: "导出HTML中...",
+                artworkExportWait: "请稍候，我们正在准备您的文件。",
                 artworkExportSuccess: "PNG导出成功！",
                 artworkExportDownloaded: "您的图片已下载。",
 
                 // Export instructions
-                artworkExportInstructions: "保存为高质量PNG：",
+                artworkExportInstructions: "如果自动导出失败，请通过浏览器手动保存生成的文件。",
                 artworkExportScreenshot: "对预览区域进行截图：",
                 artworkExportMac: "Cmd+Shift+4，然后选择区域",
                 artworkExportWindows: "Win+Shift+S，然后选择区域",

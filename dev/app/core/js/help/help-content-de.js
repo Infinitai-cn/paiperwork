@@ -1763,17 +1763,18 @@ window.helpContent = {
                     
                     <h4>Anforderungen und Einrichtung</h4>
                     <ul>
-                        <li><strong>Visuelles KI-Modell erforderlich</strong> - Sie benötigen ein visionsfähiges Modell, das in Ollama installiert ist (LLaVA, Gemma3, Phi3-Vision, etc.)</li>
+                        <li><strong>Visuelles KI-Modell erforderlich</strong> - Sie benötigen ein visionsfähiges Modell, das in Ollama installiert ist (Gemma4, Qwen3.5, Qwen3.6, Kimi oder ein anderes visionsfähiges Ollama-Modell)</li>
                         <li><strong>Modellauswahl</strong> - Wählen Sie Ihr visuelles Modell aus dem Dropdown-Menü oben im Tab</li>
                         <li><strong>Bildanforderungen</strong> - Laden Sie klare, hochwertige Bilder (max. 5MB) im PNG-, JPEG-, GIF- oder WebP-Format hoch</li>
+                        <li><strong>Textüberlagerung bearbeiten</strong> - Im Textüberlagerungsmodus können Sie den generierten Text direkt in der Vorschau bearbeiten.</li>
+                        <li><strong>Style-Transfer bearbeiten</strong> - Im Style-Transfer-Modus können Sie Text in der Vorschau bearbeiten und Bilder in den Ergebnissen ersetzen.</li>
                     </ul>
-                    
                     <h4>Kompatible visuelle Modelle</h4>
                     <ul>
-                        <li><strong>Mistral-small3.1</strong> - Mistrals visuelles Modell mit hervorragenden Fähigkeiten und mehrsprachiger Unterstützung</li>
-                        <li><strong>Gemma3</strong> - Googles visuelles Modell mit starken Code-Generierungsfähigkeiten</li>
-                        <li><strong>LLaVA & BakLLaVA</strong> - Large Language and Vision Assistant Varianten</li>
-                        <li><strong>Phi3-Vision</strong> - Microsofts Vision-Modell mit gutem Designverständnis</li>
+                        <li><strong>Gemma4</strong> - Googles neuestes visuelles Modell mit starkem Bildverständnis und codebewusstem Denken</li>
+                        <li><strong>Qwen3.5</strong> - Hochleistungs-Visionsmodell mit exzellenten multimodalen Fähigkeiten</li>
+                        <li><strong>Qwen3.6</strong> - Fortgeschrittenes Visionsmodell mit verbessertem Design-, Layout- und Texthandling</li>
+                        <li><strong>Kimi</strong> - Effizientes visionsfähiges Modell für schnelle Designvorschauen und bildbewusste Workflows</li>
                         <li>Jedes andere Ollama-Modell mit Visionsfähigkeiten</li>
                     </ul>
                     
@@ -1800,7 +1801,7 @@ window.helpContent = {
                 <h4>Vollständiger Workflow</h4>
                 <ol>
                     <li><strong>Visuelles Modell auswählen</strong> - Aus dem Dropdown wählen (Auswahl für zukünftige Sitzungen gespeichert)</li>
-                    <li><strong>Design-Modus wählen</strong> - HTML-Stil-Transfer, Textüberlagerung oder Design-Begründung auswählen</li>
+                    <li><strong>Design-Modus wählen</strong> - HTML-Stil-Transfer oder Textüberlagerung auswählen</li>
                     <li><strong>Bild hochladen</strong> - Ziehen/Ablegen oder Klicken zum Hochladen (System analysiert Dimensionen und Orientierung)</li>
                     <li><strong>Anweisungen schreiben</strong> - Spezifische Anleitung geben (Platzhaltertext ändert sich je nach Modus)</li>
                     <li><strong>Generieren & Vorschau</strong> - "Design generieren" klicken oder Enter drücken; Ergebnisse öffnen sich in interaktivem Vorschaufenster</li>
@@ -1822,14 +1823,6 @@ window.helpContent = {
                     <li>Generiert responsives HTML/CSS für Textüberlagerungen</li>
                     <li>Berücksichtigt Bildabmessungen und -orientierung für richtige Positionierung</li>
                     <li>Ideal für Marketingmaterialien, Banner und Produktpräsentationen</li>
-                </ul>
-                
-                <h5>Design-Begründung</h5>
-                <ul>
-                    <li>Bietet professionelle Analyse von Designentscheidungen und -prinzipien</li>
-                    <li>Erklärt Farbtheorie, Typografie, Layout und visuelle Hierarchie</li>
-                    <li>Bietet Einblicke in Benutzererfahrungs-Auswirkungen</li>
-                    <li>Großartig zum Lernen von Designprinzipien oder Verstehen erfolgreicher Designs</li>
                 </ul>
                 
                 <h4>Bildverwaltung</h4>
@@ -1873,14 +1866,6 @@ window.helpContent = {
                 <h5>Event-Promotion</h5>
                 <p class="example-prompt">"Erstelle eine Werbe-Textüberlagerung: Event-Titel: 'Sommer Musikfestival 2024', Datum: '15.-17. Juli 2024', Ort: 'Central Park, NYC', Headliner: 'Featured Artists TBA', Ticket-Info: 'Frühbucher 89€', Button: 'Tickets holen'"</p>
                 
-                <h4>Design-Begründungs-Beispiele</h4>
-                
-                <h5>Layout-Analyse</h5>
-                <p class="example-prompt">"Analysiere das Layout und die Komposition dieses Designs. Erkläre, wie die visuelle Hierarchie die Benutzeraufmerksamkeit lenkt und wie die Abstands- und Ausrichtungsentscheidungen die Lesbarkeit und den Benutzerfluss beeinflussen."</p>
-                
-                <h5>Farbpsychologie</h5>
-                <p class="example-prompt">"Untersuche die Farbwahl in diesem Design und erkläre ihre psychologischen Auswirkungen. Wie beeinflussen diese Farben Benutzeremotionen und Entscheidungsfindung? Was kommuniziert diese Farbpalette über die Marke?"</p>
-                
                 <h4>Effektive Anweisungen schreiben</h4>
                 <ul>
                     <li><strong>Spezifisch sein</strong> - Designstil, Zielgruppe und benötigte Schlüsselkomponenten einbeziehen</li>
@@ -1893,7 +1878,6 @@ window.helpContent = {
                 <ul>
                     <li><strong>Stil-Transfer</strong> - Bilder mit unterschiedlichen Designelementen und klaren Farbschemata verwenden</li>
                     <li><strong>Textüberlagerung</strong> - Bilder mit klaren Bereichen für Textplatzierung auswählen</li>
-                    <li><strong>Design-Begründung</strong> - Professionelle Designs mit intentionalen Elementen wählen</li>
                     <li><strong>Qualität zählt</strong> - Hochauflösende Bilder mit guter Beleuchtung erzeugen bessere Ergebnisse</li>
                 </ul>
                 
