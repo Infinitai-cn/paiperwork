@@ -133,14 +133,6 @@ class ArtworksTab {
                         </svg>
                         <span>${Lang.get('artworkTextOverlay')}</span>
                     </button>
-                    <button id="artwork-mode-rationale" class="artwork-mode-button" data-tooltip="Generate a detailed explanation of the design choices in your image, including why they work well and how they affect user experience.">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                        </svg>
-                        <span>${Lang.get('artworkDesignRationale')}</span>
-                    </button>
                 </div>
             </div>
             
@@ -196,8 +188,7 @@ class ArtworksTab {
             modelSelector: document.getElementById('artwork-model-selector'),
             modeButtons: {
                 style: document.getElementById('artwork-mode-style'),
-                overlay: document.getElementById('artwork-mode-overlay'),
-                rationale: document.getElementById('artwork-mode-rationale')
+                overlay: document.getElementById('artwork-mode-overlay')
             },
             uploadArea: document.getElementById('artwork-upload-area'),
             fileInput: document.getElementById('artwork-file-input'),
@@ -1303,159 +1294,117 @@ class ArtworksTab {
             let systemPrompt, userPrompt;
 
             switch (this.activeMode) {
-                // In the generateArtwork method, modify the style case:
-                case 'style':
-                    systemPrompt = `You are a skilled web/visual designer specializing in turning a requested style direction into a complete, functional HTML webpage with embedded CSS and JavaScript. If an image is provided, use it as visual inspiration and optionally as page content or a background when requested. If no image is provided, you must still return a full HTML webpage that expresses the requested style direction.
+                                // In the generateArtwork method, concise style-mode system prompt:
+                                case 'style':
+                                        systemPrompt = `You are a web/visual designer. Return one complete, self-contained HTML document (inline CSS and JS). Follow these concise rules.
 
-                    Your responses MUST include:
-                    1. A single, self-contained HTML file with all CSS embedded in <style> tags and all JavaScript in <script> tags.
-                    2. Clean, semantic HTML5 markup that follows accessibility best practices.
-                    3. Well-organized CSS with appropriate comments for structure.
-                    4. Any necessary JavaScript for interactive elements or functionality.
-                    5. Responsive design that works across screen sizes.
-                    6. Only use standard web technologies (no frameworks or external dependencies).
-                    7. A complete webpage as the final answer every time, never a text explanation, partial snippet, markdown-only response, or design rationale.
-                    8. Return only the HTML document.
-                    9. Default to a real multi-section webpage structure rather than a single poster, card, slide, or isolated composition.
+                                        IMAGE HANDLING
+                                        - If no image is provided: do not include <img>, background-image, or placeholders.
+                                        - If an image is provided:
+                                            * Do not upscale beyond its native dimensions (aspect-ratio: ${this.imageRatio || 'auto'}).
+                                            * Prefer using an <img> for predictable scaling, or a background placeholder token ` +
+                                            `'BACKGROUND_IMAGE_PLACEHOLDER'` + ` if requested.
+                                            * Use responsive CSS (e.g., max-width:100%; height:auto; or a container with the correct aspect-ratio).
+                                            * When using CSS backgrounds, set the hero height to 20vh (avoid 100vh). Use background-attachment:scroll; background-size:cover; background-position:center; overflow:hidden. Provide a mobile rule to increase to 30vh if needed.
+                                            * Only reference images when one is provided.
 
-                    DEFAULT PAGE STRUCTURE REQUIREMENTS:
-                    - Unless the user explicitly asks for a poster, flyer, splash screen, overlay, or single-panel composition, generate a full webpage.
-                    - A full webpage should usually include: a hero section, at least 2 additional content sections, and a footer.
-                    - When appropriate for the request, include navigation, feature areas, content blocks, CTA sections, testimonials, cards, or gallery areas.
-                    - The result should feel like a usable website or landing page, not just a styled canvas.
-                    - Use the requested style direction across the entire page, not only in one isolated area.
-                    - Prefer meaningful layout hierarchy and real webpage flow from top to bottom.
-                    - If the prompt is short or ambiguous, still choose a sensible website type and complete the page.
-                    - Do not return a bare artboard, billboard, poster, or centered single block unless the user explicitly requested that format.
-                    - Use normal responsive webpage sizing: html/body should behave like a browser page, not like a fixed poster canvas.
-                    - Do not set html, body, or a top-level wrapper to a large fixed pixel width or height intended to contain the entire page at once.
-                    - Let the page scroll vertically as a normal website. Do not try to fit the whole site into one giant composition area.
-                    - Avoid a single root wrapper whose purpose is centering or scaling the whole page like an artboard.
-                    - Always style BOTH html and body so they share the same background and do not reveal default white browser background.
-                    - Always prevent accidental horizontal overflow at the page root. Ensure the final page does not create a right-side white gutter or empty horizontal strip.
-                    - Prefer root rules like margin: 0; padding: 0; width: 100%; max-width: 100%; and overflow-x: hidden on html/body when appropriate.
-                    - Do not use 100vw on root-level wrappers when 100% is sufficient, because it can create horizontal overflow beside the page.
-                    - Sections, wrappers, and decorative elements must stay within the viewport width; no element should extend past the right edge unless the user explicitly asks for overflow effects.
-    
-                    ${this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked ?
-                    `IMPORTANT: For the background image, use this exact placeholder string: "BACKGROUND_IMAGE_PLACEHOLDER".
-        
-                    For example, in your CSS:
-                    background-image: url(BACKGROUND_IMAGE_PLACEHOLDER);
-                    
-                    DO NOT attempt to include the actual base64 data. The system will automatically replace this placeholder with the appropriate image data.`
-                            : ''}
-    
-                                 Your code should be directly implementable and render correctly in modern browsers without any external resources. Format the code neatly with appropriate indentation and structure.`;
+                                        OUTPUT REQUIREMENTS
+                                        - Return only the final HTML document (no explanations).
+                                        - Inline all CSS and JS; no external dependencies.
+                                        - Include preview metadata exactly: <!-- PREVIEW-SIZE: width=1200 height=900 -->. Use width=1200px; if height is unknown default to 900px.
+                                        - Prefer a multi-section webpage (hero + >=2 sections + footer) unless the user requests a single-panel composition.
+                                        - Prevent horizontal overflow: set html,body {margin:0;padding:0;width:100%;max-width:100%;overflow-x:hidden;} and avoid 100vw on root wrappers.
+
+                                        ACCESSIBILITY & RESPONSIVE
+                                        - Use semantic markup, ARIA where appropriate, and maintain readable contrast. Ensure the page scales correctly on mobile.
+
+                                        PREFERRED HERO EXAMPLE
+                                        <section class="hero">
+                                            <img src="BACKGROUND_IMAGE_PLACEHOLDER" alt="Hero" />
+                                            <div class="hero-content">...</div>
+                                        </section>
+                                        <style>
+                                            .hero{width:100%;height:20vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+                                            .hero img{width:100%;height:100%;object-fit:cover;object-position:center}
+                                            @media(max-width:600px){.hero{height:30vh}}
+                                        </style>
+                                        MANDATORY, maximum hero height=30wh
+                                        ${this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked ?
+                                        `IMPORTANT: Use the exact placeholder string BACKGROUND_IMAGE_PLACEHOLDER for background images (do not include base64 data). Example: background-image: url(BACKGROUND_IMAGE_PLACEHOLDER);` : ''}
+
+                                        Format the code with clear indentation and brief comments.`;
                         userPrompt = `${this.imageBase64
                             ? `Create a complete HTML webpage inspired by the uploaded image with this style direction: ${this.elements.promptInput.value}.`
-                            : `Create a complete HTML webpage with this style direction: ${this.elements.promptInput.value}.`}${this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked && this.imageBase64
+                            : `Create a complete HTML webpage with this style direction: ${this.elements.promptInput.value}.`} ${this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked && this.imageBase64
                             ? ' Use the uploaded image directly as a background image in appropriate sections of the design.'
                                      : ''
                                      } Build it as a real webpage with multiple sections unless I explicitly asked for a single-panel composition. Use standard responsive webpage behavior with normal vertical scrolling, not a fixed-size poster or one-screen artboard.`;
                     break;
 
-                case 'overlay': // Text Overlay mode
-                    systemPrompt = `You are an expert designer specializing in creating responsive HTML/CSS for text overlays on product images. Your task is to position text elements in visually appropriate locations on the image to create professional-looking product displays.
-                
-                    For each image, you will:
-                    1. Analyze the image orientation and content.
-                    2. Position text elements in visually balanced locations that complement the image.
-                    3. Generate complete HTML/CSS code that creates a responsive overlay.
-                    4. PRIORITIZE TEXT READABILITY with high contrast ratios (minimum 4.5:1 for normal text).
-                    5. Use text treatments like shadows, outlines, or semi-transparent backgrounds to ensure legibility.
+                                case 'overlay': // Text Overlay mode
+                                        systemPrompt = `You are an expert designer specializing in creating responsive HTML/CSS for text overlays on product images. Your task is to position text elements in visually appropriate locations on the image to create professional-looking product displays.
+
+                                            TYPOGRAPHY (MANDATORY): Use only system/web-safe fonts. Do NOT include any external font imports, @font-face rules, or <link rel="stylesheet"> references (including Google Fonts). Do NOT reference font families that require external loading (for example, Playfair Display, Montserrat, or other Google Font names). Use system font stacks and fallbacks such as: font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; or font-family: Georgia, 'Times New Roman', Times, serif; or font-family: 'Courier New', Courier, monospace. Always provide a sensible fallback stack.
+
+                                            For each image, you will:
+                                            1. Analyze the image orientation and content.
+                                            2. Position text elements in visually balanced locations that complement the image.
+                                            3. Generate complete HTML/CSS code that creates a responsive overlay that SCALES the image inside a preview container (do not hardcode a huge fixed canvas unless requested).
+                                            4. PRIORITIZE TEXT READABILITY with high contrast ratios (minimum 4.5:1 for normal text).
+                                            5. Use text treatments like shadows, outlines, or semi-transparent backgrounds to ensure legibility.
+
+                                            IMPORTANT: Always choose text colors that maintain strong contrast against the background image, not just colors that are complementary aesthetically. White text on dark image areas and dark text on light image areas is often most effective.
+
+                                            IMAGE AND ICON HANDLING:
+                                            - If the user prompt requests additional images, icons, or fallback images, you MAY include external images from reputable sources (e.g., Unsplash, Wikimedia, or user-specified URLs).
+                                            - If the uploaded image is missing or cannot be used, provide a visually appropriate fallback image from a public provider.
+                                            - When using external images, always provide descriptive alt text and ensure the image is appropriate for the context.
+                                            - If the user requests a specific image provider or style, honor that request.
+
+                                            SIZING & SCALING GUIDELINES (CRITICAL)
+                                            - The preview must fill the host's preview container surface. For Text Overlay outputs, choose sizing behavior based on the source image orientation (DO NOT apply a single rule to all images):
+                                                - Portrait images (height > width): Ensure the full portrait image is visible. If the portrait image does not fit within the preview container, allow vertical scrolling instead of cropping so the entire poster can be viewed. Prefer an img-based approach with object-fit: contain and let the container enable scrolling by using overflow-y: auto and height:auto or max-height:100%. Example (preferred for predictable scaling):
+                                                    .preview-wrap { width: 100%; max-height: 100%; overflow-y: auto; display: block; }
+                                                    .preview-wrap img { display: block; width: 100%; height: auto; object-fit: contain; object-position: center top; }
+                                                - Landscape or square images (width >= height): PREFER COVER behavior so the preview container surface is fully filled (object-fit: cover / background-size: cover). Example:
+                                                    .preview-wrap img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center center; }
+                                                    .preview-wrap .bg { width: 100%; height: 100%; background-image: url('BACKGROUND_IMAGE_PLACEHOLDER'); background-repeat: no-repeat; background-position: center center; background-size: cover; overflow: hidden; }
+                                            - Provide one of the two supported implementations (choose one in your output):
+                                                1) img-based approach (preferred for overlays):
+                                                    .preview-wrap { width: 100%; height: 100%; overflow: hidden; display: block; }
+                                                    .preview-wrap img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center center; }
+                                                2) CSS background approach:
+                                                    .preview-wrap .bg { width: 100%; height: 100%; background-image: url('BACKGROUND_IMAGE_PLACEHOLDER'); background-repeat: no-repeat; background-position: center center; background-size: contain; overflow: hidden; }
+
+                                            - Do NOT place a smaller portrait image centered inside a much larger wrapper that effectively hides parts of the image. When instructed to show a full portrait, the image must be fully visible (contain). For landscape/square images, filling the container with cover and permitting cropping is acceptable to avoid empty gutters.
+                                            - Ensure the preview container dimensions are explicit and minimal: do not add outer padding, decorative borders, or extra margins around the main preview container unless explicitly requested. Use box-sizing: border-box and overflow: hidden on the container.
+                                            - Include PREVIEW-SIZE metadata EXACTLY in the HTML (example: <!-- PREVIEW-SIZE: width=2048 height=1024 -->). Use values that reflect the intended preview/export surface; when unsure prefer the host MAX_CONTAINER (2048×1024) as a safe default.
+
+                                            PLACEMENT & EXPORT NOTES
+                                            - Position text using relative units (%, vw/vh, em/rem) and modern layout (flex/grid) so it scales consistently when the preview surface is resized or exported.
+                                            - Preserve the image aspect ratio while using cover sizing; avoid distortion.
+                                            - Ensure the image fully covers the preview container area (no empty gutters) so the generated preview window size is representative of the exported image.
+                                            - Use semantic HTML and include alt text for any img.
+                                            - Use the exact placeholder string BACKGROUND_IMAGE_PLACEHOLDER when referencing the uploaded image (either in url() or as an img src). Example: background-image: url('BACKGROUND_IMAGE_PLACEHOLDER');
+
+                                            Your HTML code MUST:
+                                            - Be a single, self-contained file with embedded CSS and JavaScript.
+                                            - Ensure image sizing is appropriate for the orientation: for landscape/square images prefer covering the preview surface (use object-fit: cover or background-size: cover), and for portrait images prefer contain + scrolling so the full image is visible (no cropping).
+                                            - Preserve the original aspect ratio of the image; avoid distortion when scaling.
+                                            `;
+                                        userPrompt = `Create text overlays for this product image with the following text:
+                                        ${this.elements.promptInput.value}
                     
-                    IMPORTANT: Always choose text colors that maintain strong contrast against the background image, not just colors that are complementary aesthetically. White text on dark image areas and dark text on light image areas is often most effective.
-                                    
-                    CRITICAL CSS REQUIREMENTS FOR BACKGROUND IMAGE:
-                    - ALWAYS use: background-repeat: no-repeat; to prevent image duplication
-                    - USE background-size: 100% 100%; NOT cover (to avoid cropping)
-                    - FOR PORTRAIT IMAGES: Set container with appropriate aspect ratio matching the image
-                    - THE FINAL VISIBLE ARTBOARD MUST MATCH THE IMAGE BOUNDS EXACTLY, with no outer padding, no centering frame, and no decorative border area around the image
-                    - DO NOT create wrapper padding, page margins, or empty background around the image
-                    - DO NOT use max-width, max-height, width: 100%, height: auto, or viewport-based sizing rules that can shrink the image inside a larger canvas
-                    - DO NOT add box-shadow, outline, border, or frame effects to the main image container unless the user explicitly asks for them
-                    - THE MAIN IMAGE CONTAINER MUST START AT THE TOP-LEFT OF THE page/artboard and fill the entire composition area exactly
+                                        Image information:
+                                        - Orientation: ${this.imageOrientation || 'Unknown'}
+                                        - Dimensions: ${this.imageDimensions || 'Unknown'}
+                                        - Aspect ratio: ${this.imageRatio || 'Unknown'}
                     
-                    CRITICAL: For the background image, you MUST use this exact placeholder string:
-                    "BACKGROUND_IMAGE_PLACEHOLDER" in a CSS url() function OR in an img tag src attribute.
+                                        Generate a single HTML file that displays this text in visually appropriate locations based on the image content. Position text to avoid covering key product features. Use colors that complement the image while ensuring text is clearly readable.
                     
-                    For example, in CSS:
-                    background-image: url('BACKGROUND_IMAGE_PLACEHOLDER');
-                    
-                    Or in HTML:
-                    <img src="BACKGROUND_IMAGE_PLACEHOLDER" alt="Product Image" class="container">
-                    
-                    DO NOT use JavaScript variables like window.backgroundImage or attempt to use dynamic code.
-                    The placeholder will be replaced with the actual image data by the system.
-                    
-                    DO NOT use JavaScript variables like window.backgroundImage or attempt to use dynamic code.
-                    The placeholder will be replaced with the actual image data by the system.
-                    
-                                        Example CSS for perfect image fitting with NO surrounding borders:
-                    body {
-                      background-color: #000; /* Black background for the entire page */
-                      margin: 0;
-                      padding: 0;
-                                            width: ${this.imageDimensions ? this.imageDimensions.split('×')[0] : '100vw'}px;
-                                            height: ${this.imageDimensions ? this.imageDimensions.split('×')[1] : '100vh'}px;
-                                            overflow: hidden;
-                    }
-                    
-                    .container {
-                      aspect-ratio: ${this.imageRatio}; /* Exact image ratio */
-                      background-image: url('BACKGROUND_IMAGE_PLACEHOLDER');
-                      background-size: 100% 100%; /* Fill completely without whitespace */
-                      background-repeat: no-repeat;
-                      background-position: center;
-                                            width: ${this.imageDimensions ? this.imageDimensions.split('×')[0] : '100vw'}px;
-                                            height: ${this.imageDimensions ? this.imageDimensions.split('×')[1] : '100vh'}px;
-                                            margin: 0;
-                      box-sizing: border-box;
-                      overflow: hidden; /* Prevent any potential overflow */
-                      position: relative; /* For absolute positioning of text elements */
-                                            top: 0;
-                                            left: 0;
-                    }
-                                
-                    CRITICAL: RESPECT THE ORIGINAL IMAGE ASPECT RATIO. Portrait images MUST remain portrait in your implementation. NEVER display a portrait image in landscape orientation by multiplying it horizontally.
-                    
-                    Your HTML code MUST:
-                    - Be a single, self-contained file with embedded CSS and JavaScript.
-                    - Position text responsively using relative units (%, vh/vw, em/rem).
-                    - Use modern CSS (flexbox, grid) for positioning.
-                    - Maintain the original aspect ratio of the image (especially important for portrait images).
-                    - NEVER duplicate the background image horizontally or vertically.
-                    - NOT include any wrapper whose only purpose is centering the image inside a larger viewport.
-                    - Make the main composition canvas exactly the same size as the source image so the exported PNG has no border area.
-                    `;
-                    userPrompt = `Create text overlays for this product image with the following text:
-                    ${this.elements.promptInput.value}
-                    
-                    Image information:
-                    - Orientation: ${this.imageOrientation || 'Unknown'}
-                    - Dimensions: ${this.imageDimensions || 'Unknown'}
-                    - Aspect ratio: ${this.imageRatio || 'Unknown'}
-                    
-                    Generate a single HTML file that displays this text in visually appropriate locations based on the image content. Position text to avoid covering key product features. Use colors that complement the image while ensuring text is clearly readable.
-                    
-                    For the background image, use: BACKGROUND_IMAGE_PLACEHOLDER.`;
+                                        If you are requested to add external images, icons, or fallbacks, use reputable sources and always include fallbacks from different providers to avoid empty placeholders. For the background image, use: BACKGROUND_IMAGE_PLACEHOLDER.`;
                     break;
 
-                case 'rationale':
-                    systemPrompt = `You are a design critic and educator who specializes in explaining the reasoning behind design decisions. You have expertise in visual design principles, user experience, and the psychological impacts of design choices. Your analyses are insightful, educational, and backed by design theory.
-                    
-                    IMPORTANT: Detect the language of the user's prompt and respond in the same language. If the user writes in Spanish, respond in Spanish. If they write in French, respond in French. If they write in English, respond in English. Match the user's language exactly.`;
-
-                    userPrompt = `Analyze this design and explain: ${this.elements.promptInput.value}. 
-                    
-                    Provide a detailed rationale for the design choices, addressing:
-                    1. Overall visual strategy and aesthetic approach.
-                    2. How the layout and composition guide user attention.
-                    3. Color choices and their psychological/emotional impact.
-                    4. Typography selections and their effect on readability and tone.
-                    5. How these elements collectively impact the user experience.`;
-                    break;
             }
 
             // This ensures the image is sent properly
@@ -1551,6 +1500,7 @@ class ArtworksTab {
                 if (fullResponse) {
                     // IMPORTANT: Strip thinking tags from response before processing
                     fullResponse = this.stripThinkingTags(fullResponse);
+                    // Debug log: Step 1 - AI response cleaned
                     // Store the full response in case we need it later, but don't display in tab
                     this._generatedResponse = fullResponse;
                     // Always use image as background for overlay mode, or respect checkbox for other modes
@@ -1569,6 +1519,8 @@ class ArtworksTab {
                             `url(window.backgroundImage)`
                         );
                     }
+
+                    // Debug log: Step 2 - after initial background placeholder replacement
                     // Check if ArtworkPreviewWindow is available
                     if (typeof ArtworkPreviewWindow === 'undefined') {
                         console.warn('ArtworksTab not available, loading dynamically...');
@@ -1656,11 +1608,12 @@ class ArtworksTab {
                             );
                         }
 
+                        // Debug log: Step 3 - about to create ArtworkPreviewWindow
+
                         // Create the preview with the improved image handling
                         const previewWindow = new ArtworkPreviewWindow(
                             fullResponse,
-                            `Generated ${this.activeMode === 'style' ? 'Style' :
-                                this.activeMode === 'overlay' ? 'Text Overlay' : 'Design Rationale'}`,
+                            `Generated ${this.activeMode === 'style' ? 'Style' : (this.activeMode === 'overlay' ? 'Text Overlay' : 'Generated')}`,
                             // Always pass the blob URL for overlay mode, otherwise respect checkbox
                             (this.activeMode === 'overlay') ||
                                 (this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked) ?
@@ -1672,6 +1625,8 @@ class ArtworksTab {
                                 exportBackgroundImage: this.activeMode === 'overlay' && this.imageBase64 ? this.imageBase64 : (imageUrl || null),
                             }
                         );
+
+                        // Debug log: Step 4 - preview window created
 
                         // Set up cleanup function for when preview window is closed
                         if (previewWindow && typeof previewWindow.addOnCloseCallback === 'function') {
@@ -1822,30 +1777,43 @@ class ArtworksTab {
             // Restore the system prompt
             await this.restoreSystemPrompt();
         } catch (error) {
-            console.error('ArtworksTab: Error generating artwork:', error);
-            this.hideProgressIndicator();
+                console.error('ArtworksTab: Error generating artwork:', error);
+                this.hideProgressIndicator();
 
-            // Check if the error looks like it came from our compatibility wrapper
-            if (error.message && error.message.includes('Response will be generated by OllamaAPI directly')) {
-                console.warn('ArtworksTab: Received placeholder response from compatibility wrapper, ignoring');
-                this.elements.result.textContent = 'Error: The image analysis failed. Please try again.';
-            } else if (this.isRateLimitError(error)) {
-                this.elements.result.textContent = `Error: ${this.getRateLimitMessage()}`;
-            } else {
-                this.elements.result.textContent = `Error: ${error.message}`;
-            }
+                // Safely update the UI if elements are available
+                if (this.elements && this.elements.result) {
+                    // Check if the error looks like it came from our compatibility wrapper
+                    if (error.message && error.message.includes('Response will be generated by OllamaAPI directly')) {
+                        console.warn('ArtworksTab: Received placeholder response from compatibility wrapper, ignoring');
+                        this.elements.result.textContent = 'Error: The image analysis failed. Please try again.';
+                    } else if (this.isRateLimitError(error)) {
+                        this.elements.result.textContent = `Error: ${this.getRateLimitMessage()}`;
+                    } else {
+                        this.elements.result.textContent = `Error: ${error.message}`;
+                    }
 
-            this.elements.output.style.display = 'block';
+                    if (this.elements.output) {
+                        this.elements.output.style.display = 'block';
+                    }
+                } else {
+                    console.error('ArtworksTab: UI elements unavailable to display error message', error);
+                }
 
-            // Restore system prompt in case of exception
-            await this.restoreSystemPrompt();
+                // Restore system prompt in case of exception
+                await this.restoreSystemPrompt();
         } finally {
             // Reset UI
-            this.elements.generateBtn.disabled = false;
-            this.elements.generateBtn.textContent = Lang.get('artworkGenerateDesign');
+            if (this.elements && this.elements.generateBtn) {
+                try {
+                    this.elements.generateBtn.disabled = false;
+                    this.elements.generateBtn.textContent = Lang.get('artworkGenerateDesign');
+                } catch (_e) {
+                    // ignore
+                }
+            }
 
             // Make sure button state is updated
-            this.updateGenerateButtonState();
+            try { this.updateGenerateButtonState(); } catch (_e) {}
         }
     }
     // Removes thinking and reasoning tags from the AI response text

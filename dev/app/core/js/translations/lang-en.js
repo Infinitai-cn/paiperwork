@@ -1662,6 +1662,10 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         artworkCode: "Code",
         artworkPreview: "Preview",
         artworkExportPNG: "Export PNG",
+        artworkExportHTML: "Export HTML",
+        artworkExportingHTML: "Exporting HTML...",
+        artworkExportSuccessHTML: "HTML Exported Successfully!",
+        artworkExportDownloadedHTML: "Your HTML has been downloaded.",
         artworkClose: "Close",
 
         // Background image
@@ -1675,12 +1679,13 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
 
         // Download image
         artworkExportingPNG: "Exporting PNG...",
-        artworkExportWait: "Please wait while we generate your image.",
+        artworkExportingHTML: "Exporting HTML...",
+        artworkExportWait: "Please wait while we prepare your file.",
         artworkExportSuccess: "PNG Exported Successfully!",
         artworkExportDownloaded: "Your image has been downloaded.",
 
         // Export instructions
-        artworkExportInstructions: "To save as a high-quality PNG:",
+        artworkExportInstructions: "If automatic export fails, save the generated file manually using your browser.",
         artworkExportScreenshot: "Take a screenshot of the preview area:",
         artworkExportMac: "Cmd+Shift+4, then select area",
         artworkExportWindows: "Win+Shift+S, then select area",

@@ -21,22 +21,39 @@ class ArtworkPreviewWindow {
         this.sourceImageWidth = Number(options?.sourceImageWidth) || 0;
         this.sourceImageHeight = Number(options?.sourceImageHeight) || 0;
         this.isTextOverlayPreview = this.previewMode === 'overlay' || (!this.previewMode && title.includes('Text Overlay'));
-        this.shouldStartMaximized = this.isTextOverlayPreview;
+        this.isStyleTransferPreview = this.previewMode === 'style';
+        // Never open the preview window maximized by default.
+        // Always start un-maximized and use computed dimensions or fallbacks.
+        this.shouldStartMaximized = false;
+        // Use a raw/"bare" text-overlay rendering path to avoid host-side
+        // normalization and resizing that interferes with the author's HTML.
+        // Keep editing functionality enabled, but skip layout auto-sizing.
+        this.bareTextOverlay = this.isTextOverlayPreview;
         this.textOverlayFrameBounds = null;
-        this.textOverlayLayoutScheduled = false;
-        this.didAutoSizeTextOverlayWindow = false;
-        this.textOverlayAutoSizeArea = 0;
+        this.textOverlayPositionLocked = false;
         this.textOverlayPreviewReady = false;
-        this.textOverlayPreviewStabilizationToken = 0;
-        this.textOverlayStabilizationAttempts = 0;
-        this.maxTextOverlayStabilizationAttempts = 6;
         this.textOverlayCodeSyncTimer = null;
+        this.styleTransferCodeSyncTimer = null;
+        this.styleTransferImageEditorPanel = null;
+        this.styleTransferImageEditorFileInput = null;
+        this.styleTransferImageEditorSearchInput = null;
+        this.styleTransferImageEditorSearchBtn = null;
+        this.styleTransferImageEditorResults = null;
+        this.styleTransferImageEditorStatus = null;
+        this.styleTransferImageEditorRestoreBtn = null;
+        this.styleTransferImageEditorImportBtn = null;
+        this.styleTransferImageEditorTarget = null;
+        this.styleTransferImageEditorFrameDoc = null;
+        this.styleTransferImageOriginalSrcById = {};
+        this.styleTransferImageReplacementsById = {};
         this.htmlPreviewLayoutScheduled = false;
         this.htmlPreviewAutoSizeArea = 0;
         this.htmlPreviewReady = false;
+        // Cache for fetched assets to avoid repeated network calls during export
+        this._assetDataUrlCache = new Map();
         this.htmlPreviewGutterRemoved = false;
         this.htmlPreviewStabilizationToken = 0;
-        this.exportAssetCache = new Map();
+        this.setHtmlPreviewFitToPreview(typeof options?.autoFitHtmlPreview === 'boolean' ? options.autoFitHtmlPreview : true);
         this.position = {
             x: 0,
             y: 0,
@@ -45,9 +62,8 @@ class ArtworkPreviewWindow {
             startY: 0
         };
 
-        // FIXED: Improve markdown detection - only true rationale content should be treated as markdown
-        this.isMarkdown = (this.previewMode === 'rationale' || (!this.previewMode && title.includes('Rationale'))) && !this.containsHTMLCode(generatedCode);
-       //console.log('ArtworkPreviewWindow: Is markdown content:', this.isMarkdown);
+        // Markdown conversion disabled — input is always HTML
+        this.isMarkdown = false;
 
         // Set up event listener for preview window close
         document.addEventListener('artworkPreviewClosed', async (event) => {
@@ -106,6 +122,45 @@ class ArtworkPreviewWindow {
         return htmlIndicators.some(pattern => pattern.test(content));
     }
 
+    // Detect whether the ArtworksTab requested a Design Rationale view.
+    // Prefer explicit API on `window.artworksTab` if available; fall back
+    // to button/DOM heuristics or a global flag.
+    isDesignRationaleRequested() {
+        try {
+            if (window.artworksTab && typeof window.artworksTab.isDesignRationaleSelected === 'function') {
+                return !!window.artworksTab.isDesignRationaleSelected();
+            }
+
+            if (window.__pw_design_rationale_request) {
+                return true;
+            }
+
+            // Look for common button selectors or text content indicating the control
+            const btn = document.querySelector('.design-rationale-btn, .design-rationale, button[data-role="design-rationale"]');
+            if (btn) {
+                if (btn.classList.contains('active') || btn.classList.contains('pressed') || btn.getAttribute('aria-pressed') === 'true') return true;
+                const txt = (btn.textContent || '').trim().toLowerCase();
+                if (txt.indexOf('design rationale') !== -1 || txt.indexOf('rationale') !== -1) return true;
+            }
+
+            return false;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    setHtmlPreviewFitToPreview(enabled) {
+        this.autoFitHtmlPreview = !!enabled;
+        if (this.debugHtmlPreviewFitToPreview) {
+            //console.debug('ArtworkPreviewWindow: setHtmlPreviewFitToPreview called', { enabled: this.autoFitHtmlPreview });
+        }
+    }
+    setDebugHtmlPreviewFitToPreview(enabled) {
+        this.debugHtmlPreviewFitToPreview = !!enabled;
+        //console.debug('ArtworkPreviewWindow: setDebugHtmlPreviewFitToPreview called', { enabled: this.debugHtmlPreviewFitToPreview });
+    }
+
+
     // Creates the preview window DOM structure and sets up initial state
     createWindow() {
         // Create container
@@ -159,9 +214,8 @@ class ArtworkPreviewWindow {
                 <div class="code-editor" contenteditable="true"></div>
             </div>
             <div class="preview-preview-view">
-               <div class="preview-loading-state" aria-live="polite">Assets loading, please wait...</div>
                <div class="preview-iframe-shell">
-                   <iframe class="preview-iframe" sandbox="allow-scripts allow-same-origin allow-modals"></iframe>
+                   <iframe class="preview-iframe" sandbox="allow-scripts allow-same-origin allow-modals" style="background-color:#000;"></iframe>
                </div>
             </div>
         </div>
@@ -173,23 +227,48 @@ class ArtworkPreviewWindow {
                 </svg>
                 ${copyButtonText}
             </button>
-            <button class="export-png-btn">
+            <button class="export-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                     <polyline points="8 12 12 16 16 12"></polyline>
                     <line x1="12" y1="8" x2="12" y2="16"></line>
                 </svg>
-                 ${Lang.get('artworkExportPNG')}
+                 ${Lang.get(this.isStyleTransferPreview ? 'artworkExportHTML' : 'artworkExportPNG')}
             </button>
             <button class="close-preview-btn">${Lang.get('artworkClose')}</button>
         </div>
     `;
 
         // Store the default (maximized) dimensions for the toggle function
-        this.container.dataset.prevWidth = '80vw';  // Fallback size when un-maximized
-        this.container.dataset.prevHeight = '80vh';
-        this.container.dataset.prevLeft = '10vw';   // Centered when un-maximized
-        this.container.dataset.prevTop = '10vh';
+        if (this.isTextOverlayPreview && this.sourceImageWidth > 0 && this.sourceImageHeight > 0) {
+            // Compute a sensible starting size based on the source image while
+            // constraining to the window size so the preview isn't enormous.
+            const maxWindowWidth = Math.floor(window.innerWidth * 0.94);
+            const maxWindowHeight = Math.floor(window.innerHeight * 0.94);
+            const aspect = this.sourceImageWidth / Math.max(1, this.sourceImageHeight);
+            let finalWidth = Math.min(maxWindowWidth, Math.round(this.sourceImageWidth));
+            let finalHeight = Math.min(maxWindowHeight, Math.round(this.sourceImageHeight));
+
+            // If the image is larger than the available area, scale it down
+            if (finalWidth > maxWindowWidth || finalHeight > maxWindowHeight) {
+                const widthScale = maxWindowWidth / finalWidth;
+                const heightScale = maxWindowHeight / finalHeight;
+                const scale = Math.min(widthScale, heightScale, 1);
+                finalWidth = Math.max(420, Math.round(finalWidth * scale));
+                finalHeight = Math.max(320, Math.round(finalHeight * scale));
+            }
+
+            this.container.dataset.prevWidth = `${finalWidth}px`;
+            this.container.dataset.prevHeight = `${finalHeight}px`;
+            this.container.dataset.prevLeft = `${Math.max(16, Math.round((window.innerWidth - finalWidth) / 2))}px`;
+            this.container.dataset.prevTop = `${Math.max(16, Math.round((window.innerHeight - finalHeight) / 2))}px`;
+        } else {
+            this.container.dataset.prevWidth = '80vw';  // Fallback size when un-maximized
+            // Default iframe/container height fallback: prefer large preview canvas
+            this.container.dataset.prevHeight = '900px';
+            this.container.dataset.prevLeft = '10vw';   // Centered when un-maximized
+            this.container.dataset.prevTop = '10vh';
+        }
 
         if (this.shouldStartMaximized) {
             this.container.style.width = '100vw';
@@ -211,58 +290,91 @@ class ArtworkPreviewWindow {
         this.previewFrameShell = this.container.querySelector('.preview-iframe-shell');
         this.previewFrame = this.container.querySelector('.preview-iframe');
 
+        // For text-overlay previews, adjust container and shell heights so the iframe
+        // can display the full source image height (accounting for header/footer chrome).
+        if (this.isTextOverlayPreview && this.sourceImageWidth > 0 && this.sourceImageHeight > 0) {
+            try {
+                const prevHeightStr = String(this.container.dataset.prevHeight || '');
+                let imageHeight = null;
+                const pxMatch = prevHeightStr.match(/^(\d+)px$/);
+                if (pxMatch) {
+                    imageHeight = Number(pxMatch[1]);
+                } else {
+                    const num = Number(prevHeightStr);
+                    if (!Number.isNaN(num)) imageHeight = num;
+                }
+
+                if (imageHeight) {
+                    const headerEl = this.container.querySelector('.preview-window-header');
+                    const controlsEl = this.container.querySelector('.preview-window-view-controls');
+                    const footerEl = this.container.querySelector('.preview-window-footer');
+                    const headerH = headerEl ? headerEl.offsetHeight : 0;
+                    const controlsH = controlsEl ? controlsEl.offsetHeight : 0;
+                    const footerH = footerEl ? footerEl.offsetHeight : 0;
+                    const chromeExtra = 16;
+
+                    const totalContainerHeight = imageHeight + headerH + controlsH + footerH + chromeExtra;
+                    const maxWindowHeight = Math.floor(window.innerHeight * 0.94);
+                    const finalContainerHeight = Math.min(maxWindowHeight, totalContainerHeight);
+
+                    // Apply container height (includes chrome)
+                    this.container.style.height = `${finalContainerHeight}px`;
+
+                    // Compute preview shell height (space available for the iframe)
+                    const chromeHeight = headerH + controlsH + footerH + chromeExtra;
+                    let previewShellHeight = imageHeight;
+                    if (finalContainerHeight < totalContainerHeight) {
+                        const availableForPreview = Math.max(120, finalContainerHeight - chromeHeight);
+                        previewShellHeight = Math.max(120, Math.round(availableForPreview));
+                    }
+
+                    if (this.previewFrameShell) {
+                        this.previewFrameShell.style.height = `${previewShellHeight}px`;
+                    }
+
+                    // Ensure iframe fills the shell
+                    if (this.previewFrame) {
+                        this.previewFrame.style.height = '100%';
+                    }
+
+                    // Store updated prevHeight for toggling/back navigation
+                    this.container.dataset.prevHeight = `${finalContainerHeight}px`;
+                }
+            } catch (err) {
+                console.warn('ArtworkPreviewWindow: failed to adjust overlay sizing', err);
+            }
+        }
+
+        // Note: keep the maximize button for text-overlay previews so users
+        // can expand the preview window if desired.
+
         // Setup event listeners
         this.setupEventListeners();
     }
 
     scheduleTextOverlayPreviewLayout() {
-        if (!this.isTextOverlayPreview || this.textOverlayLayoutScheduled || this.currentView !== 'preview') {
-            return;
-        }
+        // Simplified: remove stabilization/resize machinery for text-overlay.
+        // Text-overlay previews are rendered raw into an iframe; enable
+        // inline editing and mark the preview ready without auto-resizing.
+        if (!this.isTextOverlayPreview) return;
+        try {
+            const iframeDoc = this.previewFrame?.contentDocument || this.previewFrame?.contentWindow?.document;
+            if (!iframeDoc || !iframeDoc.body) return;
 
-        this.textOverlayLayoutScheduled = true;
-        const stabilizationToken = ++this.textOverlayPreviewStabilizationToken;
-        requestAnimationFrame(async () => {
-            let shouldRetry = false;
             try {
-                await this.waitForPreviewAssets();
-                if (stabilizationToken !== this.textOverlayPreviewStabilizationToken || this.currentView !== 'preview') {
-                    return;
-                }
+                this.normalizeTextOverlayDocument(iframeDoc);
+            } catch (_e) {}
 
-                this.syncTextOverlayPreviewLayout();
-                const firstBounds = this.captureTextOverlayBoundsSnapshot();
-                await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-                await this.waitForPreviewAssets();
-                if (stabilizationToken !== this.textOverlayPreviewStabilizationToken || this.currentView !== 'preview') {
-                    return;
-                }
+            try {
+                this.enableTextOverlayPreviewEditing(iframeDoc);
+            } catch (_e) {}
 
-                this.syncTextOverlayPreviewLayout();
-                await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-                if (stabilizationToken !== this.textOverlayPreviewStabilizationToken || this.currentView !== 'preview') {
-                    return;
-                }
-
-                const secondBounds = this.captureTextOverlayBoundsSnapshot();
-                const stability = this.evaluateTextOverlayPreviewStability(firstBounds, secondBounds);
-                if (!stability.isSettled && this.textOverlayStabilizationAttempts < this.maxTextOverlayStabilizationAttempts) {
-                    this.textOverlayStabilizationAttempts += 1;
-                    shouldRetry = true;
-                    return;
-                }
-
-                this.textOverlayStabilizationAttempts = 0;
+            try {
                 this.setTextOverlayPreviewReady(true);
-            } finally {
-                requestAnimationFrame(() => {
-                    this.textOverlayLayoutScheduled = false;
-                    if (shouldRetry && stabilizationToken === this.textOverlayPreviewStabilizationToken && this.currentView === 'preview') {
-                        this.scheduleTextOverlayPreviewLayout();
-                    }
-                });
-            }
-        });
+            } catch (_e) {}
+        } catch (_e) {
+            // ignore
+        }
     }
 
     scheduleHtmlPreviewLayout() {
@@ -274,19 +386,15 @@ class ArtworkPreviewWindow {
         const stabilizationToken = ++this.htmlPreviewStabilizationToken;
         requestAnimationFrame(async () => {
             try {
-                await this.waitForPreviewAssets();
-                if (stabilizationToken !== this.htmlPreviewStabilizationToken || this.currentView !== 'preview') {
-                    return;
-                }
-
                 this.syncHtmlPreviewLayout();
+                this.triggerGenericHtmlPreviewResize();
                 await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-                await this.waitForPreviewAssets();
                 if (stabilizationToken !== this.htmlPreviewStabilizationToken || this.currentView !== 'preview') {
                     return;
                 }
 
                 this.syncHtmlPreviewLayout();
+                this.triggerGenericHtmlPreviewResize();
                 await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
                 if (stabilizationToken !== this.htmlPreviewStabilizationToken || this.currentView !== 'preview') {
                     return;
@@ -309,10 +417,50 @@ class ArtworkPreviewWindow {
         this.htmlPreviewReady = !!isReady;
         this.previewFrame.style.visibility = this.htmlPreviewReady ? 'visible' : 'hidden';
         this.previewFrame.style.opacity = this.htmlPreviewReady ? '1' : '0';
-        const loadingState = this.container?.querySelector('.preview-loading-state');
-        if (loadingState) {
-            loadingState.classList.toggle('active', !this.htmlPreviewReady && this.currentView === 'preview');
+    }
+
+    triggerGenericHtmlPreviewResize() {
+        if (this.isTextOverlayPreview || this.isMarkdown || !this.previewFrame) {
+            return;
         }
+
+        const iframeWindow = this.previewFrame.contentWindow;
+        if (!iframeWindow) {
+            return;
+        }
+
+        try {
+            iframeWindow.dispatchEvent(new Event('resize'));
+        } catch (error) {
+            //console.debug('ArtworkPreviewWindow[html] failed to trigger iframe resize', error);
+        }
+    }
+
+    parseGenericHtmlPreviewSize(htmlSource) {
+        if (!htmlSource || typeof htmlSource !== 'string') {
+            return null;
+        }
+
+        const commentMatch = htmlSource.match(/<!--\s*PREVIEW-SIZE:\s*width=(\d+)(?:\s+height=(\d+))?\s*-->/i);
+        const cssWidthMatch = htmlSource.match(/--preview-width:\s*(\d+)px/i);
+        const cssHeightMatch = htmlSource.match(/--preview-height:\s*(\d+)px/i);
+
+        const widthValue = commentMatch?.[1]
+            || cssWidthMatch?.[1];
+        const heightValue = commentMatch?.[2]
+            || cssHeightMatch?.[1];
+
+        const width = widthValue ? Number(widthValue) : null;
+        const height = heightValue ? Number(heightValue) : null;
+
+        if (!width) {
+            return null;
+        }
+
+        return {
+            width,
+            height,
+        };
     }
 
     setTextOverlayPreviewReady(isReady) {
@@ -321,114 +469,24 @@ class ArtworkPreviewWindow {
         }
 
         this.textOverlayPreviewReady = !!isReady;
-        this.previewFrame.style.visibility = this.textOverlayPreviewReady ? 'visible' : 'hidden';
-        this.previewFrame.style.opacity = this.textOverlayPreviewReady ? '1' : '0';
-        const loadingState = this.container?.querySelector('.preview-loading-state');
-        if (loadingState) {
-            loadingState.textContent = 'Assets loading, please wait...';
-            loadingState.classList.toggle('active', !this.textOverlayPreviewReady && this.currentView === 'preview');
+        if (this.previewFrame) {
+            this.previewFrame.style.visibility = this.textOverlayPreviewReady ? 'visible' : 'hidden';
+            this.previewFrame.style.opacity = this.textOverlayPreviewReady ? '1' : '0';
+        }
+
+        if (this.textOverlayPreviewReady) {
+            try {
+                const iframeDoc = this.previewFrame.contentDocument || this.previewFrame.contentWindow?.document;
+                if (iframeDoc?.body) {
+                    iframeDoc.body.style.visibility = 'visible';
+                }
+            } catch (_error) {
+                // ignore access errors
+            }
+            this.textOverlayPositionLocked = true;
         }
     }
 
-    captureTextOverlayBoundsSnapshot() {
-        const bounds = this.getSourceImageBounds() || this.getVisibleTextOverlayBounds() || this.textOverlayFrameBounds;
-        if (!bounds) {
-            return null;
-        }
-
-        return {
-            left: Number(bounds.left) || 0,
-            top: Number(bounds.top) || 0,
-            width: Math.max(1, Number(bounds.width) || 0),
-            height: Math.max(1, Number(bounds.height) || 0),
-        };
-    }
-
-    evaluateTextOverlayPreviewStability(previousBounds, currentBounds) {
-        const iframe = this.previewFrame;
-        const iframeWindow = iframe ? iframe.contentWindow : null;
-        const iframeDoc = iframe ? (iframe.contentDocument || iframeWindow?.document) : null;
-        const docElement = iframeDoc?.documentElement;
-        const body = iframeDoc?.body;
-        const contentWidth = Math.max(
-            docElement?.scrollWidth || 0,
-            docElement?.offsetWidth || 0,
-            docElement?.clientWidth || 0,
-            body?.scrollWidth || 0,
-            body?.offsetWidth || 0,
-            body?.clientWidth || 0,
-        );
-        const referenceWidth = Math.max(
-            currentBounds?.width || 0,
-            this.sourceImageWidth || 0,
-            this.textOverlayFrameBounds?.width || 0,
-            docElement?.clientWidth || 0,
-            body?.clientWidth || 0,
-        );
-        const gutterWidth = Math.max(0, Math.round(contentWidth - referenceWidth));
-        const gutterRemoved = gutterWidth <= 2;
-        const boundsStable = !!currentBounds && !!previousBounds
-            ? Math.abs(currentBounds.width - previousBounds.width) <= 1
-                && Math.abs(currentBounds.height - previousBounds.height) <= 1
-                && Math.abs(currentBounds.left - previousBounds.left) <= 2
-                && Math.abs(currentBounds.top - previousBounds.top) <= 2
-            : !!currentBounds;
-
-        return {
-            boundsStable,
-            gutterRemoved,
-            gutterWidth,
-            contentWidth,
-            referenceWidth,
-            isSettled: boundsStable && gutterRemoved,
-        };
-    }
-
-    evaluateGenericHtmlPreviewGutter(bounds = null) {
-        const iframe = this.previewFrame;
-        const iframeWindow = iframe ? iframe.contentWindow : null;
-        const iframeDoc = iframe ? (iframe.contentDocument || iframeWindow?.document) : null;
-        if (!iframeDoc) {
-            return {
-                gutterRemoved: false,
-                gutterWidth: 0,
-                viewportWidth: 0,
-                contentWidth: 0,
-            };
-        }
-
-        const docElement = iframeDoc.documentElement;
-        const body = iframeDoc.body;
-        const measuredBounds = bounds || this.getRenderedHtmlDocumentBounds();
-        const viewportWidth = Math.max(
-            iframe?.clientWidth || 0,
-            iframeWindow?.innerWidth || 0,
-            docElement?.clientWidth || 0,
-            body?.clientWidth || 0,
-        );
-        const contentWidth = Math.max(
-            measuredBounds?.contentWidth || 0,
-            docElement?.scrollWidth || 0,
-            body?.scrollWidth || 0,
-        );
-        const gutterWidth = Math.max(0, Math.round(contentWidth - viewportWidth));
-        const gutterRemoved = gutterWidth <= 2;
-
-        this.htmlPreviewGutterRemoved = gutterRemoved;
-        /*console.info('ArtworkPreviewWindow[html]: gutter stability check', {
-            gutterRemoved,
-            gutterWidth,
-            viewportWidth,
-            contentWidth,
-        });*/
-
-        return {
-            gutterRemoved,
-            gutterWidth,
-            viewportWidth,
-            contentWidth,
-        };
-    }
 
     getRenderedHtmlDocumentBounds() {
         const iframe = this.previewFrame;
@@ -474,8 +532,8 @@ class ArtworkPreviewWindow {
             body.clientHeight || 0,
         );
 
-        const width = Math.max(contentWidth, viewportWidth);
-        const height = Math.max(contentHeight, viewportHeight);
+        const width = contentWidth || viewportWidth;
+        const height = contentHeight || viewportHeight;
 
         if (width <= 0 || height <= 0) {
             return null;
@@ -519,8 +577,8 @@ class ArtworkPreviewWindow {
             return;
         }
 
-        const measuredWidth = bounds.isScrollablePage ? bounds.viewportWidth : bounds.width;
-        const measuredHeight = bounds.isScrollablePage ? bounds.viewportHeight : bounds.height;
+        const measuredWidth = bounds.isScrollablePage ? bounds.viewportWidth : (bounds.contentWidth || bounds.width);
+        const measuredHeight = bounds.isScrollablePage ? bounds.viewportHeight : (bounds.contentHeight || bounds.height);
         const boundsArea = Math.max(1, measuredWidth * measuredHeight);
         if (boundsArea <= this.htmlPreviewAutoSizeArea * 1.05) {
             return;
@@ -544,7 +602,7 @@ class ArtworkPreviewWindow {
             finalWidth = Math.max(420, Math.min(maxWindowWidth, Math.round(measuredWidth + 24)));
             finalHeight = Math.max(420, Math.min(maxWindowHeight, Math.round(measuredHeight + previewChromeHeight + 24)));
         } else {
-            scale = Math.min(maxContentWidth / measuredWidth, maxContentHeight / measuredHeight, 1);
+            scale = Math.min(maxContentWidth / measuredWidth, maxContentHeight / measuredHeight);
             finalWidth = Math.max(420, Math.round(measuredWidth * scale));
             finalHeight = Math.max(320, Math.round(measuredHeight * scale) + previewChromeHeight);
         }
@@ -574,25 +632,79 @@ class ArtworkPreviewWindow {
             return;
         }
 
-        this.autoSizeGenericHtmlPreviewWindow(bounds);
-
         const previewContainer = this.container.querySelector('.preview-preview-view');
         if (!previewContainer) {
             return;
         }
 
-        const availableWidth = Math.max(1, previewContainer.clientWidth);
-        const availableHeight = Math.max(1, previewContainer.clientHeight);
-        let scale = 1;
+        let availableWidth = Math.max(1, previewContainer.clientWidth);
+        let availableHeight = Math.max(1, previewContainer.clientHeight);
 
-        if (bounds.isScrollablePage) {
-            this.previewFrame.style.width = '100%';
-            this.previewFrame.style.height = '100%';
-        } else {
-            scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height, 1);
-            this.previewFrame.style.width = `${Math.max(1, Math.round(bounds.width * scale))}px`;
-            this.previewFrame.style.height = `${Math.max(1, Math.round(bounds.height * scale))}px`;
+        if (this.htmlPreviewSuggestedWidth && !this.container.classList.contains('maximized')) {
+            this.autoSizeGenericHtmlPreviewWindow({
+                left: 0,
+                top: 0,
+                width: this.htmlPreviewSuggestedWidth,
+                height: this.htmlPreviewSuggestedHeight || availableHeight,
+                contentWidth: this.htmlPreviewSuggestedWidth,
+                contentHeight: this.htmlPreviewSuggestedHeight || availableHeight,
+                viewportWidth: this.htmlPreviewSuggestedWidth,
+                viewportHeight: this.htmlPreviewSuggestedHeight || availableHeight,
+                isScrollablePage: false,
+            });
+
+            // Recompute available space after the preview window is auto-sized.
+            availableWidth = Math.max(1, previewContainer.clientWidth);
+            availableHeight = Math.max(1, previewContainer.clientHeight);
         }
+
+        // Allow style-transfer previews to be fit-to-shell even if the
+        // document looks like a scrollable page (many sections). This keeps
+        // generated-style outputs from expanding the preview window and
+        // avoids creating a right-side gutter.
+        const shouldFitToShell = this.autoFitHtmlPreview && (this.isStyleTransferPreview || !bounds.isScrollablePage) && bounds.contentWidth > 0 && bounds.contentHeight > 0;
+        let scale = 1;
+        if (shouldFitToShell) {
+            const widthScale = availableWidth / bounds.contentWidth;
+            const heightScale = availableHeight / bounds.contentHeight;
+            scale = Math.min(widthScale, heightScale, 2);
+            if (this.debugHtmlPreviewFitToPreview) {
+                console.debug('ArtworkPreviewWindow[html] fit-to-preview enabled', {
+                    availableWidth,
+                    availableHeight,
+                    contentWidth: bounds.contentWidth,
+                    contentHeight: bounds.contentHeight,
+                    widthScale,
+                    heightScale,
+                    scale,
+                });
+            }
+        } else {
+            if (this.debugHtmlPreviewFitToPreview) {
+                console.debug('ArtworkPreviewWindow[html] fit-to-preview disabled', {
+                    availableWidth,
+                    availableHeight,
+                    contentWidth: bounds.contentWidth,
+                    contentHeight: bounds.contentHeight,
+                    isScrollablePage: bounds.isScrollablePage,
+                });
+            }
+        }
+        this.previewFrame.style.width = '100%';
+        this.previewFrame.style.height = '100%';
+
+        this.previewFrame.style.maxWidth = 'none';
+        this.previewFrame.style.maxHeight = 'none';
+        this.previewFrame.style.transformOrigin = 'top left';
+        this.previewFrame.style.transform = `scale(${scale})`;
+
+        /* console.debug('ArtworkPreviewWindow[html] syncHtmlPreviewLayout', {
+            bounds,
+            availableWidth,
+            availableHeight,
+            previewFrameShell: this.previewFrameShell?.getBoundingClientRect(),
+            previewFrame: this.previewFrame.getBoundingClientRect(),
+        }); */
 
         /*console.info('ArtworkPreviewWindow[html]: applied preview layout from returned document bounds', {
             bounds,
@@ -630,6 +742,90 @@ class ArtworkPreviewWindow {
             if (!(element instanceof iframeWindow.HTMLElement)) {
                 continue;
             }
+
+            // Prefer elements that contain editable overlay content (text overlays,
+            // preview helpers, or preview-wrappers). If we find such an element that
+            // is not the document body, attempt to compute a tight bounding box that
+            // covers the displayed image content and overlay text. This avoids
+            // capturing large container margins when images are letterboxed inside
+            // a wider wrapper (object-fit: contain behavior).
+            try {
+                if (element !== body && element.querySelector) {
+                    const overlayDesc = element.querySelector('[data-artwork-editable-text], .overlay-content, [data-artwork-bg-img], .preview-wrap');
+                    if (overlayDesc) {
+                        try {
+                            // Gather image content rects (compute actual displayed image
+                            // pixel area using naturalWidth/naturalHeight + object-fit math)
+                            const imgs = Array.from(element.querySelectorAll('img')) || [];
+                            const imageRects = [];
+                            for (const img of imgs) {
+                                try {
+                                    const r = img.getBoundingClientRect();
+                                    if (!r || r.width < 4 || r.height < 4) continue;
+                                    if (img.naturalWidth && img.naturalHeight) {
+                                        const scale = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+                                        const cw = Math.max(1, img.naturalWidth * scale);
+                                        const ch = Math.max(1, img.naturalHeight * scale);
+                                        const cleft = r.left + (r.width - cw) / 2;
+                                        const ctop = r.top + (r.height - ch) / 2;
+                                        imageRects.push({ left: cleft, top: ctop, width: cw, height: ch });
+                                    } else {
+                                        imageRects.push({ left: r.left, top: r.top, width: r.width, height: r.height });
+                                    }
+                                } catch (_ie) {}
+                            }
+
+                            // Gather overlay text bounding rects
+                            const overlayEls = Array.from(element.querySelectorAll('[data-artwork-editable-text], .overlay-content')) || [];
+                            const overlayRects = [];
+                            for (const o of overlayEls) {
+                                try {
+                                    const or = o.getBoundingClientRect();
+                                    if (!or || or.width < 2 || or.height < 2) continue;
+                                    overlayRects.push({ left: or.left, top: or.top, width: or.width, height: or.height });
+                                } catch (_oe) {}
+                            }
+
+                            const allRects = imageRects.concat(overlayRects);
+                            if (allRects.length > 0) {
+                                let minLeft = Infinity, minTop = Infinity, maxRight = -Infinity, maxBottom = -Infinity;
+                                for (const rr of allRects) {
+                                    minLeft = Math.min(minLeft, rr.left);
+                                    minTop = Math.min(minTop, rr.top);
+                                    maxRight = Math.max(maxRight, rr.left + rr.width);
+                                    maxBottom = Math.max(maxBottom, rr.top + rr.height);
+                                }
+                                const unionW = maxRight - minLeft;
+                                const unionH = maxBottom - minTop;
+                                if (unionW >= 8 && unionH >= 8) {
+                                    try { } catch (_) {}
+                                    return {
+                                        element,
+                                        left: Math.max(0, minLeft),
+                                        top: Math.max(0, minTop),
+                                        width: Math.max(1, unionW),
+                                        height: Math.max(1, unionH),
+                                    };
+                                }
+                            }
+                        } catch (_ex) {}
+
+                        // Fallback: return the element's own bounding rect when we
+                        // cannot compute a tighter union.
+                        const rect = element.getBoundingClientRect();
+                        if (rect && rect.width >= 16 && rect.height >= 16) {
+                            try {  } catch (_) {}
+                            return {
+                                element,
+                                left: Math.max(0, rect.left),
+                                top: Math.max(0, rect.top),
+                                width: Math.max(1, rect.width),
+                                height: Math.max(1, rect.height),
+                            };
+                        }
+                    }
+                }
+            } catch (_e) {}
 
             const style = iframeWindow.getComputedStyle(element);
             if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || '1') === 0) {
@@ -776,130 +972,10 @@ class ArtworkPreviewWindow {
     }
 
     normalizeTextOverlayDocument(frameDoc) {
-        if (!this.isTextOverlayPreview || !frameDoc || this.sourceImageWidth <= 0 || this.sourceImageHeight <= 0) {
-            return;
-        }
-
-        const html = frameDoc.documentElement;
-        const body = frameDoc.body;
-        if (!html || !body) {
-            return;
-        }
-
-        const injectStyle = frameDoc.createElement('style');
-        injectStyle.setAttribute('data-artwork-overlay-normalizer', 'true');
-        injectStyle.textContent = `
-html, body {
-    width: ${this.sourceImageWidth}px !important;
-    height: ${this.sourceImageHeight}px !important;
-    min-width: ${this.sourceImageWidth}px !important;
-    min-height: ${this.sourceImageHeight}px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    background: #000 !important;
-}
-body {
-    display: block !important;
-    position: relative !important;
-}
-.page-wrapper {
-    position: absolute !important;
-    inset: 0 !important;
-    width: ${this.sourceImageWidth}px !important;
-    height: ${this.sourceImageHeight}px !important;
-    min-height: ${this.sourceImageHeight}px !important;
-    max-width: ${this.sourceImageWidth}px !important;
-    max-height: ${this.sourceImageHeight}px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    display: block !important;
-    background: #000 !important;
-    box-sizing: border-box !important;
-    overflow: hidden !important;
-}
-.container,
-img.container,
-[class*="container"] {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: auto !important;
-    bottom: auto !important;
-    width: ${this.sourceImageWidth}px !important;
-    height: ${this.sourceImageHeight}px !important;
-    max-width: ${this.sourceImageWidth}px !important;
-    max-height: ${this.sourceImageHeight}px !important;
-    min-width: ${this.sourceImageWidth}px !important;
-    min-height: ${this.sourceImageHeight}px !important;
-    margin: 0 !important;
-    inset: 0 !important;
-    box-sizing: border-box !important;
-    aspect-ratio: auto !important;
-    background-position: center center !important;
-    background-repeat: no-repeat !important;
-    background-size: 100% 100% !important;
-    box-shadow: none !important;
-    transform: none !important;
-}
-[data-artwork-editable-text="true"] {
-    cursor: text !important;
-}
-[data-artwork-editable-text="true"]:focus {
-    outline: 2px dashed rgba(255, 255, 255, 0.75) !important;
-    outline-offset: 2px !important;
-}
-        `;
-        frameDoc.head?.appendChild(injectStyle);
-
-        html.style.width = `${this.sourceImageWidth}px`;
-        html.style.height = `${this.sourceImageHeight}px`;
-        html.style.margin = '0';
-        html.style.padding = '0';
-        html.style.overflow = 'hidden';
-        body.style.width = `${this.sourceImageWidth}px`;
-        body.style.height = `${this.sourceImageHeight}px`;
-        body.style.margin = '0';
-        body.style.padding = '0';
-        body.style.overflow = 'hidden';
-
-        const pageWrapper = body.querySelector('.page-wrapper');
-        if (pageWrapper) {
-            pageWrapper.style.position = 'absolute';
-            pageWrapper.style.inset = '0';
-            pageWrapper.style.width = `${this.sourceImageWidth}px`;
-            pageWrapper.style.height = `${this.sourceImageHeight}px`;
-            pageWrapper.style.minHeight = `${this.sourceImageHeight}px`;
-            pageWrapper.style.maxWidth = `${this.sourceImageWidth}px`;
-            pageWrapper.style.maxHeight = `${this.sourceImageHeight}px`;
-            pageWrapper.style.padding = '0';
-            pageWrapper.style.margin = '0';
-            pageWrapper.style.display = 'block';
-            pageWrapper.style.overflow = 'hidden';
-        }
-
-        const artboard = body.querySelector('.container, img.container, [class*="container"]');
-        if (artboard) {
-            artboard.style.position = 'absolute';
-            artboard.style.top = '0';
-            artboard.style.left = '0';
-            artboard.style.width = `${this.sourceImageWidth}px`;
-            artboard.style.height = `${this.sourceImageHeight}px`;
-            artboard.style.maxWidth = `${this.sourceImageWidth}px`;
-            artboard.style.maxHeight = `${this.sourceImageHeight}px`;
-            artboard.style.minWidth = `${this.sourceImageWidth}px`;
-            artboard.style.minHeight = `${this.sourceImageHeight}px`;
-            artboard.style.margin = '0';
-            artboard.style.boxShadow = 'none';
-            artboard.style.transform = 'none';
-        }
-
-        /*console.info('ArtworkPreviewWindow[text-overlay]: normalized iframe document to source image size', {
-            sourceImageWidth: this.sourceImageWidth,
-            sourceImageHeight: this.sourceImageHeight,
-            hasPageWrapper: !!pageWrapper,
-            hasArtboard: !!artboard,
-        });*/
+        // No-op normalizer: keep author-provided HTML/CSS intact.
+        // This preserves raw model-emitted HTML for style-transfer previews
+        // and avoids host-side layout changes that alter author intent.
+        return;
     }
 
     getTextOverlayEditableElements(root) {
@@ -909,35 +985,47 @@ img.container,
             return [];
         }
 
-        const editableTags = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'DIV', 'A', 'LI', 'STRONG', 'EM', 'LABEL', 'B', 'I']);
+        const rootWindow = rootDoc.defaultView || window;
+        const HTMLElementClass = rootWindow?.HTMLElement || HTMLElement;
+        const allowedInlineChildren = new Set(['SPAN', 'STRONG', 'EM', 'B', 'I', 'A', 'LABEL', 'CODE', 'U', 'SMALL', 'SUB', 'SUP', 'MARK', 'BR']);
+        const forbiddenAncestorSelector = 'svg, script, style, noscript';
+
         return Array.from(scope.querySelectorAll('*')).filter((element) => {
-            const isHtmlElement = rootDoc.defaultView
-                ? element instanceof rootDoc.defaultView.HTMLElement
-                : element?.nodeType === Node.ELEMENT_NODE;
+            const isHtmlElement = element instanceof HTMLElementClass;
             if (!isHtmlElement) {
                 return false;
             }
 
-            if (!editableTags.has(element.tagName)) {
+            if (element.closest(forbiddenAncestorSelector)) {
                 return false;
             }
 
-            if (element.closest('svg, script, style, noscript')) {
+            const textContent = (element.textContent || '').trim();
+            if (!textContent) {
                 return false;
             }
 
-            const hasUnsupportedChildren = Array.from(element.children).some((child) => child.tagName !== 'BR');
-            if (hasUnsupportedChildren) {
-                return false;
+            const children = Array.from(element.children);
+            if (children.length === 0) {
+                return true;
             }
 
-            const directText = Array.from(element.childNodes)
-                .filter((node) => node.nodeType === Node.TEXT_NODE)
-                .map((node) => node.textContent || '')
-                .join('')
-                .trim();
+            const childHTMLElementClass = rootWindow?.HTMLElement || HTMLElement;
+            const hasUnsupportedChild = children.some((child) => {
+                if (!(child instanceof childHTMLElementClass)) {
+                    return true;
+                }
+                const childText = (child.textContent || '').trim();
+                if (!childText) {
+                    return false;
+                }
+                if (allowedInlineChildren.has(child.tagName)) {
+                    return false;
+                }
+                return true;
+            });
 
-            return directText.length > 0;
+            return !hasUnsupportedChild;
         });
     }
 
@@ -980,6 +1068,47 @@ img.container,
         const editableElements = this.getTextOverlayEditableElements(parsedDoc);
         const targetElement = editableElements[Number(editableId)];
         if (!targetElement) {
+            // Fallback: failed to map by index — serialize live iframe DOM
+            try {
+                const iframeDoc = this.previewFrame?.contentDocument || this.previewFrame?.contentWindow?.document;
+                if (iframeDoc && iframeDoc.documentElement) {
+                    let serialized = this.serializeSourceDocument(iframeDoc, sourceCode);
+                    serialized = this.stripPreviewMetadataFromHtml(serialized);
+                    this.updateCodeEditorSource(serialized);
+                }
+            } catch (_e) {}
+            return;
+        }
+
+        targetElement.textContent = textValue;
+        const updatedCode = this.serializeSourceDocument(parsedDoc, sourceCode);
+        this.updateCodeEditorSource(updatedCode);
+    }
+
+    commitStyleTransferPreviewTextChange(editableId, textValue) {
+        if (!this.isStyleTransferPreview || !this.codeEditor) {
+            return;
+        }
+
+        const sourceCode = this.codeEditor.textContent || this.codeEditor.innerText;
+        if (!sourceCode) {
+            return;
+        }
+
+        const parser = new DOMParser();
+        const parsedDoc = parser.parseFromString(sourceCode, 'text/html');
+        const editableElements = this.getTextOverlayEditableElements(parsedDoc);
+        const targetElement = editableElements[Number(editableId)];
+        if (!targetElement) {
+            // Fallback: serialize live iframe DOM to capture the in-frame edits
+            try {
+                const iframeDoc = this.previewFrame?.contentDocument || this.previewFrame?.contentWindow?.document;
+                if (iframeDoc && iframeDoc.documentElement) {
+                    let serialized = this.serializeSourceDocument(iframeDoc, sourceCode);
+                    serialized = this.stripPreviewMetadataFromHtml(serialized);
+                    this.updateCodeEditorSource(serialized);
+                }
+            } catch (_e) {}
             return;
         }
 
@@ -999,6 +1128,8 @@ img.container,
             element.dataset.artworkEditableTextId = String(index);
             element.contentEditable = 'true';
             element.spellcheck = false;
+            element.tabIndex = 0;
+            element.style.cursor = 'text';
 
             if (element.dataset.artworkEditableBound === 'true') {
                 return;
@@ -1013,181 +1144,805 @@ img.container,
                 }, 120);
             };
 
+            element.addEventListener('click', (event) => {
+                event.stopPropagation();
+                element.focus();
+            });
             element.addEventListener('input', syncElementText);
             element.addEventListener('blur', syncElementText);
             element.dataset.artworkEditableBound = 'true';
         });
     }
 
-    normalizeGenericHtmlDocument(frameDoc) {
-        if (this.isTextOverlayPreview || this.isMarkdown || !frameDoc) {
+    enableStyleTransferPreviewEditing(frameDoc) {
+        if (!this.isStyleTransferPreview || !frameDoc?.body) {
             return;
         }
 
-        const html = frameDoc.documentElement;
-        const body = frameDoc.body;
-        const iframeWindow = this.previewFrame?.contentWindow;
-        if (!html || !body || !iframeWindow) {
-            return;
-        }
+        const editableElements = this.getTextOverlayEditableElements(frameDoc);
+        editableElements.forEach((element, index) => {
+            element.dataset.artworkEditableText = 'true';
+            element.dataset.artworkEditableTextId = String(index);
+            element.contentEditable = 'true';
+            element.spellcheck = false;
+            element.tabIndex = 0;
+            element.style.cursor = 'text';
 
-        const htmlStyle = iframeWindow.getComputedStyle(html);
-        const bodyStyle = iframeWindow.getComputedStyle(body);
-        const bodyBackground = bodyStyle?.backgroundColor;
-        const htmlBackground = htmlStyle?.backgroundColor;
-        const hasTransparentHtmlBackground = !htmlBackground
-            || htmlBackground === 'transparent'
-            || htmlBackground === 'rgba(0, 0, 0, 0)';
+            if (element.dataset.artworkEditableBound === 'true') {
+                return;
+            }
 
-        const injectStyle = frameDoc.createElement('style');
-        injectStyle.setAttribute('data-artwork-html-normalizer', 'true');
-        injectStyle.textContent = `
-html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-height: 100% !important;
-    overflow-x: hidden !important;
-}
-body {
-    position: relative !important;
-}
-        `;
-        frameDoc.head?.appendChild(injectStyle);
+            const syncElementText = () => {
+                const editableId = element.dataset.artworkEditableTextId;
+                const textValue = element.innerText.replace(/\r\n/g, '\n');
+                window.clearTimeout(this.styleTransferCodeSyncTimer);
+                this.styleTransferCodeSyncTimer = window.setTimeout(() => {
+                    this.commitStyleTransferPreviewTextChange(editableId, textValue);
+                }, 120);
+            };
 
-        html.style.margin = '0';
-        html.style.padding = '0';
-        html.style.width = '100%';
-        html.style.maxWidth = '100%';
-        html.style.minHeight = '100%';
-        html.style.overflowX = 'hidden';
-        body.style.margin = '0';
-        body.style.padding = '0';
-        body.style.width = '100%';
-        body.style.maxWidth = '100%';
-        body.style.minHeight = '100%';
-        body.style.overflowX = 'hidden';
+            element.addEventListener('click', (event) => {
+                event.stopPropagation();
+                element.focus();
+            });
+            element.addEventListener('input', syncElementText);
+            element.addEventListener('blur', syncElementText);
+            element.dataset.artworkEditableBound = 'true';
+        });
 
-        if (bodyBackground && hasTransparentHtmlBackground) {
-            html.style.backgroundColor = bodyBackground;
-        }
-
-        /*console.info('ArtworkPreviewWindow[html]: normalized generic iframe document', {
-            bodyBackground,
-            htmlBackground: hasTransparentHtmlBackground ? bodyBackground || htmlBackground : htmlBackground,
-        });*/
+        this.enableStyleTransferPreviewImageReplacement(frameDoc);
     }
 
-    autoSizeTextOverlayWindow(bounds) {
-        if (!this.isTextOverlayPreview || !bounds || !this.container) {
-            return;
+    getStyleTransferImageReplacementTargets(frameDoc) {
+        if (!this.isStyleTransferPreview || !frameDoc?.body) {
+            return [];
         }
 
-        const boundsArea = Math.max(1, bounds.width * bounds.height);
-        if (this.didAutoSizeTextOverlayWindow && boundsArea <= this.textOverlayAutoSizeArea * 1.15) {
-            return;
+        const iframeWindow = frameDoc.defaultView;
+        if (!iframeWindow) {
+            return [];
         }
 
-        const previewArea = this.container.querySelector('.preview-window-content');
-        if (!previewArea) {
-            return;
-        }
+        const images = Array.from(frameDoc.body.querySelectorAll('img'));
+        const backgroundElements = Array.from(frameDoc.body.querySelectorAll('*')).filter((element) => {
+            if (!(element instanceof iframeWindow.HTMLElement)) {
+                return false;
+            }
 
-        const previewChromeHeight = this.container.offsetHeight - previewArea.clientHeight;
-        const maxWindowWidth = Math.floor(window.innerWidth * 0.92);
-        const maxWindowHeight = Math.floor(window.innerHeight * 0.92);
-        const maxContentWidth = Math.max(320, maxWindowWidth - 32);
-        const maxContentHeight = Math.max(240, maxWindowHeight - previewChromeHeight - 32);
-        const scale = Math.min(maxContentWidth / bounds.width, maxContentHeight / bounds.height, 1);
-        const targetWidth = Math.round(bounds.width * scale);
-        const targetHeight = Math.round(bounds.height * scale) + previewChromeHeight;
-        const finalWidth = Math.max(420, targetWidth);
-        const finalHeight = Math.max(320, targetHeight);
+            if (element.tagName === 'IMG') {
+                return false;
+            }
 
-        this.container.classList.remove('maximized');
-        this.container.style.width = `${finalWidth}px`;
-        this.container.style.height = `${finalHeight}px`;
-        this.container.style.left = `${Math.max(16, Math.round((window.innerWidth - finalWidth) / 2))}px`;
-        this.container.style.top = `${Math.max(16, Math.round((window.innerHeight - finalHeight) / 2))}px`;
-        this.didAutoSizeTextOverlayWindow = true;
-        this.textOverlayAutoSizeArea = boundsArea;
-        /*console.info('ArtworkPreviewWindow[text-overlay]: auto-sized window from bounds', {
-            sourceImageWidth: this.sourceImageWidth,
-            sourceImageHeight: this.sourceImageHeight,
-            bounds,
-            finalWidth,
-            finalHeight,
-        });*/
+            const computedStyle = iframeWindow.getComputedStyle(element);
+            return computedStyle && computedStyle.backgroundImage && computedStyle.backgroundImage !== 'none';
+        });
+
+        return [...images, ...backgroundElements];
     }
 
-    syncTextOverlayPreviewLayout() {
-        if (!this.isTextOverlayPreview || !this.previewFrame || this.currentView !== 'preview') {
+    enableStyleTransferPreviewImageReplacement(frameDoc) {
+        const targets = this.getStyleTransferImageReplacementTargets(frameDoc);
+        targets.forEach((target) => {
+            if (!target || target.dataset.artworkStyleTransferImageBound === 'true') {
+                return;
+            }
+
+            const getEventPath = (event) => {
+                if (typeof event.composedPath === 'function') {
+                    return event.composedPath();
+                }
+
+                const path = [];
+                let node = event.target;
+                if (node && node.nodeType === Node.TEXT_NODE) {
+                    path.push(node);
+                    node = node.parentElement;
+                }
+                while (node) {
+                    path.push(node);
+                    node = node.parentNode;
+                }
+                return path;
+            };
+
+            const isClickInsideEditableText = (event) => {
+                const path = getEventPath(event);
+                const currentTarget = event.currentTarget;
+                for (const node of path) {
+                    if (!node) {
+                        continue;
+                    }
+                    if (node === currentTarget) {
+                        break;
+                    }
+                    if (!(node instanceof HTMLElement)) {
+                        continue;
+                    }
+                    if (node.closest('[data-artwork-editable-text="true"]') || node.isContentEditable) {
+                        return true;
+                    }
+                }
+
+                const clicked = event.target && event.target.nodeType === Node.TEXT_NODE ? event.target.parentElement : event.target;
+                return clicked instanceof HTMLElement && clicked.closest('[data-artwork-editable-text="true"]') && clicked !== currentTarget;
+            };
+
+            target.style.cursor = 'pointer';
+            target.addEventListener('click', (event) => {
+                const path = event.composedPath ? event.composedPath() : [event.target];
+                const pathInfo = path.map((node) => {
+                    if (node instanceof Text) {
+                        return `TEXT(${String(node.textContent || '').trim().slice(0, 20)})`;
+                    }
+                    if (node instanceof HTMLElement) {
+                        const tags = [node.tagName];
+                        if (node.dataset.artworkEditableText === 'true') {
+                            tags.push('editable');
+                        }
+                        if (node.dataset.pwStyleTransferImageId) {
+                            tags.push(`imgId=${node.dataset.pwStyleTransferImageId}`);
+                        }
+                        if (node.isContentEditable) {
+                            tags.push('contentEditable');
+                        }
+                        return tags.join('[') + (tags.length > 1 ? ']' : '');
+                    }
+                    return String(node);
+                }).join(' > ');
+                const clicked = event.target && event.target.nodeType === Node.TEXT_NODE ? event.target.parentElement : event.target;
+                const insideEditable = isClickInsideEditableText(event);
+
+                if (insideEditable) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                this.openStyleTransferImageEditorForTarget(target, frameDoc);
+            });
+            target.dataset.artworkStyleTransferImageBound = 'true';
+        });
+    }
+
+    openStyleTransferImageEditorForTarget(target, frameDoc) {
+        if (!target || !frameDoc || !this.container) {
             return;
         }
 
-        const iframeWindow = this.previewFrame.contentWindow;
-        const iframeDoc = this.previewFrame.contentDocument || iframeWindow?.document;
-        const docElement = iframeDoc?.documentElement;
-        const body = iframeDoc?.body;
-        if (!iframeWindow || !iframeDoc || !docElement || !body) {
+        this.clearStyleTransferImageSelectionVisuals();
+        const targetId = target.dataset.pwStyleTransferImageId || `pw-style-img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+        target.dataset.pwStyleTransferImageId = targetId;
+        this.styleTransferImageEditorTarget = target;
+        this.styleTransferImageEditorFrameDoc = frameDoc;
+
+        if (!this.styleTransferImageOriginalSrcById[targetId]) {
+            if (target.tagName === 'IMG') {
+                this.styleTransferImageOriginalSrcById[targetId] = target.getAttribute('src') || target.currentSrc || '';
+            } else {
+                const computedStyle = frameDoc.defaultView.getComputedStyle(target);
+                this.styleTransferImageOriginalSrcById[targetId] = computedStyle && computedStyle.backgroundImage ? computedStyle.backgroundImage : '';
+            }
+        }
+
+        target.dataset.pwStyleTransferPreviousOutline = target.style.outline || '';
+        target.dataset.pwStyleTransferPreviousOutlineOffset = target.style.outlineOffset || '';
+        target.style.outline = '3px solid var(--accent-color, #4f46e5)';
+        target.style.outlineOffset = '2px';
+
+        this.createStyleTransferImageEditorPanel();
+        this.positionStyleTransferImageEditorPanel();
+    }
+
+    clearStyleTransferImageSelectionVisuals() {
+        if (!this.styleTransferImageEditorTarget) {
             return;
         }
 
-        const measuredViewportBounds = {
-            left: 0,
-            top: 0,
-            width: Math.max(docElement.clientWidth || 0, iframeWindow.innerWidth || 0, body.clientWidth || 0),
-            height: Math.max(docElement.clientHeight || 0, iframeWindow.innerHeight || 0, body.clientHeight || 0),
+        try {
+            const target = this.styleTransferImageEditorTarget;
+            target.style.outline = target.dataset.pwStyleTransferPreviousOutline || '';
+            target.style.outlineOffset = target.dataset.pwStyleTransferPreviousOutlineOffset || '';
+            delete target.dataset.pwStyleTransferPreviousOutline;
+            delete target.dataset.pwStyleTransferPreviousOutlineOffset;
+        } catch (_error) {
+        }
+
+        this.styleTransferImageEditorTarget = null;
+    }
+
+    createStyleTransferImageEditorPanel() {
+        if (this.styleTransferImageEditorPanel) {
+            return;
+        }
+
+        const panel = document.createElement('div');
+        panel.style.position = 'absolute';
+        panel.style.left = '50%';
+        panel.style.top = '50%';
+        panel.style.transform = 'translate(-50%, -50%)';
+        panel.style.width = '320px';
+        panel.style.padding = '12px';
+        panel.style.borderRadius = '12px';
+        panel.style.background = 'var(--panel-background, #1f2937)';
+        panel.style.border = '1px solid var(--border-color, #4b5563)';
+        panel.style.boxShadow = '0 16px 40px rgba(0, 0, 0, 0.25)';
+        panel.style.zIndex = '10010';
+        panel.style.display = 'flex';
+        panel.style.flexDirection = 'column';
+        panel.style.gap = '10px';
+
+        const title = document.createElement('div');
+        title.textContent = window.Lang ? (Lang.get('replaceImageLabel') || 'Replace image') : 'Replace image';
+        title.style.fontWeight = '700';
+        title.style.fontSize = '14px';
+        title.style.color = 'var(--text-color, #ffffff)';
+
+        const searchRow = document.createElement('div');
+        searchRow.style.display = 'flex';
+        searchRow.style.alignItems = 'center';
+        searchRow.style.gap = '8px';
+
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = window.Lang
+            ? (Lang.get('searchImagesPlaceholder') || 'Search images')
+            : 'Search images';
+        searchInput.style.flex = '1 1 auto';
+        searchInput.style.height = '34px';
+        searchInput.style.padding = '0 10px';
+        searchInput.style.borderRadius = '8px';
+        searchInput.style.border = '1px solid var(--border-color, #4b5563)';
+        searchInput.style.background = 'var(--background-color, #111827)';
+        searchInput.style.color = 'var(--text-color, #ffffff)';
+        searchInput.style.outline = 'none';
+
+        const searchBtn = document.createElement('button');
+        searchBtn.type = 'button';
+        searchBtn.textContent = window.Lang ? (Lang.get('searchButton') || 'Search') : 'Search';
+        searchBtn.style.height = '34px';
+        searchBtn.style.padding = '0 12px';
+        searchBtn.style.borderRadius = '8px';
+        searchBtn.style.border = '1px solid transparent';
+        searchBtn.style.background = 'var(--accent-color, #4f46e5)';
+        searchBtn.style.color = '#ffffff';
+        searchBtn.style.cursor = 'pointer';
+
+        searchRow.appendChild(searchInput);
+        searchRow.appendChild(searchBtn);
+
+        const info = document.createElement('div');
+        info.textContent = window.Lang
+            ? (Lang.get('promptableLocalImageOnly') || 'Please choose a valid image file from your computer.')
+            : 'Please choose a valid image file from your computer.';
+        info.style.fontSize = '12px';
+        info.style.lineHeight = '1.4';
+        info.style.color = 'var(--text-color, #d1d5db)';
+
+        const status = document.createElement('div');
+        status.style.fontSize = '12px';
+        status.style.lineHeight = '1.4';
+        status.style.color = 'var(--text-color, #ffffff)';
+        status.style.minHeight = '18px';
+        status.textContent = window.Lang
+            ? (Lang.get('clickImageToEdit') || 'Click an image in the presentation to replace it.')
+            : 'Click an image in the presentation to replace it.';
+
+        const resultGrid = document.createElement('div');
+        resultGrid.style.display = 'grid';
+        resultGrid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
+        resultGrid.style.gap = '8px';
+        resultGrid.style.maxHeight = '220px';
+        resultGrid.style.overflow = 'auto';
+
+        const buttonRow = document.createElement('div');
+        buttonRow.style.display = 'flex';
+        buttonRow.style.gap = '8px';
+        buttonRow.style.flexWrap = 'wrap';
+
+        const restoreBtn = document.createElement('button');
+        restoreBtn.type = 'button';
+        restoreBtn.textContent = window.Lang ? (Lang.get('restoreOriginalButton') || 'Restore original') : 'Restore original';
+        restoreBtn.style.flex = '1 1 auto';
+        restoreBtn.style.height = '34px';
+        restoreBtn.style.borderRadius = '8px';
+        restoreBtn.style.border = '1px solid var(--border-color, #4b5563)';
+        restoreBtn.style.background = 'var(--background-color, #111827)';
+        restoreBtn.style.color = 'var(--text-color, #ffffff)';
+        restoreBtn.style.cursor = 'pointer';
+
+        const importBtn = document.createElement('button');
+        importBtn.type = 'button';
+        importBtn.textContent = window.Lang ? (Lang.get('importImageButton') || 'Import image') : 'Import image';
+        importBtn.style.flex = '1 1 auto';
+        importBtn.style.height = '34px';
+        importBtn.style.borderRadius = '8px';
+        importBtn.style.border = '1px solid transparent';
+        importBtn.style.background = 'var(--accent-color, #4f46e5)';
+        importBtn.style.color = '#ffffff';
+        importBtn.style.cursor = 'pointer';
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.textContent = window.Lang ? (Lang.get('closeButton') || 'Close') : 'Close';
+        closeBtn.style.flex = '1 1 auto';
+        closeBtn.style.height = '34px';
+        closeBtn.style.borderRadius = '8px';
+        closeBtn.style.border = '1px solid var(--border-color, #4b5563)';
+        closeBtn.style.background = 'var(--background-color, #111827)';
+        closeBtn.style.color = 'var(--text-color, #ffffff)';
+        closeBtn.style.cursor = 'pointer';
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.style.display = 'none';
+
+        buttonRow.appendChild(restoreBtn);
+        buttonRow.appendChild(importBtn);
+        buttonRow.appendChild(closeBtn);
+
+        panel.appendChild(title);
+        panel.appendChild(searchRow);
+        panel.appendChild(info);
+        panel.appendChild(status);
+        panel.appendChild(resultGrid);
+        panel.appendChild(buttonRow);
+        panel.appendChild(fileInput);
+
+        this.container.appendChild(panel);
+        this.styleTransferImageEditorPanel = panel;
+        this.styleTransferImageEditorStatus = status;
+        this.styleTransferImageEditorSearchInput = searchInput;
+        this.styleTransferImageEditorSearchBtn = searchBtn;
+        this.styleTransferImageEditorResults = resultGrid;
+        this.styleTransferImageEditorFileInput = fileInput;
+        this.styleTransferImageEditorRestoreBtn = restoreBtn;
+        this.styleTransferImageEditorImportBtn = importBtn;
+
+        searchBtn.addEventListener('click', () => {
+            this.searchStyleTransferImagesFromEditor();
+        });
+
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                this.searchStyleTransferImagesFromEditor();
+            }
+        });
+
+        importBtn.addEventListener('click', () => {
+            if (!this.styleTransferImageEditorFileInput) {
+                return;
+            }
+            this.styleTransferImageEditorFileInput.value = '';
+            this.styleTransferImageEditorFileInput.click();
+        });
+
+        fileInput.addEventListener('change', (event) => {
+            if (!event || !event.target || !event.target.files || !event.target.files[0]) {
+                return;
+            }
+            this.importStyleTransferSelectedImageFromFile(event.target.files[0]);
+        });
+
+        restoreBtn.addEventListener('click', () => this.restoreStyleTransferSelectedImage());
+        closeBtn.addEventListener('click', () => this.hideStyleTransferImageEditorPanel());
+    }
+
+    positionStyleTransferImageEditorPanel() {
+        if (!this.styleTransferImageEditorPanel || !this.container) {
+            return;
+        }
+
+        const containerRect = this.container.getBoundingClientRect();
+        if (!containerRect || Number.isNaN(containerRect.width)) {
+            return;
+        }
+
+        this.styleTransferImageEditorPanel.style.left = '50%';
+        this.styleTransferImageEditorPanel.style.top = '50%';
+        this.styleTransferImageEditorPanel.style.transform = 'translate(-50%, -50%)';
+    }
+
+    hideStyleTransferImageEditorPanel() {
+        if (this.styleTransferImageEditorPanel && this.styleTransferImageEditorPanel.parentNode) {
+            this.styleTransferImageEditorPanel.parentNode.removeChild(this.styleTransferImageEditorPanel);
+        }
+        this.styleTransferImageEditorPanel = null;
+        this.styleTransferImageEditorStatus = null;
+        this.styleTransferImageEditorFileInput = null;
+        this.styleTransferImageEditorRestoreBtn = null;
+        this.styleTransferImageEditorImportBtn = null;
+        this.clearStyleTransferImageSelectionVisuals();
+    }
+
+    updateStyleTransferImageEditorStatus(message, type = 'info') {
+        if (!this.styleTransferImageEditorStatus) {
+            return;
+        }
+        this.styleTransferImageEditorStatus.textContent = message || '';
+        this.styleTransferImageEditorStatus.style.color = type === 'error' ? '#f87171' : 'var(--text-color, #ffffff)';
+        this.styleTransferImageEditorStatus.style.opacity = type === 'muted' ? '0.78' : '1';
+    }
+
+    async searchStyleTransferImagesFromEditor() {
+        if (!this.styleTransferImageEditorSearchInput) {
+            return;
+        }
+
+        const query = String(this.styleTransferImageEditorSearchInput.value || '').trim();
+        if (!query) {
+            this.updateStyleTransferImageEditorStatus(
+                window.Lang ? (Lang.get('searchQueryRequired') || 'Enter an image search query.') : 'Enter an image search query.',
+                'muted'
+            );
+            return;
+        }
+
+        if (this.styleTransferImageEditorSearchBtn) {
+            this.styleTransferImageEditorSearchBtn.disabled = true;
+        }
+
+        this.updateStyleTransferImageEditorStatus(
+            window.Lang ? (Lang.get('searchingImagesLabel') || 'Searching images...') : 'Searching images...',
+            'info'
+        );
+
+        try {
+            const urls = await this.searchStyleTransferImageUrls(query, 18);
+            this.renderStyleTransferImageSearchResults(urls);
+            if (!urls.length) {
+                this.updateStyleTransferImageEditorStatus(
+                    window.Lang ? (Lang.get('webSearchNoResultsFound') || 'No results found') : 'No results found',
+                    'muted'
+                );
+                return;
+            }
+
+            this.updateStyleTransferImageEditorStatus(
+                window.Lang ? (Lang.get('clickThumbnailToReplace') || 'Click a thumbnail to replace the selected image.') : 'Click a thumbnail to replace the selected image.',
+                'info'
+            );
+        } catch (error) {
+            console.error('ArtworkPreviewWindow: Style transfer image search failed', error);
+            this.updateStyleTransferImageEditorStatus(String(error && error.message ? error.message : error), 'error');
+        } finally {
+            if (this.styleTransferImageEditorSearchBtn) {
+                this.styleTransferImageEditorSearchBtn.disabled = false;
+            }
+        }
+    }
+
+    async searchStyleTransferImageUrls(query, count = 18) {
+        const q = String(query || '').trim();
+        if (!q) {
+            return [];
+        }
+
+        if (window.PromptablePresentation && typeof window.PromptablePresentation.searchPromptableImageUrls === 'function') {
+            try {
+                return await window.PromptablePresentation.searchPromptableImageUrls(q, count);
+            } catch (e) {
+                console.warn('ArtworkPreviewWindow: promptable search failed, falling back', e);
+            }
+        }
+
+        let urls = [];
+        try {
+            const multiResp = await fetch(`/api/proxy/image-search-multi?q=${encodeURIComponent(q)}`);
+            if (multiResp && multiResp.ok) {
+                const multiData = await multiResp.json();
+                let multiList = [];
+                if (Array.isArray(multiData && multiData.images)) {
+                    multiList = multiData.images;
+                } else if (Array.isArray(multiData && multiData.results)) {
+                    multiList = multiData.results;
+                } else if (Array.isArray(multiData && multiData.hits)) {
+                    multiList = multiData.hits;
+                }
+
+                multiList.forEach((entry) => {
+                    if (typeof entry === 'string' && /^https?:\/\//i.test(entry)) {
+                        urls.push(entry);
+                        return;
+                    }
+                    if (!entry || typeof entry !== 'object') {
+                        return;
+                    }
+                    const candidate = entry.imageUrl || entry.url || entry.src || entry.webformatURL || '';
+                    if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate)) {
+                        urls.push(candidate);
+                    }
+                });
+            }
+        } catch (error) {
+            console.warn('ArtworkPreviewWindow: image-search-multi failed', error);
+        }
+
+        if (urls.length < count) {
+            try {
+                const singleResp = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(q)}`);
+                if (singleResp && singleResp.ok) {
+                    const singleData = await singleResp.json();
+                    const extracted = this.extractStyleTransferImageSearchUrls(singleData);
+                    urls = urls.concat(extracted);
+                }
+            } catch (error) {
+                console.warn('ArtworkPreviewWindow: image-search fallback failed', error);
+            }
+        }
+
+        return Array.from(new Set(urls)).filter((url) => /^https?:\/\//i.test(String(url || ''))).slice(0, count);
+    }
+
+    extractStyleTransferImageSearchUrls(payload) {
+        const urls = [];
+        const visit = (value, depth = 0) => {
+            if (!value || depth > 6) {
+                return;
+            }
+            if (typeof value === 'string') {
+                if (/^https?:\/\//i.test(value)) {
+                    urls.push(value);
+                }
+                return;
+            }
+            if (Array.isArray(value)) {
+                value.forEach((item) => visit(item, depth + 1));
+                return;
+            }
+            if (typeof value === 'object') {
+                const candidates = ['imageUrl', 'url', 'src', 'previewURL', 'largeImageURL', 'thumb', 'thumbnail', 'webformatURL'];
+                candidates.forEach((key) => {
+                    if (typeof value[key] === 'string' && /^https?:\/\//i.test(value[key])) {
+                        urls.push(value[key]);
+                    }
+                });
+                Object.values(value).forEach((nested) => visit(nested, depth + 1));
+            }
         };
-        const sourceBounds = this.getSourceImageBounds();
-        const renderedBounds = this.getVisibleTextOverlayBounds();
-        const bounds = sourceBounds || renderedBounds || this.textOverlayFrameBounds || measuredViewportBounds;
-
-        if (!bounds) {
-            //console.warn('ArtworkPreviewWindow[text-overlay]: no bounds available, using full preview iframe size');
-            this.previewFrame.style.width = '100%';
-            this.previewFrame.style.height = '100%';
-            return;
-        }
-
-        this.textOverlayFrameBounds = bounds;
-        this.autoSizeTextOverlayWindow(bounds);
-
-        const previewContainer = this.container.querySelector('.preview-preview-view');
-        if (!previewContainer) {
-            return;
-        }
-
-        const availableWidth = Math.max(1, previewContainer.clientWidth - 32);
-        const availableHeight = Math.max(1, previewContainer.clientHeight - 32);
-        const scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height, 1);
-        if (this.previewFrameShell) {
-            this.previewFrameShell.style.width = `${Math.max(1, Math.round(bounds.width * scale))}px`;
-            this.previewFrameShell.style.height = `${Math.max(1, Math.round(bounds.height * scale))}px`;
-        }
-        this.previewFrame.style.width = `${Math.max(1, Math.round(bounds.width))}px`;
-        this.previewFrame.style.height = `${Math.max(1, Math.round(bounds.height))}px`;
-        this.previewFrame.style.maxWidth = 'none';
-        this.previewFrame.style.maxHeight = 'none';
-        this.previewFrame.style.position = 'absolute';
-        this.previewFrame.style.top = '0';
-        this.previewFrame.style.left = '0';
-        this.previewFrame.style.transformOrigin = 'top left';
-        this.previewFrame.style.transform = `scale(${scale})`;
-        /*console.info('ArtworkPreviewWindow[text-overlay]: applied preview layout', {
-            sourceBounds,
-            bounds,
-            measuredViewportBounds,
-            availableWidth,
-            availableHeight,
-            scale,
-            iframeWidth: this.previewFrame.style.width,
-            iframeHeight: this.previewFrame.style.height,
-            containerWidth: this.container.style.width,
-            containerHeight: this.container.style.height,
-        });*/
+        visit(payload, 0);
+        return Array.from(new Set(urls)).filter(Boolean);
     }
+
+    renderStyleTransferImageSearchResults(urls) {
+        if (!this.styleTransferImageEditorResults) {
+            return;
+        }
+
+        this.styleTransferImageEditorResults.innerHTML = '';
+        (urls || []).forEach((url) => {
+            if (!/^https?:\/\//i.test(String(url || '').trim())) {
+                return;
+            }
+            const proxiedUrl = this.buildStyleTransferProxiedImageUrl(url, true);
+            const thumbBtn = document.createElement('button');
+            thumbBtn.type = 'button';
+            thumbBtn.style.padding = '0';
+            thumbBtn.style.borderRadius = '8px';
+            thumbBtn.style.border = '1px solid var(--border-color, #4b5563)';
+            thumbBtn.style.overflow = 'hidden';
+            thumbBtn.style.cursor = 'pointer';
+            thumbBtn.style.background = 'var(--background-color, #111827)';
+            thumbBtn.style.height = '74px';
+
+            const img = document.createElement('img');
+            img.src = proxiedUrl || url;
+            img.alt = 'search-result';
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'cover';
+
+            thumbBtn.appendChild(img);
+            thumbBtn.addEventListener('click', () => {
+                this.replaceStyleTransferSelectedImage(url);
+            });
+
+            this.styleTransferImageEditorResults.appendChild(thumbBtn);
+        });
+
+        this.positionStyleTransferImageEditorPanel();
+    }
+
+    async replaceStyleTransferSelectedImage(url) {
+        if (!this.styleTransferImageEditorTarget || !url) {
+            this.updateStyleTransferImageEditorStatus(
+                window.Lang ? (Lang.get('clickImageToEdit') || 'Click an image in the presentation to replace it.') : 'Click an image in the presentation to replace it.',
+                'muted'
+            );
+            return;
+        }
+
+        const normalizedUrl = String(url || '').trim();
+        if (!/^https?:\/\//i.test(normalizedUrl) && !/^data:/i.test(normalizedUrl)) {
+            this.updateStyleTransferImageEditorStatus(
+                window.Lang ? (Lang.get('promptableDirectLinkOnly') || 'Only direct image links (http/https) are allowed.') : 'Only direct image links (http/https) are allowed.',
+                'error'
+            );
+            return;
+        }
+
+        this.updateStyleTransferImageEditorStatus(
+            window.Lang ? (Lang.get('searchingImagesLabel') || 'Searching images...') : 'Searching images...',
+            'info'
+        );
+
+        let dataUrl = normalizedUrl;
+        try {
+            dataUrl = await this.fetchStyleTransferImageAsDataUrl(normalizedUrl);
+        } catch (error) {
+            this.updateStyleTransferImageEditorStatus(String(error && error.message ? error.message : error), 'error');
+            return;
+        }
+
+        if (!dataUrl) {
+            this.updateStyleTransferImageEditorStatus(
+                window.Lang ? (Lang.get('promptableLocalImageReadFailed') || 'Failed to read the selected image file.') : 'Failed to read the selected image file.',
+                'error'
+            );
+            return;
+        }
+
+        this.applyStyleTransferImageReplacement(dataUrl);
+        this.updateStyleTransferImageEditorStatus(
+            window.Lang ? (Lang.get('imageReplacedStatus') || 'Image replaced. You can restore the original at any time.') : 'Image replaced. You can restore the original at any time.',
+            'info'
+        );
+    }
+
+    buildStyleTransferProxiedImageUrl(rawUrl, useAbsolute = true) {
+        if (window.PromptablePresentation && typeof window.PromptablePresentation.buildPromptableProxiedImageUrl === 'function') {
+            return window.PromptablePresentation.buildPromptableProxiedImageUrl(rawUrl, useAbsolute);
+        }
+        return String(rawUrl || '');
+    }
+
+    async fetchStyleTransferImageAsDataUrl(rawUrl, abortSignal = null) {
+        if (window.PromptablePresentation && typeof window.PromptablePresentation.fetchPromptableImageAsDataUrl === 'function') {
+            return await window.PromptablePresentation.fetchPromptableImageAsDataUrl(rawUrl, abortSignal);
+        }
+
+        const value = String(rawUrl || '').trim();
+        if (!value) {
+            return '';
+        }
+        if (/^data:/i.test(value)) {
+            return value;
+        }
+
+        const response = await fetch(value, { signal: abortSignal });
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status}`);
+        }
+        const blob = await response.blob();
+        return await this.blobToDataUrl(blob);
+    }
+
+    async importStyleTransferSelectedImageFromFile(file) {
+        if (!this.styleTransferImageEditorTarget) {
+            this.updateStyleTransferImageEditorStatus(
+                window.Lang ? (Lang.get('clickImageToEdit') || 'Click an image in the presentation to replace it.') : 'Click an image in the presentation to replace it.',
+                'muted'
+            );
+            return;
+        }
+
+        if (!(file instanceof Blob) || !String(file.type || '').toLowerCase().startsWith('image/')) {
+            this.updateStyleTransferImageEditorStatus(
+                window.Lang ? (Lang.get('promptableLocalImageOnly') || 'Please choose a valid image file from your computer.') : 'Please choose a valid image file from your computer.',
+                'error'
+            );
+            return;
+        }
+
+        this.updateStyleTransferImageEditorStatus(
+            window.Lang ? (Lang.get('importingImageLabel') || 'Importing image...') : 'Importing image...',
+            'info'
+        );
+
+        let dataUrl;
+        try {
+            dataUrl = await this.blobToDataUrl(file);
+        } catch (error) {
+            this.updateStyleTransferImageEditorStatus(String(error && error.message ? error.message : error), 'error');
+            return;
+        }
+
+        if (!dataUrl) {
+            this.updateStyleTransferImageEditorStatus(
+                window.Lang ? (Lang.get('promptableLocalImageReadFailed') || 'Failed to read the selected image file.') : 'Failed to read the selected image file.',
+                'error'
+            );
+            return;
+        }
+
+        this.applyStyleTransferImageReplacement(dataUrl);
+        this.updateStyleTransferImageEditorStatus(
+            window.Lang ? (Lang.get('imageImportedStatus') || 'Image imported from your computer. You can restore the original at any time.') : 'Image imported from your computer. You can restore the original at any time.',
+            'info'
+        );
+    }
+
+    applyStyleTransferImageReplacement(dataUrl) {
+        if (!this.styleTransferImageEditorTarget) {
+            return;
+        }
+
+        const target = this.styleTransferImageEditorTarget;
+        const targetId = target.dataset.pwStyleTransferImageId;
+        if (target.tagName === 'IMG') {
+            target.setAttribute('src', dataUrl);
+            target.removeAttribute('srcset');
+            target.src = dataUrl;
+        } else {
+            target.style.backgroundImage = `url("${dataUrl}")`;
+        }
+
+        if (targetId) {
+            this.styleTransferImageReplacementsById[targetId] = dataUrl;
+        }
+
+        this.commitStyleTransferPreviewImageChange();
+    }
+
+    restoreStyleTransferSelectedImage() {
+        if (!this.styleTransferImageEditorTarget) {
+            this.updateStyleTransferImageEditorStatus(
+                window.Lang ? (Lang.get('clickImageToEdit') || 'Click an image in the presentation to replace it.') : 'Click an image in the presentation to replace it.',
+                'muted'
+            );
+            return;
+        }
+
+        const target = this.styleTransferImageEditorTarget;
+        const targetId = target.dataset.pwStyleTransferImageId;
+        const originalSrc = targetId ? this.styleTransferImageOriginalSrcById[targetId] : '';
+        if (!originalSrc) {
+            this.updateStyleTransferImageEditorStatus(
+                window.Lang ? (Lang.get('noOriginalImageStored') || 'No original image stored for this element.') : 'No original image stored for this element.',
+                'error'
+            );
+            return;
+        }
+
+        if (target.tagName === 'IMG') {
+            target.setAttribute('src', originalSrc);
+            target.removeAttribute('srcset');
+            target.src = originalSrc;
+        } else {
+            if (originalSrc === 'none' || !originalSrc) {
+                target.style.backgroundImage = '';
+            } else {
+                target.style.backgroundImage = originalSrc;
+            }
+        }
+
+        if (targetId) {
+            delete this.styleTransferImageReplacementsById[targetId];
+        }
+
+        this.commitStyleTransferPreviewImageChange();
+        this.updateStyleTransferImageEditorStatus(
+            window.Lang ? (Lang.get('imageRestoredStatus') || 'Original image restored.') : 'Original image restored.',
+            'info'
+        );
+    }
+
+    commitStyleTransferPreviewImageChange() {
+        if (!(this.isStyleTransferPreview || this.isTextOverlayPreview) || !this.codeEditor || !this.styleTransferImageEditorFrameDoc) {
+            return;
+        }
+
+        const sourceCode = this.codeEditor.textContent || this.codeEditor.innerText;
+        const updatedCode = this.serializeSourceDocument(this.styleTransferImageEditorFrameDoc, sourceCode);
+        this.updateCodeEditorSource(updatedCode);
+        if (this.currentView === 'preview') {
+            this.updatePreview();
+        }
+    }
+
+
+    
     // Sets up all event listeners for the preview window (buttons, drag, etc.)
     setupEventListeners() {
         // Close button (X)
@@ -1218,13 +1973,21 @@ body {
         const copyBtn = this.container.querySelector('.copy-code-btn');
         copyBtn.addEventListener('click', () => this.copyCode());
 
-        const exportPngBtn = this.container.querySelector('.export-png-btn');
-        if (exportPngBtn) {
-            exportPngBtn.addEventListener('click', () => this.captureAndDownloadImage());
+        const exportBtn = this.container.querySelector('.export-btn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                if (this.isStyleTransferPreview) {
+                    this.exportPreviewHtml();
+                } else {
+                    this.captureAndDownloadImage();
+                }
+            });
         }
-        // Maximize button
+        // Maximize button (may be removed for text-overlay previews)
         const maximizeBtn = this.container.querySelector('.preview-window-maximize-btn');
-        maximizeBtn.addEventListener('click', () => this.toggleMaximize());
+        if (maximizeBtn) {
+            maximizeBtn.addEventListener('click', () => this.toggleMaximize());
+        }
 
         // View switcher buttons
         const viewBtns = this.container.querySelectorAll('.preview-view-btn');
@@ -1279,156 +2042,45 @@ body {
     setCode(code) {
         if (!code) return;
 
-       //console.log('ArtworkPreviewWindow: setCode called with:', code.substring(0, 200) + '...');
+        // Always treat incoming content as HTML. Preserve as-is.
+        let htmlCode = typeof code === 'string' ? code.trim() : String(code);
 
-        // Extract HTML content if it's embedded in markdown code blocks
-        let htmlCode = code;
+        // Strip surrounding triple-backtick fences if present (``` or ```html)
+        try {
+            if (typeof htmlCode === 'string') {
+                // Remove BOM if present
+                htmlCode = htmlCode.replace(/^\uFEFF/, '');
 
-        // Check if code is a string before using string methods
-        if (typeof code === 'string') {
-           //console.log('ArtworkPreviewWindow: Processing string content');
+                // Remove a leading fence line like ```html or ``` (allowing additional backticks and optional language token)
+                htmlCode = htmlCode.replace(/^[\s]*`{3,}[ \t]*[^\r\n]*\r?\n/i, '');
 
-            // ENHANCED: Remove explanatory text that comes before code blocks
-            // Look for patterns like "Here's the HTML..." or "Okay, here's the HTML..."
-            const explanationPatterns = [
-                /^.*?(?=```)/s,  // Remove everything before first ```
-                /Key improvements.*$/s,  // Remove "Key improvements" section
-                /\*\*.*?\*\*.*$/s,  // Remove bold text explanations
-                /This revised response.*$/s  // Remove concluding explanations
-            ];
+                // Remove a trailing fence line like ``` on its own line (handles CRLF/LF)
+                htmlCode = htmlCode.replace(/\r?\n[\s]*`{3,}[\s]*$/i, '');
 
-            // First, try to find and extract just the code block content
-            let codeBlockFound = false;
+                // Handle the rare case where the closing fence is at the very end without a preceding newline
+                htmlCode = htmlCode.replace(/\s*`{3,}\s*$/i, '');
 
-            // Try to extract HTML from markdown code blocks (most specific first)
-            if (code.includes('```html')) {
-               //console.log('ArtworkPreviewWindow: Found ```html block');
-                const htmlMatch = code.match(/```html\s*([\s\S]*?)\s*```/);
-                if (htmlMatch && htmlMatch[1]) {
-                    htmlCode = htmlMatch[1].trim();
-                    codeBlockFound = true;
-                   //console.log('ArtworkPreviewWindow: Extracted HTML from ```html block');
-                }
+                htmlCode = htmlCode.trim();
             }
-            else if (code.includes('```markup')) {
-               //console.log('ArtworkPreviewWindow: Found ```markup block');
-                const markupMatch = code.match(/```markup\s*([\s\S]*?)\s*```/);
-                if (markupMatch && markupMatch[1]) {
-                    htmlCode = markupMatch[1].trim();
-                    codeBlockFound = true;
-                   //console.log('ArtworkPreviewWindow: Extracted HTML from ```markup block');
-                }
-            }
-            // Try to extract CSS from markdown code blocks
-            else if (code.includes('```css')) {
-               //console.log('ArtworkPreviewWindow: Found ```css block');
-                const cssMatch = code.match(/```css\s*([\s\S]*?)\s*```/);
-                if (cssMatch && cssMatch[1]) {
-                    htmlCode = cssMatch[1].trim();
-                    codeBlockFound = true;
-                   //console.log('ArtworkPreviewWindow: Extracted CSS from ```css block');
-                }
-            }
-            // Try to extract JavaScript from markdown code blocks
-            else if (code.includes('```javascript') || code.includes('```js')) {
-               //console.log('ArtworkPreviewWindow: Found JavaScript block');
-                const jsMatch = code.match(/```(?:javascript|js)\s*([\s\S]*?)\s*```/);
-                if (jsMatch && jsMatch[1]) {
-                    htmlCode = jsMatch[1].trim();
-                    codeBlockFound = true;
-                   //console.log('ArtworkPreviewWindow: Extracted JavaScript from code block');
-                }
-            }
-            // NEW: Handle generic code blocks that might contain HTML
-            else if (code.includes('```')) {
-               //console.log('ArtworkPreviewWindow: Found generic ``` block');
-                // Look for any code block that contains HTML-like content
-                const genericCodeMatch = code.match(/```[a-zA-Z]*\s*([\s\S]*?)\s*```/);
-                if (genericCodeMatch && genericCodeMatch[1]) {
-                    const potentialHtml = genericCodeMatch[1].trim();
-                   //console.log('ArtworkPreviewWindow: Potential HTML content:', potentialHtml.substring(0, 100) + '...');
-
-                    // Check if it looks like HTML
-                    if (potentialHtml.includes('<!DOCTYPE') ||
-                        potentialHtml.includes('<html') ||
-                        (potentialHtml.includes('<') && potentialHtml.includes('>') && potentialHtml.includes('</'))) {
-                        htmlCode = potentialHtml;
-                        codeBlockFound = true;
-                       //console.log('ArtworkPreviewWindow: Extracted HTML from generic code block');
-                    }
-                }
-            }
-
-            // If no code block was found, but the content looks like it has HTML mixed with text
-            if (!codeBlockFound) {
-               //console.log('ArtworkPreviewWindow: No code block found, checking for inline HTML');
-
-                // NEW: Try to extract HTML that might be mixed with explanatory text
-                // Look for patterns that start with <!DOCTYPE or <html
-                const htmlDocMatch = code.match(/(<!DOCTYPE[\s\S]*?<\/html>)/i);
-                if (htmlDocMatch && htmlDocMatch[1]) {
-                    htmlCode = htmlDocMatch[1].trim();
-                    codeBlockFound = true;
-                   //console.log('ArtworkPreviewWindow: Extracted complete HTML document from mixed content');
-                }
-                // Fallback: look for any substantial HTML-like content
-                else if (code.includes('<html') && code.includes('</html>')) {
-                    const htmlStartIndex = code.indexOf('<html');
-                    const htmlEndIndex = code.lastIndexOf('</html>') + 7;
-                    if (htmlStartIndex !== -1 && htmlEndIndex > htmlStartIndex) {
-                        htmlCode = code.substring(htmlStartIndex, htmlEndIndex).trim();
-                        codeBlockFound = true;
-                       //console.log('ArtworkPreviewWindow: Extracted HTML by finding <html> tags');
-                    }
-                }
-            }
-
-            // Additional cleanup: Remove any remaining triple backticks that might be at start/end
-            htmlCode = htmlCode.replace(/^```[a-zA-Z]*\s*/, '').replace(/\s*```$/, '').trim();
-
-            // NEW: Remove any explanatory text that might still be attached
-            if (codeBlockFound) {
-                // Remove common explanatory phrases that might be at the start
-                const cleanupPatterns = [
-                    /^.*?(?=<!DOCTYPE)/s,
-                    /^.*?(?=<html)/s,
-                    /^Here's.*?:/,
-                    /^Okay.*?:/,
-                    /^.*?code.*?:/i
-                ];
-
-                for (const pattern of cleanupPatterns) {
-                    const beforeCleanup = htmlCode;
-                    htmlCode = htmlCode.replace(pattern, '').trim();
-                    if (htmlCode !== beforeCleanup) {
-                       //console.log('ArtworkPreviewWindow: Removed explanatory text with pattern:', pattern);
-                        break;
-                    }
-                }
-            }
-
-           //console.log('ArtworkPreviewWindow: Final processed code length:', htmlCode.length);
-           //console.log('ArtworkPreviewWindow: Code starts with:', htmlCode.substring(0, 50));
+        } catch (e) {
+            // ignore and fall back to original htmlCode
         }
 
         // Add background image comments directly to the code in the editor
         if (this.backgroundImage) {
-            htmlCode = this.addBackgroundImageComments(htmlCode);
-           //console.log('ArtworkPreviewWindow: Added background image comments');
+            this.codeEditor.textContent = this.addBackgroundImageComments(htmlCode);
+        } else {
+            // Set code to editor
+            this.codeEditor.textContent = htmlCode;
         }
-
-        // Set code to editor
-        this.codeEditor.textContent = htmlCode;
 
         // Apply syntax highlighting using CodeStyler
         if (window.CodeStyler) {
-            const highlighted = this.highlightCode(htmlCode);
+            const highlighted = this.highlightCode(this.codeEditor.textContent);
             this.codeEditor.innerHTML = highlighted;
-           //console.log('ArtworkPreviewWindow: Applied syntax highlighting');
         }
 
         this.previewDirty = true;
-           //console.log('ArtworkPreviewWindow: Preview marked dirty');
     }
 
     // Adds instructional comments to code where a background image placeholder is used
@@ -1458,6 +2110,15 @@ body {
         );
 
         return processedCode;
+    }
+
+    // Remove internal preview-only comments that should never be rendered in the iframe
+    stripInternalPreviewComments(code) {
+        if (!code || typeof code !== 'string') {
+            return code;
+        }
+
+        return code.replace(/\/\*[\s\S]*?artworkBackgroundImage(?:Warning|Instructions|Replace)[\s\S]*?\*\//gi, '');
     }
 
     resolveBackgroundImageReferences(code, imageUrl) {
@@ -1504,39 +2165,10 @@ body {
 
         // Get current code from editor
         let code = this.codeEditor.textContent || this.codeEditor.innerText;
+        code = this.stripInternalPreviewComments(code);
        //console.log('ArtworkPreviewWindow: Raw code from editor:', code.substring(0, 200) + '...');
 
-        // NEW: If the code still contains markdown formatting, extract the HTML
-        if (code.includes('```html') || code.includes('```') || code.includes('Okay, here\'s')) {
-           //console.log('ArtworkPreviewWindow: Code still contains markdown, extracting...');
-
-            // Try to extract HTML from markdown code blocks
-            if (code.includes('```html')) {
-                const htmlMatch = code.match(/```html\s*([\s\S]*?)\s*```/);
-                if (htmlMatch && htmlMatch[1]) {
-                    code = htmlMatch[1].trim();
-                   //console.log('ArtworkPreviewWindow: Extracted HTML from markdown block');
-                }
-            }
-            // Handle generic code blocks
-            else if (code.includes('```')) {
-                const genericMatch = code.match(/```[a-zA-Z]*\s*([\s\S]*?)\s*```/);
-                if (genericMatch && genericMatch[1]) {
-                    const potentialHtml = genericMatch[1].trim();
-                    if (potentialHtml.includes('<!DOCTYPE') || potentialHtml.includes('<html')) {
-                        code = potentialHtml;
-                       //console.log('ArtworkPreviewWindow: Extracted HTML from generic code block');
-                    }
-                }
-            }
-
-            // Remove explanatory text that might still be present
-            code = code.replace(/^.*?(?=<!DOCTYPE|<html)/s, '').trim();
-
-            // Update the editor with the cleaned code
-            this.codeEditor.textContent = code;
-           //console.log('ArtworkPreviewWindow: Updated editor with cleaned code');
-        }
+        // Treat editor content as HTML; no markdown extraction or conversion required
 
         // Process code for preview
         let processedCode = code;
@@ -1550,36 +2182,33 @@ body {
         this.writeToIframe(processedCode);
     }
 
-    normalizeViewportMeta(htmlContent) {
-        let html = String(htmlContent || '');
-        if (!html) return html;
-
-        const viewportMetaRegex = /<meta[^>]*name\s*=\s*["']viewport["'][^>]*>/gi;
-        const matches = html.match(viewportMetaRegex) || [];
-        if (matches.length === 0) return html;
-
-        const canonicalViewport = '<meta name="viewport" content="width=device-width, initial-scale=1.0">';
-        let replacedFirst = false;
-
-        html = html.replace(viewportMetaRegex, () => {
-            if (replacedFirst) {
-                return '';
-            }
-            replacedFirst = true;
-            return canonicalViewport;
-        });
-
-        return html;
-    }
 
     // Writes processed code or HTML to the preview iframe, handling markdown if needed
     writeToIframe(processedCode) {
-        // FIXED: Only convert to HTML if this is truly markdown content (rationale), not HTML code
-        if (this.isMarkdown && this.title.includes('Rationale') && !this.containsHTMLCode(processedCode)) {
-           //console.log('ArtworkPreviewWindow: Converting true markdown to HTML');
-            processedCode = this.convertMarkdownToHTML(processedCode);
-        } else {
-           //console.log('ArtworkPreviewWindow: Using HTML code as-is');
+          // Markdown conversion removed — assume incoming content is HTML and use as-is
+
+        // Strip internal-only preview comments before rendering
+        processedCode = this.stripInternalPreviewComments(processedCode);
+
+        // Remove surrounding triple-backtick fences if present (``` or ```html)
+        try {
+            if (typeof processedCode === 'string') {
+                // Remove BOM if present
+                processedCode = processedCode.replace(/^\uFEFF/, '');
+
+                // Remove a leading fence line like ```html or ``` (allowing additional backticks and optional language token)
+                processedCode = processedCode.replace(/^[\s]*`{3,}[ \t]*[^\r\n]*\r?\n/i, '');
+
+                // Remove a trailing fence line like ``` on its own line (handles CRLF/LF)
+                processedCode = processedCode.replace(/\r?\n[\s]*`{3,}[\s]*$/i, '');
+
+                // Handle the rare case where the closing fence is at the very end without a preceding newline
+                processedCode = processedCode.replace(/\s*`{3,}\s*$/i, '');
+
+                processedCode = processedCode.trim();
+            }
+        } catch (e) {
+            // If anything goes wrong, fall back to original processedCode
         }
 
         // Validate that we have valid content
@@ -1588,137 +2217,449 @@ body {
             return;
         }
 
-        // Keep generated HTML resilient when model output contains malformed viewport tags.
-        processedCode = this.normalizeViewportMeta(processedCode);
+        // Track any preview sizing metadata included by the HTML style transfer model output.
+        this.htmlPreviewSuggestedWidth = null;
+        this.htmlPreviewSuggestedHeight = null;
+        const previewSizeHint = this.parseGenericHtmlPreviewSize(processedCode);
+        if (previewSizeHint) {
+            this.htmlPreviewSuggestedWidth = previewSizeHint.width;
+            this.htmlPreviewSuggestedHeight = previewSizeHint.height;
+        }
+
+        // Inject a small fonts-ready watcher into the preview HTML so the
+        // host can reliably wait for webfonts (e.g., Google Fonts via @import)
+        // before capturing/exporting. We avoid duplicating the watcher.
+        try {
+            if (typeof processedCode === 'string' && processedCode.indexOf('data-pw-fonts-watch') === -1) {
+                const watcherScript = `
+<script data-pw-fonts-watch>(function(){
+    try{
+        window.__pwFontsReady = false;
+        window.__pwFontsReadyPromise = (function(){
+            if (document.fonts && document.fonts.ready && typeof document.fonts.ready.then === 'function') {
+                return document.fonts.ready.then(function(){ window.__pwFontsReady = true; return true; }).catch(function(){ window.__pwFontsReady = true; return true; });
+            }
+            return new Promise(function(r){ setTimeout(function(){ window.__pwFontsReady = true; r(true); }, 250); });
+        })();
+
+        window.__pwWaitForFonts = async function(timeoutMs){
+            try{
+                var p = window.__pwFontsReadyPromise || Promise.resolve(true);
+                if (typeof timeoutMs === 'number' && timeoutMs > 0) {
+                    return Promise.race([p, new Promise(function(res){ setTimeout(function(){ res(false); }, timeoutMs); })]);
+                }
+                await p;
+                return true;
+            } catch(e){ return false; }
+        };
+
+        (async function(){ try { await window.__pwFontsReadyPromise; try{ document.dispatchEvent(new CustomEvent('pwFontsReady')); }catch(e){} } catch(e){} })();
+    }catch(e){}
+})();</script>
+`;
+
+                if (/<\/head>/i.test(processedCode)) {
+                    processedCode = processedCode.replace(/<\/head>/i, watcherScript + '</head>');
+                } else if (/<body[^>]*>/i.test(processedCode)) {
+                    processedCode = processedCode.replace(/<body([^>]*)>/i, '<body$1>' + watcherScript);
+                } else {
+                    processedCode = watcherScript + processedCode;
+                }
+            }
+        } catch (_e) {
+            // non-fatal: preview should still render without watcher
+        }
 
        //console.log('ArtworkPreviewWindow: Final processed code preview:', processedCode.substring(0, 100) + '...');
 
-        // Get iframe document
+        // If this is a style-transfer preview we must render the raw HTML
+        // with absolutely minimal intervention. Use `srcdoc` (or fallback
+        // to document.write) and return immediately to avoid any
+        // normalization, editing hooks, resizing or layout scheduling.
+        if (this.isStyleTransferPreview) {
+            const previewShell = this.previewFrameShell || this.container.querySelector('.preview-iframe-shell') || this.container.querySelector('.preview-preview-view');
+            try {
+                // Remove any existing iframe to avoid leftover transforms/styles
+                if (this.previewFrame && this.previewFrame.parentNode) {
+                    try { this.previewFrame.parentNode.removeChild(this.previewFrame); } catch (_) {}
+                }
+
+                const newIframe = document.createElement('iframe');
+                newIframe.className = 'preview-iframe';
+                newIframe.sandbox = 'allow-scripts allow-same-origin allow-modals';
+                // Minimal inline styles to ensure it fills the shell — height will be adjusted to document height on load
+                newIframe.style.width = '100%';
+                newIframe.style.height = 'auto';
+                newIframe.style.border = 'none';
+                newIframe.style.display = 'block';
+                newIframe.style.position = 'relative';
+                newIframe.style.backgroundColor = '#000';
+                newIframe.style.left = '';
+                newIframe.style.top = '';
+                newIframe.style.transform = 'none';
+                newIframe.style.visibility = 'visible';
+                newIframe.style.opacity = '1';
+
+                if (previewShell) {
+                    previewShell.appendChild(newIframe);
+                } else {
+                    // Fallback: append to container
+                    this.container.appendChild(newIframe);
+                }
+
+                this.previewFrame = newIframe;
+
+                // Prefer srcdoc to avoid touching the iframe document directly
+                try {
+                    newIframe.srcdoc = processedCode;
+                } catch (e) {
+                    const frameDoc = newIframe.contentDocument || newIframe.contentWindow?.document;
+                    if (frameDoc) {
+                        frameDoc.open();
+                        frameDoc.write(processedCode);
+                        frameDoc.close();
+                    } else {
+                        newIframe.setAttribute('srcdoc', processedCode);
+                    }
+                }
+
+                // When the iframe loads, attempt to size it to its document height so
+                // generated HTML can determine the preview height. If the document
+                // reports no usable height, fall back to `900px`.
+                try {
+                    newIframe.addEventListener('load', () => {
+                        try {
+                            const frameDoc = newIframe.contentDocument || newIframe.contentWindow?.document;
+                            if (!frameDoc) return;
+
+                            const docEl = frameDoc.documentElement || frameDoc.body;
+                            const body = frameDoc.body || {};
+                            const docHeight = Math.max(
+                                Number(docEl.scrollHeight || 0),
+                                Number(body.scrollHeight || 0),
+                                Number(docEl.offsetHeight || 0),
+                                Number(body.offsetHeight || 0)
+                            );
+
+                            const suggested = Number(this.htmlPreviewSuggestedHeight) || 0;
+                            const desiredHeight = Math.max(suggested || 0, docHeight || 0) || 900;
+
+                            // Apply measured/fallback heights to iframe and shell
+                            try {
+                                newIframe.style.height = `${desiredHeight}px`;
+                                if (previewShell) previewShell.style.height = `${desiredHeight}px`;
+                                // Remember this size as the preview window default for future toggles
+                                try { this.container.dataset.prevHeight = `${desiredHeight}px`; } catch (_) {}
+                            } catch (_e) {
+                                // ignore style application errors
+                            }
+                            // Enable in-iframe editing for style-transfer previews
+                            try {
+                                this.enableStyleTransferPreviewEditing(frameDoc);
+                                this.setGenericHtmlPreviewReady(true);
+                            } catch (editErr) {
+                                console.warn('ArtworkPreviewWindow: Failed to enable style-transfer editing', editErr);
+                            }
+                        } catch (measureErr) {
+                            console.warn('ArtworkPreviewWindow: error sizing style-transfer iframe on load', measureErr);
+                        }
+                    }, { once: true });
+                } catch (_e) {
+                    // ignore
+                }
+
+                this.previewDirty = false;
+                this.previewInitialized = true;
+            } catch (error) {
+                console.error('ArtworkPreviewWindow: Failed to render style-transfer preview raw:', error);
+            }
+
+            return;
+        }
+
+        // If this is a text-overlay preview, render the raw HTML into a
+        // fresh iframe and enable inline editing, but DO NOT run the
+        // normalizer, sizing, or layout scheduler. This mirrors the
+        // style-transfer behavior while preserving text editing hooks.
+        if (this.isTextOverlayPreview) {
+            const previewShell = this.previewFrameShell || this.container.querySelector('.preview-iframe-shell') || this.container.querySelector('.preview-preview-view');
+            try {
+                if (this.previewFrame && this.previewFrame.parentNode) {
+                    try { this.previewFrame.parentNode.removeChild(this.previewFrame); } catch (_) {}
+                }
+
+                const newIframe = document.createElement('iframe');
+                newIframe.className = 'preview-iframe';
+                newIframe.sandbox = 'allow-scripts allow-same-origin allow-modals';
+                newIframe.style.width = '100%';
+                newIframe.style.height = '100%';
+                newIframe.style.border = 'none';
+                newIframe.style.display = 'block';
+                newIframe.style.position = 'relative';
+                newIframe.style.backgroundColor = '#000';
+                newIframe.style.left = '';
+                newIframe.style.top = '';
+                newIframe.style.transform = 'none';
+                newIframe.style.visibility = 'visible';
+                newIframe.style.opacity = '1';
+
+                if (previewShell) {
+                    previewShell.appendChild(newIframe);
+                } else {
+                    this.container.appendChild(newIframe);
+                }
+
+                this.previewFrame = newIframe;
+
+                try {
+                    newIframe.srcdoc = processedCode;
+                } catch (e) {
+                    const frameDoc = newIframe.contentDocument || newIframe.contentWindow?.document;
+                    if (frameDoc) {
+                        frameDoc.open();
+                        frameDoc.write(processedCode);
+                        frameDoc.close();
+                    } else {
+                        newIframe.setAttribute('srcdoc', processedCode);
+                    }
+                }
+
+                try {
+                    newIframe.addEventListener('load', () => {
+                        try {
+                            const frameDoc = newIframe.contentDocument || newIframe.contentWindow?.document;
+                            if (!frameDoc) return;
+
+                            // Do NOT inject normalization styles. Only enable
+                            // text editing bindings and mark the preview ready.
+                            try {
+                                // Inject a minimal editing aid stylesheet to ensure
+                                // editable elements are clickable and selectable.
+                                try {
+                                    const aidStyle = frameDoc.createElement('style');
+                                    aidStyle.setAttribute('data-artwork-overlay-aid', 'true');
+                                    aidStyle.textContent = `
+html, body { background: transparent !important; }
+[data-artwork-editable-text] { cursor: text !important; pointer-events: auto !important; -webkit-user-select: text !important; user-select: text !important; }
+[data-artwork-editable-text] * { pointer-events: auto !important; }
+img, svg, canvas { max-width: 100% !important; height: auto !important; }
+`;
+                                    try { frameDoc.head?.appendChild(aidStyle); } catch (_) { /*ignore*/ }
+                                } catch (_e) {}
+
+                                // Normalize background images in the iframe to avoid
+                                // `background-size: cover` cropping for large images.
+                                // This is intentionally scoped to text-overlay previews
+                                // to preserve author intent for style-transfer outputs.
+                                try {
+                                    const allElemsForBg = Array.from(frameDoc.querySelectorAll('*'));
+                                    let bgCount = 0;
+                                    let convertedBgCount = 0;
+                                    const urlRegex = /url\((?:"|')?(.*?)(?:"|')?\)/i;
+                                    for (const el of allElemsForBg) {
+                                        try {
+                                            const cs = frameDoc.defaultView.getComputedStyle(el);
+                                            if (cs && cs.backgroundImage && cs.backgroundImage !== 'none') {
+                                                // Normalize CSS to avoid cover/cropping behavior
+                                                el.style.backgroundSize = 'contain';
+                                                el.style.backgroundRepeat = 'no-repeat';
+                                                el.style.backgroundPosition = 'center center';
+                                                el.style.backgroundAttachment = 'scroll';
+                                                bgCount++;
+
+                                                // Attempt to convert CSS background-image(url(...))
+                                                // into an inline <img> element for more reliable
+                                                // measurement and scaling inside the preview.
+                                                try {
+                                                    const m = cs.backgroundImage.match(urlRegex);
+                                                    if (m && m[1]) {
+                                                        const url = m[1];
+                                                        const bgImg = frameDoc.createElement('img');
+                                                        bgImg.setAttribute('data-artwork-bg-img', 'true');
+                                                        bgImg.src = url;
+                                                        bgImg.style.position = 'absolute';
+                                                        bgImg.style.inset = '0';
+                                                        bgImg.style.width = '100%';
+                                                        bgImg.style.height = '100%';
+                                                        bgImg.style.objectFit = 'contain';
+                                                        bgImg.style.pointerEvents = 'none';
+                                                        bgImg.style.userSelect = 'none';
+                                                        bgImg.style.zIndex = '-1';
+
+                                                        // Ensure the element creates a positioned stacking
+                                                        // context so the absolute image fills it.
+                                                        const pos = cs.position;
+                                                        if (!pos || pos === 'static') {
+                                                            el.style.position = 'relative';
+                                                        }
+
+                                                        // Remove the background-image to avoid double-draw
+                                                        try { el.style.backgroundImage = 'none'; } catch (_) {}
+                                                        // Ensure overflow hidden so the image is clipped
+                                                        try { if (!el.style.overflow || el.style.overflow === 'visible') el.style.overflow = 'hidden'; } catch (_) {}
+
+                                                        // Insert the image as the first child so it sits
+                                                        // behind other content in most stacking contexts.
+                                                        try { el.insertBefore(bgImg, el.firstChild); } catch (_) {}
+                                                        convertedBgCount++;
+                                                    }
+                                                } catch (_) {}
+                                            }
+                                        } catch (_) {}
+                                    }
+                                    if (bgCount) {
+                                        try { } catch (_) {}
+                                    }
+                                    if (convertedBgCount) {
+                                        try {} catch (_) {}
+                                    }
+                                } catch (_) {}
+
+                                // Measure document size and let the iframe render at
+                                // natural content dimensions — do not apply any host-side
+                                // scaling. This lets us observe the inline <img> behavior
+                                // after converting CSS backgrounds to images.
+                                try {
+                                    const frameDocEl = frameDoc.documentElement || frameDoc.body;
+                                    const bodyEl = frameDoc.body || {};
+
+                                    let desiredImageWidth = 0;
+                                    let desiredImageHeight = 0;
+                                    try {
+                                        const imgs = Array.from(frameDoc.images || []);
+                                        for (const img of imgs) {
+                                            try {
+                                                const w = Number(img.naturalWidth || img.clientWidth || 0);
+                                                const h = Number(img.naturalHeight || img.clientHeight || 0);
+                                                if (w > desiredImageWidth) desiredImageWidth = w;
+                                                if (h > desiredImageHeight) desiredImageHeight = h;
+                                            } catch (_) {}
+                                        }
+                                    } catch (_) {}
+
+                                    const docScrollWidth = Math.max(Number(frameDocEl.scrollWidth || 0), Number(bodyEl.scrollWidth || 0));
+                                    const docScrollHeight = Math.max(Number(frameDocEl.scrollHeight || 0), Number(bodyEl.scrollHeight || 0));
+
+                                    const desiredContentWidth = Math.max(desiredImageWidth || 0, bgMaxWidth || 0, docScrollWidth || 0);
+                                    const desiredContentHeight = Math.max(desiredImageHeight || 0, bgMaxHeight || 0, docScrollHeight || 0);
+
+                                    // Apply natural sizing: let iframe width fill the shell
+                                    // and set the iframe height to the document height so
+                                    // the full content is visible without scaling.
+                                    try {
+                                        newIframe.style.width = '100%';
+                                        newIframe.style.height = `${Math.max(80, Math.round(desiredContentHeight))}px`;
+                                        if (previewShell) {
+                                            previewShell.style.height = `${Math.max(80, Math.round(desiredContentHeight))}px`;
+                                            previewShell.style.width = '100%';
+                                            previewShell.style.overflow = 'auto';
+                                        }
+
+                                        const headerEl = this.container.querySelector('.preview-window-header');
+                                        const controlsEl = this.container.querySelector('.preview-window-view-controls');
+                                        const footerEl = this.container.querySelector('.preview-window-footer');
+                                        const headerH = headerEl ? headerEl.offsetHeight : 0;
+                                        const controlsH = controlsEl ? controlsEl.offsetHeight : 0;
+                                        const footerH = footerEl ? footerEl.offsetHeight : 0;
+                                        const chromeExtra = 12;
+                                        const maxWindowHeight = Math.floor(window.innerHeight * 0.94);
+                                        const finalContainerHeight = Math.min(maxWindowHeight, headerH + controlsH + footerH + chromeExtra + Math.max(80, Math.round(desiredContentHeight)));
+                                        this.container.style.height = `${finalContainerHeight}px`;
+                                        try { this.container.dataset.prevHeight = `${finalContainerHeight}px`; } catch (_) {}
+                                    } catch (_e) {
+                                        // ignore style application errors
+                                    }
+
+                                    // Collect debug info (no scaling)
+                                    try {
+                                        let imagesInfo = [];
+                                        const imgs2 = Array.from(frameDoc.images || []);
+                                        for (const img of imgs2) {
+                                            try {
+                                                imagesInfo.push({
+                                                    src: img.currentSrc || img.src || (img.getAttribute && img.getAttribute('src') || ''),
+                                                    naturalWidth: Number(img.naturalWidth || 0),
+                                                    naturalHeight: Number(img.naturalHeight || 0),
+                                                    clientWidth: Number(img.clientWidth || 0),
+                                                    clientHeight: Number(img.clientHeight || 0)
+                                                });
+                                            } catch (_ignore) {}
+                                        }
+
+                                        const containerRect = this.container.getBoundingClientRect();
+                                        const iframeRect = newIframe.getBoundingClientRect();
+                                        const shellRect = previewShell ? previewShell.getBoundingClientRect() : null;
+
+                                    } catch (_e) {}
+                                } catch (_) {}
+
+                                this.enableTextOverlayPreviewEditing(frameDoc);
+                                this.setTextOverlayPreviewReady(true);
+                            } catch (editErr) {
+                                console.warn('ArtworkPreviewWindow: Failed to enable text-overlay editing', editErr);
+                            }
+                        } catch (err) {
+                            console.warn('ArtworkPreviewWindow: error during text-overlay iframe load', err);
+                        }
+                    }, { once: true });
+                } catch (_e) {
+                    // ignore
+                }
+
+                this.previewDirty = false;
+                this.previewInitialized = true;
+            } catch (error) {
+                console.error('ArtworkPreviewWindow: Failed to render text-overlay preview raw:', error);
+            }
+
+            return;
+        }
+
+        // Get iframe document for non-style-transfer flows
         const frameDoc = this.previewFrame.contentDocument || this.previewFrame.contentWindow.document;
 
         try {
-            // For HTML code content, write it directly
-            if (!this.isMarkdown && this.containsHTMLCode(processedCode)) {
-               //console.log('ArtworkPreviewWindow: Writing HTML code directly to iframe');
-                frameDoc.open();
-                frameDoc.write(processedCode);
-                frameDoc.close();
+            // Always write HTML content as provided (no markdown wrapping)
+            frameDoc.open();
+            frameDoc.write(processedCode);
+            frameDoc.close();
+
+            if (this.isTextOverlayPreview) {
+                try {
+                    if (frameDoc.body) {
+                        frameDoc.body.style.visibility = 'hidden';
+                    }
+                } catch (_error) {
+                    // ignore if document not ready
+                }
                 this.normalizeTextOverlayDocument(frameDoc);
                 this.enableTextOverlayPreviewEditing(frameDoc);
-                this.normalizeGenericHtmlDocument(frameDoc);
-                this.setGenericHtmlPreviewReady(false);
-                this.scheduleHtmlPreviewLayout();
+                this.setTextOverlayPreviewReady(false);
             } else {
-                // For markdown or other content, wrap it with our template
-               //console.log('ArtworkPreviewWindow: Writing wrapped content to iframe');
-                frameDoc.open();
-                frameDoc.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <style>
-                    /* Reset styles */
-                    * {
-                        box-sizing: border-box;
-                        margin: 0;
-                        padding: 0;
-                    }
-                    body {
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-                        line-height: 1.6;
-                        color: var(--text-color, #333);
-                        background-color: var(--bg-color, #ffffff);
-                        padding: 20px;
-                        max-width: 800px;
-                        margin: 0 auto;
-                    }
-                    
-                    /* Markdown-specific styles for design rationale */
-                    h1, h2, h3, h4, h5, h6 {
-                        margin-top: 1.5em;
-                        margin-bottom: 0.5em;
-                        font-weight: 600;
-                        line-height: 1.3;
-                    }
-                    
-                    h1 { font-size: 2em; color: var(--accent-color, #4f46e5); }
-                    h2 { font-size: 1.6em; color: var(--text-color, #333); }
-                    h3 { font-size: 1.4em; color: var(--text-color, #333); }
-                    h4 { font-size: 1.2em; color: var(--text-color, #555); }
-                    h5 { font-size: 1.1em; color: var(--text-color, #555); }
-                    h6 { font-size: 1em; color: var(--text-color, #666); font-weight: 500; }
-                    
-                    p {
-                        margin-bottom: 1em;
-                        text-align: justify;
-                    }
-                    
-                    ul, ol {
-                        margin-bottom: 1em;
-                        padding-left: 2em;
-                    }
-                    
-                    li {
-                        margin-bottom: 0.5em;
-                    }
-                    
-                    strong {
-                        font-weight: 600;
-                        color: var(--accent-color, #4f46e5);
-                    }
-                    
-                    em {
-                        font-style: italic;
-                        color: var(--text-color, #555);
-                    }
-                    
-                    blockquote {
-                        border-left: 4px solid var(--accent-color, #4f46e5);
-                        padding-left: 1em;
-                        margin: 1em 0;
-                        font-style: italic;
-                        color: var(--text-color, #666);
-                    }
-                    
-                    code {
-                        background-color: var(--code-bg, #f1f5f9);
-                        padding: 0.2em 0.4em;
-                        border-radius: 3px;
-                        font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-                        font-size: 0.9em;
-                    }
-                    
-                    /* Dark mode support */
-                    @media (prefers-color-scheme: dark) {
-                        body {
-                            background-color: var(--bg-color, #1a1a1a);
-                            color: var(--text-color, #e5e5e5);
+                // For generic HTML previews, provide editing hooks for style-transfer and schedule layout when appropriate.
+                this.enableStyleTransferPreviewEditing(frameDoc);
+                if (this.isStyleTransferPreview) {
+                    try {
+                        if (this.previewFrame) {
+                            this.previewFrame.style.visibility = 'visible';
+                            this.previewFrame.style.opacity = '1';
+                            this.previewFrame.style.width = '100%';
+                            this.previewFrame.style.height = '100%';
+                            this.previewFrame.style.transform = 'none';
+                            this.previewFrame.style.position = 'relative';
+                            this.previewFrame.style.left = '';
+                            this.previewFrame.style.top = '';
+                            this.previewFrame.style.maxWidth = '';
+                            this.previewFrame.style.maxHeight = '';
                         }
-                        
-                        h1 { color: var(--accent-color, #818cf8); }
-                        h2, h3 { color: var(--text-color, #e5e5e5); }
-                        h4, h5 { color: var(--text-color, #d1d5db); }
-                        h6 { color: var(--text-color, #9ca3af); }
-                        
-                        strong { color: var(--accent-color, #818cf8); }
-                        em { color: var(--text-color, #d1d5db); }
-                        blockquote { color: var(--text-color, #9ca3af); }
+                    } catch (_error) {
+                        // ignore
                     }
-                </style>
-            </head>
-            <body>
-                ${processedCode}
-            </body>
-            </html>
-        `);
-                frameDoc.close();
-            this.normalizeTextOverlayDocument(frameDoc);
-            this.enableTextOverlayPreviewEditing(frameDoc);
-            this.normalizeGenericHtmlDocument(frameDoc);
-            this.setGenericHtmlPreviewReady(false);
-            this.scheduleHtmlPreviewLayout();
+                    this.setGenericHtmlPreviewReady(true);
+                } else {
+                    this.setGenericHtmlPreviewReady(false);
+                    this.scheduleHtmlPreviewLayout();
+                }
             }
 
            //console.log('ArtworkPreviewWindow: Preview updated successfully');
@@ -1841,27 +2782,12 @@ body {
         if (view === 'code') {
             codeView.classList.add('active');
             previewView.classList.remove('active');
-            const loadingState = this.container.querySelector('.preview-loading-state');
-            if (loadingState) {
-                loadingState.classList.remove('active');
-            }
         } else {
             codeView.classList.remove('active');
             previewView.classList.add('active');
 
             const needsPreviewRefresh = this.previewDirty || !this.previewInitialized;
 
-            const loadingState = this.container.querySelector('.preview-loading-state');
-            if (loadingState) {
-                if (this.isTextOverlayPreview && needsPreviewRefresh) {
-                    loadingState.textContent = 'Assets loading, please wait...';
-                    loadingState.classList.add('active');
-                } else if (!this.isMarkdown && needsPreviewRefresh) {
-                    loadingState.classList.add('active');
-                } else {
-                    loadingState.classList.remove('active');
-                }
-            }
 
             const previewContainer = this.container.querySelector('.preview-preview-view');
             const previewShell = this.previewFrameShell || this.container.querySelector('.preview-iframe-shell');
@@ -1872,14 +2798,13 @@ body {
                 newIframe.className = 'preview-iframe';
                 newIframe.sandbox = 'allow-scripts allow-same-origin allow-modals';
                 if (this.isTextOverlayPreview) {
-                    newIframe.style.width = `${this.sourceImageWidth || 1}px`;
-                    newIframe.style.height = `${this.sourceImageHeight || 1}px`;
                     newIframe.style.visibility = 'hidden';
                     newIframe.style.opacity = '0';
                 } else {
                     newIframe.style.visibility = 'hidden';
                     newIframe.style.opacity = '0';
                 }
+                newIframe.style.backgroundColor = '#000';
 
                 (previewShell || previewContainer).appendChild(newIframe);
                 this.previewFrame = newIframe;
@@ -1889,19 +2814,14 @@ body {
             if (this.isTextOverlayPreview) {
                 if (needsPreviewRefresh) {
                     this.textOverlayFrameBounds = null;
-                    this.didAutoSizeTextOverlayWindow = false;
-                    this.textOverlayAutoSizeArea = 0;
                     this.textOverlayPreviewReady = false;
-                    this.textOverlayStabilizationAttempts = 0;
-                    this.textOverlayPreviewStabilizationToken += 1;
                     if (this.previewFrameShell) {
                         this.previewFrameShell.style.width = '100%';
                         this.previewFrameShell.style.height = '100%';
                     }
-                    this.setTextOverlayPreviewReady(false);
-                } else {
-                    this.setTextOverlayPreviewReady(true);
                 }
+                this.setTextOverlayPreviewReady(false);
+                this.scheduleTextOverlayPreviewLayout();
             } else if (needsPreviewRefresh) {
                 this.htmlPreviewAutoSizeArea = 0;
                 this.htmlPreviewGutterRemoved = false;
@@ -1919,15 +2839,8 @@ body {
     copyCode() {
         let code;
 
-        // For design rationale (markdown content), copy clean text without markdown
-        if (this.isMarkdown || this.title.includes('Rationale')) {
-            // Get the raw markdown content and strip formatting
-            const rawCode = this.codeEditor.textContent || this.codeEditor.innerText;
-            code = this.stripMarkdownFormatting(rawCode);
-        } else {
-            // For regular code content, copy the raw code from editor
-            code = this.codeEditor.textContent || this.codeEditor.innerText;
-        }
+        // Always copy the current editor content (input is HTML)
+        code = this.codeEditor.textContent || this.codeEditor.innerText || '';
 
         // Copy to clipboard
         navigator.clipboard.writeText(code)
@@ -1955,30 +2868,41 @@ body {
 
     // Toggles the preview window between maximized and previous size/position
     toggleMaximize() {
+        // Allow maximizing for all preview types (including text-overlay).
+        const isMaximizing = !this.container.classList.contains('maximized');
+        const computedStyle = window.getComputedStyle(this.container);
+
+        if (isMaximizing) {
+            this.container.dataset.prevWidth = this.container.style.width || computedStyle.width;
+            this.container.dataset.prevHeight = this.container.style.height || computedStyle.height;
+            this.container.dataset.prevLeft = this.container.style.left || computedStyle.left;
+            this.container.dataset.prevTop = this.container.style.top || computedStyle.top;
+        }
+
         this.container.classList.toggle('maximized');
 
-        if (this.container.classList.contains('maximized')) {
-            // Store current dimensions for later restoration
-            this.container.dataset.prevWidth = this.container.style.width;
-            this.container.dataset.prevHeight = this.container.style.height;
-            this.container.dataset.prevLeft = this.container.style.left;
-            this.container.dataset.prevTop = this.container.style.top;
-
+        if (isMaximizing) {
             // Maximize
-            this.container.style.width = '100%';
-            this.container.style.height = '100%';
+            this.container.style.width = '100vw';
+            this.container.style.height = '100vh';
             this.container.style.left = '0';
             this.container.style.top = '0';
         } else {
-            // Restore previous dimensions
-            this.container.style.width = this.container.dataset.prevWidth;
-            this.container.style.height = this.container.dataset.prevHeight;
-            this.container.style.left = this.container.dataset.prevLeft;
-            this.container.style.top = this.container.dataset.prevTop;
+            const prevWidth = this.container.dataset.prevWidth || '80vw';
+            const prevHeight = this.container.dataset.prevHeight || '900px';
+            const prevLeft = this.container.dataset.prevLeft || '10vw';
+            const prevTop = this.container.dataset.prevTop || '10vh';
+
+            this.container.style.width = prevWidth;
+            this.container.style.height = prevHeight;
+            this.container.style.left = prevLeft;
+            this.container.style.top = prevTop;
         }
 
         this.scheduleTextOverlayPreviewLayout();
-        this.scheduleHtmlPreviewLayout();
+        if (!this.isStyleTransferPreview) {
+            this.scheduleHtmlPreviewLayout();
+        }
     }
 
     // Shows the preview window and overlay, and updates the preview
@@ -2077,70 +3001,6 @@ body {
         });
     }
 
-    async fetchAssetAsDataUrl(rawUrl, baseUrl) {
-        const url = String(rawUrl || '').trim().replace(/^['"]|['"]$/g, '');
-        if (!url || url.startsWith('data:')) {
-            return url;
-        }
-
-        let resolvedUrl = url;
-        try {
-            resolvedUrl = new URL(url, baseUrl || window.location.href).href;
-        } catch (_error) {
-        }
-
-        if (resolvedUrl.startsWith('data:')) {
-            return resolvedUrl;
-        }
-
-        if (this.exportAssetCache.has(resolvedUrl)) {
-            return this.exportAssetCache.get(resolvedUrl);
-        }
-
-        const fetchPromise = fetch(resolvedUrl)
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch export asset: ${response.status}`);
-                }
-                return response.blob();
-            })
-            .then((blob) => this.blobToDataUrl(blob))
-            .catch((error) => {
-                console.warn('ArtworkPreviewWindow: unable to inline export asset', { url: resolvedUrl, error });
-                return resolvedUrl;
-            });
-
-        this.exportAssetCache.set(resolvedUrl, fetchPromise);
-        return fetchPromise;
-    }
-
-    async inlineCssUrlsForExport(cssValue, baseUrl) {
-        const value = String(cssValue || '');
-        if (!value || !/url\(/i.test(value)) {
-            return value;
-        }
-
-        const matches = [...value.matchAll(/url\(([^)]+)\)/gi)];
-        if (matches.length === 0) {
-            return value;
-        }
-
-        const replacements = await Promise.all(matches.map(async (match) => {
-            const originalUrl = String(match[1] || '').trim();
-            const inlinedUrl = await this.fetchAssetAsDataUrl(originalUrl, baseUrl);
-            return {
-                fullMatch: match[0],
-                replacement: `url("${inlinedUrl}")`,
-            };
-        }));
-
-        let output = value;
-        replacements.forEach(({ fullMatch, replacement }) => {
-            output = output.replace(fullMatch, replacement);
-        });
-        return output;
-    }
-
     async waitForImageElement(img) {
         if (!img) {
             return;
@@ -2185,27 +3045,120 @@ body {
         });
     }
 
-    async inlineElementStyleAssetsForExport(element, iframeWindow, baseUrl) {
-        if (!(element instanceof iframeWindow.HTMLElement)) {
+    async prefetchElementStyleAssetsForExport(element, iframeWindow, baseUrl) {
+        try {
+            if (!iframeWindow || !element || !(element instanceof iframeWindow.HTMLElement)) {
+                return;
+            }
+
+            const computedStyle = iframeWindow.getComputedStyle(element);
+            if (!computedStyle) return;
+
+            const propsToCheck = ['backgroundImage', 'listStyleImage', 'borderImageSource', 'maskImage'];
+            const urlRegex = /url\((?:"|')?(.*?)(?:"|')?\)/g;
+            const urlsToFetch = [];
+
+            propsToCheck.forEach((prop) => {
+                const value = computedStyle[prop];
+                if (value && typeof value === 'string' && value.indexOf('url(') !== -1) {
+                    let m;
+                    while ((m = urlRegex.exec(value)) !== null) {
+                        if (m[1]) urlsToFetch.push(m[1]);
+                    }
+                }
+            });
+
+            // Also inspect inline style attribute for url(...) patterns
+            try {
+                const inlineStyle = element.getAttribute && element.getAttribute('style');
+                if (inlineStyle && typeof inlineStyle === 'string' && inlineStyle.indexOf('url(') !== -1) {
+                    let m;
+                    while ((m = urlRegex.exec(inlineStyle)) !== null) {
+                        if (m[1]) urlsToFetch.push(m[1]);
+                    }
+                }
+            } catch (e) {
+                // ignore
+            }
+
+            if (urlsToFetch.length > 0) {
+                await Promise.all(urlsToFetch.map((u) => this.fetchAssetAsDataUrl(u, baseUrl)));
+            }
+        } catch (e) {
+            // defensive: don't let export fail due to a single element
             return;
         }
+    }
 
-        const computedStyle = iframeWindow.getComputedStyle(element);
-        const backgroundImage = computedStyle?.backgroundImage;
-        if (backgroundImage && backgroundImage !== 'none' && /url\(/i.test(backgroundImage)) {
-            const inlinedBackgroundImage = await this.inlineCssUrlsForExport(backgroundImage, baseUrl);
-            if (inlinedBackgroundImage && inlinedBackgroundImage !== backgroundImage) {
-                element.style.backgroundImage = inlinedBackgroundImage;
-            }
+    async prefetchSrcsetAssetsForExport(srcset, baseUrl) {
+        if (!srcset || typeof srcset !== 'string') return;
+        try {
+            const parts = srcset.split(',').map((s) => String(s || '').trim()).filter(Boolean);
+            const urls = parts.map((p) => p.split(/\s+/)[0]).filter(Boolean);
+            await Promise.all(urls.map((u) => this.fetchAssetAsDataUrl(u, baseUrl)));
+        } catch (_e) {
+            // ignore parse errors
+        }
+    }
+
+    async fetchAssetAsDataUrl(rawSrc, baseUrl) {
+        let src = String(rawSrc || '').trim();
+        if (!src) return null;
+
+        // Already a data URL
+        if (/^data:/i.test(src)) return src;
+
+        // Resolve relative URLs against base
+        try {
+            src = new URL(src, baseUrl || window.location.href).href;
+        } catch (_e) {
+            // keep original
         }
 
-        const maskImage = computedStyle?.maskImage;
-        if (maskImage && maskImage !== 'none' && /url\(/i.test(maskImage)) {
-            const inlinedMaskImage = await this.inlineCssUrlsForExport(maskImage, baseUrl);
-            if (inlinedMaskImage && inlinedMaskImage !== maskImage) {
-                element.style.maskImage = inlinedMaskImage;
-                element.style.webkitMaskImage = inlinedMaskImage;
+        if (this._assetDataUrlCache && this._assetDataUrlCache.has(src)) {
+            return this._assetDataUrlCache.get(src);
+        }
+
+        // Try to fetch as a blob first (preferred when CORS permits)
+        try {
+            const response = await fetch(src, { cache: 'force-cache' });
+            if (response && response.ok) {
+                const blob = await response.blob();
+                const dataUrl = await this.blobToDataUrl(blob);
+                if (dataUrl) this._assetDataUrlCache.set(src, dataUrl);
+                return dataUrl;
             }
+        } catch (_err) {
+            // fetch may fail due to CORS or network; fall back to image->canvas approach
+        }
+
+        // Fallback: attempt to draw the image into a canvas (requires CORS headers to succeed)
+        try {
+            const img = await new Promise((resolve, reject) => {
+                const image = new Image();
+                image.crossOrigin = 'anonymous';
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error('Image load failed'));
+                image.src = src;
+            });
+
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width || 1;
+            canvas.height = img.naturalHeight || img.height || 1;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return null;
+            ctx.drawImage(img, 0, 0);
+            let dataUrl = null;
+            try {
+                dataUrl = canvas.toDataURL('image/png');
+            } catch (err) {
+                // toDataURL can fail if the image tainted the canvas (CORS)
+                return null;
+            }
+            if (dataUrl) this._assetDataUrlCache.set(src, dataUrl);
+            return dataUrl;
+        } catch (_err) {
+            return null;
         }
     }
 
@@ -2221,21 +3174,393 @@ body {
         const images = Array.from(iframeDoc.images || []);
         await Promise.all(images.map(async (img) => {
             const src = img?.currentSrc || img?.getAttribute('src') || img?.src;
-            if (!src) {
-                return;
+            if (src) {
+                await this.fetchAssetAsDataUrl(src, baseUrl);
             }
-            const inlinedSrc = await this.fetchAssetAsDataUrl(src, baseUrl);
-            if (inlinedSrc && inlinedSrc !== img.src) {
-                img.src = inlinedSrc;
-                img.removeAttribute('srcset');
-            }
-            await this.waitForImageElement(img);
+            await this.prefetchSrcsetAssetsForExport(img?.getAttribute('srcset'), baseUrl);
         }));
 
+        const sourceElements = Array.from(iframeDoc.querySelectorAll('source[src], source[srcset]'));
+        await Promise.all(sourceElements.map(async (source) => {
+            const src = source.getAttribute('src');
+            if (src) {
+                await this.fetchAssetAsDataUrl(src, baseUrl);
+            }
+            await this.prefetchSrcsetAssetsForExport(source.getAttribute('srcset'), baseUrl);
+        }));
+
+        const lazyImageUrls = [];
+        const lazySelectors = ['img[data-src]', 'img[data-lazy-src]', 'img[data-original]'];
+        lazySelectors.forEach((selector) => {
+            Array.from(iframeDoc.querySelectorAll(selector)).forEach((lazyImg) => {
+                if (lazyImg instanceof HTMLImageElement) {
+                    const key = selector.replace(/^img\[|\]$/g, '');
+                    const value = lazyImg.getAttribute(key);
+                    if (value) {
+                        lazyImageUrls.push(value);
+                    }
+                }
+            });
+        });
+        await Promise.all(lazyImageUrls.map((url) => this.fetchAssetAsDataUrl(url, baseUrl)));
+
         const elements = [iframeDoc.documentElement, iframeDoc.body, ...Array.from(iframeDoc.body.querySelectorAll('*'))];
-        await Promise.all(elements.map((element) => this.inlineElementStyleAssetsForExport(element, iframeWindow, baseUrl)));
+        await Promise.all(elements.map((element) => this.prefetchElementStyleAssetsForExport(element, iframeWindow, baseUrl)));
 
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+
+    async buildStandaloneHtmlWithInlinedAssets(sourceHtml, baseUrl) {
+        if (!sourceHtml || typeof sourceHtml !== 'string') return sourceHtml;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(sourceHtml, 'text/html');
+        if (!doc || !doc.documentElement) return sourceHtml;
+
+        const resolveUrl = (raw, relativeTo) => {
+            try {
+                return new URL(String(raw || ''), relativeTo || baseUrl || window.location.href).href;
+            } catch (_e) {
+                return String(raw || '');
+            }
+        };
+
+        const urlRegex = /url\((?:"|'|)?(.*?)(?:"|'|)?\)/g;
+
+        const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        try {
+            // Inline <img> and srcset
+            const imgs = Array.from(doc.querySelectorAll('img'));
+            for (const img of imgs) {
+                try {
+                    const srcAttr = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original');
+                    if (srcAttr) {
+                        const abs = resolveUrl(srcAttr, baseUrl);
+                        let dataUrl = this._assetDataUrlCache?.get(abs) || null;
+                        if (!dataUrl) dataUrl = await this.fetchAssetAsDataUrl(abs, baseUrl);
+                        if (dataUrl) img.setAttribute('src', dataUrl);
+                    }
+
+                    const srcset = img.getAttribute('srcset');
+                    if (srcset) {
+                        const parts = srcset.split(',').map((s) => String(s || '').trim()).filter(Boolean);
+                        const newParts = [];
+                        for (const part of parts) {
+                            const seg = part.split(/\s+/).filter(Boolean);
+                            const urlPart = seg[0];
+                            const desc = seg.slice(1).join(' ');
+                            try {
+                                const abs = resolveUrl(urlPart, baseUrl);
+                                let d = this._assetDataUrlCache?.get(abs) || null;
+                                if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl) || urlPart;
+                                newParts.push(desc ? `${d} ${desc}` : d);
+                            } catch (_e) {
+                                newParts.push(part);
+                            }
+                        }
+                        img.setAttribute('srcset', newParts.join(', '));
+                    }
+                } catch (_e) {
+                    // ignore per-image failures
+                }
+            }
+
+            // Inline <source> elements (picture/video)
+            const sources = Array.from(doc.querySelectorAll('source[src], source[srcset]'));
+            for (const source of sources) {
+                try {
+                    const ssrc = source.getAttribute('src');
+                    if (ssrc) {
+                        const abs = resolveUrl(ssrc, baseUrl);
+                        let d = this._assetDataUrlCache?.get(abs) || null;
+                        if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl);
+                        if (d) source.setAttribute('src', d);
+                    }
+                    const ssrcset = source.getAttribute('srcset');
+                    if (ssrcset) {
+                        const parts = ssrcset.split(',').map((s) => String(s || '').trim()).filter(Boolean);
+                        const newParts = [];
+                        for (const part of parts) {
+                            const seg = part.split(/\s+/).filter(Boolean);
+                            const urlPart = seg[0];
+                            const desc = seg.slice(1).join(' ');
+                            try {
+                                const abs = resolveUrl(urlPart, baseUrl);
+                                let d = this._assetDataUrlCache?.get(abs) || null;
+                                if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl) || urlPart;
+                                newParts.push(desc ? `${d} ${desc}` : d);
+                            } catch (_e) {
+                                newParts.push(part);
+                            }
+                        }
+                        source.setAttribute('srcset', newParts.join(', '));
+                    }
+                } catch (_e) {}
+            }
+
+            // Inline style attributes containing url(...)
+            const styledEls = Array.from(doc.querySelectorAll('[style]'));
+            for (const el of styledEls) {
+                try {
+                    let style = el.getAttribute('style') || '';
+                    let m;
+                    const found = [];
+                    while ((m = urlRegex.exec(style)) !== null) {
+                        if (m[1]) found.push(m[1]);
+                    }
+                    for (const raw of found) {
+                        try {
+                            const abs = resolveUrl(raw, baseUrl);
+                            let d = this._assetDataUrlCache?.get(abs) || null;
+                            if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl) || null;
+                            if (d) {
+                                const esc = escapeRegExp(raw);
+                                style = style.replace(new RegExp(esc, 'g'), d);
+                            }
+                        } catch (_e) {}
+                    }
+                    el.setAttribute('style', style);
+                } catch (_e) {}
+            }
+
+            // Inline <style> blocks
+            const styleBlocks = Array.from(doc.querySelectorAll('style'));
+            for (const styleEl of styleBlocks) {
+                try {
+                    let css = styleEl.textContent || '';
+                    let m;
+                    const found = [];
+                    while ((m = urlRegex.exec(css)) !== null) {
+                        if (m[1]) found.push(m[1]);
+                    }
+                    for (const raw of found) {
+                        try {
+                            const abs = resolveUrl(raw, baseUrl);
+                            let d = this._assetDataUrlCache?.get(abs) || null;
+                            if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl) || null;
+                            if (d) {
+                                const esc = escapeRegExp(raw);
+                                css = css.replace(new RegExp(esc, 'g'), d);
+                            }
+                        } catch (_e) {}
+                    }
+                    styleEl.textContent = css;
+                } catch (_e) {}
+            }
+
+            // Inline linked stylesheets by fetching and replacing url(...) with data URLs
+            const links = Array.from(doc.querySelectorAll('link[rel="stylesheet"][href]'));
+            for (const link of links) {
+                try {
+                    const href = link.getAttribute('href');
+                    if (!href) continue;
+                    const absHref = resolveUrl(href, baseUrl);
+                    let cssText = null;
+                    try {
+                        const resp = await fetch(absHref, { cache: 'force-cache' });
+                        if (resp && resp.ok) cssText = await resp.text();
+                    } catch (_e) {
+                        cssText = null;
+                    }
+                    if (!cssText) continue;
+                    let m;
+                    const found = [];
+                    while ((m = urlRegex.exec(cssText)) !== null) {
+                        if (m[1]) found.push(m[1]);
+                    }
+                    for (const raw of found) {
+                        try {
+                            const abs = resolveUrl(raw, absHref);
+                            let d = this._assetDataUrlCache?.get(abs) || null;
+                            if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl) || null;
+                            if (d) {
+                                const esc = escapeRegExp(raw);
+                                cssText = cssText.replace(new RegExp(esc, 'g'), d);
+                            }
+                        } catch (_e) {}
+                    }
+                    const styleEl = doc.createElement('style');
+                    styleEl.textContent = cssText;
+                    link.parentNode?.replaceChild(styleEl, link);
+                } catch (_e) {}
+            }
+
+            // Inline <image> inside SVG
+            const svgImages = Array.from(doc.querySelectorAll('image'));
+            for (const svgImage of svgImages) {
+                try {
+                    const href = svgImage.getAttribute('href') || svgImage.getAttribute('xlink:href');
+                    if (!href) continue;
+                    const abs = resolveUrl(href, baseUrl);
+                    let d = this._assetDataUrlCache?.get(abs) || null;
+                    if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl) || null;
+                    if (d) {
+                        svgImage.setAttribute('href', d);
+                        svgImage.removeAttribute('xlink:href');
+                    }
+                } catch (_e) {}
+            }
+
+            // Serialize back to HTML string (preserve doctype if present in source)
+            return this.serializeSourceDocument(doc, sourceHtml);
+        } catch (err) {
+            console.error('buildStandaloneHtmlWithInlinedAssets failed:', err);
+            return sourceHtml;
+        }
+    }
+
+    stripPreviewMetadataFromHtml(html) {
+        if (!html || typeof html !== 'string') return html;
+        try {
+            // Remove data- attributes injected by the preview/editor (best-effort)
+            // e.g. data-artwork-editable-text, data-artwork-editable-text-id, data-artwork-editable-bound,
+            // data-pw-style-transfer-image-id, data-artwork-overlay-normalizer, etc.
+            let sanitized = String(html).replace(/\sdata-(?:pw|artwork)[a-zA-Z0-9-_]*=(?:"[^"]*"|'[^']*'|[^\s>]+)/g, '');
+
+            // Remove injected <style> blocks used only for preview adjustments
+            sanitized = sanitized.replace(/<style[^>]*data-pw-[^>]*>[\s\S]*?<\/style>/gi, '');
+            sanitized = sanitized.replace(/<style[^>]*data-artwork-overlay-normalizer[^>]*>[\s\S]*?<\/style>/gi, '');
+
+            // Strip any pw-only attributes left on elements
+            sanitized = sanitized.replace(/\sdata-pw-[a-zA-Z0-9-_]*(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?/g, '');
+
+            return sanitized;
+        } catch (err) {
+            return html;
+        }
+    }
+
+    async inlineImagesInHtml(sourceHtml, baseUrl) {
+        if (!sourceHtml || typeof sourceHtml !== 'string') return sourceHtml;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(sourceHtml, 'text/html');
+        if (!doc || !doc.documentElement) return sourceHtml;
+
+        const resolveUrl = (raw) => {
+            try { return new URL(String(raw || ''), baseUrl || window.location.href).href; } catch (_e) { return String(raw || ''); }
+        };
+
+        const urlRegex = /url\((?:"|'|)?(.*?)(?:"|'|)?\)/g;
+
+        try {
+            // Inline <img> elements and their srcset attributes
+            const imgs = Array.from(doc.querySelectorAll('img'));
+            for (const img of imgs) {
+                try {
+                    const srcAttr = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original');
+                    if (srcAttr) {
+                        const abs = resolveUrl(srcAttr);
+                        let dataUrl = this._assetDataUrlCache?.get(abs) || null;
+                        if (!dataUrl) dataUrl = await this.fetchAssetAsDataUrl(abs, baseUrl);
+                        if (dataUrl) img.setAttribute('src', dataUrl);
+                    }
+
+                    const srcset = img.getAttribute('srcset');
+                    if (srcset) {
+                        const parts = srcset.split(',').map((s) => String(s || '').trim()).filter(Boolean);
+                        const newParts = [];
+                        for (const part of parts) {
+                            const seg = part.split(/\s+/).filter(Boolean);
+                            const urlPart = seg[0];
+                            const desc = seg.slice(1).join(' ');
+                            try {
+                                const abs = resolveUrl(urlPart);
+                                let d = this._assetDataUrlCache?.get(abs) || null;
+                                if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl) || urlPart;
+                                newParts.push(desc ? `${d} ${desc}` : d);
+                            } catch (_e) {
+                                newParts.push(part);
+                            }
+                        }
+                        img.setAttribute('srcset', newParts.join(', '));
+                    }
+                } catch (_e) { /* ignore per-image failures */ }
+            }
+
+            // Inline <source> elements used in <picture> or media elements
+            const sources = Array.from(doc.querySelectorAll('source[src], source[srcset]'));
+            for (const source of sources) {
+                try {
+                    const ssrc = source.getAttribute('src');
+                    if (ssrc) {
+                        const abs = resolveUrl(ssrc);
+                        let d = this._assetDataUrlCache?.get(abs) || null;
+                        if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl);
+                        if (d) source.setAttribute('src', d);
+                    }
+                    const ssrcset = source.getAttribute('srcset');
+                    if (ssrcset) {
+                        const parts = ssrcset.split(',').map((s) => String(s || '').trim()).filter(Boolean);
+                        const newParts = [];
+                        for (const part of parts) {
+                            const seg = part.split(/\s+/).filter(Boolean);
+                            const urlPart = seg[0];
+                            const desc = seg.slice(1).join(' ');
+                            try {
+                                const abs = resolveUrl(urlPart);
+                                let d = this._assetDataUrlCache?.get(abs) || null;
+                                if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl) || urlPart;
+                                newParts.push(desc ? `${d} ${desc}` : d);
+                            } catch (_e) {
+                                newParts.push(part);
+                            }
+                        }
+                        source.setAttribute('srcset', newParts.join(', '));
+                    }
+                } catch (_e) { /* ignore */ }
+            }
+
+            // Inline url(...) in inline style attributes
+            const styledEls = Array.from(doc.querySelectorAll('[style]'));
+            for (const el of styledEls) {
+                try {
+                    let style = el.getAttribute('style') || '';
+                    if (!style || style.indexOf('url(') === -1) continue;
+                    let m;
+                    const found = [];
+                    while ((m = urlRegex.exec(style)) !== null) {
+                        if (m[1]) found.push(m[1]);
+                    }
+                    for (const raw of found) {
+                        try {
+                            const abs = resolveUrl(raw);
+                            let d = this._assetDataUrlCache?.get(abs) || null;
+                            if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl) || null;
+                            if (d) style = style.split(raw).join(d);
+                        } catch (_e) {}
+                    }
+                    el.setAttribute('style', style);
+                } catch (_e) {}
+            }
+
+            // Inline url(...) occurrences inside <style> blocks (do not fetch external stylesheets)
+            const styleBlocks = Array.from(doc.querySelectorAll('style'));
+            for (const styleEl of styleBlocks) {
+                try {
+                    let css = styleEl.textContent || '';
+                    if (!css || css.indexOf('url(') === -1) continue;
+                    let m;
+                    const found = [];
+                    while ((m = urlRegex.exec(css)) !== null) {
+                        if (m[1]) found.push(m[1]);
+                    }
+                    for (const raw of found) {
+                        try {
+                            const abs = resolveUrl(raw);
+                            let d = this._assetDataUrlCache?.get(abs) || null;
+                            if (!d) d = await this.fetchAssetAsDataUrl(abs, baseUrl) || null;
+                            if (d) css = css.split(raw).join(d);
+                        } catch (_e) {}
+                    }
+                    styleEl.textContent = css;
+                } catch (_e) {}
+            }
+
+            return this.serializeSourceDocument(doc, sourceHtml);
+        } catch (err) {
+            console.error('inlineImagesInHtml failed:', err);
+            return sourceHtml;
+        }
     }
 
     async waitForPreviewAssets() {
@@ -2246,32 +3571,150 @@ body {
             return;
         }
 
-        if (iframeDoc.fonts && typeof iframeDoc.fonts.ready === 'object') {
+        if (iframeDoc.fonts && iframeDoc.fonts.ready && typeof iframeDoc.fonts.ready.then === 'function') {
             try {
                 await iframeDoc.fonts.ready;
             } catch (_error) {
             }
+            if (iframeDoc.body) {
+                void iframeDoc.body.offsetHeight;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 120));
         }
 
-        const images = Array.from(iframeDoc.images || []);
-        await Promise.all(images.map((img) => {
+        const waitForImage = async (img) => {
             if (!img) {
-                return Promise.resolve();
+                return;
             }
             if (img.complete) {
                 if (typeof img.decode === 'function') {
-                    return img.decode().catch(() => {});
+                    await img.decode().catch(() => {});
                 }
-                return Promise.resolve();
+                return;
             }
 
-            return new Promise((resolve) => {
+            await new Promise((resolve) => {
                 img.addEventListener('load', resolve, { once: true });
                 img.addEventListener('error', resolve, { once: true });
             });
-        }));
+
+            if (typeof img.decode === 'function') {
+                await img.decode().catch(() => {});
+            }
+        };
+
+        const urlRegex = /url\((?:"|')?(.*?)(?:"|')?\)/g;
+        const urlsToWaitFor = new Set();
+
+        const collectStyleUrls = (styleValue) => {
+            if (!styleValue || typeof styleValue !== 'string' || styleValue.indexOf('url(') === -1) {
+                return;
+            }
+            let match;
+            while ((match = urlRegex.exec(styleValue)) !== null) {
+                if (match[1]) {
+                    const url = String(match[1]).trim();
+                    if (url) {
+                        urlsToWaitFor.add(url);
+                    }
+                }
+            }
+        };
+
+        try {
+            const elements = Array.from(iframeDoc.querySelectorAll('*'));
+            if (iframeDoc.documentElement) elements.push(iframeDoc.documentElement);
+            if (iframeDoc.body) elements.push(iframeDoc.body);
+
+            for (const element of elements) {
+                try {
+                    const computedStyle = iframeWindow.getComputedStyle(element);
+                    if (computedStyle) {
+                        collectStyleUrls(computedStyle.backgroundImage);
+                        collectStyleUrls(computedStyle.listStyleImage);
+                        collectStyleUrls(computedStyle.borderImageSource);
+                        collectStyleUrls(computedStyle.maskImage);
+                    }
+                } catch (_e) {
+                    // ignore failures reading styles from some elements
+                }
+
+                try {
+                    const inlineStyle = element.getAttribute && element.getAttribute('style');
+                    collectStyleUrls(inlineStyle);
+                } catch (_e) {
+                    // ignore inline style read failures
+                }
+            }
+        } catch (_e) {
+            // ignore selection failures
+        }
+
+        const iframeBaseUrl = iframeDoc.baseURI || (iframeWindow && iframeWindow.location && iframeWindow.location.href) || window.location.href;
+        const loadAssetUrl = async (rawUrl) => {
+            if (!rawUrl) return;
+            const url = rawUrl.trim();
+            if (!url || /^data:/i.test(url)) return;
+            try {
+                const absolute = new URL(url, iframeBaseUrl).href;
+                await this.loadImageForCanvas(absolute).catch(() => {});
+            } catch (_e) {
+                // ignore invalid URLs
+            }
+        };
+
+        const imageElements = Array.from(iframeDoc.images || []);
+        await Promise.all(imageElements.map(waitForImage));
+        await Promise.all(Array.from(urlsToWaitFor).map(loadAssetUrl));
 
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+
+    // Wait briefly for text-overlay DOM to become visible/rendered before capture
+    async waitForTextOverlayRender(timeoutMs = 1200) {
+        if (!this.isTextOverlayPreview || !this.previewFrame) return true;
+
+        const start = Date.now();
+        const iframe = this.previewFrame;
+        const pollInterval = 50;
+
+        function isVisibleRect(rect) {
+            return rect && rect.width > 4 && rect.height > 4;
+        }
+
+        while (Date.now() - start < timeoutMs) {
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                if (!iframeDoc || !iframeDoc.body) {
+                    await new Promise((r) => setTimeout(r, pollInterval));
+                    continue;
+                }
+
+                // If previewReady flag set by load handler, consider it ready
+                if (this.textOverlayPreviewReady) return true;
+
+                // Check for common overlay containers or editable markers
+                const candidates = [].concat(
+                    Array.from(iframeDoc.querySelectorAll('[data-artwork-editable-text], .overlay-content, .preview-wrap, [data-artwork-bg-img]'))
+                ).filter(Boolean);
+
+                for (const el of candidates) {
+                    try {
+                        const rect = el.getBoundingClientRect();
+                        if (isVisibleRect(rect)) return true;
+                        // Some elements may be offscreen; also check for visible text
+                        const txt = (el.innerText || '').trim();
+                        if (txt && txt.length > 0) return true;
+                    } catch (_e) {}
+                }
+            } catch (_err) {
+                // ignore cross-access errors
+            }
+
+            await new Promise((r) => setTimeout(r, pollInterval));
+        }
+
+        return false;
     }
 
     getPreviewCaptureMetrics() {
@@ -2307,39 +3750,114 @@ body {
 
         if (this.isTextOverlayPreview) {
             const sourceBounds = this.getSourceImageBounds();
-            const overlayBounds = sourceBounds || this.textOverlayFrameBounds || this.getVisibleTextOverlayBounds() || {
+            const overlayCaptureCandidate = this.getTextOverlayCaptureCandidate();
+            const overlayBounds = sourceBounds || overlayCaptureCandidate || this.textOverlayFrameBounds || this.getVisibleTextOverlayBounds() || {
                 left: 0,
                 top: 0,
                 width: viewportWidth,
                 height: viewportHeight,
             };
+            let targetElement = overlayCaptureCandidate?.element || body;
+            let captureBounds = overlayBounds;
 
-            /*console.info('ArtworkPreviewWindow[text-overlay]: export capture target', {
-                targetTag: body?.tagName || '',
-                targetClassName: body?.className || '',
-                captureWidth: Math.round(overlayBounds.width),
-                captureHeight: Math.round(overlayBounds.height),
-                captureX: 0,
-                captureY: 0,
-                backgroundColor: 'transparent',
-                usingOverlayElementTarget: false,
-                outputWidth: this.sourceImageWidth,
-                outputHeight: this.sourceImageHeight,
-            });*/
+            // If the background image is placed on the body/html and the overlay
+            // candidate is an inner element, capture the body instead so the
+            // exported PNG includes the page-level image.
+            if (this.backgroundImage && overlayCaptureCandidate?.element && overlayCaptureCandidate.element !== body) {
+                try {
+                    const urlRegex = /url\((?:"|')?(.*?)(?:"|')?\)/i;
+                    const bodyBg = computedBodyStyle?.backgroundImage;
+                    const htmlBg = computedHtmlStyle?.backgroundImage;
+                    const bodyBgMatch = bodyBg && bodyBg !== 'none' ? bodyBg.match(urlRegex) : null;
+                    const htmlBgMatch = htmlBg && htmlBg !== 'none' ? htmlBg.match(urlRegex) : null;
+                    const bodyBgUrl = bodyBgMatch?.[1] || '';
+                    const htmlBgUrl = htmlBgMatch?.[1] || '';
+                    const bodyHasBackgroundImage = [bodyBgUrl, htmlBgUrl].some((bgUrl) => {
+                        if (!bgUrl) return false;
+                        return String(bgUrl) === String(this.backgroundImage) || String(bgUrl).indexOf('BACKGROUND_IMAGE_PLACEHOLDER') !== -1;
+                    });
+                    if (bodyHasBackgroundImage) {
+                        targetElement = body;
+                        captureBounds = {
+                            left: 0,
+                            top: 0,
+                            width: viewportWidth,
+                            height: viewportHeight,
+                        };
+                    }
+                } catch (_e) {
+                    // ignore detection failures and keep the default target
+                }
+            }
+
+            // Decide whether we need to composite the background image on export.
+            // If the capture target already contains an <img> for the background
+            // (or a converted background image marker), we should NOT composite
+            // the background again to avoid double-drawing.
+            let compositeBackgroundImage = false;
+            try {
+                if (this.backgroundImage) {
+                    let foundBg = false;
+                    try {
+                        // Prefer explicit markers first
+                        if (targetElement && typeof targetElement.querySelectorAll === 'function') {
+                            const imgs = Array.from(targetElement.querySelectorAll('img'));
+                            for (const img of imgs) {
+                                try {
+                                    const src = String(img.currentSrc || img.getAttribute('src') || '').trim();
+                                    if (!src) continue;
+                                    if (img.getAttribute && img.getAttribute('data-artwork-bg-img') === 'true') {
+                                        foundBg = true; break;
+                                    }
+                                    if (src === String(this.backgroundImage)) { foundBg = true; break; }
+                                    if (src.indexOf('BACKGROUND_IMAGE_PLACEHOLDER') !== -1) { foundBg = true; break; }
+                                } catch (_e) {}
+                            }
+                        }
+                    } catch (_e) {}
+
+                    // If not found by <img>, inspect computed styles for url(...) matching
+                    if (!foundBg) {
+                        try {
+                            const elemsToCheck = [targetElement].concat(Array.from(targetElement.querySelectorAll('*') || []));
+                            const urlRegex = /url\((?:"|')?(.*?)(?:"|')?\)/i;
+                            for (const el of elemsToCheck) {
+                                try {
+                                    const cs = iframeWindow.getComputedStyle(el);
+                                    const bg = cs && cs.backgroundImage;
+                                    if (bg && bg !== 'none') {
+                                        const m = bg.match(urlRegex);
+                                        if (m && m[1]) {
+                                            const bgUrl = m[1];
+                                            if (String(bgUrl) === String(this.backgroundImage) || String(bgUrl).indexOf('BACKGROUND_IMAGE_PLACEHOLDER') !== -1) {
+                                                foundBg = true; break;
+                                            }
+                                        }
+                                    }
+                                } catch (_e) {}
+                            }
+                        } catch (_e) {}
+                    }
+
+                    compositeBackgroundImage = !foundBg;
+                }
+            } catch (_e) {
+                compositeBackgroundImage = !!this.backgroundImage;
+            }
 
             return {
-                target: body,
-                windowWidth: Math.max(1, Math.round(overlayBounds.width)),
-                windowHeight: Math.max(1, Math.round(overlayBounds.height)),
-                width: Math.max(1, Math.round(overlayBounds.width)),
-                height: Math.max(1, Math.round(overlayBounds.height)),
-                scrollX: 0,
-                scrollY: 0,
+                target: targetElement,
+                windowWidth: Math.max(1, Math.round(captureBounds.width)),
+                windowHeight: Math.max(1, Math.round(captureBounds.height)),
+                width: Math.max(1, Math.round(captureBounds.width)),
+                height: Math.max(1, Math.round(captureBounds.height)),
+                scrollX: Math.max(0, Math.round(captureBounds.left)),
+                scrollY: Math.max(0, Math.round(captureBounds.top)),
                 backgroundColor: null,
-                outputWidth: this.sourceImageWidth > 0 ? this.sourceImageWidth : Math.max(1, Math.round(overlayBounds.width)),
-                outputHeight: this.sourceImageHeight > 0 ? this.sourceImageHeight : Math.max(1, Math.round(overlayBounds.height)),
-                renderedOverlayBounds: overlayBounds,
-                compositeBackgroundImage: !!this.backgroundImage,
+                outputWidth: this.sourceImageWidth > 0 ? this.sourceImageWidth : Math.max(1, Math.round(captureBounds.width)),
+                outputHeight: this.sourceImageHeight > 0 ? this.sourceImageHeight : Math.max(1, Math.round(captureBounds.height)),
+                renderedOverlayBounds: captureBounds,
+                compositeBackgroundImage: compositeBackgroundImage,
             };
         }
 
@@ -2388,154 +3906,205 @@ body {
         };
     }
 
-    prepareClonedPreviewForExport(clonedDoc, captureMetrics) {
-        if (!clonedDoc || !captureMetrics) {
-            return;
-        }
-
-        const docElement = clonedDoc.documentElement;
-        const body = clonedDoc.body;
-        const isTransparentOverlayExport = this.isTextOverlayPreview && captureMetrics.backgroundColor == null;
-
-        if (this.isTextOverlayPreview) {
-            this.normalizeTextOverlayDocument(clonedDoc);
-
-            const editableElements = Array.from(clonedDoc.querySelectorAll('[data-artwork-editable-text="true"]'));
-            editableElements.forEach((element) => {
-                element.removeAttribute('contenteditable');
-                element.style.outline = 'none';
-                element.style.caretColor = 'transparent';
-            });
-        }
-
-        if (docElement) {
-            docElement.style.width = `${captureMetrics.windowWidth}px`;
-            docElement.style.height = `${captureMetrics.windowHeight}px`;
-            docElement.style.overflow = this.isTextOverlayPreview ? 'hidden' : 'visible';
-            docElement.style.backgroundColor = isTransparentOverlayExport ? 'transparent' : captureMetrics.backgroundColor;
-        }
-
-        if (body) {
-            body.style.width = `${captureMetrics.windowWidth}px`;
-            body.style.height = `${captureMetrics.windowHeight}px`;
-            body.style.overflow = this.isTextOverlayPreview ? 'hidden' : 'visible';
-            body.style.backgroundColor = isTransparentOverlayExport ? 'transparent' : captureMetrics.backgroundColor;
-        }
-
-        if (isTransparentOverlayExport) {
-            const pageWrapper = body?.querySelector('.page-wrapper');
-            if (pageWrapper) {
-                pageWrapper.style.backgroundColor = 'transparent';
-                pageWrapper.style.background = 'transparent';
-                pageWrapper.style.overflow = 'hidden';
-            }
-
-            const artboard = body?.querySelector('.container, img.container, [class*="container"]');
-            if (artboard) {
-                artboard.style.overflow = 'hidden';
-            }
-        }
-    }
 
     resizeCanvasForExport(canvas, captureMetrics) {
-        const outputWidth = Number(captureMetrics?.outputWidth) || 0;
-        const outputHeight = Number(captureMetrics?.outputHeight) || 0;
-        if (!canvas || outputWidth <= 0 || outputHeight <= 0) {
-            return canvas;
-        }
-
-        if (canvas.width === outputWidth && canvas.height === outputHeight) {
-            return canvas;
-        }
-
-        const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = outputWidth;
-        exportCanvas.height = outputHeight;
-        const exportContext = exportCanvas.getContext('2d');
-        if (!exportContext) {
-            return canvas;
-        }
-
-        exportContext.drawImage(canvas, 0, 0, outputWidth, outputHeight);
-        /*console.info('ArtworkPreviewWindow[text-overlay]: resized export canvas to source image dimensions', {
-            renderedWidth: canvas.width,
-            renderedHeight: canvas.height,
-            outputWidth,
-            outputHeight,
-            renderedOverlayBounds: captureMetrics.renderedOverlayBounds,
-        });*/
-        return exportCanvas;
+        // No-op: keep original rendered canvas dimensions for bare-bones export.
+        return canvas;
     }
 
     async finalizeExportCanvas(canvas, captureMetrics) {
-        const resizedCanvas = this.resizeCanvasForExport(canvas, captureMetrics);
-        const exportBackgroundImage = this.exportBackgroundImage || this.backgroundImage;
-        if (!this.isTextOverlayPreview || !captureMetrics?.compositeBackgroundImage || !exportBackgroundImage) {
-            return resizedCanvas;
+        // No-op for bare-bones export: return the rendered canvas unchanged.
+        return canvas;
+    }
+
+    async ensureDomToImageLoaded() {
+        if (window.domtoimage && typeof window.domtoimage.toCanvas === 'function') {
+            return window.domtoimage;
+        }
+
+        if (this._domToImageLoaderPromise) {
+            return this._domToImageLoaderPromise;
+        }
+
+        const libraryUrl = new URL('/core/js/libraries/dom-to-image-more/dom-to-image-more.min.js', window.location.origin).href;
+        this._domToImageLoaderPromise = new Promise((resolve, reject) => {
+            const existingScript = Array.from(document.scripts || []).find((script) => String(script.src || '').trim() === libraryUrl);
+            if (existingScript) {
+                if (window.domtoimage && typeof window.domtoimage.toCanvas === 'function') {
+                    resolve(window.domtoimage);
+                    return;
+                }
+                existingScript.addEventListener('load', () => {
+                    if (window.domtoimage && typeof window.domtoimage.toCanvas === 'function') {
+                        resolve(window.domtoimage);
+                    } else {
+                        reject(new Error('dom-to-image-more loaded but did not create window.domtoimage.'));
+                    }
+                }, { once: true });
+                existingScript.addEventListener('error', () => reject(new Error('Failed loading dom-to-image-more from ' + libraryUrl)), { once: true });
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = libraryUrl;
+            script.async = true;
+            script.onload = () => {
+                if (window.domtoimage && typeof window.domtoimage.toCanvas === 'function') {
+                    resolve(window.domtoimage);
+                } else {
+                    reject(new Error('dom-to-image-more loaded but window.domtoimage is unavailable.'));
+                }
+            };
+            script.onerror = () => reject(new Error('Failed loading dom-to-image-more from ' + libraryUrl));
+            document.head.appendChild(script);
+        });
+
+        return this._domToImageLoaderPromise;
+    }
+
+    prepareClonedPreviewForExport(clonedNode, captureMetrics) {
+        // No-op for bare-bones export. Previously used to scope cloned styles
+        // and remove transforms; keep as a harmless stub so older callers
+        // remain valid while we debug the simpler export path.
+        return;
+    }
+
+    applyCachedAssetUrlsToClonedNode(clonedNode) {
+        if (!clonedNode || !this._assetDataUrlCache || this._assetDataUrlCache.size === 0) {
+            return;
+        }
+
+        const baseUrl = window.location.href;
+        const urlRegex = /url\((?:(?:"|')?(.*?)(?:"|')?)\)/g;
+        const normalizeUrl = (rawUrl) => {
+            if (!rawUrl || typeof rawUrl !== 'string') return null;
+            const trimmed = rawUrl.trim();
+            if (!trimmed) return null;
+            if (/^data:/i.test(trimmed)) return null;
+            try {
+                return new URL(trimmed, baseUrl).href;
+            } catch (_e) {
+                return trimmed;
+            }
+        };
+
+        const replaceUrlsInText = (text) => {
+            if (!text || typeof text !== 'string' || text.indexOf('url(') === -1) return text;
+            return text.replace(urlRegex, (match, rawUrl) => {
+                const absolute = normalizeUrl(rawUrl);
+                if (absolute && this._assetDataUrlCache.has(absolute)) {
+                    return `url('${this._assetDataUrlCache.get(absolute)}')`;
+                }
+                return match;
+            });
+        };
+
+        const updateElementAssetUrls = (el) => {
+            if (!el) return;
+            try {
+                if (el.hasAttribute && el.hasAttribute('src')) {
+                    const src = el.getAttribute('src');
+                    const abs = normalizeUrl(src);
+                    if (abs && this._assetDataUrlCache.has(abs)) {
+                        el.setAttribute('src', this._assetDataUrlCache.get(abs));
+                    }
+                }
+                if (el.hasAttribute && el.hasAttribute('srcset')) {
+                    const srcset = el.getAttribute('srcset');
+                    if (srcset) {
+                        const parts = srcset.split(',').map((s) => String(s || '').trim()).filter(Boolean);
+                        const newParts = parts.map((part) => {
+                            const segments = part.split(/\s+/).filter(Boolean);
+                            const urlPart = segments[0];
+                            const desc = segments.slice(1).join(' ');
+                            const abs = normalizeUrl(urlPart);
+                            if (abs && this._assetDataUrlCache.has(abs)) {
+                                return desc ? `${this._assetDataUrlCache.get(abs)} ${desc}` : `${this._assetDataUrlCache.get(abs)}`;
+                            }
+                            return part;
+                        });
+                        el.setAttribute('srcset', newParts.join(', '));
+                    }
+                }
+                if (el.hasAttribute && el.hasAttribute('style')) {
+                    const style = el.getAttribute('style');
+                    const updated = replaceUrlsInText(style);
+                    if (updated !== style) {
+                        el.setAttribute('style', updated);
+                    }
+                }
+            } catch (_e) {
+                // ignore per-element failures
+            }
+        };
+
+        try {
+            const elements = Array.from(clonedNode.querySelectorAll('img, source, [style]')) || [];
+            elements.forEach(updateElementAssetUrls);
+        } catch (_e) {
+            // ignore if querying cloned nodes fails
         }
 
         try {
-            const backgroundImage = await this.loadImageForCanvas(exportBackgroundImage);
-            if (!backgroundImage) {
-                return resizedCanvas;
-            }
-
-            const outputWidth = Number(captureMetrics?.outputWidth) || resizedCanvas.width;
-            const outputHeight = Number(captureMetrics?.outputHeight) || resizedCanvas.height;
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = outputWidth;
-            exportCanvas.height = outputHeight;
-            const exportContext = exportCanvas.getContext('2d');
-            if (!exportContext) {
-                return resizedCanvas;
-            }
-
-            exportContext.clearRect(0, 0, outputWidth, outputHeight);
-            exportContext.drawImage(backgroundImage, 0, 0, outputWidth, outputHeight);
-            exportContext.drawImage(resizedCanvas, 0, 0, outputWidth, outputHeight);
-            /*console.info('ArtworkPreviewWindow[text-overlay]: composited source background image into export canvas', {
-                outputWidth,
-                outputHeight,
-                overlayCanvasWidth: resizedCanvas.width,
-                overlayCanvasHeight: resizedCanvas.height,
-            });*/
-            return exportCanvas;
-        } catch (error) {
-            //console.warn('ArtworkPreviewWindow[text-overlay]: failed composing source background image into export canvas', error);
-            return resizedCanvas;
+            const styleEls = Array.from(clonedNode.querySelectorAll('style')) || [];
+            styleEls.forEach((styleEl) => {
+                try {
+                    const text = styleEl.textContent || '';
+                    const updated = replaceUrlsInText(text);
+                    if (updated !== text) {
+                        styleEl.textContent = updated;
+                    }
+                } catch (_e) {
+                    // ignore
+                }
+            });
+        } catch (_e) {
+            // ignore
         }
     }
 
-    renderPreviewToCanvas(captureMetrics) {
-        const baseOptions = {
-            scale: Math.max(2, window.devicePixelRatio || 1),
-            useCORS: true,
-            allowTaint: false,
-            backgroundColor: captureMetrics.backgroundColor,
-            logging: false,
-            imageTimeout: 0,
-            removeContainer: true,
-            windowWidth: captureMetrics.windowWidth,
-            windowHeight: captureMetrics.windowHeight,
-            width: captureMetrics.width,
-            height: captureMetrics.height,
-            scrollX: captureMetrics.scrollX,
-            scrollY: captureMetrics.scrollY,
-            x: captureMetrics.scrollX,
-            y: captureMetrics.scrollY,
-            onclone: (clonedDoc) => this.prepareClonedPreviewForExport(clonedDoc, captureMetrics),
+    async renderPreviewToCanvas(captureMetrics) {
+        if (!captureMetrics || !captureMetrics.target) {
+            throw new Error('renderPreviewToCanvas: missing capture target or metrics.');
+        }
+
+        const domtoimage = await this.ensureDomToImageLoaded();
+        try {
+            await this.waitForPreviewAssets();
+        } catch (e) {
+            console.warn('ArtworkPreviewWindow: error while waiting for preview assets before canvas render', e);
+        }
+        // Minimal export adjustments: hide scrollbars in the cloned DOM so
+        // scrollbars are not visible in the exported PNG while preserving
+        // the cloned document layout and scrollability.
+        const options = {
+            onclone: (clonedNode) => {
+                try {
+                    const s = document.createElement('style');
+                    s.setAttribute('data-pw-hide-scrollbars', 'true');
+                    s.textContent = `
+                        * { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+                        *::-webkit-scrollbar { display: none !important; width: 0px !important; height: 0px !important; }
+                    `;
+                    try { clonedNode.insertBefore(s, clonedNode.firstChild); } catch (e) { /* ignore */ }
+                } catch (e) {
+                    // non-fatal
+                }
+
+                try {
+                    this.applyCachedAssetUrlsToClonedNode(clonedNode);
+                } catch (e) {
+                    console.warn('ArtworkPreviewWindow: failed to rewrite cloned asset URLs', e);
+                }
+            }
         };
 
-        return html2canvas(captureMetrics.target, {
-            ...baseOptions,
-            foreignObjectRendering: true,
-        }).catch((error) => {
-            console.warn('ArtworkPreviewWindow: foreignObject export failed, retrying with canvas renderer', error);
-            return html2canvas(captureMetrics.target, {
-                ...baseOptions,
-                foreignObjectRendering: false,
-            });
-        });
+        const canvas = await domtoimage.toCanvas(captureMetrics.target, options);
+        if (!(canvas instanceof HTMLCanvasElement)) {
+            throw new Error('dom-to-image-more did not return a canvas element.');
+        }
+
+        return canvas;
     }
 
     // Captures the preview as a PNG image and triggers a download, showing notifications
@@ -2549,6 +4118,9 @@ body {
 
         const iframe = this.previewFrame;
         if (!iframe) return;
+
+        // Reset the export cache so each PNG export starts with the current preview assets.
+        this._assetDataUrlCache = new Map();
 
         try {
             // Create a progress notification with consistent styling
@@ -2566,86 +4138,188 @@ body {
         `;
             document.body.appendChild(notification);
 
-            // Use html2canvas to capture the iframe content
-            if (typeof html2canvas !== 'function') {
-                throw new Error('html2canvas not found. Make sure it is properly loaded.');
+            // Minimal export: skip asset inlining and font prefetching; only ensure overlay DOM rendered
+            if (this.isTextOverlayPreview) {
+                try {
+                    const ready = await this.waitForTextOverlayRender(1200);
+                    if (!ready) {
+                        console.warn('ArtworkPreviewWindow: text overlay may not be fully rendered before export');
+                    }
+                } catch (e) {
+                    console.warn('ArtworkPreviewWindow: error while waiting for text overlay render', e);
+                }
             }
 
-			await this.waitForPreviewAssets();
-            await this.inlinePreviewAssetsForExport();
-            await this.waitForPreviewAssets();
-			const captureMetrics = this.getPreviewCaptureMetrics();
-			if (!captureMetrics || !captureMetrics.target) {
-				throw new Error('Preview content is not ready for export.');
-			}
+            try {
+                await this.waitForPreviewAssets();
+            } catch (e) {
+                console.warn('ArtworkPreviewWindow: error while waiting for preview assets', e);
+            }
 
-            this.renderPreviewToCanvas(captureMetrics).then(async (canvas) => {
-                try {
-                    const exportCanvas = await this.finalizeExportCanvas(canvas, captureMetrics);
-                    // Convert canvas to PNG with maximum quality
-                    const imgData = exportCanvas.toDataURL('image/png', 1.0);
-                    const link = document.createElement('a');
-                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                    link.download = `design-export-${timestamp}.png`;
-                    link.href = imgData;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
+            try {
+                await this.inlinePreviewAssetsForExport();
+            } catch (e) {
+                console.warn('ArtworkPreviewWindow: error while inlining preview assets for export', e);
+            }
 
-                    // Update the existing notification content instead of replacing it
-                    const content = notification.querySelector('.export-notification-content');
-                    const h3 = content.querySelector('h3');
-                    const p = content.querySelector('p');
-                    const progress = content.querySelector('.export-progress');
-                    const button = content.querySelector('.dismiss-export-btn');
+            const captureMetrics = this.getPreviewCaptureMetrics();
+            if (!captureMetrics || !captureMetrics.target) {
+                throw new Error('Preview content is not ready for export.');
+            }
 
-                    h3.textContent = Lang.get('artworkExportSuccess');
-                    p.textContent = Lang.get('artworkExportDownloaded');
-                    progress.style.display = 'none'; // Hide progress bar
-                    button.style.display = 'inline-block'; // Show close button
+            try {
+                const canvas = await this.renderPreviewToCanvas(captureMetrics);
+                const imgData = canvas.toDataURL('image/png', 1.0);
+                const link = document.createElement('a');
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                link.download = `design-export-${timestamp}.png`;
+                link.href = imgData;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
 
-                    // Add event listener to the existing button
-                    button.addEventListener('click', () => {
+                const content = notification.querySelector('.export-notification-content');
+                const h3 = content.querySelector('h3');
+                const p = content.querySelector('p');
+                const progress = content.querySelector('.export-progress');
+                const button = content.querySelector('.dismiss-export-btn');
+
+                h3.textContent = Lang.get('artworkExportSuccess');
+                p.textContent = Lang.get('artworkExportDownloaded');
+                progress.style.display = 'none';
+                button.style.display = 'inline-block';
+
+                button.addEventListener('click', () => {
+                    notification.remove();
+                });
+
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
                         notification.remove();
-                    });
-
-                    // Auto-dismiss after 3 seconds
-                    setTimeout(() => {
-                        if (document.body.contains(notification)) {
-                            notification.remove();
-                        }
-                    }, 3000);
-
-                } catch (e) {
-                    console.error('Error creating PNG:', e);
-                    this.showExportInstructions(notification);
-                }
-            }).catch(error => {
-                console.error('Error with html2canvas:', error);
+                    }
+                }, 3000);
+            } catch (error) {
+                console.error('Error exporting as PNG:', error);
                 this.showExportInstructions(notification);
-            });
+            }
         } catch (error) {
             console.error('Error exporting as PNG:', error);
             this.showExportInstructions();
         }
     }
+
+    async getPreviewExportSourceHtml() {
+        let sourceHtml = '';
+        if (this.codeEditor) {
+            sourceHtml = this.codeEditor.textContent || this.codeEditor.innerText || '';
+        }
+        if (!sourceHtml && typeof this.generatedCode === 'string') {
+            sourceHtml = this.generatedCode;
+        }
+        if (!sourceHtml && this.previewFrame?.contentDocument) {
+            sourceHtml = this.serializeSourceDocument(this.previewFrame.contentDocument, this.generatedCode);
+        }
+        return String(sourceHtml || '');
+    }
+
+    async exportPreviewHtml() {
+        if (!this.isStyleTransferPreview) {
+            return;
+        }
+
+        if (this.currentView !== 'preview') {
+            this.switchView('preview');
+            setTimeout(() => this.exportPreviewHtml(), 500);
+            return;
+        }
+
+        const sourceHtml = await this.getPreviewExportSourceHtml();
+        if (!sourceHtml) {
+            console.error('No HTML source available for export.');
+            this.showExportInstructions();
+            return;
+        }
+
+        // Minimal export: take the raw HTML (with edits applied) and inline images only.
+
+        const notification = document.createElement('div');
+        notification.className = 'export-notification';
+        notification.innerHTML = `
+            <div class="export-notification-content">
+                <h3>${Lang.get('artworkExportingHTML')}</h3>
+                <p>${Lang.get('artworkExportWait')}</p>
+                <div class="export-progress"></div>
+                <div class="button-container">
+                    <button class="dismiss-export-btn" style="display: none;">${Lang.get('artworkClose')}</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(notification);
+
+        try {
+            let saveResult = null;
+
+            // Inline images only into the source HTML provided by the editor (do not alter other markup).
+            let finalHtml = sourceHtml;
+            try {
+                const baseUrl = this.previewFrame?.contentWindow?.location?.href || window.location.href;
+                finalHtml = await this.inlineImagesInHtml(sourceHtml, baseUrl);
+            } catch (_e) {
+                finalHtml = sourceHtml;
+            }
+
+            if (window.PromptedPresentationWorkflow && typeof window.PromptedPresentationWorkflow.saveHtmlToDisk === 'function') {
+                const title = typeof this.title === 'string' && this.title.trim() ? this.title.trim() : 'design-export';
+                saveResult = await window.PromptedPresentationWorkflow.saveHtmlToDisk(title, finalHtml);
+            } else {
+                const filename = (window.PromptedPresentationWorkflow && typeof window.PromptedPresentationWorkflow.sanitizeHtmlFilename === 'function')
+                    ? `${window.PromptedPresentationWorkflow.sanitizeHtmlFilename(this.title || 'design-export')}.html`
+                    : `${String(this.title || 'design-export').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/-+/g, '-').replace(/(^-|-$)/g, '') || 'design-export'}.html`;
+                const blob = new Blob([finalHtml], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = filename;
+                document.body.appendChild(anchor);
+                anchor.click();
+                document.body.removeChild(anchor);
+                URL.revokeObjectURL(url);
+                saveResult = 'saved';
+            }
+
+            const content = notification.querySelector('.export-notification-content');
+            const h3 = content.querySelector('h3');
+            const p = content.querySelector('p');
+            const progress = content.querySelector('.export-progress');
+            const button = content.querySelector('.dismiss-export-btn');
+
+            h3.textContent = Lang.get('artworkExportSuccessHTML');
+            p.textContent = Lang.get('artworkExportDownloadedHTML');
+            progress.style.display = 'none';
+            button.style.display = 'inline-block';
+
+            button.addEventListener('click', () => notification.remove());
+            setTimeout(() => {
+                if (document.body.contains(notification)) {
+                    notification.remove();
+                }
+            }, 3000);
+
+            return saveResult;
+        } catch (error) {
+            console.error('Error exporting HTML:', error);
+            this.showExportInstructions(notification);
+        }
+    }
+
     // Shows fallback instructions for exporting an image if PNG export fails
     showExportInstructions(existingNotification = null) {
         const notification = existingNotification || document.createElement('div');
         notification.className = 'export-notification';
         notification.innerHTML = `
     <div class="export-notification-content">
-        <h3>${Lang.get('artworkExportPNG')}</h3>
+        <h3>${Lang.get(this.isStyleTransferPreview ? 'artworkExportHTML' : 'artworkExportPNG')}</h3>
         <p>${Lang.get('artworkExportInstructions')}</p>
-        <ol>
-            <li>${Lang.get('artworkExportScreenshot')}
-                <ul>
-                    <li><strong>Mac:</strong> ${Lang.get('artworkExportMac')}</li>
-                    <li><strong>Windows:</strong> ${Lang.get('artworkExportWindows')}</li>
-                </ul>
-            </li>
-            <li>${Lang.get('artworkExportPasteSave')}</li>
-        </ol>
         <div style="text-align: right;">
             <button class="dismiss-export-btn">${Lang.get('artworkExportGotIt')}</button>
         </div>
@@ -2663,96 +4337,7 @@ body {
             });
         }
     }
-    // Detects if the provided content is likely markdown (used for rationale)
-    detectMarkdownContent(content) {
-        if (!content || typeof content !== 'string') return false;
-
-        // Look for markdown indicators
-        const markdownIndicators = [
-            /^#{1,6}\s/m,           // Headers (# ## ### etc.)
-            /\*\*.*?\*\*/,          // Bold text
-            /\*.*?\*/,              // Italic text
-            /^-\s/m,                // Bullet points
-            /^\d+\.\s/m             // Numbered lists
-        ];
-
-        return markdownIndicators.some(pattern => pattern.test(content));
-    }
-    // Converts markdown text to HTML for rationale preview
-    convertMarkdownToHTML(markdown) {
-        if (!markdown) return '';
-
-        let html = markdown;
-
-        // Convert headers (### becomes <h3>, #### becomes <h4>, etc.)
-        html = html.replace(/^#### (.*$)/gm, '<h4>$1</h4>');
-        html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
-        html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
-        html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
-
-        // Convert bold text (**text** becomes <strong>text</strong>)
-        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-        // Convert italic text (*text* becomes <em>text</em>)
-        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-        // Convert bullet points (- item becomes <li>item</li>)
-        html = html.replace(/^- (.*$)/gm, '<li>$1</li>');
-
-        // Wrap consecutive <li> elements in <ul>
-        html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-        html = html.replace(/<\/li>\s*<li>/g, '</li><li>');
-
-        // Convert line breaks to paragraphs
-        html = html.split('\n\n').map(paragraph => {
-            paragraph = paragraph.trim();
-            if (!paragraph) return '';
-
-            // Don't wrap headers or lists in <p> tags
-            if (paragraph.startsWith('<h') ||
-                paragraph.startsWith('<ul') ||
-                paragraph.startsWith('<ol') ||
-                paragraph.startsWith('<li')) {
-                return paragraph;
-            }
-
-            return `<p>${paragraph}</p>`;
-        }).join('\n');
-
-        // Clean up any remaining single line breaks
-        html = html.replace(/\n/g, '<br>');
-
-        return html;
-    }
-    // Strips markdown formatting from text for clean copying
-    stripMarkdownFormatting(markdown) {
-        if (!markdown) return '';
-
-        let text = markdown;
-
-        // Remove markdown headers (### Header becomes Header)
-        text = text.replace(/^#{1,6}\s+(.*)$/gm, '$1');
-
-        // Remove bold formatting (**text** becomes text)
-        text = text.replace(/\*\*(.*?)\*\*/g, '$1');
-
-        // Remove italic formatting (*text* becomes text)
-        text = text.replace(/\*(.*?)\*/g, '$1');
-
-        // Remove bullet points (- item becomes item)
-        text = text.replace(/^-\s+(.*)$/gm, '$1');
-
-        // Remove numbered list formatting (1. item becomes item)
-        text = text.replace(/^\d+\.\s+(.*)$/gm, '$1');
-
-        // Clean up multiple consecutive line breaks (keep max 2)
-        text = text.replace(/\n{3,}/g, '\n\n');
-
-        // Trim whitespace
-        text = text.trim();
-
-        return text;
-    }
+    
 }
 
 (function addStyles() {
@@ -2864,10 +4449,7 @@ body {
         .preview-code-view,
         .preview-preview-view {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             overflow: auto;
             display: none;
         }
@@ -2881,37 +4463,38 @@ body {
             background-color: #000000;
         }
 
-        .preview-loading-state {
-            display: none;
-            position: absolute;
-            inset: 0;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-            text-align: center;
-            color: #f5f5f5;
-            background: rgba(0, 0, 0, 0.42);
-            backdrop-filter: blur(14px) saturate(0.9);
-            -webkit-backdrop-filter: blur(14px) saturate(0.9);
-            font-size: 14px;
-            letter-spacing: 0.02em;
-            z-index: 3;
-            pointer-events: none;
-            font-weight: 500;
-        }
-
-        .preview-loading-state.active {
-            display: flex;
-        }
-
         .artwork-preview-window.text-overlay-preview .preview-preview-view.active {
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 0;
             background-color: #000000;
+            overflow: hidden;
         }
         
+        .preview-iframe-shell {
+            position: relative;
+            display: flex;
+            flex: 1 1 auto;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .preview-iframe {
+            display: block;
+            flex: 1 1 auto;
+            min-width: 0;
+            min-height: 0;
+            width: auto;
+            height: auto;
+            border: none;
+            background-color: #000000;
+            position: relative;
+            z-index: 1;
+            transition: opacity 0.12s ease;
+        }
+
         .code-editor {
             font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
             font-size: 14px;
@@ -2923,22 +4506,6 @@ body {
             overflow: auto;
             color: var(--text-color, #333);
             background-color: var(--bg-color, #ffffff);
-        }
-        
-        .preview-iframe-shell {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-
-        .preview-iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            background-color: #000000;
-            position: relative;
-            z-index: 1;
-            transition: opacity 0.12s ease;
         }
 
         .artwork-preview-window.text-overlay-preview .preview-iframe {
@@ -2989,7 +4556,7 @@ body {
             background-color: var(--accent-color-hover, #3c359e);
         }
         
-        .export-png-btn {
+        .export-btn {
             display: flex;
             align-items: center;
             gap: 6px;
@@ -3001,7 +4568,7 @@ body {
             cursor: pointer;
         }
         
-        .export-png-btn:hover {
+        .export-btn:hover {
             background-color: var(--accent-color-hover, #3c359e);
         }
         
@@ -3148,3 +4715,12 @@ body {
 
     document.head.appendChild(style);
 })();
+
+// Expose a global helper so other modules can open the design rationale modal
+try {
+    window.showDesignRationaleModal = function(rawMarkdown) {
+        ArtworkPreviewWindow.showDesignRationale(rawMarkdown);
+    };
+} catch (e) {
+    // ignore
+}

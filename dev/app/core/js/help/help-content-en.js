@@ -1778,17 +1778,18 @@ window.helpContent = {
                     
                     <h4>Requirements and Setup</h4>
                     <ul>
-                        <li><strong>Visual AI Model Required</strong> - You need a vision-capable model installed in Ollama (LLaVA, Gemma3, Phi3-Vision, etc.)</li>
+                        <li><strong>Visual AI Model Required</strong> - You need a vision-capable model installed in Ollama (Gemma4, Qwen3.5, Qwen3.6, Kimi, or another vision-capable Ollama model)</li>
                         <li><strong>Model Selection</strong> - Choose your visual model from the dropdown at the top of the tab</li>
                         <li><strong>Image Requirements</strong> - Upload clear, high-quality images (max 5MB) in PNG, JPEG, GIF, or WebP format</li>
+                        <li><strong>Text Overlay Editing</strong> - Text Overlay mode lets you edit generated text directly in the preview</li>
+                        <li><strong>Style Transfer Editing</strong> - Style Transfer mode allows you to edit text in the preview and replace images within the result</li>
                     </ul>
-                    
                     <h4>Compatible Visual Models</h4>
                     <ul>
-                        <li><strong>Mistral-small3.1</strong> - Mistral visual model with superb capabilities and multilanguage support</li>
-                        <li><strong>Gemma3</strong> - Google's visual model with strong code generation capabilities</li>
-                        <li><strong>LLaVA & BakLLaVA</strong> - Large Language and Vision Assistant variants</li>
-                        <li><strong>Phi3-Vision</strong> - Microsoft's vision model with good design understanding</li>
+                        <li><strong>Gemma4</strong> - Google’s latest visual model with strong image understanding and code-aware reasoning</li>
+                        <li><strong>Qwen3.5</strong> - High-performance vision model with excellent multimodal capabilities</li>
+                        <li><strong>Qwen3.6</strong> - Advanced vision model with improved design, layout, and text handling</li>
+                        <li><strong>Kimi</strong> - Efficient vision-capable model for fast design previews and image-aware workflows</li>
                         <li>Any other Ollama model with vision capabilities</li>
                     </ul>
                     
@@ -1815,7 +1816,7 @@ window.helpContent = {
                 <h4>Complete Workflow</h4>
                 <ol>
                     <li><strong>Select Visual Model</strong> - Choose from the dropdown (selection saved for future sessions)</li>
-                    <li><strong>Choose Design Mode</strong> - Pick HTML Style Transfer, Text Overlay, or Design Rationale</li>
+                    <li><strong>Choose Design Mode</strong> - Pick HTML Style Transfer or Text Overlay</li>
                     <li><strong>Upload Image</strong> - Drag/drop or click to upload (system analyzes dimensions and orientation)</li>
                     <li><strong>Write Instructions</strong> - Provide specific guidance (placeholder text changes based on mode)</li>
                     <li><strong>Generate & Preview</strong> - Click "Generate Design" or press Enter; results open in interactive preview window</li>
@@ -1828,6 +1829,7 @@ window.helpContent = {
                     <li>Converts visual design elements into functional HTML/CSS code</li>
                     <li>Extracts color schemes, layouts, and styling patterns</li>
                     <li>Option to "Use as background image" incorporates the actual uploaded image</li>
+                    <li>After generation, you can edit text directly in the preview and replace displayed images</li>
                     <li>Perfect for transforming design inspiration into web interfaces</li>
                 </ul>
                 
@@ -1835,16 +1837,9 @@ window.helpContent = {
                 <ul>
                     <li>Analyzes images to find optimal text placement areas</li>
                     <li>Generates responsive HTML/CSS for text overlays</li>
+                    <li>After generation, you can edit text directly in the preview for fine-tuning</li>
                     <li>Considers image dimensions and orientation for proper positioning</li>
                     <li>Ideal for marketing materials, banners, and product showcases</li>
-                </ul>
-                
-                <h5>Design Rationale</h5>
-                <ul>
-                    <li>Provides professional analysis of design choices and principles</li>
-                    <li>Explains color theory, typography, layout, and visual hierarchy</li>
-                    <li>Offers insights into user experience impact</li>
-                    <li>Great for learning design principles or understanding successful designs</li>
                 </ul>
                 
                 <h4>Image Management</h4>
@@ -1888,14 +1883,6 @@ window.helpContent = {
                 <h5>Event Promotion</h5>
                 <p class="example-prompt">"Create promotional text overlay: Event title: 'Summer Music Festival 2024', Date: 'July 15-17, 2024', Location: 'Central Park, NYC', Headliners: 'Featured Artists TBA', Ticket info: 'Early Bird $89', Button: 'Get Tickets'"</p>
                 
-                <h4>Design Rationale Examples</h4>
-                
-                <h5>Layout Analysis</h5>
-                <p class="example-prompt">"Analyze the layout and composition of this design. Explain how the visual hierarchy guides user attention and how the spacing and alignment choices impact readability and user flow."</p>
-                
-                <h5>Color Psychology</h5>
-                <p class="example-prompt">"Examine the color choices in this design and explain their psychological impact. How do these colors affect user emotions and decision-making? What does this color palette communicate about the brand?"</p>
-                
                 <h4>Writing Effective Instructions</h4>
                 <ul>
                     <li><strong>Be Specific</strong> - Include design style, target audience, and key components needed</li>
@@ -1908,7 +1895,6 @@ window.helpContent = {
                 <ul>
                     <li><strong>Style Transfer</strong> - Use images with distinct design elements and clear color schemes</li>
                     <li><strong>Text Overlay</strong> - Select images with clear areas for text placement</li>
-                    <li><strong>Design Rationale</strong> - Choose professional designs with intentional elements</li>
                     <li><strong>Quality Matters</strong> - High-resolution images with good lighting produce better results</li>
                 </ul>
                 

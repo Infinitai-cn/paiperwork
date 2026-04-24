@@ -1768,17 +1768,18 @@ window.helpContent = {
                     
                     <h4>要求和设置</h4>
                     <ul>
-                        <li><strong>需要视觉AI模型</strong> - 您需要在Ollama中安装具有视觉功能的模型（LLaVA、Gemma3、Phi3-Vision等）</li>
+                        <li><strong>需要视觉AI模型</strong> - 您需要在Ollama中安装具有视觉功能的模型（Gemma4、Qwen3.5、Qwen3.6、Kimi或其他具有视觉功能的Ollama模型）</li>
                         <li><strong>模型选择</strong> - 从选项卡顶部的下拉菜单中选择您的视觉模型</li>
                         <li><strong>图像要求</strong> - 上传清晰、高质量的图像（最大5MB），支持PNG、JPEG、GIF或WebP格式</li>
+                        <li><strong>文本叠加编辑</strong> - 文本叠加模式允许您在预览中直接编辑生成的文本。</li>
+                        <li><strong>风格迁移编辑</strong> - 风格迁移模式允许您在预览中编辑文本并替换结果中的图片。</li>
                     </ul>
-                    
                     <h4>兼容的视觉模型</h4>
                     <ul>
-                        <li><strong>Mistral-small3.1</strong> - Mistral视觉模型，具有出色的功能和多语言支持</li>
-                        <li><strong>Gemma3</strong> - Google的视觉模型，具有强大的代码生成能力</li>
-                        <li><strong>LLaVA & BakLLaVA</strong> - 大型语言和视觉助手变体</li>
-                        <li><strong>Phi3-Vision</strong> - Microsoft的视觉模型，具有良好的设计理解能力</li>
+                        <li><strong>Gemma4</strong> - Google 最新的视觉模型，具有强大的图像理解和代码感知推理能力</li>
+                        <li><strong>Qwen3.5</strong> - 高性能视觉模型，具有出色的多模态能力</li>
+                        <li><strong>Qwen3.6</strong> - 先进的视觉模型，具有改进的设计、布局和文本处理能力</li>
+                        <li><strong>Kimi</strong> - 高效的视觉模型，用于快速设计预览和图像感知工作流</li>
                         <li>任何其他具有视觉功能的Ollama模型</li>
                     </ul>
                     
@@ -1805,7 +1806,7 @@ window.helpContent = {
                 <h4>完整工作流程</h4>
                 <ol>
                     <li><strong>选择视觉模型</strong> - 从下拉菜单中选择（选择会保存供未来会话使用）</li>
-                    <li><strong>选择设计模式</strong> - 选择HTML样式转换、文本叠加或设计理念</li>
+                    <li><strong>选择设计模式</strong> - 选择HTML样式转换或文本叠加</li>
                     <li><strong>上传图像</strong> - 拖放或点击上传（系统分析尺寸和方向）</li>
                     <li><strong>编写说明</strong> - 提供具体指导（占位符文本根据模式变化）</li>
                     <li><strong>生成和预览</strong> - 点击"生成设计"或按Enter键；结果在交互式预览窗口中打开</li>
@@ -1827,14 +1828,6 @@ window.helpContent = {
                     <li>为文本叠加生成响应式HTML/CSS</li>
                     <li>考虑图像尺寸和方向以进行适当定位</li>
                     <li>非常适合营销材料、横幅和产品展示</li>
-                </ul>
-                
-                <h5>设计理念</h5>
-                <ul>
-                    <li>提供设计选择和原则的专业分析</li>
-                    <li>解释色彩理论、排版、布局和视觉层次</li>
-                    <li>提供对用户体验影响的见解</li>
-                    <li>非常适合学习设计原则或理解成功的设计</li>
                 </ul>
                 
                 <h4>图像管理</h4>
@@ -1878,14 +1871,6 @@ window.helpContent = {
                 <h5>活动宣传</h5>
                 <p class="example-prompt">"创建宣传文本叠加：活动标题：'2024夏季音乐节'，日期：'2024年7月15-17日'，地点：'纽约中央公园'，头条艺人：'特色艺人待定'，票务信息：'早鸟票$89'，按钮：'购买门票'"</p>
                 
-                <h4>设计理念示例</h4>
-                
-                <h5>布局分析</h5>
-                <p class="example-prompt">"分析此设计的布局和构图。解释视觉层次如何引导用户注意力，以及间距和对齐选择如何影响可读性和用户流程。"</p>
-                
-                <h5>色彩心理学</h5>
-                <p class="example-prompt">"检查此设计中的颜色选择并解释其心理影响。这些颜色如何影响用户情绪和决策？这种配色方案传达了品牌的什么信息？"</p>
-                
                 <h4>编写有效说明</h4>
                 <ul>
                     <li><strong>具体明确</strong> - 包含设计风格、目标受众和所需的关键组件</li>
@@ -1898,7 +1883,6 @@ window.helpContent = {
                 <ul>
                     <li><strong>样式转换</strong> - 使用具有独特设计元素和清晰配色方案的图像</li>
                     <li><strong>文本叠加</strong> - 选择具有清晰文本放置区域的图像</li>
-                    <li><strong>设计理念</strong> - 选择具有有意设计元素的专业设计</li>
                     <li><strong>质量很重要</strong> - 高分辨率、光线良好的图像产生更好的结果</li>
                 </ul>
                 

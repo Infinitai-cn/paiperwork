@@ -1762,17 +1762,18 @@ window.helpContent = {
                     
                     <h4>Exigences et configuration</h4>
                     <ul>
-                        <li><strong>Modèle IA visuel requis</strong> - Vous avez besoin d'un modèle avec capacités visuelles installé dans Ollama (LLaVA, Gemma3, Phi3-Vision, etc.)</li>
+                        <li><strong>Modèle IA visuel requis</strong> - Vous avez besoin d'un modèle avec capacités visuelles installé dans Ollama (Gemma4, Qwen3.5, Qwen3.6, Kimi ou un autre modèle compatible vision dans Ollama)</li>
                         <li><strong>Sélection du modèle</strong> - Choisissez votre modèle visuel dans le menu déroulant en haut de l'onglet</li>
                         <li><strong>Exigences d'image</strong> - Téléchargez des images claires et de haute qualité (max 5MB) au format PNG, JPEG, GIF ou WebP</li>
+                        <li><strong>Modification de superposition de texte</strong> - Le mode Superposition de texte vous permet de modifier le texte généré directement dans l'aperçu.</li>
+                        <li><strong>Modification du transfert de style</strong> - Le mode Transfert de style vous permet de modifier le texte dans l'aperçu et de remplacer les images du résultat.</li>
                     </ul>
-                    
                     <h4>Modèles visuels compatibles</h4>
                     <ul>
-                        <li><strong>Mistral-small3.1</strong> - Modèle visuel Mistral avec des capacités superbes et un support multilingue</li>
-                        <li><strong>Gemma3</strong> - Modèle visuel de Google avec de fortes capacités de génération de code</li>
-                        <li><strong>LLaVA & BakLLaVA</strong> - Variantes de Large Language and Vision Assistant</li>
-                        <li><strong>Phi3-Vision</strong> - Modèle de vision Microsoft avec une bonne compréhension du design</li>
+                        <li><strong>Gemma4</strong> - Le dernier modèle visuel de Google avec une forte compréhension des images et un raisonnement conscient du code</li>
+                        <li><strong>Qwen3.5</strong> - Modèle de vision haute performance avec d'excellentes capacités multimodales</li>
+                        <li><strong>Qwen3.6</strong> - Modèle de vision avancé avec une meilleure gestion du design, de la mise en page et du texte</li>
+                        <li><strong>Kimi</strong> - Modèle efficace compatible vision pour des aperçus de design rapides et des workflows sensibles aux images</li>
                         <li>Tout autre modèle Ollama avec capacités visuelles</li>
                     </ul>
                     
@@ -1799,7 +1800,7 @@ window.helpContent = {
                 <h4>Flux de travail complet</h4>
                 <ol>
                     <li><strong>Sélectionner le modèle visuel</strong> - Choisissez dans le menu déroulant (sélection sauvegardée pour les futures sessions)</li>
-                    <li><strong>Choisir le mode de design</strong> - Sélectionnez Transfert de style HTML, Superposition de texte, ou Justification de design</li>
+                    <li><strong>Choisir le mode de design</strong> - Sélectionnez Transfert de style HTML ou Superposition de texte</li>
                     <li><strong>Télécharger l'image</strong> - Glissez/déposez ou cliquez pour télécharger (le système analyse les dimensions et l'orientation)</li>
                     <li><strong>Écrire les instructions</strong> - Fournissez des conseils spécifiques (le texte d'espace réservé change selon le mode)</li>
                     <li><strong>Générer et prévisualiser</strong> - Cliquez sur "Générer le design" ou appuyez sur Entrée ; les résultats s'ouvrent dans une fenêtre de prévisualisation interactive</li>
@@ -1821,14 +1822,6 @@ window.helpContent = {
                     <li>Génère du HTML/CSS responsive pour les superpositions de texte</li>
                     <li>Considère les dimensions et l'orientation de l'image pour un positionnement approprié</li>
                     <li>Idéal pour les matériaux marketing, bannières et présentations de produits</li>
-                </ul>
-                
-                <h5>Justification de design</h5>
-                <ul>
-                    <li>Fournit une analyse professionnelle des choix et principes de design</li>
-                    <li>Explique la théorie des couleurs, la typographie, la mise en page et la hiérarchie visuelle</li>
-                    <li>Offre des insights sur l'impact de l'expérience utilisateur</li>
-                    <li>Excellent pour apprendre les principes de design ou comprendre les designs réussis</li>
                 </ul>
                 
                 <h4>Gestion des images</h4>
@@ -1872,14 +1865,6 @@ window.helpContent = {
                 <h5>Promotion d'événement</h5>
                 <p class="example-prompt">"Créer une superposition de texte promotionnelle : Titre de l'événement : 'Festival de musique d'été 2024', Date : '15-17 juillet 2024', Lieu : 'Central Park, NYC', Têtes d'affiche : 'Artistes vedettes à annoncer', Info billets : 'Tarif précoce 89€', Bouton : 'Obtenir des billets'"</p>
                 
-                <h4>Exemples de justification de design</h4>
-                
-                <h5>Analyse de mise en page</h5>
-                <p class="example-prompt">"Analyser la mise en page et la composition de ce design. Expliquer comment la hiérarchie visuelle guide l'attention de l'utilisateur et comment les choix d'espacement et d'alignement impactent la lisibilité et le flux utilisateur."</p>
-                
-                <h5>Psychologie des couleurs</h5>
-                <p class="example-prompt">"Examiner les choix de couleurs dans ce design et expliquer leur impact psychologique. Comment ces couleurs affectent-elles les émotions et la prise de décision des utilisateurs ? Que communique cette palette de couleurs sur la marque ?"</p>
-                
                 <h4>Rédiger des instructions efficaces</h4>
                 <ul>
                     <li><strong>Être spécifique</strong> - Inclure le style de design, le public cible et les composants clés nécessaires</li>
@@ -1892,7 +1877,6 @@ window.helpContent = {
                 <ul>
                     <li><strong>Transfert de style</strong> - Utiliser des images avec des éléments de design distincts et des schémas de couleurs clairs</li>
                     <li><strong>Superposition de texte</strong> - Sélectionner des images avec des zones claires pour le placement de texte</li>
-                    <li><strong>Justification de design</strong> - Choisir des designs professionnels avec des éléments intentionnels</li>
                     <li><strong>La qualité compte</strong> - Les images haute résolution avec un bon éclairage produisent de meilleurs résultats</li>
                 </ul>
                 
