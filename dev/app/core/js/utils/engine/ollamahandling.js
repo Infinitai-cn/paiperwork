@@ -1747,7 +1747,8 @@ class OllamaAPI {
         documentContext = '',
         isDocumentWebSearch = false,
         forceNewGroup = null,
-        targetConversationGroup = null
+        targetConversationGroup = null,
+        insightsCallback = null
     ) {
        //console.log('Websearch OllamaAPI: Sending to Ollama...');
         const progressBar = document.getElementById('progress-bar');
@@ -2169,6 +2170,14 @@ class OllamaAPI {
                     await PaiperworkDB.touchConversationGroup(hashedMasterKey, window.currentConversationGroup);
                     if (window.chat && typeof window.chat.refreshConversationListIfNeeded === 'function') {
                         await window.chat.refreshConversationListIfNeeded(hashedMasterKey, window.currentConversationGroup);
+                    }
+                }
+
+                if (typeof insightsCallback === 'function') {
+                    try {
+                        await insightsCallback();
+                    } catch (callbackError) {
+                        console.error('OllamaAPI: WebSearch insights callback failed:', callbackError);
                     }
                 }
             };
