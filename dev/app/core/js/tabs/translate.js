@@ -792,7 +792,9 @@ class Translate {
 			contextSize,
 			null,
 			abortSignal,
-			`pdfworks_${Date.now()}`
+			`pdfworks_${Date.now()}`,
+			null,
+			false
 		);
 
 		if (!response || !response.ok) {

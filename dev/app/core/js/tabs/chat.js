@@ -382,6 +382,31 @@ class Chat {
         }
     }
 
+    async processInsightsIfEnabled(prompt, promptInput, sendButton, hashedMasterKey) {
+        if (!prompt || !hashedMasterKey) {
+            return false;
+        }
+
+        try {
+            const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
+            const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
+            if (!insightsEnabled) {
+                return false;
+            }
+
+            if (!SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
+                return false;
+            }
+
+            const insights = await SubjectiveInteractions.analyzeUserMessage(prompt, promptInput, sendButton);
+            await SubjectiveInteractions.storeInsights(hashedMasterKey, insights);
+            return true;
+        } catch (error) {
+            console.error('Chat: Error running insights workflow:', error);
+            return false;
+        }
+    }
+
 
     // Adds a "Run" button to code blocks for HTML/markup languages
     addRunButtonsToCodeBlock(block) {
@@ -1734,13 +1759,7 @@ class Chat {
                                     conversationMessageIds
                                 );
 
-                                // Handle insights if enabled
-                                const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                                const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
-                                if (insightsEnabled && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
-                                    const insights = await SubjectiveInteractions.analyzeUserMessage(prompt, promptInput, sendButton);
-                                    await SubjectiveInteractions.storeInsights(hashedMasterKey, insights);
-                                }
+                                await this.processInsightsIfEnabled(prompt, promptInput, sendButton, hashedMasterKey);
 
                                 // Update conversation group
                                 if (window.currentConversationGroup) {
@@ -1782,6 +1801,8 @@ class Chat {
                                                     window.currentConversationGroup,
                                                     conversationMessageIds
                                                 );
+
+                                                await this.processInsightsIfEnabled(prompt, promptInput, sendButton, hashedMasterKey);
 
                                                 if (window.currentConversationGroup) {
                                                     await PaiperworkDB.touchConversationGroup(hashedMasterKey, window.currentConversationGroup);
@@ -1885,7 +1906,8 @@ class Chat {
                             '', // documentContext
                             false, // isDocumentWebSearch
                             forceNewGroup,
-                            window.currentConversationGroup
+                            window.currentConversationGroup,
+                            async () => await this.processInsightsIfEnabled(prompt, promptInput, sendButton, hashedMasterKey)
                         );
 
                         // Check if the response was aborted
@@ -2071,13 +2093,7 @@ class Chat {
                         conversationMessageIds
                     );
 
-                    // Handle insights if enabled
-                    const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                    const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
-                    if (insightsEnabled && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
-                        const insights = await SubjectiveInteractions.analyzeUserMessage(prompt, promptInput, sendButton);
-                        await SubjectiveInteractions.storeInsights(hashedMasterKey, insights);
-                    }
+                    await this.processInsightsIfEnabled(prompt, promptInput, sendButton, hashedMasterKey);
 
                     // Update conversation group
                     if (window.currentConversationGroup) {
@@ -2220,13 +2236,7 @@ class Chat {
                                         await PaiperworkDB.touchConversationGroup(hashedMasterKey, window.currentConversationGroup);
                                         await this.refreshConversationListIfNeeded(hashedMasterKey, window.currentConversationGroup);
                                     }
-                                    // Handle insights if enabled
-                                    const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                                    const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
-                                    if (insightsEnabled && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
-                                        const insights = await SubjectiveInteractions.analyzeUserMessage(prompt, promptInput, sendButton);
-                                        await SubjectiveInteractions.storeInsights(hashedMasterKey, insights);
-                                    }
+                                    await this.processInsightsIfEnabled(prompt, promptInput, sendButton, hashedMasterKey);
                                 }
                             }
                             else {
@@ -2293,12 +2303,7 @@ class Chat {
                                         await PaiperworkDB.touchConversationGroup(hashedMasterKey, window.currentConversationGroup);
                                         await this.refreshConversationListIfNeeded(hashedMasterKey, window.currentConversationGroup);
                                     }
-                                    const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                                    const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
-                                    if (insightsEnabled && SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
-                                        const insights = await SubjectiveInteractions.analyzeUserMessage(prompt, promptInput, sendButton);
-                                        await SubjectiveInteractions.storeInsights(hashedMasterKey, insights);
-                                    }
+                                    await this.processInsightsIfEnabled(prompt, promptInput, sendButton, hashedMasterKey);
                                 }
                             }
                             else {
@@ -3103,7 +3108,8 @@ class Chat {
                             '', // documentContext
                             false, // isDocumentWebSearch
                             false,
-                            window.currentConversationGroup
+                            window.currentConversationGroup,
+                            async () => await this.processInsightsIfEnabled(originalPrompt, document.getElementById('prompt-input'), document.getElementById('send-prompt'), hashedMasterKey)
                         );
                     } catch (e) {
                         console.error('Regenerate: Error during web-search regeneration:', e);

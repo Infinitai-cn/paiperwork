@@ -217,9 +217,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     });
 
-    if (window.PAIPERWORK_CLOUD_ONLY) {
-        hideLocalOnlyTabsForCloudOnly();
-    }
+    hideLocalOnlyTabsForCloudOnly();
 
     // Auto-generate a session admin key silently in cloud-only deployments
     try {
@@ -299,7 +297,13 @@ document.addEventListener('DOMContentLoaded', async function () {
 });
 
 function hideLocalOnlyTabsForCloudOnly() {
-    const localOnlyTabs = ['models', 'documents', 'translate', 'connectors'];
+    let localOnlyTabs;
+    if (window.PAIPERWORK_CLOUD_ONLY) {
+        localOnlyTabs = ['models', 'documents', 'translate', 'connectors'];
+    } else {
+        localOnlyTabs = ['translate'];
+    }
+
     let hiddenTabWasActive = false;
 
     localOnlyTabs.forEach((tabName) => {
