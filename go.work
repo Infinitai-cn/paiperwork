@@ -1,6 +1,7 @@
-go 1.25.0
+go 1.25.4
 
 use (
 	.
 	./dev/app/core/js/libraries/gowa
+	./dev/app/core/js/libraries/wcfLink
 )

@@ -1,6 +1,6 @@
 module Paiperwork
 
-go 1.25.0
+go 1.25.4
 
 require (
 	github.com/aldinokemal/go-whatsapp-web-multidevice v0.0.0

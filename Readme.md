@@ -27,6 +27,7 @@ We're grateful to the amazing open-source community and the brilliant developers
 - **[Konva.js](https://konvajs.org/)** - Powerful 2D canvas library for desktop and mobile applications, enabling our interactive visual design and presentation features *(MIT License)*
 - **[JSZip](https://stuk.github.io/jszip/)** - JavaScript library for creating, reading and editing .zip files, enabling our Word document processing and file extraction capabilities *(MIT License)*
 - **[go-whatsapp-web-multidevice](https://github.com/aldinokemal/go-whatsapp-web-multidevice)** - For WhatsApp integration feature, enabling multi-device WhatsApp connectivity in Paiperwork *(MIT License)*
+- **[wcfLink](https://github.com/lich0821/wcfLink)** - For WeChat integration and iLink bridge functionality, powering Paiperwork's WeChat connectivity
 
 
 These incredible tools enable us to deliver an offline-first experience while maintaining our commitment to data privacy. Thank you to all the contributors who make these projects possible! 

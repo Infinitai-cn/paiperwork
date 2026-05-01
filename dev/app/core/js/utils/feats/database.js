@@ -19,6 +19,7 @@ class PaiperworkDB {
         if (role === 'kb') return 'kb';
         if (role === 'images' || role === 'attachments' || role === 'media') return 'images';
         if (role === 'whatsapp') return 'whatsapp';
+        if (role === 'wechat') return 'wechat';
         return 'main';
     }
 
@@ -53,7 +54,8 @@ class PaiperworkDB {
             artifacts: !!this.getTrackedOpenDatabase(hashedMasterKey, 'artifacts'),
             kb: !!this.getTrackedOpenDatabase(hashedMasterKey, 'kb'),
             images: !!this.getTrackedOpenDatabase(hashedMasterKey, 'images'),
-            whatsapp: !!this.getTrackedOpenDatabase(hashedMasterKey, 'whatsapp')
+            whatsapp: !!this.getTrackedOpenDatabase(hashedMasterKey, 'whatsapp'),
+            wechat: !!this.getTrackedOpenDatabase(hashedMasterKey, 'wechat')
         };
     }
 
@@ -77,6 +79,9 @@ class PaiperworkDB {
         if (normalizedRole === 'whatsapp') {
             return `${hashedMasterKey}.whatsapp.db`;
         }
+        if (normalizedRole === 'wechat') {
+            return `${hashedMasterKey}.wechat.db`;
+        }
         return `${hashedMasterKey}.db`;
     }
 
@@ -99,6 +104,9 @@ class PaiperworkDB {
         }
         if (normalizedRole === 'whatsapp') {
             return `${hashedMasterKey}::whatsapp`;
+        }
+        if (normalizedRole === 'wechat') {
+            return `${hashedMasterKey}::wechat`;
         }
         return hashedMasterKey;
     }
@@ -522,6 +530,10 @@ class PaiperworkDB {
         return this.getDatabase(hashedMasterKey, 'whatsapp', true);
     }
 
+    static async getWechatDatabase(hashedMasterKey) {
+        return this.getDatabase(hashedMasterKey, 'wechat', true);
+    }
+
     static async getWhatsappRoleSqlDatabase(hashedMasterKey, createIfMissing = true) {
         if (!this.SQL) {
             this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
@@ -544,14 +556,630 @@ class PaiperworkDB {
         return new this.SQL.Database();
     }
 
+    static async getWechatRoleSqlDatabase(hashedMasterKey, createIfMissing = true) {
+        if (!this.SQL) {
+            this.SQL = await initSqlJs({ locateFile: file => `/core/js/libraries/SQLjs/${file}` });
+        }
+
+        const trackedDb = this.getTrackedOpenDatabase(hashedMasterKey, 'wechat');
+        if (trackedDb) {
+            return trackedDb;
+        }
+
+        const existingDb = await this.getExistingDatabase(hashedMasterKey, 'wechat');
+        if (existingDb) {
+            const sqlDb = new this.SQL.Database(existingDb);
+            this._ensureWechatRoleSqlDatabaseSchema(sqlDb);
+            return sqlDb;
+        }
+
+        if (!createIfMissing) {
+            return null;
+        }
+
+        const sqlDb = new this.SQL.Database();
+        this._ensureWechatRoleSqlDatabaseSchema(sqlDb);
+        return sqlDb;
+    }
+
     static async saveWhatsappRoleSqlDatabase(sqlDb, hashedMasterKey) {
         if (!sqlDb || !hashedMasterKey) return false;
         await this.saveToStorage(sqlDb.export(), hashedMasterKey, 'whatsapp');
         return true;
     }
 
+    static async saveWechatRoleSqlDatabase(sqlDb, hashedMasterKey) {
+        if (!sqlDb || !hashedMasterKey) return false;
+        await this.saveToStorage(sqlDb.export(), hashedMasterKey, 'wechat');
+        return true;
+    }
+
+    static _ensureWechatRoleSqlDatabaseSchema(sqlDb) {
+        if (!sqlDb || typeof sqlDb.run !== 'function') return;
+
+        sqlDb.run(`
+            CREATE TABLE IF NOT EXISTS login_sessions (
+                session_id TEXT PRIMARY KEY,
+                base_url TEXT NOT NULL,
+                qr_code TEXT NOT NULL,
+                qr_code_url TEXT NOT NULL,
+                status TEXT NOT NULL,
+                account_id TEXT NOT NULL DEFAULT '',
+                ilink_user_id TEXT NOT NULL DEFAULT '',
+                bot_token TEXT NOT NULL DEFAULT '',
+                error TEXT NOT NULL DEFAULT '',
+                started_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                completed_at TEXT
+            )
+        `);
+
+        sqlDb.run(`
+            CREATE TABLE IF NOT EXISTS accounts (
+                account_id TEXT PRIMARY KEY,
+                base_url TEXT NOT NULL,
+                token TEXT NOT NULL,
+                ilink_user_id TEXT NOT NULL DEFAULT '',
+                enabled INTEGER NOT NULL DEFAULT 1,
+                login_status TEXT NOT NULL DEFAULT 'pending',
+                last_error TEXT NOT NULL DEFAULT '',
+                get_updates_buf TEXT NOT NULL DEFAULT '',
+                last_poll_at TEXT,
+                last_inbound_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        `);
+
+        sqlDb.run(`
+            CREATE TABLE IF NOT EXISTS peer_contexts (
+                account_id TEXT NOT NULL,
+                peer_user_id TEXT NOT NULL,
+                context_token TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (account_id, peer_user_id)
+            )
+        `);
+
+        sqlDb.run(`
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id TEXT NOT NULL,
+                direction TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                from_user_id TEXT NOT NULL DEFAULT '',
+                to_user_id TEXT NOT NULL DEFAULT '',
+                message_id INTEGER NOT NULL DEFAULT 0,
+                context_token TEXT NOT NULL DEFAULT '',
+                body_text TEXT NOT NULL DEFAULT '',
+                media_path TEXT NOT NULL DEFAULT '',
+                media_file_name TEXT NOT NULL DEFAULT '',
+                media_mime_type TEXT NOT NULL DEFAULT '',
+                raw_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        `);
+
+        sqlDb.run(`
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_events_account_message_inbound
+            ON events(account_id, direction, message_id)
+            WHERE direction = 'inbound' AND message_id != 0;
+        `);
+
+        sqlDb.run(`
+            CREATE TABLE IF NOT EXISTS logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                level TEXT NOT NULL,
+                message TEXT NOT NULL,
+                source TEXT NOT NULL,
+                meta_json TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+        `);
+
+        sqlDb.run(`
+            CREATE TABLE IF NOT EXISTS wechat_account_contexts (
+                account TEXT PRIMARY KEY,
+                context TEXT
+            )
+        `);
+    }
+
+    static async saveWechatAccountContext(hashedMasterKey, account, context) {
+        try {
+            if (!hashedMasterKey || !account) return false;
+
+            await this.initializeDatabase(hashedMasterKey);
+            const normalizedAccount = String(account || '').replace(/@.*$/g, '').trim();
+            const sqlDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+            if (!sqlDb) return false;
+
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS wechat_account_contexts (
+                    account TEXT PRIMARY KEY,
+                    context TEXT
+                )
+            `);
+
+            const serialized = context && typeof context === 'object' ? JSON.stringify(context) : String(context || '');
+            const encrypted = serialized ? await this.encrypt(hashedMasterKey, serialized) : '';
+            const encryptedJson = encrypted ? JSON.stringify(encrypted) : '';
+
+            sqlDb.run(`
+                INSERT OR REPLACE INTO wechat_account_contexts (account, context)
+                VALUES (?, ?)
+            `, [normalizedAccount, encryptedJson]);
+
+            await this.saveWechatRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error saving WeChat account context:', error);
+            return false;
+        }
+    }
+
+    static async getWechatAccountContext(hashedMasterKey, account) {
+        try {
+            if (!hashedMasterKey || !account) return null;
+
+            await this.initializeDatabase(hashedMasterKey);
+            const normalizedAccount = String(account || '').replace(/@.*$/g, '').trim();
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'wechat');
+            if (!existingDb) return null;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS wechat_account_contexts (
+                    account TEXT PRIMARY KEY,
+                    context TEXT
+                )
+            `);
+
+            const rows = sqlDb.exec(`SELECT context FROM wechat_account_contexts WHERE account = ? LIMIT 1`, [normalizedAccount]);
+            if (!rows || !rows[0] || !rows[0].values || !rows[0].values.length) {
+                return null;
+            }
+
+            let encrypted = rows[0].values[0][0] || '';
+            if (!encrypted) return null;
+
+            if (typeof encrypted === 'string') {
+                try {
+                    const maybeObj = JSON.parse(encrypted);
+                    if (maybeObj && typeof maybeObj === 'object') {
+                        encrypted = maybeObj;
+                    }
+                } catch (_err) {
+                    // keep as raw string
+                }
+            }
+
+            const decrypted = await this.decrypt(hashedMasterKey, encrypted);
+            if (!decrypted) return null;
+
+            try {
+                return JSON.parse(decrypted);
+            } catch (e) {
+                return null;
+            }
+        } catch (error) {
+            console.error('Error getting WeChat account context:', error);
+            return null;
+        }
+    }
+
+    static async listPersistedWechatAccounts(hashedMasterKey) {
+        if (!hashedMasterKey) {
+            return [];
+        }
+
+        try {
+            const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, false);
+            if (!wechatDb) {
+                return [];
+            }
+
+            const rows = wechatDb.exec(`SELECT account_id, base_url, token, ilink_user_id, enabled, login_status, last_error, get_updates_buf, last_poll_at, last_inbound_at, created_at, updated_at FROM accounts`);
+            if (!Array.isArray(rows) || rows.length === 0) {
+                return [];
+            }
+
+            const result = [];
+            const columns = rows[0].columns;
+            for (const row of rows[0].values) {
+                const item = {};
+                for (let i = 0; i < columns.length; i += 1) {
+                    item[columns[i]] = row[i];
+                }
+                result.push({
+                    account_id: String(item.account_id || ''),
+                    base_url: String(item.base_url || ''),
+                    token: String(item.token || ''),
+                    ilink_user_id: String(item.ilink_user_id || ''),
+                    enabled: Number(item.enabled || 0) === 1,
+                    login_status: String(item.login_status || ''),
+                    last_error: String(item.last_error || ''),
+                    get_updates_buf: String(item.get_updates_buf || ''),
+                    created_at: item.created_at ? String(item.created_at) : '',
+                    updated_at: item.updated_at ? String(item.updated_at) : '',
+                });
+            }
+            return result;
+        } catch (error) {
+            console.warn('PaiperworkDB: failed to read persisted WeChat accounts', error);
+            return [];
+        }
+    }
+
+    static async savePersistedWechatAccount(hashedMasterKey, account) {
+        const baseUrl = String(account?.base_url || account?.baseUrl || account?.baseurl || account?.baseURL || '').trim();
+        const token = String(account?.token || account?.bot_token || '').trim();
+        const accountId = String(account?.account_id || account?.accountId || '').trim();
+        /* console.info('PaiperworkDB: savePersistedWechatAccount called with normalized values', {
+            hashedMasterKeyPresent: !!hashedMasterKey,
+            accountId,
+            baseUrl,
+            tokenPresent: !!token,
+            payload: account
+        }); */
+        if (!hashedMasterKey || !account || !accountId || !baseUrl || !token) {
+            console.warn('PaiperworkDB: savePersistedWechatAccount rejected invalid account payload', {
+                hashedMasterKeyPresent: !!hashedMasterKey,
+                accountId,
+                baseUrl,
+                tokenPresent: !!token,
+                payload: account
+            });
+            return false;
+        }
+
+        const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+        this._ensureWechatRoleSqlDatabaseSchema(wechatDb);
+        const now = new Date().toISOString();
+        const createdAt = account.created_at || account.createdAt || now;
+        const updatedAt = account.updated_at || account.updatedAt || now;
+        const enabled = account.enabled ? 1 : 0;
+        const loginStatus = String(account.login_status || account.loginStatus || 'connected');
+
+        wechatDb.run(`INSERT OR REPLACE INTO accounts (
+            account_id, base_url, token, ilink_user_id, enabled, login_status, last_error,
+            get_updates_buf, last_poll_at, last_inbound_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+            accountId,
+            baseUrl,
+            token,
+            String(account.ilink_user_id || account.ilinkUserId || ''),
+            enabled,
+            loginStatus,
+            String(account.last_error || account.lastError || ''),
+            String(account.get_updates_buf || account.getUpdatesBuf || ''),
+            account.last_poll_at || account.lastPollAt || null,
+            account.last_inbound_at || account.lastInboundAt || null,
+            createdAt,
+            updatedAt
+        ]);
+
+        await this.saveWechatRoleSqlDatabase(wechatDb, hashedMasterKey);
+        return true;
+    }
+
+    static async listPersistedWechatLoginSessions(hashedMasterKey) {
+        if (!hashedMasterKey) {
+            return [];
+        }
+
+        try {
+            const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, false);
+            if (!wechatDb) {
+                return [];
+            }
+
+            const rows = wechatDb.exec(`SELECT session_id, base_url, qr_code, qr_code_url, status, account_id, ilink_user_id, bot_token, error, started_at, updated_at, completed_at FROM login_sessions`);
+            if (!Array.isArray(rows) || rows.length === 0) {
+                return [];
+            }
+
+            const result = [];
+            const columns = rows[0].columns;
+            for (const row of rows[0].values) {
+                const item = {};
+                for (let i = 0; i < columns.length; i += 1) {
+                    item[columns[i]] = row[i];
+                }
+                result.push({
+                    session_id: String(item.session_id || ''),
+                    base_url: String(item.base_url || ''),
+                    qr_code: String(item.qr_code || ''),
+                    qr_code_url: String(item.qr_code_url || ''),
+                    status: String(item.status || ''),
+                    account_id: String(item.account_id || ''),
+                    ilink_user_id: String(item.ilink_user_id || ''),
+                    bot_token: String(item.bot_token || ''),
+                    error: String(item.error || ''),
+                    started_at: item.started_at ? String(item.started_at) : '',
+                    updated_at: item.updated_at ? String(item.updated_at) : '',
+                    completed_at: item.completed_at ? String(item.completed_at) : ''
+                });
+            }
+            return result;
+        } catch (error) {
+            console.warn('PaiperworkDB: failed to read persisted WeChat login sessions', error);
+            return [];
+        }
+    }
+
+    static async savePersistedWechatLoginSession(hashedMasterKey, session) {
+        const sessionId = String(session?.session_id || session?.sessionId || '').trim();
+        const baseUrl = String(session?.base_url || session?.baseUrl || '').trim();
+        const qrCode = String(session?.qr_code || session?.qrCode || '').trim();
+        const qrCodeUrl = String(session?.qr_code_url || session?.qrCodeUrl || '').trim();
+        const status = String(session?.status || '').trim();
+        if (!hashedMasterKey || !sessionId || !baseUrl || !qrCodeUrl || (!qrCode && status !== 'confirmed')) {
+            return false;
+        }
+
+        const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+        const now = new Date().toISOString();
+        const startedAt = session.started_at || session.startedAt || now;
+        const updatedAt = session.updated_at || session.updatedAt || now;
+        const completedAt = session.completed_at || session.completedAt || null;
+
+        wechatDb.run(`INSERT OR REPLACE INTO login_sessions (
+            session_id, base_url, qr_code, qr_code_url, status, account_id, ilink_user_id, bot_token,
+            error, started_at, updated_at, completed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            sessionId,
+            baseUrl,
+            qrCode,
+            qrCodeUrl,
+            String(session.status || ''),
+            String(session.account_id || session.accountId || ''),
+            String(session.ilink_user_id || session.ilinkUserId || ''),
+            String(session.bot_token || session.botToken || ''),
+            String(session.error || ''),
+            startedAt,
+            updatedAt,
+            completedAt
+        );
+
+        await this.saveWechatRoleSqlDatabase(wechatDb, hashedMasterKey);
+        return true;
+    }
+
+    static async listPersistedWechatLogs(hashedMasterKey) {
+        if (!hashedMasterKey) {
+            return [];
+        }
+
+        try {
+            const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, false);
+            if (!wechatDb) {
+                return [];
+            }
+
+            const rows = wechatDb.exec(`SELECT id, level, message, source, meta_json, created_at FROM logs ORDER BY id ASC`);
+            if (!Array.isArray(rows) || rows.length === 0) {
+                return [];
+            }
+
+            const result = [];
+            const columns = rows[0].columns;
+            for (const row of rows[0].values) {
+                const item = {};
+                for (let i = 0; i < columns.length; i += 1) {
+                    item[columns[i]] = row[i];
+                }
+                result.push({
+                    id: Number(item.id || 0),
+                    level: String(item.level || ''),
+                    message: String(item.message || ''),
+                    source: String(item.source || ''),
+                    meta_json: String(item.meta_json || ''),
+                    created_at: item.created_at ? String(item.created_at) : ''
+                });
+            }
+            return result;
+        } catch (error) {
+            console.warn('PaiperworkDB: failed to read persisted WeChat logs', error);
+            return [];
+        }
+    }
+
+    static async savePersistedWechatLog(hashedMasterKey, logEntry) {
+        const level = String(logEntry?.level || '').trim();
+        const message = String(logEntry?.message || '').trim();
+        const source = String(logEntry?.source || '').trim();
+        if (!hashedMasterKey || !level || !message || !source) {
+            return false;
+        }
+
+        const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+        const createdAt = logEntry?.created_at || logEntry?.createdAt || new Date().toISOString();
+        wechatDb.run(`INSERT INTO logs (level, message, source, meta_json, created_at) VALUES (?, ?, ?, ?, ?)`,
+            level,
+            message,
+            source,
+            String(logEntry.meta_json || logEntry.metaJson || ''),
+            createdAt
+        );
+        await this.saveWechatRoleSqlDatabase(wechatDb, hashedMasterKey);
+        return true;
+    }
+
+    static async savePersistedWechatEvent(hashedMasterKey, event) {
+        if (!hashedMasterKey || !event || !event.account_id) {
+            return false;
+        }
+
+        const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+        const createdAt = event?.created_at || event?.createdAt || new Date().toISOString();
+        wechatDb.run(`INSERT INTO events (
+            account_id, direction, event_type, from_user_id, to_user_id, message_id, context_token,
+            body_text, media_path, media_file_name, media_mime_type, raw_json, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            String(event.account_id || event.accountId || ''),
+            String(event.direction || ''),
+            String(event.event_type || event.eventType || ''),
+            String(event.from_user_id || event.fromUserId || ''),
+            String(event.to_user_id || event.toUserId || ''),
+            Number(event.message_id || event.messageId || 0),
+            String(event.context_token || event.contextToken || ''),
+            String(event.body_text || event.bodyText || ''),
+            String(event.media_path || event.mediaPath || ''),
+            String(event.media_file_name || event.mediaFileName || ''),
+            String(event.media_mime_type || event.mediaMimeType || ''),
+            String(event.raw_json || event.rawJson || ''),
+            createdAt
+        );
+        await this.saveWechatRoleSqlDatabase(wechatDb, hashedMasterKey);
+        return true;
+    }
+
+    static async savePersistedWechatPeerContext(hashedMasterKey, peerContext) {
+        const accountId = String(peerContext?.account_id || peerContext?.accountId || '').trim();
+        const peerUserId = String(peerContext?.peer_user_id || peerContext?.peerUserId || '').trim();
+        const contextToken = String(peerContext?.context_token || peerContext?.contextToken || '').trim();
+        if (!hashedMasterKey || !accountId || !peerUserId || !contextToken) {
+            return false;
+        }
+
+        const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+        const updatedAt = peerContext?.updated_at || peerContext?.updatedAt || new Date().toISOString();
+        wechatDb.run(`INSERT INTO peer_contexts (account_id, peer_user_id, context_token, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(account_id, peer_user_id) DO UPDATE SET
+              context_token = excluded.context_token,
+              updated_at = excluded.updated_at`,
+            accountId,
+            peerUserId,
+            contextToken,
+            updatedAt
+        );
+        await this.saveWechatRoleSqlDatabase(wechatDb, hashedMasterKey);
+        return true;
+    }
+
     static async closeWhatsappDatabase(hashedMasterKey = null) {
         return this.closeRoleDatabases('whatsapp', hashedMasterKey);
+    }
+
+    static async closeWechatDatabase(hashedMasterKey = null) {
+        return this.closeRoleDatabases('wechat', hashedMasterKey);
+    }
+
+    static async deleteWechatDatabase(hashedMasterKey) {
+        return this.clearWechatDatabase(hashedMasterKey);
+    }
+
+    static async clearWechatDatabase(hashedMasterKey) {
+        if (!hashedMasterKey) return false;
+
+        const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+        if (!wechatDb) return false;
+
+        const tablesToClear = [
+            'accounts',
+            'login_sessions',
+            'peer_contexts',
+            'events',
+            'logs',
+            'wechat_account_contexts'
+        ];
+
+        for (const table of tablesToClear) {
+            try {
+                wechatDb.run(`DELETE FROM ${table}`);
+            } catch (error) {
+                console.warn(`PaiperworkDB: failed to clear WeChat table ${table}`, error);
+            }
+        }
+
+        await this.saveWechatRoleSqlDatabase(wechatDb, hashedMasterKey);
+        return true;
+    }
+
+    static async clearWechatContexts(hashedMasterKey) {
+        if (!hashedMasterKey) return false;
+
+        const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+        if (!wechatDb) return false;
+
+        const tablesToClear = [
+            'logs',
+            'peer_contexts',
+            'wechat_account_contexts'
+        ];
+
+        for (const table of tablesToClear) {
+            try {
+                wechatDb.run(`DELETE FROM ${table}`);
+            } catch (error) {
+                console.warn(`PaiperworkDB: failed to clear WeChat context table ${table}`, error);
+            }
+        }
+
+        await this.saveWechatRoleSqlDatabase(wechatDb, hashedMasterKey);
+        return true;
+    }
+
+    static async deleteRoleDatabase(role, hashedMasterKey) {
+        const normalizedRole = this.normalizeDbRole(role);
+        if (!hashedMasterKey || !normalizedRole) return false;
+
+        await this.closeRoleDatabases(normalizedRole, hashedMasterKey);
+
+        let opfsDeleted = true;
+        let indexedDBDeleted = false;
+
+        if (this.opfsSupported) {
+            try {
+                const root = await navigator.storage.getDirectory();
+                const dbDir = await root.getDirectoryHandle('PaiperworkDB', { create: false });
+                try {
+                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, normalizedRole));
+                } catch (error) {
+                    if (error?.name !== 'NotFoundError') {
+                        console.warn(`Error deleting ${normalizedRole} database from OPFS:`, error);
+                        opfsDeleted = false;
+                    }
+                }
+            } catch (error) {
+                // No PaiperworkDB directory is okay; we may only have IndexedDB storage.
+                if (error?.name !== 'NotFoundError') {
+                    opfsDeleted = false;
+                }
+            }
+        }
+
+        indexedDBDeleted = await new Promise((resolve) => {
+            const request = indexedDB.open('PaiperworkDB', 1);
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('databases')) {
+                    db.close();
+                    resolve(false);
+                    return;
+                }
+                const transaction = db.transaction(['databases'], 'readwrite');
+                const store = transaction.objectStore('databases');
+                const deleteRequest = store.delete(this.getDbStorageKey(hashedMasterKey, normalizedRole));
+                deleteRequest.onsuccess = () => {
+                    db.close();
+                    resolve(true);
+                };
+                deleteRequest.onerror = () => {
+                    console.error(`Error deleting ${normalizedRole} database from IndexedDB:`, deleteRequest.error);
+                    db.close();
+                    resolve(false);
+                };
+            };
+            request.onerror = () => {
+                console.error('Error opening IndexedDB while deleting role database:', request.error);
+                resolve(false);
+            };
+        });
+
+        return opfsDeleted && indexedDBDeleted;
     }
 
     static async closeRoleDatabases(role = 'rag', hashedMasterKey = null) {
@@ -2602,6 +3230,97 @@ class PaiperworkDB {
                 }
             }
 
+            // Version 28: Create dedicated WeChat role DB tables matching wcfLink requirements.
+            if (currentVersion < 28) {
+                try {
+                    const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+
+                    wechatDb.run(`
+                        CREATE TABLE IF NOT EXISTS login_sessions (
+                            session_id TEXT PRIMARY KEY,
+                            base_url TEXT NOT NULL,
+                            qr_code TEXT NOT NULL,
+                            qr_code_url TEXT NOT NULL,
+                            status TEXT NOT NULL,
+                            account_id TEXT NOT NULL DEFAULT '',
+                            ilink_user_id TEXT NOT NULL DEFAULT '',
+                            bot_token TEXT NOT NULL DEFAULT '',
+                            error TEXT NOT NULL DEFAULT '',
+                            started_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            completed_at TEXT
+                        )
+                    `);
+
+                    wechatDb.run(`
+                        CREATE TABLE IF NOT EXISTS accounts (
+                            account_id TEXT PRIMARY KEY,
+                            base_url TEXT NOT NULL,
+                            token TEXT NOT NULL,
+                            ilink_user_id TEXT NOT NULL DEFAULT '',
+                            enabled INTEGER NOT NULL DEFAULT 1,
+                            login_status TEXT NOT NULL DEFAULT 'pending',
+                            last_error TEXT NOT NULL DEFAULT '',
+                            get_updates_buf TEXT NOT NULL DEFAULT '',
+                            last_poll_at TEXT,
+                            last_inbound_at TEXT,
+                            created_at TEXT NOT NULL,
+                            updated_at TEXT NOT NULL
+                        )
+                    `);
+
+                    wechatDb.run(`
+                        CREATE TABLE IF NOT EXISTS peer_contexts (
+                            account_id TEXT NOT NULL,
+                            peer_user_id TEXT NOT NULL,
+                            context_token TEXT NOT NULL,
+                            updated_at TEXT NOT NULL,
+                            PRIMARY KEY (account_id, peer_user_id)
+                        )
+                    `);
+
+                    wechatDb.run(`
+                        CREATE TABLE IF NOT EXISTS events (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            account_id TEXT NOT NULL,
+                            direction TEXT NOT NULL,
+                            event_type TEXT NOT NULL,
+                            from_user_id TEXT NOT NULL DEFAULT '',
+                            to_user_id TEXT NOT NULL DEFAULT '',
+                            message_id INTEGER NOT NULL DEFAULT 0,
+                            context_token TEXT NOT NULL DEFAULT '',
+                            body_text TEXT NOT NULL DEFAULT '',
+                            media_path TEXT NOT NULL DEFAULT '',
+                            media_file_name TEXT NOT NULL DEFAULT '',
+                            media_mime_type TEXT NOT NULL DEFAULT '',
+                            raw_json TEXT NOT NULL,
+                            created_at TEXT NOT NULL
+                        )
+                    `);
+
+                    wechatDb.run(`
+                        CREATE UNIQUE INDEX IF NOT EXISTS idx_events_account_message_inbound
+                        ON events(account_id, direction, message_id)
+                        WHERE direction = 'inbound' AND message_id != 0;
+                    `);
+
+                    wechatDb.run(`
+                        CREATE TABLE IF NOT EXISTS logs (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            level TEXT NOT NULL,
+                            message TEXT NOT NULL,
+                            source TEXT NOT NULL,
+                            meta_json TEXT NOT NULL DEFAULT '',
+                            created_at TEXT NOT NULL
+                        )
+                    `);
+
+                    await this.saveWechatRoleSqlDatabase(wechatDb, hashedMasterKey);
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error ensuring WeChat role DB tables', error);
+                }
+            }
+
             // Version 24: Add dedicated preferred WhatsApp device fields to whatsapp role DB.
             if (currentVersion < 24) {
                 try {
@@ -2773,9 +3492,9 @@ class PaiperworkDB {
 
 			// Update database version to 27 (includes hashed WhatsApp role DB lookup keys)
             if (currentVersion === 0) {
-				db.run('INSERT INTO db_version (version) VALUES (27)');
+                db.run('INSERT INTO db_version (version) VALUES (28)');
             } else {
-				db.run('UPDATE db_version SET version = 27');
+                db.run('UPDATE db_version SET version = 28');
             }
 
             // Save the migrated database using our enhanced saveToStorage method
@@ -4852,6 +5571,8 @@ class PaiperworkDB {
                 return { success: false, count: 0 };
             }
 
+            // Only clear the local per-phone WhatsApp context table.
+            // Do not purge persisted pairing data, device info, or replay/history tracking state.
             await this.initializeDatabase(hashedMasterKey);
             const sqlDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, false);
             if (!sqlDb) {
@@ -6517,7 +7238,7 @@ class PaiperworkDB {
             }
 
             const expected = String(expectedText || '').replace(/<[^>]*>/g, '').trim();
-            const normalizedPhone = String(options?.normalizedPhone || '').replace(/@.*$/g, '').trim();
+            const normalizedPhone = String(options?.normalizedPhone || options?.normalizedAccount || '').replace(/@.*$/g, '').trim();
             const exactCandidates = new Set([expected].filter(Boolean));
             const seenGroups = new Set();
 
@@ -6573,6 +7294,8 @@ class PaiperworkDB {
                     && (
                         normalizedMessage.startsWith('Conversation started by ')
                         || normalizedMessage.startsWith('Personal WhatsApp conversation for ')
+                        || normalizedMessage.startsWith('Personal wechat conversation for ')
+                        || (normalizedMessage.startsWith('Group conversation') && normalizedMessage.includes(`participant ${normalizedPhone}`))
                     )
                 ) {
                     return groupId;
@@ -8126,17 +8849,27 @@ class PaiperworkDB {
     static async getDatabaseStatistics(hashedMasterKey) {
         try {
             const db = await PaiperworkDB.getDatabase(hashedMasterKey, 'main', true);
-            const ragDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'rag', true);
-            const presentationsDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'presentations', true);
-            const artifactsDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'artifacts', true);
-            const kbDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'kb', true);
-            const imagesDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'images', true);
-            const whatsappDb = await PaiperworkDB.getDatabase(hashedMasterKey, 'whatsapp', true);
-            if (!db || !ragDb || !presentationsDb || !artifactsDb || !kbDb || !imagesDb || !whatsappDb) {
+            const ragData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'rag');
+            const presentationsData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'presentations');
+            const artifactsData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'artifacts');
+            const kbData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'kb');
+            const imagesData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'images');
+            const whatsappData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'whatsapp');
+            const wechatData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'wechat');
+
+            const ragDb = ragData ? new this.SQL.Database(ragData) : null;
+            const presentationsDb = presentationsData ? new this.SQL.Database(presentationsData) : null;
+            const artifactsDb = artifactsData ? new this.SQL.Database(artifactsData) : null;
+            const kbDb = kbData ? new this.SQL.Database(kbData) : null;
+            const imagesDb = imagesData ? new this.SQL.Database(imagesData) : null;
+            const whatsappDb = whatsappData ? new this.SQL.Database(whatsappData) : null;
+            const wechatDb = wechatData ? new this.SQL.Database(wechatData) : null;
+            if (!db) {
                 throw new Error(Lang.get("databaseNotAvailable") || "Database not available");
             }
 
             const tableExists = (sqlDb, tableName) => {
+                if (!sqlDb) return false;
                 try {
                     const check = sqlDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
                     return !!(check && check.length > 0 && check[0]?.values.length > 0);
@@ -8146,6 +8879,7 @@ class PaiperworkDB {
             };
 
             const countRows = (sqlDb, tableName) => {
+                if (!sqlDb) return 0;
                 try {
                     if (!tableExists(sqlDb, tableName)) return 0;
                     const result = sqlDb.exec(`SELECT COUNT(*) FROM ${tableName}`);
@@ -8156,6 +8890,7 @@ class PaiperworkDB {
             };
 
             const textColumnBytes = (sqlDb, tableName, columnName) => {
+                if (!sqlDb) return 0;
                 try {
                     if (!tableExists(sqlDb, tableName)) return 0;
                     const result = sqlDb.exec(`SELECT COALESCE(SUM(LENGTH(${columnName})), 0) FROM ${tableName}`);
@@ -8166,6 +8901,7 @@ class PaiperworkDB {
             };
 
             const multiColumnBytes = (sqlDb, tableName, columnNames = []) => {
+                if (!sqlDb) return 0;
                 try {
                     if (!tableExists(sqlDb, tableName) || !Array.isArray(columnNames) || !columnNames.length) return 0;
                     const expression = columnNames
@@ -8180,12 +8916,13 @@ class PaiperworkDB {
 
             // Get total database size across all dedicated role databases.
             const exportedDb = db.export();
-            const exportedRagDb = ragDb.export();
-            const exportedPresentationsDb = presentationsDb.export();
-            const exportedArtifactsDb = artifactsDb.export();
-            const exportedKbDb = kbDb.export();
-            const exportedImagesDb = imagesDb.export();
-            const exportedWhatsappDb = whatsappDb.export();
+            const exportedRagDb = ragDb ? ragDb.export() : new Uint8Array(0);
+            const exportedPresentationsDb = presentationsDb ? presentationsDb.export() : new Uint8Array(0);
+            const exportedArtifactsDb = artifactsDb ? artifactsDb.export() : new Uint8Array(0);
+            const exportedKbDb = kbDb ? kbDb.export() : new Uint8Array(0);
+            const exportedImagesDb = imagesDb ? imagesDb.export() : new Uint8Array(0);
+            const exportedWhatsappDb = whatsappDb ? whatsappDb.export() : new Uint8Array(0);
+            const exportedWechatDb = wechatDb ? wechatDb.export() : new Uint8Array(0);
             const mainSizeBytes = exportedDb.length;
             const ragSizeBytes = exportedRagDb.length;
             const presentationsSizeBytes = exportedPresentationsDb.length;
@@ -8193,7 +8930,8 @@ class PaiperworkDB {
             const kbSizeBytes = exportedKbDb.length;
             const imagesSizeBytes = exportedImagesDb.length;
             const whatsappSizeBytes = exportedWhatsappDb.length;
-            const totalSizeInBytes = mainSizeBytes + ragSizeBytes + presentationsSizeBytes + artifactsSizeBytes + kbSizeBytes + imagesSizeBytes + whatsappSizeBytes;
+            const wechatSizeBytes = exportedWechatDb.length;
+            const totalSizeInBytes = mainSizeBytes + ragSizeBytes + presentationsSizeBytes + artifactsSizeBytes + kbSizeBytes + imagesSizeBytes + whatsappSizeBytes + wechatSizeBytes;
 
             const documentsTable = `documents_${hashedMasterKey}`;
             const chunksTable = `document_chunks_${hashedMasterKey}`;
@@ -8228,6 +8966,16 @@ class PaiperworkDB {
             const whatsappSessionsCount = countRows(whatsappDb, whatsappSessionsTable);
             const whatsappContextsPayloadBytes = textColumnBytes(whatsappDb, whatsappContextsTable, 'context');
             const whatsappSessionsPayloadBytes = multiColumnBytes(whatsappDb, whatsappSessionsTable, ['session_blob', 'metadata_blob']);
+
+            const wechatAccountsCount = countRows(wechatDb, 'accounts');
+            const wechatLoginSessionsCount = countRows(wechatDb, 'login_sessions');
+            const wechatEventsCount = countRows(wechatDb, 'events');
+            const wechatPeerContextsCount = countRows(wechatDb, 'peer_contexts');
+            const wechatAccountContextsCount = countRows(wechatDb, 'wechat_account_contexts');
+            const wechatLogsCount = countRows(wechatDb, 'logs');
+            const wechatEventsPayloadBytes = multiColumnBytes(wechatDb, 'events', ['body_text', 'raw_json']);
+            const wechatPeerContextPayloadBytes = textColumnBytes(wechatDb, 'peer_contexts', 'context_token');
+            const wechatAccountContextPayloadBytes = textColumnBytes(wechatDb, 'wechat_account_contexts', 'context');
 
             // Check for orphaned chunks (chunks with no parent document) - guard if either table is missing
             let orphanedCount = 0;
@@ -8305,6 +9053,22 @@ class PaiperworkDB {
                         contextFormatted: this.formatFileSize(whatsappContextsPayloadBytes),
                         sessionBytes: whatsappSessionsPayloadBytes,
                         sessionFormatted: this.formatFileSize(whatsappSessionsPayloadBytes)
+                    },
+                    wechat: {
+                        bytes: wechatSizeBytes,
+                        formatted: this.formatFileSize(wechatSizeBytes),
+                        accounts: wechatAccountsCount,
+                        sessions: wechatLoginSessionsCount,
+                        events: wechatEventsCount,
+                        logs: wechatLogsCount,
+                        peerContexts: wechatPeerContextsCount,
+                        accountContexts: wechatAccountContextsCount,
+                        eventsPayloadBytes: wechatEventsPayloadBytes,
+                        eventsPayloadFormatted: this.formatFileSize(wechatEventsPayloadBytes),
+                        peerContextBytes: wechatPeerContextPayloadBytes,
+                        peerContextFormatted: this.formatFileSize(wechatPeerContextPayloadBytes),
+                        accountContextBytes: wechatAccountContextPayloadBytes,
+                        accountContextFormatted: this.formatFileSize(wechatAccountContextPayloadBytes)
                     }
                 },
                 documents: {
@@ -8405,7 +9169,7 @@ class PaiperworkDB {
 
     static async vacuumDatabase(hashedMasterKey) {
         try {
-            const roles = ['main', 'rag', 'presentations', 'artifacts', 'kb', 'images', 'whatsapp'];
+            const roles = ['main', 'rag', 'presentations', 'artifacts', 'kb', 'images', 'whatsapp', 'wechat'];
             let totalBeforeSize = 0;
             let totalAfterSize = 0;
 

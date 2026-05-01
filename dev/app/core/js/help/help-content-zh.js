@@ -2905,10 +2905,10 @@ window.helpContent = {
     connectors: {
         title: "连接器",
         intro: [
-            "注意：出于用户安全和隐私原因，托管在 Huggingface 上的 Paiperwork 在线版本不包含 WhatsApp 功能。",
-            "WhatsApp 编排器支持的语言：英语、西班牙语、葡萄牙语、德语、中文、法语、日语、韩语和俄语。",
-            "连接器用于把 Paiperwork 与 WhatsApp 配对。连接器请求只会使用 Paiperwork 内部已有的资源，不会访问您的操作系统、内存、硬盘或任意外部文件。",
-            "如果要接收传入的 WhatsApp 消息，请保持运行 Paiperwork 的浏览器标签页处于激活状态，并确保电脑不会进入睡眠。",
+            "注意：出于用户安全和隐私原因，托管在 Huggingface 上的 Paiperwork 在线版本不包含 WhatsApp 或 WeChat 功能。",
+            "WhatsApp/WeChat 编排器支持的语言：英语、西班牙语、葡萄牙语、德语、中文、法语、日语、韩语和俄语。",
+            "连接器用于把 Paiperwork 与 WhatsApp/WeChat 配对。连接器请求只会使用 Paiperwork 内部已有的资源，不会访问您的操作系统、内存、硬盘或任意外部文件。",
+            "如果要接收传入的 WhatsApp/WeChat 消息，请保持运行 Paiperwork 的浏览器标签页处于激活状态，并确保电脑不会进入睡眠。锁屏会停止传入消息，您可以考虑暂时禁用它以启用 WhatsApp/WeChat 功能。",
             "文档、研究、演示文稿和工件工作流可能会进入专用的后续模式。请使用对应的退出短语来结束该模式。"
         ],
         articles: [
@@ -2916,20 +2916,21 @@ window.helpContent = {
                 id: "connectors-pairing",
                 title: "配对与模式",
                 content: `
-                <p>在启动服务器之前，先打开连接器选项卡并选择模式。</p>
+                <p>WhatsApp: 在启动服务器之前，先打开连接器选项卡并选择模式。</p>
                 <ol>
                     <li><strong>个人模式：</strong>连接您自己的 WhatsApp 账号，与自己进行私密对话。</li>
                     <li><strong>机器人模式：</strong>在您的 WhatsApp 联系人列表中的人可以与已配对的 Paiperwork 实例对话。除非您明确想这样做，否则建议使用单独的号码。<br><strong>2.1.</strong> 您可以在 Chat 选项卡中修改 System Prompt，从而提升用户与机器人的交互体验。<br><strong>2.2.</strong> 您联系人列表中的任何 WhatsApp 用户都可以访问已启用的连接器功能，以及可通过连接器访问的已存储文档。<br><strong>2.3.</strong> 为了避免滥用和垃圾信息，您不能从 Paiperwork 主动向 WhatsApp 用户发起消息。<br><strong>2.4.</strong> 如果您在机器人模式下关闭服务器，所有待处理的用户消息都会排队等待下次服务器启动，然后逐条处理。如果您想跳过这些消息，请以个人模式启动服务器；除您发给自己的消息外，所有传入消息都会被忽略。</li>
                 </ol>
                 <p>点击 <strong>Start server</strong>，首次配对时扫描二维码。您可以随时停止服务器，这会停止双向消息路由。</p>
-                <h4>清除 WhatsApp 上下文</h4>
-                <p>如果长时间使用后 WhatsApp 回复开始变得臃肿，您可以只清除数据库中按手机保存的 WhatsApp 对话，而无需删除数据库中的其他内容；与 Paiperwork 相关的对话不会被删除。</p>
+                <p>WeChat：要配对 WeChat 机器人，请点击 Start server 按钮，扫描二维码，并按照手机 WeChat 应用中的指示操作。后续启动服务器时会保留相同的配对信息，除非您删除已配对设备。</p>
+                <h4>清除 WhatsApp/WeChat 上下文</h4>
+                <p>如果长时间使用后 WhatsApp/WeChat 回复开始变得臃肿，您可以只清除数据库中按手机保存的 WhatsApp/WeChat 对话，而无需删除数据库中的其他内容；与 Paiperwork 相关的对话不会被删除。</p>
                 <ol>
-                    <li>在连接器选项卡中点击“清除 WhatsApp 上下文”</li>
-                    <li>这会删除按手机保存的 WhatsApp 上下文记忆，并重置当前运行中的 WhatsApp 上下文</li>
+                    <li>在连接器选项卡中点击“清除 WhatsApp/WeChat 上下文”</li>
+                    <li>这会删除按手机保存的 WhatsApp/WeChat 上下文（消息）记忆，并重置当前运行中的 WhatsApp/WeChat 上下文</li>
                     <li>已配对设备的信息会被保留，仍可通过“Delete paired device(s)”进行管理</li>
                 </ol>
-                <p>如果您想彻底解除 Paiperwork 配对，请在手机 WhatsApp 的 <strong>Linked devices</strong> 中操作。</p>
+                <p>如果您想彻底解除 Paiperwork 配对，请在手机 WhatsApp/WeChat 的 <strong>Linked devices</strong> 中操作。</p>
             `,
             },
             {
@@ -2968,6 +2969,7 @@ window.helpContent = {
                     <li><code>总结 &lt;文档名称&gt;</code></li>
                     <li><code>&lt;文档名称&gt; 解释</code></li>
                     <li><code>&lt;文档名称&gt; 总结并创建演示文稿</code></li>
+                    <li><code>&lt;文档名称&gt; 总结并创建迷你应用</code></li>
                 </ul>
                 <p>要退出文档后续模式，请使用 <code>退出文档模式</code> 或 <code>完成了</code>。</p>
                 <h5>交互示例</h5>
@@ -3063,6 +3065,7 @@ window.helpContent = {
                 <h4>演示文稿</h4>
                 <p>您可以通过提供源文本来创建演示文稿。除非您明确指定页数，否则 Paiperwork 会根据内容量估算幻灯片数量。</p>
                 <div class="note"><p><strong>注意：</strong>WhatsApp 的手机、平板和电脑应用出于安全原因会限制代码执行，因此演示文稿可能无法在这些应用中正常显示。请使用 WhatsApp Web，将其下载到您的电脑后再正确查看。</p></div>
+                <div class="note"><p><strong>注意：</strong>Wechat 的手机和平板版本出于安全原因会限制代码执行，因此演示文稿可能无法在这些版本中正常显示。请在电脑上使用 Wechat 应用，这样您可以将它们下载到电脑并正确查看（确保将文件保存到 Wechat 自身文件夹之外）。</p></div>
                 <ul>
                     <li><code>用这段文字 创建演示文稿: &lt;演示文稿文本&gt;</code></li>
                     <li><code>使用以下文本 创建演示文稿: &lt;演示文稿文本&gt;</code></li>
@@ -3080,6 +3083,7 @@ window.helpContent = {
                 <h4>工件</h4>
                 <p>您可以直接通过 WhatsApp 请求创建各种类型的工件或 HTML 迷你应用。</p>
                 <div class="note"><p><strong>注意：</strong>WhatsApp 的手机、平板和电脑应用出于安全原因会限制代码执行，因此迷你应用可能无法在这些应用中正常显示或运行。请使用 WhatsApp Web，将其下载到您的电脑后再正确查看和使用。</p></div>
+                <div class="note"><p><strong>注意：</strong>Wechat 的手机和平板版本出于安全原因会限制代码执行，因此迷你应用可能无法在这些版本中正常显示或运行。请在电脑上使用 Wechat 应用，这样您可以将它们下载到电脑并正确查看和使用（确保将文件保存到 Wechat 自身文件夹之外）。</p></div>
                 <ul>
                     <li><code>创建一个放松的动态壁纸迷你应用，带不同噪声和低频振荡器，使用网页搜索</code></li>
                     <li><code>创建 Galaga 游戏工件</code></li>
@@ -3118,10 +3122,11 @@ window.helpContent = {
                 <ul>
                     <li>目前还不支持把文件和图片直接发送给 AI 模型。</li>
                     <li>文档工作流需要在文档选项卡中选择一个本地嵌入模型。</li>
-                    <li>Paiperwork 会使用内部编排器来判断每条 WhatsApp 请求应该调用哪种连接器功能。</li>
-                    <li>如果您从生成页面返回欢迎页面，或刷新浏览器，WhatsApp 服务器都会关闭。您必须手动重新启动它，才能恢复 WhatsApp 通信。</li>
-                    <li>通过 WhatsApp 生成的演示文稿和工件会作为 HTML 文件发回。之后您可以在 Paiperwork 中打开它们进行更深入的手动编辑。</li>
-                    <li>默认情况下，Paiperwork 会按 Master Key 用户隔离 WhatsApp 连接器状态，因此已保存的会话、设备状态和排队中的运行时数据不会在同一台电脑上的不同 Master Key 用户之间泄露。</li>
+                    <li>Paiperwork 会使用内部编排器来判断每条 WhatsApp/WeChat 请求应该调用哪种连接器功能。</li>
+                    <li>如果您从生成页面返回欢迎页面，或刷新浏览器，WhatsApp/WeChat 服务器都会关闭。您必须手动重新启动它，才能恢复 WhatsApp/WeChat 通信。</li>
+                    <li>通过 WhatsApp/WeChat 生成的演示文稿和工件会作为 HTML 文件发回。之后您可以在 Paiperwork 中打开它们进行更深入的手动编辑。</li>
+                    <li>在文档摘要、研究、演示文稿创建或迷你应用生成等长时间操作期间，您可以随时通过 WhatsApp/WeChat 发送 <code>Cancel</code>、<code>Stop</code> 或 <code>Exit</code> 来取消。</li>
+                    <li>默认情况下，Paiperwork 会按 Master Key 用户隔离 WhatsApp/WeChat 连接器状态，因此已保存的会话、设备状态和排队中的运行时数据不会在同一台电脑上的不同 Master Key 用户之间泄露。</li>
                 </ul>
             `,
             }

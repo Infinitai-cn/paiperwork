@@ -2896,10 +2896,10 @@ window.helpContent = {
     connectors: {
         title: "Connecteurs",
         intro: [
-            "Remarque : la version en ligne de Paiperwork hébergée sur Huggingface n'inclut pas la fonctionnalité WhatsApp pour des raisons de sécurité et de confidentialité des utilisateurs.",
-            "Langues prises en charge par l'orchestrateur WhatsApp : anglais, espagnol, portugais, allemand, chinois, français, japonais, coréen et russe.",
-            "Les connecteurs relient Paiperwork à WhatsApp. Les requêtes n'utilisent que les ressources déjà disponibles dans Paiperwork et n'accèdent pas à votre système d'exploitation, à la mémoire, au disque dur ni à des fichiers externes arbitraires.",
-            "Pour recevoir les messages WhatsApp entrants, gardez actif l'onglet du navigateur qui exécute Paiperwork et empêchez l'ordinateur de se mettre en veille.",
+            "Remarque : la version en ligne de Paiperwork hébergée sur Huggingface n'inclut pas la fonctionnalité WhatsApp ou WeChat pour des raisons de sécurité et de confidentialité des utilisateurs.",
+            "Langues prises en charge par l'orchestrateur WhatsApp/WeChat : anglais, espagnol, portugais, allemand, chinois, français, japonais, coréen et russe.",
+            "Les connecteurs relient Paiperwork à WhatsApp/WeChat. Les requêtes n'utilisent que les ressources déjà disponibles dans Paiperwork et n'accèdent pas à votre système d'exploitation, à la mémoire, au disque dur ni à des fichiers externes arbitraires.",
+            "Pour recevoir les messages WhatsApp/WeChat entrants, gardez actif l'onglet du navigateur qui exécute Paiperwork et empêchez l'ordinateur de se mettre en veille. L'écran de verrouillage interrompra les messages entrants ; vous pouvez envisager de le désactiver temporairement pour activer les fonctionnalités WhatsApp/WeChat.",
             "Les documents, recherches, présentations et artefacts peuvent ouvrir un mode de suivi dédié. Restez dans ce mode jusqu'à sa fermeture avec la commande de sortie appropriée."
         ],
         articles: [
@@ -2907,20 +2907,21 @@ window.helpContent = {
                 id: "connectors-pairing",
                 title: "Appairage et Modes",
                 content: `
-                <p>Ouvrez l'onglet Connecteurs et choisissez d'abord un mode avant de démarrer le serveur.</p>
+                <p>WhatsApp : Ouvrez l'onglet Connecteurs et choisissez d'abord un mode avant de démarrer le serveur.</p>
                 <ol>
                     <li><strong>Mode personnel :</strong> vous connectez votre propre compte WhatsApp et vous discutez avec vous-même dans un flux privé.</li>
                     <li><strong>Mode bot :</strong> les personnes présentes dans votre liste de contacts WhatsApp peuvent parler à l'instance Paiperwork appairée. Utilisez de préférence un numéro séparé, sauf si vous voulez explicitement ce comportement sur votre compte principal.<br><strong>2.1.</strong> Vous pouvez améliorer l'expérience utilisateur avec le bot en modifiant le System Prompt dans l'onglet Chat.<br><strong>2.2.</strong> Tout utilisateur WhatsApp présent dans votre liste de contacts pourra accéder aux fonctions du connecteur activées et aux documents stockés disponibles via le connecteur.<br><strong>2.3.</strong> Vous ne pouvez pas initier de messages depuis Paiperwork vers des utilisateurs WhatsApp afin d'éviter les abus et le spam.<br><strong>2.4.</strong> Si vous fermez le serveur en mode bot, les messages utilisateurs en attente restent dans une file jusqu'au prochain démarrage du serveur, puis sont traités un par un. Si vous voulez ignorer ces messages, démarrez le serveur en mode personnel ; tous les messages entrants seront ignorés sauf ceux que vous vous envoyez à vous-même.</li>
                 </ol>
                 <p>Cliquez sur <strong>Start server</strong>, puis scannez le code QR lors du premier appairage. Vous pouvez arrêter le serveur à tout moment, ce qui stoppe le routage des messages dans les deux sens.</p>
-                <h4>Effacer les contextes WhatsApp</h4>
-                <p>Si les réponses WhatsApp deviennent trop chargées après une longue utilisation, vous pouvez effacer uniquement les conversations WhatsApp par téléphone stockées dans la base de données sans supprimer le reste de votre base de données ; les conversations liées à Paiperwork ne seront pas supprimées.</p>
+                <p>WeChat : pour apparier le bot WeChat, cliquez sur le bouton Start server, scannez le code QR et suivez les instructions dans l’application WeChat de votre téléphone. Les démarrages suivants du serveur conserveront les mêmes informations d’appariement, sauf si vous supprimez l’appareil appairé.</p>
+                <h4>Effacer les contextes WhatsApp/WeChat</h4>
+                <p>Si les réponses WhatsApp/WeChat deviennent trop chargées après une longue utilisation, vous pouvez effacer uniquement les conversations WhatsApp/WeChat par téléphone stockées dans la base de données sans supprimer le reste de votre base de données ; les conversations liées à Paiperwork ne seront pas supprimées.</p>
                 <ol>
-                    <li>Cliquez sur "Effacer les contextes WhatsApp" dans l'onglet Connecteurs</li>
-                    <li>Cela supprime la mémoire de contexte WhatsApp stockée par téléphone et réinitialise le contexte WhatsApp actif en mémoire</li>
+                    <li>Cliquez sur "Effacer les contextes WhatsApp/WeChat" dans l'onglet Connecteurs</li>
+                    <li>Cela supprime la mémoire de contexte WhatsApp/WeChat stockée par téléphone et réinitialise le contexte WhatsApp/WeChat actif en mémoire</li>
                     <li>Les informations des appareils appairés sont conservées et peuvent toujours être gérées avec "Delete paired device(s)"</li>
                 </ol>
-                <p>Si vous souhaitez supprimer complètement le lien avec Paiperwork, faites-le depuis votre téléphone dans WhatsApp sous <strong>Linked devices</strong>.</p>
+                <p>Si vous souhaitez supprimer complètement le lien avec Paiperwork, faites-le depuis votre téléphone dans WhatsApp/WeChat sous <strong>Linked devices</strong>.</p>
             `,
             },
             {
@@ -2959,6 +2960,7 @@ window.helpContent = {
                     <li><code>résumer &lt;nom du document&gt;</code></li>
                     <li><code>&lt;nom du document&gt; expliquer</code></li>
                     <li><code>&lt;nom du document&gt; résumé et présentation</code></li>
+                    <li><code>&lt;nom du document&gt; résumé et mini app</code></li>
                 </ul>
                 <p>Pour quitter le mode de suivi des documents, utilisez <code>quitter le mode document</code> ou <code>j'ai fini</code>.</p>
                 <h5>Interactions</h5>
@@ -3054,6 +3056,7 @@ window.helpContent = {
                 <h4>Présentations</h4>
                 <p>Vous pouvez créer des présentations en fournissant le texte source. Paiperwork estime le nombre de diapositives à partir de la quantité de contenu, sauf si vous indiquez explicitement un nombre de diapositives.</p>
                 <div class="note"><p><strong>Remarque :</strong> Les applications WhatsApp sur téléphone, tablette et ordinateur limitent l'exécution de code pour des raisons de sécurité ; les présentations risquent donc de ne pas s'y afficher. Utilisez WhatsApp Web afin de pouvoir les télécharger sur votre ordinateur et les voir correctement.</p></div>
+                <div class="note"><p><strong>Remarque :</strong> Les versions Wechat pour téléphone et tablette restreignent l'exécution de code pour des raisons de sécurité ; les présentations risquent donc de ne pas s'y afficher. Utilisez l'application Wechat sur l'ordinateur afin de pouvoir les télécharger sur votre ordinateur et les voir correctement (assurez-vous d'enregistrer le fichier en dehors du dossier propre à Wechat).</p></div>
                 <ul>
                     <li><code>avec le texte suivant créer une présentation : &lt;texte de présentation&gt;</code></li>
                     <li><code>avec ce texte créer une présentation : &lt;texte de présentation&gt;</code></li>
@@ -3071,6 +3074,7 @@ window.helpContent = {
                 <h4>Artefacts</h4>
                 <p>Vous pouvez demander directement depuis WhatsApp des artefacts ou mini-apps HTML de toutes sortes.</p>
                 <div class="note"><p><strong>Remarque :</strong> Les applications WhatsApp sur téléphone, tablette et ordinateur limitent l'exécution de code pour des raisons de sécurité ; les mini-apps risquent donc de ne pas s'y afficher ou fonctionner correctement. Utilisez WhatsApp Web afin de pouvoir les télécharger sur votre ordinateur et les utiliser correctement.</p></div>
+                <div class="note"><p><strong>Remarque :</strong> Les versions Wechat pour téléphone et tablette restreignent l'exécution de code pour des raisons de sécurité ; les mini-apps risquent donc de ne pas s'y afficher ou fonctionner correctement. Utilisez l'application Wechat sur l'ordinateur afin de pouvoir les télécharger sur votre ordinateur et les utiliser correctement (assurez-vous d'enregistrer le fichier en dehors du dossier propre à Wechat).</p></div>
                 <ul>
                     <li><code>crée une mini app de fond d'écran animé relaxant avec différents bruits et des oscillateurs de basse fréquence, avec recherche web</code></li>
                     <li><code>créer artefact galaga</code></li>
@@ -3109,10 +3113,11 @@ window.helpContent = {
                 <ul>
                     <li>L'envoi de fichiers et d'images au modèle d'IA n'est pas encore pris en charge.</li>
                     <li>Les flux documents nécessitent un modèle d'embeddings local sélectionné dans l'onglet Documents.</li>
-                    <li>Paiperwork utilise un orchestrateur interne pour décider quelle fonction du connecteur employer pour chaque requête WhatsApp.</li>
-                    <li>Si vous revenez de la page de génération à la page d'accueil ou si vous actualisez le navigateur, le serveur WhatsApp se ferme. Vous devez le redémarrer manuellement pour reprendre la communication sur WhatsApp.</li>
-                    <li>Les présentations et artefacts générés depuis WhatsApp sont renvoyés comme fichiers HTML. Vous pourrez ensuite les ouvrir dans Paiperwork pour des retouches manuelles plus poussées.</li>
-                    <li>Par défaut, Paiperwork isole l'état du connecteur WhatsApp par utilisateur de Master Key afin que les sessions enregistrées, l'état des appareils et les données d'exécution en file d'attente ne fuient pas entre différents utilisateurs de Master Key sur la même machine.</li>
+                    <li>Paiperwork utilise un orchestrateur interne pour décider quelle fonction du connecteur employer pour chaque requête WhatsApp/WeChat.</li>
+                    <li>Si vous revenez de la page de génération à la page d'accueil ou si vous actualisez le navigateur, le serveur WhatsApp/WeChat se ferme. Vous devez le redémarrer manuellement pour reprendre la communication sur WhatsApp/WeChat.</li>
+                    <li>Les présentations et artefacts générés depuis WhatsApp/WeChat sont renvoyés comme fichiers HTML. Vous pourrez ensuite les ouvrir dans Paiperwork pour des retouches manuelles plus poussées.</li>
+                    <li>Lors d'opérations longues comme le résumé de documents, la recherche, la création de présentations ou la génération de mini-apps, vous pouvez toujours annuler à tout moment en envoyant <code>Cancel</code>, <code>Stop</code> ou <code>Exit</code> depuis WhatsApp/WeChat.</li>
+                    <li>Par défaut, Paiperwork isole l'état du connecteur WhatsApp/WeChat par utilisateur de Master Key afin que les sessions enregistrées, l'état des appareils et les données d'exécution en file d'attente ne fuient pas entre différents utilisateurs de Master Key sur la même machine.</li>
                 </ul>
             `,
             }

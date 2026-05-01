@@ -38,6 +38,24 @@ class Chat {
                     }
                 } catch (e) { console.error('Chat: failed to stop connectors polling on whatsappUnpaired', e); }
             });
+            window.addEventListener('wechatPaired', () => {
+                try {
+                    if (window.wechatConnectorBridge && typeof window.wechatConnectorBridge.startIncomingPolling === 'function') {
+                        window.wechatConnectorBridge.startIncomingPolling();
+                    } else if (window.connectors && typeof window.connectors.startWechatIncomingPolling === 'function') {
+                        window.connectors.startWechatIncomingPolling();
+                    }
+                } catch (e) { console.error('Chat: failed to start WeChat polling on wechatPaired', e); }
+            });
+            window.addEventListener('wechatUnpaired', () => {
+                try {
+                    if (window.wechatConnectorBridge && typeof window.wechatConnectorBridge.stopIncomingPolling === 'function') {
+                        window.wechatConnectorBridge.stopIncomingPolling();
+                    } else if (window.connectors && typeof window.connectors.stopWechatIncomingPolling === 'function') {
+                        window.connectors.stopWechatIncomingPolling();
+                    }
+                } catch (e) { console.error('Chat: failed to stop WeChat polling on wechatUnpaired', e); }
+            });
             window.addEventListener('whatsappIncoming', (e) => {
                 try {
                     const msg = e && e.detail ? e.detail : null;
@@ -63,6 +81,37 @@ class Chat {
                     this.processWhatsappIncomingMessage(msg);
                 } catch (err) {
                     console.error('Chat: error handling whatsappIncoming event', err);
+                }
+            });
+            window.addEventListener('wechatIncoming', (e) => {
+                try {
+                    const msg = e && e.detail ? e.detail : null;
+                    if (!msg) return;
+                    console.info('Chat: wechatIncoming event received', { msg });
+
+                    const busy = window.isGenerating || this.isGenerating || (window.chat && window.chat.isGenerating);
+                    if (busy) {
+                        if (window.wechatConnectorBridge && typeof window.wechatConnectorBridge.enqueueIncomingMessage === 'function') {
+                            window.wechatConnectorBridge.enqueueIncomingMessage(msg).catch(err => console.warn('Chat: failed to enqueue busy WeChat message', err));
+                        } else if (window.connectors && typeof window.connectors.enqueueWechatIncomingMessage === 'function') {
+                            window.connectors.enqueueWechatIncomingMessage(msg).catch(err => console.warn('Chat: failed to enqueue busy WeChat message', err));
+                        } else {
+                            console.warn('Chat: no connector enqueue function available while busy');
+                        }
+                        return;
+                    }
+
+                    if (!this.initialized) {
+                        if (window.wechatConnectorBridge && typeof window.wechatConnectorBridge.enqueueIncomingMessage === 'function') {
+                            window.wechatConnectorBridge.enqueueIncomingMessage(msg).catch(err => console.warn('Chat: failed to enqueue early WeChat message', err));
+                        } else if (window.connectors && typeof window.connectors.enqueueWechatIncomingMessage === 'function') {
+                            window.connectors.enqueueWechatIncomingMessage(msg).catch(err => console.warn('Chat: failed to enqueue early WeChat message', err));
+                        }
+                        return;
+                    }
+                    this.processWechatIncomingMessage(msg);
+                } catch (err) {
+                    console.error('Chat: error handling wechatIncoming event', err);
                 }
             });
         } catch (err) {
@@ -133,15 +182,70 @@ class Chat {
         }
     }
 
-    // Wrapper for orchestrator document-check from ConnectorWhatsapp
+    async processWechatIncomingMessage(msg) {
+        const busy = window.isGenerating || this.isGenerating || (window.chat && window.chat.isGenerating);
+        if (busy) {
+            if (window.wechatConnectorBridge && typeof window.wechatConnectorBridge.enqueueIncomingMessage === 'function') {
+                try {
+                    await window.wechatConnectorBridge.enqueueIncomingMessage(msg);
+                    return;
+                } catch (err) {
+                    console.warn('Chat: failed to enqueue busy WeChat message', err);
+                }
+            }
+            if (window.connectors && typeof window.connectors.enqueueWechatIncomingMessage === 'function') {
+                try {
+                    await window.connectors.enqueueWechatIncomingMessage(msg);
+                    return;
+                } catch (err) {
+                    console.warn('Chat: failed to enqueue busy WeChat message', err);
+                }
+            }
+            return;
+        }
+
+        if (window.wechatConnectorBridge && typeof window.wechatConnectorBridge.processIncomingMessage === 'function') {
+            try {
+                await window.wechatConnectorBridge.processIncomingMessage(msg);
+                return;
+            } catch (e) {
+                console.error('Chat: wechatConnectorBridge.processIncomingMessage failed', e);
+            }
+        } else if (window.connectors && typeof window.connectors.processWechatIncomingMessage === 'function') {
+            try {
+                await window.connectors.processWechatIncomingMessage(msg);
+                return;
+            } catch (e) {
+                console.error('Chat: connectors.processWechatIncomingMessage failed', e);
+            }
+        }
+
+        // Fallback: if chat not initialized, enqueue for later processing
+        if (!this.initialized) {
+            if (window.wechatConnectorBridge && typeof window.wechatConnectorBridge.enqueueIncomingMessage === 'function') {
+                try { await window.wechatConnectorBridge.enqueueIncomingMessage(msg); } catch (err) { console.warn('Chat: failed to enqueue fallback WeChat message', err); }
+            } else if (window.connectors && typeof window.connectors.enqueueWechatIncomingMessage === 'function') {
+                try { await window.connectors.enqueueWechatIncomingMessage(msg); } catch (err) { console.warn('Chat: failed to enqueue fallback WeChat message', err); }
+            }
+            return;
+        }
+    }
+
+    // Wrapper for orchestrator document-check from connectors (WhatsApp or WeChat)
     async _handleOrchestratorDocumentCheck(msg) {
         if (window.connectors && typeof window.connectors.handleOrchestratorDocumentCheck === 'function') {
             return await window.connectors.handleOrchestratorDocumentCheck(msg);
         }
 
-        const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '');
+        const phone = String(msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').replace(/@.*$/g, '').trim();
         if (phone && typeof window.connectors?.postWhatsappText === 'function') {
             await window.connectors.postWhatsappText(phone, Lang.get('ragDocumentCheckNotSupported') || 'Document-check is not available right now.');
+            return;
+        }
+
+        const wechatTarget = String(msg?.account || msg?.account_id || msg?.accountId || msg?.chat_id || msg?.from || msg?.from_name || msg?.fromJid || '').trim();
+        if (wechatTarget && typeof window.connectors?.postWechatText === 'function') {
+            await window.connectors.postWechatText(wechatTarget, Lang.get('ragDocumentCheckNotSupported') || 'Document-check is not available right now.');
         }
     }
 
@@ -633,7 +737,11 @@ class Chat {
         const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
             ? window.__paiperworkWhatsappActiveRequest
             : null;
+        const wechatRequestScope = (typeof window !== 'undefined' && window.__paiperworkwechatActiveRequest)
+            ? window.__paiperworkwechatActiveRequest
+            : null;
         const whatsappTargetConversationGroup = Number(whatsappRequestScope && whatsappRequestScope.targetConversationGroup);
+        const wechatTargetConversationGroup = Number(wechatRequestScope && wechatRequestScope.targetConversationGroup);
 
         if (Number.isInteger(whatsappTargetConversationGroup) && whatsappTargetConversationGroup > 0) {
             if (window.currentConversationGroup !== whatsappTargetConversationGroup) {
@@ -645,6 +753,21 @@ class Chat {
                     });
                 }
                 window.currentConversationGroup = whatsappTargetConversationGroup;
+            }
+
+            window.forceNewConversationGroup = false;
+        }
+
+        if (Number.isInteger(wechatTargetConversationGroup) && wechatTargetConversationGroup > 0) {
+            if (window.currentConversationGroup !== wechatTargetConversationGroup) {
+                if (window.chatTab && typeof window.chatTab.loadSessionConversation === 'function') {
+                    await window.chatTab.loadSessionConversation({
+                        group_id: wechatTargetConversationGroup,
+                        preview: wechatRequestScope?.sessionPreview || 'WeChat conversation',
+                        timestamp: new Date().toISOString()
+                    });
+                }
+                window.currentConversationGroup = wechatTargetConversationGroup;
             }
 
             window.forceNewConversationGroup = false;
@@ -683,11 +806,13 @@ class Chat {
         // FIXED: Check if we only have welcome messages (no real conversation) OR no currentConversationGroup
         const onlyWelcomeMessages = welcomeMessage && messageCount === 0;
         const noActiveGroup = !(Number.isInteger(whatsappTargetConversationGroup) && whatsappTargetConversationGroup > 0)
+            && !(Number.isInteger(wechatTargetConversationGroup) && wechatTargetConversationGroup > 0)
             && !window.currentConversationGroup;
 
         // If chat area is empty, only contains welcome message, or no active conversation group, treat this as a new conversation group
         let forceNewGroup = window.forceNewConversationGroup === true || noExistingMessages || onlyWelcomeMessages || noActiveGroup;
-        if (Number.isInteger(whatsappTargetConversationGroup) && whatsappTargetConversationGroup > 0) {
+        if ((Number.isInteger(whatsappTargetConversationGroup) && whatsappTargetConversationGroup > 0)
+            || (Number.isInteger(wechatTargetConversationGroup) && wechatTargetConversationGroup > 0)) {
             forceNewGroup = false;
         }
 
@@ -848,6 +973,20 @@ class Chat {
             }
         };
 
+        const applyWechatRequestMetadata = (element) => {
+            if (!element || !wechatRequestScope || !wechatRequestScope.id) {
+                return;
+            }
+
+            element.dataset.wechatRequestId = wechatRequestScope.id;
+            if (wechatRequestScope.account) {
+                element.dataset.wechatAccount = wechatRequestScope.account;
+            }
+            if (wechatRequestScope.replyTarget) {
+                element.dataset.wechatReplyTarget = wechatRequestScope.replyTarget;
+            }
+        };
+
         const userDiv = document.createElement('div');
         userDiv.className = 'user-message';
         userDiv.style.flexDirection = 'column';
@@ -858,7 +997,6 @@ class Chat {
 
         const conversationMessageIds = this.createConversationMessageIds();
         userDiv.dataset.messageId = conversationMessageIds.userMessageId;
-    applyWhatsappRequestMetadata(userDiv);
 
         const extractVisiblePromptFromAutomationPrompt = (rawPrompt) => {
             const promptText = String(rawPrompt || '').trim();
@@ -914,9 +1052,11 @@ class Chat {
 
         const automationVisiblePrompt = extractVisiblePromptFromAutomationPrompt(prompt);
 
-        const visiblePrompt = whatsappRequestScope && typeof whatsappRequestScope.displayUserText === 'string' && whatsappRequestScope.displayUserText.trim()
+        const visiblePrompt = (whatsappRequestScope && typeof whatsappRequestScope.displayUserText === 'string' && whatsappRequestScope.displayUserText.trim())
             ? whatsappRequestScope.displayUserText.trim()
-            : automationVisiblePrompt || prompt;
+            : (wechatRequestScope && typeof wechatRequestScope.displayUserText === 'string' && wechatRequestScope.displayUserText.trim())
+                ? wechatRequestScope.displayUserText.trim()
+                : automationVisiblePrompt || prompt;
 
         userDiv.innerHTML = `<div class="message-bubble">${visiblePrompt}</div>`;
 
@@ -996,6 +1136,8 @@ class Chat {
         }
 
         this.addCopyActionToUserMessage(userDiv);
+        applyWhatsappRequestMetadata(userDiv);
+        applyWechatRequestMetadata(userDiv);
 
         userDiv.appendChild(document.createElement('br'));
         aiReplies.appendChild(userDiv);
@@ -1219,6 +1361,7 @@ class Chat {
             aiDiv.className = 'assistant-message';
             aiDiv.dataset.messageId = conversationMessageIds.assistantMessageId;
             applyWhatsappRequestMetadata(aiDiv);
+            applyWechatRequestMetadata(aiDiv);
             aiReplies.appendChild(aiDiv);
 
             const streamProcessor = new StreamProcessor();

@@ -1242,6 +1242,13 @@ function addSelectionPanel(documentsList, documents) {
     `;
     documentsList.parentNode.insertBefore(actionsPanel, documentsList);
 
+    const scrollContainer = (documentsList.parentNode && documentsList.parentNode.scrollHeight > documentsList.parentNode.clientHeight)
+        ? documentsList.parentNode
+        : documentsList;
+    if (scrollContainer && typeof scrollContainer.scrollTop === 'number') {
+        scrollContainer.scrollTop = 0;
+    }
+
     // Add event listeners for the action buttons
     document.getElementById('deselect-document').addEventListener('click', () => {
         // Clear selection
@@ -2463,14 +2470,7 @@ function addDocumentSearchStyles() {
 }
 
 async function showDocumentSummary(documentId, documentTitle, hashedMasterKey, options = {}) {
-    /*console.info('[DocumentsTab][debug] showDocumentSummary called', {
-        documentId,
-        documentTitle,
-        workflow: options?.workflow || null,
-        sendToPhone: options?.sendToPhone || null,
-        suppressWhatsappSend: options?.suppressWhatsappSend === true,
-        closeAfterComplete: options?.closeAfterComplete === true
-    });*/
+
     // If a summary is already being generated, show a notification and return
     if (isSummaryGenerating) {
         showNotification(Lang.get('ragSummaryGenerating'));
@@ -2669,18 +2669,12 @@ async function showDocumentSummary(documentId, documentTitle, hashedMasterKey, o
 }
 // Function to continue with summary generation after context size check
 async function continueWithSummaryGeneration(documentId, documentTitle, hashedMasterKey, preLoadedChunks = null, preCalculatedSize = null, options = {}) {
-    /*console.info('[DocumentsTab][debug] continueWithSummaryGeneration started', {
-        documentId,
-        documentTitle,
-        workflow: options?.workflow || null,
-        sendToPhone: options?.sendToPhone || null,
-        suppressWhatsappSend: options?.suppressWhatsappSend === true,
-        closeAfterComplete: options?.closeAfterComplete === true,
-        usedPreloadedChunks: Array.isArray(preLoadedChunks),
-        preCalculatedSize: preCalculatedSize || null
-    });*/
+
     // Set the flag to indicate we're generating a summary
     isSummaryGenerating = true;
+    if (typeof window !== 'undefined') {
+        window.bigOp = 1;
+    }
 
     // Create a fresh AbortController for this summary generation
     summaryAbortController = new AbortController();
@@ -3051,6 +3045,26 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
         copyButton.style.marginTop = '20px';
         copyButton.style.textAlign = 'center';
 
+        const createPresentationButton = document.getElementById('document-summary-create-presentation');
+        if (createPresentationButton) {
+            createPresentationButton.style.display = 'inline-flex';
+            createPresentationButton.style.fontSize = '16px';
+            createPresentationButton.style.padding = '10px 20px';
+            createPresentationButton.style.marginTop = '20px';
+            createPresentationButton.style.textAlign = 'center';
+            createPresentationButton.style.alignItems = 'center';
+        }
+
+        const createMiniAppButton = document.getElementById('document-summary-create-mini-app');
+        if (createMiniAppButton) {
+            createMiniAppButton.style.display = 'inline-flex';
+            createMiniAppButton.style.fontSize = '16px';
+            createMiniAppButton.style.padding = '10px 20px';
+            createMiniAppButton.style.marginTop = '20px';
+            createMiniAppButton.style.textAlign = 'center';
+            createMiniAppButton.style.alignItems = 'center';
+        }
+
         // Show the export button
         const exportButton = document.getElementById('document-summary-export');
         if (exportButton) {
@@ -3090,7 +3104,7 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
             percent: percentUsed
         }));
 
-        // If caller requested the summary be sent back to a WhatsApp phone, do so now
+        // If caller requested the summary be sent back to a WhatsApp phone or a WeChat account, do so now
         try {
             const shouldSendToWhatsapp = !!(
                 options &&
@@ -3098,63 +3112,65 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
                 options.suppressWhatsappSend !== true &&
                 options.workflow !== 'summary-presentation'
             );
-            /*console.info('[DocumentsTab][debug] WhatsApp summary send decision', {
-                documentId,
-                documentTitle,
-                workflow: options?.workflow || null,
-                sendToPhone: options?.sendToPhone || null,
-                suppressWhatsappSend: options?.suppressWhatsappSend === true,
-                shouldSendToWhatsapp,
-                summaryLength: cleanFinalSummary ? cleanFinalSummary.length : 0
-            });*/
+            const shouldSendToWechat = !!(
+                options &&
+                options.sendToAccount &&
+                options.suppressWechatSend !== true &&
+                options.workflow !== 'summary-presentation'
+            );
+
+
+            const cleanTextForMessaging = (text) => {
+                let textToSend = String(text || '').trim();
+                // Convert markdown links to plain text + URL so mobile clients can click
+                textToSend = textToSend.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, '$1 ($2)');
+                // Preserve raw URLs; no change required
+                textToSend = textToSend.replace(/#+\s*/g, ' ').replace(/\*/g, '').replace(/_+/g, '').trim();
+                textToSend = textToSend.replace(/\n{3,}/g, '\n\n').trim();
+                return textToSend;
+            };
+
+            const sendChunks = async (target, sendFn) => {
+                const header = `💬 Summary of "${documentTitle}":\n\n`;
+                const MAX_CHUNK = 1500;
+                let payload = header + cleanTextForMessaging(cleanFinalSummary || finalSummaryText || '');
+                while (payload.length > 0) {
+                    let chunk = payload.slice(0, MAX_CHUNK);
+                    if (payload.length > MAX_CHUNK) {
+                        const lastNl = chunk.lastIndexOf('\n');
+                        const lastSp = chunk.lastIndexOf(' ');
+                        const cutAt = Math.max(lastNl, lastSp);
+                        if (cutAt > Math.floor(MAX_CHUNK * 0.6)) {
+                            chunk = chunk.slice(0, cutAt);
+                        }
+                    }
+                    try {
+                        await sendFn(target, chunk);
+                    } catch (sendErr) {
+                        console.error(`Failed to send summary chunk to ${target}`, sendErr);
+                        break;
+                    }
+                    payload = payload.slice(chunk.length).trim();
+                    await new Promise(r => setTimeout(r, 200));
+                }
+            };
+
             if (shouldSendToWhatsapp && (window.connectors && typeof window.connectors.postWhatsappText === 'function')) {
                 const phone = String(options.sendToPhone).replace(/@.*$/g, '');
-                /*console.info('[DocumentsTab][debug] Sending summary to WhatsApp', {
-                    documentId,
-                    documentTitle,
-                    phone
-                });*/
-                let textToSend = cleanFinalSummary || finalSummaryText || '';
-                if (textToSend) {
-                    // Convert markdown links to plain text + URL so WhatsApp clients can click
-                    textToSend = textToSend.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, '$1 ($2)');
-                    // Preserve raw URLs; no change required (WhatsApp auto-links them)
-                    // Remove markdown heading and bold/italic characters to keep the WA output clean
-                    textToSend = textToSend.replace(/#+\s*/g, ' ').replace(/\*/g, '').replace(/_+/g, '').trim();
-                    // Collapse excessive blank lines
-                    textToSend = textToSend.replace(/\n{3,}/g, '\n\n').trim();
-                    const header = `💬 Summary of "${documentTitle}":\n\n`;
-                    const MAX_CHUNK = 1500;
-                    let payload = header + textToSend;
-                    while (payload.length > 0) {
-                        let chunk = payload.slice(0, MAX_CHUNK);
-                        if (payload.length > MAX_CHUNK) {
-                            // try to cut at last newline or space to avoid breaking words
-                            const lastNl = chunk.lastIndexOf('\n');
-                            const lastSp = chunk.lastIndexOf(' ');
-                            const cutAt = Math.max(lastNl, lastSp);
-                            if (cutAt > Math.floor(MAX_CHUNK * 0.6)) {
-                                chunk = chunk.slice(0, cutAt);
-                            }
-                        }
-                        try {
-                            await window.connectors.postWhatsappText(phone, chunk);
-                        } catch (sendErr) {
-                            console.error('Failed to send summary chunk to WhatsApp', sendErr);
-                            break;
-                        }
-                        payload = payload.slice(chunk.length).trim();
-                        // small delay between messages
-                        await new Promise(r => setTimeout(r, 200));
-                    }
-                }
+                await sendChunks(phone, window.connectors.postWhatsappText.bind(window.connectors));
+            }
+
+            if (shouldSendToWechat && (window.connectors && typeof window.connectors.postWechatText === 'function')) {
+                // Preserve the full WeChat target identifier, including any @suffix.
+                const account = String(options.sendToAccount).trim();
+                await sendChunks(account, window.connectors.postWechatText.bind(window.connectors));
             }
         } catch (e) {
-            console.error('Error in WhatsApp summary send block:', e);
+            console.error('Error in summary send block:', e);
         }
 
-        // Auto-close the summary modal when requested by WhatsApp workflow usage
-        if (options && (options.sendToPhone || options.closeAfterComplete)) {
+        // Auto-close the summary modal when requested by WhatsApp or WeChat workflow usage
+        if (options && (options.sendToPhone || options.sendToAccount || options.closeAfterComplete)) {
             const summaryModal = document.getElementById('document-summary-modal');
             if (summaryModal) {
                 summaryModal.style.display = 'none';
@@ -3215,6 +3231,10 @@ async function continueWithSummaryGeneration(documentId, documentTitle, hashedMa
         currentSummaryRequestId = null;
         summaryAbortController = null;
 
+        if (typeof window !== 'undefined') {
+            window.bigOp = 0;
+        }
+
         // Reset the isSummaryGenerating flag to allow new summaries
         isSummaryGenerating = false;
 
@@ -3250,6 +3270,14 @@ function resetSummaryModalState() {
     document.getElementById('document-summary-copy').style.display = 'none';
     document.getElementById('document-summary-export').style.display = 'none';
     document.getElementById('document-summary-reset').style.display = 'none';
+    const createPresentationButton = document.getElementById('document-summary-create-presentation');
+    if (createPresentationButton) {
+        createPresentationButton.style.display = 'none';
+    }
+    const createMiniAppButton = document.getElementById('document-summary-create-mini-app');
+    if (createMiniAppButton) {
+        createMiniAppButton.style.display = 'none';
+    }
     document.getElementById('document-summary-cancel').style.display = 'block';
 
     // Show progress bar
@@ -3461,6 +3489,219 @@ function createSummaryModal() {
         button.style.textAlign = 'center';
     };
 
+    const loadPromptedPresentationScript = () => {
+        if (window.PromptedPresentationWorkflow) {
+            return Promise.resolve();
+        }
+
+        if (window._promptedPresentationScriptLoadingPromise) {
+            return window._promptedPresentationScriptLoadingPromise;
+        }
+
+        window._promptedPresentationScriptLoadingPromise = new Promise((resolve, reject) => {
+            const scriptSrc = 'js/utils/presentation/promptedpresentation.js';
+            const existingScript = document.querySelector(`script[src="${scriptSrc}"]`);
+            if (existingScript) {
+                if (window.PromptedPresentationWorkflow) {
+                    resolve();
+                    return;
+                }
+                existingScript.addEventListener('load', () => resolve());
+                existingScript.addEventListener('error', () => reject(new Error('Failed to load promptedpresentation.js')));
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = scriptSrc;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load promptedpresentation.js'));
+            document.head.appendChild(script);
+        });
+
+        return window._promptedPresentationScriptLoadingPromise;
+    };
+
+    const loadArtifactsScript = () => {
+        if (window.ArtifactsWindow) {
+            return Promise.resolve();
+        }
+
+        if (window._artifactsScriptLoadingPromise) {
+            return window._artifactsScriptLoadingPromise;
+        }
+
+        window._artifactsScriptLoadingPromise = new Promise((resolve, reject) => {
+            const scriptSrc = 'js/tabs/artifacts.js';
+            const existingScript = document.querySelector(`script[src="${scriptSrc}"]`);
+            if (existingScript) {
+                if (window.ArtifactsWindow) {
+                    resolve();
+                    return;
+                }
+                existingScript.addEventListener('load', () => resolve());
+                existingScript.addEventListener('error', () => reject(new Error('Failed to load artifacts.js')));
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = scriptSrc;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Failed to load artifacts.js'));
+            document.head.appendChild(script);
+        });
+
+        return window._artifactsScriptLoadingPromise;
+    };
+
+    const askPresentationSlideCount = () => {
+        return new Promise(resolve => {
+            const existingModal = document.getElementById('presentation-slide-count-modal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            const overlay = document.createElement('div');
+            overlay.id = 'presentation-slide-count-modal';
+            overlay.style.cssText = `
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.65);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 11000;
+                padding: 20px;
+            `;
+
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                width: min(420px, 100%);
+                background: var(--bg-color, #111827);
+                border: 1px solid var(--border-color, #374151);
+                border-radius: 16px;
+                box-shadow: 0 20px 45px rgba(0,0,0,0.45);
+                padding: 24px;
+                color: var(--text-color, #ffffff);
+            `;
+
+            const title = document.createElement('h2');
+            title.textContent = Lang.get('presentationSlideCountTitle') || 'How many slides do you want?';
+            title.style.cssText = `margin: 0 0 12px; font-size: 20px; font-weight: 700;`;
+
+            const description = document.createElement('p');
+            description.textContent = Lang.get('presentationSlideCountDescription') || 'Choose a slide count between 5 and 25, then press Select to continue.';
+            description.style.cssText = `margin: 0 0 18px; color: var(--label-color, #d1d5db); line-height: 1.4;`;
+
+            const slideCountSelector = document.createElement('select');
+            slideCountSelector.style.cssText = `
+                width: 100%;
+                height: 44px;
+                padding: 0 12px;
+                border-radius: 10px;
+                border: 1px solid var(--border-color, #374151);
+                background: var(--background-color, #0f172a);
+                color: var(--text-color, #ffffff);
+                font-size: 16px;
+                outline: none;
+            `;
+            for (let i = 5; i <= 25; i += 1) {
+                const option = document.createElement('option');
+                option.value = String(i);
+                option.textContent = String(i);
+                slideCountSelector.appendChild(option);
+            }
+            const defaultValue = window.PromptedPresentationWorkflow?.savedSlideCount || 8;
+            slideCountSelector.value = String(defaultValue);
+
+            const buttonRow = document.createElement('div');
+            buttonRow.style.cssText = `
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+                margin-top: 20px;
+            `;
+
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.textContent = Lang.get('cancelButton') || 'Cancel';
+            cancelButton.style.cssText = `
+                background: transparent;
+                color: var(--text-color, #ffffff);
+                border: 1px solid var(--border-color, #374151);
+                border-radius: 10px;
+                padding: 10px 18px;
+                cursor: pointer;
+            `;
+
+            const selectButton = document.createElement('button');
+            selectButton.type = 'button';
+            selectButton.textContent = Lang.get('selectButton') || 'Select';
+            selectButton.style.cssText = `
+                background: var(--accent-color, #4f46e5);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 10px 18px;
+                cursor: pointer;
+            `;
+
+            const cleanup = (value) => {
+                if (overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                }
+                resolve(value);
+            };
+
+            cancelButton.addEventListener('click', () => cleanup(null));
+            selectButton.addEventListener('click', () => cleanup(parseInt(slideCountSelector.value, 10) || null));
+            overlay.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    cleanup(null);
+                }
+            });
+
+            buttonRow.appendChild(cancelButton);
+            buttonRow.appendChild(selectButton);
+            dialog.appendChild(title);
+            dialog.appendChild(description);
+            dialog.appendChild(slideCountSelector);
+            dialog.appendChild(buttonRow);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+            overlay.tabIndex = -1;
+            overlay.focus();
+        });
+    };
+
+    const extractPresentationSourceText = () => {
+        const summaryBody = document.getElementById('document-summary-body');
+        if (!summaryBody) return '';
+
+        const tempDiv = summaryBody.cloneNode(true);
+        const editableNotice = tempDiv.querySelector('.editable-notice');
+        if (editableNotice) {
+            editableNotice.remove();
+        }
+
+        tempDiv.querySelectorAll('.summary-toc').forEach(el => el.remove());
+        tempDiv.querySelectorAll('a').forEach(anchor => {
+            const textNode = document.createTextNode(anchor.textContent || '');
+            anchor.replaceWith(textNode);
+        });
+
+        const rawText = tempDiv.textContent || '';
+        let cleanText = rawText
+            .replace(/\r\n?/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+
+        cleanText = cleanText.replace(/^Summary of\s+/i, '');
+        return cleanText;
+    };
+
     // Create reset button with standard styling
     const resetBtn = document.createElement('button');
     resetBtn.id = 'document-summary-reset';
@@ -3555,6 +3796,152 @@ function createSummaryModal() {
         display: none;
     `;
     applyStandardButtonStyle(cancelBtn);
+
+    // Create presentation button with export-like styling
+    const createPresentationBtn = document.createElement('button');
+    createPresentationBtn.id = 'document-summary-create-presentation';
+    createPresentationBtn.textContent = Lang.get('createPresentationButton') || 'Create presentation';
+    createPresentationBtn.className = 'create-presentation';
+    createPresentationBtn.style.cssText = `
+        background-color: var(--secondary-accent-color, #06b6d4);
+        color: white !important;
+        display: none;
+    `;
+    applyStandardButtonStyle(createPresentationBtn);
+
+    createPresentationBtn.onclick = async () => {
+        const presentationText = extractPresentationSourceText();
+        if (!presentationText) {
+            showNotification(Lang.get('ragSummaryNoContent') || 'Unable to extract summary text for presentation.');
+            return;
+        }
+
+        const selectedSlideCount = await askPresentationSlideCount();
+        if (!selectedSlideCount) {
+            return;
+        }
+
+        const extraRequestText = 'Create a very beautiful and modern presentation, use Cool SVG graphics based on the presentation text, add different ornaments in each slide';
+        if (window.PromptedPresentationWorkflow) {
+            window.PromptedPresentationWorkflow.savedSlideCount = selectedSlideCount;
+        }
+
+        try {
+            await loadPromptedPresentationScript();
+        } catch (error) {
+            console.error('Failed to load promptedpresentation.js', error);
+            showNotification('Promptable presentation workflow is not available.');
+            return;
+        }
+
+        if (window.PromptedPresentationWorkflow && typeof window.PromptedPresentationWorkflow.open === 'function') {
+            window.PromptedPresentationWorkflow.savedSourceText = presentationText;
+            window.PromptedPresentationWorkflow.savedExtraRequestText = extraRequestText;
+            window.PromptedPresentationWorkflow.savedSlideCount = selectedSlideCount;
+            window.PromptedPresentationWorkflow.open();
+
+            const sendButtonLabel = window.Lang ? (Lang.get('sendButton') || 'Send') : 'Send';
+            const sendButton = Array.from(window.PromptedPresentationWorkflow.overlay?.querySelectorAll('button') || [])
+                .find(btn => btn.textContent.trim() === sendButtonLabel || btn.textContent.trim().toLowerCase() === 'send');
+            if (sendButton) {
+                sendButton.click();
+            }
+            return;
+        }
+
+        const connectors = window.connectors;
+        if (connectors && typeof connectors._handlewechatPromptablePresentation === 'function') {
+            const account = window.__paiperworkwechatActiveRequest?.account || null;
+            await connectors._handlewechatPromptablePresentation(account, presentationText, null, {
+                extraRequestText,
+                allowDocumentSummaryMemoryFollowUp: true
+            });
+            return;
+        }
+
+        if (connectors && typeof connectors._handleWhatsappPromptablePresentation === 'function') {
+            const phone = window.__paiperworkwhatsappActiveRequest?.phone || null;
+            await connectors._handleWhatsappPromptablePresentation(phone, presentationText, null, {
+                extraRequestText,
+                allowDocumentSummaryMemoryFollowUp: true
+            });
+            return;
+        }
+
+        showNotification('Promptable presentation workflow is not available.');
+    };
+
+    // Create mini app button with export-like styling
+    const createMiniAppBtn = document.createElement('button');
+    createMiniAppBtn.id = 'document-summary-create-mini-app';
+    createMiniAppBtn.textContent = Lang.get('createMiniAppButton') || 'Create mini app';
+    createMiniAppBtn.className = 'create-mini-app';
+    createMiniAppBtn.style.cssText = `
+        background-color: var(--secondary-accent-color, #06b6d4);
+        color: white !important;
+        display: none;
+    `;
+    applyStandardButtonStyle(createMiniAppBtn);
+
+    createMiniAppBtn.onclick = async () => {
+        const presentationText = extractPresentationSourceText();
+        if (!presentationText) {
+            showNotification(Lang.get('ragSummaryNoContent') || 'Unable to extract summary text for mini app creation.');
+            return;
+        }
+
+        const extraRequestText = 'Create a very beautiful and modern mini app related to provided text, create buttons that activate text display, animations and any other functionality that makes the mini app beautiful and unique, use responsive web design — using fluid layouts, CSS media queries, and flexible UI elements so one HTML works across desktops, tablets, and phones: ';
+
+        try {
+            await loadArtifactsScript();
+        } catch (error) {
+            console.error('Failed to load artifacts.js', error);
+            showNotification('Artifacts workflow is not available.');
+            return;
+        }
+
+        if (window.ArtifactsWindow && typeof window.ArtifactsWindow.open === 'function') {
+            window.ArtifactsWindow.savedSourceText = presentationText;
+            window.ArtifactsWindow.savedExtraRequestText = extraRequestText;
+            window.ArtifactsWindow.open();
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            if (window.ArtifactsWindow.promptInput) {
+                window.ArtifactsWindow.promptInput.value = extraRequestText + presentationText;
+                window.ArtifactsWindow.promptInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+
+            const sendButtonLabel = window.Lang ? (Lang.get('sendButton') || 'Send') : 'Send';
+            const sendButton = Array.from(window.ArtifactsWindow.overlay?.querySelectorAll('button') || [])
+                .find(btn => btn.textContent.trim() === sendButtonLabel || btn.textContent.trim().toLowerCase() === 'send');
+            if (sendButton) {
+                sendButton.click();
+            }
+            return;
+        }
+
+        const connectors = window.connectors;
+        if (connectors && typeof connectors._handlewechatArtifact === 'function') {
+            const account = window.__paiperworkwechatActiveRequest?.account || null;
+            await connectors._handlewechatArtifact(account, presentationText, null, {
+                extraRequestText,
+                cachedSourceContext: null
+            });
+            return;
+        }
+
+        if (connectors && typeof connectors._handleWhatsappArtifact === 'function') {
+            const phone = window.__paiperworkwhatsappActiveRequest?.phone || null;
+            await connectors._handleWhatsappArtifact(phone, presentationText, null, {
+                extraRequestText,
+                cachedSourceContext: null
+            });
+            return;
+        }
+
+        showNotification('Artifacts workflow is not available.');
+    };
 
     // Create copy button with standard styling
     const copyBtn = document.createElement('button');
@@ -3667,6 +4054,8 @@ function createSummaryModal() {
     leftButtonsGroup.appendChild(resetBtn);
     leftButtonsGroup.appendChild(restoreBtn);
     rightButtonsGroup.appendChild(cancelBtn);
+    rightButtonsGroup.appendChild(createPresentationBtn);
+    rightButtonsGroup.appendChild(createMiniAppBtn);
     rightButtonsGroup.appendChild(copyBtn);
     rightButtonsGroup.appendChild(exportBtn);
 
@@ -3969,6 +4358,13 @@ function addSelectionPanel(documentsList, documents) {
         </div>
     `;
     documentsList.parentNode.insertBefore(actionsPanel, documentsList);
+
+    const scrollContainer = (documentsList.parentNode && documentsList.parentNode.scrollHeight > documentsList.parentNode.clientHeight)
+        ? documentsList.parentNode
+        : documentsList;
+    if (scrollContainer && typeof scrollContainer.scrollTop === 'number') {
+        scrollContainer.scrollTop = 0;
+    }
 
     // Add event listeners for the action buttons
     document.getElementById('deselect-document').addEventListener('click', () => {
@@ -6709,6 +7105,31 @@ function scrollSummaryToTop() {
         }
     });
 }
+
+function abortDocumentSummaryGeneration() {
+    try {
+        if (summaryAbortController && typeof summaryAbortController.abort === 'function') {
+            summaryAbortController.abort();
+        }
+    } catch (_err) {
+    }
+    summaryAbortController = null;
+    isSummaryGenerating = false;
+    if (typeof window !== 'undefined') {
+        window.bigOp = 0;
+    }
+
+    const modal = document.getElementById('document-summary-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+
+    const statusElement = document.getElementById('document-summary-status');
+    if (statusElement) {
+        statusElement.textContent = Lang.get('ragSummaryCancelled');
+    }
+}
+
 addDocumentStyles();
 
 // Create a custom AbortError class
@@ -6741,6 +7162,7 @@ window.RAG_Utils = {
     handleDocumentGlobalSearch,
     refreshEmbeddingModelSelectorWithPrompt,
     addDocumentSearchStyles,
+    abortDocumentSummaryGeneration,
     isDocumentProcessing: () => !!documentProcessingState.isProcessing
 };
 

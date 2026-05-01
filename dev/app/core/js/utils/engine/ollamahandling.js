@@ -189,14 +189,29 @@ class OllamaAPI {
             || connectorsTab.serverStopping === true;
     }
 
+    static isWechatConnectorServerActive() {
+        const connectorsTab = window.connectorsTab;
+        if (!connectorsTab || typeof connectorsTab !== 'object') {
+            return false;
+        }
+
+        return connectorsTab.wechatServerStarted === true
+            || connectorsTab.wechatServerStarting === true
+            || connectorsTab.wechatServerStopping === true;
+    }
+
+    static isConnectorServerActive() {
+        return this.isWhatsappConnectorServerActive() || this.isWechatConnectorServerActive();
+    }
+
     static showBlockingOllamaWarning(message, options = {}) {
         const normalizedMessage = String(message || '').trim();
         if (!normalizedMessage) {
             return false;
         }
 
-        if (this.isWhatsappConnectorServerActive()) {
-            /*console.info('[OllamaAPI] Suppressed blocking warning while WhatsApp connector server is active', {
+        if (this.isConnectorServerActive()) {
+            /*console.info('[OllamaAPI] Suppressed blocking warning while connector server is active', {
                 scope: String(options.scope || 'generic'),
                 message: normalizedMessage
             });*/
@@ -213,8 +228,8 @@ class OllamaAPI {
             return false;
         }
 
-        if (this.isWhatsappConnectorServerActive()) {
-/*             console.info('[OllamaAPI] Suppressed blocking confirmation while WhatsApp connector server is active', {
+        if (this.isConnectorServerActive()) {
+/*             console.info('[OllamaAPI] Suppressed blocking confirmation while connector server is active', {
                 scope: String(options.scope || 'generic'),
                 message: normalizedMessage
             }); */
@@ -333,6 +348,67 @@ class OllamaAPI {
             }
         }
         
+        if (!turns.length) return '';
+        
+        const cappedTurns = turns.slice(-maxTurns * 2);
+        const selectedTurns = [];
+        let usedChars = 0;
+        
+        for (let i = cappedTurns.length - 1; i >= 0; i--) {
+            const turn = cappedTurns[i];
+            const cost = turn.content.length;
+            if (selectedTurns.length > 0 && (usedChars + cost) > maxCharsTotal) {
+                break;
+            }
+            selectedTurns.unshift(turn);
+            usedChars += cost;
+        }
+        
+        if (!selectedTurns.length) return '';
+        
+        const historyLines = selectedTurns.map(turn => `${turn.role === 'user' ? 'User' : 'Assistant'}: ${turn.content}`);
+        
+        return [
+            'Conversation history (prior turns):',
+            historyLines.join('\n\n'),
+            'Treat this as the active in-session context and continue naturally. Do not claim the conversation has no prior context.'
+        ].join('\n\n');
+    }
+
+    static buildWechatConversationHistoryBlock(currentUserPrompt = '', options = {}) {
+        const wechatOverride = (typeof window !== 'undefined' && window.__paiperworkwechatContextOverride && window.__paiperworkwechatContextOverride.active)
+            ? window.__paiperworkwechatContextOverride
+            : null;
+
+        const aiReplies = document.querySelector('.ai-replies');
+        const maxTurns = Number.isFinite(options.maxTurns) ? options.maxTurns : 8;
+        const maxCharsPerTurn = Number.isFinite(options.maxCharsPerTurn) ? options.maxCharsPerTurn : 1200;
+        const maxCharsTotal = Number.isFinite(options.maxCharsTotal) ? options.maxCharsTotal : 12000;
+
+        const turns = [];
+        if (wechatOverride && Array.isArray(wechatOverride.turns) && wechatOverride.turns.length) {
+            for (const turn of wechatOverride.turns) {
+                const role = String(turn && turn.role ? turn.role : '').trim().toLowerCase();
+                const content = this.normalizeConversationText(turn && (turn.text || turn.content || ''), maxCharsPerTurn);
+                if ((role === 'user' || role === 'assistant') && content) {
+                    turns.push({ role, content });
+                }
+            }
+        } else {
+            if (!aiReplies) return '';
+
+            const messageNodes = Array.from(aiReplies.querySelectorAll('.user-message, .assistant-message:not(.welcome-message)'));
+            if (!messageNodes.length) return '';
+
+            for (const node of messageNodes) {
+                const role = node.classList.contains('user-message') ? 'user' : 'assistant';
+                const content = this.getMessageTextForHistory(node, maxCharsPerTurn);
+                if (content) {
+                    turns.push({ role, content });
+                }
+            }
+        }
+
         if (!turns.length) return '';
         
         const cappedTurns = turns.slice(-maxTurns * 2);
@@ -1211,12 +1287,18 @@ class OllamaAPI {
             const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
                 ? window.__paiperworkWhatsappActiveRequest
                 : null;
+            const wechatRequestScope = (typeof window !== 'undefined' && window.__paiperworkwechatActiveRequest)
+                ? window.__paiperworkwechatActiveRequest
+                : null;
             const whatsappHistoryBlock = whatsappRequestScope
                 ? this.buildCloudConversationHistoryBlock(userPrompt, { maxTurns: 30 })
                 : '';
+            const wechatHistoryBlock = wechatRequestScope
+                ? this.buildWechatConversationHistoryBlock(userPrompt, { maxTurns: 30 })
+                : '';
 
             // Keep cloud/local context paths separated: cloud requests must not reuse local context arrays.
-            if (!isCloudRouting && !whatsappRequestScope && localContextPayload) {
+            if (!isCloudRouting && !whatsappRequestScope && !wechatRequestScope && localContextPayload) {
                 jsonPost.context = localContextPayload;
             } else {
                 delete jsonPost.context;
@@ -1226,6 +1308,8 @@ class OllamaAPI {
                 jsonPost.prompt = `${cloudHistoryBlock}\n\nCurrent user message:\n${enhancedPrompt}`;
             } else if (!isCloudRouting && whatsappHistoryBlock) {
                 jsonPost.prompt = `${whatsappHistoryBlock}\n\nCurrent user message:\n${enhancedPrompt}`;
+            } else if (!isCloudRouting && wechatHistoryBlock) {
+                jsonPost.prompt = `${wechatHistoryBlock}\n\nCurrent user message:\n${enhancedPrompt}`;
             }
 
             if (streamProcessor) {
@@ -1813,6 +1897,9 @@ class OllamaAPI {
         const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
             ? window.__paiperworkWhatsappActiveRequest
             : null;
+        const wechatRequestScope = (typeof window !== 'undefined' && window.__paiperworkwechatActiveRequest)
+            ? window.__paiperworkwechatActiveRequest
+            : null;
         const applyWhatsappRequestMetadata = (element) => {
             if (!element || !whatsappRequestScope || !whatsappRequestScope.id) {
                 return;
@@ -1829,6 +1916,19 @@ class OllamaAPI {
                 element.dataset.whatsappDeviceId = whatsappRequestScope.deviceId;
             }
         };
+        const applyWechatRequestMetadata = (element) => {
+            if (!element || !wechatRequestScope || !wechatRequestScope.id) {
+                return;
+            }
+
+            element.dataset.wechatRequestId = wechatRequestScope.id;
+            if (wechatRequestScope.account) {
+                element.dataset.wechatAccount = wechatRequestScope.account;
+            }
+            if (wechatRequestScope.replyTarget) {
+                element.dataset.wechatReplyTarget = wechatRequestScope.replyTarget;
+            }
+        };
 
         try {
             // Get the original prompt before any thinking tags removal
@@ -1837,7 +1937,8 @@ class OllamaAPI {
             // overwrite `prompt` which must remain the user's original input for storage.
             let userPromptForRequest = prompt;
 
-            // --- NEW: Ask the model to create a concise web-search query based on the user's prompt ---
+            console.log('[OllamaAPI] sendToOllamaWithWebSearch prompt:', prompt);
+        // --- NEW: Ask the model to create a concise web-search query based on the user's prompt ---
             let generatedQuery = null;
 
             try {
@@ -1989,7 +2090,7 @@ class OllamaAPI {
 
             // Log the query received from Ollama that we'll use for the web search
             try {
-               //console.log('Ollama generated websearch query:', generatedQuery);
+                console.log('[OllamaAPI] generated websearch query:', generatedQuery);
             } catch (e) {
                 // ignore console errors in unusual environments
             }
@@ -2111,6 +2212,7 @@ class OllamaAPI {
             aiDiv = document.createElement('div');
             aiDiv.className = 'assistant-message';
             applyWhatsappRequestMetadata(aiDiv);
+            applyWechatRequestMetadata(aiDiv);
             aiReplies.appendChild(aiDiv);
 
             // Create the stream processor
@@ -2630,11 +2732,17 @@ class OllamaAPI {
             const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
                 ? window.__paiperworkWhatsappActiveRequest
                 : null;
+            const wechatRequestScope = (typeof window !== 'undefined' && window.__paiperworkwechatActiveRequest)
+                ? window.__paiperworkwechatActiveRequest
+                : null;
             const whatsappHistoryBlock = whatsappRequestScope
                 ? this.buildCloudConversationHistoryBlock(userPrompt, { maxTurns: 30 })
                 : '';
+            const wechatHistoryBlock = wechatRequestScope
+                ? this.buildWechatConversationHistoryBlock(userPrompt, { maxTurns: 30 })
+                : '';
 
-            if (!isCloudRouting && !whatsappRequestScope && localContextPayload) {
+            if (!isCloudRouting && !whatsappRequestScope && !wechatRequestScope && localContextPayload) {
                 jsonPost.context = localContextPayload;
             } else {
                 delete jsonPost.context;
@@ -2644,6 +2752,8 @@ class OllamaAPI {
                 jsonPost.prompt = `${cloudHistoryBlock}\n\nCurrent user message:\n${userPrompt}`;
             } else if (!isCloudRouting && whatsappHistoryBlock) {
                 jsonPost.prompt = `${whatsappHistoryBlock}\n\nCurrent user message:\n${userPrompt}`;
+            } else if (!isCloudRouting && wechatHistoryBlock) {
+                jsonPost.prompt = `${wechatHistoryBlock}\n\nCurrent user message:\n${userPrompt}`;
             }
 
             const requestPayload = jsonPost;
@@ -2852,19 +2962,26 @@ class OllamaAPI {
             ? String(window.whatsappIncomingLanguage).trim()
             : '';
 
+        const wechatLanguageCode = (window.wechatIncomingLanguage && String(window.wechatIncomingLanguage).trim())
+            ? String(window.wechatIncomingLanguage).trim()
+            : '';
+
         const orchestratorLanguageCode = (window.lastOrchestratorDecision && window.lastOrchestratorDecision.language && String(window.lastOrchestratorDecision.language).trim())
             ? String(window.lastOrchestratorDecision.language).trim()
             : '';
 
-        const languageCode = orchestratorLanguageCode || whatsappLanguageCode || browserLanguageCode || 'en';
+        const languageCode = orchestratorLanguageCode || whatsappLanguageCode || wechatLanguageCode || browserLanguageCode || 'en';
         const normalizedLanguageCode = this.getLanguageCode(languageCode || 'en');
         const normalizedLanguageDisplayName = this.getLanguageDisplayName(languageCode || normalizedLanguageCode || 'en');
         /* console.log('OllamaAPI: buildCompleteSystemPrompt language auto-detect', {
             orchestratorLanguageCode,
             whatsappLanguageCode,
+            wechatLanguageCode,
             browserLanguageCode,
             selectedLanguageCode: languageCode,
-            originalIncomingTextExample: (window.whatsappIncomingLanguage && window.whatsappIncomingLanguageSample) ? window.whatsappIncomingLanguageSample : undefined
+            originalIncomingTextExample: (window.whatsappIncomingLanguage && window.whatsappIncomingLanguageSample)
+                ? window.whatsappIncomingLanguageSample
+                : ((window.wechatIncomingLanguage && window.wechatIncomingLanguageSample) ? window.wechatIncomingLanguageSample : undefined)
         }); */
         const dayKey = new Date().toISOString().slice(0, 10);
 

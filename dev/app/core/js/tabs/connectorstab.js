@@ -1,3 +1,4 @@
+
 class ConnectorsTab {
     constructor() {
         this.isInitialized = false;
@@ -38,6 +39,23 @@ class ConnectorsTab {
         this.whatsappBotModeButton = null;
         this.whatsappModelLockButton = null;
         this.whatsappPairNewDeviceButton = null;
+        this.wechatButton = null;
+        this.wechatServerStarted = false;
+        this.wechatServerStarting = false;
+        this.wechatServerStopping = false;
+        this.wechatRequestGeneration = 0;
+        this.wechatServerStatusPollInterval = null;
+        this.wechatRuntimeStateSyncInterval = null;
+        this.wechatIsPaired = false;
+        this.wechatHasSavedAccount = false;
+        this.wechatRestoreAttempted = false;
+        this.wechatMigrationAttempted = false;
+        this.wechatLoginSessionId = null;
+        this.wechatLoginStatusPolling = null;
+        this.wechatLoginModalDismissed = false;
+        this.wechatLoginCurrentStatus = '';
+        this.wechatDeleteAllPairedButton = null;
+        this.wechatClearContextsButton = null;
         this.whatsappClearContextsButton = null;
         this.whatsappDeleteAllPairedButton = null;
         this.whatsappModelLocked = false;
@@ -58,24 +76,199 @@ class ConnectorsTab {
         this.whatsappModeLoadRequestId = 0;
         this._boundWhatsappPairingWindowCloseHandler = () => {
             this._handleWhatsappPairingWindowClose();
+            this._handleWechatPairingWindowClose();
         };
+        this._connectorScriptLoadPromises = {};
     }
+    
+    async _loadConnectorScript(src) {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (!this._connectorScriptLoadPromises) {
+            this._connectorScriptLoadPromises = {};
+        }
+        if (this._connectorScriptLoadPromises[src]) {
+            return this._connectorScriptLoadPromises[src];
+        }
+
+        if (window.tabLoader && typeof window.tabLoader.loadScript === 'function') {
+            this._connectorScriptLoadPromises[src] = window.tabLoader.loadScript(src);
+            return this._connectorScriptLoadPromises[src];
+        }
+
+        this._connectorScriptLoadPromises[src] = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = src;
+            script.onload = () => resolve();
+            script.onerror = (error) => reject(new Error(`Failed to load connector script: ${src}`));
+            document.head.appendChild(script);
+        });
+        return this._connectorScriptLoadPromises[src];
+    }
+
+    async _ensureWhatsappConnectorLoaded() {
+        if (typeof window !== 'undefined' && window.connectors && typeof window.connectors.postWhatsappText === 'function' && typeof window.connectors.startIncomingPolling === 'function') {
+            return;
+        }
+        await this._loadConnectorScript('js/tabs/connectorWhatsapp.js');
+    }
+
+    async _ensureWechatConnectorLoaded() {
+        if (typeof window !== 'undefined' && window.wechatConnectorBridge && typeof window.wechatConnectorBridge.getInstance === 'function') {
+            return;
+        }
+        await this._loadConnectorScript('js/tabs/connectorWechat.js');
+    }
+
+static ORCHESTRATOR_SYSTEM_PROMPT = `You are an internal routing assistant for Paiperwork.
+Your job is to decide whether an incoming user message should be handled by the normal chat flow ("chat"), by the chat+websearch flow ("chat+websearch"), by document-check ("document-check"), by the research workflow ("research"), by the promptable SlideForge presentation workflow ("presentation"), by the Artifacts miniapp workflow ("artifact"), or by the Knowledge Base workflow ("knowledge"). When the input includes active follow-up session context, you should also help rewrite the final engine prompt for that workflow.
+
+Instructions:
+- Do NOT produce natural chat replies. Under no circumstances generate conversational text as output.
+- Always respond with valid JSON only.
+- Required JSON fields: tool, document, confidence, reason, language, think.
+- Optional JSON fields when useful:
+    - query: for research requests, the best final research query to send to the engine.
+    - merged_prompt: for active follow-up workflows, a single semantically merged prompt/request that should be preferred over naive concatenation.
+- Do NOT include any extra text, analysis, or commentary outside the JSON object.
+- If you cannot parse intent or format JSON, return exactly: { "tool": "chat", "document": "", "confidence": 0.9, "reason": "Unable to parse intent as JSON", "language": "English", "think": false }
+- Always reply in the user language of the input message (English, Español, Français, Deutsch, Italiano, Português, 中文, 日本語, 한국어, Русский).
+- Use explicit multilingual intent mapping for key actions:
+  - Data-viz command examples:
+    - English: "Create a demo pie chart", "Show me a bar graph" => dataviz
+    - Español: "Crear un gráfico de pastel de demostración", "Haz un gráfico de barras" => dataviz
+    - Français: "Créer un graphique camembert de démonstration", "Afficher un graphique à barres" => dataviz
+    - Deutsch: "Erstelle ein Kreisdiagramm zur Demonstration", "Zeige ein Balkendiagramm" => dataviz
+    - Italiano: "Crea un grafico a torta dimostrativo", "Mostra grafico a barre" => dataviz
+    - Português: "Criar gráfico de pizza de demonstração", "Mostrar gráfico de barras" => dataviz
+    - 中文: "创建演示饼图", "显示柱状图" => dataviz
+    - 日本語: "デモの円グラフを作成", "棒グラフを表示" => dataviz
+    - 한국어: "데모 파이 차트 작성", "막대 그래프 보여줘" => dataviz
+  - Research command examples:
+    - English: "Research the latest AI trends" → research
+    - Español: "Investigar las últimas tendencias de IA" → research
+    - Presentation command examples:
+        - English: "Create a presentation with this text: ..." => presentation
+        - Español: "Crea una presentación con este texto: ..." => presentation
+        - Português: "Cria uma apresentação com este texto: ..." => presentation
+        - English: "Show my saved presentations" => presentation
+        - English: "Send my saved Mercedes presentation" => presentation
+    - Artifact command examples:
+        - English: "Create one pinball game miniapp" => artifact
+        - English: "Generate one beautiful moving wallpaper miniapp using internet" => artifact
+        - English: "Show my saved miniapps" => artifact
+        - English: "Send my saved pinball miniapp" => artifact
+        - English follow-up after an artifact was just created: "Make the rain drops bigger" => artifact
+        - English follow-up after an artifact was just created: "Add a start button and make the background darker" => artifact
+        - English follow-up after an artifact was just created: "For the rain sounds use white/pink/mixed noise" => artifact
+        - English follow-up close reply after an artifact was just created: "No thanks, I'm finished" => artifact session close
+        - Español: "Crea una miniaplicación de pinball" => artifact
+        - Français: "Crée une miniapp de flipper" => artifact
+        - Deutsch: "Erstelle eine Mini-App als Pinball-Spiel" => artifact
+        - Italiano: "Crea una miniapp flipper" => artifact
+        - Português: "Cria uma miniaplicação de papel de parede animado" => artifact
+        - Русский: "Создай мини-приложение пинбол" => artifact
+        - 中文: "创建一个弹球迷你应用" => artifact
+        - 日本語: "ピンボールのミニアプリを作成" => artifact
+        - 한국어: "핀볼 미니앱을 만들어줘" => artifact
+    - Model-management command examples:
+        - English: "Show me my models" → chat
+        - English: "What model is selected now?" → chat
+        - English: "Use Gemma4 Local" → chat
+        - Español: "Muéstrame mis modelos" → chat
+        - Português: "Mostra meus modelos" → chat
+  - Document intent examples:
+    - English: "Summarize my invoice.pdf" → document-check
+    - Español: "Resumen mi informe" → document-check
+- If user asks for updated facts, citations, or current events in any supported language, prefer "chat+websearch".
+- If user asks for explicit file/document interaction in any language, prefer "document-check".
+- If user requests planning, comparative analysis, research reports, or deep investigation in any language, prefer "research".
+- If user asks to create, generate, build, or prepare a presentation or slide deck from provided text/content, prefer "presentation".
+- If user asks to list, browse, view, choose, or send an existing saved presentation, also prefer "presentation".
+- If user asks to create, generate, build, or prepare a miniapp / mini application / artifact / HTML mini app, prefer "artifact".
+- If user asks to list, browse, view, choose, or send an existing saved miniapp / artifact, also prefer "artifact".
+- Treat localized equivalents and spacing variants of "artifact", "miniapp", "mini-app", and "mini app" as the same artifact intent across all supported languages.
+- If the immediately previous user turns were about creating or refining an artifact/miniapp, then follow-up modification requests like "make it darker", "add a start button", or "make the rain drops bigger" should remain on "artifact" even if the user does not repeat the words miniapp or artifact.
+- When there is an active artifact/miniapp session, treat short refinement requests as "artifact" by default unless the user explicitly switches domains to models, documents, research, dataviz, or presentations.
+- In an active artifact/miniapp session, phrases like "use white noise", "use pink noise", "use this color", or "use bigger drops" are artifact refinements, not AI model-switch requests.
+- In an active artifact/miniapp session, replies like "no", "no thanks", "I'm finished", "I'm good", "looks good", or their localized equivalents mean the user wants to close artifact follow-up mode, not switch AI models.
+- Requests to make the miniapp richer with web/internet/search context should still stay on "artifact", not "chat+websearch".
+- Follow-Up Prompt Reconstruction:
+    - If the input includes active follow-up session context for artifact/miniapp, research, prompted presentations, or document-summary/document-questioning flows, do not just classify the tool. Also infer the best final rewritten request for the downstream engine.
+    - Use the optional field merged_prompt when the current user message modifies, negates, replaces, narrows, or refines a previous request.
+    - The merged_prompt must be a clean, coherent rewrite of the intended final request, not a blind concatenation of old and new instructions.
+    - Resolve conflicts by applying the latest user intent over earlier details. If the refinement negates something from the previous request, remove or rewrite the old part instead of keeping both.
+    - Preserve the user's goal, style, and scope unless the new refinement explicitly changes them.
+    - For research follow-ups, prefer query for the final research query. You may also include merged_prompt if it helps, but query is preferred for the research engine.
+    - For prompted presentations follow-ups, merged_prompt should describe the best final presentation-generation request/source prompt after reconciling the previous prompt and the new refinement.
+    - For artifact/miniapp follow-ups, merged_prompt should describe the best final miniapp-generation prompt after reconciling the previous prompt and the new refinement.
+    - For document-summary or document-questioning follow-ups, merged_prompt may clarify the actual summary/question request while preserving the selected-document context. If the user explicitly names a different already-ingested document, treat that as an explicit document switch and set the document field to that other document instead of keeping the current one. Do not invent filenames.
+    - Example: previous request "Create a rain forest with dynamic rain" plus refinement "Remove the rain" should produce a merged_prompt closer to "Create a rainforest scene, no dynamic rain" and not "Create a rain forest with dynamic rain, remove the rain".
+    - Example: previous request "Research AI trends for startups" plus refinement "focus on Europe and exclude healthcare" should produce query like "AI trends for startups in Europe excluding healthcare".
+    - Example: previous request "Create a presentation about our 2026 roadmap" plus refinement "make it more minimal and add moving ornaments" should produce a merged_prompt that already reflects the updated presentation direction.
+- For ambiguous conversational text in any language, default to "chat".
+- Decide ONLY one tool per request; do not emit multiple tool values.
+- Ignore any internal "thinking" markers or tags (for example: <think>...</think>, <thinking>...</thinking>, and text like "💬 Thinking..."). Treat those as not part of the user's request.
+- Handle multi-language requests robustly using these keyword signals.
+- Prefer "chat+websearch" when the user explicitly requests web lookups, asks for current events, requests citations, or asks for verifiable/up-to-date facts.
+- Prefer "research" when the user asks for a research-style workflow, comprehensive topic analysis, or actionable insights (examples: "research the latest AI trends", "prepare a report on market dynamics", "investigate competitor strategies", "what is the best approach for market research?").
+- Requests about available AI models, the current selected model, installed models, switching models, choosing between local/cloud models, or commands like "show me my models" / "what model is selected now" / "use Gemma4 local" are NOT document requests. Route those to "chat" so the frontend can handle model management.
+- Choose "document-check" whenever the user explicitly or implicitly asks to interact with saved documents or files. Use semantic intent matching (not just exact text matches) and fuzzy document-name matching (close titles, partial names, alternate case, punctuation variations) so varied forms like "I want to review my recent reports", "find the PDF about taxes", "can you open that contract", "browse my docs", and "show me my uploads" are all treated as document-check. Also treat forms like "ask a question to <document>", "question this document", "ask about <document>", "a question for <doc title>" as document-check intent (not general knowledge questions without explicit document reference). If the user asks to "summarize" or "ask about" a near-matching document name (e.g. "Summarize a call to action" vs "A_Call_to_Action_for_Generative_AI.pdf"), prefer document-check with the closest candidate. Do not set document-check for generic conversational queries like "What day is today?", "Who won the game?", or "How do I boil pasta?" unless there is explicit document context. Examples of document intent: "my documents", "check my documents", "list my documents", "summarize my file", "summarize invoice.pdf", "ask questions about my report", "open the contract named X", "review the uploaded files", or when the user mentions uploading content to be checked. In these cases:
+    - If you can confidently identify a specific saved document, set the "document" field to that exact filename or id.
+    - If you cannot confidently identify a specific document (user didn't supply a filename or the name is ambiguous), set the tool to "document-check" and set the "document" field to an empty string so the frontend can ask the user to choose from candidate documents.
+    - Do not choose "chat" merely because a filename is missing; prefer "document-check" when document intent is clear.
+
+- Use only already ingested documents from the app. Do not ask users to send or upload new files via wechat; those are forbidden for security reasons.
+- If document intent is ambiguous (e.g. "a document", "some doc" with no explicit existing filename), choose "document-check" and set "document" to ""; do not reroute to chat or ask for attachments.
+- If user intent is still unclear after document-check, instruct them with "Please clarify your question".
+- Detect the user language and include a "language" field in the JSON output (e.g. "de", "zh", "en", "es").
+
+- Always include a sample JSON with language when returning tool selection, e.g.:
+  { "tool": "chat", "document": "", "confidence": 0.9, "reason": "Casual conversational request.", "language": "Spanish", "think": false }
+
+Examples of inputs and the exact JSON you must output (output must be valid JSON only, no text):
+Input: "Summarize my invoice.pdf"
+Output: { "tool": "document-check", "document": "invoice.pdf", "confidence": 0.95, "reason": "User explicitly requested a summary for a named saved file." }
+
+Input: "I want to check my documents"
+Output: { "tool": "document-check", "document": "", "confidence": 0.9, "reason": "User expressed intent to check saved documents but did not name one." }
+
+Input: "What's the weather today?"
+Output: { "tool": "chat+websearch", "document": "", "confidence": 0.95, "reason": "Explicit web-query requesting current information." }
+
+Input: "Tell me a joke"
+Output: { "tool": "chat", "document": "", "confidence": 0.9, "reason": "Casual conversational request with no document or web-intent." }
+
+Input: "Research the latest trends in electric vehicle batteries and summarize opportunities for startups."
+Output: { "tool": "research", "query": "latest trends in electric vehicle batteries and opportunities for startups", "confidence": 0.95, "reason": "Explicit research-style request with analytical intent." }
+
+Input: "Create a presentation with this text: Our 2026 roadmap focuses on AI automation, cloud cost controls, and customer expansion across Europe."
+Output: { "tool": "presentation", "document": "", "confidence": 0.95, "reason": "User explicitly requested a slide presentation from provided text.", "language": "English", "think": false }
+
+Input: "Create one pinball game miniapp very beautiful"
+Output: { "tool": "artifact", "document": "", "confidence": 0.95, "reason": "User explicitly requested an HTML miniapp artifact.", "language": "English", "think": false }
+
+Output ONLY valid JSON and nothing else. Do NOT include markdown fence markers (three backticks) or any additional explanation. Do NOT emit code blocks. If your response is not strictly valid JSON, return:
+{"tool":"chat","document":"","confidence":0.9,"reason":"Unable to parse intent as JSON"}
+
+If unsure, choose "chat".
+`;
+
+
 
     initialize() {
         if (this.isInitialized || !this.tabElement) {
             return;
         }
 
-        const descriptionText = Lang.get('connectorsDescription') ||
-            'Connectors allow you to connect to your Whatsapp account and chat with your selected Ai models in Chat Tab';
+
 
         this.tabElement.innerHTML = `
             <div class="connectors-container">
-                <p class="connectors-description">
-                    ${descriptionText}
-                </p>
 
-                <div class="connectors-card connectors-card-whatsapp">
+                <div class="connectors-card connectors-card-whatsapp collapsed">
                     <div id="whatsapp-status-card" class="connectors-status-card">
                         ${Lang.get('whatsappNotPairedCard') || 'WhatsApp not paired'}
                     </div>
@@ -100,12 +293,61 @@ class ConnectorsTab {
                     </div>
                 </div>
 
+                <div class="connectors-card connectors-card-wechat collapsed">
+                    <div id="wechat-status-card" class="connectors-status-card">
+                        ${Lang.get('wechatNotPairedCard') || 'WeChat not paired'}
+                    </div>
+                    <div class="wechat-button-container">
+                        <button id="wechat-pair-btn" class="connectors-whatsapp-button connectors-wechat-button" title="${Lang.get('startWechatServerButton') || 'Start server'}">${Lang.get('startWechatServerButton') || 'Start server'}</button>
+                    </div>
+                    <div class="wechat-model-lock-button-container">
+                        <button id="wechat-model-lock-btn" class="connectors-mode-button connectors-mode-button-full" title="Lock AI model">Lock AI model</button>
+                    </div>
+                    <div class="wechat-clear-contexts-button-container" style="margin-top:12px;">
+                        <button id="wechat-clear-contexts-btn" class="connectors-mode-button connectors-mode-button-full connectors-mode-button-neutral" title="Clear WeChat Contexts">Clear WeChat Contexts</button>
+                    </div>
+                    <div class="wechat-delete-all-devices-button-container" style="margin-top:12px;">
+                        <button id="wechat-delete-all-paired-btn" class="connectors-mode-button connectors-mode-button-full connectors-mode-button-neutral" title="Delete paired account(s)">Delete paired account(s)</button>
+                    </div>
+                </div>
+
             </div>
         `;
 
         this.whatsappButton = document.getElementById('whatsapp-pair-btn');
         if (this.whatsappButton) {
             this.setupWhatsappButton();
+        }
+
+        const whatsappStatusCard = document.getElementById('whatsapp-status-card');
+        const whatsappCard = this.tabElement.querySelector('.connectors-card-whatsapp');
+        if (whatsappStatusCard && whatsappCard) {
+            whatsappStatusCard.style.cursor = 'pointer';
+            whatsappStatusCard.title = 'Click to expand or collapse this card';
+            whatsappStatusCard.addEventListener('click', () => {
+                whatsappCard.classList.toggle('collapsed');
+            });
+        }
+
+        this.wechatButton = document.getElementById('wechat-pair-btn');
+        this.wechatDeleteAllPairedButton = document.getElementById('wechat-delete-all-paired-btn');
+        if (this.wechatButton) {
+            this.setupWechatButton();
+        }
+        if (this.wechatDeleteAllPairedButton) {
+            this.wechatDeleteAllPairedButton.addEventListener('click', async () => {
+                await this.deleteAllPairedWechatData();
+            });
+        }
+
+        const wechatStatusCard = document.getElementById('wechat-status-card');
+        const wechatCard = this.tabElement.querySelector('.connectors-card-wechat');
+        if (wechatStatusCard && wechatCard) {
+            wechatStatusCard.style.cursor = 'pointer';
+            wechatStatusCard.title = 'Click to expand or collapse this card';
+            wechatStatusCard.addEventListener('click', () => {
+                wechatCard.classList.toggle('collapsed');
+            });
         }
 
         this.isInitialized = true;
@@ -234,6 +476,827 @@ class ConnectorsTab {
         });
     }
 
+    setupWechatButton() {
+        if (!this.wechatButton) return;
+
+        this.wechatButton.addEventListener('click', async () => {
+            if (this.wechatServerStopping) {
+                return;
+            }
+            if (!this.wechatServerStarted) {
+                await this.startWechatServer();
+                return;
+            }
+            await this.stopWechatServer();
+        });
+
+        this.wechatClearContextsButton = document.getElementById('wechat-clear-contexts-btn');
+        if (this.wechatClearContextsButton) {
+            this.wechatClearContextsButton.addEventListener('click', async () => {
+                await this.clearAllWechatContexts();
+            });
+        }
+
+        this.setWechatPairButtonState(false);
+        (async () => {
+            const status = await this.refreshWechatPairButton({ check: true });
+            if (status && status.serverStarted) {
+                this.wechatServerStarted = true;
+                const alreadyPaired = status.paired === true;
+                this.setWechatPairButtonState(alreadyPaired);
+                if (!alreadyPaired) {
+                    this.wechatHasSavedAccount = await this._hasSavedWechatAccount();
+                    if (!this.wechatHasSavedAccount) {
+                        await this._startWechatLoginFlow();
+                    }
+                }
+            }
+        })();
+    }
+
+    async refreshWechatPairButton(options = { check: true }) {
+        if (!this.wechatButton || !options.check) {
+            return null;
+        }
+
+        try {
+            const res = await fetch('/api/wechat/status', { cache: 'no-store' });
+            if (!res.ok) {
+                this.wechatServerStarted = false;
+                this.wechatServerStarting = false;
+                this.wechatServerStopping = false;
+                this.setWechatPairButtonState(false);
+                return null;
+            }
+
+            const data = await res.json();
+            console.info('ConnectorsTab: refreshWechatPairButton response', data);
+            this.wechatServerStarted = data.serverStarted === true;
+            const wasPaired = this.wechatIsPaired === true;
+            this.wechatIsPaired = data.paired === true;
+            this.wechatServerStarting = false;
+            this.wechatServerStopping = false;
+            this.setWechatPairButtonState(this.wechatIsPaired);
+            if (this.wechatServerStarted && this.wechatIsPaired && !wasPaired) {
+                window.dispatchEvent(new CustomEvent('wechatPaired'));
+            }
+            if (wasPaired && !this.wechatIsPaired) {
+                window.dispatchEvent(new CustomEvent('wechatUnpaired'));
+                this._stopWechatRuntimeStateSync();
+            }
+
+            if (this.wechatServerStarted && this.wechatIsPaired) {
+                this._startWechatRuntimeStateSync();
+            }
+
+            if (this.wechatServerStarted && !this.wechatMigrationAttempted) {
+                this.wechatMigrationAttempted = true;
+                const migrated = await this._migrateWechatRuntimeStateToPaiperworkDB();
+                if (migrated) {
+                    this.wechatHasSavedAccount = true;
+                }
+            }
+
+            if (this.wechatServerStarted && !this.wechatIsPaired && !this.wechatRestoreAttempted) {
+                this.wechatHasSavedAccount = await this._hasSavedWechatAccount();
+                if (this.wechatHasSavedAccount) {
+                    this.wechatRestoreAttempted = true;
+                    const restored = await this._restoreSavedWechatAccounts();
+                    if (restored) {
+                        return this.refreshWechatPairButton({ check: true });
+                    }
+                }
+            }
+
+            return data;
+        } catch (err) {
+            console.warn('ConnectorsTab: refreshWechatPairButton failed', err);
+            return null;
+        }
+    }
+
+    setWechatPairButtonState(isPaired) {
+        if (!this.wechatButton) {
+            return;
+        }
+
+        this.wechatIsPaired = isPaired;
+        const statusCard = document.getElementById('wechat-status-card');
+        if (statusCard) {
+            if (this.wechatServerStarted) {
+                statusCard.textContent = isPaired
+                    ? (Lang.get('wechatPairedCard') || 'WeChat paired')
+                    : (Lang.get('wechatServerStartedCard') || 'WeChat server started');
+            } else {
+                statusCard.textContent = (Lang.get('wechatNotPairedCard') || 'WeChat not paired');
+            }
+        }
+
+        let buttonText = Lang.get('startWechatServerButton') || 'Start server';
+        let buttonTitle = buttonText;
+        let disabled = false;
+
+        if (this.wechatServerStopping) {
+            buttonText = 'Stopping the server...';
+            buttonTitle = 'Stopping the server...';
+            disabled = true;
+        } else if (this.wechatServerStarted) {
+            buttonText = 'Stop server';
+            buttonTitle = 'Stop server';
+        } else if (this.wechatServerStarting) {
+            buttonText = Lang.get('serverStartingButton') || 'Starting server...';
+            buttonTitle = buttonText;
+            disabled = true;
+        }
+
+        this.wechatButton.textContent = buttonText;
+        this.wechatButton.title = buttonTitle;
+        this.wechatButton.disabled = disabled;
+        this.wechatButton.style.height = '56px';
+        this.wechatButton.style.minHeight = '56px';
+        this.wechatButton.style.padding = '0 16px';
+        this.wechatButton.style.borderRadius = '8px';
+        this.wechatButton.style.fontWeight = '600';
+        this.wechatButton.style.cursor = disabled ? 'not-allowed' : 'pointer';
+        if (disabled) {
+            this.wechatButton.style.backgroundColor = '#c4c4ca';
+            this.wechatButton.style.color = '#575f6b';
+        } else {
+            this.wechatButton.style.backgroundColor = '';
+            this.wechatButton.style.color = '';
+        }
+    }
+
+    async _hasSavedWechatAccount() {
+        try {
+            const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+            if (!hashedMasterKey) {
+                return false;
+            }
+
+            const accounts = await PaiperworkDB.listPersistedWechatAccounts(hashedMasterKey);
+            return Array.isArray(accounts) && accounts.length > 0;
+        } catch (err) {
+            console.warn('ConnectorsTab: _hasSavedWechatAccount failed', err);
+            return false;
+        }
+    }
+
+    async _loadSavedWechatAccounts() {
+        try {
+            const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+            if (!hashedMasterKey) {
+                return [];
+            }
+            return await PaiperworkDB.listPersistedWechatAccounts(hashedMasterKey);
+        } catch (err) {
+            console.warn('ConnectorsTab: _loadSavedWechatAccounts failed', err);
+            return [];
+        }
+    }
+
+    async _restoreSavedWechatAccounts() {
+        try {
+            const savedAccounts = await this._loadSavedWechatAccounts();
+            if (!Array.isArray(savedAccounts) || savedAccounts.length === 0) {
+                return false;
+            }
+            const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+            if (!hashedMasterKey) {
+                return false;
+            }
+
+            const res = await fetch('/api/wechat/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hashedMasterKey, accounts: savedAccounts })
+            });
+            if (!res.ok) {
+                console.warn('ConnectorsTab: restore saved WeChat accounts failed', await res.text());
+                return false;
+            }
+            return true;
+        } catch (err) {
+            console.warn('ConnectorsTab: _restoreSavedWechatAccounts failed', err);
+            return false;
+        }
+    }
+
+    async _persistWechatAccountAfterLogin(data) {
+        try {
+            const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+            const accountId = String(data?.account_id || data?.ilink_bot_id || data?.ilinkBotId || '').trim();
+            const baseUrl = String(data?.base_url || data?.baseUrl || data?.baseurl || data?.baseURL || '').trim();
+            const token = String(data?.bot_token || data?.token || '').trim();
+            if (!hashedMasterKey || !data || !accountId || !token || !baseUrl) {
+                console.warn('ConnectorsTab: _persistWechatAccountAfterLogin skipped due to invalid login payload', {
+                    hashedMasterKeyPresent: !!hashedMasterKey,
+                    account_id: accountId,
+                    tokenPresent: !!token,
+                    bot_token: Boolean(data?.bot_token),
+                    token: data?.token,
+                    base_url: data?.base_url,
+                    baseUrl: data?.baseUrl,
+                    baseurl: data?.baseurl,
+                    ilink_bot_id: data?.ilink_bot_id,
+                    payload: data
+                });
+                return;
+            }
+
+            const existingAccounts = await this._loadSavedWechatAccounts();
+            const alreadySaved = Array.isArray(existingAccounts) && existingAccounts.some((account) => account.account_id === accountId);
+            const rawLoginStatus = String(data.status || 'connected').trim();
+            const normalizedLoginStatus = rawLoginStatus.toLowerCase() === 'confirmed' ? 'connected' : rawLoginStatus;
+            const accountToSave = {
+                account_id: accountId,
+                base_url: baseUrl,
+                token,
+                ilink_user_id: String(data.ilink_user_id || data.ilinkUserId || ''),
+                enabled: true,
+                login_status: normalizedLoginStatus,
+                last_error: String(data.error || ''),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            console.info('ConnectorsTab: WeChat normalized account payload to save', accountToSave);
+
+            if (alreadySaved) {
+                console.info('ConnectorsTab: persisted WeChat account already exists, updating saved record', {
+                    account_id: accountId,
+                    base_url: baseUrl
+                });
+            }
+
+            await PaiperworkDB.savePersistedWechatAccount(hashedMasterKey, accountToSave);
+            console.info('ConnectorsTab: saved persisted WeChat account', { account_id: accountId, base_url: baseUrl });
+        } catch (err) {
+            console.warn('ConnectorsTab: _persistWechatAccountAfterLogin failed', err);
+        }
+    }
+
+    async _fetchWechatMigrationState() {
+        try {
+            const res = await fetch('/api/wechat/migration/legacy-state', { cache: 'no-store' });
+            if (!res.ok) {
+                throw new Error(await res.text());
+            }
+            return await res.json();
+        } catch (err) {
+            console.warn('ConnectorsTab: failed to fetch WeChat migration state', err);
+            return null;
+        }
+    }
+
+    async _migrateWechatRuntimeStateToPaiperworkDB() {
+        try {
+            const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+            if (!hashedMasterKey) {
+                return false;
+            }
+
+            const migrationState = await this._fetchWechatMigrationState();
+            if (!migrationState) {
+                return false;
+            }
+
+            const accounts = Array.isArray(migrationState.accounts) ? migrationState.accounts : [];
+            const sessions = Array.isArray(migrationState.login_sessions) ? migrationState.login_sessions : [];
+            const peerContexts = Array.isArray(migrationState.peer_contexts) ? migrationState.peer_contexts : [];
+            const events = Array.isArray(migrationState.events) ? migrationState.events : [];
+            const logs = Array.isArray(migrationState.logs) ? migrationState.logs : [];
+
+            let persistedAny = false;
+            for (const account of accounts) {
+                const saved = await PaiperworkDB.savePersistedWechatAccount(hashedMasterKey, account);
+                if (saved) {
+                    persistedAny = true;
+                }
+            }
+
+            for (const session of sessions) {
+                const saved = await PaiperworkDB.savePersistedWechatLoginSession(hashedMasterKey, session);
+                if (saved) {
+                    persistedAny = true;
+                }
+            }
+
+            for (const peerContext of peerContexts) {
+                const saved = await PaiperworkDB.savePersistedWechatPeerContext(hashedMasterKey, peerContext);
+                if (saved) {
+                    persistedAny = true;
+                }
+            }
+
+            for (const event of events) {
+                const saved = await PaiperworkDB.savePersistedWechatEvent(hashedMasterKey, event);
+                if (saved) {
+                    persistedAny = true;
+                }
+            }
+
+            for (const logEntry of logs) {
+                const saved = await PaiperworkDB.savePersistedWechatLog(hashedMasterKey, logEntry);
+                if (saved) {
+                    persistedAny = true;
+                }
+            }
+
+            if (persistedAny) {
+                console.info('ConnectorsTab: WeChat runtime state migrated to PaiperworkDB');
+            }
+            return persistedAny;
+        } catch (err) {
+            console.warn('ConnectorsTab: _migrateWechatRuntimeStateToPaiperworkDB failed', err);
+            return false;
+        }
+    }
+
+    async _syncWechatAccountStateToPaiperworkDB() {
+        try {
+            const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+            if (!hashedMasterKey || !this.wechatServerStarted || !this.wechatIsPaired) {
+                return false;
+            }
+
+            const res = await fetch('/api/wechat/migration/legacy-state?accounts_only=1', { cache: 'no-store' });
+            if (!res.ok) {
+                console.warn('ConnectorsTab: failed to sync WeChat account state', await res.text());
+                return false;
+            }
+
+            const data = await res.json();
+            if (!Array.isArray(data.accounts)) {
+                return false;
+            }
+
+            let persistedAny = false;
+            for (const account of data.accounts) {
+                const saved = await PaiperworkDB.savePersistedWechatAccount(hashedMasterKey, account);
+                if (saved) {
+                    persistedAny = true;
+                }
+            }
+            if (persistedAny) {
+                //console.info('ConnectorsTab: persisted WeChat runtime account state', { accountCount: data.accounts.length });
+            }
+            return persistedAny;
+        } catch (err) {
+            console.warn('ConnectorsTab: _syncWechatAccountStateToPaiperworkDB failed', err);
+            return false;
+        }
+    }
+
+    _startWechatRuntimeStateSync() {
+        if (this.wechatRuntimeStateSyncInterval) {
+            return;
+        }
+        this.wechatRuntimeStateSyncInterval = setInterval(async () => {
+            if (!this.wechatServerStarted || !this.wechatIsPaired) {
+                return;
+            }
+            await this._syncWechatAccountStateToPaiperworkDB();
+        }, 15000);
+    }
+
+    _stopWechatRuntimeStateSync() {
+        if (this.wechatRuntimeStateSyncInterval) {
+            clearInterval(this.wechatRuntimeStateSyncInterval);
+            this.wechatRuntimeStateSyncInterval = null;
+        }
+    }
+
+    async startWechatServer() {
+        this.wechatRestoreAttempted = false;
+        this.wechatMigrationAttempted = false;
+        this.wechatServerStopping = false;
+        this.wechatServerStarting = true;
+        this.wechatServerStarted = false;
+        this.setWechatPairButtonState(false);
+
+        try {
+            await this._ensureWechatConnectorLoaded();
+        } catch (loadErr) {
+            console.error('ConnectorsTab: failed to load WeChat connector script', loadErr);
+            this.wechatServerStarting = false;
+            this.setWechatPairButtonState(false);
+            return;
+        }
+
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (!hashedMasterKey) {
+            console.warn('ConnectorsTab: missing hashedMasterKey for WeChat start');
+            this.wechatServerStarting = false;
+            return;
+        }
+
+        if (window.__paiperworkDbBootPromise) {
+            await window.__paiperworkDbBootPromise;
+        }
+
+        try {
+            const savedAccounts = await this._loadSavedWechatAccounts();
+            const res = await fetch('/api/wechat/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hashedMasterKey, accounts: savedAccounts })
+            });
+            if (!res.ok) {
+                throw new Error(await res.text());
+            }
+
+            const data = await res.json();
+            this.wechatServerStarted = data.serverStarted === true;
+            this.wechatIsPaired = data.paired === true;
+            this.wechatServerStarting = false;
+            this.setWechatPairButtonState(this.wechatIsPaired);
+
+            if (this.wechatServerStarted && this.wechatIsPaired) {
+                console.info('ConnectorsTab: WeChat server started and already paired, invoking WeChat bridge onPaired');
+                if (window.wechatConnectorBridge && typeof window.wechatConnectorBridge.getInstance === 'function') {
+                    const bridgeInstance = window.wechatConnectorBridge.getInstance();
+                    if (bridgeInstance && typeof bridgeInstance.onPaired === 'function') {
+                        bridgeInstance.onPaired();
+                    } else {
+                        window.dispatchEvent(new CustomEvent('wechatPaired'));
+                    }
+                } else {
+                    window.dispatchEvent(new CustomEvent('wechatPaired'));
+                }
+                this._startWechatRuntimeStateSync();
+            }
+
+            if (this.wechatServerStarted && !this.wechatMigrationAttempted) {
+                this.wechatMigrationAttempted = true;
+                const migrated = await this._migrateWechatRuntimeStateToPaiperworkDB();
+                if (migrated) {
+                    this.wechatHasSavedAccount = true;
+                }
+            }
+
+            if (this.wechatServerStarted && !this.wechatIsPaired) {
+                this.wechatHasSavedAccount = await this._hasSavedWechatAccount();
+                if (this.wechatHasSavedAccount) {
+                    await this.refreshWechatPairButton({ check: true });
+                } else {
+                    await this._startWechatLoginFlow();
+                }
+            }
+        } catch (err) {
+            console.error('ConnectorsTab: failed to start WeChat server', err);
+            this.wechatServerStarted = false;
+            this.wechatServerStarting = false;
+            this.setWechatPairButtonState(false);
+        }
+    }
+
+    async stopWechatServer() {
+        this.wechatServerStopping = true;
+        this.wechatServerStarting = false;
+        this.setWechatPairButtonState(this.wechatIsPaired);
+
+        let stopped = false;
+        try {
+            const res = await fetch('/api/wechat/stop', { method: 'POST' });
+            if (!res.ok) {
+                console.warn('ConnectorsTab: stop WeChat server failed', await res.text());
+            } else {
+                stopped = true;
+            }
+        } catch (err) {
+            console.warn('ConnectorsTab: stop WeChat server request failed', err);
+        }
+
+        if (stopped) {
+            const wasPaired = this.wechatIsPaired === true;
+            this.wechatServerStarted = false;
+            this.wechatIsPaired = false;
+            this.wechatHasSavedAccount = false;
+            this.wechatRestoreAttempted = false;
+            this.wechatMigrationAttempted = false;
+            this._stopWechatRuntimeStateSync();
+            if (wasPaired) {
+                window.dispatchEvent(new CustomEvent('wechatUnpaired'));
+            }
+        }
+        this.wechatServerStopping = false;
+        this.setWechatPairButtonState(this.wechatServerStarted ? this.wechatIsPaired : false);
+    }
+
+    async deleteAllPairedWechatData() {
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (!hashedMasterKey) {
+            console.warn('ConnectorsTab: deleteAllPairedWechatData missing master key');
+            return;
+        }
+
+        const confirmMessage = (window.Lang && typeof Lang.get === 'function' && Lang.get('wechatDeleteAllPairedConfirm')) || 'You are about to delete WeChat pairing information from Paiperwork, are you sure?';
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            if (this.wechatServerStarted) {
+                await this.stopWechatServer();
+            }
+
+            await PaiperworkDB.clearWechatDatabase(hashedMasterKey);
+
+            const wasPaired = this.wechatIsPaired === true;
+            this.wechatServerStarted = false;
+            this.wechatIsPaired = false;
+            this.wechatHasSavedAccount = false;
+            this.wechatRestoreAttempted = false;
+            this.wechatMigrationAttempted = false;
+            this.wechatLoginSessionId = null;
+            this.wechatLoginStatusPolling = null;
+            this.wechatLoginModalDismissed = true;
+            if (wasPaired) {
+                window.dispatchEvent(new CustomEvent('wechatUnpaired'));
+            }
+            this.setWechatPairButtonState(false);
+            this._setWechatLoginModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('wechatDeleteAllPairedSuccess')) || 'Paiperwork WeChat pairing data deleted. Click Start server to pair a new account now.');
+        } catch (err) {
+            console.warn('ConnectorsTab: deleteAllPairedWechatData failed', err);
+            this._setWechatLoginModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('wechatDeleteAllPairedFailed')) || 'Failed to delete Paiperwork WeChat pairing data. See console logs.');
+        }
+    }
+
+    async clearAllWechatContexts() {
+        const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
+        if (!hashedMasterKey) {
+            console.warn('ConnectorsTab: clearAllWechatContexts missing master key');
+            return;
+        }
+
+        const confirmMessage = (window.Lang && typeof Lang.get === 'function' && Lang.get('wechatClearContextsConfirm')) || 'This will clear WeChat conversation context and message history but keep the paired account. Continue?';
+        if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            if (window.connectors && typeof window.connectors.clearAllwechatPerAccountRuntimeState === 'function') {
+                await window.connectors.clearAllwechatPerAccountRuntimeState();
+            }
+            const ok = await PaiperworkDB.clearWechatContexts(hashedMasterKey);
+            if (!ok) {
+                throw new Error('clearWechatContexts returned false');
+            }
+
+            if (window.databaseTab && typeof window.databaseTab.refreshDatabaseStats === 'function') {
+                await window.databaseTab.refreshDatabaseStats();
+            }
+            if (this.wechatServerStarted && this.wechatIsPaired) {
+                await this.refreshWechatPairButton({ check: true });
+            }
+            this._setWechatLoginModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('wechatClearContextsSuccess')) || 'WeChat context cleared. Paired account preserved.');
+        } catch (err) {
+            console.warn('ConnectorsTab: clearAllWechatContexts failed', err);
+            this._setWechatLoginModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('wechatClearContextsFailed')) || 'Failed to clear WeChat contexts. See console logs.');
+        }
+    }
+
+    async _startWechatLoginFlow() {
+        if (!this.wechatServerStarted || this.wechatIsPaired) {
+            return;
+        }
+        this.wechatLoginSessionId = null;
+        this.wechatLoginCurrentStatus = '';
+        this.wechatLoginModalDismissed = false;
+        this._openWechatLoginModal();
+
+        try {
+            const apiUrl = window.wechatConnector.getProxyApiPath('/api/accounts/login/start');
+            console.info('ConnectorsTab: starting WeChat login flow', { apiUrl });
+            const res = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            if (!res.ok) {
+                throw new Error(await res.text());
+            }
+            const data = await res.json();
+            this.wechatLoginSessionId = String(data.session_id || data.sessionId || '').trim();
+            if (!this.wechatLoginSessionId) {
+                throw new Error('missing login session id');
+            }
+            this._setWechatLoginModalStatus('Scan the QR code with WeChat to login.');
+            await this._refreshWechatLoginQr();
+            this._startWechatLoginStatusPolling();
+        } catch (err) {
+            console.warn('ConnectorsTab: WeChat login flow failed', err);
+            this._setWechatLoginModalStatus('Failed to start WeChat login flow. Check logs.');
+        }
+    }
+
+    _openWechatLoginModal() {
+        if (this.wechatLoginModalDismissed) {
+            return;
+        }
+        if (window.wechatConnector && typeof window.wechatConnector.createLoginModal === 'function') {
+            window.wechatConnector.createLoginModal(() => {
+                this._handleWechatLoginModalClose();
+            });
+            return;
+        }
+
+        let modal = document.getElementById('wx-pair-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'wx-pair-modal';
+            modal.className = 'wx-pair-modal';
+            modal.style.position = 'fixed';
+            modal.style.left = '50%';
+            modal.style.top = '50%';
+            modal.style.transform = 'translate(-50%, -50%)';
+            modal.style.width = '360px';
+            modal.style.maxWidth = 'calc(100vw - 24px)';
+            modal.style.background = 'var(--modal-background, var(--card-bg, #ffffff))';
+            modal.style.color = 'var(--text-color, #111111)';
+            modal.style.border = '1px solid var(--border-color, #ccc)';
+            modal.style.padding = '14px';
+            modal.style.boxSizing = 'border-box';
+            modal.style.maxHeight = 'calc(100vh - 32px)';
+            modal.style.overflowY = 'auto';
+            modal.style.zIndex = '9999';
+            modal.style.boxShadow = '0 8px 32px rgba(0,0,0,0.18)';
+            modal.style.borderRadius = '14px';
+            modal.style.fontFamily = 'var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)';
+        }
+
+        modal.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
+                <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text-color, #111111);">WeChat QR login</h2>
+                <button id="wx-close-modal-x" type="button" aria-label="Close pairing" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--border-color, #ccc);border-radius:999px;background:var(--button-secondary-bg, #f3f4f6);color:var(--button-secondary-text, #111111);cursor:pointer;font-size:20px;line-height:1;">&times;</button>
+            </div>
+            <div id="wx-status" style="margin-bottom:12px;font-size:14px;color:var(--text-color, #4d4d4d);">Starting WeChat login...</div>
+            <div id="wx-qr-container" style="text-align:center;margin-bottom:12px;min-height:240px;display:flex;align-items:center;justify-content:center;background:var(--button-secondary-bg, #f8f8f8);border-radius:12px;padding:12px;">
+                <div style="color:var(--disabled-color, #777);font-size:13px;">Waiting for QR code...</div>
+            </div>
+            <div id="wx-qr-note" style="font-size:13px;color:var(--text-color, #4d4d4d);margin-bottom:16px;">Scan the QR in the WeChat app to continue.</div>
+            <button id="wx-close-modal" style="width:100%;padding:10px;background:var(--button-bg, #4CAF50);color:var(--button-text, #ffffff);border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Close</button>
+        `;
+
+        if (!document.body.contains(modal)) {
+            document.body.appendChild(modal);
+        }
+
+        const closeBtn = document.getElementById('wx-close-modal');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this._handleWechatLoginModalClose();
+            });
+        }
+        const closeX = document.getElementById('wx-close-modal-x');
+        if (closeX) {
+            closeX.addEventListener('click', () => {
+                this._handleWechatLoginModalClose();
+            });
+        }
+    }
+
+    _handleWechatLoginModalClose() {
+        if (this.wechatLoginModalDismissed) {
+            return;
+        }
+        this.wechatLoginModalDismissed = true;
+        this._stopWechatLoginFlow();
+        this._closeWechatLoginModal();
+        this.stopWechatServer().catch(err => {
+            console.warn('ConnectorsTab: failed to stop WeChat server after modal close', err);
+        });
+    }
+
+    _setWechatLoginModalStatus(message) {
+        if (window.wechatConnector && typeof window.wechatConnector.setLoginModalStatus === 'function') {
+            window.wechatConnector.setLoginModalStatus(message);
+            return;
+        }
+        this.wechatLoginCurrentStatus = String(message || '');
+        const statusEl = document.getElementById('wx-status');
+        if (statusEl) {
+            statusEl.textContent = this.wechatLoginCurrentStatus;
+        }
+    }
+
+    async _refreshWechatLoginQr() {
+        if (!this.wechatLoginSessionId) {
+            return;
+        }
+        if (window.wechatConnector && typeof window.wechatConnector.renderLoginQr === 'function') {
+            window.wechatConnector.renderLoginQr(this.wechatLoginSessionId);
+            return;
+        }
+
+        const qrContainer = document.getElementById('wx-qr-container');
+        if (!qrContainer) {
+            return;
+        }
+        qrContainer.innerHTML = '';
+        const img = document.createElement('img');
+        img.alt = 'WeChat QR Code';
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '260px';
+        img.style.borderRadius = '12px';
+        img.style.border = '1px solid var(--border-color, #ddd)';
+        img.src = window.wechatConnector ? window.wechatConnector.getProxyApiPath('/api/accounts/login/qr') + '?session_id=' + encodeURIComponent(this.wechatLoginSessionId) + '&ts=' + Date.now() : '/api/wechat/api/accounts/login/qr?session_id=' + encodeURIComponent(this.wechatLoginSessionId) + '&ts=' + Date.now();
+        img.addEventListener('error', () => {
+            qrContainer.innerHTML = '<div style="color:var(--disabled-color, #777);font-size:13px;">Unable to load WeChat QR code. Refresh the page or retry.</div>';
+        });
+        qrContainer.appendChild(img);
+    }
+
+    _startWechatLoginStatusPolling() {
+        this._stopWechatLoginFlow();
+        if (!this.wechatLoginSessionId) {
+            return;
+        }
+        this.wechatLoginStatusPolling = setInterval(() => {
+            this._pollWechatLoginStatus().catch(err => {
+                console.warn('ConnectorsTab: WeChat login status poll failed', err);
+            });
+        }, 3000);
+    }
+
+    async _pollWechatLoginStatus() {
+        if (this.wechatLoginModalDismissed || !this.wechatLoginSessionId) {
+            return;
+        }
+        try {
+            const apiUrl = window.wechatConnector ? window.wechatConnector.getProxyApiPath('/api/accounts/login/status') : '/api/wechat/api/accounts/login/status';
+            const url = apiUrl + '?session_id=' + encodeURIComponent(this.wechatLoginSessionId);
+            console.info('ConnectorsTab: polling WeChat login status', { url });
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) {
+                console.warn('ConnectorsTab: login status poll returned non-ok', { status: res.status, url });
+                if (res.status === 404) {
+                    this._setWechatLoginModalStatus('WeChat login session not found. Restarting login flow...');
+                    await this._startWechatLoginFlow();
+                }
+                return;
+            }
+            const data = await res.json();
+            console.info('ConnectorsTab: WeChat login status response', data);
+            const statusText = String(data.status || '').trim();
+            if (data.error) {
+                this._setWechatLoginModalStatus('WeChat login error: ' + data.error);
+                this._stopWechatLoginFlow();
+                return;
+            }
+            if (statusText && statusText !== this.wechatLoginCurrentStatus) {
+                this._setWechatLoginModalStatus('Login status: ' + statusText.replace(/_/g, ' '));
+            }
+            const accountId = String(data.account_id || data.ilink_bot_id || data.ilinkBotId || '').trim();
+            const loginToken = String(data.bot_token || data.token || data.botToken || '').trim();
+            const baseUrl = String(data.base_url || data.baseUrl || data.baseurl || data.baseURL || '').trim();
+            const hasWechatCredentials = Boolean(accountId) && Boolean(loginToken) && Boolean(baseUrl);
+            const completedStatuses = ['completed', 'connected', 'confirmed'];
+            const isLoggedIn = completedStatuses.includes(statusText.toLowerCase()) && hasWechatCredentials;
+            if (isLoggedIn) {
+                const payloadToSave = {
+                    ...data,
+                    account_id: accountId,
+                    bot_token: loginToken,
+                    base_url: baseUrl
+                };
+                console.info('ConnectorsTab: WeChat login successful, saving persisted account data', payloadToSave);
+                await this._persistWechatAccountAfterLogin(payloadToSave);
+                this._setWechatLoginModalStatus('WeChat login completed. Refreshing status...');
+                this._stopWechatLoginFlow();
+                await this.refreshWechatPairButton({ check: true });
+                this.wechatIsPaired = true;
+                this.wechatHasSavedAccount = true;
+                this.setWechatPairButtonState(true);
+                this._closeWechatLoginModal();
+                return;
+            }
+        } catch (err) {
+            console.warn('ConnectorsTab: _pollWechatLoginStatus error', err);
+        }
+    }
+
+    _stopWechatLoginFlow() {
+        if (this.wechatLoginStatusPolling) {
+            clearInterval(this.wechatLoginStatusPolling);
+            this.wechatLoginStatusPolling = null;
+        }
+    }
+
+    _closeWechatLoginModal() {
+        this.wechatLoginModalDismissed = true;
+        this._stopWechatLoginFlow();
+        if (window.wechatConnector && typeof window.wechatConnector.closeLoginModal === 'function') {
+            window.wechatConnector.closeLoginModal();
+            return;
+        }
+        const modal = document.getElementById('wx-pair-modal');
+        if (modal && document.body.contains(modal)) {
+            document.body.removeChild(modal);
+        }
+    }
+
     _beginWhatsappRequestGeneration() {
         this.whatsappManualStopRequested = false;
         this.whatsappRequestGeneration += 1;
@@ -343,6 +1406,30 @@ class ConnectorsTab {
             fetch(stopUrl, {
                 method: 'POST',
                 headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
+                keepalive: true
+            }).catch(() => {});
+        } catch (_) {}
+    }
+
+    _handleWechatPairingWindowClose() {
+        if (!(this.wechatServerStarted || this.wechatServerStarting || this.wechatServerStopping)) {
+            return;
+        }
+
+        this.wechatLoginModalDismissed = true;
+        this._stopWechatLoginFlow();
+
+        const stopUrl = '/api/wechat/stop';
+        try {
+            if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+                navigator.sendBeacon(stopUrl, new Blob([], { type: 'application/json' }));
+                return;
+            }
+        } catch (_) {}
+
+        try {
+            fetch(stopUrl, {
+                method: 'POST',
                 keepalive: true
             }).catch(() => {});
         } catch (_) {}
@@ -496,6 +1583,14 @@ class ConnectorsTab {
 
         if (resolvedDeviceId && candidateDeviceId === resolvedDeviceId) {
             return true;
+        }
+
+        const resolvedIsPaired = this._isWhatsappPairedDeviceId(resolvedDeviceId);
+        const candidateIsPaired = this._isWhatsappPairedDeviceId(candidateDeviceId);
+        if (resolvedDeviceId && candidateDeviceId && resolvedIsPaired && candidateIsPaired) {
+            // Different paired WhatsApp device IDs must not be treated as the same device
+            // just because they share the same account metadata (same phone/jid).
+            return false;
         }
 
         const referenceAccountKey = this._getWhatsappDeviceAccountKey(resolvedDeviceId, metadata);
@@ -3597,6 +4692,14 @@ class ConnectorsTab {
         this.whatsappSessionImportedForDevice = null;
         this.whatsappSessionRestoreSkippedForDevice = null;
         this.whatsappSessionRestoreStatus = '';
+
+        try {
+            await this._ensureWhatsappConnectorLoaded();
+        } catch (loadErr) {
+            console.error('ConnectorsTab: failed to load WhatsApp connector script', loadErr);
+            this.setWhatsappPairButtonState(false);
+            return;
+        }
 
         if (this._isWhatsappRestartBlocked()) {
             this.setWhatsappPairButtonState(false);

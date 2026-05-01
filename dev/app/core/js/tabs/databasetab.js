@@ -168,7 +168,7 @@ class DatabaseTab {
 
         const confirmed = confirm(
             Lang.get('clearWhatsappPhoneContextsConfirm')
-            || 'This will permanently delete all stored WhatsApp per-phone context memory. Paired devices and the rest of your database will be preserved. Continue?'
+            || 'This will permanently delete all stored WhatsApp per-phone context memory. Paired devices, replay/history tracking, and the rest of your database will be preserved. Continue?'
         );
         if (!confirmed) return;
 
@@ -334,6 +334,11 @@ class DatabaseTab {
                             <div class="db-breakdown-title">WhatsApp</div>
                             <div class="db-breakdown-size">${breakdown.whatsapp?.formatted || '-'}</div>
                             <div class="db-breakdown-meta">${openState.whatsapp ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseSessionsLabel') || 'Sessions'}: ${breakdown.whatsapp?.sessions || 0} (${breakdown.whatsapp?.sessionFormatted || '0 B'}) | ${Lang.get('databaseContextsLabel') || 'Contexts'}: ${breakdown.whatsapp?.contexts || 0} (${breakdown.whatsapp?.contextFormatted || '0 B'})</div>
+                        </div>
+                        <div class="db-breakdown-card">
+                            <div class="db-breakdown-title">WeChat</div>
+                            <div class="db-breakdown-size">${breakdown.wechat?.formatted || '-'}</div>
+                            <div class="db-breakdown-meta">${openState.wechat ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | Accounts: ${breakdown.wechat?.accounts || 0} | Sessions: ${breakdown.wechat?.sessions || 0} | Events: ${breakdown.wechat?.events || 0} | Logs: ${breakdown.wechat?.logs || 0} | Peer contexts: ${breakdown.wechat?.peerContexts || 0} | Account contexts: ${breakdown.wechat?.accountContexts || 0}</div>
                         </div>
                     </div>
                 </div>

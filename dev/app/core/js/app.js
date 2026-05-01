@@ -184,9 +184,33 @@ async function stopWhatsappServerForSessionReset() {
     }
 }
 
+async function stopWechatServerForSessionReset() {
+    if (typeof window === 'undefined' || typeof fetch !== 'function') {
+        return false;
+    }
+
+    try {
+        if (window.connectorsTab && typeof window.connectorsTab.stopWechatServer === 'function') {
+            await window.connectorsTab.stopWechatServer();
+            return true;
+        }
+
+        const stopRes = await fetch('/api/wechat/stop', {
+            method: 'POST',
+            keepalive: true
+        });
+
+        return stopRes.ok;
+    } catch (err) {
+        console.warn('App: stopWechatServerForSessionReset failed', err);
+        return false;
+    }
+}
+
 if (typeof window !== 'undefined') {
     window.PaiperworkSessionReset = {
-        stopWhatsappServerForSessionReset
+        stopWhatsappServerForSessionReset,
+        stopWechatServerForSessionReset
     };
 }
 

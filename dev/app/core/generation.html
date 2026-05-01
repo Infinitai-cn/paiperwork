@@ -212,11 +212,16 @@
 
         <script>
 
-            async function navigateAfterStoppingWhatsapp(targetUrl, options = {}) {
+            async function navigateAfterStoppingConnectors(targetUrl, options = {}) {
                 const { clearSession = false } = options;
 
-                if (window.PaiperworkSessionReset && typeof window.PaiperworkSessionReset.stopWhatsappServerForSessionReset === 'function') {
-                    await window.PaiperworkSessionReset.stopWhatsappServerForSessionReset();
+                if (window.PaiperworkSessionReset) {
+                    if (typeof window.PaiperworkSessionReset.stopWhatsappServerForSessionReset === 'function') {
+                        await window.PaiperworkSessionReset.stopWhatsappServerForSessionReset();
+                    }
+                    if (typeof window.PaiperworkSessionReset.stopWechatServerForSessionReset === 'function') {
+                        await window.PaiperworkSessionReset.stopWechatServerForSessionReset();
+                    }
                 }
 
                 if (clearSession) {
@@ -259,7 +264,7 @@
                 const backButton = document.getElementById('back-button');
                 if (backButton) {
                     backButton.addEventListener('click', async () => {
-                        await navigateAfterStoppingWhatsapp('../welcome.html');
+                        await navigateAfterStoppingConnectors('../welcome.html');
                     });
                 }
 
@@ -333,7 +338,7 @@
                             const ok = await PaiperworkDB.deleteAllDatabases();
                             if (ok) {
                                 alert(Lang.get('securityDataDeletedSuccess') || 'All data deleted successfully');
-                                await navigateAfterStoppingWhatsapp('../index.html', { clearSession: true });
+                                await navigateAfterStoppingConnectors('../index.html', { clearSession: true });
                             } else {
                                 alert(Lang.get('securityDeleteError') || 'Error deleting data');
                                 deleteAllBtn.disabled = false;

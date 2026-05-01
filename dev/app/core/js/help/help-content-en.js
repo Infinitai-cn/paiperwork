@@ -2942,10 +2942,10 @@ window.helpContent = {
     connectors: {
         title: "Connectors",
         intro: [
-            "Note: The Paiperwork online version hosted on Huggingface does not include WhatsApp functionality for user safety and privacy reasons.",
-            "Supported WhatsApp orchestrator languages: English, Spanish, Portuguese, German, Chinese, French, Japanese, Korean, and Russian.",
-            "Connectors pair Paiperwork with WhatsApp. Requests only use resources already available inside Paiperwork and do not access your operating system, memory, hard disk, or arbitrary external files.",
-            "To receive incoming WhatsApp messages, keep the Paiperwork browser tab active and keep your computer awake.",
+            "Note: The Paiperwork online version hosted on Huggingface does not include WhatsApp or wechat functionality for user safety and privacy reasons.",
+            "Supported WhatsApp/Wechat orchestrator languages: English, Spanish, Portuguese, German, Chinese, French, Japanese, Korean, and Russian.",
+            "Connectors pair Paiperwork with WhatsApp/Wechat. Requests only use resources already available inside Paiperwork and do not access your operating system, memory, hard disk, or arbitrary external files.",
+            "To receive incoming WhatsApp/Wechat messages, keep the Paiperwork browser tab active and keep your computer awake. Lock screen will stop incoming messages, you may consider to disable it temporarily to enable WhatsApp/Wechat features.",
             "Documents, research, presentations, and artifacts can open a dedicated follow-up mode. Stay in that mode until you close it with the corresponding exit cue."
         ],
         articles: [
@@ -2953,20 +2953,21 @@ window.helpContent = {
                 id: "connectors-pairing",
                 title: "Pairing and Modes",
                 content: `
-                <p>Open the Connectors tab and choose a mode before starting the server.</p>
+                <p>WhatsApp: Open the Connectors tab and choose a mode before starting the server.</p>
                 <ol>
                     <li><strong>Personal mode:</strong> Connect your own WhatsApp account and talk with yourself in a private workflow.</li>
                     <li><strong>Bot mode:</strong> People in your WhatsApp contact list can talk to the paired Paiperwork instance. Use a separate phone number unless you explicitly want your main account to behave this way.<br><strong>2.1.</strong> You can enhance the user experience interacting with the bot by modifying the system prompt in the Chat tab.<br><strong>2.2.</strong> Any WhatsApp user in your contact list can access enabled connector functions and stored documents that are available through the connector.<br><strong>2.3.</strong> You cannot initiate messages from Paiperwork to WhatsApp users in order to avoid abuse and spam.<br><strong>2.4.</strong> If you close the server in bot mode, pending user messages stay queued until the next server start and are then processed one by one. If you want to skip those messages, start the server in personal mode; all inbound messages will be ignored except the ones you sent to yourself.</li>
                 </ol>
                 <p>Click <strong>Start server</strong>, then scan the QR code the first time you pair. You can stop the server at any time, which stops message routing in both directions.</p>
-                <h4>Clear WhatsApp Contexts</h4>
-                <p>If WhatsApp responses start feeling bloated after long use, you can clear only the database's stored per-phone WhatsApp conversations without deleting the rest of your database, Paiperwork related conversations won't be deleted.</p>
+                <p>WeChat: To pair the WeChat bot, click on the Start server button, scan the QR code, and follow instructions in your phone's WeChat app. Subsequent server starts will keep the same pairing information unless you delete the paired device.</p>
+                <h4>Clear WhatsApp/Wechat Contexts</h4>
+                <p>If WhatsApp/Wechat responses start feeling bloated after long use, you can clear only the database's stored per-phone WhatsApp/Wechat conversations without deleting the rest of your database, Paiperwork related conversations won't be deleted.</p>
                 <ol>
-                    <li>Click "Clear WhatsApp Contexts" in the Connectors tab</li>
-                    <li>This removes stored per-phone WhatsApp context memory and resets the live WhatsApp runtime context</li>
+                    <li>Click "Clear WhatsApp/Wechat Contexts" in the Connectors tab</li>
+                    <li>This removes stored per-phone WhatsApp/Wechat context (messages) memory and resets the live WhatsApp/Wechat runtime context</li>
                     <li>Paired device information is preserved and can still be managed with "Delete paired device(s)"</li>
                 </ol>
-                <p>If you want to fully remove the Paiperwork pairing, do it from your phone in WhatsApp under <strong>Linked devices</strong>.</p>
+                <p>If you want to fully remove the Paiperwork pairing, do it from your phone in WhatsApp/Wechat under <strong>Linked devices</strong>.</p>
             `,
             },
             {
@@ -3005,6 +3006,7 @@ window.helpContent = {
                     <li><code>&lt;document name&gt; and your question</code></li>
                     <li><code>Summarize &lt;document name&gt;</code></li>
                     <li><code>&lt;document name&gt; summarize and create a presentation</code></li>
+                    <li><code>&lt;document name&gt; summarize and create a mini app</code></li>
                 </ul>
                 <p>To leave document follow-up mode, use <code>exit document mode</code> or <code>I am finished</code>.</p>
                 <h5>Interactions</h5>
@@ -3100,6 +3102,7 @@ window.helpContent = {
                 <h4>Presentations</h4>
                 <p>You can create presentations by providing the source text. Paiperwork estimates the number of slides from the amount of content unless you explicitly request a slide count.</p>
                 <div class="note"><p><strong>Note:</strong> WhatsApp phone, tablet, and computer apps restrict the execution of code for security reasons, so presentations may not display there. Use WhatsApp Web so you can download them to your computer and view them correctly.</p></div>
+                <div class="note"><p><strong>Note:</strong> Wechat phone and tablet versions restrict the execution of code for security reasons, so presentations may not display there. Use Wechat App in the computer so you can download them to your computer and view them correctly (make sure to save the file outside of Wechat's own folder).</p></div>
                 <ul>
                     <li><code>Create a presentation with the following text: &lt;presentation text&gt;</code></li>
                     <li><code>Use the following text to create a presentation: &lt;presentation text&gt;</code></li>
@@ -3117,6 +3120,7 @@ window.helpContent = {
                 <h4>Artifacts</h4>
                 <p>You can request artifacts or HTML mini apps of many kinds directly from WhatsApp.</p>
                 <div class="note"><p><strong>Note:</strong> WhatsApp phone, tablet, and computer apps restrict the execution of code for security reasons, so mini apps may not display or run there. Use WhatsApp Web so you can download them to your computer and use them correctly.</p></div>
+                <div class="note"><p><strong>Note:</strong> Wechat phone and tablet versions restrict the execution of code for security reasons, so mini apps may not display or run there. Use Wechat App in the computer so you can download them to your computer and use them correctly (make sure to save the file outside of Wechat's own folder).</p></div>
                 <ul>
                     <li><code>Create one relaxing animated wallpaper mini app with different noises and low frequency oscillators, with web search</code></li>
                     <li><code>Create Galaga game artifact</code></li>
@@ -3155,10 +3159,11 @@ window.helpContent = {
                 <ul>
                     <li>Sending files and images to the AI model is not supported yet.</li>
                     <li>Document workflows require a local embedding model selected in the Documents tab.</li>
-                    <li>Paiperwork uses an internal orchestrator to decide which connector function to use for each WhatsApp request.</li>
-                    <li>If you go back from the generation page to the welcome page or refresh the browser, the WhatsApp server is closed. Start it manually again to resume WhatsApp communication.</li>
-                    <li>Presentations and artifacts generated from WhatsApp are sent back as HTML files. You can later open them in Paiperwork for deeper manual edits.</li>
-                    <li>By default, Paiperwork isolates WhatsApp connector state per Master Key user so saved sessions, device state, and queued runtime data do not leak between different Master Key users on the same machine.</li>
+                    <li>Paiperwork uses an internal orchestrator to decide which connector function to use for each WhatsApp/WeChat request.</li>
+                    <li>If you go back from the generation page to the welcome page or refresh the browser, the WhatsApp/WeChat server is closed. Start it manually again to resume WhatsApp/WeChat communication.</li>
+                    <li>Presentations and artifacts generated from WhatsApp/WeChat are sent back as HTML files. You can later open them in Paiperwork for deeper manual edits.</li>
+                    <li>During long operations like Document summary, Research, presentation creation, or mini app generation, you can cancel at any time by sending <code>Cancel</code>, <code>Stop</code>, or <code>Exit</code> from WhatsApp/WeChat.</li>
+                    <li>By default, Paiperwork isolates WhatsApp/WeChat connector state per Master Key user so saved sessions, device state, and queued runtime data do not leak between different Master Key users on the same machine.</li>
                 </ul>
             `,
             }

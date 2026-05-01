@@ -44,6 +44,16 @@ class ArtworksTab {
             || msg.includes('rate limit');
     }
 
+    isOllamaApiKeyError(error) {
+        const msg = String(error?.message || '').toLowerCase();
+        return msg.includes('no response received from ollama')
+            || msg.includes('unauthorized')
+            || msg.includes('invalid api key')
+            || msg.includes('missing api key')
+            || msg.includes('api key')
+            || msg.includes('401');
+    }
+
     // Initializes the ArtworksTab, sets up UI, event handlers, and loads preferences
     async initialize() {
         if (this.initialized) return true;
@@ -1797,6 +1807,18 @@ class ArtworksTab {
                     }
                 } else {
                     console.error('ArtworksTab: UI elements unavailable to display error message', error);
+                }
+
+                // Prompt for an Ollama API key when the Artworks workflow fails due to Ollama/cloud auth issues.
+                if ((this.activeMode === 'style' || this.activeMode === 'overlay')
+                    && this.isOllamaApiKeyError(error)
+                    && window.chatTab
+                    && typeof window.chatTab.openOllamaApiKeyManager === 'function') {
+                    setTimeout(() => {
+                        window.chatTab.openOllamaApiKeyManager(true).catch((modalError) => {
+                            console.error('ArtworksTab: Failed to open Ollama API key manager', modalError);
+                        });
+                    }, 50);
                 }
 
                 // Restore system prompt in case of exception
