@@ -8670,6 +8670,9 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
+	startKeepAwake()
+	defer stopKeepAwake()
+
 	// Security-focused startup messages
 	log.Printf("🔒 Secure Paiperwork server starting on:")
 	log.Printf("🛡️  SECURITY: Server restricted to localhost access only")
