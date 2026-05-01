@@ -3864,6 +3864,8 @@ class PaiperworkDB {
 
             const htmlSaved = await this.savePromptablePresentationHtmlContent(hashedMasterKey, insertedId, html);
             if (!htmlSaved) {
+                db.run(`DELETE FROM ${tableName} WHERE id = ?`, [insertedId]);
+                await this.saveToStorage(db.export(), hashedMasterKey);
                 throw new Error('Could not persist promptable presentation HTML content');
             }
 
@@ -3949,12 +3951,21 @@ class PaiperworkDB {
                 const htmlRows = presentationsDb.exec(`SELECT presentation_id FROM ${htmlTableName}`);
                 const htmlIds = new Set((htmlRows && htmlRows[0] && htmlRows[0].values ? htmlRows[0].values : []).map(row => Number(row[0] || 0)).filter(Boolean));
                 const orphanedItems = rawItems.filter(item => !htmlIds.has(Number(item.id || 0)));
+                const metadataIds = new Set(rawItems.map(item => Number(item.id || 0)).filter(Boolean));
+                const orphanedHtmlIds = Array.from(htmlIds).filter(idValue => !metadataIds.has(idValue));
 
                 if (orphanedItems.length) {
                     for (const orphaned of orphanedItems) {
                         db.run(`DELETE FROM ${tableName} WHERE id = ?`, [orphaned.id]);
                     }
                     await this.saveToStorage(db.export(), hashedMasterKey);
+                }
+
+                if (orphanedHtmlIds.length) {
+                    for (const orphanedHtmlId of orphanedHtmlIds) {
+                        presentationsDb.run(`DELETE FROM ${htmlTableName} WHERE presentation_id = ?`, [orphanedHtmlId]);
+                    }
+                    await this.saveToStorage(presentationsDb.export(), hashedMasterKey, 'presentations');
                 }
 
                 return rawItems.filter(item => htmlIds.has(Number(item.id || 0)));
@@ -4157,17 +4168,47 @@ class PaiperworkDB {
 
             const htmlTableName = `promptable_presentations_html_${hashedMasterKey}`;
             const existingPresentationsDb = await this.getExistingDatabase(hashedMasterKey, 'presentations');
+            let htmlBackup = null;
+            let htmlTableExists = false;
+
             if (existingPresentationsDb) {
                 presentationsDb = new this.SQL.Database(existingPresentationsDb);
                 const htmlTableCheck = presentationsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
-                if (htmlTableCheck && htmlTableCheck[0] && htmlTableCheck[0].values.length) {
-                    presentationsDb.run(`DELETE FROM ${htmlTableName} WHERE presentation_id = ?`, [id]);
-                    await this.saveToStorage(presentationsDb.export(), hashedMasterKey, 'presentations');
+                htmlTableExists = !!(htmlTableCheck && htmlTableCheck[0] && htmlTableCheck[0].values.length);
+                if (htmlTableExists) {
+                    const htmlRow = presentationsDb.exec(`SELECT html_content, updated_at FROM ${htmlTableName} WHERE presentation_id = ? LIMIT 1`, [id]);
+                    if (htmlRow && htmlRow[0] && htmlRow[0].values && htmlRow[0].values[0]) {
+                        htmlBackup = {
+                            html_content: htmlRow[0].values[0][0],
+                            updated_at: htmlRow[0].values[0][1]
+                        };
+                    }
                 }
             }
 
             db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
             await this.saveToStorage(db.export(), hashedMasterKey);
+
+            if (presentationsDb && htmlTableExists) {
+                presentationsDb.run(`DELETE FROM ${htmlTableName} WHERE presentation_id = ?`, [id]);
+                try {
+                    await this.saveToStorage(presentationsDb.export(), hashedMasterKey, 'presentations');
+                } catch (storageError) {
+                    console.error('deletePromptablePresentation failed to save presentations DB after HTML deletion:', storageError);
+                    if (htmlBackup) {
+                        try {
+                            presentationsDb.run(
+                                `INSERT OR REPLACE INTO ${htmlTableName} (presentation_id, html_content, updated_at) VALUES (?, ?, ?)`,
+                                [id, htmlBackup.html_content, htmlBackup.updated_at]
+                            );
+                            await this.saveToStorage(presentationsDb.export(), hashedMasterKey, 'presentations');
+                        } catch (restoreError) {
+                            console.error('deletePromptablePresentation failed to restore HTML row after failed delete save:', restoreError);
+                        }
+                    }
+                    return false;
+                }
+            }
 
             return true;
         } catch (error) {
@@ -4270,7 +4311,13 @@ class PaiperworkDB {
                 throw new Error('Could not create artifact metadata record');
             }
 
-            await this.saveArtifactHtmlContent(hashedMasterKey, insertedId, html);
+            const htmlSaved = await this.saveArtifactHtmlContent(hashedMasterKey, insertedId, html);
+            if (!htmlSaved) {
+                db.run(`DELETE FROM ${tableName} WHERE id = ?`, [insertedId]);
+                await this.saveToStorage(db.export(), hashedMasterKey);
+                throw new Error('Could not persist artifact HTML content');
+            }
+
             return insertedId;
         } catch (error) {
             console.error('saveArtifact error:', error);
@@ -4354,13 +4401,44 @@ class PaiperworkDB {
                 return [];
             }
 
-            return rows[0].values.map(row => ({
+            const rawItems = rows[0].values.map(row => ({
                 id: row[0],
                 title: row[1] || '',
                 prompt_text: row[2] || '',
                 created_at: row[3] || '',
                 updated_at: row[4] || ''
             }));
+
+            const htmlTableName = `artifacts_html_${hashedMasterKey}`;
+            const artifactsDb = await this.getDatabase(hashedMasterKey, 'artifacts', false);
+            if (!artifactsDb) {
+                for (const item of rawItems) {
+                    db.run(`DELETE FROM ${tableName} WHERE id = ?`, [item.id]);
+                }
+                await this.saveToStorage(db.export(), hashedMasterKey);
+                return [];
+            }
+
+            const htmlTableCheck = artifactsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
+            if (!htmlTableCheck || !htmlTableCheck[0] || !htmlTableCheck[0].values.length) {
+                for (const item of rawItems) {
+                    db.run(`DELETE FROM ${tableName} WHERE id = ?`, [item.id]);
+                }
+                await this.saveToStorage(db.export(), hashedMasterKey);
+                return [];
+            }
+
+            const htmlRows = artifactsDb.exec(`SELECT artifact_id FROM ${htmlTableName}`);
+            const htmlIds = new Set((htmlRows && htmlRows[0] && htmlRows[0].values ? htmlRows[0].values : []).map(row => Number(row[0] || 0)).filter(Boolean));
+            const orphanedItems = rawItems.filter(item => !htmlIds.has(Number(item.id || 0)));
+            if (orphanedItems.length) {
+                for (const orphaned of orphanedItems) {
+                    db.run(`DELETE FROM ${tableName} WHERE id = ?`, [orphaned.id]);
+                }
+                await this.saveToStorage(db.export(), hashedMasterKey);
+            }
+
+            return rawItems.filter(item => htmlIds.has(Number(item.id || 0)));
         } catch (error) {
             console.error('getArtifacts error:', error);
             return [];
@@ -4420,16 +4498,69 @@ class PaiperworkDB {
                 return false;
             }
 
-            db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
-            await this.saveToStorage(db.export(), hashedMasterKey);
+            const metadataRow = db.exec(`SELECT title, prompt_text, created_at, updated_at FROM ${tableName} WHERE id = ? LIMIT 1`, [id]);
+            const metadataBackup = (metadataRow && metadataRow[0] && metadataRow[0].values && metadataRow[0].values[0])
+                ? {
+                    title: metadataRow[0].values[0][0],
+                    prompt_text: metadataRow[0].values[0][1],
+                    created_at: metadataRow[0].values[0][2],
+                    updated_at: metadataRow[0].values[0][3],
+                }
+                : null;
 
             const htmlTableName = `artifacts_html_${hashedMasterKey}`;
             const artifactsDb = await this.getDatabase(hashedMasterKey, 'artifacts', false);
+            let htmlBackup = null;
+            let htmlTableExists = false;
+
             if (artifactsDb) {
                 const htmlTableCheck = artifactsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${htmlTableName}'`);
-                if (htmlTableCheck && htmlTableCheck[0] && htmlTableCheck[0].values.length) {
-                    artifactsDb.run(`DELETE FROM ${htmlTableName} WHERE artifact_id = ?`, [id]);
+                htmlTableExists = !!(htmlTableCheck && htmlTableCheck[0] && htmlTableCheck[0].values.length);
+                if (htmlTableExists) {
+                    const htmlRow = artifactsDb.exec(`SELECT html_content, updated_at FROM ${htmlTableName} WHERE artifact_id = ? LIMIT 1`, [id]);
+                    if (htmlRow && htmlRow[0] && htmlRow[0].values && htmlRow[0].values[0]) {
+                        htmlBackup = {
+                            html_content: htmlRow[0].values[0][0],
+                            updated_at: htmlRow[0].values[0][1],
+                        };
+                    }
+                }
+            }
+
+            db.run(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
+            await this.saveToStorage(db.export(), hashedMasterKey);
+
+            if (artifactsDb && htmlTableExists) {
+                artifactsDb.run(`DELETE FROM ${htmlTableName} WHERE artifact_id = ?`, [id]);
+                try {
                     await this.saveToStorage(artifactsDb.export(), hashedMasterKey, 'artifacts');
+                } catch (storageError) {
+                    console.error('deleteArtifact failed to save artifacts DB after HTML deletion:', storageError);
+                    if (htmlBackup) {
+                        try {
+                            artifactsDb.run(
+                                `INSERT OR REPLACE INTO ${htmlTableName} (artifact_id, html_content, updated_at) VALUES (?, ?, ?)`,
+                                [id, htmlBackup.html_content, htmlBackup.updated_at]
+                            );
+                            await this.saveToStorage(artifactsDb.export(), hashedMasterKey, 'artifacts');
+                        } catch (restoreError) {
+                            console.error('deleteArtifact failed to restore HTML row after failed delete save:', restoreError);
+                        }
+                    }
+
+                    if (metadataBackup) {
+                        try {
+                            db.run(
+                                `INSERT OR REPLACE INTO ${tableName} (id, title, prompt_text, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+                                [id, metadataBackup.title, metadataBackup.prompt_text, metadataBackup.created_at, metadataBackup.updated_at]
+                            );
+                            await this.saveToStorage(db.export(), hashedMasterKey);
+                        } catch (restoreMetadataError) {
+                            console.error('deleteArtifact failed to restore metadata after failed delete save:', restoreMetadataError);
+                        }
+                    }
+
+                    return false;
                 }
             }
 
