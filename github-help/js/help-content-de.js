@@ -2901,10 +2901,10 @@ window.helpContent = {
     connectors: {
         title: "Verbindungen",
         intro: [
-            "Hinweis: Die online auf Huggingface gehostete Version von Paiperwork enthält aus Gründen der Sicherheit und Privatsphäre der Nutzer keine WhatsApp-Funktionalität.",
-            "Unterstützte Sprachen für den WhatsApp-Orchestrator: Englisch, Spanisch, Portugiesisch, Deutsch, Chinesisch, Französisch, Japanisch, Koreanisch und Russisch.",
-            "Verbindungen koppeln Paiperwork mit WhatsApp. Anfragen verwenden nur Ressourcen, die bereits in Paiperwork vorhanden sind, und greifen nicht auf Betriebssystem, Speicher, Festplatte oder beliebige externe Dateien zu.",
-            "Damit eingehende WhatsApp-Nachrichten ankommen, muss der Browser-Tab mit Paiperwork aktiv bleiben und der Computer wach bleiben.",
+            "Hinweis: Die online auf Huggingface gehostete Version von Paiperwork enthält aus Gründen der Sicherheit und Privatsphäre der Nutzer keine WhatsApp- oder WeChat-Funktionalität.",
+            "Unterstützte Sprachen für den WhatsApp/WeChat-Orchestrator: Englisch, Spanisch, Portugiesisch, Deutsch, Chinesisch, Französisch, Japanisch, Koreanisch und Russisch.",
+            "Verbindungen koppeln Paiperwork mit WhatsApp/WeChat. Anfragen verwenden nur Ressourcen, die bereits in Paiperwork vorhanden sind, und greifen nicht auf Betriebssystem, Speicher, Festplatte oder beliebige externe Dateien zu.",
+            "Damit eingehende WhatsApp/WeChat-Nachrichten ankommen, muss der Browser-Tab mit Paiperwork aktiv bleiben und der Computer wach bleiben. Der Sperrbildschirm stoppt eingehende Nachrichten, Sie sollten erwägen, ihn vorübergehend zu deaktivieren, um WhatsApp/WeChat-Funktionen zu nutzen.",
             "Dokumente, Recherchen, Präsentationen und Artefakte können einen speziellen Nachverfolgungsmodus öffnen. Bleiben Sie in diesem Modus, bis Sie ihn mit dem passenden Beendigungsbefehl schließen."
         ],
         articles: [
@@ -2912,20 +2912,21 @@ window.helpContent = {
                 id: "connectors-pairing",
                 title: "Kopplung und Modi",
                 content: `
-                <p>Öffnen Sie den Tab Verbindungen und wählen Sie zuerst einen Modus, bevor Sie den Server starten.</p>
+                <p>WhatsApp: Öffnen Sie den Tab Verbindungen und wählen Sie zuerst einen Modus, bevor Sie den Server starten.</p>
                 <ol>
                     <li><strong>Persönlicher Modus:</strong> Sie verbinden Ihr eigenes WhatsApp-Konto und sprechen privat mit sich selbst.</li>
                     <li><strong>Bot-Modus:</strong> Personen aus Ihrer WhatsApp-Kontaktliste können mit der gekoppelten Paiperwork-Instanz sprechen. Verwenden Sie am besten eine separate Nummer, außer Sie möchten dieses Verhalten ausdrücklich mit Ihrem Hauptkonto.<br><strong>2.1.</strong> Sie können die Nutzererfahrung mit dem Bot verbessern, indem Sie den System Prompt im Chat-Tab anpassen.<br><strong>2.2.</strong> Jeder WhatsApp-Nutzer in Ihrer Kontaktliste kann auf aktivierte Connector-Funktionen und auf gespeicherte Dokumente zugreifen, die über den Connector verfügbar sind.<br><strong>2.3.</strong> Sie können keine Nachrichten von Paiperwork aus an WhatsApp-Nutzer initiieren, um Missbrauch und Spam zu vermeiden.<br><strong>2.4.</strong> Wenn Sie den Server im Bot-Modus schließen, bleiben ausstehende Nutzernachrichten in einer Warteschlange bis zum nächsten Serverstart und werden dann nacheinander verarbeitet. Wenn Sie diese Nachrichten überspringen möchten, starten Sie den Server im persönlichen Modus; alle eingehenden Nachrichten werden ignoriert, außer denjenigen, die Sie an sich selbst senden.</li>
                 </ol>
                 <p>Klicken Sie auf <strong>Start server</strong> und scannen Sie beim ersten Koppeln den QR-Code. Sie können den Server jederzeit stoppen, wodurch die Nachrichtenweiterleitung in beide Richtungen endet.</p>
-                <h4>WhatsApp-Kontexte löschen</h4>
-                <p>Wenn WhatsApp-Antworten nach längerer Nutzung aufgebläht wirken, können Sie nur die in der Datenbank gespeicherten WhatsApp-Konversationen pro Telefon löschen, ohne den Rest Ihrer Datenbank zu entfernen; Paiperwork-bezogene Konversationen werden nicht gelöscht.</p>
+                <p>WeChat: Um den WeChat-Bot zu koppeln, klicken Sie auf die Schaltfläche Start server, scannen Sie den QR-Code und folgen Sie den Anweisungen in der WeChat-App auf Ihrem Telefon. Spätere Serverstarts behalten dieselben Kopplungsinformationen bei, sofern Sie das gekoppelte Gerät nicht löschen.</p>
+                <h4>WhatsApp/WeChat-Kontexte löschen</h4>
+                <p>Wenn WhatsApp/WeChat-Antworten nach längerer Nutzung aufgebläht wirken, können Sie nur die in der Datenbank gespeicherten WhatsApp/WeChat-Konversationen pro Telefon löschen, ohne den Rest Ihrer Datenbank zu entfernen; Paiperwork-bezogene Konversationen werden nicht gelöscht.</p>
                 <ol>
-                    <li>Klicken Sie im Verbindungen-Tab auf "WhatsApp-Kontexte löschen"</li>
-                    <li>Dadurch werden die gespeicherten WhatsApp-Kontexte pro Telefon entfernt und der aktuelle WhatsApp-Laufzeitkontext zurückgesetzt</li>
+                    <li>Klicken Sie im Verbindungen-Tab auf "WhatsApp/WeChat-Kontexte löschen"</li>
+                    <li>Dadurch werden die gespeicherten WhatsApp/WeChat-Kontexte pro Telefon entfernt und der aktuelle WhatsApp/WeChat-Laufzeitkontext zurückgesetzt</li>
                     <li>Informationen zu gekoppelten Geräten bleiben erhalten und können weiterhin mit "Delete paired device(s)" verwaltet werden</li>
                 </ol>
-                <p>Wenn Sie die Paiperwork-Kopplung vollständig entfernen möchten, tun Sie dies auf Ihrem Telefon in WhatsApp unter <strong>Linked devices</strong>.</p>
+                <p>Wenn Sie die Paiperwork-Kopplung vollständig entfernen möchten, tun Sie dies auf Ihrem Telefon in WhatsApp/WeChat unter <strong>Linked devices</strong>.</p>
             `,
             },
             {
@@ -2964,6 +2965,7 @@ window.helpContent = {
                     <li><code>&lt;dokumentname&gt; zusammenfassen</code></li>
                     <li><code>&lt;dokumentname&gt; beschreiben</code></li>
                     <li><code>&lt;dokumentname&gt; zusammenfassung und präsentation</code></li>
+                    <li><code>&lt;dokumentname&gt; zusammenfassung und mini app</code></li>
                 </ul>
                 <p>Zum Verlassen des Dokument-Nachverfolgungsmodus verwenden Sie <code>dokumentmodus verlassen</code> oder <code>ich bin fertig</code>.</p>
                 <h5>Interaktionen</h5>
@@ -3059,6 +3061,7 @@ window.helpContent = {
                 <h4>Präsentationen</h4>
                 <p>Sie können Präsentationen erstellen, indem Sie den Ausgangstext bereitstellen. Paiperwork schätzt die Anzahl der Folien anhand der Inhaltsmenge, sofern Sie keine konkrete Folienzahl angeben.</p>
                 <div class="note"><p><strong>Hinweis:</strong> Die WhatsApp-Apps auf Telefon, Tablet und Computer beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Präsentationen dort möglicherweise nicht angezeigt. Verwenden Sie WhatsApp Web, damit Sie sie auf Ihren Computer herunterladen und korrekt ansehen können.</p></div>
+                <div class="note"><p><strong>Hinweis:</strong> Die Wechat-Versionen für Telefon und Tablet beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Präsentationen dort möglicherweise nicht angezeigt. Verwenden Sie die Wechat-App auf dem Computer, damit Sie sie auf Ihrem Computer herunterladen und korrekt ansehen können (stellen Sie sicher, dass Sie die Datei außerhalb des eigenen Wechat-Ordners speichern).</p></div>
                 <ul>
                     <li><code>mit diesem text eine präsentation erstellen: &lt;präsentationstext&gt;</code></li>
                     <li><code>mit folgendem text eine präsentation erstellen: &lt;präsentationstext&gt;</code></li>
@@ -3076,6 +3079,7 @@ window.helpContent = {
                 <h4>Artefakte</h4>
                 <p>Sie können direkt über WhatsApp Artefakte oder HTML-Mini-Apps vieler Arten anfordern.</p>
                 <div class="note"><p><strong>Hinweis:</strong> Die WhatsApp-Apps auf Telefon, Tablet und Computer beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Mini-Apps dort möglicherweise nicht angezeigt oder ausgeführt. Verwenden Sie WhatsApp Web, damit Sie sie auf Ihren Computer herunterladen und korrekt nutzen können.</p></div>
+                <div class="note"><p><strong>Hinweis:</strong> Die Wechat-Versionen für Telefon und Tablet beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Mini-Apps dort möglicherweise nicht angezeigt oder ausgeführt. Verwenden Sie die Wechat-App auf dem Computer, damit Sie sie auf Ihrem Computer herunterladen und korrekt nutzen können (stellen Sie sicher, dass Sie die Datei außerhalb des eigenen Wechat-Ordners speichern).</p></div>
                 <ul>
                     <li><code>erstelle eine entspannende animierte wallpaper mini app mit verschiedenen geräuschen und low frequency oscillators, mit websuche</code></li>
                     <li><code>erstelle galaga artefakt</code></li>
@@ -3114,10 +3118,11 @@ window.helpContent = {
                 <ul>
                     <li>Das Senden von Dateien und Bildern an das KI-Modell wird derzeit noch nicht unterstützt.</li>
                     <li>Dokument-Workflows erfordern ein lokal ausgewähltes Embedding-Modell im Dokumente-Tab.</li>
-                    <li>Paiperwork verwendet einen internen Orchestrator, um für jede WhatsApp-Anfrage die passende Connector-Funktion auszuwählen.</li>
-                    <li>Wenn Sie von der Generierungsseite zur Willkommensseite zurückgehen oder den Browser aktualisieren, wird der WhatsApp-Server geschlossen. Starten Sie ihn anschließend manuell neu, um die WhatsApp-Kommunikation fortzusetzen.</li>
-                    <li>Präsentationen und Artefakte aus WhatsApp werden als HTML-Dateien zurückgesendet. Später können Sie sie in Paiperwork öffnen und manuell weiter bearbeiten.</li>
-                    <li>Standardmäßig isoliert Paiperwork den WhatsApp-Connector-Zustand pro Master-Key-Nutzer, sodass gespeicherte Sitzungen, Gerätezustand und zwischengespeicherte Laufzeitdaten nicht zwischen verschiedenen Master-Key-Nutzern auf demselben Computer durchsickern.</li>
+                    <li>Paiperwork verwendet einen internen Orchestrator, um für jede WhatsApp/WeChat-Anfrage die passende Connector-Funktion auszuwählen.</li>
+                    <li>Wenn Sie von der Generierungsseite zur Willkommensseite zurückgehen oder den Browser aktualisieren, wird der WhatsApp/WeChat-Server geschlossen. Starten Sie ihn anschließend manuell neu, um die WhatsApp/WeChat-Kommunikation fortzusetzen.</li>
+                    <li>Präsentationen und Artefakte aus WhatsApp/WeChat werden als HTML-Dateien zurückgesendet. Später können Sie sie in Paiperwork öffnen und manuell weiter bearbeiten.</li>
+                    <li>Während langer Vorgänge wie Dokumentenzusammenfassung, Recherche, Präsentationserstellung oder Mini-App-Generierung können Sie jederzeit abbrechen, indem Sie <code>Cancel</code>, <code>Stop</code> oder <code>Exit</code> über WhatsApp/WeChat senden.</li>
+                    <li>Standardmäßig isoliert Paiperwork den WhatsApp/WeChat-Connector-Zustand pro Master-Key-Nutzer, sodass gespeicherte Sitzungen, Gerätezustand und zwischengespeicherte Laufzeitdaten nicht zwischen verschiedenen Master-Key-Nutzern auf demselben Computer durchsickern.</li>
                 </ul>
             `,
             }

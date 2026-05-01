@@ -1,4 +1,4 @@
-// Global keymap definitions for intent routing in ConnectorWhatsapp
+// Global keymap definitions for intent routing in ConnectorWhatsapp/wechat
 // Contains data-viz, research, and document triggers in supported languages.
 const documentKeymap = {
     nouns: [
@@ -99,7 +99,7 @@ documentKeymap.terms = [...new Set([
 ])];
 
 const commonFollowUpCloseCueGroups = {
-    English: ['no', 'no thanks', 'no thank you', 'im finished', "i'm finished", 'i am finished', 'finished', 'im good', "i'm good", 'i am good', 'all good', 'looks good', 'thats all', "that's all", 'no more changes', 'no more modifications', 'stop modifying', 'done'],
+    English: ['no', 'no thanks', 'no thank you', 'im finished', "i'm finished", 'i am finished', 'finished', 'im good', "i'm good", 'i am good', 'all good', 'looks good', 'thats all', "that's all", 'no more changes', 'no more modifications', 'stop modifying', 'done', 'exit', 'leave', 'close'],
     Spanish: ['no', 'no gracias', 'estoy bien', 'ya termine', 'ya terminé', 'terminado', 'listo', 'sin mas cambios', 'sin más cambios', 'no mas cambios', 'no más cambios'],
     Portuguese: ['nao', 'não', 'nao obrigado', 'não obrigado', 'estou bem', 'ja terminei', 'já terminei', 'terminado', 'pronto', 'sem mais alteracoes', 'sem mais alterações'],
     French: ['non', 'non merci', 'cest bon', "c'est bon", 'je suis bon', 'jai fini', "j'ai fini", 'termine', 'terminé', 'plus de modifications', 'cest tout', "c'est tout"],
@@ -114,18 +114,33 @@ const commonFollowUpCloseCueGroups = {
 };
 
 const researchExitCueGroups = {
-    English: ['exit research mode', 'leave research mode', 'close research mode', 'stop research mode'],
-    Spanish: ['salir del modo de investigación', 'salir del modo de investigacion', 'cerrar el modo de investigación', 'cerrar el modo de investigacion'],
-    Portuguese: ['sair do modo de pesquisa', 'fechar o modo de pesquisa', 'encerrar o modo de pesquisa'],
-    French: ['quitter le mode recherche', 'fermer le mode recherche', 'sortir du mode recherche'],
-    German: ['recherchemodus verlassen', 'recherchemodus schließen', 'recherchemodus schliessen'],
-    Italian: ['uscire dalla modalità ricerca', 'uscire dalla modalita ricerca', 'chiudere la modalità ricerca', 'chiudere la modalita ricerca'],
-    Russian: ['выйти из режима исследования', 'закрыть режим исследования', 'завершить режим исследования'],
-    Chinese: ['退出研究模式', '关闭研究模式'],
-    Japanese: ['リサーチモードを終了', 'リサーチモードを閉じる', '研究モードを終了'],
-    Korean: ['리서치 모드 종료', '리서치 모드 닫기', '연구 모드 종료'],
-    Arabic: ['الخروج من وضع البحث', 'إغلاق وضع البحث', 'اغلاق وضع البحث', 'إنهاء وضع البحث'],
-    Hindi: ['रिसर्च मोड से बाहर निकलो', 'रिसर्च मोड बंद करो', 'शोध मोड से बाहर निकलो', 'शोध मोड बंद करो']
+    English: ['exit', 'leave', 'close'],
+    Spanish: ['salir', 'cerrar', 'dejar'],
+    Portuguese: ['sair', 'fechar', 'deixar'],
+    French: ['quitter', 'fermer', 'partir'],
+    German: ['beenden', 'schließen', 'verlassen'],
+    Italian: ['uscire', 'chiudere', 'lasciare'],
+    Russian: ['выйти', 'закрыть', 'покинуть'],
+    Chinese: ['退出', '关闭', '离开'],
+    Japanese: ['終了', '閉じる', '離脱'],
+    Korean: ['종료', '닫기', '나가기'],
+    Arabic: ['خروج', 'إغلاق', 'مغادرة'],
+    Hindi: ['बाहर निकलें', 'बंद करें', 'छोड़ें']
+};
+
+const activeTaskCancelCueGroups = {
+    English: ['cancel', 'stop', 'exit'],
+    Spanish: ['cancelar', 'detener', 'salir'],
+    Portuguese: ['cancelar', 'parar', 'sair'],
+    French: ['annuler', 'arrêter', 'sortir'],
+    German: ['abbrechen', 'stopp', 'stoppen', 'beenden'],
+    Italian: ['annulla', 'stop', 'fermare', 'esci'],
+    Russian: ['отменить', 'стоп', 'остановить', 'выйти'],
+    Chinese: ['取消', '停止', '退出'],
+    Japanese: ['キャンセル', '止めて', '停止', '終了'],
+    Korean: ['취소', '중지', '멈춰', '종료'],
+    Arabic: ['إلغاء', 'توقف', 'اقفل', 'اخرج'],
+    Hindi: ['रद्द', 'बंद करो', 'रुको', 'निकालें']
 };
 
 const commonFollowUpContinueCueGroups = {
@@ -573,13 +588,23 @@ const artifactKeymap = {
     workflows: {
         summaryToArtifact: [
             'summarize and create a miniapp', 'summarise and create a miniapp', 'summary and create a miniapp', 'summary and miniapp', 'summary miniapp',
+            'summarize and create a mini app', 'summarise and create a mini app', 'summary and create a mini app',
             'summarize then create a miniapp', 'summarise then create a miniapp', 'create a miniapp from the summary', 'make a miniapp from the summary', 'use the summary to create a miniapp',
+            'summarize then create a mini app', 'summarise then create a mini app', 'create a mini app from the summary', 'make a mini app from the summary', 'use the summary to create a mini app',
             'summarize and create an artifact', 'summary and artifact', 'create an artifact from the summary', 'use the summary to create an artifact',
-            'resumir y crear una miniaplicación', 'resumir y crear una miniaplicacion', 'resumen y crear una miniaplicación', 'resumen y crear una miniaplicacion', 'resumen y miniaplicación', 'resumen y miniaplicacion', 'resumen miniaplicación', 'resumen miniaplicacion', 'crear una miniaplicación con el resumen', 'crear una miniaplicacion con el resumen', 'usar el resumen para crear una miniaplicación', 'usar el resumen para crear una miniaplicacion',
-            'resumir e criar uma miniaplicação', 'resumir e criar uma miniaplicacao', 'resumo e criar uma miniaplicação', 'resumo e criar uma miniaplicacao', 'resumo e miniaplicação', 'resumo e miniaplicacao', 'resumo miniaplicação', 'resumo miniaplicacao', 'criar uma miniaplicação com o resumo', 'criar uma miniaplicacao com o resumo', 'usar o resumo para criar uma miniaplicação', 'usar o resumo para criar uma miniaplicacao',
-            'résumer et créer une miniapp', 'resumer et creer une miniapp', 'résumé et créer une miniapp', 'resume et creer une miniapp', 'résumé et miniapp', 'resume et miniapp', 'résumé miniapp', 'resume miniapp', 'créer une miniapp à partir du résumé', 'creer une miniapp a partir du resume', 'utiliser le résumé pour créer une miniapp', 'utiliser le resume pour creer une miniapp',
+            'resumir y crear una miniaplicación', 'resumir y crear una miniaplicacion', 'resumen y crear una miniaplicación', 'resumen y crear una miniaplicacion', 'resumen y miniaplicación', 'resumen y miniaplicacion', 'resumen miniaplicación', 'resumen miniaplicacion',
+            'resumir y crear una mini app', 'resumen y crear una mini app', 'resumen y mini app', 'crear una mini app con el resumen', 'usar el resumen para crear una mini app',
+            'crear una miniaplicación con el resumen', 'crear una miniaplicacion con el resumen', 'usar el resumen para crear una miniaplicación', 'usar el resumen para crear una miniaplicacion',
+            'resumir e criar uma miniaplicação', 'resumir e criar uma miniaplicacao', 'resumo e criar uma miniaplicação', 'resumo e criar uma miniaplicacao', 'resumo e miniaplicação', 'resumo e miniaplicacao', 'resumo miniaplicação', 'resumo miniaplicacao',
+            'resumir e criar uma mini app', 'resumo e criar uma mini app', 'resumo e mini app', 'criar uma mini app com o resumo', 'usar o resumo para criar uma mini app',
+            'criar uma miniaplicação com o resumo', 'criar uma miniaplicacao com o resumo', 'usar o resumo para criar uma miniaplicação', 'usar o resumo para criar uma miniaplicacao',
+            'résumer et créer une miniapp', 'resumer et creer une miniapp', 'résumé et créer une miniapp', 'resume et creer une miniapp', 'résumé et miniapp', 'resume et miniapp', 'résumé miniapp', 'resume miniapp',
+            'résumer et créer une mini app', 'résumé et créer une mini app', 'résumé et mini app', 'créer une mini app à partir du résumé', 'creer une mini app a partir du resume', 'utiliser le résumé pour créer une mini app', 'utiliser le resume pour creer une mini app',
+            'créer une miniapp à partir du résumé', 'creer une miniapp a partir du resume', 'utiliser le résumé pour créer une miniapp', 'utiliser le resume pour creer une miniapp',
             'zusammenfassen und eine miniapp erstellen', 'zusammenfassung und eine miniapp erstellen', 'zusammenfassung und miniapp', 'zusammenfassung miniapp', 'eine miniapp aus der zusammenfassung erstellen', 'mit der zusammenfassung eine miniapp erstellen',
+            'zusammenfassen und eine mini app erstellen', 'zusammenfassung und eine mini app erstellen', 'zusammenfassung und mini app', 'eine mini app aus der zusammenfassung erstellen', 'mit der zusammenfassung eine mini app erstellen',
             'riassumere e creare una miniapp', 'riassunto e creare una miniapp', 'riassunto e miniapp', 'riassunto miniapp', 'creare una miniapp dal riassunto', 'usare il riassunto per creare una miniapp',
+            'riassumere e creare una mini app', 'riassunto e creare una mini app', 'riassunto e mini app', 'creare una mini app dal riassunto', 'usare il riassunto per creare una mini app',
             'сделать сводку и создать мини-приложение', 'сводка и мини-приложение', 'создать мини-приложение из сводки', 'использовать сводку для создания мини-приложения',
             '总结并创建迷你应用', '摘要并创建迷你应用', '摘要和迷你应用', '总结和迷你应用', '根据摘要创建迷你应用', '用摘要创建迷你应用',
             '要約してミニアプリを作成', '要約とミニアプリ', '要約ミニアプリ', '要約からミニアプリを作成', '要約を使ってミニアプリを作成',
@@ -1050,6 +1075,7 @@ window.Keymaps = {
     meta: {
         followUpCloseCueGroups: commonFollowUpCloseCueGroups,
         followUpContinueCueGroups: commonFollowUpContinueCueGroups,
-        researchExitCueGroups
+        researchExitCueGroups,
+        activeTaskCancelCueGroups
     }
 };

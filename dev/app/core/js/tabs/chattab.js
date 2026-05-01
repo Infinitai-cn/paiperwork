@@ -50,6 +50,27 @@ class ChatTab {
         }
     }
 
+    async stopConnectorServerForSessionReset() {
+        if (!window.PaiperworkSessionReset) {
+            return;
+        }
+
+        const cleanupFunctions = [
+            window.PaiperworkSessionReset.stopWhatsappServerForSessionReset,
+            window.PaiperworkSessionReset.stopWechatServerForSessionReset
+        ];
+
+        for (const fn of cleanupFunctions) {
+            if (typeof fn === 'function') {
+                try {
+                    await fn();
+                } catch (error) {
+                    console.warn('ChatTab: stop connector server for session reset failed', error);
+                }
+            }
+        }
+    }
+
     // Initializes the chat tab, sets up UI, loads settings, and prepares the chat environment.
     async initialize() {
        //console.log('ChatTab: Initializing chat tab instance');
@@ -1664,7 +1685,10 @@ class ChatTab {
                     });
 
                 } else {
-                    if (typeof conv.message === 'string' && conv.message.includes('whatsapp-thread-bootstrap')) {
+                    if (typeof conv.message === 'string' && (
+                        conv.message.includes('whatsapp-thread-bootstrap') ||
+                        conv.message.includes('wechat-thread-bootstrap')
+                    )) {
                         return;
                     }
 
@@ -3469,9 +3493,7 @@ class ChatTab {
             deleteButton.addEventListener('click', async () => {
                 if (confirm(Lang.get('deleteConversationConfirm'))) {
                     const liveMasterKey = sessionStorage.getItem('hashedMasterKey') || hashedMasterKey;
-                    if (window.PaiperworkSessionReset && typeof window.PaiperworkSessionReset.stopWhatsappServerForSessionReset === 'function') {
-                        await window.PaiperworkSessionReset.stopWhatsappServerForSessionReset();
-                    }
+                    await this.stopConnectorServerForSessionReset();
                     const success = await PaiperworkDB.deleteDatabase(liveMasterKey);
                     if (success) {
                         await PaiperworkDB.clearUserSpecificClientTraces(liveMasterKey);

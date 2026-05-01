@@ -383,6 +383,30 @@ body {
     width: min(100%, 240px);
 }
 
+.wechat-button-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.wechat-mode-button-container {
+    margin: 12px auto 8px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    width: min(100%, 240px);
+}
+
+.wechat-model-lock-button-container {
+    margin: 0 auto 8px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: min(100%, 240px);
+}
+
 .connectors-mode-button {
     min-width: 100px;
     max-width: calc((100% - 8px) / 2);
@@ -452,6 +476,21 @@ body {
     margin: 0 auto 16px;
 }
 
+.connectors-card.collapsed > .whatsapp-button-container,
+.connectors-card.collapsed > .whatsapp-mode-button-container,
+.connectors-card.collapsed > .whatsapp-model-lock-button-container,
+.connectors-card.collapsed > .whatsapp-new-device-button-container,
+.connectors-card.collapsed > .whatsapp-clear-contexts-button-container,
+.connectors-card.collapsed > .whatsapp-delete-all-devices-button-container,
+.connectors-card.collapsed > .wechat-button-container,
+.connectors-card.collapsed > .wechat-mode-button-container,
+.connectors-card.collapsed > .wechat-model-lock-button-container,
+.connectors-card.collapsed > .wechat-new-device-button-container,
+.connectors-card.collapsed > .wechat-clear-contexts-button-container,
+.connectors-card.collapsed > .wechat-delete-all-devices-button-container {
+    display: none;
+}
+
 .connectors-card-whatsapp .connectors-status-card {
     background: rgba(37, 171, 82, 0.14);
     border-color: rgba(37, 171, 82, 0.28);
@@ -471,7 +510,6 @@ body {
 }
 
 .connectors-card-whatsapp {
-    border-color: #cfd6e3;
 }
 
 .connectors-card .connectors-status-card {
@@ -480,6 +518,10 @@ body {
 
 .connectors-card .whatsapp-button-container,
 .connectors-card .whatsapp-mode-button-container,
+.connectors-card .whatsapp-model-lock-button-container,
+.connectors-card .wechat-button-container,
+.connectors-card .wechat-mode-button-container,
+.connectors-card .wechat-model-lock-button-container,
 .connectors-card .whatsapp-unpair-button-container {
     margin-bottom: 8px;
 }

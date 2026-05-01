@@ -4,6 +4,15 @@ async function stopWhatsappGatewayForPreviousMasterKey(previousHashedMasterKey) 
         return;
     }
 
+    if (typeof window !== 'undefined' && window.stopWhatsappServerForSessionReset && typeof window.stopWhatsappServerForSessionReset === 'function') {
+        try {
+            await window.stopWhatsappServerForSessionReset();
+            return;
+        } catch (error) {
+            console.warn('selection: stopWhatsappServerForSessionReset failed, falling back to direct stop request', error);
+        }
+    }
+
     const params = new URLSearchParams({ stop: 'true', user: previousKey });
     try {
         await fetch('/api/whatsapp/qr?' + params.toString(), {
@@ -16,6 +25,17 @@ async function stopWhatsappGatewayForPreviousMasterKey(previousHashedMasterKey) 
         });
     } catch (error) {
         console.warn('selection: failed to stop WhatsApp gateway for previous master key', error);
+    }
+}
+
+async function stopWechatServerForPreviousMasterKey() {
+    try {
+        await fetch('/api/wechat/stop', {
+            method: 'POST',
+            keepalive: true
+        });
+    } catch (error) {
+        console.warn('selection: failed to stop WeChat server for previous master key', error);
     }
 }
 
@@ -46,6 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const previousHashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
             if (previousHashedMasterKey && previousHashedMasterKey !== hashedMasterKey) {
                 await stopWhatsappGatewayForPreviousMasterKey(previousHashedMasterKey);
+                await stopWechatServerForPreviousMasterKey();
             }
 
             // Encrypt the masterkey

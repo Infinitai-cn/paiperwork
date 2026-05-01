@@ -1,4 +1,6 @@
 class PromptedPresentationWorkflow {
+	static savedSlideCount = 8;
+
 	static getActiveHashedMasterKey() {
 		return sessionStorage.getItem('hashedMasterKey') || '';
 	}
@@ -3865,13 +3867,15 @@ class PromptedPresentationWorkflow {
 		slideCountSelector.style.background = 'var(--background-color, #18181b)';
 		slideCountSelector.style.color = 'var(--text-color, #ffffff)';
 		slideCountSelector.style.outline = 'none';
-		for (let i = 1; i <= 20; i += 1) {
+		for (let i = 5; i <= 25; i += 1) {
 			const option = document.createElement('option');
 			option.value = String(i);
 			option.textContent = String(i);
 			slideCountSelector.appendChild(option);
 		}
-		slideCountSelector.value = '8';
+
+		const initialSlideCount = Number.isFinite(Number(this.savedSlideCount)) ? Number(this.savedSlideCount) : 8;
+		slideCountSelector.value = String(Math.min(Math.max(initialSlideCount, 5), 25));
 
 		this.selectedPresentationMode = 'html';
 		this.isPromptableWebSearchEnabled = false;

@@ -1230,6 +1230,7 @@ class ArtifactsWindow {
 			'Generate professional, artistic, smart, production-quality code solutions that directly satisfy the user request (this code solutions can be called Miniapp or Artifact).',
 			'Return ONLY one fenced HTML code block with CSS and JS and nothing else.',
 			'Artifacts must support keyboard, mouse and touch interactions and be responsive to different screen sizes. They should work well on both desktop and mobile browsers.',
+			'Add responsive web design — using fluid layouts, CSS media queries, and flexible UI elements so one HTML works across desktops, tablets, and phones.',
 			'Start with ```html and end with ```.',
 			'Inside the fence, provide one complete runnable HTML document.',
 			'Do not include explanations, notes, prefaces, or postfaces.',
@@ -2227,7 +2228,7 @@ class ArtifactsWindow {
 			if (error && error.name === 'AbortError') {
 				this.setGenerationStatus(this.t('artifactStatusCancelled', 'Cancelled'), 'idle');
 			} else {
-				console.error('[ArtifactsWindow] WhatsApp generation failed:', error);
+				console.error('[ArtifactsWindow] artifact generation failed:', error);
 				this.setGenerationStatus(this.t('artifactStatusFailed', 'Generation failed'), 'error');
 				if (this.isCloudUsageLimitError(error)) {
 					this.showCloudUsageLimitPreviewNotice(error);

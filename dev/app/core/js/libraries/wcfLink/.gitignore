@@ -1,0 +1,13 @@
+.*
+!.gitignore
+!.github/
+
+bin/
+dist/
+data/
+tmp/
+build/
+frontend/node_modules/
+*.db
+*.db-shm
+*.db-wal

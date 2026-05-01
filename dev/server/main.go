@@ -15,9 +15,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/exec"
@@ -27,6 +29,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -38,6 +41,7 @@ import (
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/sqliteutil"
 	restHelpers "github.com/aldinokemal/go-whatsapp-web-multidevice/ui/rest/helpers"
 	uiWebsocket "github.com/aldinokemal/go-whatsapp-web-multidevice/ui/websocket"
+	wcfLinkEngine "github.com/lich0821/wcfLink/engine"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
@@ -45,6 +49,58 @@ import (
 var adminAuditMutex sync.Mutex
 var gatewayStartMutex sync.Mutex
 var whatsappGatewayBroadcastObserverOnce sync.Once
+
+var wechatEngineMu sync.Mutex
+var wechatEngine *wcfLinkEngine.Engine
+var wechatEngineStarted bool
+var wechatEngineReady bool
+var wechatEngineStateDir string
+
+const wechatListenAddr = "127.0.0.1:17890"
+
+func getWechatReverseProxy() *httputil.ReverseProxy {
+	targetURL := &url.URL{Scheme: "http", Host: wechatListenAddr}
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	proxy.Director = func(req *http.Request) {
+		originalPath := req.URL.Path
+		req.URL.Scheme = targetURL.Scheme
+		req.URL.Host = targetURL.Host
+		// Strip the /api/wechat prefix before proxying.
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, "/api/wechat")
+		req.Host = targetURL.Host
+		// direction logging disabled to reduce noise
+		_ = originalPath
+	}
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		if resp.StatusCode >= 400 {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				log.Printf("wechatReverseProxy: error reading response body for %s %s: %v", resp.Request.Method, resp.Request.URL.String(), err)
+			} else {
+				log.Printf("wechatReverseProxy: received error response %d for %s %s proxied to %s; body=%q",
+					resp.StatusCode,
+					resp.Request.Method,
+					resp.Request.URL.Path,
+					resp.Request.URL.String(),
+					truncateString(string(body), 1024))
+				resp.Body = io.NopCloser(bytes.NewBuffer(body))
+			}
+		}
+		return nil
+	}
+	proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
+		log.Printf("wechatReverseProxy: proxy error for %s %s -> %v", req.Method, req.URL.Path, err)
+		http.Error(rw, "WeChat reverse proxy error", http.StatusBadGateway)
+	}
+	return proxy
+}
+
+func truncateString(value string, maxLen int) string {
+	if len(value) <= maxLen {
+		return value
+	}
+	return value[:maxLen] + "..."
+}
 
 type whatsappRemoteLogoutNotice struct {
 	DeviceID   string
@@ -61,6 +117,14 @@ var gatewayStartCooldown = 8 * time.Second
 
 var activeWhatsappUserMu sync.RWMutex
 var activeWhatsappUser string
+
+var activeGatewayMu sync.RWMutex
+var activeGateway string
+
+const (
+	activeGatewayWhatsApp = "whatsapp"
+	activeGatewayWechat   = "wechat"
+)
 
 var whatsappManualStopMu sync.RWMutex
 var whatsappManualStopUntil time.Time
@@ -370,6 +434,114 @@ func savePreferredWhatsappDeviceToDB(userKey, deviceID, meta string) error {
 	return err
 }
 
+func ensureWhatsappReplayEventTable(db *sql.DB) error {
+	_, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS whatsapp_replay_event (
+			id INTEGER PRIMARY KEY,
+			device_id VARCHAR(255) NOT NULL,
+			chat_id VARCHAR(255) NOT NULL,
+			from_id VARCHAR(255) DEFAULT '',
+			message_hash VARCHAR(64) NOT NULL UNIQUE,
+			message_timestamp VARCHAR(64) DEFAULT '',
+			body_preview TEXT DEFAULT '',
+			replay_count INTEGER NOT NULL DEFAULT 1,
+			received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	return err
+}
+
+func normalizeWhatsappReplayMessageHash(incoming whatsappIncomingMessage) string {
+	h := sha256.New()
+	parts := []string{
+		strings.TrimSpace(incoming.DeviceID),
+		strings.TrimSpace(incoming.ChatID),
+		strings.TrimSpace(incoming.From),
+		strings.TrimSpace(incoming.Timestamp),
+		strings.TrimSpace(incoming.Body),
+	}
+	for _, part := range parts {
+		h.Write([]byte(part))
+		h.Write([]byte("|"))
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func saveWhatsappReplayEvent(userKey string, incoming whatsappIncomingMessage) error {
+	if useInMemoryPaiperworkWhatsappRuntime() {
+		return nil
+	}
+	if strings.TrimSpace(userKey) == "" {
+		return nil
+	}
+
+	dbPath := sqliteURIPath(userWhatsappDBURI(userKey))
+	if strings.TrimSpace(dbPath) == "" {
+		return nil
+	}
+
+	db, err := sqliteutil.Open(fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	if err := ensureWhatsappReplayEventTable(db); err != nil {
+		return err
+	}
+
+	messageHash := normalizeWhatsappReplayMessageHash(incoming)
+	bodyPreview := strings.TrimSpace(incoming.Body)
+	if len(bodyPreview) > 512 {
+		bodyPreview = bodyPreview[:512]
+	}
+
+	_, err = db.Exec(`
+		INSERT INTO whatsapp_replay_event (
+			device_id,
+			chat_id,
+			from_id,
+			message_hash,
+			message_timestamp,
+			body_preview,
+			replay_count,
+			received_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+		ON CONFLICT(message_hash) DO UPDATE SET
+			replay_count = replay_count + 1,
+			received_at = CURRENT_TIMESTAMP
+	`, strings.TrimSpace(incoming.DeviceID), strings.TrimSpace(incoming.ChatID), strings.TrimSpace(incoming.From), messageHash, strings.TrimSpace(incoming.Timestamp), bodyPreview)
+
+	return err
+}
+
+func clearWhatsappReplayHistoryForDevice(userKey, deviceID string) error {
+	if useInMemoryPaiperworkWhatsappRuntime() {
+		return nil
+	}
+	if strings.TrimSpace(userKey) == "" || strings.TrimSpace(deviceID) == "" {
+		return nil
+	}
+
+	dbPath := sqliteURIPath(userWhatsappDBURI(userKey))
+	if strings.TrimSpace(dbPath) == "" {
+		return nil
+	}
+
+	db, err := sqliteutil.Open(fmt.Sprintf("file:%s?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000", dbPath))
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`DELETE FROM whatsapp_replay_event WHERE device_id = ?`, strings.TrimSpace(deviceID))
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "no such table") {
+		return nil
+	}
+	return err
+}
+
 func removeWhatsappSQLiteFile(path string) error {
 	trimmed := strings.TrimSpace(path)
 	if trimmed == "" {
@@ -455,6 +627,7 @@ func purgePersistedWhatsappDeviceForUser(userKey, deviceID string) error {
 			"DELETE FROM messages WHERE device_id = ?",
 			"DELETE FROM chats WHERE device_id = ?",
 			"DELETE FROM devices WHERE device_id = ?",
+			"DELETE FROM whatsapp_replay_event WHERE device_id = ?",
 		} {
 			if _, err := db.Exec(statement, trimmedDeviceID); err != nil {
 				if strings.Contains(strings.ToLower(err.Error()), "no such table") {
@@ -1105,6 +1278,18 @@ func isGatewayReady() bool {
 	gatewayStartMutex.Lock()
 	defer gatewayStartMutex.Unlock()
 	return gatewayReady
+}
+
+func setActiveGateway(gateway string) {
+	activeGatewayMu.Lock()
+	activeGateway = gateway
+	activeGatewayMu.Unlock()
+}
+
+func getActiveGateway() string {
+	activeGatewayMu.RLock()
+	defer activeGatewayMu.RUnlock()
+	return activeGateway
 }
 
 func markWhatsappManualStopWindow(duration time.Duration) {
@@ -2778,6 +2963,18 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if startRequested {
+		wechatEngineMu.Lock()
+		wechatRunning := wechatEngineStarted
+		wechatEngineMu.Unlock()
+		if wechatRunning {
+			log.Printf("whatsappQrProxy: stopping running WeChat gateway before WhatsApp startup")
+			if err := stopEmbeddedWcfLink(); err != nil {
+				log.Printf("whatsappQrProxy: failed to stop running WeChat gateway: %v", err)
+				http.Error(w, fmt.Sprintf("failed to stop existing WeChat gateway: %v", err), http.StatusInternalServerError)
+				return
+			}
+		}
+
 		if isWhatsappManualStopActive() {
 			log.Printf("whatsappQrProxy: explicit start request clearing manual stop window")
 			markWhatsappManualStopWindow(0)
@@ -4535,8 +4732,21 @@ func whatsappIncomingWebhookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if wrapper.Payload.IsReplay {
-		log.Printf("whatsappIncomingWebhook: ignored replay/history message device=%s chat=%s from=%s", maskPhoneForLog(wrapper.DeviceID), maskPhoneForLog(wrapper.Payload.ChatID), maskPhoneForLog(wrapper.Payload.From))
-		w.WriteHeader(http.StatusNoContent)
+		incoming := whatsappIncomingMessage{
+			DeviceID:  wrapper.DeviceID,
+			ChatID:    wrapper.Payload.ChatID,
+			From:      wrapper.Payload.From,
+			FromName:  wrapper.Payload.FromName,
+			Timestamp: wrapper.Payload.Timestamp,
+			Body:      wrapper.Payload.Body,
+		}
+		if err := saveWhatsappReplayEvent(activeWhatsappRuntimeScope(), incoming); err != nil {
+			log.Printf("whatsappIncomingWebhook: failed to save replay/history message state: %v", err)
+		}
+		log.Printf("whatsappIncomingWebhook: recorded replay/history message and skipped delivery device=%s chat=%s from=%s", maskPhoneForLog(wrapper.DeviceID), maskPhoneForLog(wrapper.Payload.ChatID), maskPhoneForLog(wrapper.Payload.From))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"status": "replay_recorded"})
 		return
 	}
 
@@ -5828,6 +6038,231 @@ func whatsappSendImageProxyHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body)
 }
 
+func wechatSendFileProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Paiperwork-User")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	wechatEngineMu.Lock()
+	started := wechatEngineStarted
+	stateDir := wechatEngineStateDir
+	wechatEngineMu.Unlock()
+	if !started {
+		http.Error(w, "WeChat gateway not started", http.StatusServiceUnavailable)
+		return
+	}
+	if strings.TrimSpace(stateDir) == "" {
+		http.Error(w, "wechat gateway state unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	if err := r.ParseMultipartForm(64 << 20); err != nil {
+		http.Error(w, "invalid multipart body", http.StatusBadRequest)
+		return
+	}
+
+	account := strings.TrimSpace(r.FormValue("account"))
+	if account == "" {
+		account = strings.TrimSpace(r.FormValue("account_id"))
+	}
+	toUserID := strings.TrimSpace(r.FormValue("to_user_id"))
+	caption := strings.TrimSpace(r.FormValue("caption"))
+	contextToken := strings.TrimSpace(r.FormValue("context_token"))
+
+	if account == "" || toUserID == "" {
+		http.Error(w, "account and to_user_id are required", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "file upload is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	saveDir := filepath.Join(stateDir, "media")
+	if err := os.MkdirAll(saveDir, 0o755); err != nil {
+		http.Error(w, "failed to create media directory", http.StatusInternalServerError)
+		return
+	}
+
+	safeName := filepath.Base(header.Filename)
+	tempPath := filepath.Join(saveDir, fmt.Sprintf("%d-%s", time.Now().UnixNano(), safeName))
+	out, err := os.Create(tempPath)
+	if err != nil {
+		http.Error(w, "failed to save file", http.StatusInternalServerError)
+		return
+	}
+	if _, err := io.Copy(out, file); err != nil {
+		out.Close()
+		os.Remove(tempPath)
+		http.Error(w, "failed to save file", http.StatusInternalServerError)
+		return
+	}
+	out.Close()
+	defer os.Remove(tempPath)
+
+	payload := map[string]any{
+		"account_id": account,
+		"to_user_id": toUserID,
+		"type":       "file",
+		"file_path":  tempPath,
+		"text":       caption,
+	}
+	if contextToken != "" {
+		payload["context_token"] = contextToken
+	}
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		http.Error(w, "failed to prepare request", http.StatusInternalServerError)
+		return
+	}
+
+	client := &http.Client{Timeout: 120 * time.Second}
+	req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:17890/api/messages/send-media", bytes.NewReader(bodyBytes))
+	if err != nil {
+		http.Error(w, "failed to create forward request", http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		http.Error(w, "wechat gateway unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
+func wechatSendImageProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Paiperwork-User")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	wechatEngineMu.Lock()
+	started := wechatEngineStarted
+	stateDir := wechatEngineStateDir
+	wechatEngineMu.Unlock()
+	if !started {
+		http.Error(w, "WeChat gateway not started", http.StatusServiceUnavailable)
+		return
+	}
+	if strings.TrimSpace(stateDir) == "" {
+		http.Error(w, "wechat gateway state unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	if err := r.ParseMultipartForm(64 << 20); err != nil {
+		http.Error(w, "invalid multipart body", http.StatusBadRequest)
+		return
+	}
+
+	account := strings.TrimSpace(r.FormValue("account"))
+	if account == "" {
+		account = strings.TrimSpace(r.FormValue("account_id"))
+	}
+	toUserID := strings.TrimSpace(r.FormValue("to_user_id"))
+	caption := strings.TrimSpace(r.FormValue("caption"))
+	contextToken := strings.TrimSpace(r.FormValue("context_token"))
+
+	if account == "" || toUserID == "" {
+		http.Error(w, "account and to_user_id are required", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("image")
+	if err != nil {
+		file, header, err = r.FormFile("file")
+		if err != nil {
+			http.Error(w, "image upload is required", http.StatusBadRequest)
+			return
+		}
+	}
+	defer file.Close()
+
+	saveDir := filepath.Join(stateDir, "media")
+	if err := os.MkdirAll(saveDir, 0o755); err != nil {
+		http.Error(w, "failed to create media directory", http.StatusInternalServerError)
+		return
+	}
+
+	safeName := filepath.Base(header.Filename)
+	tempPath := filepath.Join(saveDir, fmt.Sprintf("%d-%s", time.Now().UnixNano(), safeName))
+	out, err := os.Create(tempPath)
+	if err != nil {
+		http.Error(w, "failed to save image", http.StatusInternalServerError)
+		return
+	}
+	if _, err := io.Copy(out, file); err != nil {
+		out.Close()
+		os.Remove(tempPath)
+		http.Error(w, "failed to save image", http.StatusInternalServerError)
+		return
+	}
+	out.Close()
+	defer os.Remove(tempPath)
+
+	payload := map[string]any{
+		"account_id": account,
+		"to_user_id": toUserID,
+		"type":       "image",
+		"file_path":  tempPath,
+		"text":       caption,
+	}
+	if contextToken != "" {
+		payload["context_token"] = contextToken
+	}
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		http.Error(w, "failed to prepare request", http.StatusInternalServerError)
+		return
+	}
+
+	client := &http.Client{Timeout: 120 * time.Second}
+	req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:17890/api/messages/send-media", bytes.NewReader(bodyBytes))
+	if err != nil {
+		http.Error(w, "failed to create forward request", http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		http.Error(w, "wechat gateway unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer resp.Body.Close()
+
+	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
+}
+
 func forwardWhatsAppSendRequest(client *http.Client, url string, body []byte) (*http.Response, error) {
 	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
 	if err != nil {
@@ -6319,9 +6754,25 @@ func stopGateway() error {
 		resetGatewayRuntimeState(false)
 		whatsappInfra.ResetStateOnShutdown()
 		sqliteutil.ClosePinnedRuntimeAnchors()
+		setActiveGateway("")
 		return nil
 	}
 	embeddedGowaMutex.Unlock()
+
+	wechatEngineMu.Lock()
+	if wechatEngineStarted {
+		wechatEngineMu.Unlock()
+		log.Printf("stopGateway: stopping embedded wcfLink")
+		if err := stopEmbeddedWcfLink(); err != nil {
+			return err
+		}
+		resetGatewayRuntimeState(false)
+		whatsappInfra.ResetStateOnShutdown()
+		sqliteutil.ClosePinnedRuntimeAnchors()
+		setActiveGateway("")
+		return nil
+	}
+	wechatEngineMu.Unlock()
 
 	// Non-embedded gateway path also clears state consistently.
 	restHelpers.StopAutoConnectAfterBooting()
@@ -6341,6 +6792,7 @@ func stopGateway() error {
 	resetGatewayRuntimeState(false)
 	whatsappInfra.ResetStateOnShutdown()
 	sqliteutil.ClosePinnedRuntimeAnchors()
+	setActiveGateway("")
 	return nil
 }
 
@@ -6406,6 +6858,7 @@ func startEmbeddedGowa(freshPairStartup bool) error {
 		os.Unsetenv("PAIPERWORK_NO_DISK")
 	}
 	os.Setenv("PAIPERWORK_EMBEDDED_GOWA", "true")
+	setActiveGateway(activeGatewayWhatsApp)
 
 	go func() {
 		defer func() {
@@ -6418,6 +6871,7 @@ func startEmbeddedGowa(freshPairStartup bool) error {
 			whatsappServerStarted = false
 			embeddedGowaMutex.Unlock()
 			setGatewayReady(false)
+			setActiveGateway("")
 		}()
 
 		// If a fresh-pair is in progress, ensure gowa starts with no residual
@@ -6454,6 +6908,495 @@ func startEmbeddedGowa(freshPairStartup bool) error {
 	}()
 
 	return nil
+}
+
+func newWechatEngineConfig(stateDir string) wcfLinkEngine.Config {
+	cfg := wcfLinkEngine.LoadConfig()
+	cfg.ListenAddr = wechatListenAddr
+	cfg.StateDir = stateDir
+	cfg.MediaDir = filepath.Join(cfg.StateDir, "media")
+	cfg.SettingsPath = filepath.Join(cfg.StateDir, "settings.json")
+	cfg.OpenBrowser = false
+	cfg.WebhookURL = ""
+	return cfg
+}
+
+func startEmbeddedWcfLink(stateDir string) error {
+	disablePolling := strings.ToLower(strings.TrimSpace(os.Getenv("PAIPERWORK_DISABLE_WCFLINK_EVENT_POLLING"))) == "true"
+	log.Printf("Paiperworkdb: startEmbeddedWcfLink: beginning embedded wcfLink startup, disable polling=%v", disablePolling)
+	wechatEngineMu.Lock()
+	if wechatEngineStarted {
+		wechatEngineMu.Unlock()
+		return nil
+	}
+	wechatEngineMu.Unlock()
+
+	cfg := newWechatEngineConfig(stateDir)
+	log.Printf("Paiperworkdb: using WeChat state directory %s", cfg.StateDir)
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	engineInstance, err := wcfLinkEngine.New(context.Background(), cfg, logger)
+	if err != nil {
+		return err
+	}
+
+	if err := engineInstance.StartBackground(context.Background()); err != nil {
+		_ = engineInstance.Shutdown()
+		return err
+	}
+	log.Printf("startEmbeddedWcfLink: embedded wcfLink background startup completed")
+
+	wechatEngineMu.Lock()
+	wechatEngine = engineInstance
+	wechatEngineStarted = true
+	wechatEngineReady = false
+	wechatEngineStateDir = stateDir
+	setActiveGateway(activeGatewayWechat)
+	wechatEngineMu.Unlock()
+
+	go func() {
+		if err := waitForWcfLinkLocalGateway(15 * time.Second); err != nil {
+			log.Printf("startEmbeddedWcfLink: gateway not ready after expected delay: %v", err)
+			return
+		}
+		wechatEngineMu.Lock()
+		wechatEngineReady = true
+		wechatEngineMu.Unlock()
+		log.Printf("startEmbeddedWcfLink: wechat gateway is healthy")
+	}()
+
+	return nil
+}
+
+func stopEmbeddedWcfLink() error {
+	wechatEngineMu.Lock()
+	engineInstance := wechatEngine
+	if !wechatEngineStarted || engineInstance == nil {
+		wechatEngineMu.Unlock()
+		return nil
+	}
+	wechatEngineMu.Unlock()
+
+	if err := engineInstance.Shutdown(); err != nil {
+		return err
+	}
+
+	log.Printf("stopEmbeddedWcfLink: WeChat gateway stopped successfully")
+
+	wechatEngineMu.Lock()
+	wechatEngineStarted = false
+	wechatEngineReady = false
+	wechatEngine = nil
+	wechatEngineStateDir = ""
+	wechatEngineMu.Unlock()
+	setActiveGateway("")
+	return nil
+}
+
+func isWcfLinkResponsive(timeout time.Duration) bool {
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Get(fmt.Sprintf("http://%s/health/ready", wechatListenAddr))
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
+func waitForWcfLinkLocalGateway(timeout time.Duration) error {
+	client := &http.Client{Timeout: 1 * time.Second}
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(fmt.Sprintf("http://%s/health/ready", wechatListenAddr))
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return fmt.Errorf("wechat gateway not ready after %s", timeout)
+}
+
+type wechatAccountRestore struct {
+	AccountID     string `json:"account_id"`
+	BaseURL       string `json:"base_url"`
+	Token         string `json:"token"`
+	ILinkUserID   string `json:"ilink_user_id,omitempty"`
+	Enabled       bool   `json:"enabled,omitempty"`
+	LoginStatus   string `json:"login_status,omitempty"`
+	LastError     string `json:"last_error,omitempty"`
+	GetUpdatesBuf string `json:"get_updates_buf,omitempty"`
+	CreatedAt     string `json:"created_at,omitempty"`
+	UpdatedAt     string `json:"updated_at,omitempty"`
+}
+
+func wechatStartHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var body struct {
+		HashedMasterKey string                 `json:"hashedMasterKey"`
+		Accounts        []wechatAccountRestore `json:"accounts,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, fmt.Sprintf("invalid request body: %v", err), http.StatusBadRequest)
+		return
+	}
+	hashedMasterKey := strings.TrimSpace(body.HashedMasterKey)
+	if hashedMasterKey == "" {
+		http.Error(w, "missing hashedMasterKey", http.StatusBadRequest)
+		return
+	}
+
+	if isGatewayRunning() {
+		log.Printf("wechatStartHandler: stopping running WhatsApp gateway before WeChat startup")
+		if err := stopGateway(); err != nil {
+			http.Error(w, fmt.Sprintf("failed to stop existing WhatsApp gateway: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+	if !regexp.MustCompile(`^[a-fA-F0-9]+$`).MatchString(hashedMasterKey) {
+		http.Error(w, "invalid hashedMasterKey", http.StatusBadRequest)
+		return
+	}
+
+	execDir := filepath.Dir(os.Args[0])
+	stateDir := filepath.Join(execDir, "data", "wcfLink", hashedMasterKey)
+
+	wechatEngineMu.Lock()
+	currentStateDir := wechatEngineStateDir
+	started := wechatEngineStarted
+	wechatEngineMu.Unlock()
+
+	if started && currentStateDir != stateDir {
+		if err := stopEmbeddedWcfLink(); err != nil {
+			http.Error(w, fmt.Sprintf("failed to stop existing WeChat gateway: %v", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if err := startEmbeddedWcfLink(stateDir); err != nil {
+		http.Error(w, fmt.Sprintf("failed to start WeChat gateway: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	wechatEngineMu.Lock()
+	engineInstance := wechatEngine
+	ready := wechatEngineReady
+	wechatEngineMu.Unlock()
+
+	if len(body.Accounts) > 0 && engineInstance != nil {
+		var restored []wcfLinkEngine.Account
+		for _, item := range body.Accounts {
+			if strings.TrimSpace(item.AccountID) == "" || strings.TrimSpace(item.BaseURL) == "" || strings.TrimSpace(item.Token) == "" {
+				continue
+			}
+
+			createdAt := time.Now().UTC()
+			if item.CreatedAt != "" {
+				if parsed, err := time.Parse(time.RFC3339, item.CreatedAt); err == nil {
+					createdAt = parsed.UTC()
+				}
+			}
+			updatedAt := time.Now().UTC()
+			if item.UpdatedAt != "" {
+				if parsed, err := time.Parse(time.RFC3339, item.UpdatedAt); err == nil {
+					updatedAt = parsed.UTC()
+				}
+			}
+
+			loginStatus := item.LoginStatus
+			if loginStatus == "" {
+				loginStatus = "connected"
+			}
+
+			restored = append(restored, wcfLinkEngine.Account{
+				AccountID:     item.AccountID,
+				BaseURL:       item.BaseURL,
+				Token:         item.Token,
+				ILinkUserID:   item.ILinkUserID,
+				Enabled:       item.Enabled,
+				LoginStatus:   loginStatus,
+				LastError:     item.LastError,
+				GetUpdatesBuf: item.GetUpdatesBuf,
+				CreatedAt:     createdAt,
+				UpdatedAt:     updatedAt,
+			})
+		}
+		if len(restored) > 0 {
+			if err := engineInstance.RestoreAccounts(r.Context(), restored); err != nil {
+				http.Error(w, fmt.Sprintf("failed to restore WeChat accounts: %v", err), http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+	paired := isWechatEnginePaired(r.Context(), engineInstance)
+	_ = json.NewEncoder(w).Encode(map[string]any{"serverStarted": true, "ready": ready, "paired": paired})
+}
+
+func wechatStopHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := stopEmbeddedWcfLink(); err != nil {
+		http.Error(w, fmt.Sprintf("failed to stop WeChat gateway: %v", err), http.StatusInternalServerError)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"serverStarted": false})
+}
+
+func wechatStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	wechatEngineMu.Lock()
+	started := wechatEngineStarted
+	ready := wechatEngineReady
+	engineInstance := wechatEngine
+	wechatEngineMu.Unlock()
+
+	paired := isWechatEnginePaired(r.Context(), engineInstance)
+	_ = json.NewEncoder(w).Encode(map[string]any{"serverStarted": started, "ready": ready, "paired": paired})
+}
+
+func wechatMigrationStateHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	wechatEngineMu.Lock()
+	started := wechatEngineStarted
+	engineInstance := wechatEngine
+	wechatEngineMu.Unlock()
+	if !started || engineInstance == nil {
+		http.Error(w, "WeChat gateway not started", http.StatusServiceUnavailable)
+		return
+	}
+
+	ctx := r.Context()
+	accounts, err := engineInstance.ListAccounts(ctx)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to list WeChat accounts: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	accountsOnly := strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("accounts_only")), "true") || strings.TrimSpace(r.URL.Query().Get("accounts_only")) == "1"
+	if accountsOnly {
+		migrationAccounts := make([]map[string]any, 0, len(accounts))
+		for _, account := range accounts {
+			migrationAccounts = append(migrationAccounts, map[string]any{
+				"account_id":      account.AccountID,
+				"base_url":        account.BaseURL,
+				"token":           account.Token,
+				"ilink_user_id":   account.ILinkUserID,
+				"enabled":         account.Enabled,
+				"login_status":    account.LoginStatus,
+				"last_error":      account.LastError,
+				"get_updates_buf": account.GetUpdatesBuf,
+				"last_poll_at":    account.LastPollAt,
+				"last_inbound_at": account.LastInboundAt,
+				"created_at":      account.CreatedAt,
+				"updated_at":      account.UpdatedAt,
+			})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"accounts": migrationAccounts})
+		return
+	}
+
+	loginSessions, err := engineInstance.ListLoginSessions(ctx, 500)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to list WeChat login sessions: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	peerContexts, err := engineInstance.ListPeerContexts(ctx, 500)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to list WeChat peer contexts: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	events := make([]wcfLinkEngine.Event, 0)
+	var eventAfterID int64
+	for {
+		batch, err := engineInstance.ListEvents(ctx, eventAfterID, 500)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to list WeChat events: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if len(batch) == 0 {
+			break
+		}
+		events = append(events, batch...)
+		eventAfterID = batch[len(batch)-1].ID
+		if len(batch) < 500 {
+			break
+		}
+	}
+
+	logs := make([]wcfLinkEngine.LogEntry, 0)
+	var logAfterID int64
+	for {
+		batch, err := engineInstance.ListLogs(ctx, logAfterID, 500)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to list WeChat logs: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if len(batch) == 0 {
+			break
+		}
+		logs = append(logs, batch...)
+		logAfterID = batch[len(batch)-1].ID
+		if len(batch) < 500 {
+			break
+		}
+	}
+
+	migrationAccounts := make([]map[string]any, 0, len(accounts))
+	for _, account := range accounts {
+		migrationAccounts = append(migrationAccounts, map[string]any{
+			"account_id":      account.AccountID,
+			"base_url":        account.BaseURL,
+			"token":           account.Token,
+			"ilink_user_id":   account.ILinkUserID,
+			"enabled":         account.Enabled,
+			"login_status":    account.LoginStatus,
+			"last_error":      account.LastError,
+			"get_updates_buf": account.GetUpdatesBuf,
+			"last_poll_at":    account.LastPollAt,
+			"last_inbound_at": account.LastInboundAt,
+			"created_at":      account.CreatedAt,
+			"updated_at":      account.UpdatedAt,
+		})
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"accounts":       migrationAccounts,
+		"login_sessions": loginSessions,
+		"peer_contexts":  peerContexts,
+		"events":         events,
+		"logs":           logs,
+	})
+}
+
+func isWechatEnginePaired(ctx context.Context, engineInstance *wcfLinkEngine.Engine) bool {
+	if engineInstance == nil {
+		log.Printf("Paiperworkdb: isWechatEnginePaired: engine instance is nil")
+		return false
+	}
+
+	log.Printf("Paiperworkdb: isWechatEnginePaired: querying stored WeChat accounts")
+	accounts, err := engineInstance.ListAccounts(ctx)
+	if err != nil {
+		log.Printf("isWechatEnginePaired: failed to list accounts: %v", err)
+		return false
+	}
+	log.Printf("isWechatEnginePaired: found %d stored account(s)", len(accounts))
+
+	for _, account := range accounts {
+		log.Printf("isWechatEnginePaired: account=%s enabled=%t login_status=%q", account.AccountID, account.Enabled, account.LoginStatus)
+		loginStatus := strings.ToLower(strings.TrimSpace(account.LoginStatus))
+		if account.Enabled && (loginStatus == "connected" || loginStatus == "confirmed") {
+			log.Printf("isWechatEnginePaired: account %s is connected", account.AccountID)
+			return true
+		}
+	}
+
+	log.Printf("isWechatEnginePaired: no connected stored account found; QR/connect flow required")
+	return false
+}
+
+func wechatEventsSSEHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	wechatEngineMu.Lock()
+	started := wechatEngineStarted
+	engineInstance := wechatEngine
+	wechatEngineMu.Unlock()
+	if !started || engineInstance == nil {
+		http.Error(w, "WeChat gateway not started", http.StatusServiceUnavailable)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	afterID, _ := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("after_id")), 10, 64)
+	if afterID < 0 {
+		afterID = 0
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "retry: 2000\n\n")
+	flusher.Flush()
+
+	keepAliveTicker := time.NewTicker(15 * time.Second)
+	defer keepAliveTicker.Stop()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-keepAliveTicker.C:
+			fmt.Fprintf(w, ": keepalive\n\n")
+			flusher.Flush()
+		default:
+		}
+
+		events, err := engineInstance.ListEvents(r.Context(), afterID, 100)
+		if err != nil {
+			log.Printf("wechatEventsSSEHandler: failed to list events: %v", err)
+			return
+		}
+		if len(events) > 0 {
+			for _, event := range events {
+				encoded, err := json.Marshal(event)
+				if err != nil {
+					continue
+				}
+				fmt.Fprintf(w, "event: wechatIncoming\n")
+				fmt.Fprintf(w, "data: %s\n\n", encoded)
+			}
+			afterID = events[len(events)-1].ID
+			flusher.Flush()
+		}
+		select {
+		case <-r.Context().Done():
+			return
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
+func wechatProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if !strings.HasPrefix(r.URL.Path, "/api/wechat/") {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	wechatEngineMu.Lock()
+	started := wechatEngineStarted
+	wechatEngineMu.Unlock()
+	if !started {
+		http.Error(w, "WeChat gateway not started", http.StatusServiceUnavailable)
+		return
+	}
+	proxy := getWechatReverseProxy()
+	proxy.ServeHTTP(w, r)
 }
 
 func tryStartBundledGateway(execDir string, freshPairStartup bool) error {
@@ -7642,6 +8585,14 @@ func main() {
 	mux.HandleFunc("/api/whatsapp/session/reconnect", whatsappSessionReconnectHandler)
 	mux.HandleFunc("/api/whatsapp/session", whatsappSessionClearHandler)
 	mux.HandleFunc("/api/whatsapp/pairing-data/delete-all", whatsappDeleteAllPairingDataHandler)
+	mux.HandleFunc("/api/wechat/start", wechatStartHandler)
+	mux.HandleFunc("/api/wechat/stop", wechatStopHandler)
+	mux.HandleFunc("/api/wechat/status", wechatStatusHandler)
+	mux.HandleFunc("/api/wechat/migration/legacy-state", wechatMigrationStateHandler)
+	mux.HandleFunc("/api/wechat/send-file", wechatSendFileProxyHandler)
+	mux.HandleFunc("/api/wechat/send-image", wechatSendImageProxyHandler)
+	mux.HandleFunc("/api/wechat/events/stream", wechatEventsSSEHandler)
+	mux.HandleFunc("/api/wechat/", wechatProxyHandler)
 	// Note: admin key retrieval endpoint removed to minimize exposure. Local
 	// installs rely on loopback requests being treated as admin; cloud
 	// deployments must supply the admin key in `X-Paiperwork-Admin-Key` (or

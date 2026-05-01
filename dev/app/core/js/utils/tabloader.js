@@ -47,7 +47,7 @@ class TabLoader {
                 scripts: ['js/tabs/modelstab.js']
             },
             'connectors': {
-                scripts: ['js/utils/keymaps.js', 'js/tabs/connectorWhatsapp.js', 'js/tabs/connectorstab.js']
+                scripts: ['js/utils/keymaps.js', 'js/tabs/connectorstab.js']
             },
             'presentation': {
                 scripts: [
