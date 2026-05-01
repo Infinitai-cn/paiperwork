@@ -3574,6 +3574,12 @@ class ArtifactsWindow {
 				if (this.currentArtifactId === item.id) {
 					this.currentArtifactId = null;
 					this.currentArtifactTitle = '';
+					this.currentArtifactPrompt = '';
+					this.currentArtifactHtml = '';
+					if (this.codeEditor) {
+						this.setCodeEditorValue(this.getDefaultArtifactHtml());
+					}
+					this.renderCurrentArtifact();
 				}
 
 				await this.refreshSavedArtifacts();
