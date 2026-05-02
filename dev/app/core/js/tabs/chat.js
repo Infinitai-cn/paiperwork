@@ -577,7 +577,7 @@ class Chat {
             this.systemPromptWarningShown = true;
         }
 
-        // Reset context when system prompt changes
+        // Reset local and cloud context when system prompt changes
         if (OllamaAPI && typeof OllamaAPI.resetContext === 'function') {
             OllamaAPI.resetContext();
         }

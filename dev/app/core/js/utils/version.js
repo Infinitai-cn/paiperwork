@@ -117,7 +117,7 @@ const AppVersion = {
                 margin-bottom: 15px;
                 color: var(--text-color);
             ">
-                ${updateData.notes}
+                ${Array.isArray(updateData.notes) ? updateData.notes.join('') : updateData.notes}
             </div>
         </div>` : ''}
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">

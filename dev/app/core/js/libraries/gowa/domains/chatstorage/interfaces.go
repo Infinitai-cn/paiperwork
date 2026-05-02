@@ -54,4 +54,5 @@ type IChatStorageRepository interface {
 
 	// Schema operations
 	InitializeSchema() error
+	HasTable(tableName string) (bool, error)
 }

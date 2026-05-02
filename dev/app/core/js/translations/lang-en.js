@@ -78,7 +78,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         whatsappDeleteAllPairedButton: "Delete paired device(s)",
         whatsappDeleteAllPairedButtonTitle: "Delete paired device(s)",
         whatsappDeleteAllPairedConfirm: "You are about to delete pairing information from Paiperwork, are you sure?",
-        whatsappDeleteAllPairedSuccess: "Paiperwork pairing data deleted. Click Start server to pair a new device now.",
+        whatsappDeleteAllPairedSuccess: "Paiperwork WhatsApp DB tables cleared. Click Start server to pair a new device now.",
         whatsappDeleteAllPairedFailed: "Failed to delete Paiperwork pairing data. See console logs.",
         wechatNotPairedCard: "WeChat not paired",
         wechatServerStartedCard: "WeChat server started",

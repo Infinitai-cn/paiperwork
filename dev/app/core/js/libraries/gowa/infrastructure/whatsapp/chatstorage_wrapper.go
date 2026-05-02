@@ -158,6 +158,10 @@ func (r *deviceChatStorage) InitializeSchema() error {
 	return r.base.InitializeSchema()
 }
 
+func (r *deviceChatStorage) HasTable(tableName string) (bool, error) {
+	return r.base.HasTable(tableName)
+}
+
 func (r *deviceChatStorage) DeleteDeviceData(deviceID string) error {
 	if r.base == nil {
 		return nil

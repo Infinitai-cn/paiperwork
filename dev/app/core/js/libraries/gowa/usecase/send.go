@@ -265,7 +265,7 @@ func (service serviceSend) SendImage(ctx context.Context, request domainSend.Ima
 		}
 	}
 
-	if config.NoDisk {
+	if config.RuntimeNoDisk() {
 		oriImagePath = fmt.Sprintf("inmemory://%s", imageName)
 	} else {
 		oriImagePath = fmt.Sprintf("%s/%s", config.PathSendItems, imageName)
@@ -277,7 +277,7 @@ func (service serviceSend) SendImage(ctx context.Context, request domainSend.Ima
 	}
 
 	/* Generate thumbnail with smaller image size */
-	if config.NoDisk {
+	if config.RuntimeNoDisk() {
 		processedImage, err = imaging.Decode(bytes.NewReader(imageData))
 		if err != nil {
 			return response, pkgError.InternalServerError(fmt.Sprintf("failed to decode image data: %v", err))
@@ -336,7 +336,7 @@ func (service serviceSend) SendImage(ctx context.Context, request domainSend.Ima
 	// Send to WA server
 	dataWaCaption := request.Caption
 	var dataWaImage []byte
-	if config.NoDisk {
+	if config.RuntimeNoDisk() {
 		dataWaImage = imageData
 	} else {
 		dataWaImage, err = os.ReadFile(imagePath)
@@ -352,7 +352,7 @@ func (service serviceSend) SendImage(ctx context.Context, request domainSend.Ima
 	}
 
 	var dataWaThumbnail []byte
-	if config.NoDisk {
+	if config.RuntimeNoDisk() {
 		dataWaThumbnail = thumbnailData
 	} else {
 		dataWaThumbnail, err = os.ReadFile(imageThumbnail)
@@ -772,7 +772,7 @@ func generateDefaultWaveform() []byte {
 }
 
 func (service serviceSend) SendVideo(ctx context.Context, request domainSend.VideoRequest) (response domainSend.GenericResponse, err error) {
-	if config.NoDisk {
+	if config.RuntimeNoDisk() {
 		return response, pkgError.InternalServerError("video send not supported in no-disk mode")
 	}
 	err = validations.ValidateSendVideo(ctx, request)
@@ -1149,7 +1149,7 @@ func (service serviceSend) SendLocation(ctx context.Context, request domainSend.
 }
 
 func (service serviceSend) SendAudio(ctx context.Context, request domainSend.AudioRequest) (response domainSend.GenericResponse, err error) {
-	if config.NoDisk {
+	if config.RuntimeNoDisk() {
 		return response, pkgError.InternalServerError("audio send not supported in no-disk mode")
 	}
 	// Validate request

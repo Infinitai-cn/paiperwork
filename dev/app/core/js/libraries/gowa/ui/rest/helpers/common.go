@@ -91,12 +91,12 @@ func normalizeDeviceSelectionIdentity(deviceID string) string {
 	return strings.Split(withoutDomain, ":")[0]
 }
 
-func preferredAutoConnectDeviceID() string {
-	preferred := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID"))
-	if preferred == "" {
-		preferred = strings.TrimSpace(os.Getenv("WHATSAPP_PREFERRED_DEVICE_ID"))
+func selectedAutoConnectDeviceID() string {
+	selected := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID"))
+	if selected == "" {
+		selected = strings.TrimSpace(os.Getenv("WHATSAPP_PREFERRED_DEVICE_ID"))
 	}
-	return preferred
+	return selected
 }
 
 func activeWhatsappUserScope() string {
@@ -122,9 +122,9 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 		logrus.Info("auto-connect skipped: fresh-pair startup requested")
 		return
 	}
-	preferredDeviceID := preferredAutoConnectDeviceID()
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_EXPECT_SESSION_RESTORE")), "true") && strings.TrimSpace(preferredDeviceID) != "" {
-		logrus.Infof("auto-connect skipped: no-disk mode waiting for browser session restore for preferred device %s", logmask.MaskPhoneNumber(preferredDeviceID))
+	selectedDeviceID := selectedAutoConnectDeviceID()
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_EXPECT_SESSION_RESTORE")), "true") && strings.TrimSpace(selectedDeviceID) != "" {
+		logrus.Infof("auto-connect skipped: no-disk mode waiting for browser session restore for selected device %s", logmask.MaskPhoneNumber(selectedDeviceID))
 		return
 	}
 	if service == nil {
@@ -137,7 +137,7 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 		return
 	}
 	devices, err := service.FetchDevices(ctx)
-	preferredSelectionKey := normalizeDeviceSelectionIdentity(preferredDeviceID)
+	selectedDeviceKey := normalizeDeviceSelectionIdentity(selectedDeviceID)
 	if err != nil {
 		if ctx.Err() != nil {
 			logrus.Info("auto-connect: cancelled while fetching devices")
@@ -148,72 +148,7 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 	}
 	if len(devices) == 0 {
 		logrus.Warn("auto-connect skipped: no devices available")
-
-		// Fallback: use preferred WhatsApp device from server persisted state.
-		// Wait briefly for the saved preferred-device state to become available
-		// (especially after a restart where in-memory map may be empty).
-		for attempt := 0; attempt < 6 && len(devices) == 0; attempt++ {
-			if ctx.Err() != nil {
-				logrus.Info("auto-connect: cancelled during preferred-device fallback")
-				return
-			}
-			prefReq, err := newScopedWhatsappRequest(http.MethodGet, "http://127.0.0.1:3000/api/whatsapp/preferred-device", nil)
-			if err != nil {
-				logrus.Warnf("auto-connect fallback preferred-device request build failed: %v", err)
-			} else {
-				prefResp, err := http.DefaultClient.Do(prefReq)
-				if err != nil {
-					logrus.Warnf("auto-connect fallback preferred-device request failed: %v", err)
-				} else if prefResp.StatusCode == http.StatusOK {
-					var prefs map[string]map[string]string
-					if err := json.NewDecoder(prefResp.Body).Decode(&prefs); err == nil {
-						for _, record := range prefs {
-							if record != nil && strings.TrimSpace(record["device_id"]) != "" {
-								devices = append(devices, domainApp.DevicesResponse{Device: strings.TrimSpace(record["device_id"]), Name: record["meta"]})
-								break
-							}
-						}
-					}
-					prefResp.Body.Close()
-				}
-			}
-
-			if len(devices) == 0 {
-				// Also check local fallback (likely set through whatsappQrProxy env mapping)
-				fallbackID := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID"))
-				if fallbackID == "" {
-					fallbackID = strings.TrimSpace(os.Getenv("WHATSAPP_PREFERRED_DEVICE_ID"))
-				}
-				if fallbackID != "" {
-					devices = append(devices, domainApp.DevicesResponse{Device: fallbackID, Name: "preferred"})
-				}
-			}
-
-			if len(devices) == 0 && !sleepWithContext(ctx, 300*time.Millisecond) {
-				logrus.Info("auto-connect: cancelled during preferred-device retry wait")
-				return
-			}
-		}
-
-		if len(devices) == 0 {
-			return
-		}
-
-		if preferredSelectionKey != "" {
-			preferredDevices := make([]domainApp.DevicesResponse, 0, 1)
-			for _, device := range devices {
-				if normalizeDeviceSelectionIdentity(device.Device) == preferredSelectionKey {
-					preferredDevices = append(preferredDevices, device)
-				}
-			}
-			if len(preferredDevices) > 0 {
-				devices = preferredDevices
-				logrus.Infof("auto-connect: restricting reconnect attempts to preferred device %s", logmask.MaskPhoneNumber(preferredDeviceID))
-			} else if preferredDeviceID != "" {
-				devices = []domainApp.DevicesResponse{{Device: preferredDeviceID, Name: "preferred"}}
-				logrus.Infof("auto-connect: forcing preferred reconnect candidate %s even though fetch-devices did not return an exact match", logmask.MaskPhoneNumber(preferredDeviceID))
-			}
-		}
+		return
 	}
 
 	type autoconnectCandidate struct {
@@ -264,8 +199,8 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 			continue
 		}
 
-		if preferredSelectionKey != "" && normalizeDeviceSelectionIdentity(device.Device) != preferredSelectionKey {
-			logrus.Infof("auto-connect: skipping non-selected device %s while preferred device %s remains active", maskedDeviceID, logmask.MaskPhoneNumber(preferredDeviceID))
+		if selectedDeviceKey != "" && normalizeDeviceSelectionIdentity(device.Device) != selectedDeviceKey {
+			logrus.Infof("auto-connect: skipping non-selected device %s while selected device %s remains active", maskedDeviceID, logmask.MaskPhoneNumber(selectedDeviceID))
 			continue
 		}
 
@@ -284,8 +219,8 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 					return
 				}
 				logrus.Warnf("auto-connect failed for device %s: %v", maskedDeviceID, err)
-				if preferredSelectionKey != "" && normalizeDeviceSelectionIdentity(device.Device) == preferredSelectionKey {
-					logrus.Infof("auto-connect: preferred device %s remains selected after reconnect failure; not falling through to other saved devices", maskedDeviceID)
+				if selectedDeviceKey != "" && normalizeDeviceSelectionIdentity(device.Device) == selectedDeviceKey {
+					logrus.Infof("auto-connect: selected device %s remains selected after reconnect failure; not falling through to other saved devices", maskedDeviceID)
 					return
 				}
 				return
@@ -301,7 +236,7 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 			if isConnected && !isLoggedIn {
 				// Keep calling Login until fully connected and logged-in, or until max retries.
 				const maxLoginRetry = 6
-				selectedDeviceOnly := preferredSelectionKey != "" && normalizeDeviceSelectionIdentity(device.Device) == preferredSelectionKey
+				selectedDeviceOnly := selectedDeviceKey != "" && normalizeDeviceSelectionIdentity(device.Device) == selectedDeviceKey
 				for attempt := 1; attempt <= maxLoginRetry; attempt++ {
 					if ctx.Err() != nil {
 						logrus.Info("auto-connect: cancelled during login retry loop")
@@ -357,6 +292,7 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 
 			if isConnected && isLoggedIn {
 				hasFullyLoggedInDevice = true
+				SendWhatsappWelcomeText(device.Device)
 			}
 
 			logrus.Infof("auto-connected device %s", maskedDeviceID)
@@ -365,7 +301,7 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 	logrus.Info("auto-connect: completed auto connect after booting")
 }
 
-func sendWhatsappWelcomeText(deviceID string) {
+func SendWhatsappWelcomeText(deviceID string) {
 	autoConnectWelcomeSentMu.Lock()
 	if autoConnectWelcomeSent[deviceID] {
 		autoConnectWelcomeSentMu.Unlock()
@@ -377,12 +313,12 @@ func sendWhatsappWelcomeText(deviceID string) {
 	client := &http.Client{Timeout: 6 * time.Second}
 	resp, err := client.Get("http://127.0.0.1:3000/devices")
 	if err != nil {
-		logrus.Warnf("sendWhatsappWelcomeText: failed to query devices: %v", err)
+		logrus.Warnf("SendWhatsappWelcomeText: failed to query devices: %v", err)
 		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		logrus.Warnf("sendWhatsappWelcomeText: devices endpoint status=%d", resp.StatusCode)
+		logrus.Warnf("SendWhatsappWelcomeText: devices endpoint status=%d", resp.StatusCode)
 		return
 	}
 
@@ -393,12 +329,12 @@ func sendWhatsappWelcomeText(deviceID string) {
 		} `json:"results"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&devicesResp); err != nil {
-		logrus.Warnf("sendWhatsappWelcomeText: failed to decode devices response: %v", err)
+		logrus.Warnf("SendWhatsappWelcomeText: failed to decode devices response: %v", err)
 		return
 	}
 
 	if len(devicesResp.Results) == 0 {
-		logrus.Warn("sendWhatsappWelcomeText: no device found in /devices response")
+		logrus.Warn("SendWhatsappWelcomeText: no device found in /devices response")
 		return
 	}
 
@@ -413,7 +349,7 @@ func sendWhatsappWelcomeText(deviceID string) {
 	}
 
 	if target == "" {
-		logrus.Warn("sendWhatsappWelcomeText: no target phone could be inferred")
+		logrus.Warn("SendWhatsappWelcomeText: no target phone could be inferred")
 		return
 	}
 
@@ -422,27 +358,27 @@ func sendWhatsappWelcomeText(deviceID string) {
 		"message": "👋 Paiperwork is now connected and ready to chat.",
 	})
 	if err != nil {
-		logrus.Warnf("sendWhatsappWelcomeText: failed to marshal payload: %v", err)
+		logrus.Warnf("SendWhatsappWelcomeText: failed to marshal payload: %v", err)
 		return
 	}
 
 	request, err := newScopedWhatsappRequest(http.MethodPost, "http://127.0.0.1:8182/api/whatsapp/send", bytes.NewReader(bodyBytes))
 	if err != nil {
-		logrus.Warnf("sendWhatsappWelcomeText: failed to build welcome API request: %v", err)
+		logrus.Warnf("SendWhatsappWelcomeText: failed to build welcome API request: %v", err)
 		return
 	}
 	request.Header.Set("Content-Type", "application/json")
 
 	resp, err = client.Do(request)
 	if err != nil {
-		logrus.Warnf("sendWhatsappWelcomeText: failed to send welcome via API: %v", err)
+		logrus.Warnf("SendWhatsappWelcomeText: failed to send welcome via API: %v", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		logrus.Warnf("sendWhatsappWelcomeText: send API status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
+		logrus.Warnf("SendWhatsappWelcomeText: send API status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 		return
 	}
 
@@ -450,7 +386,7 @@ func sendWhatsappWelcomeText(deviceID string) {
 	if len(masked) > 6 {
 		masked = "*****" + masked[len(masked)-6:]
 	}
-	logrus.Infof("sendWhatsappWelcomeText: welcome message sent to %s", masked)
+	logrus.Infof("SendWhatsappWelcomeText: welcome message sent to %s", masked)
 }
 
 func SetAutoReconnectChecking(cli *whatsmeow.Client) {

@@ -1,14 +1,11 @@
 package main
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
 
-	config "github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	uiWebsocket "github.com/aldinokemal/go-whatsapp-web-multidevice/ui/websocket"
 )
 
@@ -145,6 +142,58 @@ func TestShouldSelectNoDiskGatewayDevice(t *testing.T) {
 			got := shouldSelectNoDiskGatewayDevice(tt.details, tt.status)
 			if got != tt.want {
 				t.Fatalf("shouldSelectNoDiskGatewayDevice() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsWhatsappOutgoingEcho(t *testing.T) {
+	recordWhatsappOutgoingMessage("user-1", "15551234567@s.whatsapp.net", "hello")
+
+	if !isWhatsappOutgoingEcho("user-1", "15551234567@s.whatsapp.net", "hello") {
+		t.Fatal("expected outgoing echo to be detected")
+	}
+
+	if isWhatsappOutgoingEcho("user-1", "15551234567@s.whatsapp.net", "goodbye") {
+		t.Fatal("expected different body not to be treated as outgoing echo")
+	}
+}
+
+func TestShouldFilterWhatsappOutgoingEcho(t *testing.T) {
+	tests := []struct {
+		name   string
+		mode   string
+		chatID string
+		from   string
+		want   bool
+	}{
+		{
+			name:   "personal mode self chat should not filter outgoing echo",
+			mode:   "personal",
+			chatID: "15551234567@s.whatsapp.net",
+			from:   "15551234567@s.whatsapp.net",
+			want:   false,
+		},
+		{
+			name:   "personal mode non-self chat should filter outgoing echo",
+			mode:   "personal",
+			chatID: "15551234567@s.whatsapp.net",
+			from:   "15557654321@s.whatsapp.net",
+			want:   true,
+		},
+		{
+			name:   "bot mode self chat should filter outgoing echo",
+			mode:   "bot",
+			chatID: "15551234567@s.whatsapp.net",
+			from:   "15551234567@s.whatsapp.net",
+			want:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldFilterWhatsappOutgoingEcho(tt.mode, tt.chatID, tt.from); got != tt.want {
+				t.Fatalf("shouldFilterWhatsappOutgoingEcho() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -412,21 +461,21 @@ func TestGetPreferredWhatsappDeviceIDFromRequest(t *testing.T) {
 		markWhatsappPairingProbeState("fresh-123", "test")
 		defer clearWhatsappPairingProbeState("fresh-123")
 		req := httptest.NewRequest(http.MethodGet, "/api/whatsapp/qr?fresh_pair=true&device_id=fresh-123", nil)
-		if got := getPreferredWhatsappDeviceIDFromRequest(req); got != "fresh-123" {
+		if got := getRequestedWhatsappDeviceIDFromRequest(req); got != "fresh-123" {
 			t.Fatalf("getPreferredWhatsappDeviceIDFromRequest() = %q, want %q", got, "fresh-123")
 		}
 	})
 
 	t.Run("fresh pair ignores stale explicit device id without active probe", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/whatsapp/qr?fresh_pair=true&device_id=stale-456", nil)
-		if got := getPreferredWhatsappDeviceIDFromRequest(req); got != "" {
+		if got := getRequestedWhatsappDeviceIDFromRequest(req); got != "" {
 			t.Fatalf("getPreferredWhatsappDeviceIDFromRequest() = %q, want empty", got)
 		}
 	})
 
 	t.Run("fresh pair without explicit device id clears remembered preferred device", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/whatsapp/qr?fresh_pair=true", nil)
-		if got := getPreferredWhatsappDeviceIDFromRequest(req); got != "" {
+		if got := getRequestedWhatsappDeviceIDFromRequest(req); got != "" {
 			t.Fatalf("getPreferredWhatsappDeviceIDFromRequest() = %q, want empty", got)
 		}
 	})
@@ -470,95 +519,14 @@ func TestIsWhatsappGatewayWebsocketReadyAt(t *testing.T) {
 	}
 }
 
-func TestWhatsappPreferredDeviceHandlerClearsEnvOnEmptyPost(t *testing.T) {
-	preferredWhatsappDeviceMu.Lock()
-	preferredWhatsappDevice = make(map[string]map[string]string)
-	preferredWhatsappDeviceMu.Unlock()
-
-	oldConfig := config.WhatsappPreferredDeviceID
-	oldPrimary, hadPrimary := os.LookupEnv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
-	oldLegacy, hadLegacy := os.LookupEnv("WHATSAPP_PREFERRED_DEVICE_ID")
-	t.Cleanup(func() {
-		config.WhatsappPreferredDeviceID = oldConfig
-		if hadPrimary {
-			_ = os.Setenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID", oldPrimary)
-		} else {
-			os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
-		}
-		if hadLegacy {
-			_ = os.Setenv("WHATSAPP_PREFERRED_DEVICE_ID", oldLegacy)
-		} else {
-			os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
-		}
-	})
-
-	config.WhatsappPreferredDeviceID = "stale-device"
-	_ = os.Setenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID", "stale-device")
-	_ = os.Setenv("WHATSAPP_PREFERRED_DEVICE_ID", "stale-device")
-
-	body := strings.NewReader(`{"device_id":"","meta":""}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/whatsapp/preferred-device?user=test-user", body)
-	res := httptest.NewRecorder()
-
-	whatsappPreferredDeviceHandler(res, req)
-
-	if res.Code != http.StatusOK {
-		t.Fatalf("whatsappPreferredDeviceHandler() status = %d, want %d", res.Code, http.StatusOK)
-	}
-
-	var payload map[string]string
-	if err := json.Unmarshal(res.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("response json decode failed: %v", err)
-	}
-	if payload["status"] != "ok" {
-		t.Fatalf("response status = %q, want ok", payload["status"])
-	}
-
-	if got := os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID"); got != "" {
-		t.Fatalf("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID = %q, want empty", got)
-	}
-	if got := os.Getenv("WHATSAPP_PREFERRED_DEVICE_ID"); got != "" {
-		t.Fatalf("WHATSAPP_PREFERRED_DEVICE_ID = %q, want empty", got)
-	}
-	if config.WhatsappPreferredDeviceID != "" {
-		t.Fatalf("config.WhatsappPreferredDeviceID = %q, want empty", config.WhatsappPreferredDeviceID)
-	}
-
-	preferredWhatsappDeviceMu.RLock()
-	stored := preferredWhatsappDevice["test-user"]
-	preferredWhatsappDeviceMu.RUnlock()
-	if stored == nil {
-		t.Fatalf("preferredWhatsappDevice entry missing for test-user")
-	}
-	if stored["device_id"] != "" {
-		t.Fatalf("stored device_id = %q, want empty", stored["device_id"])
-	}
-}
-
 func TestCanonicalizePreferredWhatsappDeviceIDRejectsMalformedValue(t *testing.T) {
-	got := canonicalizePreferredWhatsappDeviceID("test-user", "8618520165968@s.whatsapp.netnet")
+	got := canonicalizeRequestedWhatsappDeviceID("test-user", "8618520165968@s.whatsapp.netnet")
 	if got != "" {
 		t.Fatalf("canonicalizePreferredWhatsappDeviceID() = %q, want empty", got)
 	}
 }
 
-func TestWhatsappPreferredDeviceHandlerRejectsMalformedPreferredDevice(t *testing.T) {
-	preferredWhatsappDeviceMu.Lock()
-	preferredWhatsappDevice = make(map[string]map[string]string)
-	preferredWhatsappDeviceMu.Unlock()
-
-	body := strings.NewReader(`{"device_id":"8618520165968@s.whatsapp.netnet","meta":""}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/whatsapp/preferred-device?user=test-user", body)
-	res := httptest.NewRecorder()
-
-	whatsappPreferredDeviceHandler(res, req)
-
-	if res.Code != http.StatusBadRequest {
-		t.Fatalf("whatsappPreferredDeviceHandler() status = %d, want %d", res.Code, http.StatusBadRequest)
-	}
-}
-
-func TestPreferredWhatsappDeviceDoesNotPersistToDiskInMemoryMode(t *testing.T) {
+func TestPreferredWhatsappDeviceDoesNotPersistInAlwaysInMemoryRuntime(t *testing.T) {
 	oldWD, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("os.Getwd() failed: %v", err)
@@ -572,37 +540,27 @@ func TestPreferredWhatsappDeviceDoesNotPersistToDiskInMemoryMode(t *testing.T) {
 		_ = os.Chdir(oldWD)
 	})
 
-	preferredWhatsappDeviceMu.Lock()
-	preferredWhatsappDevice = make(map[string]map[string]string)
-	preferredWhatsappDeviceMu.Unlock()
+	selectedWhatsappDeviceMu.Lock()
+	selectedWhatsappDevice = make(map[string]map[string]string)
+	selectedWhatsappDeviceMu.Unlock()
 
-	if err := savePreferredWhatsappDeviceToDB("db-user", "15551234567:9@s.whatsapp.net", "db-meta"); err != nil {
+	if err := saveSelectedWhatsappDeviceToDB("db-user", "15551234567:9@s.whatsapp.net", "db-meta"); err != nil {
 		t.Fatalf("savePreferredWhatsappDeviceToDB() failed: %v", err)
 	}
 
-	gotID, gotMeta, err := loadPreferredWhatsappDeviceFromDB("db-user")
+	gotID, gotMeta, err := loadSelectedWhatsappDeviceFromDB("db-user")
 	if err != nil {
 		t.Fatalf("loadPreferredWhatsappDeviceFromDB() failed: %v", err)
 	}
 	if gotID != "" || gotMeta != "" {
-		t.Fatalf("loadPreferredWhatsappDeviceFromDB() = (%q, %q), want empty values in in-memory mode", gotID, gotMeta)
+		t.Fatalf("loadPreferredWhatsappDeviceFromDB() = (%q, %q), want empty values in always-in-memory runtime", gotID, gotMeta)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/whatsapp/qr?user=db-user", nil)
-	preferredWhatsappDeviceMu.Lock()
-	preferredWhatsappDevice = make(map[string]map[string]string)
-	preferredWhatsappDeviceMu.Unlock()
-
-	resolvedID := getPreferredWhatsappDeviceIDFromRequest(req)
-	if resolvedID != "" {
-		t.Fatalf("getPreferredWhatsappDeviceIDFromRequest() = %q, want empty without in-memory preferred-device sync", resolvedID)
-	}
-
-	if err := savePreferredWhatsappDeviceToDB("db-user", "", ""); err != nil {
+	if err := saveSelectedWhatsappDeviceToDB("db-user", "", ""); err != nil {
 		t.Fatalf("savePreferredWhatsappDeviceToDB(clear) failed: %v", err)
 	}
 
-	clearedID, clearedMeta, err := loadPreferredWhatsappDeviceFromDB("db-user")
+	clearedID, clearedMeta, err := loadSelectedWhatsappDeviceFromDB("db-user")
 	if err != nil {
 		t.Fatalf("loadPreferredWhatsappDeviceFromDB(clear) failed: %v", err)
 	}

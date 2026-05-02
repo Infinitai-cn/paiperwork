@@ -227,7 +227,7 @@ func CleanupDatabase() error {
 	}
 
 	// Now remove the main database file
-	if config.NoDisk || strings.HasPrefix(config.DBURI, "file::memory") {
+	if config.RuntimeNoDisk() {
 		logrus.Info("No-disk mode enabled or in-memory DB mode; skipping main DB file remove")
 		return nil
 	}
@@ -255,7 +255,7 @@ func CleanupDatabase() error {
 
 // CleanupTemporaryFiles removes history files, QR images, and send items
 func CleanupTemporaryFiles() error {
-	if config.NoDisk {
+	if config.RuntimeNoDisk() {
 		logrus.Info("No-disk mode enabled; skipping temporary file cleanup")
 		return nil
 	}
@@ -302,14 +302,14 @@ func CleanupTemporaryFiles() error {
 func ReinitializeWhatsAppComponents(ctx context.Context, chatStorageRepo domainChatStorage.IChatStorageRepository) (*sqlstore.Container, *whatsmeow.Client, error) {
 	logrus.Info("[CLEANUP] Reinitializing database and client...")
 
-	newDB := InitWaDB(ctx, config.DBURI)
+	newDB := InitWaStoreContainer(ctx, config.DBURI)
 	var newKeysDB *sqlstore.Container
 	if config.DBKeysURI != "" {
 		if config.DBKeysURI == config.DBURI {
 			newKeysDB = newDB
 			logrus.Info("[CLEANUP] Reusing Paiperwork primary WhatsApp DB container for keys store")
 		} else {
-			newKeysDB = InitWaDB(ctx, config.DBKeysURI)
+			newKeysDB = InitWaStoreContainer(ctx, config.DBKeysURI)
 		}
 	}
 	newCli := InitWaCLI(ctx, newDB, newKeysDB, chatStorageRepo)

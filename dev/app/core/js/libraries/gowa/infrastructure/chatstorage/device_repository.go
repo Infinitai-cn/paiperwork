@@ -156,6 +156,10 @@ func (r *DeviceRepository) InitializeSchema() error {
 	return r.base.InitializeSchema()
 }
 
+func (r *DeviceRepository) HasTable(tableName string) (bool, error) {
+	return r.base.HasTable(tableName)
+}
+
 func (r *DeviceRepository) DeleteDeviceData(deviceID string) error {
 	target := deviceID
 	if target == "" {

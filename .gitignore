@@ -6,3 +6,5 @@ paiperwork.code-workspace
 **/config.env
 **/storages/
 **/logs/
+**/*_test.go
+**/*.md

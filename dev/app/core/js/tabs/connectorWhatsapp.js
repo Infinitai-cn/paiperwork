@@ -1,6 +1,7 @@
 
 class ConnectorWhatsapp {
     constructor() {
+        console.info('ConnectorWhatsapp: constructor invoked');
         this.incomingPollInterval = null;
         this.incomingPollIntervalMs = 2500;
         this.whatsappIncomingRetryQueue = [];
@@ -145,6 +146,7 @@ class ConnectorWhatsapp {
             phone: normalizedPhone,
             replyTarget: normalizedReplyTarget,
             deviceId: normalizedDeviceId,
+            replyMessageId: null,
             displayUserText: '',
             targetConversationGroup: null,
             sessionPreview: '',
@@ -530,6 +532,16 @@ class ConnectorWhatsapp {
         return String(msg?.chat_id || msg?.from || msg?.fromJid || '').trim();
     }
 
+    _getWhatsappIncomingMessageId(msg) {
+        const replyToId = String(msg?.replied_to_id || msg?.payload?.replied_to_id || msg?.repliedToId || '').trim();
+        if (replyToId) {
+            return replyToId;
+        }
+        const candidate = msg?.id || msg?.payload?.id || msg?.message_id || msg?.messageId || '';
+        const normalizedId = String(candidate || '').trim();
+        return normalizedId ? normalizedId : null;
+    }
+
     _formatWhatsappBotThreadLabel(msg) {
         const chatId = String(msg?.chat_id || '').trim();
         const isGroup = this._isWhatsappGroupChatId(chatId);
@@ -655,15 +667,17 @@ class ConnectorWhatsapp {
         return query ? `${basePath}?${query}` : basePath;
     }
 
-    _setWhatsappPendingReplyContext(replyTarget, normalizedPhone, deviceId = '') {
+    _setWhatsappPendingReplyContext(replyTarget, normalizedPhone, deviceId = '', replyMessageId = null) {
         const targets = [window.chatInstance, window.chat].filter(Boolean);
         const resolvedReplyTarget = String(replyTarget || '').trim() || null;
         const resolvedIdentityKey = String(normalizedPhone || '').trim() || null;
         const resolvedDeviceId = String(deviceId || '').trim() || null;
+        const resolvedReplyMessageId = String(replyMessageId || '').trim() || null;
         targets.forEach(target => {
             target.whatsappPendingReplyChatId = resolvedReplyTarget;
             target.whatsappPendingReplyIdentityKey = resolvedIdentityKey;
             target.whatsappPendingReplyDeviceId = resolvedDeviceId;
+            target.whatsappPendingReplyMessageId = resolvedReplyMessageId;
         });
     }
 
@@ -672,6 +686,7 @@ class ConnectorWhatsapp {
             target.whatsappPendingReplyChatId = null;
             target.whatsappPendingReplyIdentityKey = null;
             target.whatsappPendingReplyDeviceId = null;
+            target.whatsappPendingReplyMessageId = null;
         });
     }
 
@@ -6913,8 +6928,12 @@ class ConnectorWhatsapp {
         return false;
     }
 
-    async postWhatsappImage(chatId, dataUrl, filename) {
+    async postWhatsappImage(chatId, dataUrl, filename, options = {}) {
         if (!chatId || !dataUrl) return;
+        const activeRequest = typeof window !== 'undefined' ? window.__paiperworkWhatsappActiveRequest : null;
+        const replyMessageId = options && options.includeReplyMessageId
+            ? String(activeRequest?.replyMessageId || window.chat?.whatsappPendingReplyMessageId || window.chatInstance?.whatsappPendingReplyMessageId || '').trim()
+            : '';
         const normalizedPhone = this._getResolvedWhatsappOutgoingTarget(chatId);
         let blob = null;
         try {
@@ -6925,6 +6944,9 @@ class ConnectorWhatsapp {
             const fd = new FormData();
             fd.append('phone', normalizedPhone);
             fd.append('image', blob, filename || 'chart.png');
+            if (replyMessageId) {
+                fd.append('reply_message_id', replyMessageId);
+            }
 
             await fetch(this._getWhatsappOutgoingRequestUrl('/api/whatsapp/send-image', chatId), {
                 method: 'POST',
@@ -6936,7 +6958,7 @@ class ConnectorWhatsapp {
             // Fallback to existing file send mode
             if (blob) {
                 try {
-                    await this.postWhatsappFile(normalizedPhone, blob, filename || 'chart.png');
+                    await this.postWhatsappFile(normalizedPhone, blob, filename || 'chart.png', undefined, options);
                 } catch (fallbackErr) {
                     console.error('ConnectorWhatsapp: postWhatsappImage fallback failed', fallbackErr);
                 }
@@ -7016,8 +7038,8 @@ class ConnectorWhatsapp {
                     'datavizGeneratedSuccess',
                     'Chart generated successfully, sending image...'
                 );
-                await this.postWhatsappText(phone, `💬 ${successText}`);
-                await this.postWhatsappImage(phone, capturedDataUrl, `${chartType}-chart.png`);
+                await this.postWhatsappText(phone, `💬 ${successText}`, { includeReplyMessageId: true });
+                await this.postWhatsappImage(phone, capturedDataUrl, `${chartType}-chart.png`, { includeReplyMessageId: true });
 
                 // Close chart window in paiperwork after successful send
                 if (window.dataViz && typeof window.dataViz.closeFloatingWindow === 'function') {
@@ -7675,6 +7697,12 @@ class ConnectorWhatsapp {
                 }
             }
             if (!res.ok) {
+                const responseText = await res.text().catch(() => '');
+                console.warn('ConnectorWhatsapp: incoming poll returned non-ok status', {
+                    status: res.status,
+                    statusText: res.statusText,
+                    body: responseText.slice(0, 1000)
+                });
                 return;
             }
             const messages = await res.json();
@@ -7721,41 +7749,55 @@ class ConnectorWhatsapp {
         }
     }
 
-    async postWhatsappText(chatId, text) {
+    async postWhatsappText(chatId, text, options = {}) {
         if (!chatId || !text) return;
         const activeRequest = typeof window !== 'undefined' ? window.__paiperworkWhatsappActiveRequest : null;
+        const replyMessageId = options && options.includeReplyMessageId
+            ? String(activeRequest?.replyMessageId || window.chat?.whatsappPendingReplyMessageId || window.chatInstance?.whatsappPendingReplyMessageId || '').trim()
+            : '';
 
         const normalizedPhone = this._getResolvedWhatsappOutgoingTarget(chatId);
         try {
+            const payload = {
+                phone: normalizedPhone,
+                message: text,
+                mode: window.whatsappSelectedMode || 'bot'
+            };
+            if (replyMessageId) {
+                payload.reply_message_id = replyMessageId;
+            }
             await fetch(this._getWhatsappOutgoingRequestUrl('/api/whatsapp/send', chatId), {
                 method: 'POST',
                 headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({
-                    phone: normalizedPhone,
-                    message: text,
-                    mode: window.whatsappSelectedMode || 'bot'
-                })
+                body: JSON.stringify(payload)
             });
         } catch (err) {
             console.error('ConnectorWhatsapp: postWhatsappText failed', err);
         }
     }
 
-    async postWhatsappLink(chatId, link, caption = '') {
+    async postWhatsappLink(chatId, link, caption = '', options = {}) {
         const activeRequest = typeof window !== 'undefined' ? window.__paiperworkWhatsappActiveRequest : null;
+        const replyMessageId = options && options.includeReplyMessageId
+            ? String(activeRequest?.replyMessageId || window.chat?.whatsappPendingReplyMessageId || window.chatInstance?.whatsappPendingReplyMessageId || '').trim()
+            : '';
         const normalizedLink = this._normalizeWhatsappLinkUrl(link);
         if (!chatId || !normalizedLink) return;
         const normalizedPhone = this._getResolvedWhatsappOutgoingTarget(chatId);
         try {
+            const payload = {
+                phone: normalizedPhone,
+                link: normalizedLink,
+                caption: String(caption || '').trim(),
+                mode: window.whatsappSelectedMode || 'bot'
+            };
+            if (replyMessageId) {
+                payload.reply_message_id = replyMessageId;
+            }
             const response = await fetch(this._getWhatsappOutgoingRequestUrl('/api/whatsapp/send-link', chatId), {
                 method: 'POST',
                 headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
-                body: JSON.stringify({
-                    phone: normalizedPhone,
-                    link: normalizedLink,
-                    caption: String(caption || '').trim(),
-                    mode: window.whatsappSelectedMode || 'bot'
-                })
+                body: JSON.stringify(payload)
             });
             if (!response.ok) {
                 const responseText = await response.text().catch(() => '');
@@ -7783,13 +7825,18 @@ class ConnectorWhatsapp {
     }
 
     // Send a file attachment (multipart/form-data) to the server proxy which forwards to the gateway
-    async postWhatsappFile(chatId, fileBlob, filename, caption) {
+    async postWhatsappFile(chatId, fileBlob, filename, caption, options = {}) {
         if (!chatId || !fileBlob) return;
         try {
+            const activeRequest = typeof window !== 'undefined' ? window.__paiperworkWhatsappActiveRequest : null;
+            const replyMessageId = options && options.includeReplyMessageId
+                ? String(activeRequest?.replyMessageId || window.chat?.whatsappPendingReplyMessageId || window.chatInstance?.whatsappPendingReplyMessageId || '').trim()
+                : '';
             const normalizedPhone = this._getResolvedWhatsappOutgoingTarget(chatId);
             const fd = new FormData();
             fd.append('phone', normalizedPhone);
             if (caption) fd.append('caption', caption);
+            if (replyMessageId) fd.append('reply_message_id', replyMessageId);
             // Append file. If fileBlob is already a File, preserve name.
             if (fileBlob instanceof File) {
                 fd.append('file', fileBlob, filename || fileBlob.name);
@@ -8893,6 +8940,7 @@ class ConnectorWhatsapp {
             const normalizedPhone = this._getWhatsappIncomingThreadKey(msg);
             const replyTarget = this._getWhatsappIncomingReplyTarget(msg) || normalizedPhone;
             requestScope = this._createWhatsappRequestScope(normalizedPhone, replyTarget, String(msg?.device_id || '').trim());
+            requestScope.replyMessageId = this._getWhatsappIncomingMessageId(msg);
             if (msg && String(msg.platform || '').trim()) {
                 requestScope.platform = String(msg.platform).trim();
             }
@@ -9254,7 +9302,7 @@ class ConnectorWhatsapp {
             }
 
             if (this._isSummaryToPresentationWorkflowIntent(routingIntentText || userText)) {
-                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim(), this._getWhatsappIncomingMessageId(msg));
 
                 const workflowHandled = await this._handleWhatsappSummaryToPresentationWorkflow(
                     normalizedPhone,
@@ -9270,7 +9318,7 @@ class ConnectorWhatsapp {
             }
 
             if (this._isSummaryToArtifactWorkflowIntent(routingIntentText || userText)) {
-                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim(), this._getWhatsappIncomingMessageId(msg));
 
                 const workflowHandled = await this._handleWhatsappSummaryToArtifactWorkflow(
                     normalizedPhone,
@@ -9368,14 +9416,14 @@ class ConnectorWhatsapp {
             }
 
             if (orchTool === 'dataviz' && chartType) {
-                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim(), this._getWhatsappIncomingMessageId(msg));
                 await this._handleWhatsappDataViz(normalizedPhone, chartType, userText, resolvedLanguage);
                 return;
             }
 
             if (orchTool === 'research') {
                 try {
-                    this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                    this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim(), this._getWhatsappIncomingMessageId(msg));
                     const researchResult = await this.handleOrchestratorResearch(msg);
                     if (researchResult && researchResult.continueToChat && msg && msg.__whatsappResearchTransform && requestScope) {
                         requestScope.researchTransform = { ...msg.__whatsappResearchTransform };
@@ -9395,7 +9443,7 @@ class ConnectorWhatsapp {
                     mergedPrompt: String(msg?.orchestrator?.mergedPrompt || ''),
                     reason: msg?.orchestrator?.reason || ''
                 });*/
-                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim(), this._getWhatsappIncomingMessageId(msg));
                 await this._handleWhatsappArtifact(normalizedPhone, userText, resolvedLanguage, {
                     orchestratorMergedPrompt: msg?.orchestrator?.mergedPrompt || '',
                     originalRequestText: userText,
@@ -9406,7 +9454,7 @@ class ConnectorWhatsapp {
             }
 
             if (orchTool === 'presentation') {
-                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim(), this._getWhatsappIncomingMessageId(msg));
                 await this._handleWhatsappPromptablePresentation(normalizedPhone, userText, resolvedLanguage, {
                     orchestratorMergedPrompt: msg?.orchestrator?.mergedPrompt || '',
                     originalRequestText: userText,
@@ -9453,7 +9501,7 @@ class ConnectorWhatsapp {
             }
 
             if (orchTool === 'knowledge') {
-                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim(), this._getWhatsappIncomingMessageId(msg));
                 const knowledgeResult = await this._handleWhatsappKnowledgeBase(normalizedPhone, userText, resolvedLanguage, phoneContext);
                 if (!knowledgeResult || !knowledgeResult.continueToChat) {
                     return;
@@ -9472,7 +9520,7 @@ class ConnectorWhatsapp {
                 let continueToChat = false;
                 try {
                     if (window.chatInstance && typeof window.chatInstance._handleOrchestratorDocumentCheck === 'function') {
-                        this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                        this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim(), this._getWhatsappIncomingMessageId(msg));
                         const result = await window.chatInstance._handleOrchestratorDocumentCheck(msg);
                         continueToChat = result && result.continueToChat;
                         if (continueToChat && msg && msg.__whatsappDocumentSummaryTransform && requestScope) {
@@ -9485,7 +9533,7 @@ class ConnectorWhatsapp {
 
             // Mark pending reply target on chat instance for downstream flows
             try {
-                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim());
+                this._setWhatsappPendingReplyContext(replyTarget, normalizedPhone, String(msg?.device_id || '').trim(), this._getWhatsappIncomingMessageId(msg));
                 if (window.chatInstance) {
                     window.chatInstance.documentConversationScopeKey = this._getWhatsappDocumentScopeKey(normalizedPhone);
                     /*console.info('[ConnectorWhatsapp][debug] assigned chat document scope', {
@@ -10121,7 +10169,7 @@ class ConnectorWhatsapp {
                             const prefix = firstMessage ? '💬 ' : '';
                             try {
                                 if (typeof this.postWhatsappText === 'function') {
-                                    await this.postWhatsappText(targetPhone, prefix + textValue);
+                                    await this.postWhatsappText(targetPhone, prefix + textValue, { includeReplyMessageId: firstMessage });
                                 }
                                 contextParts.push(textValue);
                             } catch (err) {
@@ -10137,14 +10185,14 @@ class ConnectorWhatsapp {
                             if (!linkValue) continue;
                             try {
                                 if (typeof this.postWhatsappLink === 'function') {
-                                    await this.postWhatsappLink(targetPhone, linkValue, linkCaption);
+                                    await this.postWhatsappLink(targetPhone, linkValue, linkCaption, { includeReplyMessageId: firstMessage });
                                 }
                             } catch (err) {
                                 console.warn('ConnectorWhatsapp: Failed to send WhatsApp link segment via connectors:', err);
                                 try {
                                     const prefix = firstMessage ? '💬 ' : '';
                                     if (typeof this.postWhatsappText === 'function') {
-                                        await this.postWhatsappText(targetPhone, prefix + (linkCaption ? `${linkCaption}: ${linkValue}` : linkValue));
+                                        await this.postWhatsappText(targetPhone, prefix + (linkCaption ? `${linkCaption}: ${linkValue}` : linkValue), { includeReplyMessageId: firstMessage });
                                     }
                                     contextParts.push(linkCaption ? `${linkCaption}: ${linkValue}` : linkValue);
                                 } catch (_fallbackErr) {}
@@ -10169,14 +10217,14 @@ class ConnectorWhatsapp {
                             );
                             const caption = `${firstMessage ? '💬 ' : ''}${snippetCaptionText}`;
                             if (typeof this.postWhatsappFile === 'function') {
-                                await this.postWhatsappFile(targetPhone, blob, filename, caption);
+                                await this.postWhatsappFile(targetPhone, blob, filename, caption, { includeReplyMessageId: firstMessage });
                             }
                         } catch (err) {
                             console.error('ConnectorWhatsapp: Failed to send WhatsApp HTML attachment via connectors:', err);
                             try {
                                 const fence = '```html\n' + raw + '\n```';
                                 if (typeof this.postWhatsappText === 'function') {
-                                    await this.postWhatsappText(targetPhone, (firstMessage ? '💬 ' : '') + fence);
+                                    await this.postWhatsappText(targetPhone, (firstMessage ? '💬 ' : '') + fence, { includeReplyMessageId: firstMessage });
                                 }
                             } catch (_e) {}
                         }
@@ -10184,7 +10232,7 @@ class ConnectorWhatsapp {
                         try {
                             const fence = '```' + (seg.lang || '') + '\n' + raw + '\n```';
                             if (typeof this.postWhatsappText === 'function') {
-                                await this.postWhatsappText(targetPhone, (firstMessage ? '💬 ' : '') + fence);
+                                await this.postWhatsappText(targetPhone, (firstMessage ? '💬 ' : '') + fence, { includeReplyMessageId: firstMessage });
                             }
                         } catch (err) {
                             console.warn('ConnectorWhatsapp: Failed to send WhatsApp code segment via connectors:', err);
@@ -10311,10 +10359,40 @@ class ConnectorWhatsapp {
 
 window.ConnectorWhatsapp = ConnectorWhatsapp;
 
+function _installWhatsappConnector() {
+    if (!window.connectors) {
+        window.connectors = new ConnectorWhatsapp();
+        console.info('ConnectorWhatsapp: created window.connectors and installed connector API');
+        return;
+    }
+
+    const hasWhatsappApi = typeof window.connectors.postWhatsappText === 'function'
+        && typeof window.connectors.startIncomingPolling === 'function';
+    if (hasWhatsappApi) {
+        console.info('ConnectorWhatsapp: window.connectors already has WhatsApp API installed');
+        return;
+    }
+
+    const whatsappConnector = new ConnectorWhatsapp();
+    const prototype = Object.getPrototypeOf(whatsappConnector);
+    for (const name of Object.getOwnPropertyNames(prototype)) {
+        if (name === 'constructor') continue;
+        const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
+        if (!descriptor || typeof descriptor.value !== 'function') continue;
+        if (typeof window.connectors[name] !== 'function') {
+            window.connectors[name] = whatsappConnector[name].bind(whatsappConnector);
+        }
+    }
+
+    if (!window.connectors.__whatsappConnector) {
+        window.connectors.__whatsappConnector = whatsappConnector;
+    }
+    window.connectors.__whatsappSupportInstalled = true;
+    console.info('ConnectorWhatsapp: attached WhatsApp API methods to existing window.connectors');
+}
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        if (!window.connectors) window.connectors = new ConnectorWhatsapp();
-    });
+    document.addEventListener('DOMContentLoaded', _installWhatsappConnector);
 } else {
-    if (!window.connectors) window.connectors = new ConnectorWhatsapp();
+    _installWhatsappConnector();
 }

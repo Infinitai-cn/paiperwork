@@ -1,7 +1,13 @@
 {
     "version": "1.2.7",
     "releaseDate": "2026-04-24",
-    "notes": "<p><strong>What's new:</p><p>Revamped Artworks engine for HTML Stlye Transfer and Overlay text</p><p>Overlay Text now editable</p><p>Html Style transfer now can edit text and change pictures</p><p>More bug fixes.</p>",
+    "notes": [
+        "<p><strong>What's new:</strong></p>",
+        "<p>Revamped Artworks engine for HTML Style Transfer and Overlay text</p>",
+        "<p>Overlay Text now editable</p>",
+        "<p>HTML Style transfer now can edit text and change pictures</p>",
+        "<p>More bug fixes.</p>"
+    ],
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
     "requiredUpdate": false
 }
