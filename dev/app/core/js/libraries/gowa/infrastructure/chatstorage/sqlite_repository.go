@@ -708,6 +708,27 @@ func (r *SQLiteRepository) GetDeviceRecord(deviceID string) (*domainChatStorage.
 	return rec, nil
 }
 
+// HasTable checks whether a table exists in the SQLite database.
+func (r *SQLiteRepository) HasTable(tableName string) (bool, error) {
+	if strings.TrimSpace(tableName) == "" {
+		return false, fmt.Errorf("table name is required")
+	}
+
+	row := r.db.QueryRow(`
+		SELECT name FROM sqlite_master
+		WHERE type = 'table' AND name = ?
+		LIMIT 1
+	`, tableName)
+	var name string
+	if err := row.Scan(&name); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // DeleteDeviceRecord removes a device registration entry.
 func (r *SQLiteRepository) DeleteDeviceRecord(deviceID string) error {
 	if strings.TrimSpace(deviceID) == "" {

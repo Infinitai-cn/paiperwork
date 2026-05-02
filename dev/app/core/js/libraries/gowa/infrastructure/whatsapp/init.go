@@ -37,33 +37,11 @@ var (
 	startupTime              = time.Now().Unix()
 )
 
-func purgeStoreDevicesForFreshPair(ctx context.Context, container *sqlstore.Container, label string) {
+func purgeStoreDevicesForFreshPair(container *sqlstore.Container, label string) {
 	if container == nil {
 		return
 	}
-	defer func() {
-		if recovered := recover(); recovered != nil {
-			log.Warnf("InitWaCLI: fresh-pair startup skipped %s store purge because the container is not initialized: %v", label, recovered)
-		}
-	}()
-
-	devices, err := container.GetAllDevices(ctx)
-	if err != nil {
-		log.Warnf("InitWaCLI: fresh-pair startup failed to enumerate %s store devices: %v", label, err)
-		return
-	}
-
-	for _, device := range devices {
-		if device == nil || device.ID == nil {
-			continue
-		}
-		maskedDeviceID := logmask.MaskPhoneNumber(device.ID.String())
-		if err := container.DeleteDevice(ctx, device); err != nil {
-			log.Warnf("InitWaCLI: fresh-pair startup failed to delete %s store device %s: %v", label, maskedDeviceID, err)
-			continue
-		}
-		log.Infof("InitWaCLI: fresh-pair startup deleted %s store device %s", label, maskedDeviceID)
-	}
+	log.Warnf("InitWaCLI: fresh-pair startup requested, but automatic device store purge is disabled to preserve user-managed paired devices (%s)", label)
 }
 
 func syncKeysDevice(ctx context.Context, db, keysDB *sqlstore.Container) {
@@ -110,11 +88,7 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 	InitializeDeviceManager(storeContainer, keysStoreContainer, chatStorageRepo)
 
 	if IsFreshPairStartupRequested() {
-		purgeStoreDevicesForFreshPair(ctx, storeContainer, "primary")
-		if keysStoreContainer != nil && keysStoreContainer != storeContainer {
-			purgeStoreDevicesForFreshPair(ctx, keysStoreContainer, "keys")
-		}
-		log.Infof("InitWaCLI: fresh-pair startup requested; skipping persisted store device recovery")
+		log.Infof("InitWaCLI: fresh-pair startup requested; preserved existing device store contents")
 		return nil
 	}
 
@@ -125,7 +99,7 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 	for attempt := 1; attempt <= 5; attempt++ {
 		if storeContainer == nil {
 			log.Warnf("InitWaCLI: storeContainer is nil on attempt %d - reinitializing", attempt)
-			storeContainer = InitWaDB(ctx, config.DBURI)
+			storeContainer = InitWaStoreContainer(ctx, config.DBURI)
 			if storeContainer == nil {
 				log.Errorf("InitWaCLI: failed to reinitialize WhatsApp DB container")
 				return nil
@@ -140,7 +114,7 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 		if strings.Contains(strings.ToLower(err.Error()), "database is closed") {
 			log.Warnf("InitWaCLI: database is closed on attempt %d/5, reopening DB container and retrying: %v", attempt, err)
 			_ = storeContainer.Close()
-			storeContainer = InitWaDB(ctx, config.DBURI)
+			storeContainer = InitWaStoreContainer(ctx, config.DBURI)
 			if storeContainer == nil {
 				log.Errorf("InitWaCLI: failed to reopen DB container after closed error")
 				return nil
@@ -155,9 +129,9 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 	}
 
 	if err != nil {
-		purgeStoreDevicesForFreshPair(ctx, storeContainer, "primary")
+		purgeStoreDevicesForFreshPair(storeContainer, "primary")
 		if keysStoreContainer != nil && keysStoreContainer != storeContainer {
-			purgeStoreDevicesForFreshPair(ctx, keysStoreContainer, "keys")
+			purgeStoreDevicesForFreshPair(keysStoreContainer, "keys")
 		}
 		log.Errorf("InitWaCLI: failed to get device after retries: %v", err)
 		return nil
@@ -165,10 +139,6 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 
 	if device == nil {
 		log.Warnf("No device found in WhatsApp DB")
-		if config.WhatsappPreferredDeviceID != "" {
-			log.Infof("Trying preferred device ID from config: %s", logmask.MaskPhoneNumber(config.WhatsappPreferredDeviceID))
-			// Here we cannot directly create a nina device; we continue with nil and allow /devices endpoints to handle.
-		}
 		return nil
 	}
 
@@ -232,9 +202,7 @@ func InitWaCLI(ctx context.Context, storeContainer, keysStoreContainer *sqlstore
 	if dm != nil && instanceID != "" {
 		dm.EnsureDefault(instance)
 		instance.SetOnLoggedOut(func(deviceID string) {
-			if err := dm.PurgeLoggedOutDevice(context.Background(), deviceID); err != nil {
-				logrus.WithError(err).Warnf("[DEVICE_MANAGER] remote logout purge completed with warnings for %s", deviceID)
-			}
+			logrus.Infof("[DEVICE_MANAGER] remote logout detected for %s; automatic purge is disabled", logmask.MaskPhoneNumber(deviceID))
 		})
 	}
 

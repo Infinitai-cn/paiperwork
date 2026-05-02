@@ -193,12 +193,16 @@ func RegisterRoutes(app fiber.Router, service domainApp.IAppUsecase) {
 			}
 
 			if messageType == websocket.TextMessage {
+				rawPayload := strings.TrimSpace(string(message))
+				if len(rawPayload) > 2048 {
+					rawPayload = rawPayload[:2048] + "...(truncated)"
+				}
+				logrus.Printf("websocket incoming raw: type=%d payload=%s", messageType, rawPayload)
 				var messageData BroadcastMessage
 				if err := json.Unmarshal(message, &messageData); err != nil {
 					logrus.Println("unmarshal error:", err)
 					return
 				}
-
 				if messageData.Code == "FETCH_DEVICES" {
 					devices, _ := service.FetchDevices(context.Background())
 					Broadcast <- BroadcastMessage{

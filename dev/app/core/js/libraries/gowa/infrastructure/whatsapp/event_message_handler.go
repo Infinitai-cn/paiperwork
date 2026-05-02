@@ -20,13 +20,6 @@ func isReplayOrHistoricalMessage(evt *events.Message) bool {
 		return false
 	}
 
-	// DeviceSentMeta is populated when a direct message was authored on another one
-	// of the user's linked devices. Those cross-device replays must not trigger live
-	// webhook/orchestrator side effects when a different bot device starts up.
-	if evt.Info.DeviceSentMeta != nil {
-		return true
-	}
-
 	// SourceWebMsg is populated when whatsmeow parses a message from WebMessageInfo,
 	// which includes history sync replay and unavailable-message resend responses.
 	if evt.SourceWebMsg != nil {
@@ -97,7 +90,7 @@ func buildMessageMetaParts(evt *events.Message) []string {
 }
 
 func handleImageMessage(ctx context.Context, evt *events.Message, client *whatsmeow.Client) {
-	if config.NoDisk {
+	if config.RuntimeNoDisk() {
 		logrus.Debug("Skipping image download in no-disk mode")
 		return
 	}
@@ -141,6 +134,14 @@ func handleAutoMarkRead(ctx context.Context, evt *events.Message, client *whatsm
 
 func handleWebhookForward(ctx context.Context, evt *events.Message, client *whatsmeow.Client) {
 	_ = ctx
+	log.Infof("handleWebhookForward: message id=%s is_from_me=%v source=%s webhook_count=%d webhook_events=%v chatwoot_enabled=%v",
+		evt.Info.ID,
+		evt.Info.IsFromMe,
+		evt.Info.SourceString(),
+		len(config.WhatsappWebhook),
+		config.WhatsappWebhookEvents,
+		config.ChatwootEnabled)
+
 	if isReplayOrHistoricalMessage(evt) {
 		log.Infof("Skipping webhook for replayed/synced message %s from %s", evt.Info.ID, evt.Info.SourceString())
 		return

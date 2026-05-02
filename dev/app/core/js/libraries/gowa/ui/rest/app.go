@@ -9,6 +9,7 @@ import (
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
 	pkgError "github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/error"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/ui/rest/helpers"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -149,6 +150,10 @@ func (handler *App) Reconnect(c *fiber.Ctx) error {
 	err = handler.Service.Reconnect(c.UserContext(), device.ID())
 	if err != nil {
 		return appErrorResponse(c, err)
+	}
+
+	if isConnected, isLoggedIn, statusErr := handler.Service.Status(c.UserContext(), device.ID()); statusErr == nil && isConnected && isLoggedIn {
+		go helpers.SendWhatsappWelcomeText(device.ID())
 	}
 
 	return c.JSON(utils.ResponseData{

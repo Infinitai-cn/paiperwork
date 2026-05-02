@@ -26,7 +26,7 @@ build_macos_binary() {
 
     GOOS=darwin GOARCH="$arch" CGO_ENABLED=1 \
     CC="$clang_bin" CXX="$clangxx_bin" SDKROOT="$sdkroot_path" \
-    go build -ldflags="-linkmode external -s -w" -o "$output" main.go
+    go build -ldflags="-linkmode external -s -w" -o "$output" .
 
     if [ $? -ne 0 ]; then
         echo "  ❌ macOS ($arch) build failed"
@@ -78,7 +78,7 @@ pushd "$SCRIPT_DIR" > /dev/null
 
 # Build for Windows (AMD64) - Disable CGO for pure Go builds
 echo "  Building for Windows (AMD64)..."
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../Paiperwork-server-dev-win.exe main.go
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../Paiperwork-server-dev-win.exe .
 if [ $? -eq 0 ]; then
     echo "  ✅ Windows build successful"
 else
@@ -96,7 +96,7 @@ build_macos_binary amd64 ../Paiperwork-server-dev-osx-intel
 
 # Build for Linux (AMD64)
 echo "  Building for Linux (AMD64)..."
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../Paiperwork-server-dev-linux main.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../Paiperwork-server-dev-linux .
 if [ $? -eq 0 ]; then
     echo "  ✅ Linux build successful"
 else

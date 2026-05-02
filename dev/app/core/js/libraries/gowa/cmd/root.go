@@ -56,24 +56,6 @@ var (
 	deviceUsecase     domainDevice.IDeviceUsecase
 )
 
-func isLocalGowaStorageURI(uri string) bool {
-	trimmed := strings.TrimSpace(strings.Trim(uri, `"'`))
-	if trimmed == "" {
-		return false
-	}
-	lower := strings.ToLower(trimmed)
-	return strings.Contains(lower, "storages/whatsapp.db") || strings.Contains(lower, "storages/chatstorage.db")
-}
-
-func isInMemoryGowaStorageURI(uri string) bool {
-	trimmed := strings.TrimSpace(strings.Trim(uri, `"'`))
-	if trimmed == "" {
-		return false
-	}
-	lower := strings.ToLower(trimmed)
-	return strings.HasPrefix(lower, "file::memory") || strings.Contains(lower, "mode=memory")
-}
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Short: "Send free whatsapp API",
@@ -137,41 +119,14 @@ func initEnvConfig() {
 	if envDBKEYSURI := os.Getenv("PAIPERWORK_DB_KEYS_URI"); envDBKEYSURI != "" {
 		config.DBKeysURI = envDBKEYSURI
 	}
-	if envNoDisk := os.Getenv("PAIPERWORK_NO_DISK"); strings.ToLower(envNoDisk) == "true" {
-		paiperworkDBURI := strings.TrimSpace(os.Getenv("PAIPERWORK_DB_URI"))
-		if paiperworkDBURI == "" || !isInMemoryGowaStorageURI(paiperworkDBURI) {
-			paiperworkDBURI = "file:paiperwork-whatsapp-nodisk?mode=memory&cache=shared&_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000"
-		}
-		config.NoDisk = true
-		config.PathQrCode = ""
-		config.PathSendItems = ""
-		config.PathMedia = ""
-		config.PathStorages = ""
-		config.WhatsappAutoDownloadMedia = false
-		config.DBURI = paiperworkDBURI
-		config.DBKeysURI = paiperworkDBURI
-		config.ChatStorageURI = paiperworkDBURI
-		if envKeysURI := strings.TrimSpace(os.Getenv("PAIPERWORK_DB_KEYS_URI")); envKeysURI != "" && envKeysURI != paiperworkDBURI {
-			logrus.Warn("PAIPERWORK_NO_DISK forcing keys DB to reuse the same in-memory gowa runtime DB")
-		}
+	if envChatStorageURI := viper.GetString("chatstorage_uri"); envChatStorageURI != "" {
+		config.ChatStorageURI = envChatStorageURI
 	}
-	if envPrefID := viper.GetString("whatsapp_preferred_device_id"); envPrefID != "" {
-		config.WhatsappPreferredDeviceID = envPrefID
+	if envChatStorageURI := os.Getenv("PAIPERWORK_CHAT_STORAGE_URI"); envChatStorageURI != "" {
+		config.ChatStorageURI = envChatStorageURI
 	}
-	if envPrefMeta := viper.GetString("whatsapp_preferred_device_meta"); envPrefMeta != "" {
-		config.WhatsappPreferredDeviceMeta = envPrefMeta
-	}
-	if envPrefID := os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID"); envPrefID != "" {
-		config.WhatsappPreferredDeviceID = envPrefID
-	}
-	if envPrefMeta := os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_META"); envPrefMeta != "" {
-		config.WhatsappPreferredDeviceMeta = envPrefMeta
-	}
-	if envPrefID := os.Getenv("WHATSAPP_PREFERRED_DEVICE_ID"); envPrefID != "" {
-		config.WhatsappPreferredDeviceID = envPrefID
-	}
-	if envPrefMeta := os.Getenv("WHATSAPP_PREFERRED_DEVICE_META"); envPrefMeta != "" {
-		config.WhatsappPreferredDeviceMeta = envPrefMeta
+	if config.DBURI != "" && config.ChatStorageURI == "file:storages/chatstorage.db" {
+		config.ChatStorageURI = config.DBURI
 	}
 
 	// WhatsApp settings
@@ -187,14 +142,29 @@ func initEnvConfig() {
 	if envWebhook := viper.GetString("whatsapp_webhook"); envWebhook != "" {
 		webhook := strings.Split(envWebhook, ",")
 		config.WhatsappWebhook = webhook
+	} else if envWebhook := os.Getenv("WHATSAPP_WEBHOOK"); envWebhook != "" {
+		webhook := strings.Split(envWebhook, ",")
+		config.WhatsappWebhook = webhook
+	} else if envWebhook := os.Getenv("PAIPERWORK_WHATSAPP_WEBHOOK"); envWebhook != "" {
+		webhook := strings.Split(envWebhook, ",")
+		config.WhatsappWebhook = webhook
 	}
 	if envWebhookSecret := viper.GetString("whatsapp_webhook_secret"); envWebhookSecret != "" {
+		config.WhatsappWebhookSecret = envWebhookSecret
+	} else if envWebhookSecret := os.Getenv("WHATSAPP_WEBHOOK_SECRET"); envWebhookSecret != "" {
+		config.WhatsappWebhookSecret = envWebhookSecret
+	} else if envWebhookSecret := os.Getenv("PAIPERWORK_WHATSAPP_WEBHOOK_SECRET"); envWebhookSecret != "" {
 		config.WhatsappWebhookSecret = envWebhookSecret
 	}
 	if viper.IsSet("whatsapp_webhook_insecure_skip_verify") {
 		config.WhatsappWebhookInsecureSkipVerify = viper.GetBool("whatsapp_webhook_insecure_skip_verify")
+	} else if envWebhookInsecure := os.Getenv("WHATSAPP_WEBHOOK_INSECURE_SKIP_VERIFY"); envWebhookInsecure != "" {
+		config.WhatsappWebhookInsecureSkipVerify = strings.ToLower(envWebhookInsecure) == "true"
 	}
 	if envWebhookEvents := viper.GetString("whatsapp_webhook_events"); envWebhookEvents != "" {
+		events := strings.Split(envWebhookEvents, ",")
+		config.WhatsappWebhookEvents = events
+	} else if envWebhookEvents := os.Getenv("WHATSAPP_WEBHOOK_EVENTS"); envWebhookEvents != "" {
 		events := strings.Split(envWebhookEvents, ",")
 		config.WhatsappWebhookEvents = events
 	}
@@ -391,14 +361,15 @@ func initFlags() {
 
 func initChatStorage() (*sql.DB, error) {
 	connStr := config.ChatStorageURI
-	if config.NoDisk {
+	runtimeNoDisk := config.RuntimeNoDisk()
+	if runtimeNoDisk {
 		if strings.TrimSpace(config.DBURI) == "" {
 			return nil, fmt.Errorf("no-disk mode requires an in-memory gowa DB URI for chat storage")
 		}
 		if strings.TrimSpace(connStr) != strings.TrimSpace(config.DBURI) {
 			return nil, fmt.Errorf("no-disk mode requires chat storage to reuse the same in-memory gowa DB URI")
 		}
-		if !isInMemoryGowaStorageURI(connStr) {
+		if !config.IsInMemoryStorageURI(connStr) {
 			return nil, fmt.Errorf("no-disk mode requires an in-memory gowa DB URI, got %q", connStr)
 		}
 	}
@@ -438,34 +409,9 @@ func initApp() {
 
 	// preparing required folders, unless no-disk mode is enabled
 	var err error
-	if config.NoDisk {
-		// Strong assertion: no disk mode should not create or depend on local paths.
-		if config.PathQrCode != "" || config.PathSendItems != "" || config.PathMedia != "" || config.PathStorages != "" {
-			logrus.Warn("No-disk mode enabled but path variables are still set - clearing them")
-			config.PathQrCode = ""
-			config.PathSendItems = ""
-			config.PathMedia = ""
-			config.PathStorages = ""
-		}
-
-		// Ensure any previous folders from non-no-disk run are removed.
-		// NOTE: In embedded gowa usage we do NOT delete existing folders, to preserve local content.
-		// _ = os.RemoveAll("statics/qrcode")
-		// _ = os.RemoveAll("statics/senditems")
-		// _ = os.RemoveAll("statics/media")
-		// _ = os.RemoveAll("storages")
-
-		if strings.TrimSpace(config.DBURI) == "" {
-			embeddedsafe.Fatal("initApp: PAIPERWORK_NO_DISK is enabled but no in-memory gowa DB URI was configured")
-		}
-		if !isInMemoryGowaStorageURI(config.DBURI) || !isInMemoryGowaStorageURI(config.ChatStorageURI) || (strings.TrimSpace(config.DBKeysURI) != "" && !isInMemoryGowaStorageURI(config.DBKeysURI)) {
-			embeddedsafe.Fatalf("initApp: no-disk mode requires in-memory gowa storage URIs only (db=%q keys=%q chat=%q)", config.DBURI, config.DBKeysURI, config.ChatStorageURI)
-		}
-		if isLocalGowaStorageURI(config.DBURI) || isLocalGowaStorageURI(config.ChatStorageURI) || (strings.TrimSpace(config.DBKeysURI) != "" && isLocalGowaStorageURI(config.DBKeysURI)) {
-			embeddedsafe.Fatalf("initApp: no-disk mode forbids local gowa storage URIs (db=%q keys=%q chat=%q)", config.DBURI, config.DBKeysURI, config.ChatStorageURI)
-		}
-
-		logrus.Infof("No-disk mode enabled: using in-memory gowa runtime DB for WhatsApp store, keys, and chat storage")
+	runtimeNoDisk := config.RuntimeNoDisk()
+	if runtimeNoDisk {
+		logrus.Infof("initApp: no-disk runtime active; skipping creation of filesystem folders for qrcode/senditems/storages/media")
 	} else {
 		err = utils.CreateFolder(config.PathQrCode, config.PathSendItems, config.PathStorages, config.PathMedia)
 		if err != nil {
@@ -484,9 +430,10 @@ func initApp() {
 	chatStorageRepo = chatstorage.NewStorageRepository(chatStorageDB)
 	chatStorageRepo.InitializeSchema()
 
-	logrus.Info("initApp: using Paiperwork WhatsApp DB")
+	logrus.Infof("initApp: using Paiperwork WhatsApp DB %s", config.DBURI)
+	logrus.Infof("initApp: using Paiperwork chat storage DB %s", config.ChatStorageURI)
 
-	whatsappDB := whatsapp.InitWaDB(ctx, config.DBURI)
+	whatsappDB := whatsapp.InitWaStoreContainer(ctx, config.DBURI)
 	var keysDB *sqlstore.Container
 	if config.DBURI != "" {
 		keysDB = whatsappDB

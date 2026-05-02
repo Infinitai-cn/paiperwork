@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/config"
-	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
 	_ "github.com/mattn/go-sqlite3"
 	"go.mau.fi/whatsmeow/proto/waAdv"
-	"go.mau.fi/whatsmeow/store"
+
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
@@ -55,10 +54,9 @@ func TestListDevices_SortsByCreatedAtAscending(t *testing.T) {
 	}
 }
 
-func TestListDevices_PrefersSelectedDeviceFirst(t *testing.T) {
-	t.Setenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID", "8619802087305:13@s.whatsapp.net")
+func TestListDevices_IgnoresConfigPreferredDevice(t *testing.T) {
 	originalPreferred := config.WhatsappPreferredDeviceID
-	config.WhatsappPreferredDeviceID = ""
+	config.WhatsappPreferredDeviceID = "8619802087305:13@s.whatsapp.net"
 	t.Cleanup(func() {
 		config.WhatsappPreferredDeviceID = originalPreferred
 	})
@@ -75,8 +73,8 @@ func TestListDevices_PrefersSelectedDeviceFirst(t *testing.T) {
 	if len(result) != 2 {
 		t.Fatalf("expected 2 devices, got %d", len(result))
 	}
-	if got := result[0].ID(); got != "8619802087305:13@s.whatsapp.net" {
-		t.Fatalf("expected preferred device first, got %s", got)
+	if got := result[0].ID(); got != "8618520165968:57@s.whatsapp.net" {
+		t.Fatalf("expected oldest device first, got %s", got)
 	}
 }
 
@@ -147,44 +145,6 @@ func TestListDevices_SameCreatedAt(t *testing.T) {
 	}
 }
 
-func TestMergePersistedDeviceRecords_BackfillsStoreDevicesIntoEmptyRegistry(t *testing.T) {
-	deviceJID := types.JID{User: "8618520165968", Device: 55, Server: types.DefaultUserServer}
-	storeDevices := []*store.Device{{ID: &deviceJID}}
-
-	merged, backfilled := mergePersistedDeviceRecords(nil, storeDevices)
-
-	if len(merged) != 1 {
-		t.Fatalf("expected 1 merged device record, got %d", len(merged))
-	}
-	if len(backfilled) != 1 {
-		t.Fatalf("expected 1 backfilled device record, got %d", len(backfilled))
-	}
-	if merged[0].DeviceID != "8618520165968:55@s.whatsapp.net" {
-		t.Fatalf("unexpected merged device id: %s", merged[0].DeviceID)
-	}
-	if merged[0].JID != "8618520165968@s.whatsapp.net" {
-		t.Fatalf("unexpected merged device jid: %s", merged[0].JID)
-	}
-}
-
-func TestMergePersistedDeviceRecords_DedupesRegistryAndStoreByAccount(t *testing.T) {
-	registry := []*domainChatStorage.DeviceRecord{{
-		DeviceID: "8618520165968@s.whatsapp.net",
-		JID:      "8618520165968@s.whatsapp.net",
-	}}
-	deviceJID := types.JID{User: "8618520165968", Device: 55, Server: types.DefaultUserServer}
-	storeDevices := []*store.Device{{ID: &deviceJID}}
-
-	merged, backfilled := mergePersistedDeviceRecords(registry, storeDevices)
-
-	if len(merged) != 1 {
-		t.Fatalf("expected 1 merged device record after dedupe, got %d", len(merged))
-	}
-	if len(backfilled) != 0 {
-		t.Fatalf("expected 0 backfilled records after dedupe, got %d", len(backfilled))
-	}
-}
-
 func TestInitWaCLI_FreshPairInitializesDeviceManager(t *testing.T) {
 	t.Setenv("PAIPERWORK_WHATSAPP_FRESH_PAIR_STARTUP", "true")
 
@@ -221,10 +181,10 @@ func TestInitWaCLI_FreshPairInitializesDeviceManager(t *testing.T) {
 	}
 }
 
-func TestInitWaCLI_FreshPairPurgesPersistedStoreDevices(t *testing.T) {
+func TestInitWaCLI_FreshPairPreservesPersistedStoreDevices(t *testing.T) {
 	ctx := context.Background()
 	dbPath := filepath.Join(t.TempDir(), "fresh-pair-whatsapp.db")
-	storeContainer := InitWaDB(ctx, "file:"+dbPath+"?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000")
+	storeContainer := InitWaStoreContainer(ctx, "file:"+dbPath+"?_foreign_keys=on&_journal_mode=WAL&_busy_timeout=5000")
 	if storeContainer == nil {
 		t.Fatalf("expected InitWaDB to return a store container")
 	}
@@ -271,64 +231,12 @@ func TestInitWaCLI_FreshPairPurgesPersistedStoreDevices(t *testing.T) {
 
 	remainingDevices, err := storeContainer.GetAllDevices(ctx)
 	if err != nil {
-		t.Fatalf("expected post-purge device lookup to succeed, got %v", err)
+		t.Fatalf("expected post-startup device lookup to succeed, got %v", err)
 	}
-	if len(remainingDevices) != 0 {
-		t.Fatalf("expected persisted store devices to be purged during fresh-pair init, got %d", len(remainingDevices))
+	if len(remainingDevices) != 1 {
+		t.Fatalf("expected persisted store devices to be preserved during fresh-pair init, got %d", len(remainingDevices))
 	}
 	if GetDeviceManager() == nil {
 		t.Fatalf("expected fresh-pair startup to still initialize the device manager")
-	}
-}
-
-func TestPromoteDeviceIdentity_RekeysPlaceholderToPairedDevice(t *testing.T) {
-	dm := &DeviceManager{
-		devices: make(map[string]*DeviceInstance),
-	}
-	placeholder := NewDeviceInstance("placeholder-id", nil, nil)
-	dm.devices[placeholder.ID()] = placeholder
-
-	promoted := dm.PromoteDeviceIdentity("placeholder-id", "15551234567:11@s.whatsapp.net", "15551234567@s.whatsapp.net")
-	if promoted == nil {
-		t.Fatalf("expected PromoteDeviceIdentity to return the promoted instance")
-	}
-	if promoted.ID() != "15551234567:11@s.whatsapp.net" {
-		t.Fatalf("expected promoted device id to be updated, got %q", promoted.ID())
-	}
-	if promoted.JID() != "15551234567@s.whatsapp.net" {
-		t.Fatalf("expected promoted JID to be updated, got %q", promoted.JID())
-	}
-	if _, ok := dm.GetDevice("placeholder-id"); ok {
-		t.Fatalf("expected placeholder device key to be removed after promotion")
-	}
-	if resolved, ok := dm.GetDevice("15551234567:11@s.whatsapp.net"); !ok || resolved != promoted {
-		t.Fatalf("expected promoted device to be available under its paired device id")
-	}
-}
-
-func TestPromoteDeviceIdentity_RefusesCrossAccountPromotion(t *testing.T) {
-	dm := &DeviceManager{
-		devices: make(map[string]*DeviceInstance),
-	}
-
-	existing := NewDeviceInstance("8618520165968:66@s.whatsapp.net", nil, nil)
-	existing.SetIdentityMetadata("", "8618520165968", "8618520165968@s.whatsapp.net")
-	dm.devices[existing.ID()] = existing
-
-	placeholder := NewDeviceInstance("8619802087305:27@s.whatsapp.net", nil, nil)
-	dm.devices[placeholder.ID()] = placeholder
-
-	promoted := dm.PromoteDeviceIdentity("8618520165968:66@s.whatsapp.net", "8619802087305:27@s.whatsapp.net", "8619802087305@s.whatsapp.net")
-	if promoted != placeholder {
-		t.Fatalf("expected cross-account promotion to keep the existing target placeholder")
-	}
-	if resolved, ok := dm.GetDevice("8618520165968:66@s.whatsapp.net"); !ok || resolved != existing {
-		t.Fatalf("expected original device identity to remain intact")
-	}
-	if resolved, ok := dm.GetDevice("8619802087305:27@s.whatsapp.net"); !ok || resolved != placeholder {
-		t.Fatalf("expected placeholder device to remain intact")
-	}
-	if existing.JID() != "8618520165968@s.whatsapp.net" {
-		t.Fatalf("expected original device JID to remain unchanged, got %q", existing.JID())
 	}
 }

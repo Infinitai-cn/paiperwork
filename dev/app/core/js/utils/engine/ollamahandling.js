@@ -2938,6 +2938,16 @@ class OllamaAPI {
         this.previousContext = null;  // Using class property
         window.currentCheckpoint = null;
         this.contextLimitReached = false;
+
+        if (typeof window !== 'undefined') {
+            if (window.__paiperworkWhatsappContextOverride) {
+                delete window.__paiperworkWhatsappContextOverride;
+            }
+            if (window.__paiperworkwechatContextOverride) {
+                delete window.__paiperworkwechatContextOverride;
+            }
+        }
+
         const contextLabel = document.getElementById('context-remaining-label');
         if (contextLabel) {
             contextLabel.style.color = '';

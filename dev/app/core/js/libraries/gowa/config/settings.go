@@ -1,6 +1,8 @@
 package config
 
 import (
+	"strings"
+
 	"go.mau.fi/whatsmeow/proto/waCompanionReg"
 )
 
@@ -72,3 +74,18 @@ var (
 	// For chatbot-only usage we disable this to avoid import of full device history.
 	HistorySyncEnabled = false
 )
+
+// IsInMemoryStorageURI reports whether a DB URI targets an in-memory SQLite store.
+func IsInMemoryStorageURI(uri string) bool {
+	trimmed := strings.TrimSpace(strings.Trim(uri, `"'`))
+	if trimmed == "" {
+		return false
+	}
+	lower := strings.ToLower(trimmed)
+	return strings.HasPrefix(lower, "file::memory") || strings.Contains(lower, "mode=memory")
+}
+
+// RuntimeNoDisk is true when filesystem writes should be avoided at runtime.
+func RuntimeNoDisk() bool {
+	return NoDisk || IsInMemoryStorageURI(DBURI)
+}

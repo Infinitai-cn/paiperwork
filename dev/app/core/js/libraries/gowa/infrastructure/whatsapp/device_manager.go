@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -14,7 +13,6 @@ import (
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
 	domainDevice "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/device"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
-	fiberUtils "github.com/gofiber/fiber/v2/utils"
 	"github.com/sirupsen/logrus"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store"
@@ -41,28 +39,6 @@ func NewDeviceManager(store *sqlstore.Container, keys *sqlstore.Container, chatS
 		keys:    keys,
 		storage: chatStorageRepo,
 	}
-}
-
-func preferredDeviceCandidateID() string {
-	if preferredByConfig := strings.TrimSpace(config.WhatsappPreferredDeviceID); preferredByConfig != "" {
-		return preferredByConfig
-	}
-	if preferredByEnv := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")); preferredByEnv != "" {
-		return preferredByEnv
-	}
-	return strings.TrimSpace(os.Getenv("WHATSAPP_PREFERRED_DEVICE_ID"))
-}
-
-func matchesPreferredDeviceCandidate(deviceID, preferredDeviceID string) bool {
-	trimmedDeviceID := strings.TrimSpace(deviceID)
-	trimmedPreferredDeviceID := strings.TrimSpace(preferredDeviceID)
-	if trimmedDeviceID == "" || trimmedPreferredDeviceID == "" {
-		return false
-	}
-	if strings.EqualFold(trimmedDeviceID, trimmedPreferredDeviceID) {
-		return true
-	}
-	return deviceAccountKey(trimmedDeviceID, "") != "" && deviceAccountKey(trimmedDeviceID, "") == deviceAccountKey(trimmedPreferredDeviceID, "")
 }
 
 func (m *DeviceManager) AddDevice(instance *DeviceInstance) {
@@ -158,247 +134,9 @@ func (m *DeviceManager) RemoveDevice(id string) {
 	}
 }
 
-func (m *DeviceManager) PromoteDeviceIdentity(oldID, newID, newJID string) *DeviceInstance {
-	if m == nil {
-		return nil
-	}
-
-	trimmedOldID := strings.TrimSpace(oldID)
-	trimmedNewID := strings.TrimSpace(newID)
-	trimmedNewJID := strings.TrimSpace(newJID)
-	if trimmedNewID == "" {
-		trimmedNewID = trimmedNewJID
-	}
-	if trimmedNewJID == "" {
-		trimmedNewJID = trimmedNewID
-	}
-	if trimmedOldID == "" || trimmedNewID == "" {
-		return nil
-	}
-
-	m.mu.Lock()
-	inst, ok := m.devices[trimmedOldID]
-	if !ok || inst == nil {
-		inst = m.devices[trimmedNewID]
-	}
-	if inst == nil {
-		m.mu.Unlock()
-		return nil
-	}
-
-	currentInstanceID := strings.TrimSpace(inst.ID())
-	currentInstanceJID := strings.TrimSpace(inst.JID())
-	currentAccountKey := deviceAccountKey(currentInstanceID, currentInstanceJID)
-	targetAccountKey := deviceAccountKey(trimmedNewID, trimmedNewJID)
-	if currentAccountKey != "" && targetAccountKey != "" && currentAccountKey != targetAccountKey {
-		m.mu.Unlock()
-		logrus.Warnf("[DEVICE_MANAGER] refusing cross-account promotion old_id=%s old_jid=%s new_id=%s new_jid=%s", logmask.MaskPhoneNumber(currentInstanceID), logmask.MaskPhoneNumber(currentInstanceJID), logmask.MaskPhoneNumber(trimmedNewID), logmask.MaskPhoneNumber(trimmedNewJID))
-		if existing, ok := m.devices[trimmedNewID]; ok && existing != nil {
-			return existing
-		}
-		return nil
-	}
-
-	storageDeviceID := trimmedNewJID
-	if storageDeviceID == "" {
-		storageDeviceID = trimmedNewID
-	}
-
-	inst.mu.Lock()
-	inst.id = trimmedNewID
-	inst.jid = trimmedNewJID
-	inst.chatStorageRepo = newDeviceChatStorage(storageDeviceID, m.storage)
-	inst.mu.Unlock()
-
-	delete(m.devices, trimmedOldID)
-	m.devices[trimmedNewID] = inst
-	m.mu.Unlock()
-
-	if m.storage != nil {
-		if trimmedOldID != trimmedNewID {
-			_ = m.storage.DeleteDeviceRecord(trimmedOldID)
-			_ = m.storage.DeleteDeviceData(trimmedOldID)
-		}
-		_ = m.storage.SaveDeviceRecord(&domainChatStorage.DeviceRecord{
-			DeviceID:    trimmedNewID,
-			DisplayName: inst.DisplayName(),
-			JID:         trimmedNewJID,
-			CreatedAt:   inst.CreatedAt(),
-			UpdatedAt:   time.Now(),
-		})
-	}
-
-	logrus.Infof("[DEVICE_MANAGER] promoted device placeholder %s to paired device %s", logmask.MaskPhoneNumber(trimmedOldID), logmask.MaskPhoneNumber(trimmedNewID))
-	return inst
-}
-
-func deviceAccountKey(deviceID, jid string) string {
-	candidate := strings.TrimSpace(jid)
-	if candidate == "" {
-		trimmedDeviceID := strings.TrimSpace(deviceID)
-		if trimmedDeviceID != "" && !strings.Contains(trimmedDeviceID, "@") {
-			hasOnlyDigits := true
-			for _, r := range trimmedDeviceID {
-				if r < '0' || r > '9' {
-					hasOnlyDigits = false
-					break
-				}
-			}
-			if !hasOnlyDigits {
-				return ""
-			}
-		}
-		candidate = trimmedDeviceID
-	}
-	if candidate == "" {
-		return ""
-	}
-	if at := strings.Index(candidate, "@"); at >= 0 {
-		candidate = candidate[:at]
-	}
-	if colon := strings.Index(candidate, ":"); colon >= 0 {
-		candidate = candidate[:colon]
-	}
-	return strings.TrimSpace(candidate)
-}
-
-func persistedDeviceRecordKey(deviceID, jid string) string {
-	if key := deviceAccountKey(deviceID, jid); key != "" {
-		return strings.ToLower(key)
-	}
-	if trimmedJID := strings.TrimSpace(jid); trimmedJID != "" {
-		return strings.ToLower(trimmedJID)
-	}
-	return strings.ToLower(strings.TrimSpace(deviceID))
-}
-
-func deviceRecordFromStoreDevice(dev *store.Device) *domainChatStorage.DeviceRecord {
-	if dev == nil || dev.ID == nil {
-		return nil
-	}
-
-	deviceID := strings.TrimSpace(dev.ID.String())
-	jid := strings.TrimSpace(dev.ID.ToNonAD().String())
-	if deviceID == "" && jid == "" {
-		return nil
-	}
-
-	return &domainChatStorage.DeviceRecord{
-		DeviceID: deviceID,
-		JID:      jid,
-	}
-}
-
-func mergePersistedDeviceRecords(registry []*domainChatStorage.DeviceRecord, storeDevices []*store.Device) ([]*domainChatStorage.DeviceRecord, []*domainChatStorage.DeviceRecord) {
-	merged := make([]*domainChatStorage.DeviceRecord, 0, len(registry)+len(storeDevices))
-	backfilled := make([]*domainChatStorage.DeviceRecord, 0)
-	seen := make(map[string]struct{}, len(registry)+len(storeDevices))
-
-	appendRecord := func(rec *domainChatStorage.DeviceRecord) bool {
-		if rec == nil {
-			return false
-		}
-		key := persistedDeviceRecordKey(rec.DeviceID, rec.JID)
-		if key == "" {
-			return false
-		}
-		if _, exists := seen[key]; exists {
-			return false
-		}
-		seen[key] = struct{}{}
-		merged = append(merged, rec)
-		return true
-	}
-
-	for _, rec := range registry {
-		appendRecord(rec)
-	}
-
-	for _, dev := range storeDevices {
-		rec := deviceRecordFromStoreDevice(dev)
-		if rec == nil {
-			continue
-		}
-		if appendRecord(rec) {
-			backfilled = append(backfilled, rec)
-		}
-	}
-
-	return merged, backfilled
-}
-
-func countStoreDevices(devices []*store.Device) int {
-	count := 0
-	for _, dev := range devices {
-		if dev == nil || dev.ID == nil {
-			continue
-		}
-		count++
-	}
-	return count
-}
-
-func (m *DeviceManager) pruneStaleRecordsForLoggedInInstance(current *DeviceInstance) {
-	if m == nil || m.storage == nil || current == nil {
-		return
-	}
-
-	current.UpdateStateFromClient()
-	if !current.IsLoggedIn() {
-		return
-	}
-
-	currentID := strings.TrimSpace(current.ID())
-	currentJID := strings.TrimSpace(current.JID())
-	accountKey := deviceAccountKey(currentID, currentJID)
-	if currentID == "" || accountKey == "" {
-		return
-	}
-
-	records, err := m.storage.ListDeviceRecords()
-	if err != nil {
-		logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to list device records while pruning stale entries for %s", logmask.MaskPhoneNumber(currentID))
-		return
-	}
-
-	staleIDs := make([]string, 0)
-	for _, rec := range records {
-		if rec == nil {
-			continue
-		}
-		recordID := strings.TrimSpace(rec.DeviceID)
-		if recordID == "" || recordID == currentID {
-			continue
-		}
-		if deviceAccountKey(recordID, rec.JID) == accountKey {
-			staleIDs = append(staleIDs, recordID)
-		}
-	}
-
-	if len(staleIDs) == 0 {
-		return
-	}
-
-	for _, staleID := range staleIDs {
-		if inst, ok := m.GetDevice(staleID); ok && inst != nil {
-			if cli := inst.GetClient(); cli != nil {
-				cli.EnableAutoReconnect = false
-				cli.Disconnect()
-			}
-		}
-
-		if err := m.storage.DeleteDeviceData(staleID); err != nil {
-			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete stale device data for %s", logmask.MaskPhoneNumber(staleID))
-		}
-		if err := m.storage.DeleteDeviceRecord(staleID); err != nil {
-			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete stale device record for %s", logmask.MaskPhoneNumber(staleID))
-		}
-
-		m.mu.Lock()
-		delete(m.devices, staleID)
-		m.mu.Unlock()
-		logrus.Infof("[DEVICE_MANAGER] pruned stale device entry %s after %s became the active logged-in device", logmask.MaskPhoneNumber(staleID), logmask.MaskPhoneNumber(currentID))
-	}
+func (m *DeviceManager) pruneStaleRecordsForLoggedInInstance(_ *DeviceInstance) {
+	// Automatic stale-device pruning is disabled to preserve user-managed WhatsApp devices.
+	// Device removal should only happen through explicit user actions.
 }
 
 // PurgeDevice cleanly logs out a device, removes its persisted records (store/keys),
@@ -560,15 +298,15 @@ func (m *DeviceManager) PurgeLoggedOutDevice(ctx context.Context, deviceID strin
 	return firstErr
 }
 
-// CreateDevice registers a new device placeholder so routes can be scoped strictly by device_id.
+// CreateDevice registers a new device using the provided device ID.
 func (m *DeviceManager) CreateDevice(ctx context.Context, requestedID string) (*DeviceInstance, error) {
 	if m == nil {
 		return nil, fmt.Errorf("device manager not initialized")
 	}
 
-	id := requestedID
+	id := strings.TrimSpace(requestedID)
 	if id == "" {
-		id = fiberUtils.UUID()
+		return nil, fmt.Errorf("device id is required")
 	}
 
 	m.mu.Lock()
@@ -593,7 +331,7 @@ func (m *DeviceManager) CreateDevice(ctx context.Context, requestedID string) (*
 		}
 	}
 
-	logrus.WithContext(ctx).Infof("[DEVICE_MANAGER] created device placeholder %s", logmask.MaskPhoneNumber(id))
+	logrus.WithContext(ctx).Infof("[DEVICE_MANAGER] created device %s", logmask.MaskPhoneNumber(id))
 	return instance, nil
 }
 
@@ -606,19 +344,9 @@ func (m *DeviceManager) ListDevices() []*DeviceInstance {
 		result = append(result, instance)
 	}
 
-	preferredDeviceID := preferredDeviceCandidateID()
-
-	// Sort by preferred device first, then CreatedAt ascending (oldest first)
-	// for stable UI ordering. Use ID as tie-breaker when CreatedAt is equal.
+	// Sort by CreatedAt ascending (oldest first) for stable UI ordering.
+	// Use ID as tie-breaker when CreatedAt is equal.
 	slices.SortFunc(result, func(a, b *DeviceInstance) int {
-		aPreferred := matchesPreferredDeviceCandidate(a.ID(), preferredDeviceID)
-		bPreferred := matchesPreferredDeviceCandidate(b.ID(), preferredDeviceID)
-		if aPreferred != bPreferred {
-			if aPreferred {
-				return -1
-			}
-			return 1
-		}
 		if cmp := a.CreatedAt().Compare(b.CreatedAt()); cmp != 0 {
 			return cmp
 		}
@@ -639,23 +367,6 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 		m.initted = true
 	})
 
-	// Log preferred device sourced via Paiperwork-managed state / env for no-disk recovery.
-	preferredByConfig := strings.TrimSpace(config.WhatsappPreferredDeviceID)
-	preferredByEnv := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID"))
-	if preferredByEnv == "" {
-		preferredByEnv = strings.TrimSpace(os.Getenv("WHATSAPP_PREFERRED_DEVICE_ID"))
-	}
-
-	if preferredByConfig != "" {
-		logrus.Infof("[DEVICE_MANAGER] preferred device candidate from config: %s", logmask.MaskPhoneNumber(preferredByConfig))
-	}
-	if preferredByEnv != "" {
-		logrus.Infof("[DEVICE_MANAGER] preferred device candidate from env: %s", logmask.MaskPhoneNumber(preferredByEnv))
-	}
-	if preferredByConfig == "" && preferredByEnv == "" {
-		logrus.Info("[DEVICE_MANAGER] no preferred device candidate available (Paiperwork-managed state/env)")
-	}
-
 	if IsFreshPairStartupRequested() {
 		m.mu.Lock()
 		m.devices = make(map[string]*DeviceInstance)
@@ -666,53 +377,65 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 
 	storeDevices, storeErr := m.store.GetAllDevices(ctx)
 	if storeErr != nil {
-		if config.NoDisk {
-			logrus.WithError(storeErr).Warn("[DEVICE_MANAGER] failed to enumerate Paiperwork WhatsApp store devices during startup reconciliation")
+		if config.RuntimeNoDisk() || isInMemoryNoDiskURI(config.DBURI) {
+			logrus.WithError(storeErr).Warn("[DEVICE_MANAGER] failed to enumerate Paiperwork WhatsApp DB devices during startup")
 		} else {
 			return storeErr
 		}
 	}
-	storeDeviceCount := countStoreDevices(storeDevices)
 
-	// Load from persisted registry (optional). In no-disk mode we still log, but we will not enforce as authoritative.
-	if m.storage != nil {
-		records, err := m.storage.ListDeviceRecords()
-		if err != nil {
-			logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to load device registry")
-		} else {
-			reconciledRecords := records
-			if storeErr == nil {
-				var backfilledRecords []*domainChatStorage.DeviceRecord
-				reconciledRecords, backfilledRecords = mergePersistedDeviceRecords(records, storeDevices)
-				for _, rec := range backfilledRecords {
-					if saveErr := m.storage.SaveDeviceRecord(rec); saveErr != nil {
-						logrus.WithError(saveErr).Warnf("[DEVICE_MANAGER] failed to backfill registry record for Paiperwork DB device %s", logmask.MaskPhoneNumber(rec.DeviceID))
-					}
-				}
-				logrus.Infof("[DEVICE_MANAGER] discovered %d device records in Paiperwork DB for reconciliation (registry=%d store=%d)", len(reconciledRecords), len(records), storeDeviceCount)
+	if len(storeDevices) == 0 && m.storage != nil {
+		if records, err := m.storage.ListDeviceRecords(); err != nil {
+			logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to enumerate persisted WhatsApp device registry records from Paiperwork DB")
+			if hasTable, tableErr := m.storage.HasTable("devices"); tableErr != nil {
+				logrus.WithError(tableErr).Warn("[DEVICE_MANAGER] failed to verify chat storage devices table in Paiperwork WhatsApp DB")
 			} else {
-				logrus.Infof("[DEVICE_MANAGER] discovered %d device records in registry (Paiperwork store unavailable)", len(records))
+				logrus.Infof("[DEVICE_MANAGER] chat storage devices table exists=%t path=%s", hasTable, config.ChatStorageURI)
 			}
-			for _, rec := range reconciledRecords {
-				if rec == nil {
+		} else if len(records) > 0 {
+			logrus.Infof("[DEVICE_MANAGER] discovered %d persisted device registry records in Paiperwork WhatsApp DB", len(records))
+			for _, rec := range records {
+				if rec == nil || strings.TrimSpace(rec.DeviceID) == "" {
 					continue
 				}
-				logrus.Infof("[DEVICE_MANAGER] registry device: id=%q jid=%q", logmask.MaskPhoneNumber(rec.DeviceID), logmask.MaskPhoneNumber(rec.JID))
+
+				jid := strings.TrimSpace(rec.JID)
+				if jid == "" {
+					jid = strings.TrimSpace(rec.DeviceID)
+				}
+
+				m.mu.RLock()
+				_, existsByID := m.devices[rec.DeviceID]
+				m.mu.RUnlock()
+				if existsByID {
+					continue
+				}
+
+				instance := NewDeviceInstance(rec.DeviceID, nil, newDeviceChatStorage(rec.DeviceID, m.storage))
+				instance.SetIdentityMetadata(rec.DisplayName, normalizePhoneFromJID(jid), jid)
+				instance.SetState(domainDevice.DeviceStateDisconnected)
+
+				m.mu.Lock()
+				m.devices[rec.DeviceID] = instance
+				m.mu.Unlock()
 			}
-			if !config.NoDisk {
-				m.loadFromRegistry(reconciledRecords)
+		} else {
+			if hasTable, tableErr := m.storage.HasTable("devices"); tableErr != nil {
+				logrus.WithError(tableErr).Warn("[DEVICE_MANAGER] failed to verify chat storage devices table in Paiperwork WhatsApp DB")
 			} else {
-				logrus.Info("[DEVICE_MANAGER] NoDisk mode: skipping device registry apply")
+				logrus.Infof("[DEVICE_MANAGER] discovered 0 persisted device records in Paiperwork WhatsApp DB path=%s devices_table_exists=%t", config.ChatStorageURI, hasTable)
 			}
 		}
 	}
 
-	if config.NoDisk {
-		logrus.Info("[DEVICE_MANAGER] NoDisk mode: skipping WhatsMeow store device discovery in favour of preferred-device path")
-		return nil
+	discoveredDeviceIDs := make([]string, 0, len(storeDevices))
+	for _, dev := range storeDevices {
+		if dev == nil || dev.ID == nil {
+			continue
+		}
+		discoveredDeviceIDs = append(discoveredDeviceIDs, strings.TrimSpace(dev.ID.String()))
 	}
-
-	logrus.Infof("[DEVICE_MANAGER] discovered %d device records in store", storeDeviceCount)
+	logrus.Infof("[DEVICE_MANAGER] discovered %d device records in Paiperwork WhatsApp DB devices=%v", len(storeDevices), discoveredDeviceIDs)
 	for _, dev := range storeDevices {
 		if dev == nil || dev.ID == nil {
 			continue
@@ -763,85 +486,6 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// loadFromRegistry loads devices from the registry, handling deduplication.
-func (m *DeviceManager) loadFromRegistry(records []*domainChatStorage.DeviceRecord) {
-	// Collect JIDs from manual devices (device_id doesn't contain @)
-	manualDeviceJIDs := make(map[string]bool)
-	for _, rec := range records {
-		if rec == nil || strings.TrimSpace(rec.DeviceID) == "" {
-			continue
-		}
-		if !strings.Contains(rec.DeviceID, "@") && rec.JID != "" {
-			manualDeviceJIDs[rec.JID] = true
-		}
-	}
-
-	// Load devices, removing auto-created duplicates
-	seenJIDs := make(map[string]bool)
-	for _, rec := range records {
-		if rec == nil || strings.TrimSpace(rec.DeviceID) == "" {
-			continue
-		}
-
-		// Skip auto-created devices if manual device with same JID exists
-		isAutoCreated := strings.Contains(rec.DeviceID, "@")
-		if isAutoCreated && manualDeviceJIDs[rec.DeviceID] {
-			logrus.Warnf("[DEVICE_MANAGER] removing auto-created device %s", logmask.MaskPhoneNumber(rec.DeviceID))
-			_ = m.storage.DeleteDeviceRecord(rec.DeviceID)
-			continue
-		}
-
-		// Skip duplicate JIDs
-		if rec.JID != "" {
-			if seenJIDs[rec.JID] {
-				logrus.Warnf("[DEVICE_MANAGER] removing duplicate JID device %s", logmask.MaskPhoneNumber(rec.DeviceID))
-				_ = m.storage.DeleteDeviceRecord(rec.DeviceID)
-				continue
-			}
-			seenJIDs[rec.JID] = true
-		}
-
-		// Check if a device with this JID already exists in memory (from InitWaCLI)
-		m.mu.RLock()
-		var existingByJID *DeviceInstance
-		for id, inst := range m.devices {
-			if rec.JID != "" && inst.JID() == rec.JID && id != rec.DeviceID {
-				existingByJID = inst
-				break
-			}
-		}
-		m.mu.RUnlock()
-
-		// If device with matching JID exists, remove it and use the registry device
-		if existingByJID != nil {
-			m.mu.Lock()
-			delete(m.devices, existingByJID.ID())
-			m.mu.Unlock()
-			logrus.Infof("[DEVICE_MANAGER] replacing in-memory device %s with registry device %s", logmask.MaskPhoneNumber(existingByJID.ID()), logmask.MaskPhoneNumber(rec.DeviceID))
-		}
-
-		// Create device instance
-		storageDeviceID := rec.DeviceID
-		if rec.JID != "" {
-			storageDeviceID = rec.JID
-		}
-		instance := NewDeviceInstance(rec.DeviceID, nil, newDeviceChatStorage(storageDeviceID, m.storage))
-		instance.SetState(domainDevice.DeviceStateDisconnected)
-		instance.displayName = rec.DisplayName
-		instance.jid = rec.JID
-
-		// If we had an existing device with client, transfer the client
-		if existingByJID != nil {
-			if client := existingByJID.GetClient(); client != nil {
-				instance.SetClient(client)
-				instance.UpdateStateFromClient()
-			}
-		}
-
-		m.AddDevice(instance)
-	}
 }
 
 // EnsureDefault registers the current global client as the default device if present.

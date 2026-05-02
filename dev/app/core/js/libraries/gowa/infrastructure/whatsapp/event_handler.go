@@ -167,12 +167,6 @@ func handlePairSuccess(ctx context.Context, evt *events.PairSuccess) {
 		"phone_number": normalizePhoneFromJID(pairedJID),
 	}
 	if inst, ok := DeviceFromContext(ctx); ok && inst != nil {
-		oldDeviceID := strings.TrimSpace(inst.ID())
-		if dm := GetDeviceManager(); dm != nil && pairedDeviceID != "" {
-			if promoted := dm.PromoteDeviceIdentity(oldDeviceID, pairedDeviceID, pairedJID); promoted != nil {
-				inst = promoted
-			}
-		}
 		if deviceID := strings.TrimSpace(inst.ID()); deviceID != "" {
 			result["device_id"] = deviceID
 		}
@@ -203,13 +197,21 @@ func handleLoggedOut(ctx context.Context, instance *DeviceInstance, chatStorageR
 	}
 	instance.SetState(domainDevice.DeviceStateDisconnected)
 
-	if chatStorageRepo != nil {
+	deviceID := instance.ID()
+	if deviceID != "" && deviceManager != nil {
+		if err := deviceManager.PurgeLoggedOutDevice(context.Background(), deviceID); err != nil {
+			logrus.Errorf("[REMOTE_LOGOUT] Failed to purge logged-out device %s: %v", logmask.MaskPhoneNumber(deviceID), err)
+		}
+	} else if chatStorageRepo != nil {
 		if err := chatStorageRepo.TruncateAllDataWithLogging("REMOTE_LOGOUT"); err != nil {
 			logrus.Errorf("[REMOTE_LOGOUT] Failed to truncate chat storage: %v", err)
 		}
+		if deviceID != "" {
+			if err := chatStorageRepo.DeleteDeviceRecord(deviceID); err != nil {
+				logrus.Errorf("[REMOTE_LOGOUT] Failed to delete persisted device record %s: %v", logmask.MaskPhoneNumber(deviceID), err)
+			}
+		}
 	}
-
-	deviceID := instance.ID()
 
 	instance.TriggerLoggedOut()
 
@@ -229,15 +231,6 @@ func handleConnectionEvents(ctx context.Context, client *whatsmeow.Client, insta
 	}
 	if instance != nil {
 		instance.UpdateStateFromClient()
-
-		if dm := GetDeviceManager(); dm != nil && client.Store != nil && client.Store.ID != nil {
-			if pairedDeviceID := strings.TrimSpace(client.Store.ID.String()); pairedDeviceID != "" {
-				pairedJID := strings.TrimSpace(client.Store.ID.ToNonAD().String())
-				if promoted := dm.PromoteDeviceIdentity(instance.ID(), pairedDeviceID, pairedJID); promoted != nil {
-					instance = promoted
-				}
-			}
-		}
 
 		// Persist updated JID/DisplayName to database after successful connection
 		// Skip if instance.ID looks like a JID (auto-created device) to avoid recreating deleted duplicates

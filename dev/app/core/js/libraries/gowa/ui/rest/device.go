@@ -103,6 +103,15 @@ func (handler *Device) AddDevice(c *fiber.Ctx) error {
 		})
 	}
 
+	if strings.TrimSpace(req.DeviceID) == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(utils.ResponseData{
+			Status:  fiber.StatusBadRequest,
+			Code:    "DEVICE_ID_REQUIRED",
+			Message: "device_id is required",
+			Results: nil,
+		})
+	}
+
 	device, err := handler.Service.AddDevice(c.UserContext(), req.DeviceID)
 	if err != nil {
 		return deviceErrorResponse(c, err)

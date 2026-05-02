@@ -363,7 +363,7 @@ func (service serviceMessage) DownloadMedia(ctx context.Context, request domainM
 	response.MessageID = request.MessageID
 	response.MediaType = message.MediaType
 
-	if config.NoDisk {
+	if config.RuntimeNoDisk() {
 		response.Status = "Media downloaded successfully in-memory"
 		response.Filename = fmt.Sprintf("%d%s", time.Now().UnixNano(), filepath.Ext(extractedMedia.MediaPath))
 		response.FilePath = extractedMedia.MediaPath

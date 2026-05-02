@@ -584,7 +584,7 @@ func ExtractMedia(ctx context.Context, client *whatsmeow.Client, storageLocation
 
 	extension := determineMediaExtension(originalFilename, extractedMedia.MimeType)
 
-	if config.NoDisk {
+	if config.RuntimeNoDisk() {
 		// No disk mode: keep media in memory and do not write to path.
 		extractedMedia.MediaPath = fmt.Sprintf("inmemory://%d-%s%s", time.Now().Unix(), uuid.NewString(), extension)
 		extractedMedia.MediaData = data

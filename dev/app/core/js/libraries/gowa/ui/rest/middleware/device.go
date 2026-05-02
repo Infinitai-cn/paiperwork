@@ -42,21 +42,6 @@ func DeviceMiddleware(dm *whatsapp.DeviceManager) fiber.Handler {
 
 		instance, resolvedID, err := dm.ResolveDevice(deviceID)
 		if err != nil {
-			if config.NoDisk {
-				targetID := strings.TrimSpace(resolvedID)
-				if targetID == "" {
-					targetID = strings.TrimSpace(deviceID)
-				}
-				if targetID != "" {
-					if created, createErr := dm.CreateDevice(c.UserContext(), targetID); createErr == nil && created != nil {
-						c.Locals("device_id", created.ID())
-						c.Locals("device", created)
-						c.SetUserContext(whatsapp.ContextWithDevice(c.UserContext(), created))
-						return c.Next()
-					}
-				}
-			}
-
 			// ResolveDevice returns an ID when provided but missing; use it for payload clarity.
 			if resolvedID != "" || strings.TrimSpace(deviceID) != "" {
 				return c.Status(fiber.StatusNotFound).JSON(utils.ResponseData{
