@@ -4109,6 +4109,26 @@ class ConnectorWhatsapp {
         return tokens.some(token => this._normalizeDocumentIntentKeymapText(token) === normalizedText);
     }
 
+    _shouldLookupDocumentReference(text) {
+        const rawText = String(text || '').trim();
+        if (!rawText) return false;
+
+        const normalizedText = this._normalizeDocumentIntentKeymapText(rawText);
+        if (!normalizedText) return false;
+
+        const hasSummaryIntent = this._isSummaryIntent(normalizedText);
+        const hasDocumentSelectionIntent = this._isDocumentSelectionIntent(normalizedText);
+        const hasDocumentNoun = this._textMatchesDocumentKeymapTokens(normalizedText, this._getDocumentKeymapTokens('nouns'));
+        const hasBrowseAction = this._textMatchesDocumentKeymapTokens(normalizedText, this._getDocumentKeymapTokens('actions.browse'));
+        const isQuestion = this._isQuestionIntent(rawText);
+
+        return hasSummaryIntent
+            || hasDocumentSelectionIntent
+            || hasDocumentNoun
+            || hasBrowseAction
+            || (isQuestion && hasDocumentNoun);
+    }
+
     _hasRunnableDocumentQuestionText(text, documentHint = '') {
         const rawText = String(text || '').trim();
         if (!rawText) return false;
@@ -4821,13 +4841,15 @@ class ConnectorWhatsapp {
         }
 
         let documentReference = null;
-        try {
-            documentReference = await this._findReferencedDocumentFromText(
-                text,
-                sessionStorage.getItem('hashedMasterKey')
-            );
-        } catch (docRefErr) {
-            console.warn('[ConnectorWhatsapp][routing] Failed to score referenced document', docRefErr);
+        if (this._shouldLookupDocumentReference(text)) {
+            try {
+                documentReference = await this._findReferencedDocumentFromText(
+                    text,
+                    sessionStorage.getItem('hashedMasterKey')
+                );
+            } catch (docRefErr) {
+                console.warn('[ConnectorWhatsapp][routing] Failed to score referenced document', docRefErr);
+            }
         }
 
         const documentScore = scores.find(entry => entry.tool === 'document-check');
@@ -7943,8 +7965,16 @@ class ConnectorWhatsapp {
         const db = await PaiperworkDB.getDatabase(resolvedMasterKey);
         if (!db) return null;
 
-        const result = db.exec(`SELECT document_id, document_name FROM documents_${resolvedMasterKey} WHERE embedding_status = 'completed'`);
-        const rows = result?.[0]?.values || [];
+        let rows = [];
+        try {
+            const result = db.exec(`SELECT document_id, document_name FROM documents_${resolvedMasterKey} WHERE embedding_status = 'completed'`);
+            rows = result?.[0]?.values || [];
+        } catch (dbErr) {
+            if (String(dbErr).toLowerCase().includes('no such table')) {
+                return null;
+            }
+            throw dbErr;
+        }
         if (!rows.length) return null;
 
         const normalize = (value) => this._normalizeDocumentIntentKeymapText(String(value || '').replace(/\.[a-z0-9]{1,6}$/i, ''));
