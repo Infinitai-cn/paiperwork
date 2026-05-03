@@ -4,7 +4,6 @@ paiperwork.code-workspace
 .vscode
 .config.env
 **/config.env
-**/storages/
 **/logs/
 **/*_test.go
 **/*.md
