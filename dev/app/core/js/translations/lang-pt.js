@@ -752,6 +752,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         databaseOpenStatus: "Aberta",
         databaseClosedStatus: "Fechada",
         databaseCountLabel: "Contagem",
+        deviceCountLabel: "Dispositivos",
         databaseSessionsLabel: "Sessões",
         databaseContextsLabel: "Contextos",
         databaseCollectionsLabel: "Coleções",

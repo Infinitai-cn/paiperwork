@@ -586,6 +586,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         databaseOpenStatus: "Ouverte",
         databaseClosedStatus: "Fermée",
         databaseCountLabel: "Nombre",
+        deviceCountLabel: "Appareils",
         databaseSessionsLabel: "Sessions",
         databaseContextsLabel: "Contextes",
         databaseCollectionsLabel: "Collections",
