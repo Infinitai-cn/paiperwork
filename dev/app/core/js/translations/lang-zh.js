@@ -583,6 +583,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 databaseOpenStatus: "已打开",
                 databaseClosedStatus: "已关闭",
                 databaseCountLabel: "数量",
+                deviceCountLabel: "设备",
                 databaseSessionsLabel: "会话",
                 databaseContextsLabel: "上下文",
                 databaseCollectionsLabel: "集合",

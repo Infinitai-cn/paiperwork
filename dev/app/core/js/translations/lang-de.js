@@ -589,6 +589,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         databaseOpenStatus: "Geöffnet",
         databaseClosedStatus: "Geschlossen",
         databaseCountLabel: "Anzahl",
+        deviceCountLabel: "Geräte",
         databaseSessionsLabel: "Sitzungen",
         databaseContextsLabel: "Kontexte",
         databaseCollectionsLabel: "Sammlungen",
