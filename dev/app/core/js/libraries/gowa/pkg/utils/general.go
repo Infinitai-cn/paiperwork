@@ -45,6 +45,9 @@ func RemoveFile(delaySecond int, paths ...string) error {
 // CreateFolder create new folder and sub folder if not exist
 func CreateFolder(folderPath ...string) error {
 	for _, folder := range folderPath {
+		if folder == "storages" || strings.HasPrefix(folder, "statics") {
+			continue
+		}
 		newFolder := filepath.Join(".", folder)
 		err := os.MkdirAll(newFolder, os.ModePerm)
 		if err != nil {

@@ -164,51 +164,19 @@ func (m *DeviceManager) PurgeDevice(ctx context.Context, deviceID string) error 
 		}
 	}
 
-	// Delete chatstorage data for this device
+	// Delete chatstorage data and registry record for this device (PaiperworkDB only)
 	if m.storage != nil {
 		if err := m.storage.DeleteDeviceData(deviceID); err != nil {
 			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete chatstorage for device %s", logmask.MaskPhoneNumber(deviceID))
 			recordErr(err)
 		}
-	}
-
-	// Remove device records from primary store
-	if m.store != nil {
-		if devices, err := m.store.GetAllDevices(ctx); err != nil {
-			logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to enumerate devices for purge")
+		if err := m.storage.DeleteDeviceRecord(deviceID); err != nil {
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete device record for device %s", logmask.MaskPhoneNumber(deviceID))
 			recordErr(err)
-		} else {
-			for _, dev := range devices {
-				if dev != nil && dev.ID != nil && dev.ID.String() == deviceID {
-					if err := m.store.DeleteDevice(ctx, dev); err != nil {
-						logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete device %s from store", deviceID)
-						recordErr(err)
-					}
-					break
-				}
-			}
 		}
 	}
 
-	// Remove device records from keys store if separate
-	if m.keys != nil && m.keys != m.store {
-		if devices, err := m.keys.GetAllDevices(ctx); err != nil {
-			logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to enumerate keys devices for purge")
-			recordErr(err)
-		} else {
-			for _, dev := range devices {
-				if dev != nil && dev.ID != nil && dev.ID.String() == deviceID {
-					if err := m.keys.DeleteDevice(ctx, dev); err != nil {
-						logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete device %s from keys store", deviceID)
-						recordErr(err)
-					}
-					break
-				}
-			}
-		}
-	}
-
-	// Remove from registry last
+	// Remove from in-memory registry last
 	m.RemoveDevice(deviceID)
 	return firstErr
 }
@@ -230,10 +198,6 @@ func (m *DeviceManager) PurgeLoggedOutDevice(ctx context.Context, deviceID strin
 	}
 
 	registryFound := false
-	storeFound := false
-	storeDeleted := false
-	keysFound := false
-	keysDeleted := false
 	chatStorageDeleted := false
 
 	if inst, ok := m.GetDevice(deviceID); ok && inst != nil {
@@ -251,50 +215,14 @@ func (m *DeviceManager) PurgeLoggedOutDevice(ctx context.Context, deviceID strin
 		} else {
 			chatStorageDeleted = true
 		}
-	}
-
-	if m.store != nil {
-		if devices, err := m.store.GetAllDevices(ctx); err != nil {
-			logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to enumerate devices for remote logout purge")
+		if err := m.storage.DeleteDeviceRecord(deviceID); err != nil {
+			logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete device record for remotely logged-out device %s", logmask.MaskPhoneNumber(deviceID))
 			recordErr(err)
-		} else {
-			for _, dev := range devices {
-				if dev != nil && dev.ID != nil && dev.ID.String() == deviceID {
-					storeFound = true
-					if err := m.store.DeleteDevice(ctx, dev); err != nil {
-						logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete remotely logged-out device %s from store", deviceID)
-						recordErr(err)
-					} else {
-						storeDeleted = true
-					}
-					break
-				}
-			}
-		}
-	}
-
-	if m.keys != nil && m.keys != m.store {
-		if devices, err := m.keys.GetAllDevices(ctx); err != nil {
-			logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to enumerate keys devices for remote logout purge")
-			recordErr(err)
-		} else {
-			for _, dev := range devices {
-				if dev != nil && dev.ID != nil && dev.ID.String() == deviceID {
-					keysFound = true
-					if err := m.keys.DeleteDevice(ctx, dev); err != nil {
-						logrus.WithError(err).Warnf("[DEVICE_MANAGER] failed to delete remotely logged-out device %s from keys store", deviceID)
-						recordErr(err)
-					} else {
-						keysDeleted = true
-					}
-					break
-				}
-			}
 		}
 	}
 
 	m.RemoveDevice(deviceID)
-	logrus.Infof("[DEVICE_MANAGER] PurgeLoggedOutDevice complete device=%s registry_found=%v chatstorage_deleted=%v store_found=%v store_deleted=%v keys_found=%v keys_deleted=%v err=%v", logmask.MaskPhoneNumber(deviceID), registryFound, chatStorageDeleted, storeFound, storeDeleted, keysFound, keysDeleted, firstErr)
+	logrus.Infof("[DEVICE_MANAGER] PurgeLoggedOutDevice complete device=%s registry_found=%v chatstorage_deleted=%v err=%v", logmask.MaskPhoneNumber(deviceID), registryFound, chatStorageDeleted, firstErr)
 	return firstErr
 }
 
@@ -359,8 +287,8 @@ func (m *DeviceManager) ListDevices() []*DeviceInstance {
 // LoadExistingDevices registers existing device records in the store container without connecting them.
 // This keeps the registry aware of all device IDs even before their clients are initialized.
 func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
-	if m == nil || m.store == nil {
-		return fmt.Errorf("device manager not initialized")
+	if m == nil || m.storage == nil {
+		return fmt.Errorf("device manager not initialized or storage missing")
 	}
 
 	m.initOnce.Do(func() {
@@ -375,114 +303,50 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 		return nil
 	}
 
-	storeDevices, storeErr := m.store.GetAllDevices(ctx)
-	if storeErr != nil {
-		if config.RuntimeNoDisk() || isInMemoryNoDiskURI(config.DBURI) {
-			logrus.WithError(storeErr).Warn("[DEVICE_MANAGER] failed to enumerate Paiperwork WhatsApp DB devices during startup")
+	records, err := m.storage.ListDeviceRecords()
+	if err != nil {
+		logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to enumerate persisted WhatsApp device registry records from Paiperwork DB")
+		if hasTable, tableErr := m.storage.HasTable("devices"); tableErr != nil {
+			logrus.WithError(tableErr).Warn("[DEVICE_MANAGER] failed to verify chat storage devices table in Paiperwork WhatsApp DB")
 		} else {
-			return storeErr
+			logrus.Infof("[DEVICE_MANAGER] chat storage devices table exists=%t path=%s", hasTable, config.ChatStorageURI)
 		}
+		return err
 	}
 
-	if len(storeDevices) == 0 && m.storage != nil {
-		if records, err := m.storage.ListDeviceRecords(); err != nil {
-			logrus.WithError(err).Warn("[DEVICE_MANAGER] failed to enumerate persisted WhatsApp device registry records from Paiperwork DB")
-			if hasTable, tableErr := m.storage.HasTable("devices"); tableErr != nil {
-				logrus.WithError(tableErr).Warn("[DEVICE_MANAGER] failed to verify chat storage devices table in Paiperwork WhatsApp DB")
-			} else {
-				logrus.Infof("[DEVICE_MANAGER] chat storage devices table exists=%t path=%s", hasTable, config.ChatStorageURI)
+	if len(records) > 0 {
+		logrus.Infof("[DEVICE_MANAGER] discovered %d persisted device registry records in Paiperwork WhatsApp DB", len(records))
+		for _, rec := range records {
+			if rec == nil || strings.TrimSpace(rec.DeviceID) == "" {
+				continue
 			}
-		} else if len(records) > 0 {
-			logrus.Infof("[DEVICE_MANAGER] discovered %d persisted device registry records in Paiperwork WhatsApp DB", len(records))
-			for _, rec := range records {
-				if rec == nil || strings.TrimSpace(rec.DeviceID) == "" {
-					continue
-				}
 
-				jid := strings.TrimSpace(rec.JID)
-				if jid == "" {
-					jid = strings.TrimSpace(rec.DeviceID)
-				}
-
-				m.mu.RLock()
-				_, existsByID := m.devices[rec.DeviceID]
-				m.mu.RUnlock()
-				if existsByID {
-					continue
-				}
-
-				instance := NewDeviceInstance(rec.DeviceID, nil, newDeviceChatStorage(rec.DeviceID, m.storage))
-				instance.SetIdentityMetadata(rec.DisplayName, normalizePhoneFromJID(jid), jid)
-				instance.SetState(domainDevice.DeviceStateDisconnected)
-
-				m.mu.Lock()
-				m.devices[rec.DeviceID] = instance
-				m.mu.Unlock()
+			jid := strings.TrimSpace(rec.JID)
+			if jid == "" {
+				jid = strings.TrimSpace(rec.DeviceID)
 			}
+
+			m.mu.RLock()
+			_, existsByID := m.devices[rec.DeviceID]
+			m.mu.RUnlock()
+			if existsByID {
+				continue
+			}
+
+			instance := NewDeviceInstance(rec.DeviceID, nil, newDeviceChatStorage(rec.DeviceID, m.storage))
+			instance.SetIdentityMetadata(rec.DisplayName, normalizePhoneFromJID(jid), jid)
+			instance.SetState(domainDevice.DeviceStateDisconnected)
+
+			m.mu.Lock()
+			m.devices[rec.DeviceID] = instance
+			m.mu.Unlock()
+		}
+	} else {
+		if hasTable, tableErr := m.storage.HasTable("devices"); tableErr != nil {
+			logrus.WithError(tableErr).Warn("[DEVICE_MANAGER] failed to verify chat storage devices table in Paiperwork WhatsApp DB")
 		} else {
-			if hasTable, tableErr := m.storage.HasTable("devices"); tableErr != nil {
-				logrus.WithError(tableErr).Warn("[DEVICE_MANAGER] failed to verify chat storage devices table in Paiperwork WhatsApp DB")
-			} else {
-				logrus.Infof("[DEVICE_MANAGER] discovered 0 persisted device records in Paiperwork WhatsApp DB path=%s devices_table_exists=%t", config.ChatStorageURI, hasTable)
-			}
+			logrus.Infof("[DEVICE_MANAGER] discovered 0 persisted device records in Paiperwork WhatsApp DB path=%s devices_table_exists=%t", config.ChatStorageURI, hasTable)
 		}
-	}
-
-	discoveredDeviceIDs := make([]string, 0, len(storeDevices))
-	for _, dev := range storeDevices {
-		if dev == nil || dev.ID == nil {
-			continue
-		}
-		discoveredDeviceIDs = append(discoveredDeviceIDs, strings.TrimSpace(dev.ID.String()))
-	}
-	logrus.Infof("[DEVICE_MANAGER] discovered %d device records in Paiperwork WhatsApp DB devices=%v", len(storeDevices), discoveredDeviceIDs)
-	for _, dev := range storeDevices {
-		if dev == nil || dev.ID == nil {
-			continue
-		}
-		// Use NonAD JID to match with devices table which stores NonAD format
-		jid := dev.ID.ToNonAD().String()
-
-		// Check if device already exists by ID or JID
-		m.mu.RLock()
-		_, existsByID := m.devices[jid]
-		var matchedDevice *DeviceInstance
-		var orphanDevice *DeviceInstance
-		for _, inst := range m.devices {
-			if inst.JID() == jid {
-				matchedDevice = inst
-				break
-			}
-			if inst.JID() == "" && orphanDevice == nil {
-				orphanDevice = inst
-			}
-		}
-		m.mu.RUnlock()
-
-		// Skip if already matched
-		if existsByID || matchedDevice != nil {
-			continue
-		}
-
-		// Match orphaned device with this JID
-		if orphanDevice != nil {
-			logrus.Infof("[DEVICE_MANAGER] matching orphaned device %s with JID %s", logmask.MaskPhoneNumber(orphanDevice.ID()), logmask.MaskPhoneNumber(jid))
-			orphanDevice.mu.Lock()
-			orphanDevice.jid = jid
-			orphanDevice.mu.Unlock()
-			if m.storage != nil {
-				_ = m.storage.SaveDeviceRecord(&domainChatStorage.DeviceRecord{
-					DeviceID: orphanDevice.ID(),
-					JID:      jid,
-				})
-			}
-			continue
-		}
-
-		// Create new device instance
-		instance := NewDeviceInstance(jid, nil, newDeviceChatStorage(jid, m.storage))
-		instance.SetState(domainDevice.DeviceStateDisconnected)
-		m.AddDevice(instance)
 	}
 
 	return nil

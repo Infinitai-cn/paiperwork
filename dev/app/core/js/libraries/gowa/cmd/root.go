@@ -413,10 +413,8 @@ func initApp() {
 	if runtimeNoDisk {
 		logrus.Infof("initApp: no-disk runtime active; skipping creation of filesystem folders for qrcode/senditems/storages/media")
 	} else {
-		err = utils.CreateFolder(config.PathQrCode, config.PathSendItems, config.PathStorages, config.PathMedia)
-		if err != nil {
-			logrus.Errorln(err)
-		}
+		// Do not auto-create storages or statics folders here.
+		// The application should use explicit storage locations or in-memory mode instead.
 	}
 
 	ctx := context.Background()
@@ -430,7 +428,6 @@ func initApp() {
 	chatStorageRepo = chatstorage.NewStorageRepository(chatStorageDB)
 	chatStorageRepo.InitializeSchema()
 
-	logrus.Infof("initApp: using Paiperwork WhatsApp DB %s", config.DBURI)
 	logrus.Infof("initApp: using Paiperwork chat storage DB %s", config.ChatStorageURI)
 
 	whatsappDB := whatsapp.InitWaStoreContainer(ctx, config.DBURI)
