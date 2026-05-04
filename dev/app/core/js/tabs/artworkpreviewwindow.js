@@ -4637,9 +4637,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             </div>
         `;
         buttonContainer.before(workflowMarkup);
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.justifyContent = 'flex-end';
-        buttonContainer.style.width = '100%';
+        buttonContainer.classList.add('font-install-button-row');
         buttonContainer.innerHTML = `
             <button class="dismiss-export-btn font-install-yes-btn">OK</button>
         `;
@@ -4647,6 +4645,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         return new Promise((resolve) => {
             const yesButton = buttonContainer.querySelector('.font-install-yes-btn');
             const finalize = () => {
+                buttonContainer.classList.remove('font-install-button-row');
                 buttonContainer.innerHTML = `
                     <button class="dismiss-export-btn" style="display: none;">${Lang.get('artworkClose')}</button>
                 `;
@@ -5416,22 +5415,22 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             border-radius: 6px;
             padding: 10px 12px;
             text-align: left;
-            background-color: rgba(127, 127, 127, 0.06);
+            background-color: var(--export-step-bg, rgba(127, 127, 127, 0.06));
         }
 
         .font-install-step[data-state="active"] {
-            border-color: var(--accent-color, #4f46e5);
-            background-color: rgba(79, 70, 229, 0.08);
+            border-color: var(--export-step-active-border, var(--accent-color, #4f46e5));
+            background-color: var(--export-step-active-bg, rgba(79, 70, 229, 0.08));
         }
 
         .font-install-step[data-state="done"] {
-            border-color: #1f8b4c;
-            background-color: rgba(31, 139, 76, 0.08);
+            border-color: var(--export-step-done-border, #1f8b4c);
+            background-color: var(--export-step-done-bg, rgba(31, 139, 76, 0.08));
         }
 
         .font-install-step[data-state="failed"] {
-            border-color: #c0392b;
-            background-color: rgba(192, 57, 43, 0.08);
+            border-color: var(--export-step-failed-border, #c0392b);
+            background-color: var(--export-step-failed-bg, rgba(192, 57, 43, 0.08));
         }
 
         .font-install-step[data-state="skipped"] {
@@ -5500,6 +5499,14 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         .button-container {
             text-align: right;
             margin-top: 15px;
+        }
+
+        .font-install-button-row {
+            display: flex !important;
+            justify-content: flex-end !important;
+            align-items: center;
+            width: 100%;
+            text-align: right;
         }
         
         .dismiss-export-btn {

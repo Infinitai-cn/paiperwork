@@ -62,6 +62,13 @@
         --db-notification-shadow: rgba(0, 0, 0, 0.25);
         --db-spinner-bg: rgba(30, 30, 30, 0.2);
         --bg-color-secondary: #242424;
+        --export-step-bg: rgba(127, 127, 127, 0.08);
+        --export-step-active-border: var(--accent-color, #4f46e5);
+        --export-step-active-bg: rgba(79, 70, 229, 0.14);
+        --export-step-done-border: #1f8b4c;
+        --export-step-done-bg: rgba(31, 139, 76, 0.14);
+        --export-step-failed-border: #c0392b;
+        --export-step-failed-bg: rgba(192, 57, 43, 0.16);
 
         --button-secondary-bg: #2d2d2d;
         --button-secondary-text: #e0e0e0;
@@ -236,6 +243,13 @@
         --db-notification-shadow: rgba(0, 0, 0, 0.15);
         --db-spinner-bg: rgba(0, 0, 0, 0.1);
         --bg-color-secondary: #f9fafb;
+        --export-step-bg: rgba(127, 127, 127, 0.06);
+        --export-step-active-border: var(--accent-color, #4f46e5);
+        --export-step-active-bg: rgba(79, 70, 229, 0.08);
+        --export-step-done-border: #1f8b4c;
+        --export-step-done-bg: rgba(31, 139, 76, 0.08);
+        --export-step-failed-border: #c0392b;
+        --export-step-failed-bg: rgba(192, 57, 43, 0.08);
 
         --button-secondary-bg: #f5f5f5;
         --button-secondary-text: #333;
