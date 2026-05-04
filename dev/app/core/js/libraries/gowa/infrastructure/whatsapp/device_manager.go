@@ -2,8 +2,10 @@ package whatsapp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -20,6 +22,56 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
+
+const persistedDevicesBootstrapEnv = "PAIPERWORK_WHATSAPP_PERSISTED_DEVICES_JSON"
+
+type persistedBootstrapDeviceRecord struct {
+	DeviceID    string `json:"id"`
+	PhoneNumber string `json:"phone_number,omitempty"`
+	DisplayName string `json:"display_name,omitempty"`
+	State       string `json:"state,omitempty"`
+	JID         string `json:"jid,omitempty"`
+	CreatedAt   string `json:"created_at,omitempty"`
+}
+
+func loadBootstrapPersistedDeviceRecords() ([]*domainChatStorage.DeviceRecord, error) {
+	raw := strings.TrimSpace(os.Getenv(persistedDevicesBootstrapEnv))
+	if raw == "" {
+		logrus.Info("[DEVICE_MANAGER] bootstrap persisted devices env is empty")
+		return nil, nil
+	}
+	logrus.Infof("[DEVICE_MANAGER] bootstrap persisted devices env payload_bytes=%d", len(raw))
+
+	var payload []persistedBootstrapDeviceRecord
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return nil, err
+	}
+	logrus.Infof("[DEVICE_MANAGER] decoded %d persisted bootstrap device records", len(payload))
+
+	records := make([]*domainChatStorage.DeviceRecord, 0, len(payload))
+	for _, entry := range payload {
+		deviceID := strings.TrimSpace(entry.DeviceID)
+		if deviceID == "" {
+			continue
+		}
+		createdAt := time.Now()
+		if parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(entry.CreatedAt)); err == nil {
+			createdAt = parsed
+		} else if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(entry.CreatedAt)); err == nil {
+			createdAt = parsed
+		}
+		records = append(records, &domainChatStorage.DeviceRecord{
+			DeviceID:    deviceID,
+			DisplayName: strings.TrimSpace(entry.DisplayName),
+			JID:         strings.TrimSpace(entry.JID),
+			CreatedAt:   createdAt,
+			UpdatedAt:   createdAt,
+		})
+	}
+	logrus.Infof("[DEVICE_MANAGER] prepared %d bootstrap device manager records", len(records))
+
+	return records, nil
+}
 
 // DeviceManager keeps a registry of active device instances.
 type DeviceManager struct {
@@ -287,7 +339,7 @@ func (m *DeviceManager) ListDevices() []*DeviceInstance {
 // LoadExistingDevices registers existing device records in the store container without connecting them.
 // This keeps the registry aware of all device IDs even before their clients are initialized.
 func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
-	if m == nil || m.storage == nil {
+	if m == nil {
 		return fmt.Errorf("device manager not initialized or storage missing")
 	}
 
@@ -301,6 +353,10 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 		m.mu.Unlock()
 		logrus.Info("[DEVICE_MANAGER] fresh-pair startup requested; skipping persisted device recovery from Paiperwork DB")
 		return nil
+	}
+
+	if m.storage == nil {
+		return fmt.Errorf("device manager not initialized or storage missing")
 	}
 
 	records, err := m.storage.ListDeviceRecords()
@@ -342,6 +398,39 @@ func (m *DeviceManager) LoadExistingDevices(ctx context.Context) error {
 			m.mu.Unlock()
 		}
 	} else {
+		bootstrapRecords, bootstrapErr := loadBootstrapPersistedDeviceRecords()
+		if bootstrapErr != nil {
+			logrus.WithError(bootstrapErr).Warn("[DEVICE_MANAGER] failed to decode persisted bootstrap device records from Paiperwork DB sync")
+		} else if len(bootstrapRecords) > 0 {
+			logrus.Infof("[DEVICE_MANAGER] discovered %d persisted device registry records from Paiperwork bootstrap sync", len(bootstrapRecords))
+			for _, rec := range bootstrapRecords {
+				if rec == nil || strings.TrimSpace(rec.DeviceID) == "" {
+					continue
+				}
+
+				jid := strings.TrimSpace(rec.JID)
+				if jid == "" {
+					jid = strings.TrimSpace(rec.DeviceID)
+				}
+
+				m.mu.RLock()
+				_, existsByID := m.devices[rec.DeviceID]
+				m.mu.RUnlock()
+				if existsByID {
+					continue
+				}
+
+				instance := NewDeviceInstance(rec.DeviceID, nil, newDeviceChatStorage(rec.DeviceID, m.storage))
+				instance.SetIdentityMetadata(rec.DisplayName, normalizePhoneFromJID(jid), jid)
+				instance.SetState(domainDevice.DeviceStateDisconnected)
+
+				m.mu.Lock()
+				m.devices[rec.DeviceID] = instance
+				m.mu.Unlock()
+			}
+			return nil
+		}
+
 		if hasTable, tableErr := m.storage.HasTable("devices"); tableErr != nil {
 			logrus.WithError(tableErr).Warn("[DEVICE_MANAGER] failed to verify chat storage devices table in Paiperwork WhatsApp DB")
 		} else {
