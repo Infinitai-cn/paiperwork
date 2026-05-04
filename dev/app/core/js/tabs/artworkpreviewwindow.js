@@ -436,6 +436,37 @@ class ArtworkPreviewWindow {
         }
     }
 
+    enforceStyleTransferSingleScrollbar(frameDoc) {
+        if (!this.isStyleTransferPreview || !frameDoc) {
+            return;
+        }
+
+        try {
+            const docElement = frameDoc.documentElement;
+            const body = frameDoc.body;
+
+            if (docElement) {
+                docElement.style.overflowX = 'hidden';
+                docElement.style.overflowY = 'hidden';
+            }
+
+            if (body) {
+                body.style.overflowX = 'hidden';
+                body.style.overflowY = 'hidden';
+            }
+
+            let singleScrollbarStyle = frameDoc.querySelector('style[data-pw-style-transfer-single-scrollbar]');
+            if (!singleScrollbarStyle) {
+                singleScrollbarStyle = frameDoc.createElement('style');
+                singleScrollbarStyle.setAttribute('data-pw-style-transfer-single-scrollbar', 'true');
+                singleScrollbarStyle.textContent = 'html, body { overflow-x: hidden !important; overflow-y: hidden !important; }';
+                frameDoc.head?.appendChild(singleScrollbarStyle);
+            }
+        } catch (_error) {
+            // Ignore same-document style enforcement errors.
+        }
+    }
+
     parseGenericHtmlPreviewSize(htmlSource) {
         if (!htmlSource || typeof htmlSource !== 'string') {
             return null;
@@ -2331,6 +2362,8 @@ class ArtworkPreviewWindow {
                         try {
                             const frameDoc = newIframe.contentDocument || newIframe.contentWindow?.document;
                             if (!frameDoc) return;
+
+                            this.enforceStyleTransferSingleScrollbar(frameDoc);
 
                             const docEl = frameDoc.documentElement || frameDoc.body;
                             const body = frameDoc.body || {};
