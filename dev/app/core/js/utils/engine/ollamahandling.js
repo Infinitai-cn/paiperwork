@@ -2966,31 +2966,31 @@ class OllamaAPI {
         const basePromptSignature = hasProvidedBasePrompt
             ? `${formattedBasePrompt.length}:${formattedBasePrompt.slice(0, 80)}`
             : '<db>';
-        const browserLanguageCode = (window.Lang && typeof window.Lang.getCurrentLanguage === 'function')
+        const browserLanguageValue = (window.Lang && typeof window.Lang.getCurrentLanguage === 'function')
             ? (window.Lang.getCurrentLanguage() || '')
             : (navigator.language || navigator.userLanguage || 'en');
 
-        const whatsappLanguageCode = (window.whatsappIncomingLanguage && String(window.whatsappIncomingLanguage).trim())
+        const whatsappLanguageValue = (window.whatsappIncomingLanguage && String(window.whatsappIncomingLanguage).trim())
             ? String(window.whatsappIncomingLanguage).trim()
             : '';
 
-        const wechatLanguageCode = (window.wechatIncomingLanguage && String(window.wechatIncomingLanguage).trim())
+        const wechatLanguageValue = (window.wechatIncomingLanguage && String(window.wechatIncomingLanguage).trim())
             ? String(window.wechatIncomingLanguage).trim()
             : '';
 
-        const orchestratorLanguageCode = (window.lastOrchestratorDecision && window.lastOrchestratorDecision.language && String(window.lastOrchestratorDecision.language).trim())
+        const orchestratorLanguageValue = (window.lastOrchestratorDecision && window.lastOrchestratorDecision.language && String(window.lastOrchestratorDecision.language).trim())
             ? String(window.lastOrchestratorDecision.language).trim()
             : '';
 
-        const languageCode = orchestratorLanguageCode || whatsappLanguageCode || wechatLanguageCode || browserLanguageCode || 'en';
-        const normalizedLanguageCode = this.getLanguageCode(languageCode || 'en');
-        const normalizedLanguageDisplayName = this.getLanguageDisplayName(languageCode || normalizedLanguageCode || 'en');
+        const selectedLanguageValue = orchestratorLanguageValue || whatsappLanguageValue || wechatLanguageValue || browserLanguageValue || 'en';
+        const normalizedLanguageCode = this.getLanguageCode(selectedLanguageValue || 'en');
+        const normalizedLanguageDisplayName = this.getLanguageDisplayName(selectedLanguageValue || normalizedLanguageCode || 'en');
         /* console.log('OllamaAPI: buildCompleteSystemPrompt language auto-detect', {
-            orchestratorLanguageCode,
-            whatsappLanguageCode,
-            wechatLanguageCode,
-            browserLanguageCode,
-            selectedLanguageCode: languageCode,
+            orchestratorLanguageValue,
+            whatsappLanguageValue,
+            wechatLanguageValue,
+            browserLanguageValue,
+            selectedLanguageValue,
             originalIncomingTextExample: (window.whatsappIncomingLanguage && window.whatsappIncomingLanguageSample)
                 ? window.whatsappIncomingLanguageSample
                 : ((window.wechatIncomingLanguage && window.wechatIncomingLanguageSample) ? window.wechatIncomingLanguageSample : undefined)
@@ -3053,13 +3053,13 @@ class OllamaAPI {
             formattedBasePrompt += ' ';
         }
 
-        // ADD LANGUAGE ENFORCEMENT: Prefer WhatsApp incoming language when available.
+        // Add language enforcement using the canonical display name and code derived from the selected language value.
         let languageEnforcement = '';
         try {
            //console.log('OllamaAPI DEBUG: Adding language enforcement...');
 
-            const normalizedLangCode = normalizedLanguageCode || this.getLanguageCode(languageCode || 'en');
-            const userLanguage = normalizedLanguageDisplayName || this.getLanguageDisplayName(languageCode || normalizedLangCode || 'en');
+            const normalizedLangCode = normalizedLanguageCode || this.getLanguageCode(selectedLanguageValue || 'en');
+            const userLanguage = normalizedLanguageDisplayName || this.getLanguageDisplayName(selectedLanguageValue || normalizedLangCode || 'en');
 
             // Create language enforcement instruction using human-readable language names.
             // Include the language code as secondary information for clarity.
@@ -3148,9 +3148,9 @@ class OllamaAPI {
         //console.log('OllamaAPI: buildCompleteSystemPrompt final system prompt length:', finalResult.length);
         //console.log('OllamaAPI: buildCompleteSystemPrompt final system prompt:', finalResult);
         /*console.log('OllamaAPI: buildCompleteSystemPrompt language context:', {
-            lang: languageCode,
-            whatsappLanguageCode,
-            orchestratorLanguageCode
+            lang: selectedLanguageValue,
+            whatsappLanguageValue,
+            orchestratorLanguageValue
         }); */
         this.systemPromptCache.set(hashedMasterKey, {
             cacheKey,
