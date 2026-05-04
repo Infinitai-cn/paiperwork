@@ -91,12 +91,12 @@ func normalizeDeviceSelectionIdentity(deviceID string) string {
 	return strings.Split(withoutDomain, ":")[0]
 }
 
-func selectedAutoConnectDeviceID() string {
-	selected := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID"))
-	if selected == "" {
-		selected = strings.TrimSpace(os.Getenv("WHATSAPP_PREFERRED_DEVICE_ID"))
+func autoConnectDeviceID() string {
+	deviceID := strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_DEVICE_ID"))
+	if deviceID == "" {
+		deviceID = strings.TrimSpace(os.Getenv("WHATSAPP_DEVICE_ID"))
 	}
-	return selected
+	return deviceID
 }
 
 func activeWhatsappUserScope() string {
@@ -122,7 +122,7 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 		logrus.Info("auto-connect skipped: fresh-pair startup requested")
 		return
 	}
-	selectedDeviceID := selectedAutoConnectDeviceID()
+	selectedDeviceID := autoConnectDeviceID()
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_EXPECT_SESSION_RESTORE")), "true") && strings.TrimSpace(selectedDeviceID) != "" {
 		logrus.Infof("auto-connect skipped: no-disk mode waiting for browser session restore for selected device %s", logmask.MaskPhoneNumber(selectedDeviceID))
 		return
