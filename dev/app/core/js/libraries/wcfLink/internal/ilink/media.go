@@ -103,7 +103,7 @@ func (c *Client) UploadLocalMedia(
 	}, nil
 }
 
-func (c *Client) SendImageMessage(ctx context.Context, baseURL, token, toUserID, contextToken, text string, uploaded UploadedMedia) error {
+func (c *Client) SendImageMessage(ctx context.Context, baseURL, token, toUserID, contextToken, text, replyToMessageID, quotedBody string, uploaded UploadedMedia) error {
 	item := map[string]any{
 		"type": 2,
 		"image_item": map[string]any{
@@ -115,10 +115,10 @@ func (c *Client) SendImageMessage(ctx context.Context, baseURL, token, toUserID,
 			"mid_size": uploaded.CipherSize,
 		},
 	}
-	return c.sendMediaItems(ctx, baseURL, token, toUserID, contextToken, text, item)
+	return c.sendMediaItems(ctx, baseURL, token, toUserID, contextToken, text, replyToMessageID, quotedBody, item)
 }
 
-func (c *Client) SendVideoMessage(ctx context.Context, baseURL, token, toUserID, contextToken, text string, uploaded UploadedMedia) error {
+func (c *Client) SendVideoMessage(ctx context.Context, baseURL, token, toUserID, contextToken, text, replyToMessageID, quotedBody string, uploaded UploadedMedia) error {
 	item := map[string]any{
 		"type": 5,
 		"video_item": map[string]any{
@@ -130,10 +130,10 @@ func (c *Client) SendVideoMessage(ctx context.Context, baseURL, token, toUserID,
 			"video_size": uploaded.CipherSize,
 		},
 	}
-	return c.sendMediaItems(ctx, baseURL, token, toUserID, contextToken, text, item)
+	return c.sendMediaItems(ctx, baseURL, token, toUserID, contextToken, text, replyToMessageID, quotedBody, item)
 }
 
-func (c *Client) SendFileMessage(ctx context.Context, baseURL, token, toUserID, contextToken, text, fileName string, uploaded UploadedMedia) error {
+func (c *Client) SendFileMessage(ctx context.Context, baseURL, token, toUserID, contextToken, text, fileName, replyToMessageID, quotedBody string, uploaded UploadedMedia) error {
 	item := map[string]any{
 		"type": 4,
 		"file_item": map[string]any{
@@ -146,10 +146,10 @@ func (c *Client) SendFileMessage(ctx context.Context, baseURL, token, toUserID, 
 			"len":       fmt.Sprintf("%d", uploaded.PlainSize),
 		},
 	}
-	return c.sendMediaItems(ctx, baseURL, token, toUserID, contextToken, text, item)
+	return c.sendMediaItems(ctx, baseURL, token, toUserID, contextToken, text, replyToMessageID, quotedBody, item)
 }
 
-func (c *Client) SendVoiceMessage(ctx context.Context, baseURL, token, toUserID, contextToken, text string, encodeType int, uploaded UploadedMedia) error {
+func (c *Client) SendVoiceMessage(ctx context.Context, baseURL, token, toUserID, contextToken, text string, encodeType int, replyToMessageID, quotedBody string, uploaded UploadedMedia) error {
 	item := map[string]any{
 		"type": 3,
 		"voice_item": map[string]any{
@@ -162,10 +162,10 @@ func (c *Client) SendVoiceMessage(ctx context.Context, baseURL, token, toUserID,
 			"text":        "",
 		},
 	}
-	return c.sendMediaItems(ctx, baseURL, token, toUserID, contextToken, text, item)
+	return c.sendMediaItems(ctx, baseURL, token, toUserID, contextToken, text, replyToMessageID, quotedBody, item)
 }
 
-func (c *Client) sendMediaItems(ctx context.Context, baseURL, token, toUserID, contextToken, text string, mediaItem map[string]any) error {
+func (c *Client) sendMediaItems(ctx context.Context, baseURL, token, toUserID, contextToken, text, replyToMessageID, quotedBody string, mediaItem map[string]any) error {
 	items := make([]map[string]any, 0, 2)
 	if strings.TrimSpace(text) != "" {
 		items = append(items, map[string]any{
@@ -188,6 +188,12 @@ func (c *Client) sendMediaItems(ctx context.Context, baseURL, token, toUserID, c
 		}
 		if strings.TrimSpace(contextToken) != "" {
 			msg["context_token"] = contextToken
+		}
+		if strings.TrimSpace(replyToMessageID) != "" {
+			msg["reply_to_message_id"] = replyToMessageID
+		}
+		if strings.TrimSpace(quotedBody) != "" {
+			msg["quoted_body"] = quotedBody
 		}
 		var out SendMessageResponse
 		if err := c.postJSON(ctx, strings.TrimRight(baseURL, "/")+"/ilink/bot/sendmessage", token, map[string]any{
@@ -224,7 +230,7 @@ func (c *Client) DownloadMessageMedia(ctx context.Context, cdnBaseURL string, it
 			return nil, "", "", err
 		}
 		mime := detectMIME(buf, ".jpg")
-		return buf, "image"+extensionFromMIME(mime, ".jpg"), mime, nil
+		return buf, "image" + extensionFromMIME(mime, ".jpg"), mime, nil
 	case 3:
 		if item.VoiceItem == nil || strings.TrimSpace(item.VoiceItem.Media.EncryptQueryParam) == "" || strings.TrimSpace(item.VoiceItem.Media.AESKey) == "" {
 			return nil, "", "", fmt.Errorf("voice media is missing")

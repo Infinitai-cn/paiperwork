@@ -45,17 +45,17 @@ type TextItem struct {
 }
 
 type VoiceItem struct {
-	Media          CDNMedia `json:"media,omitempty"`
-	Text       string `json:"text,omitempty"`
-	EncodeType int    `json:"encode_type,omitempty"`
-	Playtime   int    `json:"playtime,omitempty"`
+	Media      CDNMedia `json:"media,omitempty"`
+	Text       string   `json:"text,omitempty"`
+	EncodeType int      `json:"encode_type,omitempty"`
+	Playtime   int      `json:"playtime,omitempty"`
 }
 
 type FileItem struct {
 	Media    CDNMedia `json:"media,omitempty"`
-	FileName string `json:"file_name,omitempty"`
-	MD5      string `json:"md5,omitempty"`
-	Len      string `json:"len,omitempty"`
+	FileName string   `json:"file_name,omitempty"`
+	MD5      string   `json:"md5,omitempty"`
+	Len      string   `json:"len,omitempty"`
 }
 
 type CDNMedia struct {
@@ -168,7 +168,7 @@ func (c *Client) GetUpdates(ctx context.Context, baseURL, token, getUpdatesBuf s
 	return out, nil
 }
 
-func (c *Client) SendTextMessage(ctx context.Context, baseURL, token, toUserID, text, contextToken string) error {
+func (c *Client) SendTextMessage(ctx context.Context, baseURL, token, toUserID, text, contextToken, replyToMessageID, quotedBody string) error {
 	msg := map[string]any{
 		"from_user_id":  "",
 		"to_user_id":    toUserID,
@@ -186,6 +186,12 @@ func (c *Client) SendTextMessage(ctx context.Context, baseURL, token, toUserID, 
 	}
 	if strings.TrimSpace(contextToken) != "" {
 		msg["context_token"] = contextToken
+	}
+	if strings.TrimSpace(replyToMessageID) != "" {
+		msg["reply_to_message_id"] = replyToMessageID
+	}
+	if strings.TrimSpace(quotedBody) != "" {
+		msg["quoted_body"] = quotedBody
 	}
 
 	body := map[string]any{
