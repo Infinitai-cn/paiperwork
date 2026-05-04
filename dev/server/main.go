@@ -36,6 +36,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	gowaCmd "github.com/aldinokemal/go-whatsapp-web-multidevice/cmd"
 	config "github.com/aldinokemal/go-whatsapp-web-multidevice/config"
 	whatsappInfra "github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
@@ -8871,6 +8872,446 @@ func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type websiteStyleAnalysisResponse struct {
+	URL             string   `json:"url"`
+	Fonts           []string `json:"fonts"`
+	Colors          []string `json:"colors"`
+	RawFontFamilies []string `json:"rawFontFamilies,omitempty"`
+	RawColors       []string `json:"rawColors,omitempty"`
+	ExtractedAt     string   `json:"extractedAt"`
+}
+
+func fetchWebsiteStyleAnalysis(w http.ResponseWriter, r *http.Request) {
+	targetURL := r.URL.Query().Get("url")
+	if targetURL == "" {
+		http.Error(w, "Missing url parameter", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("[WebsiteStyleClone] request-start rawURL=%q", targetURL)
+
+	validatedTargetURL, err := validateOutboundURL(targetURL)
+	if err != nil {
+		log.Printf("Website style extraction rejected URL %q: %v", targetURL, err)
+		http.Error(w, "Invalid or disallowed URL", http.StatusBadRequest)
+		return
+	}
+
+	client := newStyleCloneHTTPClient(10 * time.Second)
+	body, finalURL, err := fetchStyleCloneHTMLDocument(client, validatedTargetURL.String())
+	if err != nil {
+		log.Printf("Website style extraction failed for %q: %v", validatedTargetURL.String(), err)
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	log.Printf("[WebsiteStyleClone] html-fetched url=%q finalURL=%q bytes=%d", validatedTargetURL.String(), finalURL.String(), len(body))
+
+	analysis, err := extractWebsiteStyleAnalysis(client, body, finalURL)
+	if err != nil {
+		log.Printf("Website style extraction parse failed for %q: %v", finalURL.String(), err)
+		http.Error(w, "Failed to extract website style", http.StatusInternalServerError)
+		return
+	}
+
+	analysis.URL = finalURL.String()
+	analysis.ExtractedAt = time.Now().Format(time.RFC3339)
+	log.Printf("[WebsiteStyleClone] extraction-complete url=%q fonts=%d colors=%d rawFonts=%d rawColors=%d", analysis.URL, len(analysis.Fonts), len(analysis.Colors), len(analysis.RawFontFamilies), len(analysis.RawColors))
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	if err := json.NewEncoder(w).Encode(analysis); err != nil {
+		log.Printf("Website style extraction encode failed: %v", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+func newStyleCloneHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout: timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if _, err := validateOutboundURL(req.URL.String()); err != nil {
+				return fmt.Errorf("redirect blocked: %w", err)
+			}
+			if len(via) >= 5 {
+				return errors.New("too many redirects")
+			}
+			return nil
+		},
+	}
+}
+
+func newStyleCloneRequest(targetURL string) (*http.Request, error) {
+	req, err := http.NewRequest(http.MethodGet, targetURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,text/css,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	return req, nil
+}
+
+func fetchStyleCloneHTMLDocument(client *http.Client, targetURL string) ([]byte, *url.URL, error) {
+	req, err := newStyleCloneRequest(targetURL)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	log.Printf("[WebsiteStyleClone] html-fetch-start url=%q", targetURL)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "text/html") && !strings.Contains(contentType, "application/xhtml+xml") {
+		return nil, nil, fmt.Errorf("URL does not point to HTML content")
+	}
+	log.Printf("[WebsiteStyleClone] html-fetch-response url=%q status=%d contentType=%q", targetURL, resp.StatusCode, contentType)
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read page content: %w", err)
+	}
+
+	if resp.Request == nil || resp.Request.URL == nil {
+		parsedURL, parseErr := url.Parse(targetURL)
+		if parseErr != nil {
+			return body, nil, parseErr
+		}
+		return body, parsedURL, nil
+	}
+
+	return body, resp.Request.URL, nil
+}
+
+func fetchStyleCloneTextResource(client *http.Client, targetURL string) (string, error) {
+	validatedTargetURL, err := validateOutboundURL(targetURL)
+	if err != nil {
+		return "", err
+	}
+	log.Printf("[WebsiteStyleClone] stylesheet-fetch-start url=%q", validatedTargetURL.String())
+
+	req, err := newStyleCloneRequest(validatedTargetURL.String())
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 2*1024*1024))
+	if err != nil {
+		return "", err
+	}
+	log.Printf("[WebsiteStyleClone] stylesheet-fetch-success url=%q bytes=%d", validatedTargetURL.String(), len(body))
+
+	return string(body), nil
+}
+
+func extractWebsiteStyleAnalysis(client *http.Client, body []byte, baseURL *url.URL) (websiteStyleAnalysisResponse, error) {
+	analysis := websiteStyleAnalysisResponse{}
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
+	if err != nil {
+		return analysis, err
+	}
+
+	fontScores := map[string]int{}
+	colorScores := map[string]int{}
+	rawFontFamilies := map[string]struct{}{}
+	rawColors := map[string]struct{}{}
+	cssSources := make([]string, 0, 16)
+	stylesheetSeen := map[string]struct{}{}
+	metaThemeColors := make([]string, 0, 2)
+
+	doc.Find("style").Each(func(_ int, selection *goquery.Selection) {
+		cssText := strings.TrimSpace(selection.Text())
+		if cssText != "" {
+			cssSources = append(cssSources, cssText)
+		}
+	})
+
+	doc.Find("[style]").Each(func(_ int, selection *goquery.Selection) {
+		if inlineStyle, ok := selection.Attr("style"); ok {
+			inlineStyle = strings.TrimSpace(inlineStyle)
+			if inlineStyle != "" {
+				cssSources = append(cssSources, inlineStyle)
+			}
+		}
+	})
+
+	doc.Find("meta[name='theme-color'][content], meta[name='msapplication-TileColor'][content]").Each(func(_ int, selection *goquery.Selection) {
+		if content, ok := selection.Attr("content"); ok {
+			metaThemeColors = append(metaThemeColors, content)
+		}
+	})
+
+	stylesheetCount := 0
+	doc.Find("link[rel][href]").Each(func(_ int, selection *goquery.Selection) {
+		if stylesheetCount >= 6 {
+			return
+		}
+
+		relValue, _ := selection.Attr("rel")
+		if !strings.Contains(strings.ToLower(relValue), "stylesheet") {
+			return
+		}
+
+		href, ok := selection.Attr("href")
+		if !ok || strings.TrimSpace(href) == "" {
+			return
+		}
+
+		resolvedURL, err := baseURL.Parse(strings.TrimSpace(href))
+		if err != nil || resolvedURL == nil {
+			return
+		}
+
+		if _, exists := stylesheetSeen[resolvedURL.String()]; exists {
+			return
+		}
+		stylesheetSeen[resolvedURL.String()] = struct{}{}
+
+		cssText, err := fetchStyleCloneTextResource(client, resolvedURL.String())
+		if err != nil || strings.TrimSpace(cssText) == "" {
+			if err != nil {
+				log.Printf("[WebsiteStyleClone] stylesheet-fetch-failed url=%q err=%v", resolvedURL.String(), err)
+			}
+			return
+		}
+
+		stylesheetCount += 1
+		cssSources = append(cssSources, cssText)
+	})
+	log.Printf("[WebsiteStyleClone] css-sources-collected inline=%d linked=%d", len(cssSources)-stylesheetCount, stylesheetCount)
+
+	for _, cssText := range cssSources {
+		collectStyleCloneHintsFromCSS(cssText, fontScores, colorScores, rawFontFamilies, rawColors)
+	}
+
+	for _, metaColor := range metaThemeColors {
+		collectColorsFromValue(metaColor, colorScores, rawColors, 4)
+	}
+
+	analysis.Fonts = topRankedMapKeys(fontScores, 4)
+	analysis.Colors = topRankedMapKeys(colorScores, 6)
+	analysis.RawFontFamilies = sortedStringSet(rawFontFamilies)
+	analysis.RawColors = sortedStringSet(rawColors)
+	log.Printf("[WebsiteStyleClone] ranking-summary fonts=%v colors=%v", analysis.Fonts, analysis.Colors)
+	return analysis, nil
+}
+
+func collectStyleCloneHintsFromCSS(cssText string, fontScores, colorScores map[string]int, rawFontFamilies, rawColors map[string]struct{}) {
+	if strings.TrimSpace(cssText) == "" {
+		return
+	}
+
+	googleFontURLRegex := regexp.MustCompile(`https?://fonts\.googleapis\.com/css[^'"\s)]+`)
+	for _, match := range googleFontURLRegex.FindAllString(cssText, -1) {
+		for _, family := range extractFontNamesFromGoogleFontsURL(match) {
+			rawFontFamilies[family] = struct{}{}
+			fontScores[family] += 5
+		}
+	}
+
+	fontFamilyRegex := regexp.MustCompile(`(?i)font-family\s*:\s*([^;}{]+)`)
+	for _, match := range fontFamilyRegex.FindAllStringSubmatch(cssText, -1) {
+		if len(match) < 2 {
+			continue
+		}
+		families := parseFontFamilyList(match[1])
+		for index, family := range families {
+			rawFontFamilies[family] = struct{}{}
+			if isGenericFontFamily(family) {
+				continue
+			}
+			weight := 1
+			if index == 0 {
+				weight = 3
+			}
+			fontScores[family] += weight
+		}
+	}
+
+	collectColorsFromValue(cssText, colorScores, rawColors, 1)
+}
+
+func collectColorsFromValue(value string, colorScores map[string]int, rawColors map[string]struct{}, weight int) {
+	hexColorRegex := regexp.MustCompile(`(?i)#[0-9a-f]{3,8}\b`)
+	for _, match := range hexColorRegex.FindAllString(value, -1) {
+		rawColors[match] = struct{}{}
+		if normalized, ok := normalizeStyleCloneColor(match); ok {
+			colorScores[normalized] += weight
+		}
+	}
+
+	rgbColorRegex := regexp.MustCompile(`(?i)rgba?\(([^\)]+)\)`)
+	for _, match := range rgbColorRegex.FindAllString(value, -1) {
+		rawColors[match] = struct{}{}
+		if normalized, ok := normalizeStyleCloneColor(match); ok {
+			colorScores[normalized] += weight
+		}
+	}
+}
+
+func parseFontFamilyList(value string) []string {
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	seen := map[string]struct{}{}
+	for _, part := range parts {
+		family := strings.TrimSpace(part)
+		family = strings.Trim(family, `"'`)
+		if family == "" {
+			continue
+		}
+		normalizedKey := strings.ToLower(family)
+		if _, exists := seen[normalizedKey]; exists {
+			continue
+		}
+		seen[normalizedKey] = struct{}{}
+		result = append(result, family)
+	}
+	return result
+}
+
+func isGenericFontFamily(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "serif", "sans-serif", "monospace", "system-ui", "cursive", "fantasy", "emoji", "math", "fangsong", "inherit", "initial", "unset", "ui-sans-serif", "ui-serif", "ui-monospace":
+		return true
+	default:
+		return false
+	}
+}
+
+func extractFontNamesFromGoogleFontsURL(rawURL string) []string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return nil
+	}
+	values := parsed.Query()["family"]
+	result := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, familyValue := range values {
+		baseName := strings.Split(familyValue, ":")[0]
+		baseName = strings.ReplaceAll(baseName, "+", " ")
+		baseName = strings.TrimSpace(baseName)
+		if baseName == "" {
+			continue
+		}
+		key := strings.ToLower(baseName)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, baseName)
+	}
+	return result
+}
+
+func normalizeStyleCloneColor(value string) (string, bool) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", false
+	}
+
+	if strings.HasPrefix(trimmed, "#") {
+		hexValue := strings.TrimPrefix(trimmed, "#")
+		switch len(hexValue) {
+		case 3:
+			return strings.ToUpper(fmt.Sprintf("#%c%c%c%c%c%c", hexValue[0], hexValue[0], hexValue[1], hexValue[1], hexValue[2], hexValue[2])), true
+		case 4:
+			if strings.EqualFold(hexValue[3:], "f") {
+				return strings.ToUpper(fmt.Sprintf("#%c%c%c%c%c%c", hexValue[0], hexValue[0], hexValue[1], hexValue[1], hexValue[2], hexValue[2])), true
+			}
+			return "", false
+		case 6:
+			return "#" + strings.ToUpper(hexValue), true
+		case 8:
+			if strings.EqualFold(hexValue[6:], "FF") {
+				return "#" + strings.ToUpper(hexValue[:6]), true
+			}
+			return "", false
+		default:
+			return "", false
+		}
+	}
+
+	rgbMatch := regexp.MustCompile(`(?i)^rgba?\(([^\)]+)\)$`).FindStringSubmatch(trimmed)
+	if len(rgbMatch) != 2 {
+		return "", false
+	}
+
+	components := strings.Split(rgbMatch[1], ",")
+	if len(components) < 3 {
+		return "", false
+	}
+
+	r, errR := strconv.Atoi(strings.TrimSpace(components[0]))
+	g, errG := strconv.Atoi(strings.TrimSpace(components[1]))
+	b, errB := strconv.Atoi(strings.TrimSpace(components[2]))
+	if errR != nil || errG != nil || errB != nil {
+		return "", false
+	}
+
+	if len(components) >= 4 {
+		alphaValue := strings.TrimSpace(components[3])
+		alpha, err := strconv.ParseFloat(alphaValue, 64)
+		if err != nil || alpha < 0.99 {
+			return "", false
+		}
+	}
+
+	if r < 0 || r > 255 || g < 0 || g > 255 || b < 0 || b > 255 {
+		return "", false
+	}
+
+	return fmt.Sprintf("#%02X%02X%02X", r, g, b), true
+}
+
+func topRankedMapKeys(scores map[string]int, limit int) []string {
+	if len(scores) == 0 || limit <= 0 {
+		return nil
+	}
+
+	keys := make([]string, 0, len(scores))
+	for key := range scores {
+		keys = append(keys, key)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		leftScore := scores[keys[i]]
+		rightScore := scores[keys[j]]
+		if leftScore == rightScore {
+			return strings.ToLower(keys[i]) < strings.ToLower(keys[j])
+		}
+		return leftScore > rightScore
+	})
+
+	if len(keys) > limit {
+		keys = keys[:limit]
+	}
+	return keys
+}
+
+func sortedStringSet(values map[string]struct{}) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	result := make([]string, 0, len(values))
+	for value := range values {
+		result = append(result, value)
+	}
+	slices.SortFunc(result, func(left, right string) int {
+		return strings.Compare(strings.ToLower(left), strings.ToLower(right))
+	})
+	return result
+}
+
 // Content extraction helper function
 func extractMainContent(body []byte, url string) (string, string) {
 	// Convert body to string
@@ -9546,6 +9987,7 @@ func main() {
 	mux.HandleFunc("/api/cloud/embed", proxyOllamaCloudAPIPath("embed"))
 	mux.HandleFunc("/api/cloud/embeddings", proxyOllamaCloudAPIPath("embeddings"))
 	mux.HandleFunc("/api/extract/content", fetchAndExtractContent)
+	mux.HandleFunc("/api/extract/style", fetchWebsiteStyleAnalysis)
 	mux.HandleFunc("/api/search/bing", proxyBingSearch)
 	mux.HandleFunc("/api/extract/raw-html", fetchRawHtmlForLinks)
 	mux.HandleFunc("/api/proxy/pdf", proxyPdfContent)
