@@ -6961,6 +6961,8 @@ func wechatSendFileProxyHandler(w http.ResponseWriter, r *http.Request) {
 	toUserID := strings.TrimSpace(r.FormValue("to_user_id"))
 	caption := strings.TrimSpace(r.FormValue("caption"))
 	contextToken := strings.TrimSpace(r.FormValue("context_token"))
+	replyToMessageID := strings.TrimSpace(r.FormValue("reply_to_message_id"))
+	quotedBody := strings.TrimSpace(r.FormValue("quoted_body"))
 
 	if account == "" || toUserID == "" {
 		http.Error(w, "account and to_user_id are required", http.StatusBadRequest)
@@ -7005,6 +7007,12 @@ func wechatSendFileProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if contextToken != "" {
 		payload["context_token"] = contextToken
+	}
+	if replyToMessageID != "" {
+		payload["reply_to_message_id"] = replyToMessageID
+	}
+	if quotedBody != "" {
+		payload["quoted_body"] = quotedBody
 	}
 
 	bodyBytes, err := json.Marshal(payload)
@@ -7072,6 +7080,8 @@ func wechatSendImageProxyHandler(w http.ResponseWriter, r *http.Request) {
 	toUserID := strings.TrimSpace(r.FormValue("to_user_id"))
 	caption := strings.TrimSpace(r.FormValue("caption"))
 	contextToken := strings.TrimSpace(r.FormValue("context_token"))
+	replyToMessageID := strings.TrimSpace(r.FormValue("reply_to_message_id"))
+	quotedBody := strings.TrimSpace(r.FormValue("quoted_body"))
 
 	if account == "" || toUserID == "" {
 		http.Error(w, "account and to_user_id are required", http.StatusBadRequest)
@@ -7119,6 +7129,12 @@ func wechatSendImageProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if contextToken != "" {
 		payload["context_token"] = contextToken
+	}
+	if replyToMessageID != "" {
+		payload["reply_to_message_id"] = replyToMessageID
+	}
+	if quotedBody != "" {
+		payload["quoted_body"] = quotedBody
 	}
 
 	bodyBytes, err := json.Marshal(payload)
