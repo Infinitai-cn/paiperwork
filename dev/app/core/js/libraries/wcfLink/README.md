@@ -338,4 +338,4 @@ curl -s -X POST http://127.0.0.1:17890/api/messages/send-media \
 
 - 数据目录：`./bin/data/`
 - 数据库：`./bin/data/wcfLink.db`
-- 媒体目录：`<state-dir>/media/`
+- 媒体目录：系统临时目录（用于临时上传文件，不在 state 目录下持久化）
