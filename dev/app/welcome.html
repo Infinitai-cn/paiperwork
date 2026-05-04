@@ -189,6 +189,16 @@
                         // Disable autocomplete and password saving
                         masterkeyInput.setAttribute('autocomplete', 'new-password');
                         masterkeyInput.setAttribute('data-lpignore', 'true');
+                        masterkeyInput.addEventListener('keydown', function (event) {
+                            if (event.key !== 'Enter') {
+                                return;
+                            }
+                            event.preventDefault();
+                            const startButton = document.getElementById('Start-button');
+                            if (startButton && !startButton.disabled) {
+                                startButton.click();
+                            }
+                        });
                     }
 
                     // Set up password toggle functionality
