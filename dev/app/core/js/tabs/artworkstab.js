@@ -44,8 +44,21 @@ class ArtworksTab {
             || msg.includes('rate limit');
     }
 
+    isOllamaSubscriptionRequiredError(error) {
+        const msg = String(error?.message || '').toLowerCase();
+        return msg.includes('requires a subscription')
+            || msg.includes('subscription is required')
+            || msg.includes('subscription required for access')
+            || msg.includes('upgrade for access')
+            || msg.includes('ollama.com/upgrade')
+            || msg.includes('this model requires a subscription');
+    }
+
     isOllamaApiKeyError(error) {
         const msg = String(error?.message || '').toLowerCase();
+        if (this.isOllamaSubscriptionRequiredError(error)) {
+            return false;
+        }
         return msg.includes('no response received from ollama')
             || msg.includes('unauthorized')
             || msg.includes('invalid api key')
@@ -207,7 +220,7 @@ class ArtworksTab {
             removeImageBtn: document.getElementById('artwork-remove-image'),
             promptInput: document.getElementById('artwork-prompt'),
             generateBtn: document.getElementById('artwork-generate-btn'),
-            useAsBackgroundCheckbox: document.getElementById('artwork-use-as-background'),
+            useAsBackgroundCheckbox: document.getElementById('artwork-use-as-background')
         };
 
         // Set default mode
@@ -1150,19 +1163,6 @@ class ArtworksTab {
                 gap: 10px;
                 justify-content: center;
             }
-            
-            /* Make result container respect boundaries */
-            .artwork-result {
-                width: 100%;
-                max-width: 100%;
-                overflow-x: auto;
-                padding: 15px;
-                background: var(--code-bg, #f8f9fa);
-                border-radius: 6px;
-                font-family: monospace;
-                white-space: pre-wrap;
-                word-break: break-word;
-            }
            /* Progress indicator styles */
             .artwork-progress-bar {
                 position: fixed;
@@ -1315,7 +1315,10 @@ class ArtworksTab {
                                             * Prefer using an <img> for predictable scaling, or a background placeholder token ` +
                                             `'BACKGROUND_IMAGE_PLACEHOLDER'` + ` if requested.
                                             * Use responsive CSS (e.g., max-width:100%; height:auto; or a container with the correct aspect-ratio).
-                                            * When using CSS backgrounds, set the hero height to 20vh (avoid 100vh). Use background-attachment:scroll; background-size:cover; background-position:center; overflow:hidden. Provide a mobile rule to increase to 30vh if needed.
+                                            * When using the uploaded image in a hero section, the image area MUST be exactly constrained to the hero section box: hero width must be 100% of its parent, media width must be 100% of the hero, and the media must not overflow outside the hero bounds.
+                                            * Never let the hero image or hero background render larger than the hero section width. Do not use fixed pixel widths, min-width values above 100%, transforms that enlarge the media, or viewport-sized wrappers that make the image appear oversized.
+                                            * For hero media, prefer this structure: a ".hero" wrapper with "position:relative; width:100%; overflow:hidden;", a ".hero-media" layer with "position:absolute; inset:0; width:100%; height:100%;", and either an "<img>" or background image inside that layer.
+                                            * When using CSS backgrounds, set the hero height to 20vh (avoid 100vh). Use "background-attachment:scroll; background-size:cover; background-position:center; background-repeat:no-repeat; overflow:hidden;". Provide a mobile rule to increase to 30vh if needed.
                                             * Only reference images when one is provided.
 
                                         OUTPUT REQUIREMENTS
@@ -1330,15 +1333,19 @@ class ArtworksTab {
 
                                         PREFERRED HERO EXAMPLE
                                         <section class="hero">
-                                            <img src="BACKGROUND_IMAGE_PLACEHOLDER" alt="Hero" />
+                                            <div class="hero-media">
+                                                <img src="BACKGROUND_IMAGE_PLACEHOLDER" alt="Hero" />
+                                            </div>
                                             <div class="hero-content">...</div>
                                         </section>
                                         <style>
-                                            .hero{width:100%;height:20vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
-                                            .hero img{width:100%;height:100%;object-fit:cover;object-position:center}
+                                            .hero{position:relative;width:100%;height:20vh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+                                            .hero-media{position:absolute;inset:0;width:100%;height:100%;overflow:hidden}
+                                            .hero img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+                                            .hero-content{position:relative;z-index:1}
                                             @media(max-width:600px){.hero{height:30vh}}
                                         </style>
-                                        MANDATORY, maximum hero height=30wh
+                                        MANDATORY: maximum hero height=30vh and the hero image width must always equal the hero section width.
                                         ${this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked ?
                                         `IMPORTANT: Use the exact placeholder string BACKGROUND_IMAGE_PLACEHOLDER for background images (do not include base64 data). Example: background-image: url(BACKGROUND_IMAGE_PLACEHOLDER);` : ''}
 
@@ -1346,7 +1353,7 @@ class ArtworksTab {
                         userPrompt = `${this.imageBase64
                             ? `Create a complete HTML webpage inspired by the uploaded image with this style direction: ${this.elements.promptInput.value}.`
                             : `Create a complete HTML webpage with this style direction: ${this.elements.promptInput.value}.`} ${this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked && this.imageBase64
-                            ? ' Use the uploaded image directly as a background image in appropriate sections of the design.'
+                            ? ' Use the uploaded image directly as a background image in appropriate sections of the design. Ensure the hero/background image is clipped to the hero section and its visible width always matches the hero section width exactly.'
                                      : ''
                                      } Build it as a real webpage with multiple sections unless I explicitly asked for a single-panel composition. Use standard responsive webpage behavior with normal vertical scrolling, not a fixed-size poster or one-screen artboard.`;
                     break;
@@ -1354,14 +1361,14 @@ class ArtworksTab {
                                 case 'overlay': // Text Overlay mode
                                         systemPrompt = `You are an expert designer specializing in creating responsive HTML/CSS for text overlays on product images. Your task is to position text elements in visually appropriate locations on the image to create professional-looking product displays.
 
-                                            TYPOGRAPHY (MANDATORY): Use only system/web-safe fonts. Do NOT include any external font imports, @font-face rules, or <link rel="stylesheet"> references (including Google Fonts). Do NOT reference font families that require external loading (for example, Playfair Display, Montserrat, or other Google Font names). Use system font stacks and fallbacks such as: font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; or font-family: Georgia, 'Times New Roman', Times, serif; or font-family: 'Courier New', Courier, monospace. Always provide a sensible fallback stack.
+                                            TYPOGRAPHY (MANDATORY): Custom web fonts are allowed for Text Overlay outputs, but they must be imported only from inside a CSS "@import" rule placed in a "<style>" block in the generated HTML. Do NOT use "<link rel=\"stylesheet\">" tags for fonts. Do NOT rely on a font with no fallback stack. Every custom font-family declaration must include sensible fallbacks, for example: font-family: 'Playfair Display', Georgia, 'Times New Roman', Times, serif; or font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; or font-family: 'Roboto Mono', 'Courier New', Courier, monospace. Prefer at most one or two imported font families unless the user explicitly asks for more.
 
                                             For each image, you will:
                                             1. Analyze the image orientation and content.
                                             2. Position text elements in visually balanced locations that complement the image.
                                             3. Generate complete HTML/CSS code that creates a responsive overlay that SCALES the image inside a preview container (do not hardcode a huge fixed canvas unless requested).
                                             4. PRIORITIZE TEXT READABILITY with high contrast ratios (minimum 4.5:1 for normal text).
-                                            5. Use text treatments like shadows, outlines, or semi-transparent backgrounds to ensure legibility.
+                                            5. Keep text styling export-safe and honest to the final PNG. Do NOT add decorative text effects such as text-shadow, drop-shadow, glow, outline, stroke, filter effects, backdrop-filter, or similar effect-based styling on text. If readability needs improvement, solve it with layout, stronger contrast, simpler typography, solid or semi-transparent flat background panels behind text, spacing, and font weight instead.
 
                                             IMPORTANT: Always choose text colors that maintain strong contrast against the background image, not just colors that are complementary aesthetically. White text on dark image areas and dark text on light image areas is often most effective.
 
@@ -1372,9 +1379,15 @@ class ArtworksTab {
                                             - If the user requests a specific image provider or style, honor that request.
 
                                             SIZING & SCALING GUIDELINES (CRITICAL)
+                                            - Treat the generated HTML as BOTH a preview and an export document. The main composition must occupy the full intended poster/export surface, not a smaller centered card inside a viewport.
+                                            - NEVER use preview-only wrapper constraints such as "max-width", "max-height", "min-height: 100vh", centered "body" flex layouts, large body padding, or decorative outer cards/shadows that shrink the actual composition area.
+                                            - The root composition wrapper must map directly to the uploaded image aspect ratio and intended export size. Use the uploaded image dimensions as the authoritative surface for the poster composition.
+                                            - The text overlay layer must fill the same surface as the image wrapper. If the image wrapper is 100% of the composition, the overlay root must also be "position:absolute; inset:0; width:100%; height:100%" (or equivalent) so text is not authored at a smaller preview size.
+                                            - Avoid authoring overlay typography and spacing as if the composition were only ~600px wide. Prefer percentages, "em"/"rem", and "clamp()" values that scale from the full image surface, not from a small centered preview card.
+                                            - Avoid fixed pixel paddings or fixed-width text blocks that make the overlay cluster into one corner when exported at the original image size. Use relative padding such as percentages for edge offsets on poster overlays.
                                             - The preview must fill the host's preview container surface. For Text Overlay outputs, choose sizing behavior based on the source image orientation (DO NOT apply a single rule to all images):
-                                                - Portrait images (height > width): Ensure the full portrait image is visible. If the portrait image does not fit within the preview container, allow vertical scrolling instead of cropping so the entire poster can be viewed. Prefer an img-based approach with object-fit: contain and let the container enable scrolling by using overflow-y: auto and height:auto or max-height:100%. Example (preferred for predictable scaling):
-                                                    .preview-wrap { width: 100%; max-height: 100%; overflow-y: auto; display: block; }
+                                                - Portrait images (height > width): Ensure the full portrait image is visible. If the portrait image does not fit within the preview container, allow vertical scrolling instead of cropping so the entire poster can be viewed. Prefer an img-based approach with object-fit: contain and let the container enable scrolling without shrinking the composition to an arbitrary capped card. Example (preferred for predictable scaling):
+                                                    .preview-wrap { width: 100%; overflow-y: auto; display: block; }
                                                     .preview-wrap img { display: block; width: 100%; height: auto; object-fit: contain; object-position: center top; }
                                                 - Landscape or square images (width >= height): PREFER COVER behavior so the preview container surface is fully filled (object-fit: cover / background-size: cover). Example:
                                                     .preview-wrap img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center center; }
@@ -1387,11 +1400,13 @@ class ArtworksTab {
                                                     .preview-wrap .bg { width: 100%; height: 100%; background-image: url('BACKGROUND_IMAGE_PLACEHOLDER'); background-repeat: no-repeat; background-position: center center; background-size: contain; overflow: hidden; }
 
                                             - Do NOT place a smaller portrait image centered inside a much larger wrapper that effectively hides parts of the image. When instructed to show a full portrait, the image must be fully visible (contain). For landscape/square images, filling the container with cover and permitting cropping is acceptable to avoid empty gutters.
-                                            - Ensure the preview container dimensions are explicit and minimal: do not add outer padding, decorative borders, or extra margins around the main preview container unless explicitly requested. Use box-sizing: border-box and overflow: hidden on the container.
+                                            - Ensure the preview container dimensions are explicit and minimal: do not add outer padding, decorative borders, outer shadows, card-like wrappers, or extra margins around the main preview container unless explicitly requested. Use box-sizing: border-box and overflow: hidden on the container.
                                             - Include PREVIEW-SIZE metadata EXACTLY in the HTML (example: <!-- PREVIEW-SIZE: width=2048 height=1024 -->). Use values that reflect the intended preview/export surface; when unsure prefer the host MAX_CONTAINER (2048×1024) as a safe default.
+                                            - For the uploaded image size ${this.imageDimensions || 'Unknown'}, generate HTML so the main poster/image wrapper is intended to scale to that full image surface. Avoid any CSS that would cap it to a smaller desktop preview width such as "max-width: 600px".
 
                                             PLACEMENT & EXPORT NOTES
                                             - Position text using relative units (%, vw/vh, em/rem) and modern layout (flex/grid) so it scales consistently when the preview surface is resized or exported.
+                                            - Text, call-to-action blocks, gradients, and decorative accents must be positioned relative to the full image surface, not relative to a reduced preview-card width.
                                             - Preserve the image aspect ratio while using cover sizing; avoid distortion.
                                             - Ensure the image fully covers the preview container area (no empty gutters) so the generated preview window size is representative of the exported image.
                                             - Use semantic HTML and include alt text for any img.
@@ -1411,6 +1426,9 @@ class ArtworksTab {
                                         - Aspect ratio: ${this.imageRatio || 'Unknown'}
                     
                                         Generate a single HTML file that displays this text in visually appropriate locations based on the image content. Position text to avoid covering key product features. Use colors that complement the image while ensuring text is clearly readable.
+
+                                        Important layout requirement: do not build this as a centered preview card or viewport demo. Build it as a full poster/export composition that occupies the full image surface. Avoid CSS such as max-width, max-height, body padding, min-height: 100vh, or centered flexbox on body/html unless explicitly required for the actual composition.
+                                        Important overlay requirement: the text overlay root must cover the same full area as the image, and text spacing/sizing must be authored for the full poster surface rather than for a small preview width.
                     
                                         If you are requested to add external images, icons, or fallbacks, use reputable sources and always include fallbacks from different providers to avoid empty placeholders. For the background image, use: BACKGROUND_IMAGE_PLACEHOLDER.`;
                     break;
@@ -1445,6 +1463,15 @@ class ArtworksTab {
                 );
 
                 if (!response) {
+                    const pendingCloudAccessError = window.OllamaAPI
+                        && typeof window.OllamaAPI.consumePendingCloudAccessError === 'function'
+                        ? window.OllamaAPI.consumePendingCloudAccessError()
+                        : null;
+
+                    if (pendingCloudAccessError && pendingCloudAccessError.body) {
+                        throw new Error(pendingCloudAccessError.body);
+                    }
+
                     throw new Error('No response received from Ollama');
                 }
 
@@ -1513,21 +1540,41 @@ class ArtworksTab {
                     // Debug log: Step 1 - AI response cleaned
                     // Store the full response in case we need it later, but don't display in tab
                     this._generatedResponse = fullResponse;
-                    // Always use image as background for overlay mode, or respect checkbox for other modes
+                    let imageUrl = null;
+                    if (this.imageBase64) {
+                        try {
+                            const byteCharacters = atob(this.imageBase64.split(',')[1] || this.imageBase64);
+                            const byteArrays = [];
+
+                            for (let i = 0; i < byteCharacters.length; i += 512) {
+                                const slice = byteCharacters.slice(i, i + 512);
+                                const byteNumbers = new Array(slice.length);
+                                for (let j = 0; j < slice.length; j++) {
+                                    byteNumbers[j] = slice.charCodeAt(j);
+                                }
+                                const byteArray = new Uint8Array(byteNumbers);
+                                byteArrays.push(byteArray);
+                            }
+
+                            const blob = new Blob(byteArrays, { type: 'image/jpeg' });
+                            imageUrl = URL.createObjectURL(blob);
+
+                            window.backgroundImageUrl = imageUrl;
+                            window.backgroundImage = this.imageBase64;
+                        } catch (error) {
+                            console.error('ArtworksTab: Failed to create blob URL, falling back to base64', error);
+                            imageUrl = this.imageBase64;
+                            window.backgroundImageUrl = this.imageBase64;
+                            window.backgroundImage = this.imageBase64;
+                        }
+                    }
+
                     if ((this.activeMode === 'overlay') ||
                         (this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked)) {
-                        // Replace the placeholder with a variable reference
-                        fullResponse = fullResponse.replace(
-                            /url\(BACKGROUND_IMAGE_PLACEHOLDER\)/g,
-                            `url(window.backgroundImage)`
-                        );
-                    }
-                    if (this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked && this.imageBase64) {
-                        // Replace the placeholder with a variable reference
-                        fullResponse = fullResponse.replace(
-                            /url\(BACKGROUND_IMAGE_PLACEHOLDER\)/g,
-                            `url(window.backgroundImage)`
-                        );
+                        const injectedImageUrl = imageUrl || this.imageBase64;
+                        if (injectedImageUrl) {
+                            fullResponse = this.replaceBackgroundPlaceholders(fullResponse, injectedImageUrl);
+                        }
                     }
 
                     // Debug log: Step 2 - after initial background placeholder replacement
@@ -1649,16 +1696,7 @@ class ArtworksTab {
                             });
                         }
                     } else {
-                        console.error('ArtworkPreviewWindow not available, showing result in tab instead');
-                        // Fallback to tab display only if preview window fails to load
-                        this.elements.result.textContent = fullResponse;
-                        this.elements.output.style.display = 'block';
-
-                        if (window.CodeStyler) {
-                            this.elements.result.innerHTML = window.CodeStyler.highlightMarkup(
-                                fullResponse.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                            );
-                        }
+                        console.error('ArtworkPreviewWindow not available, skipping in-tab fallback rendering');
                     }
                 } else {
                     throw new Error('Empty response from AI');
@@ -1698,10 +1736,6 @@ class ArtworksTab {
                         // Update timing message
                         if (timing) timing.textContent = Lang.get('artworkTryAgainDifferentPrompt');
 
-                        // Update the output area even while error window is visible
-                        this.elements.result.textContent = Lang.get('artworkGenerationWasCanceled');
-                        this.elements.output.style.display = 'block';
-
                         // Make sure the close button is working
                         const closeBtn = progressWindow.querySelector('.artwork-progress-close');
                         if (closeBtn) {
@@ -1719,8 +1753,7 @@ class ArtworksTab {
                     }
 
                     // Fallback if progress window not found
-                    this.elements.result.textContent = Lang.get('artworkGenerationWasCanceled');
-                    this.elements.output.style.display = 'block';
+                    console.warn('ArtworksTab: Generation canceled with no progress window available');
                 } else {
                     // Similarly, modify the error handling for non-abort errors
                     // This would be in the outer catch block
@@ -1790,26 +1823,12 @@ class ArtworksTab {
                 console.error('ArtworksTab: Error generating artwork:', error);
                 this.hideProgressIndicator();
 
-                // Safely update the UI if elements are available
-                if (this.elements && this.elements.result) {
-                    // Check if the error looks like it came from our compatibility wrapper
-                    if (error.message && error.message.includes('Response will be generated by OllamaAPI directly')) {
-                        console.warn('ArtworksTab: Received placeholder response from compatibility wrapper, ignoring');
-                        this.elements.result.textContent = 'Error: The image analysis failed. Please try again.';
-                    } else if (this.isRateLimitError(error)) {
-                        this.elements.result.textContent = `Error: ${this.getRateLimitMessage()}`;
-                    } else {
-                        this.elements.result.textContent = `Error: ${error.message}`;
-                    }
-
-                    if (this.elements.output) {
-                        this.elements.output.style.display = 'block';
-                    }
-                } else {
-                    console.error('ArtworksTab: UI elements unavailable to display error message', error);
+                // Errors are shown in blocking warnings / progress UI, not in an in-tab output panel.
+                if (error.message && error.message.includes('Response will be generated by OllamaAPI directly')) {
+                    console.warn('ArtworksTab: Received placeholder response from compatibility wrapper, ignoring');
                 }
 
-                // Prompt for an Ollama API key when the Artworks workflow fails due to Ollama/cloud auth issues.
+                // Prompt for an Ollama API key only when the error explicitly requires one.
                 if ((this.activeMode === 'style' || this.activeMode === 'overlay')
                     && this.isOllamaApiKeyError(error)
                     && window.chatTab
@@ -1865,6 +1884,26 @@ class ArtworksTab {
 
        //console.log('ArtworksTab: Thinking tags removed from response');
         return cleanedText;
+    }
+
+    // Replaces BACKGROUND_IMAGE_PLACEHOLDER references in generated HTML with a real image URL
+    replaceBackgroundPlaceholders(html, imageUrl) {
+        if (!html || typeof html !== 'string' || !imageUrl) return html;
+
+        const urlPattern = /url\(\s*(['"]?)BACKGROUND_IMAGE_PLACEHOLDER\1\s*\)/gi;
+        html = html.replace(urlPattern, `url('${imageUrl}')`);
+
+        const imgSrcPattern = /(<img\b[^>]*\bsrc\s*=\s*)(['"]?)BACKGROUND_IMAGE_PLACEHOLDER\2([^>]*>)/gi;
+        html = html.replace(imgSrcPattern, (_, prefix, quote, suffix) => {
+            return `${prefix}'${imageUrl}'${suffix}`;
+        });
+
+        const imgSrcNoQuotePattern = /(<img\b[^>]*\bsrc\s*=\s*)BACKGROUND_IMAGE_PLACEHOLDER([^>]*>)/gi;
+        html = html.replace(imgSrcNoQuotePattern, (_, prefix, suffix) => {
+            return `${prefix}'${imageUrl}'${suffix}`;
+        });
+
+        return html;
     }
     // Resizes the uploaded image to fit within specified dimensions and returns base64 data
     resizeImageForAI(base64Data, maxWidth = 1024, maxHeight = 1024, quality = 0.8) {

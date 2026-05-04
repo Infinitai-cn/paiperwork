@@ -3751,6 +3751,14 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         if (this.isTextOverlayPreview) {
             const sourceBounds = this.getSourceImageBounds();
             const overlayCaptureCandidate = this.getTextOverlayCaptureCandidate();
+            const renderedOverlayBounds = overlayCaptureCandidate
+                ? {
+                    left: overlayCaptureCandidate.left,
+                    top: overlayCaptureCandidate.top,
+                    width: overlayCaptureCandidate.width,
+                    height: overlayCaptureCandidate.height,
+                }
+                : this.getVisibleTextOverlayBounds();
             const overlayBounds = sourceBounds || overlayCaptureCandidate || this.textOverlayFrameBounds || this.getVisibleTextOverlayBounds() || {
                 left: 0,
                 top: 0,
@@ -3856,7 +3864,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                 backgroundColor: null,
                 outputWidth: this.sourceImageWidth > 0 ? this.sourceImageWidth : Math.max(1, Math.round(captureBounds.width)),
                 outputHeight: this.sourceImageHeight > 0 ? this.sourceImageHeight : Math.max(1, Math.round(captureBounds.height)),
-                renderedOverlayBounds: captureBounds,
+                renderedOverlayBounds: renderedOverlayBounds || captureBounds,
                 compositeBackgroundImage: compositeBackgroundImage,
             };
         }
@@ -3969,6 +3977,157 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         return;
     }
 
+    prepareTextOverlayCloneForExport(clonedNode, captureMetrics) {
+        if (!this.isTextOverlayPreview || !clonedNode || !captureMetrics) {
+            return;
+        }
+
+        const exportWidth = Math.max(1, Math.round(captureMetrics.outputWidth || captureMetrics.width || 0));
+        const exportHeight = Math.max(1, Math.round(captureMetrics.outputHeight || captureMetrics.height || 0));
+        const renderedBounds = captureMetrics.renderedOverlayBounds || null;
+        const renderedWidth = Math.max(1, Math.round(renderedBounds?.width || exportWidth));
+        const renderedHeight = Math.max(1, Math.round(renderedBounds?.height || exportHeight));
+        const overlayScaleX = renderedWidth > 0 ? (exportWidth / renderedWidth) : 1;
+        const overlayScaleY = renderedHeight > 0 ? (exportHeight / renderedHeight) : 1;
+        const cloneDoc = clonedNode.ownerDocument;
+        const cloneRoot = cloneDoc?.documentElement || null;
+        const cloneBody = cloneDoc?.body || null;
+
+        const forceBox = (element, extra = {}) => {
+            if (!element || !element.style) return;
+            element.style.boxSizing = 'border-box';
+            element.style.width = `${exportWidth}px`;
+            element.style.maxWidth = `${exportWidth}px`;
+            element.style.minWidth = `${exportWidth}px`;
+            element.style.height = `${exportHeight}px`;
+            element.style.maxHeight = `${exportHeight}px`;
+            element.style.minHeight = `${exportHeight}px`;
+            Object.entries(extra).forEach(([key, value]) => {
+                element.style[key] = value;
+            });
+        };
+
+        forceBox(cloneRoot, {
+            overflow: 'visible',
+            margin: '0',
+            padding: '0',
+            maxWidth: 'none',
+            maxHeight: 'none',
+        });
+
+        forceBox(cloneBody, {
+            overflow: 'visible',
+            margin: '0',
+            padding: '0',
+            maxWidth: 'none',
+            maxHeight: 'none',
+            display: 'block',
+            minHeight: `${exportHeight}px`,
+            justifyContent: 'flex-start',
+            alignItems: 'flex-start',
+        });
+
+        forceBox(clonedNode, {
+            overflow: 'visible',
+            margin: '0',
+            padding: '0',
+            transform: 'none',
+            maxWidth: 'none',
+            maxHeight: 'none',
+        });
+
+        const cloneTargets = [];
+        if (typeof clonedNode.querySelectorAll === 'function') {
+            cloneTargets.push(...Array.from(clonedNode.querySelectorAll('.preview-wrap, .poster-container, .overlay, [data-artwork-bg-img], img')));
+        }
+
+        cloneTargets.forEach((element) => {
+            if (!element || !element.style) return;
+            if (element.classList.contains('preview-wrap')) {
+                forceBox(element, {
+                    overflow: 'hidden',
+                    display: 'block',
+                    maxWidth: 'none',
+                    maxHeight: 'none',
+                    minHeight: `${exportHeight}px`,
+                    padding: '0',
+                    margin: '0',
+                    boxShadow: 'none',
+                    borderRadius: '0',
+                });
+                return;
+            }
+
+            if (element.classList.contains('poster-container')) {
+                forceBox(element, {
+                    overflow: 'hidden',
+                    position: element.style.position || 'relative',
+                    lineHeight: '0',
+                    maxWidth: 'none',
+                    maxHeight: 'none',
+                    padding: '0',
+                    margin: '0',
+                });
+                return;
+            }
+
+            if (element.classList.contains('overlay')) {
+                forceBox(element, {
+                    overflow: 'visible',
+                    position: element.style.position || 'absolute',
+                    top: '0',
+                    left: '0',
+                    right: '0',
+                    bottom: '0',
+                    maxWidth: 'none',
+                    maxHeight: 'none',
+                });
+                return;
+            }
+
+            if (element.tagName === 'IMG') {
+                element.style.display = 'block';
+                element.style.width = `${exportWidth}px`;
+                element.style.maxWidth = `${exportWidth}px`;
+                element.style.minWidth = `${exportWidth}px`;
+                element.style.height = `${exportHeight}px`;
+                element.style.maxHeight = `${exportHeight}px`;
+                element.style.minHeight = `${exportHeight}px`;
+                element.style.objectFit = element.style.objectFit || 'contain';
+                element.style.objectPosition = element.style.objectPosition || 'center top';
+                element.style.margin = '0';
+                element.style.padding = '0';
+                return;
+            }
+
+            forceBox(element, {
+                overflow: 'visible',
+                maxWidth: 'none',
+                maxHeight: 'none',
+            });
+        });
+
+        const overlayRoots = typeof clonedNode.querySelectorAll === 'function'
+            ? Array.from(clonedNode.querySelectorAll('.poster-overlay, .overlay, [data-artwork-overlay-root]'))
+            : [];
+
+        overlayRoots.forEach((element) => {
+            if (!element || !element.style) return;
+            if (overlayScaleX <= 1.01 && overlayScaleY <= 1.01) return;
+
+            element.style.width = `${renderedWidth}px`;
+            element.style.maxWidth = `${renderedWidth}px`;
+            element.style.minWidth = `${renderedWidth}px`;
+            element.style.height = `${renderedHeight}px`;
+            element.style.maxHeight = `${renderedHeight}px`;
+            element.style.minHeight = `${renderedHeight}px`;
+            element.style.transformOrigin = 'top left';
+            element.style.transform = `scale(${overlayScaleX}, ${overlayScaleY})`;
+            element.style.left = '0';
+            element.style.top = '0';
+        });
+    }
+
     applyCachedAssetUrlsToClonedNode(clonedNode) {
         if (!clonedNode || !this._assetDataUrlCache || this._assetDataUrlCache.size === 0) {
             return;
@@ -4077,7 +4236,11 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         // Minimal export adjustments: hide scrollbars in the cloned DOM so
         // scrollbars are not visible in the exported PNG while preserving
         // the cloned document layout and scrollability.
+        const exportWidth = Math.max(1, Math.round(captureMetrics.outputWidth || captureMetrics.width || 1));
+        const exportHeight = Math.max(1, Math.round(captureMetrics.outputHeight || captureMetrics.height || 1));
         const options = {
+            width: exportWidth,
+            height: exportHeight,
             onclone: (clonedNode) => {
                 try {
                     const s = document.createElement('style');
@@ -4089,6 +4252,12 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                     try { clonedNode.insertBefore(s, clonedNode.firstChild); } catch (e) { /* ignore */ }
                 } catch (e) {
                     // non-fatal
+                }
+
+                try {
+                    this.prepareTextOverlayCloneForExport(clonedNode, captureMetrics);
+                } catch (e) {
+                    console.warn('ArtworkPreviewWindow: failed to normalize text overlay clone for export', e);
                 }
 
                 try {
@@ -4107,10 +4276,45 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         return canvas;
     }
 
+    restoreTextOverlayPreviewAfterExport() {
+        if (!this.isTextOverlayPreview || this.currentView !== 'preview') {
+            return;
+        }
+
+        try {
+            this.textOverlayFrameBounds = null;
+            this.textOverlayPreviewReady = false;
+            this.textOverlayPositionLocked = false;
+            this.previewDirty = true;
+            this.previewInitialized = false;
+
+            if (this.previewFrameShell) {
+                this.previewFrameShell.style.width = '100%';
+                this.previewFrameShell.style.height = '100%';
+                this.previewFrameShell.style.overflow = 'auto';
+            }
+
+            if (this.previewFrame) {
+                this.previewFrame.style.width = '100%';
+                this.previewFrame.style.height = '100%';
+                this.previewFrame.style.visibility = 'hidden';
+                this.previewFrame.style.opacity = '0';
+            }
+
+            this.updatePreview();
+        } catch (error) {
+            console.warn('ArtworkPreviewWindow: Failed to restore text overlay preview after export', error);
+        }
+    }
+
     // Captures the preview as a PNG image and triggers a download, showing notifications
     async captureAndDownloadImage() {
         // Make sure we're in preview mode first
         if (this.currentView !== 'preview') {
+            this.logTextOverlayFontExport('export-switch-to-preview', {
+                currentView: this.currentView,
+                isTextOverlayPreview: this.isTextOverlayPreview,
+            });
             this.switchView('preview');
             setTimeout(() => this.captureAndDownloadImage(), 500);
             return;
@@ -4118,6 +4322,11 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
 
         const iframe = this.previewFrame;
         if (!iframe) return;
+
+        this.logTextOverlayFontExport('export-start', {
+            title: this.title,
+            isTextOverlayPreview: this.isTextOverlayPreview,
+        });
 
         // Reset the export cache so each PNG export starts with the current preview assets.
         this._assetDataUrlCache = new Map();
@@ -4138,15 +4347,64 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         `;
             document.body.appendChild(notification);
 
+            const content = notification.querySelector('.export-notification-content');
+            const h3 = content.querySelector('h3');
+            const p = content.querySelector('p');
+            const progress = content.querySelector('.export-progress');
+            const button = content.querySelector('.dismiss-export-btn');
+            let fontExportCleanup = null;
+            const cleanupFontExport = () => {
+                if (typeof fontExportCleanup === 'function') {
+                    try {
+                        fontExportCleanup();
+                    } catch (error) {
+                        console.warn('ArtworkPreviewWindow: Failed to clean up localized export fonts', error);
+                    }
+                    fontExportCleanup = null;
+                }
+            };
+
             // Minimal export: skip asset inlining and font prefetching; only ensure overlay DOM rendered
             if (this.isTextOverlayPreview) {
                 try {
-                    const ready = await this.waitForTextOverlayRender(1200);
+                    const sourceHtml = await this.getPreviewExportSourceHtml();
+                    const remoteFontStylesheetUrls = this.getRemoteFontStylesheetUrlsFromHtml(
+                        sourceHtml,
+                        this.previewFrame?.contentWindow?.location?.href || window.location.href
+                    );
+
+                    this.logTextOverlayFontExport('font-detection-complete', {
+                        detectedCount: remoteFontStylesheetUrls.length,
+                        stylesheetUrls: remoteFontStylesheetUrls,
+                    });
+
+                    if (remoteFontStylesheetUrls.length) {
+                        await this.confirmTextOverlayFontInstall(notification, remoteFontStylesheetUrls);
+                        this.logTextOverlayFontExport('font-install-decision', {
+                            approved: true,
+                            detectedCount: remoteFontStylesheetUrls.length,
+                        });
+
+                        const fontExportState = await this.prepareTextOverlayFontsForExport(sourceHtml, notification, remoteFontStylesheetUrls);
+                        fontExportCleanup = fontExportState?.cleanup || null;
+
+                        if (fontExportState?.localized) {
+                            p.textContent = 'Preparing final PNG capture...';
+                        }
+                    } else {
+                        this.logTextOverlayFontExport('font-detection-none-found', {
+                            sourceLength: sourceHtml.length,
+                        });
+                    }
+
+                    const ready = await this.waitForTextOverlayRender(2500);
                     if (!ready) {
                         console.warn('ArtworkPreviewWindow: text overlay may not be fully rendered before export');
+                        this.logTextOverlayFontExport('text-overlay-render-not-ready');
                     }
                 } catch (e) {
                     console.warn('ArtworkPreviewWindow: error while waiting for text overlay render', e);
+                    this.logTextOverlayFontExport('text-overlay-render-error', { error: this.describeTextOverlayFontExportError(e) });
                 }
             }
 
@@ -4154,18 +4412,28 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                 await this.waitForPreviewAssets();
             } catch (e) {
                 console.warn('ArtworkPreviewWindow: error while waiting for preview assets', e);
+                this.logTextOverlayFontExport('preview-assets-wait-error', { error: this.describeTextOverlayFontExportError(e) });
             }
 
             try {
                 await this.inlinePreviewAssetsForExport();
             } catch (e) {
                 console.warn('ArtworkPreviewWindow: error while inlining preview assets for export', e);
+                this.logTextOverlayFontExport('preview-assets-inline-error', { error: this.describeTextOverlayFontExportError(e) });
             }
 
             const captureMetrics = this.getPreviewCaptureMetrics();
             if (!captureMetrics || !captureMetrics.target) {
+                this.logTextOverlayFontExport('capture-metrics-missing');
                 throw new Error('Preview content is not ready for export.');
             }
+
+            this.logTextOverlayFontExport('capture-metrics-ready', {
+                width: captureMetrics.width,
+                height: captureMetrics.height,
+                outputWidth: captureMetrics.outputWidth,
+                outputHeight: captureMetrics.outputHeight,
+            });
 
             try {
                 const canvas = await this.renderPreviewToCanvas(captureMetrics);
@@ -4178,11 +4446,11 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                 link.click();
                 document.body.removeChild(link);
 
-                const content = notification.querySelector('.export-notification-content');
-                const h3 = content.querySelector('h3');
-                const p = content.querySelector('p');
-                const progress = content.querySelector('.export-progress');
-                const button = content.querySelector('.dismiss-export-btn');
+                cleanupFontExport();
+                this.logTextOverlayFontExport('export-success', {
+                    outputWidth: canvas.width,
+                    outputHeight: canvas.height,
+                });
 
                 h3.textContent = Lang.get('artworkExportSuccess');
                 p.textContent = Lang.get('artworkExportDownloaded');
@@ -4198,12 +4466,19 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                         notification.remove();
                     }
                 }, 3000);
+
+                this.restoreTextOverlayPreviewAfterExport();
             } catch (error) {
                 console.error('Error exporting as PNG:', error);
+                cleanupFontExport();
+                this.logTextOverlayFontExport('export-render-error', { error: this.describeTextOverlayFontExportError(error) });
+                this.restoreTextOverlayPreviewAfterExport();
                 this.showExportInstructions(notification);
             }
         } catch (error) {
             console.error('Error exporting as PNG:', error);
+            this.logTextOverlayFontExport('export-outer-error', { error: this.describeTextOverlayFontExportError(error) });
+            this.restoreTextOverlayPreviewAfterExport();
             this.showExportInstructions();
         }
     }
@@ -4219,7 +4494,519 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         if (!sourceHtml && this.previewFrame?.contentDocument) {
             sourceHtml = this.serializeSourceDocument(this.previewFrame.contentDocument, this.generatedCode);
         }
+        this.logTextOverlayFontExport('source-html-resolved', {
+            length: String(sourceHtml || '').length,
+            fromCodeEditor: Boolean(this.codeEditor),
+            fromGeneratedCode: Boolean(!sourceHtml && typeof this.generatedCode === 'string'),
+        });
         return String(sourceHtml || '');
+    }
+
+    describeTextOverlayFontExportError(error) {
+        if (!error) {
+            return 'Unknown error';
+        }
+        if (typeof error === 'string') {
+            return error;
+        }
+        return String(error.message || error.stack || error);
+    }
+
+    logTextOverlayFontExport(step, details = null, level = 'info') {
+        const entry = {
+            timestamp: new Date().toISOString(),
+            step,
+            details: details && typeof details === 'object' ? details : (details == null ? undefined : { value: details })
+        };
+
+        if (!window.__paiperworkTextOverlayFontExportLog || !Array.isArray(window.__paiperworkTextOverlayFontExportLog)) {
+            window.__paiperworkTextOverlayFontExportLog = [];
+        }
+        window.__paiperworkTextOverlayFontExportLog.push(entry);
+
+        const logger = level === 'error'
+            ? console.error
+            : (level === 'warn' ? console.warn : console.info);
+        try {
+            logger('[TextOverlayFontExport]', step, entry.details || {});
+        } catch (_error) {
+            console.info('[TextOverlayFontExport]', step);
+        }
+
+        return entry;
+    }
+
+    getTextOverlayFontWorkflowContainer(notification) {
+        return notification?.querySelector('.font-install-workflow-steps') || null;
+    }
+
+    updateTextOverlayFontWorkflowStep(notification, stepKey, state = 'pending', detail = '') {
+        const workflowContainer = this.getTextOverlayFontWorkflowContainer(notification);
+        if (!workflowContainer || !stepKey) {
+            return;
+        }
+
+        const validStates = new Set(['pending', 'active', 'done', 'failed', 'skipped']);
+        const normalizedState = validStates.has(state) ? state : 'pending';
+        const item = workflowContainer.querySelector(`[data-font-step="${stepKey}"]`);
+        if (!item) {
+            return;
+        }
+
+        item.dataset.state = normalizedState;
+        const detailEl = item.querySelector('.font-install-step-detail');
+        if (detailEl) {
+            detailEl.textContent = detail || '';
+        }
+    }
+
+    updateTextOverlayFontWorkflowFromStatus(notification, message, extra = null) {
+        if (!notification || !message) {
+            return;
+        }
+
+        const text = String(message || '');
+        const detail = extra && typeof extra === 'string' ? extra : '';
+        if (/Locating imported fonts/i.test(text)) {
+            this.updateTextOverlayFontWorkflowStep(notification, 'locate', 'active', text);
+            this.updateTextOverlayFontWorkflowStep(notification, 'download', 'pending', '');
+            this.updateTextOverlayFontWorkflowStep(notification, 'localize', 'pending', '');
+            return;
+        }
+        if (/Downloading font stylesheet|Downloading font files/i.test(text)) {
+            this.updateTextOverlayFontWorkflowStep(notification, 'locate', 'done', 'Imported font references found');
+            this.updateTextOverlayFontWorkflowStep(notification, 'download', 'active', text);
+            this.updateTextOverlayFontWorkflowStep(notification, 'localize', 'pending', '');
+            return;
+        }
+        if (/Localizing imported fonts|Installing imported fonts/i.test(text)) {
+            this.updateTextOverlayFontWorkflowStep(notification, 'locate', 'done', 'Imported font references found');
+            this.updateTextOverlayFontWorkflowStep(notification, 'download', 'done', 'Remote stylesheets and font files downloaded');
+            this.updateTextOverlayFontWorkflowStep(notification, 'localize', 'active', text);
+            return;
+        }
+        if (/Preparing final PNG capture/i.test(text)) {
+            this.updateTextOverlayFontWorkflowStep(notification, 'locate', 'done', 'Imported font references found');
+            this.updateTextOverlayFontWorkflowStep(notification, 'download', 'done', 'Remote stylesheets and font files downloaded');
+            this.updateTextOverlayFontWorkflowStep(notification, 'localize', 'done', 'Fonts localized into the export preview');
+            return;
+        }
+        if (detail) {
+            this.updateTextOverlayFontWorkflowStep(notification, 'localize', 'active', detail);
+        }
+    }
+
+    confirmTextOverlayFontInstall(notification, stylesheetUrls) {
+        const content = notification?.querySelector('.export-notification-content');
+        const h3 = content?.querySelector('h3');
+        const p = content?.querySelector('p');
+        const progress = content?.querySelector('.export-progress');
+        const buttonContainer = content?.querySelector('.button-container');
+
+        if (!content || !h3 || !p || !progress || !buttonContainer) {
+            this.logTextOverlayFontExport('font-install-modal-missing-parts', null, 'warn');
+            return Promise.resolve(true);
+        }
+
+        this.logTextOverlayFontExport('font-install-modal-show', {
+            detectedCount: Array.isArray(stylesheetUrls) ? stylesheetUrls.length : 0,
+            stylesheetUrls,
+        });
+
+        h3.textContent = 'Imported fonts detected';
+        p.innerHTML = `This PNG export uses imported web fonts. Paiperwork will locate, download, and localize them into the export preview before capture.<br><br>Click OK to continue.`;
+        progress.style.display = 'none';
+        const existingWorkflow = content.querySelector('.font-install-workflow-steps');
+        if (existingWorkflow) {
+            existingWorkflow.remove();
+        }
+        const workflowMarkup = document.createElement('div');
+        workflowMarkup.className = 'font-install-workflow-steps';
+        workflowMarkup.innerHTML = `
+            <div class="font-install-step" data-font-step="locate" data-state="pending">
+                <div class="font-install-step-title">Locate fonts</div>
+                <div class="font-install-step-detail">Waiting for approval</div>
+            </div>
+            <div class="font-install-step" data-font-step="download" data-state="pending">
+                <div class="font-install-step-title">Download fonts</div>
+                <div class="font-install-step-detail"></div>
+            </div>
+            <div class="font-install-step" data-font-step="localize" data-state="pending">
+                <div class="font-install-step-title">Localize for export</div>
+                <div class="font-install-step-detail"></div>
+            </div>
+        `;
+        buttonContainer.before(workflowMarkup);
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.justifyContent = 'flex-end';
+        buttonContainer.style.width = '100%';
+        buttonContainer.innerHTML = `
+            <button class="dismiss-export-btn font-install-yes-btn">OK</button>
+        `;
+
+        return new Promise((resolve) => {
+            const yesButton = buttonContainer.querySelector('.font-install-yes-btn');
+            const finalize = () => {
+                buttonContainer.innerHTML = `
+                    <button class="dismiss-export-btn" style="display: none;">${Lang.get('artworkClose')}</button>
+                `;
+                progress.style.display = 'block';
+                p.textContent = 'Preparing imported fonts for PNG export...';
+                this.updateTextOverlayFontWorkflowStep(notification, 'locate', 'active', 'Scanning imported font references');
+                resolve(true);
+            };
+
+            if (yesButton) {
+                yesButton.addEventListener('click', () => finalize(), { once: true });
+            }
+        });
+    }
+
+    getRemoteFontStylesheetUrlsFromHtml(sourceHtml, baseUrl) {
+        if (typeof sourceHtml !== 'string' || !sourceHtml.trim()) {
+            this.logTextOverlayFontExport('font-detection-skipped-empty-html');
+            return [];
+        }
+
+        const urls = new Set();
+        const resolveUrl = (rawUrl) => {
+            const trimmed = String(rawUrl || '').trim();
+            if (!trimmed || /^data:|^blob:|^#|^javascript:/i.test(trimmed)) {
+                return null;
+            }
+
+            try {
+                const absolute = new URL(trimmed, baseUrl || window.location.href);
+                if (!/^https?:$/i.test(absolute.protocol)) {
+                    return null;
+                }
+                return absolute.href;
+            } catch (_error) {
+                return null;
+            }
+        };
+
+        const importRegex = /@import\s+(?:url\(\s*)?(?:"([^"]+)"|'([^']+)'|([^'"\)\s;]+))\s*\)?[^;]*;/gi;
+        let match = null;
+        while ((match = importRegex.exec(sourceHtml)) !== null) {
+            const resolved = resolveUrl(match[1] || match[2] || match[3] || '');
+            if (resolved) {
+                urls.add(resolved);
+            }
+        }
+
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(sourceHtml, 'text/html');
+            const stylesheetLinks = Array.from(doc.querySelectorAll('link[rel~="stylesheet"][href]'));
+            stylesheetLinks.forEach((link) => {
+                const resolved = resolveUrl(link.getAttribute('href'));
+                if (resolved) {
+                    urls.add(resolved);
+                }
+            });
+        } catch (_error) {
+            // Ignore parser failures and fall back to regex-only detection.
+        }
+
+        const detectedUrls = Array.from(urls);
+        this.logTextOverlayFontExport('font-detection-parsed-html', {
+            detectedCount: detectedUrls.length,
+            stylesheetUrls: detectedUrls,
+        });
+        return detectedUrls;
+    }
+
+    async fetchLocalizedFontStylesheetCss(stylesheetUrl, state, depth = 0) {
+        if (!stylesheetUrl || depth > 4) {
+            this.logTextOverlayFontExport('stylesheet-fetch-skipped', { stylesheetUrl, depth }, 'warn');
+            return '';
+        }
+
+        if (state.stylesheetCache.has(stylesheetUrl)) {
+            this.logTextOverlayFontExport('stylesheet-fetch-cache-hit', { stylesheetUrl, depth });
+            return state.stylesheetCache.get(stylesheetUrl);
+        }
+
+        const pendingPromise = (async () => {
+            if (typeof state.onStatus === 'function') {
+                state.onStatus(`Downloading font stylesheet ${state.processedStylesheets + 1} of ${Math.max(1, state.totalStylesheets)}...`);
+            }
+
+            this.logTextOverlayFontExport('stylesheet-fetch-start', { stylesheetUrl, depth });
+
+            let cssText = '';
+            try {
+                const response = await fetch(stylesheetUrl, { credentials: 'omit' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                cssText = await response.text();
+            } catch (error) {
+                console.warn('ArtworkPreviewWindow: Failed to fetch remote font stylesheet', stylesheetUrl, error);
+                this.logTextOverlayFontExport('stylesheet-fetch-failed', {
+                    stylesheetUrl,
+                    depth,
+                    error: this.describeTextOverlayFontExportError(error),
+                }, 'warn');
+                state.processedStylesheets += 1;
+                return '';
+            }
+
+            this.logTextOverlayFontExport('stylesheet-fetch-success', {
+                stylesheetUrl,
+                depth,
+                cssLength: cssText.length,
+            });
+
+            state.processedStylesheets += 1;
+
+            const importRegex = /@import\s+(?:url\(\s*)?(?:"([^"]+)"|'([^']+)'|([^'"\)\s;]+))\s*\)?[^;]*;/gi;
+            const importMatches = Array.from(cssText.matchAll(importRegex));
+            const importedCssChunks = [];
+
+            for (const importMatch of importMatches) {
+                const rawImportUrl = importMatch[1] || importMatch[2] || importMatch[3] || '';
+                let nestedUrl = null;
+                try {
+                    nestedUrl = new URL(rawImportUrl, stylesheetUrl).href;
+                } catch (_error) {
+                    nestedUrl = null;
+                }
+                if (!nestedUrl) {
+                    this.logTextOverlayFontExport('stylesheet-import-invalid', {
+                        stylesheetUrl,
+                        rawImportUrl,
+                        depth,
+                    }, 'warn');
+                    continue;
+                }
+
+                this.logTextOverlayFontExport('stylesheet-import-found', {
+                    stylesheetUrl,
+                    nestedUrl,
+                    depth,
+                });
+                const nestedCss = await this.fetchLocalizedFontStylesheetCss(nestedUrl, state, depth + 1);
+                if (nestedCss) {
+                    importedCssChunks.push(nestedCss);
+                }
+            }
+
+            const cssWithoutImports = cssText.replace(importRegex, '');
+            const urlRegex = /url\(\s*(['"]?)([^'"\)]+)\1\s*\)/gi;
+            const replacements = [];
+
+            for (const urlMatch of cssWithoutImports.matchAll(urlRegex)) {
+                const originalUrl = String(urlMatch[2] || '').trim();
+                if (!originalUrl || /^data:|^blob:|^#|^javascript:/i.test(originalUrl)) {
+                    continue;
+                }
+
+                let absoluteUrl = null;
+                try {
+                    absoluteUrl = new URL(originalUrl, stylesheetUrl).href;
+                } catch (_error) {
+                    absoluteUrl = null;
+                }
+
+                if (!absoluteUrl) {
+                    this.logTextOverlayFontExport('font-asset-invalid-url', {
+                        stylesheetUrl,
+                        originalUrl,
+                    }, 'warn');
+                    continue;
+                }
+
+                let objectUrl = state.assetCache.get(absoluteUrl);
+                if (!objectUrl) {
+                    try {
+                        if (typeof state.onStatus === 'function') {
+                            state.onStatus(`Downloading font files for export (${state.localizedAssetCount + 1})...`);
+                        }
+                        this.logTextOverlayFontExport('font-asset-download-start', {
+                            stylesheetUrl,
+                            assetUrl: absoluteUrl,
+                        });
+                        const assetResponse = await fetch(absoluteUrl, { credentials: 'omit' });
+                        if (!assetResponse.ok) {
+                            throw new Error(`HTTP ${assetResponse.status}`);
+                        }
+                        const assetBlob = await assetResponse.blob();
+                        objectUrl = URL.createObjectURL(assetBlob);
+                        state.assetCache.set(absoluteUrl, objectUrl);
+                        state.objectUrls.push(objectUrl);
+                        state.localizedAssetCount += 1;
+                        this.logTextOverlayFontExport('font-asset-download-success', {
+                            stylesheetUrl,
+                            assetUrl: absoluteUrl,
+                            assetSize: assetBlob.size,
+                        });
+                    } catch (error) {
+                        console.warn('ArtworkPreviewWindow: Failed to localize remote font asset', absoluteUrl, error);
+                        this.logTextOverlayFontExport('font-asset-download-failed', {
+                            stylesheetUrl,
+                            assetUrl: absoluteUrl,
+                            error: this.describeTextOverlayFontExportError(error),
+                        }, 'warn');
+                        continue;
+                    }
+                } else {
+                    this.logTextOverlayFontExport('font-asset-cache-hit', {
+                        stylesheetUrl,
+                        assetUrl: absoluteUrl,
+                    });
+                }
+
+                replacements.push({
+                    index: urlMatch.index,
+                    length: urlMatch[0].length,
+                    replacement: `url('${objectUrl}')`
+                });
+            }
+
+            let localizedCss = cssWithoutImports;
+            for (let index = replacements.length - 1; index >= 0; index -= 1) {
+                const replacement = replacements[index];
+                localizedCss = `${localizedCss.slice(0, replacement.index)}${replacement.replacement}${localizedCss.slice(replacement.index + replacement.length)}`;
+            }
+
+            this.logTextOverlayFontExport('stylesheet-localized', {
+                stylesheetUrl,
+                replacementCount: replacements.length,
+                localizedCssLength: localizedCss.length,
+            });
+
+            return `${importedCssChunks.join('\n')}${importedCssChunks.length ? '\n' : ''}${localizedCss}`;
+        })();
+
+        state.stylesheetCache.set(stylesheetUrl, pendingPromise);
+        return pendingPromise;
+    }
+
+    async prepareTextOverlayFontsForExport(sourceHtml, notification = null, precomputedStylesheetUrls = null) {
+        if (!this.isTextOverlayPreview || !this.previewFrame || typeof sourceHtml !== 'string' || !sourceHtml.trim()) {
+            this.logTextOverlayFontExport('font-install-skipped', {
+                isTextOverlayPreview: this.isTextOverlayPreview,
+                hasPreviewFrame: Boolean(this.previewFrame),
+                sourceLength: typeof sourceHtml === 'string' ? sourceHtml.length : 0,
+            }, 'warn');
+            return null;
+        }
+
+        const baseUrl = this.previewFrame.contentWindow?.location?.href || window.location.href;
+        const stylesheetUrls = Array.isArray(precomputedStylesheetUrls) && precomputedStylesheetUrls.length
+            ? precomputedStylesheetUrls
+            : this.getRemoteFontStylesheetUrlsFromHtml(sourceHtml, baseUrl);
+        if (!stylesheetUrls.length) {
+            this.logTextOverlayFontExport('font-install-no-stylesheets');
+            return null;
+        }
+
+        const iframeDoc = this.previewFrame.contentDocument || this.previewFrame.contentWindow?.document;
+        if (!iframeDoc) {
+            this.logTextOverlayFontExport('font-install-no-iframe-document', null, 'warn');
+            return null;
+        }
+
+        const statusElement = notification?.querySelector('.export-notification-content p') || null;
+        const state = {
+            stylesheetCache: new Map(),
+            assetCache: new Map(),
+            objectUrls: [],
+            localizedAssetCount: 0,
+            processedStylesheets: 0,
+            totalStylesheets: stylesheetUrls.length,
+            onStatus: (message) => {
+                if (statusElement) {
+                    statusElement.textContent = message;
+                }
+                this.updateTextOverlayFontWorkflowFromStatus(notification, message);
+            }
+        };
+
+        state.onStatus(`Locating imported fonts for export (${stylesheetUrls.length})...`);
+        this.logTextOverlayFontExport('font-install-start', {
+            stylesheetUrls,
+            detectedCount: stylesheetUrls.length,
+        });
+
+        let localizedCss = '';
+        for (const stylesheetUrl of stylesheetUrls) {
+            const cssChunk = await this.fetchLocalizedFontStylesheetCss(stylesheetUrl, state, 0);
+            if (cssChunk) {
+                localizedCss += `${localizedCss ? '\n\n' : ''}${cssChunk}`;
+            }
+        }
+
+        if (!localizedCss.trim()) {
+            this.logTextOverlayFontExport('font-install-empty-localized-css', {
+                stylesheetUrls,
+            }, 'warn');
+            return {
+                localized: false,
+                cleanup: () => {}
+            };
+        }
+
+        state.onStatus('Localizing imported fonts into the export preview...');
+
+        const styleEl = iframeDoc.createElement('style');
+        styleEl.setAttribute('data-pw-export-font-localization', 'true');
+        styleEl.textContent = localizedCss;
+        (iframeDoc.head || iframeDoc.documentElement || iframeDoc.body).appendChild(styleEl);
+        this.logTextOverlayFontExport('font-install-style-injected', {
+            localizedCssLength: localizedCss.length,
+            localizedAssetCount: state.localizedAssetCount,
+        });
+
+        try {
+            if (iframeDoc.fonts?.ready) {
+                await iframeDoc.fonts.ready;
+            }
+        } catch (_error) {
+            // Ignore font readiness errors and fall back to the iframe helper below.
+            this.logTextOverlayFontExport('font-install-document-fonts-ready-error', null, 'warn');
+        }
+
+        try {
+            if (typeof this.previewFrame.contentWindow?.__pwWaitForFonts === 'function') {
+                await this.previewFrame.contentWindow.__pwWaitForFonts(4000);
+            }
+        } catch (_error) {
+            // Ignore helper failures and proceed with the best available preview state.
+            this.logTextOverlayFontExport('font-install-preview-font-helper-error', null, 'warn');
+        }
+
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        this.updateTextOverlayFontWorkflowFromStatus(notification, 'Preparing final PNG capture...');
+        this.logTextOverlayFontExport('font-install-complete', {
+            localizedAssetCount: state.localizedAssetCount,
+            stylesheetCount: stylesheetUrls.length,
+        });
+
+        return {
+            localized: true,
+            cleanup: () => {
+                try {
+                    styleEl.remove();
+                } catch (_error) {
+                    // Ignore cleanup failures.
+                }
+
+                state.objectUrls.forEach((objectUrl) => {
+                    try {
+                        URL.revokeObjectURL(objectUrl);
+                    } catch (_error) {
+                        // Ignore cleanup failures.
+                    }
+                });
+
+                this.logTextOverlayFontExport('font-install-cleanup-complete', {
+                    revokedObjectUrlCount: state.objectUrls.length,
+                });
+            }
+        };
     }
 
     async exportPreviewHtml() {
@@ -4616,6 +5403,53 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             color: var(--text-color, #333);
             text-align: center;
             margin-bottom: 10px;
+        }
+
+        .font-install-workflow-steps {
+            margin: 14px 0 10px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .font-install-step {
+            border: 1px solid var(--border-color, #e0e0e0);
+            border-radius: 6px;
+            padding: 10px 12px;
+            text-align: left;
+            background-color: rgba(127, 127, 127, 0.06);
+        }
+
+        .font-install-step[data-state="active"] {
+            border-color: var(--accent-color, #4f46e5);
+            background-color: rgba(79, 70, 229, 0.08);
+        }
+
+        .font-install-step[data-state="done"] {
+            border-color: #1f8b4c;
+            background-color: rgba(31, 139, 76, 0.08);
+        }
+
+        .font-install-step[data-state="failed"] {
+            border-color: #c0392b;
+            background-color: rgba(192, 57, 43, 0.08);
+        }
+
+        .font-install-step[data-state="skipped"] {
+            opacity: 0.7;
+        }
+
+        .font-install-step-title {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 3px;
+            color: var(--text-color, #333);
+        }
+
+        .font-install-step-detail {
+            font-size: 12px;
+            line-height: 1.35;
+            color: var(--text-color, #555);
+            min-height: 16px;
         }
         
         .export-notification-content ol {
