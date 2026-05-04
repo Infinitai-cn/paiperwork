@@ -33,7 +33,7 @@ type Config struct {
 
 func Load() Config {
 	stateDir := envOrDefault("WCFLINK_STATE_DIR", defaultStateDir())
-	mediaDir := envOrDefault("WCFLINK_MEDIA_DIR", filepath.Join(stateDir, "media"))
+	mediaDir := envOrDefault("WCFLINK_MEDIA_DIR", os.TempDir())
 	settingsPath := filepath.Join(stateDir, "settings.json")
 	fileSettings := loadFileSettings(settingsPath)
 	return Config{
