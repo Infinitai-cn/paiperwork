@@ -1561,6 +1561,37 @@ class ConnectorWhatsapp {
         return '';
     }
 
+    _isWhatsappLLMWorkflowDecisionGrounded(tool, text, phone = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        if (!normalizedText) {
+            return tool !== 'artifact' && tool !== 'presentation';
+        }
+
+        if (tool === 'presentation') {
+            return !!(
+                this._isSummaryToPresentationWorkflowIntent(normalizedText)
+                || this._isPresentationIntent(normalizedText)
+                || this._isSavedPresentationIntent(normalizedText)
+                || this._matchPendingSavedPresentationFollowUp(phone, normalizedText)
+            );
+        }
+
+        if (tool === 'artifact') {
+            const pendingArtifactSelection = this._getPendingArtifactSelection(phone);
+            return !!(
+                this._isSummaryToArtifactWorkflowIntent(normalizedText)
+                || this._isResearchToArtifactWorkflowIntent(normalizedText)
+                || this._isArtifactIntent(normalizedText)
+                || this._isSavedArtifactIntent(normalizedText)
+                || (pendingArtifactSelection
+                    && Array.isArray(pendingArtifactSelection.items)
+                    && this._matchSavedArtifactSelection(normalizedText, pendingArtifactSelection.items))
+            );
+        }
+
+        return true;
+    }
+
     _resolveWhatsappDeterministicWorkflowRouting(text, phoneContext = null, orchTool = '') {
         const activeSession = this._getWhatsappDeterministicWorkflowSession(phoneContext);
         if (!activeSession) {
@@ -4086,7 +4117,8 @@ class ConnectorWhatsapp {
     _normalizeDocumentIntentKeymapText(text) {
         return String(text || '')
             .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/(\p{Script=Latin})[\u0300-\u036f]+/gu, '$1')
+            .normalize('NFC')
             .toLowerCase()
             .replace(/[^a-z0-9\u00C0-\u017F\u0400-\u04FF\u0500-\u052F\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0900-\u097F\u3040-\u30FF\u3400-\u9FFF\uF900-\uFAFF\uAC00-\uD7AF]+/gi, ' ')
             .trim();
@@ -4272,10 +4304,10 @@ class ConnectorWhatsapp {
         const sendTokens = this._getArtifactKeymapTokens('actions.send');
         const intentTokens = this._getArtifactKeymapTokens('intent');
 
-        const hasSavedCue = this._textMatchesDocumentKeymapTokens(normalized, savedCueTokens);
-        const hasArtifactNoun = this._textMatchesDocumentKeymapTokens(normalized, intentTokens);
-        const hasBrowseAction = this._textMatchesDocumentKeymapTokens(normalized, browseTokens);
-        const hasSendAction = this._textMatchesDocumentKeymapTokens(normalized, sendTokens);
+        const hasSavedCue = this._textMatchesWholeWordKeymapTokens(normalized, savedCueTokens);
+        const hasArtifactNoun = this._textMatchesWholeWordKeymapTokens(normalized, intentTokens);
+        const hasBrowseAction = this._textMatchesWholeWordKeymapTokens(normalized, browseTokens);
+        const hasSendAction = this._textMatchesWholeWordKeymapTokens(normalized, sendTokens);
 
         return hasSavedCue || (hasArtifactNoun && (hasBrowseAction || hasSendAction) && !this._isArtifactIntent(text));
     }
@@ -5825,10 +5857,10 @@ class ConnectorWhatsapp {
         const sendTokens = this._getPresentationKeymapTokens('actions.send');
         const intentTokens = this._getPresentationKeymapTokens('intent');
 
-        const hasSavedCue = this._textMatchesDocumentKeymapTokens(normalized, savedCueTokens);
-        const hasPresentationNoun = this._textMatchesDocumentKeymapTokens(normalized, intentTokens);
-        const hasBrowseAction = this._textMatchesDocumentKeymapTokens(normalized, browseTokens);
-        const hasSendAction = this._textMatchesDocumentKeymapTokens(normalized, sendTokens);
+        const hasSavedCue = this._textMatchesWholeWordKeymapTokens(normalized, savedCueTokens);
+        const hasPresentationNoun = this._textMatchesWholeWordKeymapTokens(normalized, intentTokens);
+        const hasBrowseAction = this._textMatchesWholeWordKeymapTokens(normalized, browseTokens);
+        const hasSendAction = this._textMatchesWholeWordKeymapTokens(normalized, sendTokens);
 
         return hasSavedCue || (hasPresentationNoun && (hasBrowseAction || hasSendAction) && !this._presentationRequestHasExplicitSourceText(text));
     }
@@ -8131,6 +8163,7 @@ class ConnectorWhatsapp {
 
                 const parsed = this._parseOrchestratorJSON(sanitizedOut);
                 if (parsed && parsed.tool) {
+                    const originalRoutingText = routingIntentText || cleaned;
                     const toolRaw = String(parsed.tool || '').toLowerCase();
                     let toolNormalized = 'chat';
                     if (toolRaw.includes('research')) {
@@ -8155,6 +8188,18 @@ class ConnectorWhatsapp {
                         toolNormalized = 'document-check';
                         parsed.document = '';
                         parsed.reason = 'Ambiguous document summary request; use existing ingested documents, do not ask for attachment.';
+                    }
+
+                    if ((toolNormalized === 'artifact' || toolNormalized === 'presentation')
+                        && !this._isWhatsappLLMWorkflowDecisionGrounded(toolNormalized, originalRoutingText, normalizedPhone)) {
+                        const fallbackTool = deterministicRouting && deterministicRouting.fallbackDecision && deterministicRouting.fallbackDecision.tool
+                            ? deterministicRouting.fallbackDecision.tool
+                            : 'chat';
+                        parsed.reason = `${parsed.reason ? `${parsed.reason} ` : ''}Specialized workflow rejected because the request did not explicitly mention a presentation, slide deck, miniapp, artifact, or supported saved-workflow cue.`.trim();
+                        toolNormalized = fallbackTool;
+                        if (fallbackTool !== 'document-check') {
+                            parsed.document = '';
+                        }
                     }
                     decision.tool = toolNormalized;
 
