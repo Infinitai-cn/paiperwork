@@ -85,6 +85,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         whatsappDeleteAllPairedButton: "Supprimer les appareils appaires",
         whatsappDeleteAllPairedButtonTitle: "Supprimer les appareils appaires",
         whatsappDeleteAllPairedConfirm: "Vous etes sur le point de supprimer les informations d'appairage de Paiperwork, etes-vous sur ?",
+        whatsappPairNewDeviceReplaceWarning: "Un appareil WhatsApp est deja appaire dans Paiperwork. Associer un nouvel appareil supprimera l'appairage existant avant de continuer. Voulez-vous continuer ?",
         whatsappDeleteAllPairedSuccess: "Les donnees d'appairage Paiperwork ont ete supprimees. Cliquez sur Start server pour appairer un nouvel appareil maintenant.",
         wechatNotPairedCard: "WeChat non apparié",
         wechatServerStartedCard: "Serveur WeChat démarré",

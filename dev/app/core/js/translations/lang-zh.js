@@ -84,6 +84,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 whatsappDeleteAllPairedButton: "删除已配对设备",
                 whatsappDeleteAllPairedButtonTitle: "删除已配对设备",
                 whatsappDeleteAllPairedConfirm: "您即将删除 Paiperwork 中的配对信息，确定继续吗？",
+                whatsappPairNewDeviceReplaceWarning: "Paiperwork 中已经存在一个已配对的 WhatsApp 设备。配对新设备前将先删除现有配对。是否继续？",
                 whatsappDeleteAllPairedSuccess: "Paiperwork 配对数据已删除。点击 Start server 立即配对新设备。",
                 whatsappDeleteAllPairedFailed: "删除 Paiperwork 配对数据失败。请查看控制台日志。",
                 wechatNotPairedCard: "WeChat 未配对",
