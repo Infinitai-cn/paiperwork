@@ -216,13 +216,13 @@
                     console.warn('ConnectorWechat: processIncomingMessage failed', err);
                 }
             },
-            postText: async function (chatId, text, accountId, contextToken) {
+            postText: async function (chatId, text, accountId, contextToken, replyToMessageId, quotedBody) {
                 const wc = _getWechatConnectorInstance();
                 if (!wc || typeof wc.postWechatText !== 'function') {
                     return;
                 }
                 try {
-                    await wc.postWechatText(chatId, text, accountId, contextToken);
+                    await wc.postWechatText(chatId, text, accountId, contextToken, replyToMessageId, quotedBody);
                 } catch (err) {
                     console.error('ConnectorWechat: postText failed', err);
                 }
@@ -249,8 +249,8 @@
                 connector.processWechatIncomingMessage = async function (msg) {
                     await window.wechatConnectorBridge.processIncomingMessage(msg);
                 };
-                connector.postWechatText = async function (chatId, text, accountId, contextToken) {
-                    await window.wechatConnectorBridge.postText(chatId, text, accountId, contextToken);
+                connector.postWechatText = async function (chatId, text, accountId, contextToken, replyToMessageId, quotedBody) {
+                    await window.wechatConnectorBridge.postText(chatId, text, accountId, contextToken, replyToMessageId, quotedBody);
                 };
                 console.info('ConnectorWechat: legacy wrappers registered on window.connectors', {
                     startWechatIncomingPolling: typeof connector.startWechatIncomingPolling,
@@ -484,6 +484,8 @@ class ConnectorWechat {
             platform: 'wechat',
             account: normalizedAccount,
             replyTarget: normalizedReplyTarget,
+            replyMessageId: '',
+            quotedBody: '',
             displayUserText: '',
             targetConversationGroup: null,
             sessionPreview: '',
@@ -851,6 +853,66 @@ class ConnectorWechat {
         }
 
         return String(chatId || from || '').trim();
+    }
+
+    _extractWechatMessageReplyMetadata(msg) {
+        const rawMessage = msg && msg.raw_json
+            ? (() => {
+                try {
+                    return typeof msg.raw_json === 'string' ? JSON.parse(msg.raw_json) : msg.raw_json;
+                } catch (_err) {
+                    return null;
+                }
+            })()
+            : null;
+
+        return {
+            messageId: String(
+                msg?.message_id
+                || msg?.messageId
+                || msg?.id
+                || rawMessage?.message_id
+                || rawMessage?.messageId
+                || rawMessage?.id
+                || ''
+            ).trim(),
+            replyToMessageId: String(
+                msg?.reply_to_message_id
+                || msg?.replyToMessageId
+                || msg?.replied_to_id
+                || msg?.repliedToId
+                || rawMessage?.reply_to_message_id
+                || rawMessage?.replyToMessageId
+                || rawMessage?.replied_to_id
+                || rawMessage?.repliedToId
+                || ''
+            ).trim(),
+            quotedBody: String(
+                msg?.quoted_body
+                || msg?.quotedBody
+                || rawMessage?.quoted_body
+                || rawMessage?.quotedBody
+                || ''
+            ).trim()
+        };
+    }
+
+    _enrichWechatMessageReplyMetadata(msg) {
+        if (!msg || typeof msg !== 'object') {
+            return msg;
+        }
+
+        const metadata = this._extractWechatMessageReplyMetadata(msg);
+        if (metadata.messageId && !String(msg.message_id || msg.messageId || '').trim()) {
+            msg.message_id = metadata.messageId;
+        }
+        if (metadata.replyToMessageId && !String(msg.reply_to_message_id || msg.replyToMessageId || msg.replied_to_id || '').trim()) {
+            msg.reply_to_message_id = metadata.replyToMessageId;
+        }
+        if (metadata.quotedBody && !String(msg.quoted_body || msg.quotedBody || '').trim()) {
+            msg.quoted_body = metadata.quotedBody;
+        }
+        return msg;
     }
 
     _formatwechatBotThreadLabel(msg) {
@@ -7109,6 +7171,8 @@ class ConnectorWechat {
             ? String(activeRequest.account_id || activeRequest.account || '').trim()
             : this._getResolvedwechatOutgoingTarget(chatId);
         const resolvedContextToken = activeRequest && String(activeRequest.context_token || '').trim();
+        const resolvedReplyMessageId = activeRequest && String(activeRequest.replyMessageId || activeRequest.reply_message_id || '').trim();
+        const resolvedQuotedBody = activeRequest && String(activeRequest.quotedBody || activeRequest.quoted_body || '').trim();
         let blob = null;
         try {
             const response = await fetch(dataUrl);
@@ -7119,6 +7183,12 @@ class ConnectorWechat {
             fd.append('to_user_id', resolvedChatId);
             if (resolvedContextToken) {
                 fd.append('context_token', resolvedContextToken);
+            }
+            if (resolvedReplyMessageId) {
+                fd.append('reply_to_message_id', resolvedReplyMessageId);
+            }
+            if (resolvedQuotedBody) {
+                fd.append('quoted_body', resolvedQuotedBody);
             }
             if (filename) {
                 fd.append('filename', filename);
@@ -7932,6 +8002,7 @@ class ConnectorWechat {
 
     async _handleWechatIncomingPushMessage(msg) {
         try {
+            this._enrichWechatMessageReplyMetadata(msg);
             const eventID = Number(msg.id || msg.ID || msg.event_id || msg.eventId || 0);
             const rawDirection = String(msg.direction || msg.Direction || '').trim().toLowerCase();
             msg.direction = rawDirection;
@@ -8079,6 +8150,7 @@ class ConnectorWechat {
                     maxEventID = eventID;
                 }
                 try {
+                    this._enrichWechatMessageReplyMetadata(msg);
                     const rawDirection = String(msg.direction || msg.Direction || '').trim().toLowerCase();
                     msg.direction = rawDirection;
                     msg.body = String(msg.body || msg.body_text || msg.bodyText || '').trim();
@@ -8187,13 +8259,15 @@ class ConnectorWechat {
         }
     }
 
-    async postwechatText(chatId, text, accountId = null, contextToken = null) {
+    async postwechatText(chatId, text, accountId = null, contextToken = null, replyToMessageId = null, quotedBody = null) {
         if (!chatId || !text) return;
         const activeRequest = typeof window !== 'undefined' ? window.__paiperworkwechatActiveRequest : null;
         const resolvedChatId = this._getResolvedwechatOutgoingTarget(chatId);
         const normalizedAccount = this._normalizewechatIdentity(resolvedChatId);
         let resolvedAccountId = String(accountId || '').trim();
         let resolvedContextToken = String(contextToken || '').trim();
+        let resolvedReplyToMessageId = String(replyToMessageId || '').trim();
+        let resolvedQuotedBody = String(quotedBody || '').trim();
 
         if (!resolvedAccountId) {
             if (activeRequest && String(activeRequest.platform || '').toLowerCase() === 'wechat') {
@@ -8204,6 +8278,12 @@ class ConnectorWechat {
         }
         if (!resolvedContextToken && activeRequest) {
             resolvedContextToken = String(activeRequest.context_token || '').trim();
+        }
+        if (!resolvedReplyToMessageId && activeRequest) {
+            resolvedReplyToMessageId = String(activeRequest.replyMessageId || activeRequest.reply_message_id || '').trim();
+        }
+        if (!resolvedQuotedBody && activeRequest) {
+            resolvedQuotedBody = String(activeRequest.quotedBody || activeRequest.quoted_body || '').trim();
         }
         const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
 
@@ -8220,14 +8300,15 @@ class ConnectorWechat {
             chatId: resolvedChatId,
             resolvedAccountId,
             resolvedContextToken: Boolean(resolvedContextToken),
+            resolvedReplyToMessageId: Boolean(resolvedReplyToMessageId),
             via: canUseExternalBridge ? 'wechatConnectorBridge' : canUseLegacyConnector ? 'window.connectors' : 'api'
         });
 
         try {
             if (canUseExternalBridge) {
-                await window.wechatConnectorBridge.postText(resolvedChatId, text, resolvedAccountId, resolvedContextToken);
+                await window.wechatConnectorBridge.postText(resolvedChatId, text, resolvedAccountId, resolvedContextToken, resolvedReplyToMessageId, resolvedQuotedBody);
             } else if (canUseLegacyConnector) {
-                await window.connectors.postWechatText(resolvedChatId, text, resolvedAccountId, resolvedContextToken);
+                await window.connectors.postWechatText(resolvedChatId, text, resolvedAccountId, resolvedContextToken, resolvedReplyToMessageId, resolvedQuotedBody);
             } else {
                 const response = await fetch(this._getwechatOutgoingRequestUrl('/api/wechat/api/messages/send-text', resolvedChatId), {
                     method: 'POST',
@@ -8236,7 +8317,9 @@ class ConnectorWechat {
                         account_id: resolvedAccountId,
                         to_user_id: resolvedChatId,
                         text: text,
-                        context_token: resolvedContextToken
+                        context_token: resolvedContextToken,
+                        reply_to_message_id: resolvedReplyToMessageId,
+                        quoted_body: resolvedQuotedBody
                     })
                 });
                 if (!response.ok) {
@@ -8256,7 +8339,11 @@ class ConnectorWechat {
                         message_id: 0,
                         context_token: resolvedContextToken,
                         body_text: text,
-                        raw_json: JSON.stringify({ sent_at: new Date().toISOString() }),
+                        raw_json: JSON.stringify({
+                            sent_at: new Date().toISOString(),
+                            reply_to_message_id: resolvedReplyToMessageId,
+                            quoted_body: resolvedQuotedBody
+                        }),
                         created_at: new Date().toISOString()
                     });
                 } catch (_saveErr) {
@@ -8268,13 +8355,14 @@ class ConnectorWechat {
                 chatId: resolvedChatId,
                 resolvedAccountId,
                 resolvedContextToken: Boolean(resolvedContextToken),
+                resolvedReplyToMessageId: Boolean(resolvedReplyToMessageId),
                 textPreview: String(text || '').slice(0, 200)
             });
         }
     }
 
-    async postWechatText(chatId, text, accountId = '', contextToken = '') {
-        return this.postwechatText(chatId, text, accountId, contextToken);
+    async postWechatText(chatId, text, accountId = '', contextToken = '', replyToMessageId = '', quotedBody = '') {
+        return this.postwechatText(chatId, text, accountId, contextToken, replyToMessageId, quotedBody);
     }
 
     async postwechatLink(chatId, link, caption = '') {
@@ -8300,6 +8388,8 @@ class ConnectorWechat {
             ? String(activeRequest.account_id || activeRequest.account || '').trim()
             : this._getResolvedwechatOutgoingTarget(chatId);
         const resolvedContextToken = activeRequest && String(activeRequest.context_token || '').trim();
+        const resolvedReplyMessageId = activeRequest && String(activeRequest.replyMessageId || activeRequest.reply_message_id || '').trim();
+        const resolvedQuotedBody = activeRequest && String(activeRequest.quotedBody || activeRequest.quoted_body || '').trim();
 
         const fileNameToUse = filename || (fileBlob instanceof File ? fileBlob.name : 'snippet.txt');
         const fileSize = fileBlob && typeof fileBlob.size === 'number' ? fileBlob.size : null;
@@ -8307,6 +8397,7 @@ class ConnectorWechat {
             chatId: resolvedChatId,
             resolvedAccountId,
             hasContextToken: Boolean(resolvedContextToken),
+            hasReplyMessageId: Boolean(resolvedReplyMessageId),
             fileName: fileNameToUse,
             fileSize,
             caption: String(caption || '').slice(0, 100)
@@ -8327,6 +8418,12 @@ class ConnectorWechat {
             if (caption) fd.append('caption', caption);
             if (resolvedContextToken) {
                 fd.append('context_token', resolvedContextToken);
+            }
+            if (resolvedReplyMessageId) {
+                fd.append('reply_to_message_id', resolvedReplyMessageId);
+            }
+            if (resolvedQuotedBody) {
+                fd.append('quoted_body', resolvedQuotedBody);
             }
             if (fileBlob instanceof File) {
                 fd.append('file', fileBlob, fileNameToUse);
@@ -9464,6 +9561,7 @@ class ConnectorWechat {
     // waits for completion, then asks the connectors to send the rendered assistant reply back.
     async processwechatIncomingMessage(msg) {
         if (!msg) return;
+        this._enrichWechatMessageReplyMetadata(msg);
         msg.body = msg.body || msg.body_text || msg.bodyText || '';
         if (!msg.body && msg.raw_json) {
             try {
@@ -9488,6 +9586,8 @@ class ConnectorWechat {
         if (msg && String(msg.platform || '').toLowerCase() === 'wechat') {
             requestScope.account_id = String(msg.account_id || '').trim();
             requestScope.context_token = String(msg.context_token || '').trim();
+            requestScope.replyMessageId = String(msg.message_id || msg.messageId || '').trim();
+            requestScope.quotedBody = String(msg.quoted_body || msg.quotedBody || '').trim();
         }
 
         // If the UI is currently generating a response, queue this message for later.
