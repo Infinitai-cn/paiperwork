@@ -194,6 +194,15 @@ class ArtworksTab {
                     class="artwork-prompt-input" 
                     placeholder="${Lang.get('artworkDesignInstructionsPlaceholder')}"></textarea>
             </div>
+
+            <div id="artwork-webstyle-clone-section" class="artwork-section artwork-webstyle-clone-section" style="display: none;">
+                <label for="artwork-webstyle-clone-input">${Lang.get('artworkCloneWebsiteStyleFrom') || 'Clone website style from:'}</label>
+                <input
+                    type="text"
+                    id="artwork-webstyle-clone-input"
+                    class="artwork-webstyle-clone-input"
+                    placeholder="${Lang.get('artworkCloneWebsiteStylePlaceholder') || 'www.acoolwebsite.com'}">
+            </div>
             
             <div class="artwork-actions">
                 <button id="artwork-generate-btn" class="artwork-generate-btn" disabled>
@@ -219,6 +228,8 @@ class ArtworksTab {
             previewImg: document.getElementById('artwork-preview-img'),
             removeImageBtn: document.getElementById('artwork-remove-image'),
             promptInput: document.getElementById('artwork-prompt'),
+            webstyleCloneSection: document.getElementById('artwork-webstyle-clone-section'),
+            webstyleCloneInput: document.getElementById('artwork-webstyle-clone-input'),
             generateBtn: document.getElementById('artwork-generate-btn'),
             useAsBackgroundCheckbox: document.getElementById('artwork-use-as-background')
         };
@@ -231,6 +242,7 @@ class ArtworksTab {
 
         // Populate model selector
         this.populateModelSelector();
+        this.updateWebsiteStyleCloneVisibility();
     }
 
 
@@ -616,6 +628,7 @@ class ArtworksTab {
                 }
                 // Update prompt placeholder based on mode
                 this.updatePromptPlaceholder();
+                this.updateWebsiteStyleCloneVisibility();
 
                 // Show/hide "Use as background" checkbox based on mode
                 if (this.elements.useAsBackgroundCheckbox && this.imageBase64) {
@@ -922,6 +935,187 @@ class ArtworksTab {
                 break;
         }
     }
+
+    updateWebsiteStyleCloneVisibility() {
+        if (!this.elements || !this.elements.webstyleCloneSection) {
+            return;
+        }
+
+        this.elements.webstyleCloneSection.style.display = this.activeMode === 'overlay' ? 'block' : 'none';
+    }
+
+    setArtworkProgressMessage(message, timingMessage = null) {
+        const progressWindow = document.querySelector('.artwork-progress-window');
+        if (!progressWindow) {
+            return;
+        }
+
+        const messageEl = progressWindow.querySelector('.artwork-progress-message');
+        if (messageEl && message) {
+            messageEl.textContent = message;
+        }
+
+        if (timingMessage != null) {
+            const timingEl = progressWindow.querySelector('.artwork-timing');
+            if (timingEl) {
+                timingEl.textContent = timingMessage;
+            }
+        }
+    }
+
+    logWebsiteStyleClone(step, details = null, level = 'info') {
+        const entry = {
+            timestamp: new Date().toISOString(),
+            step,
+            details: details && typeof details === 'object' ? details : (details == null ? undefined : { value: details })
+        };
+
+        if (!window.__paiperworkWebsiteStyleCloneLog || !Array.isArray(window.__paiperworkWebsiteStyleCloneLog)) {
+            window.__paiperworkWebsiteStyleCloneLog = [];
+        }
+        window.__paiperworkWebsiteStyleCloneLog.push(entry);
+
+        const logger = level === 'error'
+            ? console.error
+            : (level === 'warn' ? console.warn : console.info);
+        try {
+            logger('[WebsiteStyleClone]', step, entry.details || {});
+        } catch (_error) {
+            console.info('[WebsiteStyleClone]', step);
+        }
+
+        return entry;
+    }
+
+    normalizeWebsiteStyleCloneUrl(rawValue) {
+        const trimmed = String(rawValue || '').trim();
+        if (!trimmed) {
+            this.logWebsiteStyleClone('normalize-skipped-empty-input');
+            return '';
+        }
+
+        this.logWebsiteStyleClone('normalize-start', {
+            rawValue: trimmed,
+            hasScheme: /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+        });
+
+        const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+            ? trimmed
+            : `https://${trimmed}`;
+
+        let parsedUrl = null;
+        try {
+            parsedUrl = new URL(withScheme);
+        } catch (_error) {
+            this.logWebsiteStyleClone('normalize-invalid-url', { rawValue: trimmed, candidate: withScheme }, 'warn');
+            throw new Error(Lang.get('artworkCloneWebsiteStyleInvalidUrl') || 'Please enter a valid website URL.');
+        }
+
+        if (!/^https?:$/i.test(parsedUrl.protocol) || !parsedUrl.hostname) {
+            this.logWebsiteStyleClone('normalize-invalid-protocol-or-host', {
+                candidate: parsedUrl.href,
+                protocol: parsedUrl.protocol,
+                hostname: parsedUrl.hostname
+            }, 'warn');
+            throw new Error(Lang.get('artworkCloneWebsiteStyleInvalidUrl') || 'Please enter a valid website URL.');
+        }
+
+        this.logWebsiteStyleClone('normalize-success', { normalizedUrl: parsedUrl.href });
+        return parsedUrl.href;
+    }
+
+    async fetchWebsiteStyleReference(normalizedUrl) {
+        if (!normalizedUrl) {
+            this.logWebsiteStyleClone('fetch-skipped-empty-url');
+            return null;
+        }
+
+        this.logWebsiteStyleClone('fetch-start', { normalizedUrl });
+
+        this.setArtworkProgressMessage(
+            Lang.get('artworkCloneWebsiteStyleLoading') || 'Analyzing website fonts and colors...',
+            Lang.get('artworkGenerationTiming')
+        );
+
+        const response = await fetch(`/api/extract/style?url=${encodeURIComponent(normalizedUrl)}`, {
+            cache: 'no-store'
+        });
+
+        if (!response.ok) {
+            let errorText = '';
+            try {
+                errorText = await response.text();
+            } catch (_error) {
+                errorText = '';
+            }
+            this.logWebsiteStyleClone('fetch-failed', {
+                normalizedUrl,
+                status: response.status,
+                error: errorText || `HTTP ${response.status}`
+            }, 'warn');
+            throw new Error(errorText || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const result = {
+            url: data && typeof data.url === 'string' ? data.url : normalizedUrl,
+            fonts: Array.isArray(data?.fonts) ? data.fonts.filter(Boolean) : [],
+            colors: Array.isArray(data?.colors) ? data.colors.filter(Boolean) : []
+        };
+
+        this.logWebsiteStyleClone('fetch-success', {
+            normalizedUrl,
+            resolvedUrl: result.url,
+            fontCount: result.fonts.length,
+            colorCount: result.colors.length,
+            fonts: result.fonts,
+            colors: result.colors
+        });
+
+        return result;
+    }
+
+    buildWebsiteStylePromptSuffix(styleReference) {
+        if (!styleReference || typeof styleReference !== 'object') {
+            this.logWebsiteStyleClone('prompt-suffix-skipped-no-style-reference');
+            return '';
+        }
+
+        const fonts = Array.isArray(styleReference.fonts) ? styleReference.fonts.filter(Boolean) : [];
+        const colors = Array.isArray(styleReference.colors) ? styleReference.colors.filter(Boolean) : [];
+        if (!fonts.length && !colors.length) {
+            this.logWebsiteStyleClone('prompt-suffix-skipped-no-fonts-or-colors', {
+                sourceUrl: styleReference.url || '',
+                fontCount: fonts.length,
+                colorCount: colors.length
+            });
+            return '';
+        }
+
+        const lines = ['Website style reference:'];
+        if (styleReference.url) {
+            lines.push(`- Source website: ${styleReference.url}`);
+        }
+        if (fonts.length) {
+            lines.push(`- Use these fonts when appropriate: ${fonts.join(', ')}`);
+            lines.push('- When using a referenced font that is not a standard system font, import it with CSS @import inside a <style> block before using it in font-family.');
+        }
+        if (colors.length) {
+            lines.push(`- Use these colors when appropriate: ${colors.join(', ')}`);
+        }
+        lines.push('- Adapt these style cues to the uploaded image and preserve strong readability and contrast.');
+
+        this.logWebsiteStyleClone('prompt-suffix-built', {
+            sourceUrl: styleReference.url || '',
+            fontCount: fonts.length,
+            colorCount: colors.length,
+            fonts,
+            colors
+        });
+
+        return lines.join('\n');
+    }
+
     // Shows a floating progress indicator window during image analysis/generation
     showProgressIndicator() {
         // First, check if we already have a floating window
@@ -1139,6 +1333,18 @@ class ArtworksTab {
                 resize: vertical;
                 margin-bottom: 10px;
             }
+
+            .artwork-webstyle-clone-input {
+                width: 100%;
+                box-sizing: border-box;
+                padding: 12px;
+                border: 1px solid var(--border-color, #e2e8f0);
+                border-radius: 6px;
+                font-family: inherit;
+                font-size: 14px;
+                background-color: var(--bg-color, #ffffff);
+                color: var(--text-color, inherit);
+            }
             
             /* Ensure container respects boundaries */
             .artwork-container {
@@ -1300,6 +1506,34 @@ class ArtworksTab {
             // Log that we're correctly preparing the image
            //console.log('ArtworksTab: Image properly prepared for visual analysis');
 
+            let websiteStyleReference = null;
+            if (this.activeMode === 'overlay') {
+                const websiteStyleUrlRaw = this.elements.webstyleCloneInput?.value || '';
+                this.logWebsiteStyleClone('workflow-mode-check', {
+                    activeMode: this.activeMode,
+                    hasWebsiteUrl: Boolean(websiteStyleUrlRaw.trim())
+                });
+                if (websiteStyleUrlRaw.trim()) {
+                    const normalizedWebsiteStyleUrl = this.normalizeWebsiteStyleCloneUrl(websiteStyleUrlRaw);
+                    try {
+                        websiteStyleReference = await this.fetchWebsiteStyleReference(normalizedWebsiteStyleUrl);
+                    } catch (error) {
+                        console.warn('ArtworksTab: Website style analysis failed, continuing without website hints', error);
+                        this.setArtworkProgressMessage(
+                            Lang.get('analyzingImageAndGenerating'),
+                            `${Lang.get('artworkCloneWebsiteStyleFailed') || 'Website style analysis failed. Continuing without website style hints.'}`
+                        );
+                        this.logWebsiteStyleClone('workflow-fallback-to-normal-prompt', {
+                            normalizedUrl: normalizedWebsiteStyleUrl,
+                            error: String(error && (error.message || error) || 'Unknown error')
+                        }, 'warn');
+                        websiteStyleReference = null;
+                    }
+                } else {
+                    this.logWebsiteStyleClone('workflow-skipped-empty-url');
+                }
+            }
+
             // Create system prompts and user prompts based on active mode
             let systemPrompt, userPrompt;
 
@@ -1361,7 +1595,7 @@ class ArtworksTab {
                                 case 'overlay': // Text Overlay mode
                                         systemPrompt = `You are an expert designer specializing in creating responsive HTML/CSS for text overlays on product images. Your task is to position text elements in visually appropriate locations on the image to create professional-looking product displays.
 
-                                            TYPOGRAPHY (MANDATORY): Custom web fonts are allowed for Text Overlay outputs, but they must be imported only from inside a CSS "@import" rule placed in a "<style>" block in the generated HTML. Do NOT use "<link rel=\"stylesheet\">" tags for fonts. Do NOT rely on a font with no fallback stack. Every custom font-family declaration must include sensible fallbacks, for example: font-family: 'Playfair Display', Georgia, 'Times New Roman', Times, serif; or font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; or font-family: 'Roboto Mono', 'Courier New', Courier, monospace. Prefer at most one or two imported font families unless the user explicitly asks for more.
+                                            TYPOGRAPHY (MANDATORY): Custom web fonts are allowed for Text Overlay outputs, but they must be imported only from inside a CSS "@import" rule placed in a "<style>" block in the generated HTML. Do NOT use "<link rel=\"stylesheet\">" tags for fonts. When the prompt references website fonts or asks you to mimic a website style, any referenced font that is not a standard system font must be imported in that same approved format before you use it in font-family declarations. Do NOT rely on a font with no fallback stack. Every custom font-family declaration must include sensible fallbacks, for example: font-family: 'Playfair Display', Georgia, 'Times New Roman', Times, serif; or font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; or font-family: 'Roboto Mono', 'Courier New', Courier, monospace. Prefer at most one or two imported font families unless the user explicitly asks for more.
 
                                             For each image, you will:
                                             1. Analyze the image orientation and content.
@@ -1431,6 +1665,21 @@ class ArtworksTab {
                                         Important overlay requirement: the text overlay root must cover the same full area as the image, and text spacing/sizing must be authored for the full poster surface rather than for a small preview width.
                     
                                         If you are requested to add external images, icons, or fallbacks, use reputable sources and always include fallbacks from different providers to avoid empty placeholders. For the background image, use: BACKGROUND_IMAGE_PLACEHOLDER.`;
+                                        {
+                                            const websiteStylePromptSuffix = this.buildWebsiteStylePromptSuffix(websiteStyleReference);
+                                            if (websiteStylePromptSuffix) {
+                                                userPrompt += `\n\n${websiteStylePromptSuffix}`;
+                                                this.logWebsiteStyleClone('prompt-augmented', {
+                                                    finalPromptLength: userPrompt.length,
+                                                    sourceUrl: websiteStyleReference?.url || ''
+                                                });
+                                            } else {
+                                                this.logWebsiteStyleClone('prompt-not-augmented', {
+                                                    finalPromptLength: userPrompt.length,
+                                                    sourceUrl: websiteStyleReference?.url || ''
+                                                });
+                                            }
+                                        }
                     break;
 
             }

@@ -4010,6 +4010,140 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         return;
     }
 
+    getTextOverlayEditableExportMetrics() {
+        if (!this.isTextOverlayPreview || !this.previewFrame) {
+            return new Map();
+        }
+
+        const iframeWindow = this.previewFrame.contentWindow;
+        const iframeDoc = this.previewFrame.contentDocument || iframeWindow?.document;
+        if (!iframeWindow || !iframeDoc?.body) {
+            return new Map();
+        }
+
+        const metricsById = new Map();
+        const editableElements = Array.from(iframeDoc.querySelectorAll('[data-artwork-editable-text="true"]'));
+        editableElements.forEach((element, index) => {
+            const metricId = String(element.dataset.artworkEditableTextId || index);
+            try {
+                const rect = element.getBoundingClientRect();
+                const computedStyle = iframeWindow.getComputedStyle(element);
+                if (!rect || rect.width < 1 || rect.height < 1 || !computedStyle) {
+                    return;
+                }
+
+                metricsById.set(metricId, {
+                    width: rect.width,
+                    minHeight: rect.height,
+                    scrollWidth: element.scrollWidth || rect.width,
+                    visualText: String(element.innerText || '').replace(/\r\n/g, '\n'),
+                    sourceText: String(element.textContent || '').replace(/\r\n/g, '\n'),
+                    renderedLines: this.getRenderedTextLinesForExport(element, iframeWindow),
+                    whiteSpace: computedStyle.whiteSpace,
+                    wordBreak: computedStyle.wordBreak,
+                    overflowWrap: computedStyle.overflowWrap,
+                    lineBreak: computedStyle.lineBreak,
+                    hyphens: computedStyle.hyphens,
+                    display: computedStyle.display,
+                    textWrap: computedStyle.textWrap || '',
+                });
+            } catch (_error) {
+                // Ignore metric collection failures for individual elements.
+            }
+        });
+
+        return metricsById;
+    }
+
+    getRenderedTextLinesForExport(element, iframeWindow) {
+        if (!element || !iframeWindow || !element.ownerDocument) {
+            return [];
+        }
+
+        const lines = [];
+        let currentLine = null;
+        const doc = element.ownerDocument;
+        const lineThresholdPx = 2;
+
+        const finishCurrentLine = () => {
+            if (!currentLine) {
+                return;
+            }
+            lines.push(currentLine.text.replace(/[ \t]+$/g, ''));
+            currentLine = null;
+        };
+
+        const appendCharacter = (character, rect) => {
+            if (!rect) {
+                if (/\s/.test(character) && currentLine) {
+                    currentLine.text += character;
+                }
+                return;
+            }
+
+            if (!currentLine || Math.abs(rect.top - currentLine.top) > lineThresholdPx) {
+                finishCurrentLine();
+                currentLine = {
+                    top: rect.top,
+                    text: character,
+                };
+                return;
+            }
+
+            currentLine.text += character;
+        };
+
+        const walkNode = (node) => {
+            if (!node) {
+                return;
+            }
+
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = String(node.textContent || '');
+                for (let index = 0; index < text.length; index += 1) {
+                    const character = text[index];
+                    if (character === '\r') {
+                        continue;
+                    }
+                    if (character === '\n') {
+                        finishCurrentLine();
+                        continue;
+                    }
+
+                    let rect = null;
+                    try {
+                        const range = doc.createRange();
+                        range.setStart(node, index);
+                        range.setEnd(node, index + 1);
+                        const rects = Array.from(range.getClientRects() || []).filter((candidateRect) => candidateRect && (candidateRect.width > 0 || candidateRect.height > 0));
+                        rect = rects[0] || null;
+                        range.detach?.();
+                    } catch (_error) {
+                        rect = null;
+                    }
+
+                    appendCharacter(character, rect);
+                }
+                return;
+            }
+
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return;
+            }
+
+            if (node.tagName === 'BR') {
+                finishCurrentLine();
+                return;
+            }
+
+            Array.from(node.childNodes || []).forEach((childNode) => walkNode(childNode));
+        };
+
+        Array.from(element.childNodes || []).forEach((childNode) => walkNode(childNode));
+        finishCurrentLine();
+        return lines.filter((line) => line.length > 0);
+    }
+
     prepareTextOverlayCloneForExport(clonedNode, captureMetrics) {
         if (!this.isTextOverlayPreview || !clonedNode || !captureMetrics) {
             return;
@@ -4025,6 +4159,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         const cloneDoc = clonedNode.ownerDocument;
         const cloneRoot = cloneDoc?.documentElement || null;
         const cloneBody = cloneDoc?.body || null;
+        const editableMetrics = this.getTextOverlayEditableExportMetrics();
 
         const forceBox = (element, extra = {}) => {
             if (!element || !element.style) return;
@@ -4158,6 +4293,70 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             element.style.transform = `scale(${overlayScaleX}, ${overlayScaleY})`;
             element.style.left = '0';
             element.style.top = '0';
+        });
+
+        const editableCloneNodes = typeof clonedNode.querySelectorAll === 'function'
+            ? Array.from(clonedNode.querySelectorAll('[data-artwork-editable-text="true"]'))
+            : [];
+
+        editableCloneNodes.forEach((element, index) => {
+            if (!element || !element.style) {
+                return;
+            }
+
+            const metricId = String(element.dataset.artworkEditableTextId || index);
+            const metric = editableMetrics.get(metricId);
+            if (!metric) {
+                return;
+            }
+
+            const visualText = String(metric.visualText || '');
+            const sourceText = String(metric.sourceText || '');
+            const renderedLines = Array.isArray(metric.renderedLines) ? metric.renderedLines.filter(Boolean) : [];
+            const renderedText = renderedLines.join('\n');
+            const visualHasLineBreaks = visualText.includes('\n');
+            const freezeToRenderedLines = renderedLines.length > 1 && renderedText && renderedText !== sourceText;
+            const freezeToVisualLines = !freezeToRenderedLines && visualHasLineBreaks && visualText !== sourceText;
+            const keepSingleLine = !visualHasLineBreaks;
+
+            if (freezeToRenderedLines) {
+                element.textContent = renderedText;
+            } else if (freezeToVisualLines) {
+                element.textContent = visualText;
+            }
+
+            element.style.boxSizing = 'border-box';
+            const lockedWidth = keepSingleLine
+                ? Math.max(metric.width, metric.scrollWidth || 0)
+                : metric.width;
+            element.style.width = `${Math.max(1, Math.round(lockedWidth))}px`;
+            element.style.maxWidth = keepSingleLine
+                ? 'none'
+                : `${Math.max(1, Math.round(metric.width))}px`;
+            element.style.minWidth = `${Math.max(1, Math.round(lockedWidth))}px`;
+            element.style.minHeight = `${Math.max(1, Math.round(metric.minHeight))}px`;
+            element.style.whiteSpace = (freezeToRenderedLines || freezeToVisualLines)
+                ? 'pre'
+                : (keepSingleLine ? 'pre' : (metric.whiteSpace || element.style.whiteSpace || 'normal'));
+            element.style.wordBreak = keepSingleLine
+                ? 'keep-all'
+                : (metric.wordBreak || element.style.wordBreak || 'normal');
+            element.style.overflowWrap = keepSingleLine
+                ? 'normal'
+                : (metric.overflowWrap || element.style.overflowWrap || 'normal');
+            element.style.lineBreak = metric.lineBreak || element.style.lineBreak || 'auto';
+            element.style.hyphens = keepSingleLine
+                ? 'none'
+                : (metric.hyphens || element.style.hyphens || 'manual');
+            element.style.overflow = 'visible';
+            if (metric.textWrap) {
+                element.style.textWrap = metric.textWrap;
+            }
+            if (metric.display && metric.display !== 'inline') {
+                element.style.display = metric.display;
+            } else if (!metric.display) {
+                element.style.display = 'block';
+            }
         });
     }
 
