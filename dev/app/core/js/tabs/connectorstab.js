@@ -390,6 +390,10 @@ If unsure, choose "chat".
                 if (this._isWhatsappPairNewDeviceBlocked()) {
                     return;
                 }
+                const readyForFreshPair = await this._prepareWhatsappFreshPairingStart();
+                if (!readyForFreshPair) {
+                    return;
+                }
                 await this.startWhatsappFreshPairing();
             });
         }
@@ -398,6 +402,9 @@ If unsure, choose "chat".
         }
         if (this.whatsappDeleteAllPairedButton) {
             this.whatsappDeleteAllPairedButton.addEventListener('click', async () => {
+                if (this._isWhatsappStoppedServerActionBlocked()) {
+                    return;
+                }
                 await this.deleteAllPairedWhatsappDevices();
             });
         }
@@ -1803,6 +1810,70 @@ If unsure, choose "chat".
         return Array.isArray(this.savedWhatsappDevices) && this.savedWhatsappDevices.length > 1;
     }
 
+    _resolveSavedWhatsappPersistableDeviceId(deviceId = null) {
+        const requested = String(deviceId || '').trim();
+        const resolvedCatalogDeviceId = this._resolveSavedWhatsappCatalogDeviceId(requested);
+        if (this._isWhatsappPairedDeviceId(resolvedCatalogDeviceId)) {
+            return resolvedCatalogDeviceId;
+        }
+
+        const savedEntries = Array.isArray(this.savedWhatsappDevices) ? this.savedWhatsappDevices : [];
+        const savedEntry = savedEntries.find(entry => String(entry && entry.deviceId || '').trim() === requested)
+            || savedEntries.find(entry => String(entry && entry.deviceId || '').trim() === resolvedCatalogDeviceId)
+            || null;
+        if (savedEntry) {
+            const pairedMetadataMatch = savedEntries.find(entry => {
+                const candidateDeviceId = String(entry && entry.deviceId || '').trim();
+                return this._isWhatsappPairedDeviceId(candidateDeviceId)
+                    && this._matchesWhatsappDeviceMetadataIdentity(entry, savedEntry);
+            });
+            if (pairedMetadataMatch && pairedMetadataMatch.deviceId) {
+                return String(pairedMetadataMatch.deviceId).trim();
+            }
+        }
+
+        const normalizedRequested = this._normalizeWhatsappDeviceIdentity(requested || resolvedCatalogDeviceId);
+        if (!normalizedRequested || !savedEntries.length) {
+            return '';
+        }
+
+        const pairedMatch = savedEntries.find(entry => {
+            const candidateDeviceId = String(entry && entry.deviceId || '').trim();
+            if (!this._isWhatsappPairedDeviceId(candidateDeviceId)) {
+                return false;
+            }
+            return this._normalizeWhatsappDeviceIdentity(candidateDeviceId) === normalizedRequested
+                || this._normalizeWhatsappDeviceIdentity(entry && entry.jid) === normalizedRequested
+                || this._normalizeWhatsappDeviceIdentity(entry && entry.phone_number) === normalizedRequested;
+        });
+
+        return pairedMatch && pairedMatch.deviceId ? String(pairedMatch.deviceId).trim() : '';
+    }
+
+    _resolveSavedWhatsappStartupDeviceId(deviceId = null) {
+        const persistableDeviceId = this._resolveSavedWhatsappPersistableDeviceId(deviceId);
+        if (persistableDeviceId) {
+            return persistableDeviceId;
+        }
+
+        const requested = String(deviceId || '').trim();
+        const resolvedCatalogDeviceId = this._resolveSavedWhatsappCatalogDeviceId(requested);
+        const fallbackDeviceId = String(resolvedCatalogDeviceId || requested || '').trim();
+        if (!fallbackDeviceId) {
+            return '';
+        }
+
+        const savedEntries = Array.isArray(this.savedWhatsappDevices) ? this.savedWhatsappDevices : [];
+        const matchingEntry = savedEntries.find(entry => {
+            const candidateDeviceId = String(entry && entry.deviceId || '').trim();
+            return candidateDeviceId === fallbackDeviceId
+                || this._matchesWhatsappDeviceReference(entry, fallbackDeviceId)
+                || this._matchesWhatsappDeviceMetadataIdentity(entry, { deviceId: fallbackDeviceId });
+        });
+
+        return matchingEntry && matchingEntry.deviceId ? String(matchingEntry.deviceId).trim() : fallbackDeviceId;
+    }
+
     async _syncWhatsappLoginSuccessToServer(deviceOrPayload = null, maxAttempts = 6) {
         const payload = deviceOrPayload && typeof deviceOrPayload === 'object' ? deviceOrPayload : null;
         const payloadPersistDeviceId = payload ? this._resolvePersistableWhatsappEventDeviceId(payload) : '';
@@ -1883,6 +1954,62 @@ If unsure, choose "chat".
         return false;
     }
 
+    async _syncSavedWhatsappCatalogToServer() {
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+        if (!hashedMasterKey) {
+            return false;
+        }
+
+        let devices = Array.isArray(this.savedWhatsappDevices) ? this.savedWhatsappDevices : [];
+        let selectedDeviceId = String(this.savedWhatsappDeviceId || '').trim();
+        let loadedFromInfo = false;
+
+        if (!devices.length) {
+            const info = await this._loadSavedWhatsappDeviceInfo();
+            const normalized = this._normalizeWhatsappDeviceCatalog(info);
+            devices = Array.isArray(normalized.devices) ? normalized.devices : [];
+            loadedFromInfo = true;
+            if (!selectedDeviceId) {
+                selectedDeviceId = String(normalized.selectedDeviceId || '').trim();
+            }
+        }
+
+        const rawDevices = devices.map(entry => ({
+            deviceId: String(entry && entry.deviceId || '').trim(),
+            jid: String(entry && entry.jid || '').trim(),
+            phone_number: String(entry && entry.phone_number || '').trim(),
+            display_name: String(entry && entry.display_name || '').trim(),
+            state: String(entry && entry.state || '').trim(),
+            created_at: String(entry && entry.created_at || '').trim()
+        }));
+
+        const persistedDevices = rawDevices;
+
+        const resolvedSelectedDeviceId = this._resolveSavedWhatsappStartupDeviceId(selectedDeviceId);
+        console.info('ConnectorsTab: syncing saved WhatsApp catalog to server before startup', {
+            selectedDeviceId,
+            resolvedSelectedDeviceId,
+            totalSavedDevices: Array.isArray(devices) ? devices.length : 0,
+            persistedDevicesCount: persistedDevices.length,
+            persistedDeviceIds: persistedDevices.map(entry => entry.deviceId)
+        });
+
+        await fetch('/api/whatsapp/db-sync', {
+            method: 'POST',
+            headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+                selected_device_id: resolvedSelectedDeviceId,
+                devices: persistedDevices,
+                debug_total_devices: rawDevices.length,
+                debug_loaded_from_info: loadedFromInfo,
+                debug_filtered_non_persistable: Math.max(0, rawDevices.length - persistedDevices.length),
+                debug_raw_device_ids: rawDevices.map(entry => entry.deviceId)
+            })
+        });
+
+        return true;
+    }
+
     _isWhatsappRequestActive(requestGeneration, allowDuringManualStop = false) {
         if (typeof requestGeneration === 'number' && requestGeneration !== this.whatsappRequestGeneration) {
             return false;
@@ -1928,7 +2055,18 @@ If unsure, choose "chat".
 
     _isWhatsappPairNewDeviceBlocked() {
         return !!(
+            this.serverStarted
+            ||
             this.serverStopping
+            || this.serverStarting
+            || this._isWhatsappRestartBlocked()
+        );
+    }
+
+    _isWhatsappStoppedServerActionBlocked() {
+        return !!(
+            this.serverStarted
+            || this.serverStopping
             || this.serverStarting
             || this._isWhatsappRestartBlocked()
         );
@@ -1966,7 +2104,7 @@ If unsure, choose "chat".
 
     _getWhatsappRemoteLogoutWarningMessage() {
         return (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappRemoteLogoutRestartWarning'))
-            || 'This WhatsApp device was removed from your phone. Start the server again to create a fresh pairing.';
+            || 'This WhatsApp device was removed from your phone. Start the server again to reconnect the next saved device or create a fresh pairing.';
     }
 
     async _handleWhatsappRemoteLogout(eventDeviceId = null, { force = false } = {}) {
@@ -2066,9 +2204,17 @@ If unsure, choose "chat".
         const statusCard = document.getElementById('whatsapp-status-card');
         if (statusCard) {
             if (this.serverStarted) {
-                statusCard.textContent = isPaired
-                    ? (Lang.get('whatsappPairedCard') || 'WhatsApp paired')
-                    : (Lang.get('whatsappNotPairedCard') || 'WhatsApp not paired');
+                if (isPaired) {
+                    const pairedLabel = (Lang.get('whatsappPairedCard') || 'WhatsApp paired');
+                    const connectedPhoneNumber = this._getWhatsappPairedStatusPhoneNumber();
+                    if (connectedPhoneNumber) {
+                        statusCard.innerHTML = `${pairedLabel}<br><span style="display:block;font-size:12px;font-weight:500;opacity:0.85;margin-top:2px;">${this._escapeHtml(connectedPhoneNumber)}</span>`;
+                    } else {
+                        statusCard.textContent = pairedLabel;
+                    }
+                } else {
+                    statusCard.textContent = (Lang.get('whatsappNotPairedCard') || 'WhatsApp not paired');
+                }
             } else {
                 statusCard.textContent = (Lang.get('whatsappNotPairedCard') || 'WhatsApp not paired');
             }
@@ -2112,7 +2258,10 @@ If unsure, choose "chat".
             this.whatsappPairNewDeviceButton.style.borderRadius = '8px';
             this.whatsappPairNewDeviceButton.style.fontWeight = '600';
             this.whatsappPairNewDeviceButton.disabled = this._isWhatsappPairNewDeviceBlocked() || !this.whatsappMode;
-            if (this._isWhatsappRestartBlocked()) {
+            if (this.serverStarted && !this.serverStarting && !this.serverStopping) {
+                this.whatsappPairNewDeviceButton.textContent = 'Pair new device';
+                this.whatsappPairNewDeviceButton.title = 'Stop the WhatsApp server before pairing a new device';
+            } else if (this._isWhatsappRestartBlocked()) {
                 this.whatsappPairNewDeviceButton.textContent = 'Please wait...';
                 this.whatsappPairNewDeviceButton.title = 'Please wait before pairing a new device';
             } else {
@@ -2137,10 +2286,16 @@ If unsure, choose "chat".
             this.whatsappDeleteAllPairedButton.style.padding = '12px 16px';
             this.whatsappDeleteAllPairedButton.style.borderRadius = '8px';
             this.whatsappDeleteAllPairedButton.style.fontWeight = '600';
-            const deleteAllDisabled = this.serverStopping || this._isWhatsappRestartBlocked();
+            const deleteAllDisabled = this._isWhatsappStoppedServerActionBlocked();
             this.whatsappDeleteAllPairedButton.disabled = deleteAllDisabled;
             this.whatsappDeleteAllPairedButton.textContent = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedButton')) || 'Delete paired device(s)';
-            this.whatsappDeleteAllPairedButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedButtonTitle')) || 'Delete paired device(s)';
+            if (this.serverStarted && !this.serverStarting && !this.serverStopping) {
+                this.whatsappDeleteAllPairedButton.title = 'Stop the WhatsApp server before deleting paired device(s)';
+            } else if (this._isWhatsappRestartBlocked()) {
+                this.whatsappDeleteAllPairedButton.title = 'Please wait before deleting paired device(s)';
+            } else {
+                this.whatsappDeleteAllPairedButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedButtonTitle')) || 'Delete paired device(s)';
+            }
             if (deleteAllDisabled) {
                 this.whatsappDeleteAllPairedButton.style.backgroundColor = 'var(--button-secondary-disabled-bg, #e5e7eb)';
                 this.whatsappDeleteAllPairedButton.style.borderColor = 'var(--button-secondary-disabled-border, var(--button-secondary-border, #cbd5e1))';
@@ -2159,10 +2314,16 @@ If unsure, choose "chat".
             this.whatsappClearContextsButton.style.padding = '12px 16px';
             this.whatsappClearContextsButton.style.borderRadius = '8px';
             this.whatsappClearContextsButton.style.fontWeight = '600';
-            const clearContextsDisabled = this.serverStopping || this._isWhatsappRestartBlocked();
+            const clearContextsDisabled = this._isWhatsappStoppedServerActionBlocked();
             this.whatsappClearContextsButton.disabled = clearContextsDisabled;
             this.whatsappClearContextsButton.textContent = (window.Lang && typeof Lang.get === 'function' && Lang.get('clearWhatsappPhoneContextsButton')) || 'Clear WhatsApp Contexts';
-            this.whatsappClearContextsButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('clearWhatsappPhoneContextsButton')) || 'Clear WhatsApp Contexts';
+            if (this.serverStarted && !this.serverStarting && !this.serverStopping) {
+                this.whatsappClearContextsButton.title = 'Stop the WhatsApp server before clearing WhatsApp contexts';
+            } else if (this._isWhatsappRestartBlocked()) {
+                this.whatsappClearContextsButton.title = 'Please wait before clearing WhatsApp contexts';
+            } else {
+                this.whatsappClearContextsButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('clearWhatsappPhoneContextsButton')) || 'Clear WhatsApp Contexts';
+            }
             if (clearContextsDisabled) {
                 this.whatsappClearContextsButton.style.backgroundColor = 'var(--button-secondary-disabled-bg, #e5e7eb)';
                 this.whatsappClearContextsButton.style.borderColor = 'var(--button-secondary-disabled-border, var(--button-secondary-border, #cbd5e1))';
@@ -2192,6 +2353,29 @@ If unsure, choose "chat".
         } catch (e) {
             console.warn('ConnectorsTab: CustomEvent dispatch failed', e);
         }
+    }
+
+    _getWhatsappPairedStatusPhoneNumber() {
+        const selectedDeviceId = String(this.savedWhatsappDeviceId || '').trim();
+        const selectedEntry = this._findBestWhatsappDeviceCatalogEntry(this.savedWhatsappDevices, selectedDeviceId) || null;
+        const candidatePhoneNumber = String(
+            (selectedEntry && (selectedEntry.phone_number || selectedEntry.jid || selectedEntry.deviceId))
+            || ''
+        ).trim();
+        if (!candidatePhoneNumber) {
+            return '';
+        }
+
+        return this._normalizeWhatsappDeviceIdentity(candidatePhoneNumber) || candidatePhoneNumber;
+    }
+
+    _escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     async setWhatsappMode(mode, fromDB = false) {
@@ -2340,17 +2524,93 @@ If unsure, choose "chat".
         }
     }
 
-    async deleteAllPairedWhatsappDevices() {
+    async _hasPersistedWhatsappDeviceInDb() {
+        const savedDeviceId = String(this.savedWhatsappDeviceId || '').trim();
+        if (savedDeviceId) {
+            return true;
+        }
+
+        if (Array.isArray(this.savedWhatsappDevices) && this.savedWhatsappDevices.some(entry => String(entry && entry.deviceId || '').trim())) {
+            return true;
+        }
+
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+        if (!hashedMasterKey) {
+            return false;
+        }
+
+        try {
+            const dbHandle = await this._getPaiperworkDBHandle();
+            if (!dbHandle) {
+                return false;
+            }
+
+            if (typeof dbHandle.initializeDatabase === 'function') {
+                await dbHandle.initializeDatabase(hashedMasterKey);
+            }
+
+            if (typeof dbHandle.hasWhatsappPersistedPairingData === 'function') {
+                return !!(await dbHandle.hasWhatsappPersistedPairingData(hashedMasterKey));
+            }
+
+            const hasFn = typeof dbHandle.getWhatsappDeviceInfo === 'function';
+            if (!hasFn) {
+                return false;
+            }
+
+            const info = await dbHandle.getWhatsappDeviceInfo(hashedMasterKey);
+            const normalized = this._normalizeWhatsappDeviceCatalog(info);
+            const selectedDeviceId = String(normalized.selectedDeviceId || '').trim();
+            if (selectedDeviceId) {
+                return true;
+            }
+
+            return normalized.devices.some(entry => String(entry && entry.deviceId || '').trim());
+        } catch (err) {
+            console.warn('ConnectorsTab: _hasPersistedWhatsappDeviceInDb failed', err);
+            return false;
+        }
+    }
+
+    _confirmWhatsappFreshPairingReplacement() {
+        const confirmMessage = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappPairNewDeviceReplaceWarning'))
+            || 'A WhatsApp device is already paired in Paiperwork. Pairing a new device will remove the existing pairing before continuing. Do you want to continue?';
+        if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
+            return true;
+        }
+
+        return !!window.confirm(confirmMessage);
+    }
+
+    async _prepareWhatsappFreshPairingStart() {
+        // The first side effect after clicking Pair new device must be the warning.
+        // This method only reads local/runtime DB state before asking the user.
+        const hasPersistedDevice = await this._hasPersistedWhatsappDeviceInDb();
+        if (!hasPersistedDevice) {
+            return true;
+        }
+
+        if (!this._confirmWhatsappFreshPairingReplacement()) {
+            return false;
+        }
+
+        return this.deleteAllPairedWhatsappDevices({ skipConfirm: true, suppressSuccessStatus: true });
+    }
+
+    async deleteAllPairedWhatsappDevices(options = {}) {
+        const { skipConfirm = false, suppressSuccessStatus = false } = options || {};
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         if (!hashedMasterKey) {
             console.warn('ConnectorsTab: deleteAllPairedWhatsappDevices missing master key');
-            return;
+            return false;
         }
 
-        const confirmMessage = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedConfirm'))
-            || 'You are about to delete pairing information from Paiperwork, are you sure?';
-        if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm(confirmMessage)) {
-            return;
+        if (!skipConfirm) {
+            const confirmMessage = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedConfirm'))
+                || 'You are about to delete pairing information from Paiperwork, are you sure?';
+            if (typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm(confirmMessage)) {
+                return false;
+            }
         }
 
         try {
@@ -2382,10 +2642,14 @@ If unsure, choose "chat".
             this.clearWhatsappQrCountdown();
             this.closeWhatsappPairModal();
             this.setWhatsappPairButtonState(false);
-            this.setWhatsappModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedSuccess')) || 'Paiperwork WhatsApp DB tables cleared. Click Start server to pair a new device now.');
+            if (!suppressSuccessStatus) {
+                this.setWhatsappModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedSuccess')) || 'Paiperwork WhatsApp DB tables cleared. Click Start server to pair a new device now.');
+            }
+            return true;
         } catch (err) {
             console.warn('ConnectorsTab: deleteAllPairedWhatsappDevices failed', err);
             this.setWhatsappModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedFailed')) || 'Failed to delete Paiperwork pairing data. See console logs.');
+            return false;
         } finally {
             this.serverStopping = false;
         }
@@ -2813,13 +3077,6 @@ If unsure, choose "chat".
             const payload = this._buildWhatsappDeviceInfoPayload(selectedDeviceId, devices, fallbackMeta);
             const saveResult = await dbHandle.saveWhatsappDeviceInfo(hashedMasterKey, payload.deviceId, payload.meta);
             if (saveResult) {
-                if (typeof dbHandle.saveWhatsappDeviceCatalog === 'function') {
-					const catalogDevices = Array.isArray(payload.meta && payload.meta.devices) ? payload.meta.devices : [];
-					const catalogSaveResult = await dbHandle.saveWhatsappDeviceCatalog(hashedMasterKey, catalogDevices);
-                    if (!catalogSaveResult) {
-                        console.warn('ConnectorsTab: failed to persist WhatsApp device catalog registry');
-                    }
-                }
                 this._applyWhatsappDeviceCatalogState(payload);
             }
             return !!saveResult;
@@ -2975,34 +3232,15 @@ If unsure, choose "chat".
 
         const info = await this._loadSavedWhatsappDeviceInfo();
         const normalized = this._normalizeWhatsappDeviceCatalog(info);
-        const normalizedResolvedDeviceId = this._normalizeWhatsappDeviceIdentity(resolvedDeviceId);
         const matchesResolvedDevice = (candidateDeviceId) => {
             const resolvedCandidateDeviceId = String(candidateDeviceId || '').trim();
             if (!resolvedCandidateDeviceId) {
                 return false;
             }
-            if (resolvedCandidateDeviceId === resolvedDeviceId) {
-                return true;
-            }
-            return normalizedResolvedDeviceId && this._normalizeWhatsappDeviceIdentity(resolvedCandidateDeviceId) === normalizedResolvedDeviceId;
+            return resolvedCandidateDeviceId === resolvedDeviceId;
         };
 
         const matchingEntries = normalized.devices.filter(entry => matchesResolvedDevice(entry && entry.deviceId));
-        const additionalPurgeDeviceIds = [...new Set(matchingEntries
-            .map(entry => String(entry && entry.deviceId || '').trim())
-            .filter(candidateDeviceId => candidateDeviceId && candidateDeviceId !== resolvedDeviceId && this._isWhatsappPairedDeviceId(candidateDeviceId))
-        )];
-        for (const additionalDeviceId of additionalPurgeDeviceIds) {
-            try {
-                await this._deleteSavedWhatsappDeviceOnServer(additionalDeviceId, options.reason ? `${options.reason}-associated` : 'device-removed-associated');
-            } catch (additionalPurgeErr) {
-                console.warn('ConnectorsTab: _removeSavedWhatsappDevice failed to purge associated backend saved device', {
-                    resolvedDeviceId,
-                    additionalDeviceId,
-                    error: additionalPurgeErr
-                });
-            }
-        }
         const remainingDevices = normalized.devices.filter(entry => !matchesResolvedDevice(entry && entry.deviceId));
         const wasSelected = matchesResolvedDevice(normalized.selectedDeviceId);
         const fallbackSelection = options.selectReplacement === 'none'
@@ -3070,12 +3308,19 @@ If unsure, choose "chat".
     async _forgetSavedWhatsappDeviceAfterUnpair(deviceId = null, reason = 'remote-unpair') {
         try {
             const resolvedDeviceId = this._resolveSavedWhatsappCatalogDeviceId(deviceId || this.savedWhatsappDeviceId || '');
+            const shouldFullyPurgeLocalArtifacts = /(remote[_-]?logout|remote-unpair|logged[_-]?out)/i.test(String(reason || ''));
 			/*console.log('ConnectorsTab: _forgetSavedWhatsappDeviceAfterUnpair begin', {
 				deviceId: deviceId || null,
 				resolvedDeviceId: resolvedDeviceId || null,
 				reason
 			});*/
             await this._clearWhatsappRuntimeSession(resolvedDeviceId || null);
+
+            if (shouldFullyPurgeLocalArtifacts) {
+                await this._clearSavedWhatsappDeviceInfo();
+                this.whatsappStalePreferredDeviceCleared = resolvedDeviceId || null;
+                return;
+            }
 
             if (!resolvedDeviceId) {
                 await this._clearSavedWhatsappDeviceInfo();
@@ -3087,7 +3332,7 @@ If unsure, choose "chat".
 
             await this._removeSavedWhatsappDevice(resolvedDeviceId, {
                 reason,
-                selectReplacement: 'none'
+                selectReplacement: 'auto'
             });
 
             this.whatsappStalePreferredDeviceCleared = resolvedDeviceId;
@@ -3123,314 +3368,60 @@ If unsure, choose "chat".
         };
     }
 
-    _closeWhatsappDeviceChooserModal() {
-        const existing = document.getElementById('wa-device-chooser-modal');
-        if (existing && existing.parentNode) {
-            existing.parentNode.removeChild(existing);
-        }
-    }
-
-    async _showWhatsappDeviceChooserModal(devices) {
-        const entries = Array.isArray(devices)
-            ? devices.map(entry => this._sanitizeWhatsappDeviceCatalogEntry(entry)).filter(Boolean)
-            : [];
-        if (entries.length <= 1) {
-            return entries[0] ? entries[0].deviceId : null;
-        }
-
-        this._closeWhatsappDeviceChooserModal();
-
-        return new Promise(resolve => {
-            let currentEntries = [...entries];
-            const overlay = document.createElement('div');
-            overlay.id = 'wa-device-chooser-modal';
-            overlay.style.cssText = 'position:fixed;inset:0;background:var(--modal-overlay-bg, rgba(15,23,42,0.55));display:flex;align-items:center;justify-content:center;z-index:100001;padding:16px;';
-
-            const dialog = document.createElement('div');
-            dialog.style.cssText = 'width:min(520px,100%);max-height:min(80vh,720px);overflow:auto;background:var(--wa-modal-bg, var(--card-bg,#fff));color:var(--wa-modal-text, var(--text-color,#111));border:1px solid var(--wa-modal-border, var(--border-color,#d0d7de));border-radius:14px;box-shadow:var(--wa-modal-shadow, 0 18px 55px rgba(15,23,42,0.22));padding:18px;';
-
-            const title = document.createElement('h3');
-            title.textContent = 'Choose a saved WhatsApp device';
-            title.style.cssText = 'margin:0 0 8px 0;font-size:20px;line-height:1.2;';
-
-            const description = document.createElement('p');
-            description.textContent = 'Select the device Paiperwork should reconnect before opening the QR flow.';
-            description.style.cssText = 'margin:0 0 16px 0;color:var(--wa-modal-muted,#5b6573);line-height:1.45;';
-
-            const list = document.createElement('div');
-            list.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
-
-            const finish = (value) => {
-                this._closeWhatsappDeviceChooserModal();
-                resolve(value);
-            };
-
-            const renderList = () => {
-                list.innerHTML = '';
-
-                if (!currentEntries.length) {
-                    const empty = document.createElement('div');
-                    empty.textContent = 'No saved WhatsApp devices remain.';
-                    empty.style.cssText = 'padding:14px 16px;border:1px dashed var(--wa-modal-border, var(--border-color,#d0d7de));border-radius:12px;background:var(--wa-modal-qr-surface, var(--panel-background,#f8fafc));color:var(--wa-modal-muted,#5b6573);text-align:center;';
-                    list.appendChild(empty);
-                    return;
-                }
-
-                currentEntries.forEach(entry => {
-                    const label = this._formatWhatsappSavedDeviceLabel(entry);
-                    const item = document.createElement('div');
-                    item.style.cssText = 'display:flex;flex-direction:column;gap:8px;width:100%;';
-
-                    const card = document.createElement('div');
-                    card.tabIndex = 0;
-                    card.setAttribute('role', 'button');
-                    card.setAttribute('aria-label', `Select ${label.primary}`);
-                    card.style.cssText = 'display:flex;flex-direction:column;align-items:flex-start;gap:4px;box-sizing:border-box;width:100%;padding:14px 16px;border:1px solid var(--wa-modal-border, var(--border-color,#d0d7de));border-radius:12px;background:var(--wa-modal-qr-surface, var(--panel-background, var(--card-bg,#fff)));color:var(--wa-modal-text, var(--text-color,#111));cursor:pointer;text-align:left;transition:border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;';
-
-                    const primary = document.createElement('span');
-                    primary.textContent = label.primary;
-                    primary.style.cssText = 'font-size:15px;font-weight:600;color:var(--wa-modal-text, var(--text-color,#111));';
-
-                    const secondary = document.createElement('span');
-                    secondary.textContent = label.secondary || `Device ID: ${label.deviceId}`;
-                    secondary.style.cssText = 'font-size:12px;color:var(--wa-modal-muted,#5b6573);line-height:1.4;';
-
-                    card.appendChild(primary);
-                    card.appendChild(secondary);
-                    card.addEventListener('click', () => finish(label.deviceId));
-                    card.addEventListener('keydown', (event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            finish(label.deviceId);
-                        }
-                    });
-                    card.addEventListener('mouseenter', () => {
-                        card.style.borderColor = 'var(--accent-color, #4f46e5)';
-                        card.style.background = 'var(--wa-modal-surface-hover, var(--hover-background, var(--panel-background, var(--card-bg,#fff))))';
-                        card.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--accent-color, #4f46e5) 18%, transparent)';
-                    });
-                    card.addEventListener('mouseleave', () => {
-                        card.style.borderColor = 'var(--wa-modal-border, var(--border-color,#d0d7de))';
-                        card.style.background = 'var(--wa-modal-qr-surface, var(--panel-background, var(--card-bg,#fff)))';
-                        card.style.boxShadow = 'none';
-                    });
-                    card.addEventListener('focus', () => {
-                        card.style.borderColor = 'var(--accent-color, #4f46e5)';
-                        card.style.background = 'var(--wa-modal-surface-hover, var(--hover-background, var(--panel-background, var(--card-bg,#fff))))';
-                        card.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--accent-color, #4f46e5) 20%, transparent)';
-                    });
-                    card.addEventListener('blur', () => {
-                        card.style.borderColor = 'var(--wa-modal-border, var(--border-color,#d0d7de))';
-                        card.style.background = 'var(--wa-modal-qr-surface, var(--panel-background, var(--card-bg,#fff)))';
-                        card.style.boxShadow = 'none';
-                    });
-
-                    const deleteButton = document.createElement('button');
-                    deleteButton.type = 'button';
-                    deleteButton.textContent = 'Delete from saved devices';
-                    deleteButton.style.cssText = 'align-self:flex-start;margin-left:2px;padding:8px 12px;border:1px solid var(--danger-color, #dc3545);border-radius:9px;background:transparent;color:var(--danger-color, #dc3545);cursor:pointer;font-weight:600;font-size:12px;transition:background-color 120ms ease, color 120ms ease, border-color 120ms ease;';
-                    deleteButton.addEventListener('mouseenter', () => {
-                        deleteButton.style.background = 'var(--danger-color, #dc3545)';
-                        deleteButton.style.color = 'var(--accent-text, #ffffff)';
-                        deleteButton.style.borderColor = 'var(--danger-color, #dc3545)';
-                    });
-                    deleteButton.addEventListener('mouseleave', () => {
-                        deleteButton.style.background = 'transparent';
-                        deleteButton.style.color = 'var(--danger-color, #dc3545)';
-                        deleteButton.style.borderColor = 'var(--danger-color, #dc3545)';
-                    });
-                    deleteButton.addEventListener('focus', () => {
-                        deleteButton.style.background = 'var(--danger-color, #dc3545)';
-                        deleteButton.style.color = 'var(--accent-text, #ffffff)';
-                        deleteButton.style.borderColor = 'var(--danger-color, #dc3545)';
-                    });
-                    deleteButton.addEventListener('blur', () => {
-                        deleteButton.style.background = 'transparent';
-                        deleteButton.style.color = 'var(--danger-color, #dc3545)';
-                        deleteButton.style.borderColor = 'var(--danger-color, #dc3545)';
-                    });
-                    deleteButton.addEventListener('click', async (event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-
-                        const confirmed = window.confirm(
-                            `Are you sure you want to delete ${label.primary} from the saved device list? This removes the device from Paiperwork's database list and you may need to pair it again later with a new QR code.`
-                        );
-                        if (!confirmed) {
-                            return;
-                        }
-
-                        deleteButton.disabled = true;
-                        deleteButton.textContent = 'Deleting...';
-
-                        try {
-                            const removed = await this._removeSavedWhatsappDevice(label.deviceId, {
-                                purgeServer: true,
-                                reason: 'chooser-delete',
-                                selectReplacement: 'none'
-                            });
-                            if (!removed) {
-                                deleteButton.disabled = false;
-                                deleteButton.textContent = 'Delete from saved devices';
-                                return;
-                            }
-
-                            currentEntries = currentEntries.filter(item => item.deviceId !== label.deviceId);
-                            renderList();
-
-                            if (!currentEntries.length) {
-                                finish(null);
-                            }
-                        } catch (err) {
-                            console.warn('ConnectorsTab: failed to delete saved whatsapp device from chooser', err);
-                            deleteButton.disabled = false;
-                            deleteButton.textContent = 'Delete from saved devices';
-                        }
-                    });
-
-                    item.appendChild(card);
-                    item.appendChild(deleteButton);
-                    list.appendChild(item);
-                });
-            };
-
-            renderList();
-
-            const footer = document.createElement('div');
-            footer.style.cssText = 'display:flex;justify-content:flex-end;margin-top:16px;';
-
-            const cancel = document.createElement('button');
-            cancel.type = 'button';
-            cancel.textContent = 'Cancel';
-            cancel.style.cssText = 'padding:10px 14px;border:1px solid var(--wa-modal-secondary-btn-border, var(--border-color,#d0d7de));border-radius:10px;background:var(--wa-modal-secondary-btn-bg, var(--panel-background, #e5e7eb));color:var(--wa-modal-secondary-btn-text, var(--text-color, #111));cursor:pointer;font-weight:600;transition:background-color 120ms ease, border-color 120ms ease, color 120ms ease;';
-            cancel.addEventListener('mouseenter', () => {
-                cancel.style.background = 'var(--wa-modal-secondary-btn-hover-bg, var(--wa-modal-secondary-btn-bg, var(--panel-background, #e5e7eb)))';
-                cancel.style.borderColor = 'var(--wa-modal-secondary-btn-hover-border, var(--wa-modal-secondary-btn-border, var(--border-color,#d0d7de)))';
-                cancel.style.color = 'var(--wa-modal-secondary-btn-hover-text, var(--wa-modal-secondary-btn-text, var(--text-color, #111)))';
-            });
-            cancel.addEventListener('mouseleave', () => {
-                cancel.style.background = 'var(--wa-modal-secondary-btn-bg, var(--panel-background, #e5e7eb))';
-                cancel.style.borderColor = 'var(--wa-modal-secondary-btn-border, var(--border-color,#d0d7de))';
-                cancel.style.color = 'var(--wa-modal-secondary-btn-text, var(--text-color, #111))';
-            });
-            cancel.addEventListener('click', () => finish(null));
-
-            footer.appendChild(cancel);
-            dialog.appendChild(title);
-            dialog.appendChild(description);
-            dialog.appendChild(list);
-            dialog.appendChild(footer);
-            overlay.appendChild(dialog);
-            overlay.addEventListener('click', (event) => {
-                if (event.target === overlay) {
-                    finish(null);
-                }
-            });
-            document.body.appendChild(overlay);
-        });
-    }
-
     async _chooseSavedWhatsappDeviceForStart() {
         if (this.whatsappFreshPairRequested) {
-            //console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart bypassing saved-device selection because fresh pairing is active');
             this.savedWhatsappDeviceId = null;
             return '';
         }
 
         const { normalized } = await this._readSavedWhatsappDeviceCatalogFromDb();
         const devices = Array.isArray(normalized && normalized.devices) ? normalized.devices : [];
-        /*console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart resolved devices', {
-            deviceCount: devices.length,
-            savedWhatsappDeviceId: this.savedWhatsappDeviceId,
-            deviceIds: devices.map(entry => entry.deviceId)
-        });*/
 
-        if (!Array.isArray(devices) || devices.length <= 1) {
-            if (devices[0] && devices[0].deviceId) {
-                //console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart auto-selecting single device', {
-                    //deviceId: devices[0].deviceId
-                ///});
-                const selected = await this._selectSavedWhatsappDevice(devices[0].deviceId, devices);
-                return selected ? String(devices[0].deviceId || '').trim() : null;
-            }
+        if (!Array.isArray(devices) || devices.length === 0) {
             return '';
         }
 
-        // If there are multiple persisted WhatsApp devices in the Paiperwork role DB,
-        // always prompt the user to choose one before the gateway starts,
-        // even if a previous saved device selection exists.
-        this.savedWhatsappDeviceId = null;
-        const chosenDeviceId = await this._showWhatsappDeviceChooserModal(devices);
-        if (!chosenDeviceId) {
-            //console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart chooser cancelled');
-            return null;
+        const candidateDeviceIds = [
+            this.savedWhatsappDeviceId,
+            normalized.selectedDeviceId,
+            ...devices.map(entry => String(entry && entry.deviceId || '').trim())
+        ];
+        let resolvedDeviceId = '';
+        for (const candidateDeviceId of candidateDeviceIds) {
+            const persistableDeviceId = this._resolveSavedWhatsappPersistableDeviceId(candidateDeviceId);
+            if (persistableDeviceId) {
+                resolvedDeviceId = persistableDeviceId;
+                break;
+            }
         }
 
-        //console.log('ConnectorsTab: _chooseSavedWhatsappDeviceForStart chooser selected device', { chosenDeviceId });
-        const selected = await this._selectSavedWhatsappDevice(chosenDeviceId);
-        return selected ? String(chosenDeviceId || '').trim() : null;
-    }
-
-    async _recoverWhatsappDeviceSelectionRequirement(errorBody = {}, options = {}, requestGeneration = this.whatsappRequestGeneration) {
-        if (!this._isWhatsappRequestActive(requestGeneration)) {
-            return null;
+        if (!resolvedDeviceId) {
+            this.savedWhatsappDeviceId = null;
+            return '';
         }
 
-        const message = String((errorBody && errorBody.message) || '').trim()
-            || 'An explicit WhatsApp device selection is required before reconnecting this runtime.';
-        const candidateCount = Number((errorBody && errorBody.candidateCount) || 0);
-        const interactiveRecovery = !!options.start || !!this.serverStarting;
-        const { normalized } = await this._readSavedWhatsappDeviceCatalogFromDb();
-        const devices = Array.isArray(normalized && normalized.devices) ? normalized.devices : [];
+        const selectedEntry = this._findBestWhatsappDeviceCatalogEntry(devices, resolvedDeviceId);
+        if (!selectedEntry || !selectedEntry.deviceId) {
+            this.savedWhatsappDeviceId = null;
+            return '';
+        }
 
-        if (devices.length === 1 && devices[0] && devices[0].deviceId) {
-            const recoveredDeviceId = String(devices[0].deviceId || '').trim();
-            const selected = await this._selectSavedWhatsappDevice(recoveredDeviceId, devices);
-            if (selected) {
-                this.setWhatsappModalStatus('Recovered saved WhatsApp device selection. Retrying...');
-                return this.refreshWhatsappPairButton({
-                    ...options,
-                    requestGeneration,
-                    allowDeviceSelectionRecovery: false
+        const collapsedDevices = [selectedEntry];
+        const shouldPersistCollapsedCatalog = devices.length !== 1
+            || String(normalized.selectedDeviceId || '').trim() !== String(selectedEntry.deviceId || '').trim();
+
+        if (shouldPersistCollapsedCatalog) {
+            const saveResult = await this._writeWhatsappDeviceCatalog(selectedEntry.deviceId, collapsedDevices, normalized.meta);
+            if (!saveResult) {
+                console.warn('ConnectorsTab: failed to persist collapsed single-device WhatsApp catalog before startup', {
+                    selectedDeviceId: selectedEntry.deviceId
                 });
             }
         }
 
-        if (devices.length > 1 && interactiveRecovery) {
-            this.setWhatsappModalStatus('Choose which saved WhatsApp device should reconnect.');
-            const chosenDeviceId = await this._showWhatsappDeviceChooserModal(devices);
-            if (chosenDeviceId) {
-                const selected = await this._selectSavedWhatsappDevice(chosenDeviceId);
-                if (selected) {
-                    this.setWhatsappModalStatus('Saved WhatsApp device selected. Retrying...');
-                    return this.refreshWhatsappPairButton({
-                        ...options,
-                        requestGeneration,
-                        allowDeviceSelectionRecovery: false
-                    });
-                }
-            }
-        }
-
-        if (!devices.length && options.start) {
-            this.setWhatsappModalStatus('No saved WhatsApp device is available. Switching to fresh pairing...');
-            this._setWhatsappFreshPairRequested(true);
-            this.whatsappFreshPairDeviceId = null;
-            return this.refreshWhatsappPairButton({
-                ...options,
-                requestGeneration,
-                freshPair: true,
-                allowDeviceSelectionRecovery: false
-            });
-        }
-
-        this.setWhatsappPairButtonState(false);
-        if (candidateCount > 1 && devices.length > 1) {
-            this.setWhatsappModalStatus('Choose a saved WhatsApp device before reconnecting, or use Pair new device.');
-        } else {
-            this.setWhatsappModalStatus(message);
-        }
-        return null;
+        this.savedWhatsappDeviceId = String(selectedEntry.deviceId || '').trim() || null;
+        this.savedWhatsappDevices = collapsedDevices;
+        return this.savedWhatsappDeviceId || '';
     }
 
     async _loadSavedWhatsappDeviceInfo(retryCount = 0) {
@@ -3463,17 +3454,10 @@ If unsure, choose "chat".
                 await dbHandle.initializeDatabase(hashedMasterKey);
             }
 
-            let info = await dbHandle.getWhatsappDeviceInfo(hashedMasterKey);
-            const registryCatalog = typeof dbHandle.getWhatsappDeviceCatalog === 'function'
-                ? await dbHandle.getWhatsappDeviceCatalog(hashedMasterKey)
-                : [];
+            const info = await dbHandle.getWhatsappDeviceInfo(hashedMasterKey);
             console.info('ConnectorsTab: _loadSavedWhatsappDeviceInfo read saved device info', {
-                info,
-                registryCatalogCount: Array.isArray(registryCatalog) ? registryCatalog.length : 0
+                info
             });
-            if (Array.isArray(registryCatalog) && registryCatalog.length > 0) {
-                info = this._composeWhatsappDeviceInfoWithAuthoritativeDevices(info, null, registryCatalog);
-            }
             if (!info) {
                 console.info('ConnectorsTab: _loadSavedWhatsappDeviceInfo no WhatsApp device info found');
             } else {
@@ -3670,14 +3654,17 @@ If unsure, choose "chat".
                 return;
             }
             await dbHandle.clearWhatsappDeviceInfo(hashedMasterKey);
-            if (typeof dbHandle.clearWhatsappDeviceCatalog === 'function') {
-                await dbHandle.clearWhatsappDeviceCatalog(hashedMasterKey);
-            }
             if (typeof dbHandle.clearAllWhatsappSessionBundles === 'function') {
                 await dbHandle.clearAllWhatsappSessionBundles(hashedMasterKey);
             }
+            if (typeof dbHandle.clearAllWhatsappPhoneContexts === 'function') {
+                await dbHandle.clearAllWhatsappPhoneContexts(hashedMasterKey);
+            }
             this.savedWhatsappDeviceId = null;
             this.savedWhatsappDevices = [];
+            this.whatsappSessionImportedForDevice = null;
+            this.whatsappSessionRestoreSkippedForDevice = null;
+            this.whatsappStalePreferredDeviceCleared = null;
             if (this.whatsappUnpairButton) {
                 this.whatsappUnpairButton.disabled = true;
                 this.whatsappUnpairButton.style.display = 'none';
@@ -3895,6 +3882,11 @@ If unsure, choose "chat".
         const resolvedDeviceId = String(deviceId || '').trim();
         if (!resolvedDeviceId) {
             return '';
+        }
+
+        const persistedCandidateDeviceId = this._resolveSavedWhatsappPersistableDeviceId(resolvedDeviceId);
+        if (persistedCandidateDeviceId && persistedCandidateDeviceId !== resolvedDeviceId) {
+            return persistedCandidateDeviceId;
         }
 
         const savedEntry = (Array.isArray(this.savedWhatsappDevices) ? this.savedWhatsappDevices : [])
@@ -4600,6 +4592,7 @@ If unsure, choose "chat".
         this.whatsappSessionImportedForDevice = null;
         this.whatsappSessionRestoreSkippedForDevice = null;
         this.whatsappSessionRestoreStatus = '';
+        this.isPaired = false;
 
         if (this.serverStarted) {
             const activeDeviceId = String(this.whatsappFreshPairDeviceId || this.savedWhatsappDeviceId || '').trim();
@@ -4623,9 +4616,7 @@ If unsure, choose "chat".
         this.setWhatsappPairButtonState(this.isPaired);
 
         try {
-            if (!this.isPaired) {
-                this.openWhatsappPairModal();
-            }
+            this.openWhatsappPairModal(true);
         } catch (e) {
             console.warn('ConnectorsTab: openWhatsappPairModal failed during fresh pair start', e);
         }
@@ -4861,19 +4852,19 @@ If unsure, choose "chat".
             if (freshPairRequested) {
                 candidateSavedDeviceId = activeFreshPairDeviceId;
             } else {
-                candidateSavedDeviceId = this._resolveSavedWhatsappCatalogDeviceId(explicitRequestedDeviceId || this.savedWhatsappDeviceId || '');
+                candidateSavedDeviceId = this._resolveSavedWhatsappStartupDeviceId(explicitRequestedDeviceId || this.savedWhatsappDeviceId || '');
             }
             if (!freshPairRequested && !candidateSavedDeviceId) {
                 const info = await this._loadSavedWhatsappDeviceInfo();
                 const normalizedInfo = this._normalizeWhatsappDeviceCatalog(info);
-                const normalizedSelectedDeviceId = this._resolveSavedWhatsappCatalogDeviceId(normalizedInfo.selectedDeviceId || '');
+                const normalizedSelectedDeviceId = this._resolveSavedWhatsappStartupDeviceId(normalizedInfo.selectedDeviceId || '');
                 if (normalizedSelectedDeviceId) {
                     candidateSavedDeviceId = normalizedSelectedDeviceId;
                     this.savedWhatsappDeviceId = normalizedSelectedDeviceId;
                 } else if (this._hasMultipleSavedWhatsappDevices()) {
                     candidateSavedDeviceId = '';
                 } else if (info && info.deviceId) {
-                    const normalizedInfoDeviceId = this._resolveSavedWhatsappCatalogDeviceId(info.deviceId || '');
+                    const normalizedInfoDeviceId = this._resolveSavedWhatsappStartupDeviceId(info.deviceId || '');
                     candidateSavedDeviceId = normalizedInfoDeviceId;
                     this.savedWhatsappDeviceId = normalizedInfoDeviceId || null;
                 }
@@ -4883,6 +4874,14 @@ If unsure, choose "chat".
 				if (await this._hasSavedWhatsappSessionBundle(candidateSavedDeviceId)) {
 					params.set('restore_session', 'true');
 				}
+            }
+
+            if (options.start && !freshPairRequested) {
+                try {
+                    await this._syncSavedWhatsappCatalogToServer();
+                } catch (syncErr) {
+                    console.warn('ConnectorsTab: failed to sync saved WhatsApp device catalog before startup', syncErr);
+                }
             }
 
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
@@ -4921,11 +4920,8 @@ If unsure, choose "chat".
                 if (!this._isWhatsappRequestActive(requestGeneration)) {
                     return null;
                 }
-                if (errorBody && (errorBody.error === 'device-selection-required' || errorBody.error === 'preferred-device-required') && options.allowDeviceSelectionRecovery !== false) {
-                    return this._recoverWhatsappDeviceSelectionRequirement(errorBody, options, requestGeneration);
-                }
                 this.setWhatsappPairButtonState(false);
-                this.setWhatsappModalStatus(String((errorBody && errorBody.message) || 'A WhatsApp device must be selected before reconnecting.'));
+                this.setWhatsappModalStatus(String((errorBody && errorBody.message) || 'Reconnect could not resolve the stored WhatsApp device. Use Pair new device if the saved pairing is no longer valid.'));
                 return null;
             }
             if (!res.ok) {
@@ -5008,7 +5004,8 @@ If unsure, choose "chat".
             // Only attempt session import once gateway is actually running.
             // This avoids calling session import during passive tab checks
             // when the embedded gateway has not been started yet.
-            if (!freshPairRequested && !isPaired && data.gatewayRunning && this.savedWhatsappDeviceId) {
+            const restoreCandidateDeviceId = this._resolveSavedWhatsappStartupDeviceId(this.savedWhatsappDeviceId || '');
+            if (!freshPairRequested && !isPaired && data.gatewayRunning && restoreCandidateDeviceId) {
                 await this._restoreWhatsappSessionBundleIfNeeded();
             }
 
