@@ -78,6 +78,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         whatsappDeleteAllPairedButton: "Gekoppelte Geraete loeschen",
         whatsappDeleteAllPairedButtonTitle: "Gekoppelte Geraete loeschen",
         whatsappDeleteAllPairedConfirm: "Du bist dabei, die Kopplungsinformationen aus Paiperwork zu loeschen. Bist du sicher?",
+        whatsappPairNewDeviceReplaceWarning: "In Paiperwork ist bereits ein WhatsApp-Geraet gekoppelt. Wenn du ein neues Geraet koppelst, wird die bestehende Kopplung vorher entfernt. Moechtest du fortfahren?",
         whatsappDeleteAllPairedSuccess: "Die Paiperwork-Kopplungsdaten wurden geloescht. Klicke auf Start server, um jetzt ein neues Geraet zu koppeln.",
         whatsappDeleteAllPairedFailed: "Die Paiperwork-Kopplungsdaten konnten nicht geloescht werden. Sieh in die Konsole.",
         wechatNotPairedCard: "WeChat nicht gekoppelt",

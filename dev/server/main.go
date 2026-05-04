@@ -28,6 +28,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -143,11 +144,15 @@ var whatsappInMemoryRuntimeLogOnce sync.Once
 var whatsappGatewayDeviceResolutionMu sync.RWMutex
 var whatsappGatewayDeviceResolutionCache = make(map[string]string)
 
+var syncedPersistedWhatsappDevicesMu sync.RWMutex
+var syncedPersistedWhatsappDevicesByUser = make(map[string][]persistedWhatsappDeviceEntry)
+
 const whatsappFreshPairStartupEnv = "PAIPERWORK_WHATSAPP_FRESH_PAIR_STARTUP"
 const whatsappPurgedWelcomeBlockTTL = 2 * time.Minute
 const whatsappActiveUserEnv = "PAIPERWORK_WHATSAPP_ACTIVE_USER"
 const whatsappExpectedSessionRestoreEnv = "PAIPERWORK_WHATSAPP_EXPECT_SESSION_RESTORE"
 const whatsappInMemoryRuntimeEnv = "PAIPERWORK_WHATSAPP_RUNTIME_IN_MEMORY"
+const whatsappPersistedDevicesBootstrapEnv = "PAIPERWORK_WHATSAPP_PERSISTED_DEVICES_JSON"
 
 var whatsappServerStarted bool
 var whatsappStartupTargetPhone string
@@ -365,7 +370,35 @@ func maskURLForLog(raw string) string {
 }
 
 func useInMemoryPaiperworkWhatsappRuntime() bool {
+	if config.RuntimeNoDisk() {
+		return true
+	}
 	return strings.EqualFold(strings.TrimSpace(os.Getenv(whatsappInMemoryRuntimeEnv)), "true")
+}
+
+func forceWhatsappInMemoryRuntime() {
+	config.NoDisk = true
+	os.Setenv(whatsappInMemoryRuntimeEnv, "true")
+	os.Setenv("PAIPERWORK_NO_DISK", "true")
+}
+
+func syncEmbeddedGowaRuntimeDBEnv(userKey string) {
+	forceWhatsappInMemoryRuntime()
+
+	resolvedUserKey := strings.TrimSpace(userKey)
+	if resolvedUserKey == "" {
+		resolvedUserKey = strings.TrimSpace(os.Getenv(whatsappActiveUserEnv))
+	}
+	if resolvedUserKey == "" {
+		resolvedUserKey = "default"
+	}
+
+	userDBURI := userWhatsappDBURI(resolvedUserKey)
+	userKeysDBURI := userWhatsappKeysDBURI(resolvedUserKey)
+	os.Setenv("PAIPERWORK_DB_URI", userDBURI)
+	os.Setenv("PAIPERWORK_DB_KEYS_URI", userKeysDBURI)
+	os.Setenv("PAIPERWORK_CHAT_STORAGE_URI", userDBURI)
+	syncPersistedWhatsappBootstrapEnv(resolvedUserKey)
 }
 
 func inMemoryPaiperworkWhatsappDBURI(userKey string) string {
@@ -739,6 +772,47 @@ func deletePersistedWhatsappDBFilesForUser(userKey string) error {
 	return firstErr
 }
 
+func clearWhatsappPersistedStateForUser(userKey, clearReason string) {
+	trimmedUserKey := strings.TrimSpace(userKey)
+	if trimmedUserKey == "" {
+		return
+	}
+	referenceEntries := getSyncedPersistedWhatsappDevicesForUser(trimmedUserKey)
+
+	if err := clearPersistedWhatsappDataForUser(trimmedUserKey); err != nil {
+		log.Printf("clearWhatsappPersistedStateForUser: failed to clear persisted data for user=%s reason=%s: %v", safeUserKeyForFilename(trimmedUserKey), strings.TrimSpace(clearReason), err)
+	}
+	if err := deletePersistedWhatsappDBFilesForUser(trimmedUserKey); err != nil {
+		log.Printf("clearWhatsappPersistedStateForUser: failed to remove persisted DB files for user=%s reason=%s: %v", safeUserKeyForFilename(trimmedUserKey), strings.TrimSpace(clearReason), err)
+	}
+	if err := whatsappInfra.ClearPersistedPairingData(strings.TrimSpace(clearReason)); err != nil {
+		log.Printf("clearWhatsappPersistedStateForUser: failed to clear persisted pairing registry for user=%s reason=%s: %v", safeUserKeyForFilename(trimmedUserKey), strings.TrimSpace(clearReason), err)
+	}
+
+	setSyncedPersistedWhatsappDevicesForUser(trimmedUserKey, nil)
+	if removedScopes := clearMatchingSyncedPersistedWhatsappFallbackScopes(trimmedUserKey, referenceEntries); len(removedScopes) > 0 {
+		log.Printf("clearWhatsappPersistedStateForUser: cleared matching synced fallback scopes for user=%s reason=%s removed=%v", safeUserKeyForFilename(trimmedUserKey), strings.TrimSpace(clearReason), removedScopes)
+	}
+	syncPersistedWhatsappBootstrapEnv(trimmedUserKey)
+
+	selectedWhatsappDeviceMu.Lock()
+	delete(selectedWhatsappDevice, trimmedUserKey)
+	selectedWhatsappDeviceMu.Unlock()
+
+	if err := saveSelectedWhatsappDeviceToDB(trimmedUserKey, "", ""); err != nil {
+		log.Printf("clearWhatsappPersistedStateForUser: failed to clear selected device for user=%s reason=%s: %v", safeUserKeyForFilename(trimmedUserKey), strings.TrimSpace(clearReason), err)
+	}
+
+	clearWhatsappGatewayDeviceResolutionCache()
+	os.Unsetenv("PAIPERWORK_WHATSAPP_DEVICE_ID")
+	os.Unsetenv("WHATSAPP_DEVICE_ID")
+	config.WhatsappPreferredDeviceID = ""
+
+	if activeWhatsappRuntimeScope() == normalizeWhatsappRuntimeScope(trimmedUserKey) {
+		setActiveWhatsappUserScope("")
+	}
+}
+
 func purgePersistedWhatsappDeviceForUser(userKey, deviceID string) error {
 	trimmedUserKey := strings.TrimSpace(userKey)
 	trimmedDeviceID := strings.TrimSpace(deviceID)
@@ -788,29 +862,6 @@ func purgePersistedWhatsappDeviceForUser(userKey, deviceID string) error {
 		recordErr(err)
 	} else if ok {
 		appendCandidateDeviceID(resolvedID)
-	}
-	if persistedDevices, err := loadPersistedWhatsappDevicesFromDB(trimmedUserKey); err != nil {
-		recordErr(err)
-	} else {
-		normalizedRequested := normalizeWhatsappIdentity(trimmedDeviceID)
-		for _, entry := range persistedDevices {
-			if entry.ID == "" && entry.JID == "" {
-				continue
-			}
-			matches := false
-			if strings.EqualFold(strings.TrimSpace(entry.ID), trimmedDeviceID) || strings.EqualFold(strings.TrimSpace(entry.JID), trimmedDeviceID) {
-				matches = true
-			}
-			if !matches && normalizedRequested != "" {
-				matches = normalizeWhatsappIdentity(entry.ID) == normalizedRequested || normalizeWhatsappIdentity(entry.JID) == normalizedRequested || normalizeWhatsappIdentity(entry.PhoneNumber) == normalizedRequested
-			}
-			if !matches {
-				continue
-			}
-			appendCandidateDeviceID(entry.ID)
-			appendCandidateJID(entry.JID)
-			appendCandidatePhone(entry.PhoneNumber)
-		}
 	}
 	markPurgedWhatsappWelcomeTargets(candidateDeviceIDs, candidateJIDs, candidatePhones)
 
@@ -1043,9 +1094,169 @@ func mergePersistedWhatsappDeviceEntry(entries map[string]persistedWhatsappDevic
 	entries[key] = current
 }
 
+func normalizedSyncedPersistedWhatsappDevices(entries []persistedWhatsappDeviceEntry) []persistedWhatsappDeviceEntry {
+	merged := make(map[string]persistedWhatsappDeviceEntry)
+	order := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		entry.ID = strings.TrimSpace(entry.ID)
+		entry.JID = strings.TrimSpace(entry.JID)
+		if entry.ID == "" {
+			continue
+		}
+		mergePersistedWhatsappDeviceEntry(merged, &order, entry)
+	}
+
+	devices := make([]persistedWhatsappDeviceEntry, 0, len(order))
+	for _, key := range order {
+		entry, ok := merged[key]
+		if !ok {
+			continue
+		}
+		devices = append(devices, entry)
+	}
+	return devices
+}
+
+func getSyncedPersistedWhatsappDevicesForUser(userKey string) []persistedWhatsappDeviceEntry {
+	scope := normalizeWhatsappRuntimeScope(userKey)
+	if scope == "" {
+		return nil
+	}
+
+	syncedPersistedWhatsappDevicesMu.RLock()
+	entries := syncedPersistedWhatsappDevicesByUser[scope]
+	syncedPersistedWhatsappDevicesMu.RUnlock()
+	if len(entries) == 0 {
+		return nil
+	}
+
+	cloned := make([]persistedWhatsappDeviceEntry, len(entries))
+	copy(cloned, entries)
+	return cloned
+}
+
+func getUniqueSyncedPersistedWhatsappDevicesFallback(userKey string) ([]persistedWhatsappDeviceEntry, string) {
+	targetScope := normalizeWhatsappRuntimeScope(userKey)
+
+	syncedPersistedWhatsappDevicesMu.RLock()
+	defer syncedPersistedWhatsappDevicesMu.RUnlock()
+
+	fallbackScope := ""
+	var fallbackEntries []persistedWhatsappDeviceEntry
+	for scope, entries := range syncedPersistedWhatsappDevicesByUser {
+		if scope == "" || scope == targetScope || len(entries) == 0 {
+			continue
+		}
+		if fallbackScope != "" {
+			return nil, ""
+		}
+		fallbackScope = scope
+		fallbackEntries = entries
+	}
+	if fallbackScope == "" || len(fallbackEntries) == 0 {
+		return nil, ""
+	}
+
+	cloned := make([]persistedWhatsappDeviceEntry, len(fallbackEntries))
+	copy(cloned, fallbackEntries)
+	return cloned, fallbackScope
+}
+
+func setSyncedPersistedWhatsappDevicesForUser(userKey string, entries []persistedWhatsappDeviceEntry) {
+	scope := normalizeWhatsappRuntimeScope(userKey)
+	if scope == "" {
+		return
+	}
+
+	normalized := normalizedSyncedPersistedWhatsappDevices(entries)
+	log.Printf("setSyncedPersistedWhatsappDevicesForUser: user=%s received=%d normalized=%d", safeUserKeyForFilename(userKey), len(entries), len(normalized))
+	syncedPersistedWhatsappDevicesMu.Lock()
+	if len(normalized) == 0 {
+		delete(syncedPersistedWhatsappDevicesByUser, scope)
+	} else {
+		syncedPersistedWhatsappDevicesByUser[scope] = normalized
+	}
+	syncedPersistedWhatsappDevicesMu.Unlock()
+
+	activeWhatsappUserMu.RLock()
+	currentActiveUser := activeWhatsappUser
+	activeWhatsappUserMu.RUnlock()
+	if normalizeWhatsappRuntimeScope(currentActiveUser) == scope {
+		syncPersistedWhatsappBootstrapEnv(userKey)
+	}
+}
+
+func persistedWhatsappEntriesFingerprint(entries []persistedWhatsappDeviceEntry) string {
+	normalized := normalizedSyncedPersistedWhatsappDevices(entries)
+	if len(normalized) == 0 {
+		return ""
+	}
+
+	parts := make([]string, 0, len(normalized))
+	for _, entry := range normalized {
+		parts = append(parts, strings.ToLower(strings.TrimSpace(entry.ID))+"|"+strings.ToLower(strings.TrimSpace(entry.JID))+"|"+normalizeWhatsappIdentity(entry.PhoneNumber))
+	}
+	slices.Sort(parts)
+	return strings.Join(parts, ";")
+}
+
+func clearMatchingSyncedPersistedWhatsappFallbackScopes(userKey string, referenceEntries []persistedWhatsappDeviceEntry) []string {
+	targetScope := normalizeWhatsappRuntimeScope(userKey)
+	referenceFingerprint := persistedWhatsappEntriesFingerprint(referenceEntries)
+	if targetScope == "" || referenceFingerprint == "" {
+		return nil
+	}
+
+	removedScopes := make([]string, 0)
+	syncedPersistedWhatsappDevicesMu.Lock()
+	for scope, entries := range syncedPersistedWhatsappDevicesByUser {
+		if scope == "" || scope == targetScope || len(entries) == 0 {
+			continue
+		}
+		if persistedWhatsappEntriesFingerprint(entries) != referenceFingerprint {
+			continue
+		}
+		delete(syncedPersistedWhatsappDevicesByUser, scope)
+		removedScopes = append(removedScopes, scope)
+	}
+	syncedPersistedWhatsappDevicesMu.Unlock()
+	return removedScopes
+}
+
+func syncPersistedWhatsappBootstrapEnv(userKey string) {
+	entries := getSyncedPersistedWhatsappDevicesForUser(userKey)
+	if len(entries) == 0 {
+		if fallbackEntries, fallbackScope := getUniqueSyncedPersistedWhatsappDevicesFallback(userKey); len(fallbackEntries) > 0 {
+			entries = fallbackEntries
+			log.Printf("syncPersistedWhatsappBootstrapEnv: user=%s source=unique-synced-fallback fallback_user=%s exported=%d", safeUserKeyForFilename(userKey), safeUserKeyForFilename(fallbackScope), len(entries))
+		}
+	}
+	if len(entries) == 0 {
+		log.Printf("syncPersistedWhatsappBootstrapEnv: user=%s entries=0 clearing bootstrap env", safeUserKeyForFilename(userKey))
+		os.Unsetenv(whatsappPersistedDevicesBootstrapEnv)
+		return
+	}
+
+	payload, err := json.Marshal(entries)
+	if err != nil {
+		log.Printf("syncPersistedWhatsappBootstrapEnv: failed to marshal persisted device bootstrap payload for user=%s: %v", safeUserKeyForFilename(userKey), err)
+		return
+	}
+	os.Setenv(whatsappPersistedDevicesBootstrapEnv, string(payload))
+	log.Printf("syncPersistedWhatsappBootstrapEnv: user=%s exported=%d payload_bytes=%d", safeUserKeyForFilename(userKey), len(entries), len(payload))
+}
+
 func loadPersistedWhatsappDevicesFromDB(userKey string) ([]persistedWhatsappDeviceEntry, error) {
 	if useInMemoryPaiperworkWhatsappRuntime() {
-		return []persistedWhatsappDeviceEntry{}, nil
+		synced := getSyncedPersistedWhatsappDevicesForUser(userKey)
+		if len(synced) == 0 {
+			if fallbackEntries, fallbackScope := getUniqueSyncedPersistedWhatsappDevicesFallback(userKey); len(fallbackEntries) > 0 {
+				log.Printf("loadPersistedWhatsappDevicesFromDB: user=%s source=synced-unique-fallback fallback_user=%s count=%d", safeUserKeyForFilename(userKey), safeUserKeyForFilename(fallbackScope), len(fallbackEntries))
+				return fallbackEntries, nil
+			}
+		}
+		log.Printf("loadPersistedWhatsappDevicesFromDB: user=%s source=synced-in-memory count=%d", safeUserKeyForFilename(userKey), len(synced))
+		return synced, nil
 	}
 	if strings.TrimSpace(userKey) == "" {
 		return []persistedWhatsappDeviceEntry{}, nil
@@ -1126,6 +1337,19 @@ func loadPersistedWhatsappDevicesFromDB(userKey string) ([]persistedWhatsappDevi
 		return devices[i].ID < devices[j].ID
 	})
 
+	if len(devices) == 0 {
+		if synced := getSyncedPersistedWhatsappDevicesForUser(userKey); len(synced) > 0 {
+			log.Printf("loadPersistedWhatsappDevicesFromDB: user=%s source=synced-fallback count=%d", safeUserKeyForFilename(userKey), len(synced))
+			return synced, nil
+		}
+		if fallbackEntries, fallbackScope := getUniqueSyncedPersistedWhatsappDevicesFallback(userKey); len(fallbackEntries) > 0 {
+			log.Printf("loadPersistedWhatsappDevicesFromDB: user=%s source=synced-unique-fallback fallback_user=%s count=%d", safeUserKeyForFilename(userKey), safeUserKeyForFilename(fallbackScope), len(fallbackEntries))
+			return fallbackEntries, nil
+		}
+	}
+
+	log.Printf("loadPersistedWhatsappDevicesFromDB: user=%s source=sqlite count=%d", safeUserKeyForFilename(userKey), len(devices))
+
 	return devices, nil
 }
 
@@ -1161,6 +1385,51 @@ func resolvePersistedWhatsappDeviceID(userKey, requestedID string) (string, bool
 	}
 
 	return "", false, nil
+}
+
+func selectReplacementWhatsappDeviceID(userKey, removedDeviceID string) string {
+	trimmedUserKey := strings.TrimSpace(userKey)
+	trimmedRemovedDeviceID := strings.TrimSpace(removedDeviceID)
+	if trimmedUserKey == "" {
+		return ""
+	}
+
+	persistedDevices, err := loadPersistedWhatsappDevicesFromDB(trimmedUserKey)
+	if err != nil {
+		log.Printf("selectReplacementWhatsappDeviceID: failed to load persisted devices for user=%s removed=%s: %v", safeUserKeyForFilename(trimmedUserKey), maskPhoneForLog(trimmedRemovedDeviceID), err)
+		return ""
+	}
+
+	removedKey := normalizeWhatsappIdentity(trimmedRemovedDeviceID)
+	for _, entry := range persistedDevices {
+		candidateID := strings.TrimSpace(entry.ID)
+		if candidateID == "" {
+			continue
+		}
+		if strings.EqualFold(candidateID, trimmedRemovedDeviceID) {
+			continue
+		}
+		if removedKey != "" {
+			candidateKeys := []string{
+				normalizeWhatsappIdentity(candidateID),
+				normalizeWhatsappIdentity(strings.TrimSpace(entry.JID)),
+				normalizeWhatsappIdentity(strings.TrimSpace(entry.PhoneNumber)),
+			}
+			matchedRemoved := false
+			for _, candidateKey := range candidateKeys {
+				if candidateKey != "" && candidateKey == removedKey {
+					matchedRemoved = true
+					break
+				}
+			}
+			if matchedRemoved {
+				continue
+			}
+		}
+		return candidateID
+	}
+
+	return ""
 }
 
 func firstNonEmptyString(values ...string) string {
@@ -1258,12 +1527,12 @@ func setSelectedWhatsappDeviceForUser(userKey, deviceID, meta string) {
 
 	if normalizeWhatsappRuntimeScope(activeWhatsappRuntimeScope()) == scope {
 		if trimmedDeviceID != "" {
-			os.Setenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID", trimmedDeviceID)
-			os.Setenv("WHATSAPP_PREFERRED_DEVICE_ID", trimmedDeviceID)
+			os.Setenv("PAIPERWORK_WHATSAPP_DEVICE_ID", trimmedDeviceID)
+			os.Setenv("WHATSAPP_DEVICE_ID", trimmedDeviceID)
 			config.WhatsappPreferredDeviceID = trimmedDeviceID
 		} else {
-			os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
-			os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
+			os.Unsetenv("PAIPERWORK_WHATSAPP_DEVICE_ID")
+			os.Unsetenv("WHATSAPP_DEVICE_ID")
 			config.WhatsappPreferredDeviceID = ""
 		}
 	}
@@ -1392,6 +1661,47 @@ func resolveWhatsappChatDeviceRoute(userKey string, chatTargets ...string) strin
 	}
 	whatsappChatDeviceRoutesMu.RUnlock()
 	return ""
+}
+
+func resolveWhatsappChatDeviceRouteWithGateway(client *http.Client, userKey string, chatTargets ...string) string {
+	routedDeviceID := strings.TrimSpace(resolveWhatsappChatDeviceRoute(userKey, chatTargets...))
+	if routedDeviceID == "" {
+		return ""
+	}
+
+	selectedDeviceID := strings.TrimSpace(getSelectedWhatsappDeviceIDForUser(userKey))
+	if selectedDeviceID != "" && normalizeWhatsappIdentity(selectedDeviceID) == normalizeWhatsappIdentity(routedDeviceID) {
+		return selectedDeviceID
+	}
+
+	if client == nil {
+		return routedDeviceID
+	}
+
+	if resolvedID, _, err := resolveWhatsappGatewayRegisteredDeviceID(client, routedDeviceID); err == nil && strings.TrimSpace(resolvedID) != "" {
+		return strings.TrimSpace(resolvedID)
+	}
+
+	if candidateIDs, err := resolveWhatsappGatewayDeviceCandidatesByIdentity(client, routedDeviceID); err == nil {
+		fallbackID := ""
+		for _, candidateID := range candidateIDs {
+			trimmedCandidateID := strings.TrimSpace(candidateID)
+			if trimmedCandidateID == "" {
+				continue
+			}
+			if fallbackID == "" {
+				fallbackID = trimmedCandidateID
+			}
+			if status, statusErr := fetchWhatsappGatewayConnectionStatus(client, trimmedCandidateID); statusErr == nil && status != nil && (status.Connected || status.LoggedIn) {
+				return trimmedCandidateID
+			}
+		}
+		if fallbackID != "" {
+			return fallbackID
+		}
+	}
+
+	return routedDeviceID
 }
 
 func setWhatsappRemoteLogoutNotice(deviceID, message string) {
@@ -3108,6 +3418,8 @@ func fetchRawHtmlForLinks(w http.ResponseWriter, r *http.Request) {
 
 // Proxy the local WhatsApp gateway QR/status endpoint to avoid cross-origin issues
 func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
+	forceWhatsappInMemoryRuntime()
+
 	if r.Method == http.MethodOptions {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
@@ -3137,8 +3449,8 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 		pairRequested = false
 		os.Unsetenv(whatsappFreshPairStartupEnv)
 		setWhatsappSessionRestoreExpected(false)
-		os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
-		os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
+		os.Unsetenv("PAIPERWORK_WHATSAPP_DEVICE_ID")
+		os.Unsetenv("WHATSAPP_DEVICE_ID")
 		config.WhatsappPreferredDeviceID = ""
 		setActiveWhatsappUserScope("")
 		welcomeMu.Lock()
@@ -3173,17 +3485,14 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 	expectSessionRestore := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("restore_session"))) == "true"
 
 	if userKey != "" {
-		var userDBURI, userKeysDBURI string
-		userDBURI = userWhatsappDBURI(userKey)
-		userKeysDBURI = userWhatsappKeysDBURI(userKey)
+		syncEmbeddedGowaRuntimeDBEnv(userKey)
+		userDBURI := os.Getenv("PAIPERWORK_DB_URI")
 		whatsappQrProxyLogMu.Lock()
 		if lastWhatsappQrProxyUserKey != userKey || lastWhatsappQrProxyDBURI != userDBURI {
 			lastWhatsappQrProxyUserKey = userKey
 			lastWhatsappQrProxyDBURI = userDBURI
 		}
 		whatsappQrProxyLogMu.Unlock()
-		os.Setenv("PAIPERWORK_DB_URI", userDBURI)
-		os.Setenv("PAIPERWORK_DB_KEYS_URI", userKeysDBURI)
 	}
 
 	// Pass any explicit device ID from the request through as the current
@@ -3222,10 +3531,6 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 		status, err := fetchWhatsappGatewayStatus(&http.Client{Timeout: 5 * time.Second}, false, userKey, requestedDeviceID, freshPairRequested)
 		if err != nil {
-			if deviceErr, ok := asWhatsappDeviceSelectionRequiredError(err); ok {
-				writeWhatsappDeviceSelectionRequiredResponse(w, deviceErr)
-				return
-			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]any{"connected": false, "loggedIn": false, "qrWithheld": false, "gatewayRunning": gatewayRunning})
 			return
@@ -3288,10 +3593,6 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 			client := &http.Client{Timeout: 25 * time.Second}
 			status, err := fetchWhatsappGatewayStatus(client, true, userKey, requestedDeviceID, freshPairRequested)
 			if err != nil {
-				if deviceErr, ok := asWhatsappDeviceSelectionRequiredError(err); ok {
-					writeWhatsappDeviceSelectionRequiredResponse(w, deviceErr)
-					return
-				}
 				errText := strings.ToLower(strings.TrimSpace(err.Error()))
 				if errText == "" || !strings.Contains(errText, "no paired device available") || shouldEmitWhatsappRateLimitedLog("already-running-no-paired-device", whatsappGatewayPollNoiseCooldown) {
 					log.Printf("whatsappQrProxy: already-running status fetch failed: %v", err)
@@ -3363,10 +3664,6 @@ func whatsappQrProxyHandler(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{Timeout: clientTimeout}
 	status, err := fetchWhatsappGatewayStatus(client, startRequested, userKey, requestedDeviceID, freshPairRequested)
 	if err != nil {
-		if deviceErr, ok := asWhatsappDeviceSelectionRequiredError(err); ok {
-			writeWhatsappDeviceSelectionRequiredResponse(w, deviceErr)
-			return
-		}
 		if startRequested && isWhatsappManualStopActive() {
 			http.Error(w, "gateway-stopped", http.StatusServiceUnavailable)
 			return
@@ -3813,6 +4110,18 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, userKe
 	}
 
 	if status.Connected && status.LoggedIn {
+		activeDeviceID := strings.TrimSpace(status.DeviceID)
+		if activeDeviceID == "" {
+			activeDeviceID = deviceID
+		}
+		if userKey != "" && activeDeviceID != "" {
+			setSelectedWhatsappDeviceForUser(userKey, activeDeviceID, "")
+			if !strings.EqualFold(strings.TrimSpace(activeDeviceID), strings.TrimSpace(deviceID)) {
+				setCachedWhatsappGatewayDeviceResolution(deviceID, activeDeviceID)
+				log.Printf("fetchWhatsappGatewayStatus: promoted logged-in device %s to active gateway device %s", maskPhoneForLog(deviceID), maskPhoneForLog(activeDeviceID))
+			}
+		}
+
 		// Clear warmup suppressor after successful login to stop noisy warmup logs.
 		clearWhatsappGatewayWarmup(deviceID)
 
@@ -3826,23 +4135,24 @@ func fetchWhatsappGatewayStatus(client *http.Client, startRequested bool, userKe
 
 		if whatsappServerStarted {
 			currentTargetPhone := ""
-			if inferred, err := inferWhatsappGatewayDevicePhoneByID(client, deviceID); err == nil && inferred != "" {
+			if inferred, err := inferWhatsappGatewayDevicePhoneByID(client, activeDeviceID); err == nil && inferred != "" {
 				currentTargetPhone = inferred
 				whatsappStartupTargetPhone = inferred
 			} else if err != nil {
-				log.Printf("fetchWhatsappGatewayStatus: cannot infer target phone for device %s: %v", maskPhoneForLog(deviceID), err)
+				log.Printf("fetchWhatsappGatewayStatus: cannot infer target phone for device %s: %v", maskPhoneForLog(activeDeviceID), err)
 			}
 			if currentTargetPhone == "" {
 				currentTargetPhone = whatsappStartupTargetPhone
 			}
 
-			if shouldQueueWhatsappWelcome(deviceID, currentTargetPhone) {
+			if shouldQueueWhatsappWelcome(activeDeviceID, currentTargetPhone) {
 				runtimeUserKey := activeWhatsappRuntimeScope()
-				log.Printf("fetchWhatsappGatewayStatus: queueing welcome message dispatch for device %s", maskPhoneForLog(deviceID))
-				go dispatchWhatsappWelcomeMessage(runtimeUserKey, deviceID, currentTargetPhone)
+				log.Printf("fetchWhatsappGatewayStatus: queueing welcome message dispatch for device %s", maskPhoneForLog(activeDeviceID))
+				go dispatchWhatsappWelcomeMessage(runtimeUserKey, activeDeviceID, currentTargetPhone)
 			}
 			pairRequested = false
 		}
+		status.DeviceID = activeDeviceID
 		return status, nil
 	}
 
@@ -4235,56 +4545,6 @@ func shouldPruneNoDiskGatewayPlaceholder(deviceID, preferredDeviceID string, det
 	return strings.TrimSpace(details.JID) == ""
 }
 
-type whatsappDeviceSelectionRequiredError struct {
-	CandidateCount int
-	LoggedInCount  int
-}
-
-func (err *whatsappDeviceSelectionRequiredError) Error() string {
-	if err == nil {
-		return "device selection required"
-	}
-	if err.CandidateCount > 0 {
-		return fmt.Sprintf("device selection required: %d candidate devices available", err.CandidateCount)
-	}
-	return "device selection required"
-}
-
-func asWhatsappDeviceSelectionRequiredError(err error) (*whatsappDeviceSelectionRequiredError, bool) {
-	var target *whatsappDeviceSelectionRequiredError
-	if errors.As(err, &target) {
-		return target, true
-	}
-	return nil, false
-}
-
-func writeWhatsappDeviceSelectionRequiredResponse(w http.ResponseWriter, deviceErr *whatsappDeviceSelectionRequiredError) {
-	message := "Multiple WhatsApp devices are available without an explicit selected device. Choose a saved device or start a fresh pairing."
-	if deviceErr != nil && deviceErr.CandidateCount <= 1 {
-		message = "An explicit WhatsApp device selection is required before reconnecting this runtime. Choose a saved device or start a fresh pairing."
-	}
-
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusPreconditionFailed)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"error":   "device-selection-required",
-		"message": message,
-		"candidateCount": func() int {
-			if deviceErr != nil {
-				return deviceErr.CandidateCount
-			}
-			return 0
-		}(),
-		"loggedInCount": func() int {
-			if deviceErr != nil {
-				return deviceErr.LoggedInCount
-			}
-			return 0
-		}(),
-	})
-}
-
 func resolveExistingNoDiskGatewayDevice(ids []string, selectedDeviceID string, candidateStatus map[string]*whatsappGatewayStatus) string {
 	trimmedSelected := strings.TrimSpace(selectedDeviceID)
 	if trimmedSelected != "" {
@@ -4293,7 +4553,6 @@ func resolveExistingNoDiskGatewayDevice(ids []string, selectedDeviceID string, c
 				return trimmedSelected
 			}
 		}
-		return ""
 	}
 
 	for _, id := range ids {
@@ -4306,6 +4565,12 @@ func resolveExistingNoDiskGatewayDevice(ids []string, selectedDeviceID string, c
 		status := candidateStatus[id]
 		if status != nil && status.Connected && status.LoggedIn {
 			return id
+		}
+	}
+
+	for _, id := range ids {
+		if strings.TrimSpace(id) != "" {
+			return strings.TrimSpace(id)
 		}
 	}
 
@@ -4327,20 +4592,36 @@ func clearWhatsappGatewayTransientState(deviceID string) {
 
 func ensureWhatsappGatewayDevice(client *http.Client, userKey, requestedDeviceID string, freshPairRequested bool) (string, error) {
 	runtimeInMemory := useInMemoryPaiperworkWhatsappRuntime()
+	effectiveFreshPairRequested := freshPairRequested || strings.EqualFold(strings.TrimSpace(os.Getenv(whatsappFreshPairStartupEnv)), "true")
 	trimmedRequested := strings.TrimSpace(requestedDeviceID)
 	if trimmedRequested == "" && userKey != "" {
 		trimmedRequested = strings.TrimSpace(getSelectedWhatsappDeviceIDForUser(userKey))
 	}
-	if trimmedRequested != "" && !freshPairRequested {
+	if effectiveFreshPairRequested && strings.TrimSpace(userKey) != "" {
+		setSyncedPersistedWhatsappDevicesForUser(userKey, nil)
+		syncPersistedWhatsappBootstrapEnv(userKey)
+	}
+	if trimmedRequested != "" && !effectiveFreshPairRequested {
 		if resolvedRequested, resolvedFromCache, resolveErr := resolveWhatsappGatewayRegisteredDeviceID(client, trimmedRequested); resolveErr == nil && strings.TrimSpace(resolvedRequested) != "" {
 			if !strings.EqualFold(strings.TrimSpace(resolvedRequested), trimmedRequested) && !resolvedFromCache {
 				log.Printf("ensureWhatsappGatewayDevice: remapped requested runtime device %s to registered gateway id %s", maskPhoneForLog(trimmedRequested), maskPhoneForLog(resolvedRequested))
 			}
 			trimmedRequested = strings.TrimSpace(resolvedRequested)
 		} else if !isPersistableWhatsappDeviceID(trimmedRequested) {
-			log.Printf("ensureWhatsappGatewayDevice: rejected non-paired requested device candidate=%s user=%s freshPair=%v", maskPhoneForLog(trimmedRequested), safeUserKeyForFilename(userKey), freshPairRequested)
-			trimmedRequested = ""
-			requestedDeviceID = ""
+			if userKey != "" {
+				if resolvedPersistedID, ok, persistErr := resolvePersistedWhatsappDeviceID(userKey, trimmedRequested); persistErr != nil {
+					log.Printf("ensureWhatsappGatewayDevice: failed to resolve persisted requested device candidate=%s user=%s: %v", maskPhoneForLog(trimmedRequested), safeUserKeyForFilename(userKey), persistErr)
+				} else if ok && strings.TrimSpace(resolvedPersistedID) != "" {
+					trimmedRequested = strings.TrimSpace(resolvedPersistedID)
+					requestedDeviceID = trimmedRequested
+					log.Printf("ensureWhatsappGatewayDevice: keeping persisted non-paired requested device candidate=%s user=%s", maskPhoneForLog(trimmedRequested), safeUserKeyForFilename(userKey))
+				}
+			}
+			if !isPersistableWhatsappDeviceID(trimmedRequested) && !strings.HasPrefix(strings.ToLower(trimmedRequested), "pw-") {
+				log.Printf("ensureWhatsappGatewayDevice: rejected non-paired requested device candidate=%s user=%s freshPair=%v", maskPhoneForLog(trimmedRequested), safeUserKeyForFilename(userKey), effectiveFreshPairRequested)
+				trimmedRequested = ""
+				requestedDeviceID = ""
+			}
 		}
 	}
 	if isGatewayRunning() && !isGatewayReady() {
@@ -4353,7 +4634,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, userKey, requestedDeviceID
 	}
 
 	if config.NoDisk || runtimeInMemory {
-		if freshPairRequested {
+		if effectiveFreshPairRequested {
 			if trimmedRequested != "" {
 				markWhatsappPairingProbeState(trimmedRequested, "fresh-pair-active-device")
 				return trimmedRequested, nil
@@ -4481,26 +4762,19 @@ func ensureWhatsappGatewayDevice(client *http.Client, userKey, requestedDeviceID
 				candidateDetails[id] = details
 			}
 		}
-		if trimmedRequested == "" && idsErr == nil && len(noDiskDeviceIDs) > 1 {
-			candidateCount := 0
-			loggedInCount := 0
-			for _, id := range noDiskDeviceIDs {
-				status := candidateStatus[id]
-				if status != nil && status.Connected && status.LoggedIn {
-					loggedInCount += 1
-				}
-				if shouldSelectNoDiskGatewayDevice(candidateDetails[id], status) {
-					candidateCount += 1
-				}
-			}
-			if candidateCount > 1 {
-				return "", &whatsappDeviceSelectionRequiredError{CandidateCount: candidateCount, LoggedInCount: loggedInCount}
-			}
-		}
 		if idsErr == nil && len(noDiskDeviceIDs) > 0 {
 			if resolvedID := resolveExistingNoDiskGatewayDevice(noDiskDeviceIDs, trimmedRequested, candidateStatus); resolvedID != "" {
 				if trimmedRequested != "" && !strings.EqualFold(strings.TrimSpace(trimmedRequested), strings.TrimSpace(resolvedID)) {
 					log.Printf("ensureWhatsappGatewayDevice: NoDisk mode using already logged-in device %s over requested candidate %s", maskPhoneForLog(resolvedID), maskPhoneForLog(trimmedRequested))
+				}
+				if trimmedRequested == "" && userKey != "" {
+					details := candidateDetails[resolvedID]
+					status := candidateStatus[resolvedID]
+					if status != nil && (status.Connected || status.LoggedIn) {
+						setSelectedWhatsappDeviceForUser(userKey, resolvedID, "")
+					} else if details != nil && strings.TrimSpace(details.JID) != "" {
+						setSelectedWhatsappDeviceForUser(userKey, resolvedID, "")
+					}
 				}
 				return resolvedID, nil
 			}
@@ -4600,7 +4874,7 @@ func ensureWhatsappGatewayDevice(client *http.Client, userKey, requestedDeviceID
 	}
 
 	listURL := "http://127.0.0.1:3000/devices"
-	if freshPairRequested {
+	if effectiveFreshPairRequested {
 		trimmedPreferred := strings.TrimSpace(requestedDeviceID)
 		if trimmedPreferred != "" {
 			markWhatsappPairingProbeState(trimmedPreferred, "fresh-pair-active-device")
@@ -4746,15 +5020,22 @@ func ensureWhatsappGatewayDevice(client *http.Client, userKey, requestedDeviceID
 				}
 			}
 
-			loggedInCount := 0
 			for _, entry := range persistedDevices {
-				if id := strings.TrimSpace(entry.ID); id != "" {
-					if status, serr := fetchWhatsappGatewayConnectionStatus(client, id); serr == nil && status != nil && status.Connected && status.LoggedIn {
-						loggedInCount++
-					}
+				candidateID := strings.TrimSpace(entry.ID)
+				if candidateID == "" {
+					continue
+				}
+				if status, serr := fetchWhatsappGatewayConnectionStatus(client, candidateID); serr == nil && status != nil && status.Connected && status.LoggedIn {
+					setSelectedWhatsappDeviceForUser(userKey, candidateID, "")
+					return candidateID, nil
 				}
 			}
-			return "", &whatsappDeviceSelectionRequiredError{CandidateCount: len(persistedDevices), LoggedInCount: loggedInCount}
+
+			fallbackID := strings.TrimSpace(persistedDevices[0].ID)
+			if fallbackID != "" {
+				setSelectedWhatsappDeviceForUser(userKey, fallbackID, "")
+				return fallbackID, nil
+			}
 		}
 	}
 
@@ -4803,21 +5084,6 @@ func ensureWhatsappGatewayDevice(client *http.Client, userKey, requestedDeviceID
 		return trimmedPreferred, nil
 	}
 
-	if len(listResp.Results) > 1 {
-		loggedInCount := 0
-		for _, d := range listResp.Results {
-			id := strings.TrimSpace(d.ID)
-			if id == "" {
-				continue
-			}
-			status, serr := fetchWhatsappGatewayConnectionStatus(client, id)
-			if serr == nil && status != nil && status.Connected && status.LoggedIn {
-				loggedInCount += 1
-			}
-		}
-		return "", &whatsappDeviceSelectionRequiredError{CandidateCount: len(listResp.Results), LoggedInCount: loggedInCount}
-	}
-
 	if len(listResp.Results) > 0 {
 		// Prefer already connected and logged-in device (avoids stale device IDs).
 		for _, d := range listResp.Results {
@@ -4830,12 +5096,19 @@ func ensureWhatsappGatewayDevice(client *http.Client, userKey, requestedDeviceID
 				continue
 			}
 			if status != nil && status.Connected && status.LoggedIn {
+				if userKey != "" {
+					setSelectedWhatsappDeviceForUser(userKey, id, "")
+				}
 				return id, nil
 			}
 		}
 
 		// No active connected device found, use first id as fallback.
-		return listResp.Results[0].ID, nil
+		fallbackID := strings.TrimSpace(listResp.Results[0].ID)
+		if fallbackID != "" && userKey != "" {
+			setSelectedWhatsappDeviceForUser(userKey, fallbackID, "")
+		}
+		return fallbackID, nil
 	}
 
 	if shouldEmitWhatsappRateLimitedLog("no-devices-discovered", whatsappGatewayPollNoiseCooldown) {
@@ -5185,6 +5458,17 @@ func whatsappIncomingWebhookHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("whatsappIncomingWebhook: received %s %s %s chat=%s body=%q", logModeLabel, logSourceLabel, logMessageLabel, wrapper.Payload.ChatID, wrapper.Payload.Body)
 
 	runtimeUserKey := activeWhatsappRuntimeScope()
+	if runtimeUserKey != "" {
+		client := &http.Client{Timeout: 5 * time.Second}
+		resolvedIncomingDeviceID := resolveLoggedInWhatsappActiveDeviceID(
+			client,
+			wrapper.DeviceID,
+			firstNonEmptyString(strings.TrimSpace(wrapper.Payload.ChatID), strings.TrimSpace(wrapper.Payload.From)),
+		)
+		if strings.TrimSpace(resolvedIncomingDeviceID) != "" {
+			wrapper.DeviceID = strings.TrimSpace(resolvedIncomingDeviceID)
+		}
+	}
 	if runtimeUserKey != "" && !shouldAllowRuntimeWhatsappDevice(runtimeUserKey, wrapper.DeviceID) {
 		log.Printf("whatsappIncomingWebhook: ignoring message for non-selected runtime device=%s while selected device remains active", maskPhoneForLog(wrapper.DeviceID))
 		w.WriteHeader(http.StatusNoContent)
@@ -5423,6 +5707,24 @@ func resolveLoggedInWhatsappWelcomeDeviceID(client *http.Client, deviceID, targe
 	return ""
 }
 
+func resolveLoggedInWhatsappActiveDeviceID(client *http.Client, deviceID, targetPhone string) string {
+	trimmedDeviceID := strings.TrimSpace(deviceID)
+	if trimmedDeviceID == "" {
+		return ""
+	}
+
+	if reboundDeviceID := resolveLoggedInWhatsappWelcomeDeviceID(client, trimmedDeviceID, targetPhone); reboundDeviceID != "" {
+		return strings.TrimSpace(reboundDeviceID)
+	}
+
+	status, err := fetchWhatsappGatewayConnectionStatus(client, trimmedDeviceID)
+	if err == nil && status != nil && strings.TrimSpace(status.DeviceID) != "" && status.Connected && status.LoggedIn {
+		return strings.TrimSpace(status.DeviceID)
+	}
+
+	return trimmedDeviceID
+}
+
 func resolveWhatsappWelcomeCandidateFromBroadcast(message uiWebsocket.BroadcastMessage) (string, string, bool) {
 	if !strings.EqualFold(strings.TrimSpace(message.Code), "LOGGED_IN") {
 		return "", "", false
@@ -5530,11 +5832,14 @@ func handleWhatsappGatewayBroadcastMessage(message uiWebsocket.BroadcastMessage)
 		go func() {
 			runtimeUserKey := activeWhatsappRuntimeScope()
 			if runtimeUserKey != "" {
+				replacementDeviceID := selectReplacementWhatsappDeviceID(runtimeUserKey, deviceID)
 				selectedWhatsappDeviceMu.Lock()
-				selectedWhatsappDevice[runtimeUserKey] = map[string]string{"device_id": "", "meta": ""}
+				selectedWhatsappDevice[runtimeUserKey] = map[string]string{"device_id": replacementDeviceID, "meta": ""}
 				selectedWhatsappDeviceMu.Unlock()
-				if err := saveSelectedWhatsappDeviceToDB(runtimeUserKey, "", ""); err != nil {
-					log.Printf("handleWhatsappGatewayBroadcastMessage: failed to clear selected device after remote logout for user=%s: %v", safeUserKeyForFilename(runtimeUserKey), err)
+				if err := saveSelectedWhatsappDeviceToDB(runtimeUserKey, replacementDeviceID, ""); err != nil {
+					log.Printf("handleWhatsappGatewayBroadcastMessage: failed to persist replacement selected device after remote logout for user=%s replacement=%s: %v", safeUserKeyForFilename(runtimeUserKey), maskPhoneForLog(replacementDeviceID), err)
+				} else if replacementDeviceID != "" {
+					log.Printf("handleWhatsappGatewayBroadcastMessage: promoted replacement selected device after remote logout for user=%s replacement=%s", safeUserKeyForFilename(runtimeUserKey), maskPhoneForLog(replacementDeviceID))
 				}
 			}
 
@@ -5542,13 +5847,16 @@ func handleWhatsappGatewayBroadcastMessage(message uiWebsocket.BroadcastMessage)
 			markWhatsappManualStopWindow(30 * time.Second)
 			os.Unsetenv(whatsappFreshPairStartupEnv)
 			setWhatsappSessionRestoreExpected(false)
-			os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
-			os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
+			os.Unsetenv("PAIPERWORK_WHATSAPP_DEVICE_ID")
+			os.Unsetenv("WHATSAPP_DEVICE_ID")
 			config.WhatsappPreferredDeviceID = ""
-			setActiveWhatsappUserScope("")
 
 			if err := stopGateway(); err != nil {
 				log.Printf("handleWhatsappGatewayBroadcastMessage: failed to stop gateway after remote logout: %v", err)
+			}
+
+			if runtimeUserKey != "" {
+				clearWhatsappPersistedStateForUser(runtimeUserKey, "REMOTE_LOGOUT_POSTSTOP")
 			}
 		}()
 		return
@@ -5563,6 +5871,16 @@ func handleWhatsappGatewayBroadcastMessage(message uiWebsocket.BroadcastMessage)
 	if runtimeUserKey == "" {
 		return
 	}
+	client := &http.Client{Timeout: 5 * time.Second}
+	resolvedDeviceID := resolveLoggedInWhatsappActiveDeviceID(client, deviceID, phoneNumber)
+	if resolvedDeviceID == "" {
+		resolvedDeviceID = deviceID
+	}
+	if !strings.EqualFold(strings.TrimSpace(resolvedDeviceID), strings.TrimSpace(deviceID)) {
+		setCachedWhatsappGatewayDeviceResolution(deviceID, resolvedDeviceID)
+		log.Printf("handleWhatsappGatewayBroadcastMessage: promoted logged-in device %s to active gateway device %s", maskPhoneForLog(deviceID), maskPhoneForLog(resolvedDeviceID))
+	}
+	deviceID = resolvedDeviceID
 	selectedDeviceID := strings.TrimSpace(getSelectedWhatsappDeviceIDForUser(runtimeUserKey))
 	if !shouldAllowRuntimeWhatsappDevice(runtimeUserKey, deviceID) {
 		freshPairStartup := strings.EqualFold(strings.TrimSpace(os.Getenv(whatsappFreshPairStartupEnv)), "true")
@@ -5669,16 +5987,71 @@ func whatsappDbSyncHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type whatsappDbSyncRequest struct {
-		DeviceID    string `json:"device_id"`
-		PhoneNumber string `json:"phone_number"`
+		DeviceID                    string   `json:"device_id"`
+		PhoneNumber                 string   `json:"phone_number"`
+		SelectedDeviceID            string   `json:"selected_device_id"`
+		DebugTotalDevices           int      `json:"debug_total_devices"`
+		DebugLoadedFromInfo         bool     `json:"debug_loaded_from_info"`
+		DebugFilteredNonPersistable int      `json:"debug_filtered_non_persistable"`
+		DebugRawDeviceIDs           []string `json:"debug_raw_device_ids"`
+		Devices                     []struct {
+			DeviceID    string `json:"deviceId"`
+			JID         string `json:"jid"`
+			PhoneNumber string `json:"phone_number"`
+			DisplayName string `json:"display_name"`
+			State       string `json:"state"`
+			CreatedAt   string `json:"created_at"`
+		} `json:"devices"`
 	}
 
 	request := whatsappDbSyncRequest{}
 	_ = json.NewDecoder(io.LimitReader(r.Body, 16*1024)).Decode(&request)
 	deviceID := strings.TrimSpace(request.DeviceID)
 	phoneNumber := strings.TrimSpace(request.PhoneNumber)
+	selectedDeviceID := strings.TrimSpace(request.SelectedDeviceID)
 	if phoneNumber != "" {
 		whatsappStartupTargetPhone = phoneNumber
+	}
+
+	userKey := activeWhatsappRuntimeScope()
+	if userKey == "" {
+		userKey = resolveWhatsappUserKeyFromRequest(r)
+	}
+	log.Printf("whatsappDbSyncHandler: user=%s request_device=%s selected=%s devices=%d raw_devices=%d filtered_non_persistable=%d loaded_from_info=%v phone=%t gatewayRunning=%v raw_ids=%v", safeUserKeyForFilename(userKey), maskPhoneForLog(deviceID), maskPhoneForLog(selectedDeviceID), len(request.Devices), request.DebugTotalDevices, request.DebugFilteredNonPersistable, request.DebugLoadedFromInfo, phoneNumber != "", isGatewayRunning(), request.DebugRawDeviceIDs)
+	if userKey != "" {
+		catalogEntries := make([]persistedWhatsappDeviceEntry, 0, 1)
+		authoritativeDeviceID := strings.TrimSpace(selectedDeviceID)
+		if authoritativeDeviceID == "" {
+			authoritativeDeviceID = strings.TrimSpace(deviceID)
+		}
+		if authoritativeDeviceID == "" {
+			for _, entry := range request.Devices {
+				candidateID := strings.TrimSpace(entry.DeviceID)
+				if candidateID == "" {
+					continue
+				}
+				authoritativeDeviceID = candidateID
+				break
+			}
+		}
+
+		if authoritativeDeviceID != "" {
+			selectedEntry := persistedWhatsappDeviceEntry{ID: authoritativeDeviceID, PhoneNumber: phoneNumber, State: "disconnected"}
+			for _, entry := range request.Devices {
+				if strings.TrimSpace(entry.DeviceID) != authoritativeDeviceID {
+					continue
+				}
+				selectedEntry.PhoneNumber = firstNonEmptyString(strings.TrimSpace(entry.PhoneNumber), selectedEntry.PhoneNumber)
+				selectedEntry.DisplayName = strings.TrimSpace(entry.DisplayName)
+				selectedEntry.State = firstNonEmptyString(strings.TrimSpace(entry.State), selectedEntry.State)
+				selectedEntry.JID = strings.TrimSpace(entry.JID)
+				selectedEntry.CreatedAt = strings.TrimSpace(entry.CreatedAt)
+				break
+			}
+			catalogEntries = append(catalogEntries, selectedEntry)
+		}
+		log.Printf("whatsappDbSyncHandler: user=%s prepared_catalog_entries=%d", safeUserKeyForFilename(userKey), len(catalogEntries))
+		setSyncedPersistedWhatsappDevicesForUser(userKey, catalogEntries)
 	}
 
 	queuedWelcome := false
@@ -6080,26 +6453,13 @@ func whatsappDeleteAllPairingDataHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	selectedWhatsappDeviceMu.Lock()
-	delete(selectedWhatsappDevice, trimmedUserKey)
-	selectedWhatsappDeviceMu.Unlock()
-	os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
-	os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
-	config.WhatsappPreferredDeviceID = ""
-
-	if err := saveSelectedWhatsappDeviceToDB(trimmedUserKey, "", ""); err != nil {
-		log.Printf("whatsappDeleteAllPairingDataHandler: failed to clear selected device for user=%s: %v", safeUserKeyForFilename(trimmedUserKey), err)
-	}
-
-	if activeWhatsappRuntimeScope() == normalizeWhatsappRuntimeScope(trimmedUserKey) {
-		setActiveWhatsappUserScope("")
-	}
+	clearWhatsappPersistedStateForUser(trimmedUserKey, "DELETE_ALL_PAIRING_POSTSTOP")
 
 	clearWhatsappRemoteLogoutNotice()
 	setWhatsappSessionRestoreExpected(false)
 	os.Unsetenv(whatsappFreshPairStartupEnv)
-	os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
-	os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
+	os.Unsetenv("PAIPERWORK_WHATSAPP_DEVICE_ID")
+	os.Unsetenv("WHATSAPP_DEVICE_ID")
 	config.WhatsappPreferredDeviceID = ""
 
 	welcomeMu.Lock()
@@ -6150,6 +6510,7 @@ func whatsappSendProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	client := &http.Client{Timeout: 10 * time.Second}
 
 	explicitDeviceID := strings.TrimSpace(r.URL.Query().Get("device_id"))
 	requestedDeviceID := getRequestedWhatsappDeviceIDFromRequest(r)
@@ -6193,14 +6554,13 @@ func whatsappSendProxyHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("whatsappSendProxy: recorded outgoing message body length=%d", len(text))
 		}
 		if explicitDeviceID == "" {
-			if routedDeviceID := resolveWhatsappChatDeviceRoute(userKey, chat, outgoing.Phone, outgoing.To); routedDeviceID != "" {
+			if routedDeviceID := resolveWhatsappChatDeviceRouteWithGateway(client, userKey, chat, outgoing.Phone, outgoing.To); routedDeviceID != "" {
 				requestedDeviceID = routedDeviceID
 				log.Printf("whatsappSendProxy: using chat-routed device %s for target %s", maskPhoneForLog(routedDeviceID), maskPhoneForLog(chat))
 			}
 		}
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
 	resolvedDeviceID, derr := ensureWhatsappGatewayDevice(client, userKey, requestedDeviceID, false)
 	if derr != nil || strings.TrimSpace(resolvedDeviceID) == "" {
 		if derr != nil {
@@ -6269,6 +6629,7 @@ func whatsappSendLinkProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	client := &http.Client{Timeout: 10 * time.Second}
 
 	explicitDeviceID := strings.TrimSpace(r.URL.Query().Get("device_id"))
 	requestedDeviceID := getRequestedWhatsappDeviceIDFromRequest(r)
@@ -6309,14 +6670,13 @@ func whatsappSendLinkProxyHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("whatsappSendLinkProxy: recorded outgoing link body length=%d", len(content))
 		}
 		if explicitDeviceID == "" {
-			if routedDeviceID := resolveWhatsappChatDeviceRoute(userKey, chat, outgoing.Phone, outgoing.To); routedDeviceID != "" {
+			if routedDeviceID := resolveWhatsappChatDeviceRouteWithGateway(client, userKey, chat, outgoing.Phone, outgoing.To); routedDeviceID != "" {
 				requestedDeviceID = routedDeviceID
 				log.Printf("whatsappSendLinkProxy: using chat-routed device %s for target %s", maskPhoneForLog(routedDeviceID), maskPhoneForLog(chat))
 			}
 		}
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
 	resolvedDeviceID, derr := ensureWhatsappGatewayDevice(client, userKey, requestedDeviceID, false)
 	if derr != nil || strings.TrimSpace(resolvedDeviceID) == "" {
 		if derr != nil {
@@ -6396,14 +6756,14 @@ func whatsappPresenceProxyHandler(w http.ResponseWriter, r *http.Request) {
 		"phone":  strings.TrimSpace(incoming.Phone),
 		"action": strings.TrimSpace(incoming.Action),
 	}
+	client := &http.Client{Timeout: 10 * time.Second}
 	if explicitDeviceID == "" {
-		if routedDeviceID := resolveWhatsappChatDeviceRoute(userKey, incoming.Phone); routedDeviceID != "" {
+		if routedDeviceID := resolveWhatsappChatDeviceRouteWithGateway(client, userKey, incoming.Phone); routedDeviceID != "" {
 			requestedDeviceID = routedDeviceID
 		}
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
-	client := &http.Client{Timeout: 10 * time.Second}
 	resolvedDeviceID, derr := ensureWhatsappGatewayDevice(client, userKey, requestedDeviceID, false)
 	if derr != nil || strings.TrimSpace(resolvedDeviceID) == "" {
 		if derr != nil {
@@ -7424,6 +7784,9 @@ func waitForLocalGateway(timeout time.Duration) error {
 }
 
 func startEmbeddedGowa(freshPairStartup bool) error {
+	forceWhatsappInMemoryRuntime()
+	syncEmbeddedGowaRuntimeDBEnv("")
+
 	// Ensure any previous gateway state is fully cleaned before restarting.
 	whatsappInfra.ResetStateOnShutdown()
 	// Preserve startup markers so QR warm-up suppression remains active.
@@ -7458,14 +7821,14 @@ func startEmbeddedGowa(freshPairStartup bool) error {
 	os.Setenv("HISTORY_SYNC_ENABLED", "false")
 	if freshPairStartup {
 		os.Setenv(whatsappFreshPairStartupEnv, "true")
-		os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
-		os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
+		os.Unsetenv("PAIPERWORK_WHATSAPP_DEVICE_ID")
+		os.Unsetenv("WHATSAPP_DEVICE_ID")
 		config.WhatsappPreferredDeviceID = ""
 	} else {
 		os.Unsetenv(whatsappFreshPairStartupEnv)
 	}
 
-	os.Unsetenv("PAIPERWORK_NO_DISK")
+	os.Setenv("PAIPERWORK_NO_DISK", "true")
 	os.Setenv("PAIPERWORK_EMBEDDED_GOWA", "true")
 	setActiveGateway(activeGatewayWhatsApp)
 	startKeepAwake()
@@ -7491,8 +7854,8 @@ func startEmbeddedGowa(freshPairStartup bool) error {
 		// between the handler clearing them and this goroutine running.
 		if freshPairStartup {
 			os.Setenv(whatsappFreshPairStartupEnv, "true")
-			os.Unsetenv("PAIPERWORK_WHATSAPP_PREFERRED_DEVICE_ID")
-			os.Unsetenv("WHATSAPP_PREFERRED_DEVICE_ID")
+			os.Unsetenv("PAIPERWORK_WHATSAPP_DEVICE_ID")
+			os.Unsetenv("WHATSAPP_DEVICE_ID")
 			config.WhatsappPreferredDeviceID = ""
 		} else {
 			os.Unsetenv(whatsappFreshPairStartupEnv)
@@ -9322,7 +9685,8 @@ func main() {
 	}
 
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
+	defer signal.Stop(sigCh)
 
 	select {
 	case err := <-serverErrors:

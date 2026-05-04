@@ -81,6 +81,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         whatsappDeleteAllPairedButton: "Eliminar dispositivo(s) emparejado(s)",
         whatsappDeleteAllPairedButtonTitle: "Eliminar dispositivo(s) emparejado(s)",
         whatsappDeleteAllPairedConfirm: "Estas a punto de eliminar la informacion de emparejamiento de Paiperwork, estas seguro?",
+        whatsappPairNewDeviceReplaceWarning: "Ya hay un dispositivo de WhatsApp emparejado en Paiperwork. Emparejar un dispositivo nuevo eliminara el emparejamiento existente antes de continuar. Quieres continuar?",
         whatsappDeleteAllPairedSuccess: "Los datos de emparejamiento de Paiperwork se eliminaron. Haz clic en Start server para emparejar un dispositivo nuevo ahora.",
         whatsappDeleteAllPairedFailed: "No se pudieron eliminar los datos de emparejamiento de Paiperwork. Revisa la consola.",
         wechatNotPairedCard: "WeChat no emparejado",
