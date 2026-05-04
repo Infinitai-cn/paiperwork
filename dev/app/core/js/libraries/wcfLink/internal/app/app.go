@@ -157,12 +157,12 @@ func (a *App) UpdateSettings(ctx context.Context, settings model.Settings) (mode
 	return a.svc.UpdateSettings(ctx, settings)
 }
 
-func (a *App) SendText(ctx context.Context, accountID, toUserID, text, contextToken string) error {
-	return a.svc.SendText(ctx, accountID, toUserID, text, contextToken)
+func (a *App) SendText(ctx context.Context, accountID, toUserID, text, contextToken, replyToMessageID, quotedBody string) error {
+	return a.svc.SendText(ctx, accountID, toUserID, text, contextToken, replyToMessageID, quotedBody)
 }
 
-func (a *App) SendMedia(ctx context.Context, accountID, toUserID, mediaType, filePath, text, contextToken string) error {
-	return a.svc.SendMedia(ctx, accountID, toUserID, mediaType, filePath, text, contextToken)
+func (a *App) SendMedia(ctx context.Context, accountID, toUserID, mediaType, filePath, text, contextToken, replyToMessageID, quotedBody string) error {
+	return a.svc.SendMedia(ctx, accountID, toUserID, mediaType, filePath, text, contextToken, replyToMessageID, quotedBody)
 }
 
 func (a *App) LogoutAccount(ctx context.Context, accountID string) error {
@@ -306,7 +306,7 @@ func (s *service) LogoutAccount(ctx context.Context, accountID string) error {
 	return nil
 }
 
-func (s *service) SendText(ctx context.Context, accountID, toUserID, text, contextToken string) error {
+func (s *service) SendText(ctx context.Context, accountID, toUserID, text, contextToken, replyToMessageID, quotedBody string) error {
 	account, err := s.store.GetAccount(ctx, accountID)
 	if err != nil {
 		return err
@@ -318,11 +318,11 @@ func (s *service) SendText(ctx context.Context, accountID, toUserID, text, conte
 	if strings.TrimSpace(contextToken) == "" {
 		return errors.New("context token not found for this user; current text sending only supports replying to users who have already sent a message")
 	}
-	if err := s.client.SendTextMessage(ctx, account.BaseURL, account.Token, toUserID, text, contextToken); err != nil {
+	if err := s.client.SendTextMessage(ctx, account.BaseURL, account.Token, toUserID, text, contextToken, replyToMessageID, quotedBody); err != nil {
 		_ = s.store.AddLog(context.Background(), "ERROR", "outbound send failed", "message", fmt.Sprintf(`{"account_id":%q,"to_user_id":%q,"err":%q}`, accountID, toUserID, err.Error()))
 		return err
 	}
-	raw := fmt.Sprintf(`{"to_user_id":%q,"text":%q,"context_token":%q}`, toUserID, text, contextToken)
+	raw := fmt.Sprintf(`{"to_user_id":%q,"text":%q,"context_token":%q,"reply_to_message_id":%q,"quoted_body":%q}`, toUserID, text, contextToken, replyToMessageID, quotedBody)
 	if err := s.store.CreateOutboundEvent(ctx, accountID, "text", toUserID, contextToken, text, "", "", "", raw); err != nil {
 		return err
 	}
@@ -330,7 +330,7 @@ func (s *service) SendText(ctx context.Context, accountID, toUserID, text, conte
 	return nil
 }
 
-func (s *service) SendMedia(ctx context.Context, accountID, toUserID, mediaType, filePath, text, contextToken string) error {
+func (s *service) SendMedia(ctx context.Context, accountID, toUserID, mediaType, filePath, text, contextToken, replyToMessageID, quotedBody string) error {
 	account, err := s.store.GetAccount(ctx, accountID)
 	if err != nil {
 		return err
@@ -356,13 +356,13 @@ func (s *service) SendMedia(ctx context.Context, accountID, toUserID, mediaType,
 	fileName := filepath.Base(filePath)
 	switch normalizedType {
 	case "image":
-		err = s.client.SendImageMessage(ctx, account.BaseURL, account.Token, toUserID, contextToken, text, uploaded)
+		err = s.client.SendImageMessage(ctx, account.BaseURL, account.Token, toUserID, contextToken, text, replyToMessageID, quotedBody, uploaded)
 	case "video":
-		err = s.client.SendVideoMessage(ctx, account.BaseURL, account.Token, toUserID, contextToken, text, uploaded)
+		err = s.client.SendVideoMessage(ctx, account.BaseURL, account.Token, toUserID, contextToken, text, replyToMessageID, quotedBody, uploaded)
 	case "file":
-		err = s.client.SendFileMessage(ctx, account.BaseURL, account.Token, toUserID, contextToken, text, fileName, uploaded)
+		err = s.client.SendFileMessage(ctx, account.BaseURL, account.Token, toUserID, contextToken, text, fileName, replyToMessageID, quotedBody, uploaded)
 	case "voice":
-		err = s.client.SendVoiceMessage(ctx, account.BaseURL, account.Token, toUserID, contextToken, text, detectVoiceEncodeType(filePath), uploaded)
+		err = s.client.SendVoiceMessage(ctx, account.BaseURL, account.Token, toUserID, contextToken, text, detectVoiceEncodeType(filePath), replyToMessageID, quotedBody, uploaded)
 	default:
 		err = fmt.Errorf("unsupported media type %q", normalizedType)
 	}
@@ -375,7 +375,7 @@ func (s *service) SendMedia(ctx context.Context, accountID, toUserID, mediaType,
 	}
 
 	mimeType := detectOutboundMIME(normalizedType, filePath)
-	raw := fmt.Sprintf(`{"to_user_id":%q,"file_path":%q,"media_type":%q,"text":%q,"context_token":%q}`, toUserID, filePath, normalizedType, text, contextToken)
+	raw := fmt.Sprintf(`{"to_user_id":%q,"file_path":%q,"media_type":%q,"text":%q,"context_token":%q,"reply_to_message_id":%q,"quoted_body":%q}`, toUserID, filePath, normalizedType, text, contextToken, replyToMessageID, quotedBody)
 	if err := s.store.CreateOutboundEvent(ctx, accountID, normalizedType, toUserID, contextToken, text, filePath, fileName, mimeType, raw); err != nil {
 		return err
 	}

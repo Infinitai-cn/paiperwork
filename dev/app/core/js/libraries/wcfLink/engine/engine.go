@@ -103,12 +103,12 @@ func (e *Engine) UpdateSettings(ctx context.Context, settings Settings) (Setting
 	return e.app.UpdateSettings(ctx, settings)
 }
 
-func (e *Engine) SendText(ctx context.Context, accountID, toUserID, text, contextToken string) error {
-	return e.app.SendText(ctx, accountID, toUserID, text, contextToken)
+func (e *Engine) SendText(ctx context.Context, accountID, toUserID, text, contextToken, replyToMessageID, quotedBody string) error {
+	return e.app.SendText(ctx, accountID, toUserID, text, contextToken, replyToMessageID, quotedBody)
 }
 
-func (e *Engine) SendMedia(ctx context.Context, accountID, toUserID, mediaType, filePath, text, contextToken string) error {
-	return e.app.SendMedia(ctx, accountID, toUserID, mediaType, filePath, text, contextToken)
+func (e *Engine) SendMedia(ctx context.Context, accountID, toUserID, mediaType, filePath, text, contextToken, replyToMessageID, quotedBody string) error {
+	return e.app.SendMedia(ctx, accountID, toUserID, mediaType, filePath, text, contextToken, replyToMessageID, quotedBody)
 }
 
 func (e *Engine) LogoutAccount(ctx context.Context, accountID string) error {
