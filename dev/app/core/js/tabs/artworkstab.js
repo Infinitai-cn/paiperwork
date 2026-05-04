@@ -979,7 +979,7 @@ class ArtworksTab {
             ? console.error
             : (level === 'warn' ? console.warn : console.info);
         try {
-            logger('[WebsiteStyleClone]', step, entry.details || {});
+            //logger('[WebsiteStyleClone]', step, entry.details || {});
         } catch (_error) {
             console.info('[WebsiteStyleClone]', step);
         }
