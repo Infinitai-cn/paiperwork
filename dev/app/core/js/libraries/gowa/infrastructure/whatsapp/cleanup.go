@@ -174,7 +174,7 @@ func CleanupDatabase() error {
 	globalStateMu.Lock()
 	defer globalStateMu.Unlock()
 
-	logrus.Info("[CLEANUP] SQLite detected - closing database connections before file removal")
+	//logrus.Info("[CLEANUP] SQLite detected - closing database connections before file removal")
 
 	// Store references and clear globals immediately to prevent use-after-close
 	currentDB := db
@@ -228,7 +228,7 @@ func CleanupDatabase() error {
 
 	// Now remove the main database file
 	if config.RuntimeNoDisk() {
-		logrus.Info("No-disk mode enabled or in-memory DB mode; skipping main DB file remove")
+		//logrus.Info("No-disk mode enabled or in-memory DB mode; skipping main DB file remove")
 		return nil
 	}
 	dbPath := strings.TrimPrefix(config.DBURI, "file:")
@@ -256,7 +256,7 @@ func CleanupDatabase() error {
 // CleanupTemporaryFiles removes history files, QR images, and send items
 func CleanupTemporaryFiles() error {
 	if config.RuntimeNoDisk() {
-		logrus.Info("No-disk mode enabled; skipping temporary file cleanup")
+		//logrus.Info("No-disk mode enabled; skipping temporary file cleanup")
 		return nil
 	}
 

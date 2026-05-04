@@ -104,7 +104,7 @@ func RunHub() {
 			handleUnregister(conn)
 
 		case message := <-Broadcast:
-			logrus.Printf("message received: code=%s message=%s result=%v", message.Code, logmask.MaskTextPhones(message.Message), sanitizeBroadcastResultForLog(message.Result))
+			//logrus.Printf("message received: code=%s message=%s result=%v", message.Code, logmask.MaskTextPhones(message.Message), sanitizeBroadcastResultForLog(message.Result))
 			notifyBroadcastObservers(message)
 			broadcastMessage(message)
 		}
