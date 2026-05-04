@@ -107,7 +107,7 @@ func (service *serviceApp) finishLoginCall(deviceID string, call *loginCall, res
 
 func (service *serviceApp) login(ctx context.Context, deviceID string) (response domainApp.LoginResponse, err error) {
 	maskedDeviceID := logmask.MaskPhoneNumber(deviceID)
-	logrus.Infof("[LOGIN][%s] start", maskedDeviceID)
+	//logrus.Infof("[LOGIN][%s] start", maskedDeviceID)
 	instance, client, err := service.ensureClient(ctx, deviceID)
 	if err != nil {
 		logrus.Errorf("[LOGIN][%s] ensureClient failed: %v", maskedDeviceID, err)
@@ -115,7 +115,7 @@ func (service *serviceApp) login(ctx context.Context, deviceID string) (response
 	}
 
 	if client.IsLoggedIn() {
-		logrus.Infof("[LOGIN][%s] already logged in", maskedDeviceID)
+		//logrus.Infof("[LOGIN][%s] already logged in", maskedDeviceID)
 		instance.UpdateStateFromClient()
 		return response, pkgError.ErrAlreadyLoggedIn
 	}
@@ -138,7 +138,7 @@ func (service *serviceApp) login(ctx context.Context, deviceID string) (response
 	if err != nil {
 		qrCancel()
 		if errors.Is(err, whatsmeow.ErrQRStoreContainsID) {
-			logrus.Infof("[LOGIN][%s] GetQRChannel skipped, session exists", maskedDeviceID)
+			//logrus.Infof("[LOGIN][%s] GetQRChannel skipped, session exists", maskedDeviceID)
 			_ = client.Connect()
 			instance.UpdateStateFromClient()
 			if client.IsLoggedIn() {
@@ -159,7 +159,7 @@ func (service *serviceApp) login(ctx context.Context, deviceID string) (response
 			if evt.Event == "code" {
 				response.IssuedAt = time.Now().UnixMilli()
 				qrEventCount++
-				logrus.Infof("[LOGIN][%s] QR event issued seq=%d issued_at=%d valid_for=%ds", maskedDeviceID, qrEventCount, response.IssuedAt, int64(response.Duration/time.Second))
+				//logrus.Infof("[LOGIN][%s] QR event issued seq=%d issued_at=%d valid_for=%ds", maskedDeviceID, qrEventCount, response.IssuedAt, int64(response.Duration/time.Second))
 				// Generate PNG in-memory and return as base64 data URL so
 				// the gateway does not write QR images to disk.
 				png, perr := qrcode.Encode(evt.Code, qrcode.Medium, 512)
@@ -176,7 +176,7 @@ func (service *serviceApp) login(ctx context.Context, deviceID string) (response
 					return
 				}
 			} else if evt.Event == "success" {
-				logrus.Infof("[LOGIN][%s] QR event success received", maskedDeviceID)
+				//logrus.Infof("[LOGIN][%s] QR event success received", maskedDeviceID)
 				return
 			} else if evt.Error != nil {
 				logrus.Errorf("[LOGIN][%s] error when get qrCode %s %v", maskedDeviceID, evt.Event, evt.Error)
@@ -196,7 +196,7 @@ func (service *serviceApp) login(ctx context.Context, deviceID string) (response
 	logrus.Debugf("[LOGIN][%s] client connected", maskedDeviceID)
 	instance.UpdateStateFromClient()
 
-	logrus.Infof("[LOGIN][%s] login returned connected=%v loggedIn=%v", maskedDeviceID, client.IsConnected(), client.IsLoggedIn())
+	//logrus.Infof("[LOGIN][%s] login returned connected=%v loggedIn=%v", maskedDeviceID, client.IsConnected(), client.IsLoggedIn())
 
 	// Wait for QR image with timeout to prevent hanging
 	select {

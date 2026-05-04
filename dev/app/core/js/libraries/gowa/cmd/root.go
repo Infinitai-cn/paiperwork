@@ -411,7 +411,7 @@ func initApp() {
 	var err error
 	runtimeNoDisk := config.RuntimeNoDisk()
 	if runtimeNoDisk {
-		logrus.Infof("initApp: no-disk runtime active; skipping creation of filesystem folders for qrcode/senditems/storages/media")
+		//logrus.Infof("initApp: no-disk runtime active; skipping creation of filesystem folders for qrcode/senditems/storages/media")
 	} else {
 		// Do not auto-create storages or statics folders here.
 		// The application should use explicit storage locations or in-memory mode instead.
@@ -428,18 +428,18 @@ func initApp() {
 	chatStorageRepo = chatstorage.NewStorageRepository(chatStorageDB)
 	chatStorageRepo.InitializeSchema()
 
-	logrus.Infof("initApp: using Paiperwork chat storage DB %s", config.ChatStorageURI)
+	//logrus.Infof("initApp: using Paiperwork chat storage DB %s", config.ChatStorageURI)
 
 	whatsappDB := whatsapp.InitWaStoreContainer(ctx, config.DBURI)
 	var keysDB *sqlstore.Container
 	if config.DBURI != "" {
 		keysDB = whatsappDB
-		logrus.Infof("initApp: reusing Paiperwork primary WhatsApp DB container for keys store")
+		//logrus.Infof("initApp: reusing Paiperwork primary WhatsApp DB container for keys store")
 	}
 
 	whatsappCli = whatsapp.InitWaCLI(ctx, whatsappDB, keysDB, chatStorageRepo)
 	if whatsappCli == nil {
-		logrus.Warn("initApp: whatsapp client is nil after InitWaCLI; this may be transient until device registration completes")
+		//logrus.Warn("initApp: whatsapp client is nil after InitWaCLI; this may be transient until device registration completes")
 	}
 
 	// Initialize device manager and usecase for multi-device support
@@ -451,9 +451,9 @@ func initApp() {
 	// Usecase
 	appUsecase = usecase.NewAppService(chatStorageRepo, dm)
 	if appUsecase == nil {
-		logrus.Warn("initApp: appUsecase initialization returned nil")
+		//logrus.Warn("initApp: appUsecase initialization returned nil")
 	} else {
-		logrus.Infof("initApp: appUsecase initialized (deviceManager nil=%v)", dm == nil)
+		//logrus.Infof("initApp: appUsecase initialized (deviceManager nil=%v)", dm == nil)
 	}
 	chatUsecase = usecase.NewChatService(chatStorageRepo)
 	sendUsecase = usecase.NewSendService(appUsecase, chatStorageRepo)

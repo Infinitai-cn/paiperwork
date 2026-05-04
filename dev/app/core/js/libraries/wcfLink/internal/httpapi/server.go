@@ -218,9 +218,9 @@ func (s *Server) handleSendText(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "account_id, to_user_id and text are required"})
 		return
 	}
-	s.logger.Info("httpapi.handleSendText request", "account_id", req.AccountID, "to_user_id", req.ToUserID, "context_token_set", strings.TrimSpace(req.ContextToken) != "")
+	//s.logger.Info("httpapi.handleSendText request", "account_id", req.AccountID, "to_user_id", req.ToUserID, "context_token_set", strings.TrimSpace(req.ContextToken) != "")
 	if err := s.service.SendText(r.Context(), req.AccountID, req.ToUserID, req.Text, req.ContextToken, req.ReplyToMessageID, req.QuotedBody); err != nil {
-		s.logger.Error("httpapi.handleSendText send failed", "account_id", req.AccountID, "to_user_id", req.ToUserID, "err", err)
+		//s.logger.Error("httpapi.handleSendText send failed", "account_id", req.AccountID, "to_user_id", req.ToUserID, "err", err)
 		if isContextTokenMissingError(err) {
 			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 			return
