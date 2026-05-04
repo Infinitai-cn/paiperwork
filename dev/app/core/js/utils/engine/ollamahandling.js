@@ -2813,8 +2813,10 @@ class OllamaAPI {
 
             const cloudAccessError = this.getOllamaCloudAccessErrorDetails(error);
             if (cloudAccessError) {
+                this.rememberCloudAccessError(error);
                 this.showBlockingOllamaWarning(cloudAccessError.body, { scope: `image-send-${cloudAccessError.type}` });
             } else {
+                this.clearPendingCloudAccessError();
                 this.showBlockingOllamaWarning(Lang.get('ollamaConnectionError') + ': ' + error.message, { scope: 'image-send-connection' });
             }
             return null;
