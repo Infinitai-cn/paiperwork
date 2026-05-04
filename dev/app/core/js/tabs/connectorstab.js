@@ -524,7 +524,7 @@ If unsure, choose "chat".
             }
 
             const data = await res.json();
-            console.info('ConnectorsTab: refreshWechatPairButton response', data);
+            //console.info('ConnectorsTab: refreshWechatPairButton response', data);
             this.wechatServerStarted = data.serverStarted === true;
             const wasPaired = this.wechatIsPaired === true;
             this.wechatIsPaired = data.paired === true;
@@ -714,7 +714,7 @@ If unsure, choose "chat".
                 updated_at: new Date().toISOString()
             };
 
-            console.info('ConnectorsTab: WeChat normalized account payload to save', accountToSave);
+            //console.info('ConnectorsTab: WeChat normalized account payload to save', accountToSave);
 
             if (alreadySaved) {
                 console.info('ConnectorsTab: persisted WeChat account already exists, updating saved record', {
@@ -724,7 +724,7 @@ If unsure, choose "chat".
             }
 
             await PaiperworkDB.savePersistedWechatAccount(hashedMasterKey, accountToSave);
-            console.info('ConnectorsTab: saved persisted WeChat account', { account_id: accountId, base_url: baseUrl });
+            //console.info('ConnectorsTab: saved persisted WeChat account', { account_id: accountId, base_url: baseUrl });
         } catch (err) {
             console.warn('ConnectorsTab: _persistWechatAccountAfterLogin failed', err);
         }
@@ -1062,7 +1062,7 @@ If unsure, choose "chat".
 
         try {
             const apiUrl = window.wechatConnector.getProxyApiPath('/api/accounts/login/start');
-            console.info('ConnectorsTab: starting WeChat login flow', { apiUrl });
+            //console.info('ConnectorsTab: starting WeChat login flow', { apiUrl });
             const res = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1221,7 +1221,7 @@ If unsure, choose "chat".
         try {
             const apiUrl = window.wechatConnector ? window.wechatConnector.getProxyApiPath('/api/accounts/login/status') : '/api/wechat/api/accounts/login/status';
             const url = apiUrl + '?session_id=' + encodeURIComponent(this.wechatLoginSessionId);
-            console.info('ConnectorsTab: polling WeChat login status', { url });
+            //console.info('ConnectorsTab: polling WeChat login status', { url });
             const res = await fetch(url, { cache: 'no-store' });
             if (!res.ok) {
                 console.warn('ConnectorsTab: login status poll returned non-ok', { status: res.status, url });
@@ -1232,7 +1232,7 @@ If unsure, choose "chat".
                 return;
             }
             const data = await res.json();
-            console.info('ConnectorsTab: WeChat login status response', data);
+            //console.info('ConnectorsTab: WeChat login status response', data);
             const statusText = String(data.status || '').trim();
             if (data.error) {
                 this._setWechatLoginModalStatus('WeChat login error: ' + data.error);
@@ -1255,7 +1255,7 @@ If unsure, choose "chat".
                     bot_token: loginToken,
                     base_url: baseUrl
                 };
-                console.info('ConnectorsTab: WeChat login successful, saving persisted account data', payloadToSave);
+                //console.info('ConnectorsTab: WeChat login successful, saving persisted account data', payloadToSave);
                 await this._persistWechatAccountAfterLogin(payloadToSave);
                 this._setWechatLoginModalStatus('WeChat login completed. Refreshing status...');
                 this._stopWechatLoginFlow();
@@ -1986,13 +1986,13 @@ If unsure, choose "chat".
         const persistedDevices = rawDevices;
 
         const resolvedSelectedDeviceId = this._resolveSavedWhatsappStartupDeviceId(selectedDeviceId);
-        console.info('ConnectorsTab: syncing saved WhatsApp catalog to server before startup', {
+        /* console.info('ConnectorsTab: syncing saved WhatsApp catalog to server before startup', {
             selectedDeviceId,
             resolvedSelectedDeviceId,
             totalSavedDevices: Array.isArray(devices) ? devices.length : 0,
             persistedDevicesCount: persistedDevices.length,
             persistedDeviceIds: persistedDevices.map(entry => entry.deviceId)
-        });
+        }); */
 
         await fetch('/api/whatsapp/db-sync', {
             method: 'POST',
@@ -3098,12 +3098,12 @@ If unsure, choose "chat".
         try {
             const info = await this._loadSavedWhatsappDeviceInfo(retryCount);
             const normalized = this._normalizeWhatsappDeviceCatalog(info);
-            console.info('ConnectorsTab: _readSavedWhatsappDeviceCatalogFromDb loaded catalog', {
+            /* console.info('ConnectorsTab: _readSavedWhatsappDeviceCatalogFromDb loaded catalog', {
                 info,
                 deviceCount: normalized.devices.length,
                 selectedDeviceId: normalized.selectedDeviceId,
                 deviceIds: normalized.devices.map(entry => entry.deviceId)
-            });
+            }); */
             return {
                 info,
                 normalized
@@ -3450,18 +3450,18 @@ If unsure, choose "chat".
             }
 
             if (typeof dbHandle.initializeDatabase === 'function') {
-                console.info('ConnectorsTab: _loadSavedWhatsappDeviceInfo initializing DB handle', { hashedMasterKey });
+                //console.info('ConnectorsTab: _loadSavedWhatsappDeviceInfo initializing DB handle', { hashedMasterKey });
                 await dbHandle.initializeDatabase(hashedMasterKey);
             }
 
             const info = await dbHandle.getWhatsappDeviceInfo(hashedMasterKey);
-            console.info('ConnectorsTab: _loadSavedWhatsappDeviceInfo read saved device info', {
+            /* console.info('ConnectorsTab: _loadSavedWhatsappDeviceInfo read saved device info', {
                 info
-            });
+            }); */
             if (!info) {
-                console.info('ConnectorsTab: _loadSavedWhatsappDeviceInfo no WhatsApp device info found');
+                //console.info('ConnectorsTab: _loadSavedWhatsappDeviceInfo no WhatsApp device info found');
             } else {
-                console.info('ConnectorsTab: _loadSavedWhatsappDeviceInfo retrieved info', info);
+                //console.info('ConnectorsTab: _loadSavedWhatsappDeviceInfo retrieved info', info);
             }
 
             const runtimeSelectedDeviceId = String(this.savedWhatsappDeviceId || '').trim();

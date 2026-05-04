@@ -4760,7 +4760,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             ? console.error
             : (level === 'warn' ? console.warn : console.info);
         try {
-            logger('[TextOverlayFontExport]', step, entry.details || {});
+            //logger('[TextOverlayFontExport]', step, entry.details || {});
         } catch (_error) {
             console.info('[TextOverlayFontExport]', step);
         }

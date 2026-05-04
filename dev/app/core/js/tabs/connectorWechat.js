@@ -139,18 +139,18 @@
             return null;
         }
 
-        console.info('ConnectorWechat: creating new ConnectorWechat instance');
+        //console.info('ConnectorWechat: creating new ConnectorWechat instance');
         const instance = new ConnectorWechat();
         if (window.wechatConnectorBridge) {
             window.wechatConnectorBridge._instance = instance;
         }
-        console.info('ConnectorWechat: instance created', {
+        /* console.info('ConnectorWechat: instance created', {
             startIncomingPolling: typeof instance.startIncomingPolling,
             stopIncomingPolling: typeof instance.stopIncomingPolling,
             processwechatIncomingMessage: typeof instance.processwechatIncomingMessage,
             enqueuewechatIncomingMessage: typeof instance.enqueuewechatIncomingMessage,
             drainwechatIncomingQueue: typeof instance.drainwechatIncomingQueue
-        });
+        }); */
         return instance;
     }
 
@@ -161,7 +161,7 @@
             startIncomingPolling: function () {
                 const wc = _getWechatConnectorInstance();
                 if (wc && typeof wc.startIncomingPolling === 'function') {
-                    console.info('ConnectorWechat: starting WeChat incoming polling');
+                    //console.info('ConnectorWechat: starting WeChat incoming polling');
                     wc.startIncomingPolling();
                 }
             },
@@ -233,7 +233,7 @@
                 }
                 const connector = window.connectors;
                 connector.__wechatSupportInstalled = true;
-                console.info('ConnectorWechat: installing legacy WeChat wrappers on window.connectors');
+                //console.info('ConnectorWechat: installing legacy WeChat wrappers on window.connectors');
                 connector.startWechatIncomingPolling = function () {
                     window.wechatConnectorBridge.startIncomingPolling();
                 };
@@ -252,12 +252,12 @@
                 connector.postWechatText = async function (chatId, text, accountId, contextToken, replyToMessageId, quotedBody) {
                     await window.wechatConnectorBridge.postText(chatId, text, accountId, contextToken, replyToMessageId, quotedBody);
                 };
-                console.info('ConnectorWechat: legacy wrappers registered on window.connectors', {
+                /* console.info('ConnectorWechat: legacy wrappers registered on window.connectors', {
                     startWechatIncomingPolling: typeof connector.startWechatIncomingPolling,
                     stopWechatIncomingPolling: typeof connector.stopWechatIncomingPolling,
                     processWechatIncomingMessage: typeof connector.processWechatIncomingMessage,
                     enqueueWechatIncomingMessage: typeof connector.enqueueWechatIncomingMessage
-                });
+                }); */
             },
             restoreStatus: async function () {
                 try {
@@ -267,7 +267,7 @@
                         return;
                     }
                     const status = await res.json();
-                    console.info('ConnectorWechat: restore status', status);
+                    //console.info('ConnectorWechat: restore status', status);
                     if (status.serverStarted === true && status.paired === true) {
                         window.wechatConnectorBridge.startIncomingPolling();
                         window.dispatchEvent(new CustomEvent('wechatPaired'));
@@ -280,17 +280,17 @@
     }
 
     window.wechatConnectorBridge = _createWechatBridge();
-    console.info('ConnectorWechat: bridge created', {
+    /* console.info('ConnectorWechat: bridge created', {
         hasBridge: !!window.wechatConnectorBridge,
         getInstance: typeof window.wechatConnectorBridge.getInstance,
         startIncomingPolling: typeof window.wechatConnectorBridge.startIncomingPolling,
         processIncomingMessage: typeof window.wechatConnectorBridge.processIncomingMessage
-    });
+    }); */
     window.wechatConnectorBridge.installLegacyConnectors();
 
     function _attemptInstallWechatConnectorBridge() {
         if (window.connectors) {
-            console.info('ConnectorWechat: window.connectors already available, installing WeChat bridge wrappers');
+            //console.info('ConnectorWechat: window.connectors already available, installing WeChat bridge wrappers');
             window.wechatConnectorBridge.installLegacyConnectors();
             return;
         }
@@ -318,7 +318,7 @@
 
 class ConnectorWechat {
     constructor() {
-        console.info('ConnectorWechat: constructor called');
+        //console.info('ConnectorWechat: constructor called');
         this.incomingPollInterval = null;
         this.incomingPollIntervalMs = 2500;
         this.wechatIncomingEventSource = null;
@@ -773,12 +773,12 @@ class ConnectorWechat {
         overlay.appendChild(modal);
         const root = document.body || document.documentElement;
         root.appendChild(overlay);
-        console.info('[Connectorwechat][orchestrator] modal appended');
+        //console.info('[Connectorwechat][orchestrator] modal appended');
     }
 
     _hidewechatOrchestratorModal() {
         this._orchestratorModalActiveCount = Math.max(0, this._orchestratorModalActiveCount - 1);
-        console.info('[Connectorwechat][orchestrator] hiding modal, active count', this._orchestratorModalActiveCount);
+        //console.info('[Connectorwechat][orchestrator] hiding modal, active count', this._orchestratorModalActiveCount);
         if (this._orchestratorModalActiveCount > 0) {
             return;
         }
@@ -786,7 +786,7 @@ class ConnectorWechat {
         const overlay = document.getElementById('wechat-orchestrator-modal');
         if (overlay && overlay.parentNode) {
             overlay.parentNode.removeChild(overlay);
-            console.info('[Connectorwechat][orchestrator] modal removed');
+            //console.info('[Connectorwechat][orchestrator] modal removed');
         }
     }
 
@@ -7963,12 +7963,12 @@ class ConnectorWechat {
             return;
         }
         const url = this._getWechatEventsStreamUrl();
-        console.info('Connectorwechat: startIncomingPolling called, opening event stream', { url });
+        //console.info('Connectorwechat: startIncomingPolling called, opening event stream', { url });
         const source = new EventSource(url);
         this.wechatIncomingEventSource = source;
 
         source.addEventListener('open', () => {
-            console.info('Connectorwechat: WeChat event stream opened');
+            //console.info('Connectorwechat: WeChat event stream opened');
         });
 
         source.addEventListener('wechatIncoming', async (event) => {
@@ -8296,13 +8296,13 @@ class ConnectorWechat {
             && typeof window.connectors.postWechatText === 'function'
             && !window.connectors.__wechatSupportInstalled;
 
-        console.info('Connectorwechat: postwechatText route', {
+        /* console.info('Connectorwechat: postwechatText route', {
             chatId: resolvedChatId,
             resolvedAccountId,
             resolvedContextToken: Boolean(resolvedContextToken),
             resolvedReplyToMessageId: Boolean(resolvedReplyToMessageId),
             via: canUseExternalBridge ? 'wechatConnectorBridge' : canUseLegacyConnector ? 'window.connectors' : 'api'
-        });
+        }); */
 
         try {
             if (canUseExternalBridge) {
@@ -8588,7 +8588,7 @@ class ConnectorWechat {
             const cleaned = this._stripThinkingContent(effectiveInput);
             const routingIntentText = this._getwechatRoutingIntentText(cleaned);
             const orchestratorInput = this._buildwechatArtifactOrchestratorHint(cleaned, accountContext);
-            console.info('[Connectorwechat][orchestrator] start', {
+            /* console.info('[Connectorwechat][orchestrator] start', {
                 account: normalizedAccount,
                 originalBody: original,
                 cleanedBody: cleaned,
@@ -8598,7 +8598,7 @@ class ConnectorWechat {
                     missingPreviousPrompt: !!(promptResolution && promptResolution.missingPreviousPrompt),
                     effectiveText: String(promptResolution && promptResolution.effectiveText || '')
                 }
-            });
+            }); */
 
             //console.info('[Connectorwechat][orchestrator] sanitized input prepared');
 
@@ -8790,7 +8790,7 @@ class ConnectorWechat {
                 decision.language = this._resolvewechatInteractionLanguage(null, cleaned, accountContext);
             }
 
-            console.info('[Connectorwechat][orchestrator] Final routing decision', {
+            /* console.info('[Connectorwechat][orchestrator] Final routing decision', {
                 account: normalizedAccount,
                 tool: decision.tool,
                 confidence: decision.confidence,
@@ -8801,7 +8801,7 @@ class ConnectorWechat {
                 language: decision.language,
                 source: decision.source,
                 think: decision.think
-            });
+            }); */
 
             // Attach orchestration decision to the message (so downstream can act on it)
             msg.orchestrator = decision;
@@ -9536,11 +9536,11 @@ class ConnectorWechat {
                 }
 
                 try {
-                    console.info('Connectorwechat: processing queued wechat incoming message', {
+                    /* console.info('Connectorwechat: processing queued wechat incoming message', {
                         account: this._getwechatIncomingThreadKey(nextMsg),
                         body_preview: String(nextMsg.body || '').slice(0, 120),
                         queue_length: this.wechatIncomingRetryQueue.length
-                    });
+                    }); */
 
                     if (window.chat && typeof window.chat.processWechatIncomingMessage === 'function') {
                         await window.chat.processWechatIncomingMessage(nextMsg);
@@ -9621,10 +9621,10 @@ class ConnectorWechat {
             if ((!msg || !msg.orchestrator) && typeof this._orchestrateMessage === 'function') {
                 try {
                     msg = await this._orchestrateMessage(msg) || msg;
-                    console.info('[Connectorwechat] WeChat incoming message preprocessed by _orchestrateMessage', {
+                    /* console.info('[Connectorwechat] WeChat incoming message preprocessed by _orchestrateMessage', {
                         account: normalizedAccount,
                         orchDecision: msg && msg.orchestrator ? msg.orchestrator : null
-                    });
+                    }); */
                 } catch (orchErr) {
                     console.warn('Connectorwechat: _orchestrateMessage failed', orchErr);
                 }
@@ -9767,7 +9767,7 @@ class ConnectorWechat {
             window.wechatIncomingLanguageSample = userText;
             window.lastOrchestratorDecision = msg.orchestrator;
 
-            console.info('[Connectorwechat][routing] Incoming wechat routing state', {
+            /* console.info('[Connectorwechat][routing] Incoming wechat routing state', {
                 account: normalizedAccount,
                 replyTarget,
                 orchTool,
@@ -9781,7 +9781,7 @@ class ConnectorWechat {
                 knowledgeEntryTransformIntent,
                 documentSummaryFollowUpIntent,
                 regenerateRequested: !!(regenerateState && regenerateState.requested)
-            });
+            }); */
 
             if (this._iswechatArtifactCloseIntent(routingIntentText || userText, accountContext, orchTool)) {
                 await this._handlewechatArtifactSessionClose(normalizedAccount, resolvedLanguage, accountContext);
@@ -10206,7 +10206,7 @@ class ConnectorWechat {
                 if (requestScope && msg && typeof msg.__wechatDisplayUserText === 'string' && msg.__wechatDisplayUserText.trim()) {
                     requestScope.displayUserText = msg.__wechatDisplayUserText.trim();
                 }
-                console.log('[Connectorwechat] incoming msg.body for chat send:', String(msg.body || '').trim());
+                //console.log('[Connectorwechat] incoming msg.body for chat send:', String(msg.body || '').trim());
                 const promptInput = document.getElementById('prompt-input');
                 if (promptInput) promptInput.value = String(msg.body || '').trim();
             } catch (e) {}
