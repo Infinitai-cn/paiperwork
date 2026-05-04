@@ -8888,8 +8888,6 @@ func fetchWebsiteStyleAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[WebsiteStyleClone] request-start rawURL=%q", targetURL)
-
 	validatedTargetURL, err := validateOutboundURL(targetURL)
 	if err != nil {
 		log.Printf("Website style extraction rejected URL %q: %v", targetURL, err)
@@ -8904,7 +8902,6 @@ func fetchWebsiteStyleAnalysis(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
-	log.Printf("[WebsiteStyleClone] html-fetched url=%q finalURL=%q bytes=%d", validatedTargetURL.String(), finalURL.String(), len(body))
 
 	analysis, err := extractWebsiteStyleAnalysis(client, body, finalURL)
 	if err != nil {
@@ -8915,7 +8912,6 @@ func fetchWebsiteStyleAnalysis(w http.ResponseWriter, r *http.Request) {
 
 	analysis.URL = finalURL.String()
 	analysis.ExtractedAt = time.Now().Format(time.RFC3339)
-	log.Printf("[WebsiteStyleClone] extraction-complete url=%q fonts=%d colors=%d rawFonts=%d rawColors=%d", analysis.URL, len(analysis.Fonts), len(analysis.Colors), len(analysis.RawFontFamilies), len(analysis.RawColors))
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -8956,7 +8952,6 @@ func fetchStyleCloneHTMLDocument(client *http.Client, targetURL string) ([]byte,
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	log.Printf("[WebsiteStyleClone] html-fetch-start url=%q", targetURL)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -8968,7 +8963,6 @@ func fetchStyleCloneHTMLDocument(client *http.Client, targetURL string) ([]byte,
 	if !strings.Contains(contentType, "text/html") && !strings.Contains(contentType, "application/xhtml+xml") {
 		return nil, nil, fmt.Errorf("URL does not point to HTML content")
 	}
-	log.Printf("[WebsiteStyleClone] html-fetch-response url=%q status=%d contentType=%q", targetURL, resp.StatusCode, contentType)
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 5*1024*1024))
 	if err != nil {
@@ -8991,7 +8985,6 @@ func fetchStyleCloneTextResource(client *http.Client, targetURL string) (string,
 	if err != nil {
 		return "", err
 	}
-	log.Printf("[WebsiteStyleClone] stylesheet-fetch-start url=%q", validatedTargetURL.String())
 
 	req, err := newStyleCloneRequest(validatedTargetURL.String())
 	if err != nil {
@@ -9008,7 +9001,6 @@ func fetchStyleCloneTextResource(client *http.Client, targetURL string) (string,
 	if err != nil {
 		return "", err
 	}
-	log.Printf("[WebsiteStyleClone] stylesheet-fetch-success url=%q bytes=%d", validatedTargetURL.String(), len(body))
 
 	return string(body), nil
 }
@@ -9087,7 +9079,6 @@ func extractWebsiteStyleAnalysis(client *http.Client, body []byte, baseURL *url.
 		stylesheetCount += 1
 		cssSources = append(cssSources, cssText)
 	})
-	log.Printf("[WebsiteStyleClone] css-sources-collected inline=%d linked=%d", len(cssSources)-stylesheetCount, stylesheetCount)
 
 	for _, cssText := range cssSources {
 		collectStyleCloneHintsFromCSS(cssText, fontScores, colorScores, rawFontFamilies, rawColors)
@@ -9101,7 +9092,6 @@ func extractWebsiteStyleAnalysis(client *http.Client, body []byte, baseURL *url.
 	analysis.Colors = topRankedMapKeys(colorScores, 6)
 	analysis.RawFontFamilies = sortedStringSet(rawFontFamilies)
 	analysis.RawColors = sortedStringSet(rawColors)
-	log.Printf("[WebsiteStyleClone] ranking-summary fonts=%v colors=%v", analysis.Fonts, analysis.Colors)
 	return analysis, nil
 }
 
