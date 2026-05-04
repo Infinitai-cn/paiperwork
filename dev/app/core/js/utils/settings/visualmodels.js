@@ -26,5 +26,4 @@ window.VISUAL_MODELS = [
     'qwen3-vl:235b-instruct',
     'kimi-k2.6',
     'kimi-k2.5',
-    'kimi-k2:1t',
 ];
