@@ -768,6 +768,55 @@ class PaiperworkDB {
         }
     }
 
+    static async scrubConnectorWorkflowSessionsFromEncryptedContextBlob(hashedMasterKey, encryptedBlob) {
+        if (!hashedMasterKey || !encryptedBlob) {
+            return { changed: false, encryptedJson: typeof encryptedBlob === 'string' ? encryptedBlob : '' };
+        }
+
+        let encryptedPayload = encryptedBlob;
+        if (typeof encryptedPayload === 'string') {
+            try {
+                const maybeObj = JSON.parse(encryptedPayload);
+                if (maybeObj && typeof maybeObj === 'object') {
+                    encryptedPayload = maybeObj;
+                }
+            } catch (_err) {
+                // Keep raw string payloads as-is.
+            }
+        }
+
+        const decrypted = await this.decrypt(hashedMasterKey, encryptedPayload);
+        if (!decrypted) {
+            return { changed: false, encryptedJson: typeof encryptedBlob === 'string' ? encryptedBlob : '' };
+        }
+
+        let parsedContext;
+        try {
+            parsedContext = JSON.parse(decrypted);
+        } catch (_err) {
+            return { changed: false, encryptedJson: typeof encryptedBlob === 'string' ? encryptedBlob : '' };
+        }
+
+        if (!parsedContext || typeof parsedContext !== 'object') {
+            return { changed: false, encryptedJson: typeof encryptedBlob === 'string' ? encryptedBlob : '' };
+        }
+
+        const hasArtifactSession = Object.prototype.hasOwnProperty.call(parsedContext, 'artifactSession');
+        const hasFollowUpSession = Object.prototype.hasOwnProperty.call(parsedContext, 'followUpSession');
+        if (!hasArtifactSession && !hasFollowUpSession) {
+            return { changed: false, encryptedJson: typeof encryptedBlob === 'string' ? encryptedBlob : '' };
+        }
+
+        delete parsedContext.artifactSession;
+        delete parsedContext.followUpSession;
+
+        const reencrypted = await this.encrypt(hashedMasterKey, JSON.stringify(parsedContext));
+        return {
+            changed: true,
+            encryptedJson: reencrypted ? JSON.stringify(reencrypted) : ''
+        };
+    }
+
     static async listPersistedWechatAccounts(hashedMasterKey) {
         if (!hashedMasterKey) {
             return [];
@@ -2645,11 +2694,16 @@ class PaiperworkDB {
        //console.log('Migrating database for masterkey:', hashedMasterKey);
 
         try {
+            const latestVersion = 30;
             // Get current version
             const versionResult = db.exec('SELECT version FROM db_version');
             const currentVersion = versionResult.length ? versionResult[0].values[0][0] : 0;
 
            //console.log('Current database version:', currentVersion);
+
+            if (currentVersion >= latestVersion) {
+                return true;
+            }
 
             // Version 1: Initial tables
             if (currentVersion < 1) {
@@ -3473,11 +3527,72 @@ class PaiperworkDB {
                 }
             }
 
-			// Update database version to 29 (devices table mirror + WhatsApp settings cleanup)
+            // Version 30: Remove persisted runtime workflow sessions from WhatsApp/WeChat context blobs.
+            if (currentVersion < 30) {
+                try {
+                    const whatsappDb = await this.getWhatsappRoleSqlDatabase(hashedMasterKey, true);
+                    whatsappDb.run(`
+                        CREATE TABLE IF NOT EXISTS whatsapp_phone_contexts (
+                            phone TEXT PRIMARY KEY,
+                            context TEXT
+                        )
+                    `);
+
+                    const whatsappRows = whatsappDb.exec(`SELECT phone, context FROM whatsapp_phone_contexts`);
+                    let whatsappChanged = false;
+                    if (whatsappRows && whatsappRows[0] && Array.isArray(whatsappRows[0].values)) {
+                        for (const [phone, context] of whatsappRows[0].values) {
+                            if (!phone || !context) {
+                                continue;
+                            }
+                            const cleaned = await this.scrubConnectorWorkflowSessionsFromEncryptedContextBlob(hashedMasterKey, context);
+                            if (!cleaned.changed) {
+                                continue;
+                            }
+                            whatsappDb.run(`UPDATE whatsapp_phone_contexts SET context = ? WHERE phone = ?`, [cleaned.encryptedJson, phone]);
+                            whatsappChanged = true;
+                        }
+                    }
+                    if (whatsappChanged) {
+                        await this.saveWhatsappRoleSqlDatabase(whatsappDb, hashedMasterKey);
+                    }
+
+                    const wechatDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+                    wechatDb.run(`
+                        CREATE TABLE IF NOT EXISTS wechat_account_contexts (
+                            account TEXT PRIMARY KEY,
+                            context TEXT
+                        )
+                    `);
+
+                    const wechatRows = wechatDb.exec(`SELECT account, context FROM wechat_account_contexts`);
+                    let wechatChanged = false;
+                    if (wechatRows && wechatRows[0] && Array.isArray(wechatRows[0].values)) {
+                        for (const [account, context] of wechatRows[0].values) {
+                            if (!account || !context) {
+                                continue;
+                            }
+                            const cleaned = await this.scrubConnectorWorkflowSessionsFromEncryptedContextBlob(hashedMasterKey, context);
+                            if (!cleaned.changed) {
+                                continue;
+                            }
+                            wechatDb.run(`UPDATE wechat_account_contexts SET context = ? WHERE account = ?`, [cleaned.encryptedJson, account]);
+                            wechatChanged = true;
+                        }
+                    }
+                    if (wechatChanged) {
+                        await this.saveWechatRoleSqlDatabase(wechatDb, hashedMasterKey);
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error removing persisted connector workflow sessions', error);
+                }
+            }
+
+            // Update database version to 30 (remove persisted connector workflow sessions from context blobs)
             if (currentVersion === 0) {
-				db.run('INSERT INTO db_version (version) VALUES (29)');
+                db.run(`INSERT INTO db_version (version) VALUES (${latestVersion})`);
             } else {
-				db.run('UPDATE db_version SET version = 29');
+                db.run(`UPDATE db_version SET version = ${latestVersion}`);
             }
 
             // Save the migrated database using our enhanced saveToStorage method
