@@ -2447,6 +2447,14 @@ class ResearchAutomation {
 
             } catch (e) {
                 console.warn('Failed to parse search queries as JSON, using fallback method', e);
+                console.warn('Research query parser debug payload', {
+                    originalQuery: mainQuery,
+                    detectedLanguage: queryLanguage,
+                    cleanedResponseLength: cleanedResponse.length,
+                    parserInputLength: typeof responseText === 'string' ? responseText.length : 0,
+                    cleanedResponsePreview: String(cleanedResponse || '').slice(0, 2000),
+                    parserInputPreview: String(responseText || '').slice(0, 2000)
+                });
 
                 // Fallback: extract queries line by line, excluding markdown and JSON syntax
                 const lines = cleanedResponse
