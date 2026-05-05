@@ -196,6 +196,7 @@ Instructions:
 - Treat localized equivalents and spacing variants of "artifact", "miniapp", "mini-app", and "mini app" as the same artifact intent across all supported languages.
 - If the immediately previous user turns were about creating or refining an artifact/miniapp, then follow-up modification requests like "make it darker", "add a start button", or "make the rain drops bigger" should remain on "artifact" even if the user does not repeat the words miniapp or artifact.
 - When there is an active artifact/miniapp session, treat short refinement requests as "artifact" by default unless the user explicitly switches domains to models, documents, research, dataviz, or presentations.
+- When there is an active artifact/miniapp session, any request that does not explicitly start a fresh artifact creation flow should be treated as a modification of the current miniapp. Requests like "translate to Chinese", "make it blue", or "add a timer" are follow-up artifact modifications even if they do not mention miniapp. Only treat it as a new artifact creation when the user explicitly asks to create/build/generate/make a new miniapp/artifact.
 - In an active artifact/miniapp session, phrases like "use white noise", "use pink noise", "use this color", or "use bigger drops" are artifact refinements, not AI model-switch requests.
 - In an active artifact/miniapp session, replies like "no", "no thanks", "I'm finished", "I'm good", "looks good", or their localized equivalents mean the user wants to close artifact follow-up mode, not switch AI models.
 - Requests to make the miniapp richer with web/internet/search context should still stay on "artifact", not "chat+websearch".
@@ -4722,7 +4723,30 @@ If unsure, choose "chat".
             this._completeWhatsappPairingFlow(modal, source);
             return true;
         }
+
+        if (gatewayInfo && gatewayInfo.gatewayRunning && await this._hasRecoveredLoggedInWhatsappSavedDevice(String((gatewayInfo && gatewayInfo.deviceId) || '').trim())) {
+            this._completeWhatsappPairingFlow(modal, source + ':saved-device');
+            return true;
+        }
+
         return false;
+    }
+
+    async _hasRecoveredLoggedInWhatsappSavedDevice(targetDeviceId = '') {
+        const requestedDeviceId = String(targetDeviceId || this.savedWhatsappDeviceId || '').trim();
+        if (!requestedDeviceId) {
+            return false;
+        }
+
+        try {
+            await this._saveCurrentWhatsappDeviceInfo(requestedDeviceId);
+        } catch (err) {
+            console.warn('ConnectorsTab: saved-device recovery verification failed', err);
+        }
+
+        const resolvedDeviceId = this._resolveSavedWhatsappCatalogDeviceId(requestedDeviceId || this.savedWhatsappDeviceId || '');
+        const savedEntry = this._findBestWhatsappDeviceCatalogEntry(this.savedWhatsappDevices, resolvedDeviceId || requestedDeviceId) || null;
+        return String((savedEntry && savedEntry.state) || '').trim().toLowerCase() === 'logged_in';
     }
 
     _showNoModelSelectedModal(message) {
@@ -5629,6 +5653,13 @@ If unsure, choose "chat".
                 }
 
                 if (data.qrWithheld) {
+                    const recovered = data.gatewayRunning
+                        ? await this._closeWhatsappPairModalIfGatewayRecovered(modal, requestGeneration, 'poll:qr-withheld-recovered')
+                        : false;
+                    if (recovered) {
+                        return;
+                    }
+
                     this.setWhatsappModalPhase('starting', this._getWhatsappQrWithheldStatusMessage(data));
                     const qrContainer = document.getElementById('wa-qr-container');
                     if (qrContainer) {

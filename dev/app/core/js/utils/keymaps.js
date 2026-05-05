@@ -519,6 +519,18 @@ const artifactKeymap = {
             '发送', '分享',
             '送信', '共有',
             '보내', '전송', '공유'
+        ],
+        transform: [
+            'translate', 'translation', 'localize', 'localise', 'rewrite', 'rephrase', 'paraphrase', 'adapt',
+            'traducir', 'traduce', 'traduccion', 'traducción', 'localiza', 'reescribe', 'reformula', 'adapta',
+            'traduzir', 'traduza', 'traduz', 'tradução', 'traducao', 'localiza', 'reescreve', 'reescreva', 'adapta',
+            'traduire', 'traduis', 'traduction', 'localise', 'réécris', 'reecris', 'reformule', 'adapte',
+            'ubersetzen', 'übersetzen', 'ubersetze', 'übersetze', 'ubersetzung', 'übersetzung', 'lokalisieren', 'umschreiben', 'anpassen',
+            'tradurre', 'traduci', 'traduzione', 'localizza', 'riscrivi', 'riformula', 'adatta',
+            'переведи', 'перевести', 'перевод', 'локализуй', 'перепиши', 'перефразируй', 'адаптируй',
+            '翻译', '翻譯', '本地化', '改写', '改寫', '重写', '重寫', '改成',
+            '翻訳', 'ローカライズ', '書き直し', '言い換え', '調整',
+            '번역', '현지화', '다시 써', '바꿔', '각색'
         ]
     },
     savedCues: [
