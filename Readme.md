@@ -46,6 +46,7 @@ Visit our [documentation site](https://Infinitai-cn.github.io/paiperwork/) for c
 
 Note: You may need to enable Paiperwork in Privacy and security in your system if it is detected as not safe when you try to open it.
 
+
 ## For Developers
 
 Want to contribute or build from source? Check out our [**Developer Guide**](developer.md) for:
@@ -142,3 +143,13 @@ Want to contribute or build from source? Check out our [**Developer Guide**](dev
 ---
 
 *Paiperwork combines the power of AI with complete privacy, giving you a professional assistant that respects your data while providing powerful productivity tools across multiple domains.*
+
+## Licensing
+
+Paiperwork is source-available under the Business Source License 1.1 in the main LICENSE file.
+
+- Personal, educational, and non-commercial use is allowed.
+- Internal commercial use is allowed for organizations with up to 10 concurrent users.
+- Larger production deployments, OEM use, redistribution, support, or custom branding require a separate commercial agreement.
+
+See `LICENSE` for the repository license and `LICENSE-COMMERCIAL.md` for commercial licensing information.
