@@ -446,7 +446,7 @@ class ConnectorWechat {
         }
 
         this._setBigOpState(0);
-        await this.postwechatText(replyTarget, `💬 ${cancelText}`);
+        await this._postwechatOrchestratorText(replyTarget, `💬 ${cancelText}`);
         return true;
     }
 
@@ -1289,6 +1289,48 @@ class ConnectorWechat {
         return String(requestScope && requestScope.replyTarget ? requestScope.replyTarget : '').trim();
     }
 
+    _getwechatActiveOutgoingContext(target = '') {
+        const activeRequest = typeof window !== 'undefined' ? window.__paiperworkwechatActiveRequest : null;
+        const normalizedTarget = this._normalizewechatIdentity(target);
+        const activeAccountId = activeRequest && String(activeRequest.account_id || activeRequest.account || '').trim();
+        const activeContextToken = activeRequest && String(activeRequest.context_token || '').trim();
+        const activeReplyTarget = activeRequest && String(activeRequest.replyTarget || '').trim();
+        const normalizedActiveReplyTarget = this._normalizewechatIdentity(activeReplyTarget);
+        const normalizedActiveAccount = this._normalizewechatIdentity(activeAccountId);
+
+        return {
+            replyTarget: normalizedTarget && activeReplyTarget && (
+                normalizedTarget === normalizedActiveReplyTarget
+                || normalizedTarget === normalizedActiveAccount
+            ) ? activeReplyTarget : '',
+            accountId: activeAccountId || normalizedTarget,
+            contextToken: activeContextToken || ''
+        };
+    }
+
+    async _postwechatOrchestratorText(target, text, options = {}) {
+        const resolvedTarget = String(target || '').trim();
+        const resolvedText = String(text || '').trim();
+        if (!resolvedTarget || !resolvedText) {
+            return;
+        }
+
+        const activeContext = this._getwechatActiveOutgoingContext(resolvedTarget);
+        const resolvedChatTarget = String(activeContext.replyTarget || resolvedTarget).trim();
+        const resolvedAccountId = String(options.accountId || activeContext.accountId || '').trim();
+        const resolvedContextToken = String(options.contextToken || '').trim();
+
+        await this.postwechatText(
+            resolvedChatTarget,
+            resolvedText,
+            resolvedAccountId,
+            resolvedContextToken,
+            '',
+            '',
+            { suppressReplyContext: true, suppressContextTokenFallback: true }
+        );
+    }
+
     async _sendwechatDocumentModeActivatedMessage(replyTarget, language, documentName) {
         const target = String(replyTarget || '').trim();
         const resolvedLanguage = this._resolvewechatReplyLanguage(language);
@@ -1302,8 +1344,8 @@ class ConnectorWechat {
             'ragDocumentModeExitTip',
             'When you are done, reply with "exit document mode" or say "I am finished".'
         );
-        await this.postwechatText(target, `💬 ${modeActivatedText}: ${documentName}`);
-        await this.postwechatText(target, `💬 ${exitTipText}`);
+        await this._postwechatOrchestratorText(target, `💬 ${modeActivatedText}: ${documentName}`);
+        await this._postwechatOrchestratorText(target, `💬 ${exitTipText}`);
     }
 
     async _sendwechatDocumentModeClosedMessage(replyTarget, language = null, accountContext = null) {
@@ -1314,7 +1356,7 @@ class ConnectorWechat {
             'ragReturnToChat',
             'Returned to regular chat mode'
         );
-        await this.postwechatText(target, `💬 ${closedText}`);
+        await this._postwechatOrchestratorText(target, `💬 ${closedText}`);
     }
 
     _getwechatOrchestratorContext(account) {
@@ -2150,10 +2192,10 @@ class ConnectorWechat {
         const followUpSession = this._getwechatFollowUpSession(resolvedContext);
         const resolvedLanguage = this._resolvewechatReplyLanguage(language, resolvedContext, followUpSession);
         const questionText = await this._getLocalizedLangText(resolvedLanguage, key, fallback);
-        await this.postwechatText(account, `💬 ${questionText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${questionText}`);
         const exitTipText = this._getwechatWorkflowExitTip(kind, resolvedLanguage);
         if (exitTipText) {
-            await this.postwechatText(account, `💬 ${exitTipText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${exitTipText}`);
         }
     }
 
@@ -2176,7 +2218,7 @@ class ConnectorWechat {
         const [key, fallback] = keyMap[session && session.kind] || [];
         if (key) {
             const closedText = await this._getLocalizedLangText(resolvedLanguage, key, fallback);
-            await this.postwechatText(account, `💬 ${closedText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${closedText}`);
         }
         return updatedContext;
     }
@@ -2209,8 +2251,8 @@ class ConnectorWechat {
                         'ragDocumentModeExitTip',
                         'When you are done, reply with "exit document mode" or say "I am finished".'
                     );
-                    await this.postwechatText(account, `💬 ${continueText}`);
-                    await this.postwechatText(account, `💬 ${exitTipText}`);
+                    await this._postwechatOrchestratorText(account, `💬 ${continueText}`);
+                    await this._postwechatOrchestratorText(account, `💬 ${exitTipText}`);
                 }
                 return updatedContext;
             }
@@ -2259,7 +2301,7 @@ class ConnectorWechat {
                     'wechatKnowledgeEntriesEmpty',
                     'This collection does not contain any entries yet.'
                 );
-                await this.postwechatText(account, `💬 ${emptyEntriesText}`);
+                await this._postwechatOrchestratorText(account, `💬 ${emptyEntriesText}`);
                 return updatedContext;
             }
 
@@ -2275,7 +2317,7 @@ class ConnectorWechat {
                 'Reply with the entry number or title to open it.'
             );
             const names = listItems.map((item, index) => `${index + 1}. ${item.title || 'Entry'}`).join('\n');
-            await this.postwechatText(account, `💬 ${promptText}\n${names}\n${tipText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${promptText}\n${names}\n${tipText}`);
             return updatedContext;
         }
 
@@ -2294,7 +2336,7 @@ class ConnectorWechat {
             'Reply with the collection number or title to list its entries.'
         );
         const names = listItems.map((item, index) => `${index + 1}. ${item.name || 'Collection'}`).join('\n');
-        await this.postwechatText(account, `💬 ${promptText}\n${names}\n${tipText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${promptText}\n${names}\n${tipText}`);
         return updatedContext;
     }
 
@@ -2327,10 +2369,10 @@ class ConnectorWechat {
         const [key, fallback] = keyMap[session.kind] || [];
         if (key) {
             const continueText = await this._getLocalizedLangText(resolvedLanguage, key, fallback);
-            await this.postwechatText(account, `💬 ${continueText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${continueText}`);
             const exitTipText = this._getwechatWorkflowExitTip(session.kind, resolvedLanguage);
             if (exitTipText) {
-                await this.postwechatText(account, `💬 ${exitTipText}`);
+                await this._postwechatOrchestratorText(account, `💬 ${exitTipText}`);
             }
         }
         return updatedContext;
@@ -3166,10 +3208,10 @@ class ConnectorWechat {
             'wechatArtifactFollowUpQuestion',
             'Do you want to make further modifications to this miniapp?'
         );
-        await this.postwechatText(account, `💬 ${questionText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${questionText}`);
         const exitTipText = this._getwechatWorkflowExitTip('artifact', language);
         if (exitTipText) {
-            await this.postwechatText(account, `💬 ${exitTipText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${exitTipText}`);
         }
     }
 
@@ -3180,7 +3222,7 @@ class ConnectorWechat {
             'wechatArtifactFollowUpClosed',
             'Okay, artifact modification mode is closed.'
         );
-        await this.postwechatText(account, `💬 ${closedText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${closedText}`);
         return updatedContext;
     }
 
@@ -3196,7 +3238,7 @@ class ConnectorWechat {
             'wechatArtifactFollowUpClosed',
             'Okay, artifact modification mode is closed.'
         );
-        await this.postwechatText(account, `💬 ${closedText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${closedText}`);
         return updatedContext;
     }
 
@@ -3212,10 +3254,10 @@ class ConnectorWechat {
             'wechatArtifactFollowUpContinue',
             'Tell me what you want to change in the miniapp.'
         );
-        await this.postwechatText(account, `💬 ${continueText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${continueText}`);
         const exitTipText = this._getwechatWorkflowExitTip('artifact', language);
         if (exitTipText) {
-            await this.postwechatText(account, `💬 ${exitTipText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${exitTipText}`);
         }
         return updatedContext;
     }
@@ -3888,7 +3930,7 @@ class ConnectorWechat {
             'Sorry, I could not send the AI reply this time. Please try again in a moment.'
         );
 
-        await this.postwechatText(targetAccount, `💬 ${unavailableText}`);
+        await this._postwechatOrchestratorText(targetAccount, `💬 ${unavailableText}`);
     }
 
     async _ensureDocumentsTabReady() {
@@ -3996,7 +4038,7 @@ class ConnectorWechat {
                         'ragDocumentSummaryRequested',
                         'Generating summary for'
                     );
-                    await this.postwechatText(sendTarget, `${botPrefix}${String(requestedText || 'Generating summary for').replace(/\s*:?\s*$/, '')}: ${match.name}`);
+                    await this._postwechatOrchestratorText(sendTarget, `${botPrefix}${String(requestedText || 'Generating summary for').replace(/\s*:?\s*$/, '')}: ${match.name}`);
                 }
                 this._clearPendingDocSelection(account);
                 const suppresswechatSummarySend = options.workflow === 'summary-presentation' || options.sendToAccount === false;
@@ -4058,7 +4100,7 @@ class ConnectorWechat {
             'Summary function not available right now; please continue in Documents tab.'
         );
         const sendTarget = String(options.replyTarget || account || '').trim() || account;
-        await this.postwechatText(sendTarget, `${botPrefix}${String(preparedText || 'Prepared to summarize').replace(/\s*:?\s*$/, '')}: ${match.name}. ${unavailableText}`);
+        await this._postwechatOrchestratorText(sendTarget, `${botPrefix}${String(preparedText || 'Prepared to summarize').replace(/\s*:?\s*$/, '')}: ${match.name}. ${unavailableText}`);
         this._setPendingDocSelection(account, { id: match.id, name: match.name });
         return false;
     }
@@ -4079,7 +4121,7 @@ class ConnectorWechat {
             'wechatSummaryPresentationWorkflowStart',
             'I will summarize the document first, then create a presentation from that summary.'
         );
-        await this.postwechatText(replyTarget || account, `💬 ${workflowStartText}`);
+        await this._postwechatOrchestratorText(replyTarget || account, `💬 ${workflowStartText}`);
 
         const summaryText = await this._executeDocumentSummary(account, matchedDocument, hashedMasterKey, language, {
             workflow: 'summary-presentation',
@@ -4263,7 +4305,7 @@ class ConnectorWechat {
             'wechatSummaryArtifactWorkflowStart',
             'I will summarize the document first, then create a miniapp from that summary.'
         );
-        await this.postwechatText(replyTarget || account, `💬 ${workflowStartText}`);
+        await this._postwechatOrchestratorText(replyTarget || account, `💬 ${workflowStartText}`);
 
         const summaryText = await this._executeDocumentSummary(account, matchedDocument, hashedMasterKey, language, {
             workflow: 'summary-artifact',
@@ -4282,7 +4324,7 @@ class ConnectorWechat {
             'wechatSummaryArtifactWorkflowContinue',
             'Summary done, sending now to miniapp creation.'
         );
-        await this.postwechatText(replyTarget || account, `💬 ${workflowContinueText}`);
+        await this._postwechatOrchestratorText(replyTarget || account, `💬 ${workflowContinueText}`);
 
         const artifactRequestText = this._buildwechatSummaryToArtifactWorkflowRequest(requestText, matchedDocument);
 
@@ -4317,7 +4359,7 @@ class ConnectorWechat {
 
         const chunkSize = 1500;
         if (text.length <= chunkSize) {
-            await this.postwechatText(account, `💬 ${resultPrefix}:\n${text}`);
+            await this._postwechatOrchestratorText(target, `💬 ${resultPrefix}:\n${text}`);
             return;
         }
 
@@ -4328,7 +4370,7 @@ class ConnectorWechat {
                 .replace('{current}', String(idx + 1))
                 .replace('{total}', String(chunks.length));
             const prefix = `💬 ${partLabel}:\n`;
-            await this.postwechatText(account, prefix + chunks[idx]);
+            await this._postwechatOrchestratorText(target, prefix + chunks[idx]);
         }
     }
 
@@ -6657,7 +6699,7 @@ class ConnectorWechat {
             'presentationSent',
             'Presentation created and sent as an HTML file.'
         );
-        await this.postwechatText(account, `💬 ${sentText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${sentText}`);
         return true;
     }
 
@@ -7004,7 +7046,7 @@ class ConnectorWechat {
             'wechatArtifactSavedSent',
             'Saved miniapp sent as an HTML file.'
         );
-        await this.postwechatText(account, `💬 ${sentText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${sentText}`);
         return true;
     }
 
@@ -7246,7 +7288,7 @@ class ConnectorWechat {
             'Opening Knowledge Base entry: {title}',
             { title: entryTitle }
         );
-        await this.postwechatText(account, `💬 ${introText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${introText}`);
 
         const chunks = this._splitwechatTextIntoChunks(entryContent, 1500);
         if (!chunks.length) {
@@ -7257,7 +7299,7 @@ class ConnectorWechat {
             const prefix = index === 0
                 ? `💬 ${collectionName} / ${entryTitle}\n\n`
                 : '';
-            await this.postwechatText(account, prefix + chunks[index]);
+            await this._postwechatOrchestratorText(account, prefix + chunks[index]);
         }
 
         this._clearPendingKnowledgeCollectionSelection(account);
@@ -7647,7 +7689,7 @@ class ConnectorWechat {
                 'datavizNotAvailable',
                 'DataViz is not available right now. Please try again later.'
             );
-            await this.postwechatText(account, `💬 ${unavailableText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${unavailableText}`);
             return true;
         }
 
@@ -7662,7 +7704,7 @@ class ConnectorWechat {
             `Creating ${chartType} chart...`,
             { type: chartType }
         );
-        await this.postwechatText(account, `💬 ${creatingText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${creatingText}`);
 
         try {
             // DataViz returns a PNG data URL after rendering when capture succeeds.
@@ -7709,7 +7751,7 @@ class ConnectorWechat {
                     'datavizGeneratedSuccess',
                     'Chart generated successfully, sending image...'
                 );
-                await this.postwechatText(account, `💬 ${successText}`);
+                await this._postwechatOrchestratorText(account, `💬 ${successText}`);
                 try {
                     await this.postwechatImage(account, capturedDataUrl, `${chartType}-chart.png`);
                 } catch (sendErr) {
@@ -7719,7 +7761,7 @@ class ConnectorWechat {
                         'datavizSendFailed',
                         'Chart generated but failed to send to WeChat. Please check the connection and try again.'
                     );
-                    await this.postwechatText(account, `💬 ${sendFailedText}`);
+                    await this._postwechatOrchestratorText(account, `💬 ${sendFailedText}`);
                     return true;
                 }
 
@@ -7742,7 +7784,7 @@ class ConnectorWechat {
                 'datavizGeneratedFallback',
                 'Chart generated but could not capture image via export workflow. Please view the chart window.'
             );
-            await this.postwechatText(account, `💬 ${fallbackText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${fallbackText}`);
             return true;
         } catch (err) {
             console.error('Connectorwechat: _handlewechatDataViz failed', err);
@@ -7751,7 +7793,7 @@ class ConnectorWechat {
                 'datavizGenerationFailed',
                 'Failed to generate the chart. Please try again.'
             );
-            await this.postwechatText(account, `💬 ${failedText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${failedText}`);
             return true;
         }
     }
@@ -8071,7 +8113,7 @@ class ConnectorWechat {
                 'presentationNotAvailable',
                 'SlideForge promptable presentation is not available right now. Please try again later.'
             );
-            await this.postwechatText(account, `💬 ${unavailableText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${unavailableText}`);
             return false;
         }
 
@@ -8111,7 +8153,7 @@ class ConnectorWechat {
                 : 'Creating a promptable SlideForge presentation with {slides} slides...',
             { slides: slideCount }
         );
-        await this.postwechatText(account, `💬 ${creatingText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${creatingText}`);
 
         this._setBigOpState(1);
         try {
@@ -8150,7 +8192,7 @@ class ConnectorWechat {
                     'presentationSendFailed',
                     'Presentation was generated but failed to send to WeChat. Please check the connection and try again.'
                 );
-                await this.postwechatText(account, `💬 ${sendFailedText}`);
+                await this._postwechatOrchestratorText(account, `💬 ${sendFailedText}`);
                 return false;
             }
 
@@ -8181,7 +8223,7 @@ class ConnectorWechat {
                 'presentationSent',
                 'Presentation created and sent as an HTML file.'
             );
-            await this.postwechatText(account, `💬 ${sentText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${sentText}`);
             await this._sendwechatFollowUpSessionQuestion(account, 'presentation', language);
             return true;
         } catch (err) {
@@ -8193,7 +8235,7 @@ class ConnectorWechat {
                     'presentationTimeoutRetry',
                     'Presentation creation timed out due to an unexpected error. Please try again.'
                 );
-                await this.postwechatText(account, `💬 ${timeoutText}`);
+                await this._postwechatOrchestratorText(account, `💬 ${timeoutText}`);
                 return false;
             }
             if (err && (err.name === 'AbortError' || String(err.message || '').toLowerCase().includes('abort'))) {
@@ -8204,7 +8246,7 @@ class ConnectorWechat {
                 'presentationFailed',
                 'Presentation generation failed. Please try again later.'
             );
-            await this.postwechatText(account, `💬 ${failedText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${failedText}`);
             return false;
         } finally {
             this._setBigOpState(0);
@@ -8247,7 +8289,7 @@ class ConnectorWechat {
                 'wechatArtifactNotAvailable',
                 'Artifacts miniapp generation is not available right now. Please try again later.'
             );
-            await this.postwechatText(account, `💬 ${unavailableText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${unavailableText}`);
             return false;
         }
 
@@ -8290,7 +8332,7 @@ class ConnectorWechat {
                     ? 'Creating your miniapp with web research to enrich it...'
                     : 'Creating your miniapp...')
         );
-        await this.postwechatText(account, `💬 ${creatingText}`);
+        await this._postwechatOrchestratorText(account, `💬 ${creatingText}`);
 
         this._setBigOpState(1);
         try {
@@ -8347,7 +8389,7 @@ class ConnectorWechat {
                     'wechatArtifactSendFailed',
                     'Miniapp was created but failed to send to WeChat. Please check the connection and try again.'
                 );
-                await this.postwechatText(account, `💬 ${sendFailedText}`);
+                await this._postwechatOrchestratorText(account, `💬 ${sendFailedText}`);
                 return false;
             }
             /*console.info('[Connectorwechat][artifact] Artifact file posted to wechat', {
@@ -8366,7 +8408,7 @@ class ConnectorWechat {
                     ? 'Miniapp updated, saved, and sent as an HTML file.'
                     : 'Miniapp created, saved, and sent as an HTML file.'
             );
-            await this.postwechatText(account, `💬 ${sentText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${sentText}`);
             await this._sendwechatArtifactFollowUpQuestion(account, language);
             return true;
         } catch (err) {
@@ -8377,7 +8419,7 @@ class ConnectorWechat {
                 'wechatArtifactFailed',
                 'Miniapp generation failed. Please try again later.'
             );
-            await this.postwechatText(account, `💬 ${failedText}`);
+            await this._postwechatOrchestratorText(account, `💬 ${failedText}`);
             return false;
         } finally {
             this._setBigOpState(0);
@@ -8686,9 +8728,11 @@ class ConnectorWechat {
         }
     }
 
-    async postwechatText(chatId, text, accountId = null, contextToken = null, replyToMessageId = null, quotedBody = null) {
+    async postwechatText(chatId, text, accountId = null, contextToken = null, replyToMessageId = null, quotedBody = null, options = null) {
         if (!chatId || !text) return;
         const activeRequest = typeof window !== 'undefined' ? window.__paiperworkwechatActiveRequest : null;
+        const suppressReplyContext = !!(options && options.suppressReplyContext);
+        const suppressContextTokenFallback = !!(options && options.suppressContextTokenFallback);
         const resolvedChatId = this._getResolvedwechatOutgoingTarget(chatId);
         const normalizedAccount = this._normalizewechatIdentity(resolvedChatId);
         let resolvedAccountId = String(accountId || '').trim();
@@ -8703,13 +8747,13 @@ class ConnectorWechat {
                 resolvedAccountId = normalizedAccount;
             }
         }
-        if (!resolvedContextToken && activeRequest) {
+        if (!resolvedContextToken && activeRequest && !suppressContextTokenFallback) {
             resolvedContextToken = String(activeRequest.context_token || '').trim();
         }
-        if (!resolvedReplyToMessageId && activeRequest) {
+        if (!resolvedReplyToMessageId && activeRequest && !suppressReplyContext) {
             resolvedReplyToMessageId = String(activeRequest.replyMessageId || activeRequest.reply_message_id || '').trim();
         }
-        if (!resolvedQuotedBody && activeRequest) {
+        if (!resolvedQuotedBody && activeRequest && !suppressReplyContext) {
             resolvedQuotedBody = String(activeRequest.quotedBody || activeRequest.quoted_body || '').trim();
         }
         const hashedMasterKey = String(sessionStorage.getItem('hashedMasterKey') || '').trim();
@@ -8788,8 +8832,8 @@ class ConnectorWechat {
         }
     }
 
-    async postWechatText(chatId, text, accountId = '', contextToken = '', replyToMessageId = '', quotedBody = '') {
-        return this.postwechatText(chatId, text, accountId, contextToken, replyToMessageId, quotedBody);
+    async postWechatText(chatId, text, accountId = '', contextToken = '', replyToMessageId = '', quotedBody = '', options = null) {
+        return this.postwechatText(chatId, text, accountId, contextToken, replyToMessageId, quotedBody, options);
     }
 
     async postwechatLink(chatId, link, caption = '') {
@@ -9270,7 +9314,7 @@ class ConnectorWechat {
                     'researchNoTopic',
                     'Research request received but no topic was detected. Please provide a clear research question.'
                 );
-                await this.postwechatText(target, `💬 ${noTopicText}`);
+                await this._postwechatOrchestratorText(target, `💬 ${noTopicText}`);
                 return { continueToChat: false };
             }
 
@@ -9351,9 +9395,9 @@ class ConnectorWechat {
                     'researchInProgress',
                     'Research in progress: collecting and summarizing results.'
                 );
-                await this.postwechatText(target, `💬 ${startedText}`);
-                await this.postwechatText(target, `💬 ${this._getwechatWorkflowExitTip('research', language) || researchExitTipText}`);
-                await this.postwechatText(target, `💬 ${inProgressText}`);
+                await this._postwechatOrchestratorText(target, `💬 ${startedText}`);
+                await this._postwechatOrchestratorText(target, `💬 ${this._getwechatWorkflowExitTip('research', language) || researchExitTipText}`);
+                await this._postwechatOrchestratorText(target, `💬 ${inProgressText}`);
                 if (researchInput) {
                     researchInput.value = effectiveQuery;
                 }
@@ -9431,7 +9475,7 @@ class ConnectorWechat {
                         'researchCompletedEmpty',
                         'Research completed, but report text was empty or unavailable. Please check the Research tab.'
                     );
-                    await this.postwechatText(target, `💬 ${completedEmptyText}`);
+                    await this._postwechatOrchestratorText(target, `💬 ${completedEmptyText}`);
                     await this._closewechatResearchWindows();
                 }
 
@@ -9443,7 +9487,7 @@ class ConnectorWechat {
                 'researchModuleNotReady',
                 'Research flow initiated, but research module is not ready yet. Please try again shortly.'
             );
-            await this.postwechatText(target, `💬 ${moduleNotReadyText}`);
+            await this._postwechatOrchestratorText(target, `💬 ${moduleNotReadyText}`);
             return { continueToChat: false };
         } catch (err) {
             console.error('Connectorwechat: handleOrchestratorResearch error', err);
@@ -9458,7 +9502,7 @@ class ConnectorWechat {
                 'researchFailedStart',
                 'Failed to start research workflow. Please try again.'
             );
-            await this.postwechatText(target, `💬 ${failedText}`);
+            await this._postwechatOrchestratorText(target, `💬 ${failedText}`);
             return { continueToChat: false };
         }
     }
@@ -9624,7 +9668,7 @@ class ConnectorWechat {
                     'ragChooseDocumentActionTip',
                     'After choosing, reply with "summary" to generate a summary, or ask a question for document query mode.'
                 );
-                await this.postwechatText(target, `${botPrefix}${choosePrompt}\n${names}\n${placeholderTip}\n${actionHint}`);
+                await this._postwechatOrchestratorText(target, `${botPrefix}${choosePrompt}\n${names}\n${placeholderTip}\n${actionHint}`);
                 return { continueToChat: false };
             }
 
@@ -9669,7 +9713,7 @@ class ConnectorWechat {
                         'ragDocumentModeFailed',
                         'Failed to activate document questioning mode for'
                     );
-                    await this.postwechatText(target, `${botPrefix}${modeFailedText}: ${pending.name}`);
+                    await this._postwechatOrchestratorText(target, `${botPrefix}${modeFailedText}: ${pending.name}`);
                     return { continueToChat: false };
                 }
             
@@ -9697,7 +9741,7 @@ class ConnectorWechat {
                         'ragDocumentModeFailed',
                         'Failed to activate document questioning mode for'
                     );
-                    await this.postwechatText(target, `${botPrefix}${modeFailedText}: ${pending.name}`);
+                    await this._postwechatOrchestratorText(target, `${botPrefix}${modeFailedText}: ${pending.name}`);
                     return { continueToChat: false };
                 }
             }
@@ -9814,7 +9858,7 @@ class ConnectorWechat {
                         'ragChooseDocumentActionTip',
                         'Please clarify your question by using one of these document names; do not send new attachments.'
                     );
-                    await this.postwechatText(target, `${botPrefix}${warmPrompt}\n${names}\n${nextActionTip}`);
+                    await this._postwechatOrchestratorText(target, `${botPrefix}${warmPrompt}\n${names}\n${nextActionTip}`);
                 } else {
                     const noDocumentsText = await this._getLocalizedLangText(
                         language,
@@ -9917,7 +9961,7 @@ class ConnectorWechat {
                     'ragDocumentModeFailed',
                     'Failed to activate document questioning mode for'
                 );
-                await this.postwechatText(target, `${botPrefix}${modeFailedText}: ${match.name}`);
+                await this._postwechatOrchestratorText(target, `${botPrefix}${modeFailedText}: ${match.name}`);
                 return { continueToChat: false };
             }
 
@@ -9933,7 +9977,7 @@ class ConnectorWechat {
                 'ragDocumentActionTip',
                 'Reply with "summary" to summarize the document, or ask a question to enter document-questioning mode.'
             );
-            await this.postwechatText(target, `${botPrefix}${documentSelectedText}: ${match.name}\n${nextActionTip}`);
+            await this._postwechatOrchestratorText(target, `${botPrefix}${documentSelectedText}: ${match.name}\n${nextActionTip}`);
             return { continueToChat: false };
         } catch (err) {
             console.error('Connectorwechat: handleOrchestratorDocumentCheck error', err);
@@ -10124,7 +10168,7 @@ class ConnectorWechat {
                     'wechatRegenerateMissingPrompt',
                     'Sorry, I could not find a previous prompt to reuse yet. Send a normal message first, then ask me to regenerate it.'
                 );
-                await this.postwechatText(replyTarget, `💬 ${noPromptText}`);
+                await this._postwechatOrchestratorText(replyTarget, `💬 ${noPromptText}`);
                 return;
             }
             let routingIntentText = this._getwechatRoutingIntentText(userText);
