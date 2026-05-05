@@ -1883,6 +1883,27 @@ class ConnectorWechat {
         return '';
     }
 
+    _iswechatArtifactSessionExplicitWorkflowSwitch(text, explicitTarget = '') {
+        const normalizedText = this._normalizewechatResearchReportText(text);
+        const normalizedTarget = String(explicitTarget || '').trim().toLowerCase();
+        if (!normalizedText || !normalizedTarget) {
+            return false;
+        }
+
+        if (normalizedTarget === 'presentation') {
+            return this._isSummaryToPresentationWorkflowIntent(normalizedText)
+                || this._isSavedPresentationIntent(normalizedText)
+                || this._presentationRequestHasExplicitSourceText(normalizedText)
+                || this._textMatchesDocumentKeymapTokens(normalizedText, this._getPresentationKeymapTokens('actions.create'));
+        }
+
+        return normalizedTarget === 'research'
+            || normalizedTarget === 'knowledge'
+            || normalizedTarget === 'document-check'
+            || normalizedTarget === 'dataviz'
+            || normalizedTarget === 'chat';
+    }
+
     _iswechatLLMWorkflowDecisionGrounded(tool, text, account = '') {
         const normalizedText = this._normalizewechatResearchReportText(text);
         if (!normalizedText) {
@@ -1929,7 +1950,12 @@ class ConnectorWechat {
         const explicitKnowledgeBrowseFromEntry = activeSession.kind === 'knowledge-entry'
             && explicitTarget === 'knowledge'
             && this._isKnowledgeIntent(text);
+        const explicitArtifactSessionSwitch = activeSession.kind === 'artifact'
+            && explicitTarget
+            && explicitTarget !== 'artifact'
+            && this._iswechatArtifactSessionExplicitWorkflowSwitch(text, explicitTarget);
         const retainsCurrentSession = !explicitTarget
+            || (activeSession.kind === 'artifact' && !explicitArtifactSessionSwitch)
             || (explicitTarget === activeSession.tool && !explicitKnowledgeBrowseFromEntry)
             || (explicitTarget === 'document-check' && activeSession.tool === 'document-check');
 

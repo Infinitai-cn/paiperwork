@@ -1611,6 +1611,27 @@ class ConnectorWhatsapp {
         return '';
     }
 
+    _isWhatsappArtifactSessionExplicitWorkflowSwitch(text, explicitTarget = '') {
+        const normalizedText = this._normalizeWhatsappResearchReportText(text);
+        const normalizedTarget = String(explicitTarget || '').trim().toLowerCase();
+        if (!normalizedText || !normalizedTarget) {
+            return false;
+        }
+
+        if (normalizedTarget === 'presentation') {
+            return this._isSummaryToPresentationWorkflowIntent(normalizedText)
+                || this._isSavedPresentationIntent(normalizedText)
+                || this._presentationRequestHasExplicitSourceText(normalizedText)
+                || this._textMatchesDocumentKeymapTokens(normalizedText, this._getPresentationKeymapTokens('actions.create'));
+        }
+
+        return normalizedTarget === 'research'
+            || normalizedTarget === 'knowledge'
+            || normalizedTarget === 'document-check'
+            || normalizedTarget === 'dataviz'
+            || normalizedTarget === 'chat';
+    }
+
     _isWhatsappLLMWorkflowDecisionGrounded(tool, text, phone = '') {
         const normalizedText = this._normalizeWhatsappResearchReportText(text);
         if (!normalizedText) {
@@ -1657,7 +1678,12 @@ class ConnectorWhatsapp {
         const explicitKnowledgeBrowseFromEntry = activeSession.kind === 'knowledge-entry'
             && explicitTarget === 'knowledge'
             && this._isKnowledgeIntent(text);
+        const explicitArtifactSessionSwitch = activeSession.kind === 'artifact'
+            && explicitTarget
+            && explicitTarget !== 'artifact'
+            && this._isWhatsappArtifactSessionExplicitWorkflowSwitch(text, explicitTarget);
         const retainsCurrentSession = !explicitTarget
+            || (activeSession.kind === 'artifact' && !explicitArtifactSessionSwitch)
             || (explicitTarget === activeSession.tool && !explicitKnowledgeBrowseFromEntry)
             || (explicitTarget === 'document-check' && activeSession.tool === 'document-check');
 
