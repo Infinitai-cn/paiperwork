@@ -25,7 +25,7 @@ build_macos_binary() {
 
     GOOS=darwin GOARCH="$arch" CGO_ENABLED=1 \
     CC="$clang_bin" CXX="$clangxx_bin" SDKROOT="$sdkroot_path" \
-    go build -ldflags="-linkmode external -s -w" -o "$output" main.go
+    go build -ldflags="-linkmode external -s -w" -o "$output" .
 
     if [ $? -ne 0 ]; then
         echo "  ❌ macOS ($arch) build failed"
@@ -76,9 +76,11 @@ mkdir -p ../../dist/linux
 
 echo "📦 Building executables..."
 
+pushd "$SCRIPT_DIR" > /dev/null
+
 # Build for Windows (AMD64) - Disable CGO for pure Go builds
 echo "  Building for Windows (AMD64)..."
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../../dist/windows/Paiperwork-server.exe main.go
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../../dist/windows/Paiperwork-server.exe .
 
 if [ $? -eq 0 ]; then
     echo "  ✅ Windows build successful"
@@ -97,14 +99,17 @@ build_macos_binary amd64 ../../dist/mac/Paiperwork-server-intel
 
 # Build for Linux (AMD64)
 echo "  Building for Linux (AMD64)..."
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../../dist/linux/Paiperwork-server main.go
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ../../dist/linux/Paiperwork-server .
 
 if [ $? -eq 0 ]; then
     echo "  ✅ Linux build successful"
 else
     echo "  ❌ Linux build failed"
+    popd > /dev/null
     exit 1
 fi
+
+popd > /dev/null
 
 echo "📁 Copying app files to distribution folders..."
 

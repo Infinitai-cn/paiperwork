@@ -60,7 +60,7 @@ echo   Building for Windows (AMD64)...
 set CGO_ENABLED=0
 set GOOS=windows
 set GOARCH=amd64
-go build -ldflags="-s -w" -o "..\..\dist\windows\Paiperwork-server.exe" main.go
+go build -ldflags="-s -w" -o "..\..\dist\windows\Paiperwork-server.exe" .
 
 if errorlevel 1 (
     echo   ❌ Windows build failed
@@ -96,7 +96,7 @@ REM Build for Linux (AMD64)
 echo   Building for Linux (AMD64)...
 set GOOS=linux
 set GOARCH=amd64
-go build -ldflags="-s -w" -o "..\..\dist\linux\Paiperwork-server" main.go
+go build -ldflags="-s -w" -o "..\..\dist\linux\Paiperwork-server" .
 
 if errorlevel 1 (
     echo   ❌ Linux build failed
