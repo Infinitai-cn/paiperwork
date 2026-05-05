@@ -2348,6 +2348,9 @@ If unsure, choose "chat".
             if (isPaired) {
                 //console.log('ConnectorsTab: dispatching whatsappPaired');
                 window.dispatchEvent(new CustomEvent('whatsappPaired'));
+                if (window.connectors && typeof window.connectors.startIncomingPolling === 'function') {
+                    window.connectors.startIncomingPolling();
+                }
             } else {
                 //console.log('ConnectorsTab: dispatching whatsappUnpaired');
                 window.dispatchEvent(new CustomEvent('whatsappUnpaired'));
@@ -2617,6 +2620,9 @@ If unsure, choose "chat".
 
         try {
             this.serverStopping = true;
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('whatsappUnpaired'));
+            }
             const response = await fetch('/api/whatsapp/pairing-data/delete-all', {
                 method: 'POST',
                 headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' })
@@ -3802,15 +3808,19 @@ If unsure, choose "chat".
     async _clearWhatsappRuntimeSession(deviceId = null) {
         try {
             const resolvedDeviceId = String(deviceId || this.savedWhatsappDeviceId || '').trim();
-            const params = new URLSearchParams();
-            if (resolvedDeviceId) {
-                params.set('device_id', resolvedDeviceId);
+            if (!resolvedDeviceId) {
+                return;
             }
+            const params = new URLSearchParams();
+            params.set('device_id', resolvedDeviceId);
             this._appendWhatsappUserScope(params);
-            await fetch('/api/whatsapp/session?' + params.toString(), {
+            const response = await fetch('/api/whatsapp/session?' + params.toString(), {
                 method: 'DELETE',
                 headers: this._getWhatsappUserScopedHeaders({ 'Content-Type': 'application/json' })
             });
+            if (!response.ok && response.status !== 503 && response.status !== 412) {
+                console.warn('ConnectorsTab: _clearWhatsappRuntimeSession non-ok response', response.status, await response.text().catch(() => ''));
+            }
         } catch (err) {
             console.warn('ConnectorsTab: _clearWhatsappRuntimeSession failed', err);
         }
@@ -4784,6 +4794,9 @@ If unsure, choose "chat".
         //console.log('ConnectorsTab: stopWhatsappServer called');
         this.serverStopping = true;
         this.serverStarting = false;
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('whatsappUnpaired'));
+        }
         if (!preserveFreshPairRequested) {
             this._setWhatsappFreshPairRequested(false);
         }
