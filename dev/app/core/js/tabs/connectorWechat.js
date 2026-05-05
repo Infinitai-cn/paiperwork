@@ -2529,15 +2529,10 @@ class ConnectorWechat {
             return false;
         }
 
-        if (this._isQuestionIntent(normalizedText)
-            || this._hasRunnableDocumentQuestionText(normalizedText, session.documentName || summaryMemory.documentName || '')) {
-            return false;
-        }
-
         return this._iswechatCachedTextTransformRequest(rawText, {
             documentHint: session.documentName || summaryMemory.documentName || '',
             allowSummaryIntent: false,
-            allowQuestionIntent: false,
+            allowQuestionIntent: true,
             allowExactSummaryCommand: false
         });
     }
@@ -2800,7 +2795,8 @@ class ConnectorWechat {
     }
 
     _getwechatArtifactFollowUpTokens() {
-        return [
+        return [...new Set([
+            ...this._getArtifactKeymapTokens('actions.transform'),
             'make', 'change', 'add', 'remove', 'delete', 'update', 'modify', 'adjust', 'increase', 'decrease', 'replace', 'keep', 'set', 'turn',
             'bigger', 'smaller', 'larger', 'more', 'less', 'faster', 'slower', 'darker', 'lighter', 'improve', 'refine',
             'haz', 'hace', 'cambia', 'agrega', 'añade', 'anade', 'quita', 'elimina', 'actualiza', 'modifica', 'ajusta', 'aumenta', 'reduce', 'reemplaza', 'mas', 'más', 'grande', 'pequeno', 'pequeño',
@@ -2812,12 +2808,22 @@ class ConnectorWechat {
             '修改', '调整', '增加', '减少', '删除', '更新', '替换', '更大', '更小', '更多', '更少',
             '変更', '修正', '追加', '削除', '更新', '調整', '置き換え', '大きく', '小さく', 'もっと', '少なく',
             '수정', '변경', '추가', '제거', '삭제', '업데이트', '조정', '늘려', '줄여', '바꿔', '더 크게', '더 작게'
-        ];
+        ])];
     }
 
     _iswechatArtifactSessionIntentOverride(text) {
         return this._textMatchesDocumentKeymapTokens(text, this._getArtifactKeymapTokens('followUpCloseCues'))
             || this._textMatchesDocumentKeymapTokens(text, this._getArtifactKeymapTokens('followUpContinueCues'));
+    }
+
+    _iswechatArtifactExplicitFreshCreateIntent(text) {
+        const normalizedText = this._normalizewechatResearchReportText(text);
+        if (!normalizedText) {
+            return false;
+        }
+
+        return this._isArtifactIntent(normalizedText)
+            && this._textMatchesDocumentKeymapTokens(normalizedText, this._getArtifactKeymapTokens('actions.create'));
     }
 
     _iswechatArtifactCloseIntent(text, accountContext = null, orchTool = '') {
@@ -3000,7 +3006,11 @@ class ConnectorWechat {
             return false;
         }
 
-        if (this._isArtifactIntent(normalizedText) || this._isSavedArtifactIntent(normalizedText)) {
+        if (this._iswechatArtifactExplicitFreshCreateIntent(normalizedText)) {
+            return false;
+        }
+
+        if (this._isSavedArtifactIntent(normalizedText)) {
             return true;
         }
 
@@ -3021,6 +3031,10 @@ class ConnectorWechat {
 
         if (isQuestion && !hasFollowUpCue) {
             return false;
+        }
+
+        if (!hasFollowUpCue) {
+            return wordCount > 0 && wordCount <= 80;
         }
 
         return hasFollowUpCue && wordCount <= 80;
@@ -3085,19 +3099,8 @@ class ConnectorWechat {
         }
 
         const previousModifications = Array.isArray(session.modifications) ? [...session.modifications] : [];
-        previousModifications.push(normalizedRequest);
-
-        if (mergedPrompt) {
-            return {
-                prompt: mergedPrompt,
-                isFollowUp: true,
-                basePrompt: session.basePrompt || canonicalPrompt,
-                currentPrompt: mergedPrompt,
-                modifications: previousModifications,
-                session,
-                usedMergedPrompt: true
-            };
-        }
+        const latestModificationRequest = mergedPrompt || normalizedRequest;
+        previousModifications.push(latestModificationRequest);
 
         const combinedPrompt = [
             canonicalPrompt || session.basePrompt,
@@ -3881,6 +3884,143 @@ class ConnectorWechat {
         return true;
     }
 
+    _normalizewechatSummaryTransformInstruction(requestText) {
+        const normalizedRequest = String(requestText || '').trim().replace(/^[,.;:!?\s-]+|[,.;:!?\s-]+$/g, '');
+        if (!normalizedRequest) {
+            return '';
+        }
+
+        if (/^(?:translate|translation|locali[sz]e?|rewrite|rephrase|paraphrase|adapt|convert|change|make|format|reformat|organize|structure|simplify|clarify|polish|refine|improve|summari[sz]e|shorten|expand|return|respond|write|present|turn)\b/i.test(normalizedRequest)) {
+            return normalizedRequest;
+        }
+
+        if (/^(?:in|into|as|with|using|for|to)\b/i.test(normalizedRequest)) {
+            return `Rewrite the summary ${normalizedRequest}`;
+        }
+
+        if (/^(?:bullet|bullets|bullet points|list|outline|table|markdown|formal|casual|professional|friendly|executive|concise|short|shorter|long|longer|detailed)\b/i.test(normalizedRequest)) {
+            return `Rewrite the summary as ${normalizedRequest}`;
+        }
+
+        return normalizedRequest;
+    }
+
+    _extractwechatMatchedDocumentSummaryTransformRequest(requestText, matchedDocument = null) {
+        const rawText = String(requestText || '').trim();
+        if (!rawText) {
+            return '';
+        }
+
+        let normalizedRequest = rawText;
+        const documentCandidates = [matchedDocument && matchedDocument.name, matchedDocument && matchedDocument.id]
+            .map(value => String(value || '').trim())
+            .filter(Boolean)
+            .sort((left, right) => right.length - left.length);
+
+        for (const candidate of documentCandidates) {
+            const escapedCandidate = candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+            const leadingDocumentPattern = new RegExp(`^${escapedCandidate}(?:[\\s,.:;!?-]+|$)`, 'i');
+            if (leadingDocumentPattern.test(normalizedRequest)) {
+                normalizedRequest = normalizedRequest.replace(leadingDocumentPattern, '').trim();
+                break;
+            }
+        }
+
+        normalizedRequest = normalizedRequest.replace(/^(?:please\s+)?(?:summar(?:y|ize|ise)|resum(?:e|ir|en|o)?|résum(?:e|é)?|resumo|zusammenfass(?:en|ung)?|摘要|总结|總結|概述)(?:\s+the\s+document)?(?:[\s,.:;!?-]+|$)/i, '').trim();
+        normalizedRequest = normalizedRequest.replace(/^(?:and|then|please)[\s,.:;!?-]+/i, '').trim();
+
+        return this._normalizewechatSummaryTransformInstruction(normalizedRequest);
+    }
+
+    async _preparewechatMatchedDocumentSummaryTransform(msg, account, replyTarget, matchedDocument, hashedMasterKey, language, requestText, accountContext = null) {
+        const transformRequestText = this._extractwechatMatchedDocumentSummaryTransformRequest(requestText, matchedDocument);
+        if (!transformRequestText) {
+            return { continueToChat: false, accountContext, handled: false };
+        }
+
+        const summaryText = await this._executeDocumentSummary(account, matchedDocument, hashedMasterKey, language, {
+            announceStart: false,
+            sendToAccount: false,
+            closeAfterComplete: true,
+            replyTarget: replyTarget || account
+        });
+        const normalizedSummaryText = this._normalizewechatResearchReportText(typeof summaryText === 'string' ? summaryText : '');
+        if (!normalizedSummaryText) {
+            return { continueToChat: false, accountContext, handled: true };
+        }
+
+        let updatedAccountContext = (accountContext && typeof accountContext === 'object') ? accountContext : ((await this._getwechatAccountContext(account)) || {});
+        updatedAccountContext = (await this._setwechatDocumentSummaryMemory(account, {
+            documentId: matchedDocument.id || '',
+            documentName: matchedDocument.name || '',
+            title: matchedDocument.name || matchedDocument.id || '',
+            sourceText: normalizedSummaryText
+        }, updatedAccountContext)) || updatedAccountContext;
+        updatedAccountContext = (await this._setwechatFollowUpSession(account, {
+            kind: 'document-summary',
+            active: true,
+            awaitingFollowUpConfirmation: false,
+            sourceText: normalizedSummaryText,
+            documentId: matchedDocument.id || '',
+            documentName: matchedDocument.name || '',
+            title: matchedDocument.name || matchedDocument.id || ''
+        }, updatedAccountContext)) || updatedAccountContext;
+
+        const transformPrompt = this._composewechatDocumentSummaryTransformPrompt(transformRequestText, updatedAccountContext);
+        if (!transformPrompt || !transformPrompt.prompt) {
+            return { continueToChat: false, accountContext: updatedAccountContext, handled: true };
+        }
+
+        msg.body = transformPrompt.prompt;
+        msg.orchestrator = Object.assign({}, msg.orchestrator, {
+            mergedPrompt: transformPrompt.prompt
+        });
+        msg.__wechatDisplayUserText = transformPrompt.requestText || transformRequestText;
+        msg.__wechatDocumentSummaryTransform = {
+            account,
+            documentId: transformPrompt.documentId,
+            documentName: transformPrompt.documentName,
+            title: transformPrompt.title,
+            requestText: transformPrompt.requestText
+        };
+
+        return { continueToChat: true, accountContext: updatedAccountContext, handled: true };
+    }
+
+    _buildwechatSummaryToArtifactWorkflowRequest(requestText, matchedDocument = null) {
+        const fallbackRequest = 'Create a miniapp based on this document summary.';
+        const rawText = String(requestText || '').trim();
+        if (!rawText) {
+            return fallbackRequest;
+        }
+
+        let normalizedRequest = rawText;
+        const documentCandidates = [matchedDocument && matchedDocument.name, matchedDocument && matchedDocument.id]
+            .map(value => String(value || '').trim())
+            .filter(Boolean)
+            .sort((left, right) => right.length - left.length);
+
+        for (const candidate of documentCandidates) {
+            const escapedCandidate = candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+            const leadingDocumentPattern = new RegExp(`^${escapedCandidate}(?:[\\s,.:;!?-]+|$)`, 'i');
+            if (leadingDocumentPattern.test(normalizedRequest)) {
+                normalizedRequest = normalizedRequest.replace(leadingDocumentPattern, '').trim();
+                break;
+            }
+        }
+
+        normalizedRequest = normalizedRequest.replace(/^(?:please\s+)?(?:summar(?:y|ize|ise)|resum(?:e|ir|en|o)?|résum(?:e|é)?|resumo|zusammenfass(?:en|ung)?|摘要|总结|總結|概述)(?:\s+the\s+document)?(?:[\s,.:;!?-]+|$)/i, '').trim();
+        normalizedRequest = normalizedRequest.replace(/[\s,.:;!?-]*(?:and|then)?\s*(?:create|build|generate|make|prepare|turn(?:\s+it)?\s+into|convert(?:\s+it)?\s+into)\s+(?:a\s+|an\s+)?(?:html\s+)?(?:miniapp|mini\s+app|mini-app|artifact|artifacts|artefact|artefacts)\b.*$/i, '').trim();
+        normalizedRequest = normalizedRequest.replace(/^(?:and|then|please)[\s,.:;!?-]+/i, '').trim();
+        normalizedRequest = this._normalizewechatSummaryTransformInstruction(normalizedRequest);
+
+        if (!normalizedRequest) {
+            return fallbackRequest;
+        }
+
+        return `Create a miniapp based on the document summary after first applying this transformation to the summary: ${normalizedRequest}`;
+    }
+
     async _handlewechatSummaryToArtifactWorkflow(account, replyTarget, requestText, language = null) {
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         if (!account || !hashedMasterKey) {
@@ -3918,7 +4058,9 @@ class ConnectorWechat {
         );
         await this.postwechatText(replyTarget || account, `💬 ${workflowContinueText}`);
 
-        await this._handlewechatArtifact(account, normalizedSummaryText, language, {
+        const artifactRequestText = this._buildwechatSummaryToArtifactWorkflowRequest(requestText, matchedDocument);
+
+        await this._handlewechatArtifact(account, artifactRequestText, language, {
             cachedSourceContext: {
                 kind: 'document-summary',
                 sourceText: normalizedSummaryText,
@@ -7878,6 +8020,7 @@ class ConnectorWechat {
 
         const useWebSearch = this._artifactRequestWantsWebSearch(originalRequestText)
             || !!(artifactPromptResolution && artifactPromptResolution.session && artifactPromptResolution.session.useWebSearch);
+        const isFollowUpArtifact = !!(artifactPromptResolution && artifactPromptResolution.isFollowUp);
         /*console.info('[Connectorwechat][artifact] Artifact prompt resolved', {
             account,
             useWebSearch,
@@ -7892,10 +8035,16 @@ class ConnectorWechat {
         });*/
         const creatingText = await this._getLocalizedLangText(
             language,
-            useWebSearch ? 'wechatArtifactCreatingWithWeb' : 'wechatArtifactCreating',
-            useWebSearch
-                ? 'Creating your miniapp with web research to enrich it...'
-                : 'Creating your miniapp...'
+            isFollowUpArtifact
+                ? (useWebSearch ? 'wechatArtifactModifyingWithWeb' : 'wechatArtifactModifying')
+                : (useWebSearch ? 'wechatArtifactCreatingWithWeb' : 'wechatArtifactCreating'),
+            isFollowUpArtifact
+                ? (useWebSearch
+                    ? 'Modifying your miniapp with web research to enrich it...'
+                    : 'Modifying your miniapp...')
+                : (useWebSearch
+                    ? 'Creating your miniapp with web research to enrich it...'
+                    : 'Creating your miniapp...')
         );
         await this.postwechatText(account, `💬 ${creatingText}`);
 
@@ -7968,8 +8117,10 @@ class ConnectorWechat {
 
             const sentText = await this._getLocalizedLangText(
                 language,
-                'wechatArtifactSent',
-                'Miniapp created, saved, and sent as an HTML file.'
+                isFollowUpArtifact ? 'wechatArtifactModifiedSent' : 'wechatArtifactSent',
+                isFollowUpArtifact
+                    ? 'Miniapp updated, saved, and sent as an HTML file.'
+                    : 'Miniapp created, saved, and sent as an HTML file.'
             );
             await this.postwechatText(account, `💬 ${sentText}`);
             await this._sendwechatArtifactFollowUpQuestion(account, language);
@@ -9437,6 +9588,22 @@ class ConnectorWechat {
                     await this._handlewechatMatchedDocumentSummaryToPresentationWorkflow(account, replyTarget, match, language);
                     return { continueToChat: false };
                 }
+                if (!this._isSummaryToArtifactWorkflowIntent(input)) {
+                    const transformRouting = await this._preparewechatMatchedDocumentSummaryTransform(
+                        msg,
+                        account,
+                        replyTarget,
+                        match,
+                        hashedMasterKey,
+                        language,
+                        input,
+                        accountContext
+                    );
+                    if (transformRouting.handled) {
+                        accountContext = transformRouting.accountContext || accountContext;
+                        return { continueToChat: !!transformRouting.continueToChat };
+                    }
+                }
                 await this._executeDocumentSummary(account, match, hashedMasterKey, language, { replyTarget });
                 return { continueToChat: false };
             }
@@ -9458,6 +9625,22 @@ class ConnectorWechat {
                 if (isSummaryPresentationWorkflow) {
                     await this._handlewechatMatchedDocumentSummaryToPresentationWorkflow(account, replyTarget, match, language);
                     return { continueToChat: false };
+                }
+                if (!this._isSummaryToArtifactWorkflowIntent(userIntentText)) {
+                    const transformRouting = await this._preparewechatMatchedDocumentSummaryTransform(
+                        msg,
+                        account,
+                        replyTarget,
+                        match,
+                        hashedMasterKey,
+                        language,
+                        userIntentText,
+                        accountContext
+                    );
+                    if (transformRouting.handled) {
+                        accountContext = transformRouting.accountContext || accountContext;
+                        return { continueToChat: !!transformRouting.continueToChat };
+                    }
                 }
                 await this._executeDocumentSummary(account, match, hashedMasterKey, language, { replyTarget });
                 return { continueToChat: false };
@@ -10032,6 +10215,12 @@ class ConnectorWechat {
                 }
             }
 
+            if (artifactFollowUpIntent && orchTool !== 'artifact') {
+                orchTool = 'artifact';
+                msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: 'artifact' });
+                window.lastOrchestratorDecision = msg.orchestrator;
+            }
+
             if (orchTool !== 'artifact' && this._getwechatArtifactSession(accountContext)) {
                 accountContext = (await this._clearwechatArtifactSession(normalizedAccount, accountContext)) || accountContext;
             }
@@ -10051,6 +10240,11 @@ class ConnectorWechat {
                 if (explicitSwitch) {
                     allowDocumentSummaryMemoryFollowUp = activeFollowUpSession.kind === 'document-summary' && explicitSwitchTarget === 'presentation';
                     allowKnowledgeEntryMemoryFollowUp = activeFollowUpSession.kind === 'knowledge-entry' && explicitSwitchTarget === 'artifact';
+                    if (explicitSwitchTarget === 'artifact' || explicitSwitchTarget === 'presentation' || explicitSwitchTarget === 'knowledge' || explicitSwitchTarget === 'research' || explicitSwitchTarget === 'dataviz' || explicitSwitchTarget === 'chat') {
+                        orchTool = explicitSwitchTarget;
+                        msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: orchTool });
+                        window.lastOrchestratorDecision = msg.orchestrator;
+                    }
                     if (explicitSwitchTarget === 'artifact') {
                         if (activeFollowUpSession.kind === 'document-summary') {
                             const cachedSummaryText = this._normalizewechatResearchReportText(
