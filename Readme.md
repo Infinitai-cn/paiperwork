@@ -146,10 +146,9 @@ Want to contribute or build from source? Check out our [**Developer Guide**](dev
 
 ## Licensing
 
-Paiperwork is source-available under the Business Source License 1.1 in the main LICENSE file.
+Paiperwork is source-available under the MIT license in the main LICENSE file.
 
-- Personal, educational, and non-commercial use is allowed.
-- Internal commercial use is allowed for organizations with up to 10 concurrent users.
-- Larger production deployments, OEM use, redistribution, support, or custom branding require a separate commercial agreement.
+- Personal, educational, and commercial use is allowed.
+- Commercial support available.
+- Contact us for enterprise features at infinitai-cn@outlook.com
 
-See `LICENSE` for the repository license and `LICENSE-COMMERCIAL.md` for commercial licensing information.
