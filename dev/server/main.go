@@ -5689,6 +5689,7 @@ func shouldQueueWhatsappWelcome(deviceID, phoneNumber string) bool {
 func resolveLoggedInWhatsappWelcomeDeviceID(client *http.Client, deviceID, targetPhone string) string {
 	identityCandidates := []string{strings.TrimSpace(deviceID), strings.TrimSpace(targetPhone)}
 	seen := make(map[string]bool)
+	bestPersistableCandidate := ""
 	for _, identity := range identityCandidates {
 		if identity == "" || seen[identity] {
 			continue
@@ -5699,11 +5700,18 @@ func resolveLoggedInWhatsappWelcomeDeviceID(client *http.Client, deviceID, targe
 			continue
 		}
 		for _, candidateID := range candidateIDs {
+			trimmedCandidateID := strings.TrimSpace(candidateID)
+			if bestPersistableCandidate == "" && isPersistableWhatsappDeviceID(trimmedCandidateID) {
+				bestPersistableCandidate = trimmedCandidateID
+			}
 			status, statusErr := fetchWhatsappGatewayConnectionStatus(client, candidateID)
 			if statusErr == nil && status != nil && status.Connected && status.LoggedIn {
-				return strings.TrimSpace(candidateID)
+				return trimmedCandidateID
 			}
 		}
+	}
+	if bestPersistableCandidate != "" {
+		return bestPersistableCandidate
 	}
 	return ""
 }
@@ -7454,8 +7462,11 @@ func dispatchWhatsappWelcomeMessage(userKey, deviceID, initialTargetPhone string
 				log.Printf("dispatchWhatsappWelcomeMessage: skipping welcome send for purged device %s target=%s", maskPhoneForLog(deviceID), maskPhoneForLog(targetPhone))
 				return
 			}
-			// Give connection a moment to settle on WA side before sending.
-			time.Sleep(3500 * time.Millisecond)
+			if !waitForWhatsappSendReady(deviceID, 10*time.Second) {
+				log.Printf("dispatchWhatsappWelcomeMessage: device %s not send-ready yet for target %s (attempt %d)", maskPhoneForLog(deviceID), maskPhoneForLog(targetPhone), attempt)
+				time.Sleep(2 * time.Second)
+				continue
+			}
 			if err := sendWhatsappText(userKey, deviceID, targetPhone, "👋 Paiperwork is now connected and ready to chat."); err != nil {
 				log.Printf("dispatchWhatsappWelcomeMessage: send failed to %s for device %s (attempt %d): %v", maskPhoneForLog(targetPhone), maskPhoneForLog(deviceID), attempt, err)
 			} else {
