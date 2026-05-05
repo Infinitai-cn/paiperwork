@@ -1021,7 +1021,38 @@ class ArtworkPreviewWindow {
         const allowedInlineChildren = new Set(['SPAN', 'STRONG', 'EM', 'B', 'I', 'A', 'LABEL', 'CODE', 'U', 'SMALL', 'SUB', 'SUP', 'MARK', 'BR']);
         const forbiddenAncestorSelector = 'svg, script, style, noscript';
 
-        return Array.from(scope.querySelectorAll('*')).filter((element) => {
+        const getDirectTextContent = (element) => Array.from(element.childNodes || [])
+            .filter((node) => node && node.nodeType === Node.TEXT_NODE)
+            .map((node) => String(node.textContent || ''))
+            .join('')
+            .trim();
+
+        const hasOnlyInlineTextualDescendants = (element) => {
+            const children = Array.from(element.children || []);
+            if (!children.length) {
+                return false;
+            }
+
+            const childHTMLElementClass = rootWindow?.HTMLElement || HTMLElement;
+            return children.every((child) => {
+                if (!(child instanceof childHTMLElementClass)) {
+                    return false;
+                }
+
+                const childText = (child.textContent || '').trim();
+                if (!childText) {
+                    return true;
+                }
+
+                if (!allowedInlineChildren.has(child.tagName)) {
+                    return false;
+                }
+
+                return getDirectTextContent(child).length > 0 || hasOnlyInlineTextualDescendants(child);
+            });
+        };
+
+        const candidates = Array.from(scope.querySelectorAll('*')).filter((element) => {
             const isHtmlElement = element instanceof HTMLElementClass;
             if (!isHtmlElement) {
                 return false;
@@ -1036,28 +1067,129 @@ class ArtworkPreviewWindow {
                 return false;
             }
 
-            const children = Array.from(element.children);
-            if (children.length === 0) {
+            return getDirectTextContent(element).length > 0 || hasOnlyInlineTextualDescendants(element);
+        });
+
+        return candidates.filter((element) => {
+            const nearestCandidateAncestor = element.parentElement
+                ? candidates.find((candidate) => candidate !== element && candidate.contains(element) && candidate === element.parentElement.closest('*'))
+                : null;
+            if (!nearestCandidateAncestor) {
                 return true;
             }
 
-            const childHTMLElementClass = rootWindow?.HTMLElement || HTMLElement;
-            const hasUnsupportedChild = children.some((child) => {
-                if (!(child instanceof childHTMLElementClass)) {
-                    return true;
-                }
-                const childText = (child.textContent || '').trim();
-                if (!childText) {
-                    return false;
-                }
-                if (allowedInlineChildren.has(child.tagName)) {
-                    return false;
-                }
-                return true;
-            });
-
-            return !hasUnsupportedChild;
+            return !allowedInlineChildren.has(element.tagName);
         });
+    }
+
+    getTextOverlayExportTextElements(root) {
+        const scope = root?.body || root;
+        if (!scope || typeof scope.querySelectorAll !== 'function') {
+            return [];
+        }
+
+        const exportElements = [];
+        const seen = new Set();
+        const addElement = (element) => {
+            if (!element || seen.has(element)) {
+                return;
+            }
+            seen.add(element);
+            exportElements.push(element);
+        };
+
+        Array.from(scope.querySelectorAll('[data-artwork-editable-text="true"]')).forEach(addElement);
+        this.getTextOverlayEditableElements(root).forEach(addElement);
+
+        return exportElements;
+    }
+
+    textOverlayElementHasExplicitLineBreaks(element) {
+        if (!element) {
+            return false;
+        }
+
+        if (typeof element.querySelector === 'function' && element.querySelector('br')) {
+            return true;
+        }
+
+        const walker = element.ownerDocument?.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+        let textNode = walker ? walker.nextNode() : null;
+        while (textNode) {
+            if (String(textNode.textContent || '').includes('\n')) {
+                return true;
+            }
+            textNode = walker.nextNode();
+        }
+
+        return false;
+    }
+
+    applyTextOverlayMeasurementTransform(text, textTransform) {
+        const rawText = String(text || '');
+        const transform = String(textTransform || '').trim().toLowerCase();
+        if (!rawText || !transform || transform === 'none') {
+            return rawText;
+        }
+
+        if (transform === 'uppercase') {
+            return rawText.toUpperCase();
+        }
+
+        if (transform === 'lowercase') {
+            return rawText.toLowerCase();
+        }
+
+        if (transform === 'capitalize') {
+            return rawText.replace(/(^|[\s\u00A0-])([^\s\u00A0-])/g, (match, prefix, character) => `${prefix}${character.toUpperCase()}`);
+        }
+
+        return rawText;
+    }
+
+    measureTextOverlaySingleLineWidth(text, computedStyle, ownerDocument) {
+        const rawText = String(text || '');
+        if (!rawText || !computedStyle || !ownerDocument) {
+            return 0;
+        }
+
+        const measuredText = this.applyTextOverlayMeasurementTransform(rawText, computedStyle.textTransform);
+        const canvas = ownerDocument.createElement('canvas');
+        const context = canvas.getContext('2d');
+        if (!context) {
+            return 0;
+        }
+
+        const fontStyle = computedStyle.fontStyle || 'normal';
+        const fontVariant = computedStyle.fontVariant || 'normal';
+        const fontWeight = computedStyle.fontWeight || '400';
+        const fontStretch = computedStyle.fontStretch && computedStyle.fontStretch !== 'normal'
+            ? `${computedStyle.fontStretch} `
+            : '';
+        const fontSize = computedStyle.fontSize || '16px';
+        const fontFamily = computedStyle.fontFamily || 'sans-serif';
+        context.font = `${fontStyle} ${fontVariant} ${fontWeight} ${fontStretch}${fontSize} ${fontFamily}`.trim();
+
+        const letterSpacing = Number.parseFloat(computedStyle.letterSpacing || '0') || 0;
+        const wordSpacing = Number.parseFloat(computedStyle.wordSpacing || '0') || 0;
+        const lines = measuredText.split(/\r?\n/);
+        let widestLine = 0;
+
+        lines.forEach((line) => {
+            const metrics = context.measureText(line);
+            const letterSpacingWidth = line.length > 1 ? letterSpacing * (line.length - 1) : 0;
+            const wordSpacingWidth = wordSpacing !== 0
+                ? ((line.match(/[\s\u00A0]+/g) || []).length * wordSpacing)
+                : 0;
+            widestLine = Math.max(widestLine, metrics.width + letterSpacingWidth + wordSpacingWidth);
+        });
+
+        return widestLine;
     }
 
     serializeSourceDocument(doc, originalSource) {
@@ -4022,7 +4154,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         }
 
         const metricsById = new Map();
-        const editableElements = Array.from(iframeDoc.querySelectorAll('[data-artwork-editable-text="true"]'));
+        const editableElements = this.getTextOverlayExportTextElements(iframeDoc);
         editableElements.forEach((element, index) => {
             const metricId = String(element.dataset.artworkEditableTextId || index);
             try {
@@ -4039,6 +4171,8 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                     visualText: String(element.innerText || '').replace(/\r\n/g, '\n'),
                     sourceText: String(element.textContent || '').replace(/\r\n/g, '\n'),
                     renderedLines: this.getRenderedTextLinesForExport(element, iframeWindow),
+                    explicitLineBreaks: this.textOverlayElementHasExplicitLineBreaks(element),
+                    measuredSingleLineWidth: this.measureTextOverlaySingleLineWidth(element.textContent || '', computedStyle, iframeDoc),
                     whiteSpace: computedStyle.whiteSpace,
                     wordBreak: computedStyle.wordBreak,
                     overflowWrap: computedStyle.overflowWrap,
@@ -4295,9 +4429,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             element.style.top = '0';
         });
 
-        const editableCloneNodes = typeof clonedNode.querySelectorAll === 'function'
-            ? Array.from(clonedNode.querySelectorAll('[data-artwork-editable-text="true"]'))
-            : [];
+        const editableCloneNodes = this.getTextOverlayExportTextElements(clonedNode);
 
         editableCloneNodes.forEach((element, index) => {
             if (!element || !element.style) {
@@ -4315,9 +4447,10 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             const renderedLines = Array.isArray(metric.renderedLines) ? metric.renderedLines.filter(Boolean) : [];
             const renderedText = renderedLines.join('\n');
             const visualHasLineBreaks = visualText.includes('\n');
-            const freezeToRenderedLines = renderedLines.length > 1 && renderedText && renderedText !== sourceText;
-            const freezeToVisualLines = !freezeToRenderedLines && visualHasLineBreaks && visualText !== sourceText;
-            const keepSingleLine = !visualHasLineBreaks;
+            const explicitLineBreaks = !!metric.explicitLineBreaks;
+            const freezeToRenderedLines = explicitLineBreaks && renderedLines.length > 1 && renderedText && renderedText !== sourceText;
+            const freezeToVisualLines = explicitLineBreaks && !freezeToRenderedLines && visualHasLineBreaks && visualText !== sourceText;
+            const keepSingleLine = !explicitLineBreaks;
 
             if (freezeToRenderedLines) {
                 element.textContent = renderedText;
@@ -4327,7 +4460,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
 
             element.style.boxSizing = 'border-box';
             const lockedWidth = keepSingleLine
-                ? Math.max(metric.width, metric.scrollWidth || 0)
+                ? Math.max(metric.width, metric.scrollWidth || 0, metric.measuredSingleLineWidth || 0)
                 : metric.width;
             element.style.width = `${Math.max(1, Math.round(lockedWidth))}px`;
             element.style.maxWidth = keepSingleLine
