@@ -334,6 +334,8 @@ class ConnectorWechat {
         this._wechatPendingArtifactSelection = {}; // keyed by normalized account
         this._wechatPendingKnowledgeCollectionSelection = {}; // keyed by normalized account
         this._wechatPendingKnowledgeEntrySelection = {}; // keyed by normalized account
+        this._wechatRuntimeArtifactSessions = {}; // keyed by normalized account
+        this._wechatRuntimeFollowUpSessions = {}; // keyed by normalized account
         this._wechatRequestSequence = 0;
         this.bigOp = 0;
         if (typeof window !== 'undefined') {
@@ -609,6 +611,8 @@ class ConnectorWechat {
         Object.keys(this._wechatPendingArtifactSelection || {}).forEach(collectAccount);
         Object.keys(this._wechatPendingKnowledgeCollectionSelection || {}).forEach(collectAccount);
         Object.keys(this._wechatPendingKnowledgeEntrySelection || {}).forEach(collectAccount);
+        Object.keys(this._wechatRuntimeArtifactSessions || {}).forEach(collectAccount);
+        Object.keys(this._wechatRuntimeFollowUpSessions || {}).forEach(collectAccount);
         Object.keys(window._wechatOrchestratorContext || {}).forEach(collectAccount);
 
         for (const queuedMsg of this.wechatIncomingRetryQueue || []) {
@@ -634,6 +638,8 @@ class ConnectorWechat {
         this._wechatPendingArtifactSelection = {};
         this._wechatPendingKnowledgeCollectionSelection = {};
         this._wechatPendingKnowledgeEntrySelection = {};
+        this._wechatRuntimeArtifactSessions = {};
+        this._wechatRuntimeFollowUpSessions = {};
         this.wechatIncomingRetryQueue = [];
         this._wechatIncomingProcessing = false;
         this._clearwechatPendingReplyContext();
@@ -1330,10 +1336,20 @@ class ConnectorWechat {
 
         try {
             if (typeof PaiperworkDB.getWechatAccountContext === 'function') {
-                return (await PaiperworkDB.getWechatAccountContext(hashedMasterKey, normalizedAccount)) || null;
+                return this._mergewechatRuntimeWorkflowSessionsIntoContext(
+                    normalizedAccount,
+                    this._stripwechatWorkflowSessionsFromPersistedContext(
+                        (await PaiperworkDB.getWechatAccountContext(hashedMasterKey, normalizedAccount)) || null
+                    )
+                );
             }
             if (typeof PaiperworkDB.getwechatAccountContext === 'function') {
-                return (await PaiperworkDB.getwechatAccountContext(hashedMasterKey, normalizedAccount)) || null;
+                return this._mergewechatRuntimeWorkflowSessionsIntoContext(
+                    normalizedAccount,
+                    this._stripwechatWorkflowSessionsFromPersistedContext(
+                        (await PaiperworkDB.getwechatAccountContext(hashedMasterKey, normalizedAccount)) || null
+                    )
+                );
             }
             console.warn('Connectorwechat: PaiperworkDB does not expose getWechatAccountContext/getwechatAccountContext');
             return null;
@@ -1347,20 +1363,53 @@ class ConnectorWechat {
         if (!account || !context) return;
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey') || 'default';
         const normalizedAccount = this._normalizewechatIdentity(account);
+        const sanitizedContext = this._stripwechatWorkflowSessionsFromPersistedContext(context);
 
         try {
             if (typeof PaiperworkDB.saveWechatAccountContext === 'function') {
-                await PaiperworkDB.saveWechatAccountContext(hashedMasterKey, normalizedAccount, context);
+                await PaiperworkDB.saveWechatAccountContext(hashedMasterKey, normalizedAccount, sanitizedContext);
                 return;
             }
             if (typeof PaiperworkDB.savewechatAccountContext === 'function') {
-                await PaiperworkDB.savewechatAccountContext(hashedMasterKey, normalizedAccount, context);
+                await PaiperworkDB.savewechatAccountContext(hashedMasterKey, normalizedAccount, sanitizedContext);
                 return;
             }
             console.warn('Connectorwechat: PaiperworkDB does not expose saveWechatAccountContext/savewechatAccountContext');
         } catch (err) {
             console.warn('Connectorwechat: _setwechatAccountContext failed', err);
         }
+    }
+
+    _stripwechatWorkflowSessionsFromPersistedContext(context) {
+        if (!context || typeof context !== 'object') {
+            return context || null;
+        }
+
+        const sanitizedContext = { ...context };
+        delete sanitizedContext.artifactSession;
+        delete sanitizedContext.followUpSession;
+        return sanitizedContext;
+    }
+
+    _mergewechatRuntimeWorkflowSessionsIntoContext(account, context) {
+        const normalizedAccount = this._normalizewechatIdentity(account);
+        const mergedContext = (context && typeof context === 'object') ? { ...context } : {};
+
+        const artifactSession = normalizedAccount
+            ? this._wechatRuntimeArtifactSessions[normalizedAccount]
+            : null;
+        if (artifactSession && typeof artifactSession === 'object') {
+            mergedContext.artifactSession = { ...artifactSession };
+        }
+
+        const followUpSession = normalizedAccount
+            ? this._wechatRuntimeFollowUpSessions[normalizedAccount]
+            : null;
+        if (followUpSession && typeof followUpSession === 'object') {
+            mergedContext.followUpSession = { ...followUpSession };
+        }
+
+        return mergedContext;
     }
 
     _cloneOllamaContextPayload(payload) {
@@ -1475,22 +1524,26 @@ class ConnectorWechat {
             : ((await this._getwechatAccountContext(normalizedAccount)) || {});
 
         if (!session) {
+            delete this._wechatRuntimeArtifactSessions[normalizedAccount];
             delete accountContext.artifactSession;
         } else {
             const normalizedSession = this._getwechatArtifactSession({ artifactSession: session });
             if (normalizedSession) {
-                accountContext.artifactSession = {
+                const runtimeSession = {
                     ...normalizedSession,
                     active: true,
                     updatedAt: new Date().toISOString()
                 };
+                this._wechatRuntimeArtifactSessions[normalizedAccount] = runtimeSession;
+                accountContext.artifactSession = { ...runtimeSession };
             } else {
+                delete this._wechatRuntimeArtifactSessions[normalizedAccount];
                 delete accountContext.artifactSession;
             }
         }
 
         await this._setwechatAccountContext(normalizedAccount, accountContext);
-        return accountContext;
+        return this._mergewechatRuntimeWorkflowSessionsIntoContext(normalizedAccount, accountContext);
     }
 
     async _clearwechatArtifactSession(account, existingAccountContext = null) {
@@ -1571,6 +1624,7 @@ class ConnectorWechat {
             : ((await this._getwechatAccountContext(normalizedAccount)) || {});
 
         if (!session) {
+            delete this._wechatRuntimeFollowUpSessions[normalizedAccount];
             delete accountContext.followUpSession;
         } else {
             const normalizedSession = this._getwechatFollowUpSession({ followUpSession: session });
@@ -1580,19 +1634,22 @@ class ConnectorWechat {
                     accountContext,
                     normalizedSession
                 );
-                accountContext.followUpSession = {
+                const runtimeSession = {
                     ...normalizedSession,
                     language: resolvedLanguage,
                     active: true,
                     updatedAt: new Date().toISOString()
                 };
+                this._wechatRuntimeFollowUpSessions[normalizedAccount] = runtimeSession;
+                accountContext.followUpSession = { ...runtimeSession };
             } else {
+                delete this._wechatRuntimeFollowUpSessions[normalizedAccount];
                 delete accountContext.followUpSession;
             }
         }
 
         await this._setwechatAccountContext(normalizedAccount, accountContext);
-        return accountContext;
+        return this._mergewechatRuntimeWorkflowSessionsIntoContext(normalizedAccount, accountContext);
     }
 
     async _clearwechatFollowUpSession(account, existingAccountContext = null) {
@@ -2012,7 +2069,7 @@ class ConnectorWechat {
         const keyMap = {
             research: ['researchFollowUpQuestion', 'Do you want to continue refining this research?'],
             presentation: ['presentationFollowUpQuestion', 'Do you want to make more changes to this presentation?'],
-            'knowledge-entry': ['wechatKnowledgeEntryFollowUpQuestion', 'Do you want to keep modifying this Knowledge Base entry?'],
+            'knowledge-entry': ['wechatKnowledgeEntryFollowUpQuestion', 'Do you want to see any other Knowledge Base entry?'],
             'document-summary': ['ragDocumentSummaryFollowUpQuestion', 'Do you want to keep working with this document?']
         };
         const [key, fallback] = keyMap[kind] || [];
@@ -2092,6 +2149,85 @@ class ConnectorWechat {
         return this._handlewechatFollowUpSessionClose(account, resolvedLanguage, updatedContext);
     }
 
+    async _continuewechatKnowledgeEntrySession(account, language = null, accountContext = null) {
+        const session = this._getwechatFollowUpSession(accountContext);
+        const resolvedLanguage = this._resolvewechatReplyLanguage(language, accountContext, session);
+        if (!session || session.kind !== 'knowledge-entry') {
+            return accountContext;
+        }
+
+        const knowledgeEntryMemory = this._getwechatKnowledgeEntryMemory(accountContext);
+        const collections = await this._getSavedKnowledgeCollectionsForwechat();
+        let updatedContext = await this._clearwechatFollowUpSession(account, accountContext);
+
+        const collectionId = String(knowledgeEntryMemory && knowledgeEntryMemory.collectionId ? knowledgeEntryMemory.collectionId : '').trim();
+        const collectionName = String(
+            knowledgeEntryMemory && knowledgeEntryMemory.collectionName
+                ? knowledgeEntryMemory.collectionName
+                : (session.documentName || '')
+        ).trim();
+        const normalizedCollectionName = this._normalizeDocumentIntentKeymapText(collectionName);
+
+        let matchedCollection = collections.find(item => String(item && item.id ? item.id : '').trim() === collectionId);
+        if (!matchedCollection && normalizedCollectionName) {
+            matchedCollection = collections.find(item => this._normalizeDocumentIntentKeymapText(item && item.name ? item.name : '') === normalizedCollectionName);
+        }
+
+        if (matchedCollection) {
+            const entries = Array.isArray(matchedCollection.entries) ? matchedCollection.entries : [];
+            const listItems = entries.slice(0, 12);
+            this._setPendingKnowledgeCollectionSelection(account, { items: collections.slice(0, 12) });
+            this._setPendingKnowledgeEntrySelection(account, {
+                collectionId: matchedCollection.id,
+                collectionName: matchedCollection.name,
+                items: listItems
+            });
+
+            if (!listItems.length) {
+                const emptyEntriesText = await this._getLocalizedLangText(
+                    resolvedLanguage,
+                    'wechatKnowledgeEntriesEmpty',
+                    'This collection does not contain any entries yet.'
+                );
+                await this.postwechatText(account, `💬 ${emptyEntriesText}`);
+                return updatedContext;
+            }
+
+            const promptText = await this._getLocalizedLangText(
+                resolvedLanguage,
+                'wechatKnowledgeChooseEntryPrompt',
+                'Choose an entry from collection: {title}',
+                { title: matchedCollection.name || 'Knowledge Collection' }
+            );
+            const tipText = await this._getLocalizedLangText(
+                resolvedLanguage,
+                'wechatKnowledgeChooseEntryTip',
+                'Reply with the entry number or title to open it.'
+            );
+            const names = listItems.map((item, index) => `${index + 1}. ${item.title || 'Entry'}`).join('\n');
+            await this.postwechatText(account, `💬 ${promptText}\n${names}\n${tipText}`);
+            return updatedContext;
+        }
+
+        this._clearPendingKnowledgeEntrySelection(account);
+        const listItems = collections.slice(0, 12);
+        this._setPendingKnowledgeCollectionSelection(account, { items: listItems });
+
+        const promptText = await this._getLocalizedLangText(
+            resolvedLanguage,
+            'wechatKnowledgeChooseCollectionPrompt',
+            'Choose one of the Knowledge Base collections:'
+        );
+        const tipText = await this._getLocalizedLangText(
+            resolvedLanguage,
+            'wechatKnowledgeChooseCollectionTip',
+            'Reply with the collection number or title to list its entries.'
+        );
+        const names = listItems.map((item, index) => `${index + 1}. ${item.name || 'Collection'}`).join('\n');
+        await this.postwechatText(account, `💬 ${promptText}\n${names}\n${tipText}`);
+        return updatedContext;
+    }
+
     async _handlewechatFollowUpSessionContinue(account, language = null, accountContext = null) {
         const session = this._getwechatFollowUpSession(accountContext);
         const resolvedLanguage = this._resolvewechatReplyLanguage(language, accountContext, session);
@@ -2101,6 +2237,10 @@ class ConnectorWechat {
 
         if (session.kind === 'document-summary') {
             return this._continuewechatDocumentSummarySession(account, resolvedLanguage, accountContext, { announce: true });
+        }
+
+        if (session.kind === 'knowledge-entry') {
+            return this._continuewechatKnowledgeEntrySession(account, resolvedLanguage, accountContext);
         }
 
         const updatedContext = await this._setwechatFollowUpSession(account, {
@@ -2616,7 +2756,7 @@ class ConnectorWechat {
     _composewechatResearchReportTransformPrompt(requestText, accountContext = null) {
         const normalizedRequest = this._normalizewechatResearchReportText(requestText);
         const session = this._getwechatFollowUpSession(accountContext);
-        const sourceText = this._normalizewechatResearchReportText(session && session.sourceText ? session.sourceText : '');
+        const sourceText = this._sanitizewechatResearchReportTransformSourceText(session && session.sourceText ? session.sourceText : '');
         const title = String((session && session.title) || 'Research Report').trim();
 
         if (!normalizedRequest || !sourceText) {
@@ -2965,6 +3105,22 @@ class ConnectorWechat {
 
     async _handlewechatArtifactSessionClose(account, language = null, accountContext = null) {
         const updatedContext = await this._clearwechatArtifactSession(account, accountContext);
+        const closedText = await this._getLocalizedLangText(
+            language,
+            'wechatArtifactFollowUpClosed',
+            'Okay, artifact modification mode is closed.'
+        );
+        await this.postwechatText(account, `💬 ${closedText}`);
+        return updatedContext;
+    }
+
+    async _clearwechatArtifactSessionWithNotice(account, language = null, accountContext = null) {
+        const existingSession = this._getwechatArtifactSession(accountContext);
+        const updatedContext = await this._clearwechatArtifactSession(account, accountContext);
+        if (!existingSession || !existingSession.active) {
+            return updatedContext;
+        }
+
         const closedText = await this._getLocalizedLangText(
             language,
             'wechatArtifactFollowUpClosed',
@@ -4218,6 +4374,24 @@ class ConnectorWechat {
             .replace(/\n+[*#-]?\s*##\s+Sources\b[\s\S]*$/i, '')
             .replace(/^##\s+Sources\b[\s\S]*$/i, '')
             .trim();
+    }
+
+    _sanitizewechatResearchReportTransformSourceText(text) {
+        const strippedSources = this._stripwechatResearchSourcesSection(text);
+        if (!strippedSources) {
+            return '';
+        }
+
+        return this._normalizewechatResearchReportText(
+            strippedSources
+                .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '$1')
+                .replace(/\[(\d+)\]/g, '')
+                .replace(/<https?:\/\/[^>]+>/g, '')
+                .replace(/^\s*(?:[-*•]|\d+\.)?\s*https?:\/\/\S+\s*$/gim, '')
+                .replace(/\bhttps?:\/\/[^\s<>()]+/g, '')
+                .replace(/[ \t]+\n/g, '\n')
+                .replace(/\n{3,}/g, '\n\n')
+        );
     }
 
     _getResearchReportTextForwechat(fallbackReport = '') {
@@ -9173,7 +9347,7 @@ class ConnectorWechat {
                             ? researchPromptResolution.basePrompt
                             : query,
                         currentPrompt: effectiveQuery,
-                        sourceText: wechatResearchReport,
+                        sourceText: wechatResearchReportBody,
                         refinements: researchPromptResolution && Array.isArray(researchPromptResolution.refinements)
                             ? researchPromptResolution.refinements
                             : [],
@@ -10177,7 +10351,7 @@ class ConnectorWechat {
                     String(msg.context_token || msg.contextToken || '').trim()
                 );
                 if (modelCommandHandled) {
-                    accountContext = (await this._clearwechatArtifactSession(normalizedAccount, accountContext)) || accountContext;
+                    accountContext = (await this._clearwechatArtifactSessionWithNotice(normalizedAccount, resolvedLanguage, accountContext)) || accountContext;
                     accountContext = (await this._clearwechatFollowUpSession(normalizedAccount, accountContext)) || accountContext;
                     return;
                 }
@@ -10193,7 +10367,7 @@ class ConnectorWechat {
                     resolvedLanguage
                 );
                 if (workflowHandled) {
-                    accountContext = (await this._clearwechatArtifactSession(normalizedAccount, accountContext)) || accountContext;
+                    accountContext = (await this._clearwechatArtifactSessionWithNotice(normalizedAccount, resolvedLanguage, accountContext)) || accountContext;
                     accountContext = (await this._clearwechatFollowUpSession(normalizedAccount, accountContext)) || accountContext;
                     return;
                 }
@@ -10209,7 +10383,7 @@ class ConnectorWechat {
                     resolvedLanguage
                 );
                 if (workflowHandled) {
-                    accountContext = (await this._clearwechatArtifactSession(normalizedAccount, accountContext)) || accountContext;
+                    accountContext = (await this._clearwechatArtifactSessionWithNotice(normalizedAccount, resolvedLanguage, accountContext)) || accountContext;
                     accountContext = (await this._clearwechatFollowUpSession(normalizedAccount, accountContext)) || accountContext;
                     return;
                 }
@@ -10222,7 +10396,7 @@ class ConnectorWechat {
             }
 
             if (orchTool !== 'artifact' && this._getwechatArtifactSession(accountContext)) {
-                accountContext = (await this._clearwechatArtifactSession(normalizedAccount, accountContext)) || accountContext;
+                accountContext = (await this._clearwechatArtifactSessionWithNotice(normalizedAccount, resolvedLanguage, accountContext)) || accountContext;
             }
 
             let allowDocumentSummaryMemoryFollowUp = false;
