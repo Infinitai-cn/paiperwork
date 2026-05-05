@@ -137,6 +137,22 @@ Instructions:
 - Do NOT include any extra text, analysis, or commentary outside the JSON object.
 - If you cannot parse intent or format JSON, return exactly: { "tool": "chat", "document": "", "confidence": 0.9, "reason": "Unable to parse intent as JSON", "language": "English", "think": false }
 - Set the "language" field to the detected user language name, using values like "English", "Español", "Français", "Deutsch", "Italiano", "Português", "中文", "日本語", "한국어", or "Русский".
+- Your first duty is to protect normal conversation. Default to "chat" unless the user is clearly making an operational request for a specialized workflow.
+- Core rule: stay in "chat" unless the request is clearly operational.
+- Operational requests are requests that clearly ask to use a specific workflow, saved workflow object, active workflow session, document set, or current-information source.
+- Do not choose a specialized workflow from broad verbs alone such as create, make, prepare, improve, summarize, translate, analyze, review, compare, investigate, or help.
+- Do not choose a specialized workflow just because the request could be handled by that workflow.
+- Do not choose a specialized workflow from topical similarity alone.
+- If the request can still reasonably be read as ordinary conversation, advisory discussion, brainstorming, translation of ordinary chat text, rewriting pasted inline prose, or general writing help, return "chat".
+- When there is an active follow-up session, prefer continuing that same workflow unless the user explicitly switches domains.
+- Workflow switching requires stronger evidence than workflow continuation.
+- If there is no active follow-up session, do not route to a specialized workflow unless there is an explicit operational anchor.
+- Strong operational anchors include:
+    - explicit workflow nouns such as presentation, slides, slide deck, miniapp, mini app, artifact, knowledge base
+    - explicit saved-object cues such as my saved presentations, saved miniapps, existing artifacts
+    - explicit document or file references such as document, file, pdf, upload, contract, report, or a concrete document name
+    - explicit current-information cues such as latest, current, today, web, online, sources, citations
+    - explicit research/report cues such as research, report, deep dive, competitor analysis, comparative report, market study
 - Use explicit multilingual intent mapping for key actions:
   - Data-viz command examples:
     - English: "Create a demo pie chart", "Show me a bar graph" => dataviz
@@ -186,7 +202,7 @@ Instructions:
     - Español: "Resumen mi informe" → document-check
 - If user asks for updated facts, citations, or current events in any supported language, prefer "chat+websearch".
 - If user asks for explicit file/document interaction in any language, prefer "document-check".
-- If user requests planning, comparative analysis, research reports, or deep investigation in any language, prefer "research".
+- If user explicitly asks for research, report-style output, investigation, or deep multi-source analysis in any language, prefer "research".
 - Generic creative-writing or writing-assistance requests stay on "chat" unless the user explicitly names a specialized workflow target. Examples: "Create a beautiful poem", "Write a short story", "Create a script for an escape room", and "Write a marketing email" => chat.
 - If user asks to create, generate, build, or prepare a presentation or slide deck from provided text/content, prefer "presentation".
 - If user asks to list, browse, view, choose, or send an existing saved presentation, also prefer "presentation".
@@ -200,6 +216,15 @@ Instructions:
 - In an active artifact/miniapp session, phrases like "use white noise", "use pink noise", "use this color", or "use bigger drops" are artifact refinements, not AI model-switch requests.
 - In an active artifact/miniapp session, replies like "no", "no thanks", "I'm finished", "I'm good", "looks good", or their localized equivalents mean the user wants to close artifact follow-up mode, not switch AI models.
 - Requests to make the miniapp richer with web/internet/search context should still stay on "artifact", not "chat+websearch".
+- Keep these requests on "chat" unless the user explicitly names a specialized workflow target:
+    - brainstorming
+    - strategy discussion
+    - opinions
+    - abstract planning
+    - editing or rewriting plain prose pasted inline
+    - casual translation of ordinary chat content
+    - summarizing inline text with no document or workflow anchor
+    - asking how a workflow compares to another workflow
 - Follow-Up Prompt Reconstruction:
     - If the input includes active follow-up session context for artifact/miniapp, research, prompted presentations, or document-summary/document-questioning flows, do not just classify the tool. Also infer the best final rewritten request for the downstream engine.
     - Use the optional field merged_prompt when the current user message modifies, negates, replaces, narrows, or refines a previous request.
@@ -217,13 +242,14 @@ Instructions:
 - Decide ONLY one tool per request; do not emit multiple tool values.
 - Ignore any internal "thinking" markers or tags (for example: <think>...</think>, <thinking>...</thinking>, and text like "💬 Thinking..."). Treat those as not part of the user's request.
 - Handle multi-language requests robustly using these keyword signals.
-- Prefer "chat+websearch" when the user explicitly requests web lookups, asks for current events, requests citations, or asks for verifiable/up-to-date facts.
-- Prefer "research" when the user asks for a research-style workflow, comprehensive topic analysis, or actionable insights (examples: "research the latest AI trends", "prepare a report on market dynamics", "investigate competitor strategies", "what is the best approach for market research?").
+- Prefer "chat+websearch" only when the user explicitly requests web lookups, asks for current events, requests citations, or asks for verifiable/up-to-date facts.
+- Prefer "research" only when the user explicitly asks for a research-style workflow, report, investigation, or multi-source analytical output (examples: "research the latest AI trends", "prepare a report on market dynamics", "investigate competitor strategies").
 - Requests about available AI models, the current selected model, installed models, switching models, choosing between local/cloud models, or commands like "show me my models" / "what model is selected now" / "use Gemma4 local" are NOT document requests. Route those to "chat" so the frontend can handle model management.
-- Choose "document-check" whenever the user explicitly or implicitly asks to interact with saved documents or files. Use semantic intent matching (not just exact text matches) and fuzzy document-name matching (close titles, partial names, alternate case, punctuation variations) so varied forms like "I want to review my recent reports", "find the PDF about taxes", "can you open that contract", "browse my docs", and "show me my uploads" are all treated as document-check. Also treat forms like "ask a question to <document>", "question this document", "ask about <document>", "a question for <doc title>" as document-check intent (not general knowledge questions without explicit document reference). If the user asks to "summarize" or "ask about" a near-matching document name (e.g. "Summarize a call to action" vs "A_Call_to_Action_for_Generative_AI.pdf"), prefer document-check with the closest candidate. Do not set document-check for generic conversational queries like "What day is today?", "Who won the game?", or "How do I boil pasta?" unless there is explicit document context. Examples of document intent: "my documents", "check my documents", "list my documents", "summarize my file", "summarize invoice.pdf", "ask questions about my report", "open the contract named X", "review the uploaded files", or when the user mentions uploading content to be checked. In these cases:
+- Choose "document-check" when the user explicitly asks to interact with saved documents or files, or when there is a clear saved-document anchor. Use semantic intent matching and fuzzy document-name matching only after a document anchor is present. Strong document anchors include document nouns, file nouns, saved-document browsing cues, uploads already in the app, or a concrete near-matching document title. Also treat forms like "ask a question to <document>", "question this document", "ask about <document>", and "a question for <doc title>" as document-check intent, but not general knowledge questions without explicit document reference. If the user asks to "summarize" or "ask about" a near-matching document name (e.g. "Summarize a call to action" vs "A_Call_to_Action_for_Generative_AI.pdf"), prefer document-check with the closest candidate. Do not set document-check for generic conversational queries like "What day is today?", "Who won the game?", or "How do I boil pasta?" unless there is explicit document context. Examples of document intent: "my documents", "check my documents", "list my documents", "summarize my file", "summarize invoice.pdf", "ask questions about my report", "open the contract named X", "review the uploaded files", or when the user mentions uploading content already stored in the app to be checked. In these cases:
     - If you can confidently identify a specific saved document, set the "document" field to that exact filename or id.
     - If you cannot confidently identify a specific document (user didn't supply a filename or the name is ambiguous), set the tool to "document-check" and set the "document" field to an empty string so the frontend can ask the user to choose from candidate documents.
-    - Do not choose "chat" merely because a filename is missing; prefer "document-check" when document intent is clear.
+    - Do not choose "document-check" from the word "summarize" or "review" alone. There must be document context.
+    - Do not choose "chat" merely because a filename is missing when document intent is otherwise clear.
 
 - Use only already ingested documents from the app. Do not ask users to send or upload new files via wechat; those are forbidden for security reasons.
 - If document intent is ambiguous (e.g. "a document", "some doc" with no explicit existing filename), choose "document-check" and set "document" to ""; do not reroute to chat or ask for attachments.
@@ -245,6 +271,18 @@ Output: { "tool": "chat+websearch", "document": "", "confidence": 0.95, "reason"
 
 Input: "Tell me a joke"
 Output: { "tool": "chat", "document": "", "confidence": 0.9, "reason": "Casual conversational request with no document or web-intent.", "language": "English", "think": false }
+
+Input: "Can you help me think this through?"
+Output: { "tool": "chat", "document": "", "confidence": 0.95, "reason": "Ordinary conversational planning request with no explicit workflow target.", "language": "English", "think": false }
+
+Input: "Translate this to Chinese: Hello team, thanks for your support."
+Output: { "tool": "chat", "document": "", "confidence": 0.95, "reason": "Ordinary translation request with no explicit specialized workflow target.", "language": "English", "think": false }
+
+Input: "Summarize this text for me: AI can help teams move faster..."
+Output: { "tool": "chat", "document": "", "confidence": 0.92, "reason": "Inline text summarization without a document or workflow anchor should stay in normal chat.", "language": "English", "think": false }
+
+Input: "How would a miniapp approach compare with a presentation approach?"
+Output: { "tool": "chat", "document": "", "confidence": 0.93, "reason": "Comparing workflows conversationally is not the same as requesting one of them.", "language": "English", "think": false }
 
 Input: "Research the latest trends in electric vehicle batteries and summarize opportunities for startups."
 Output: { "tool": "research", "document": "", "query": "latest trends in electric vehicle batteries and opportunities for startups", "confidence": 0.95, "reason": "Explicit research-style request with analytical intent.", "language": "English", "think": false }
@@ -949,13 +987,36 @@ If unsure, choose "chat".
     }
 
     async stopWechatServer() {
+        this._stopWechatLoginFlow();
         this.wechatServerStopping = true;
         this.wechatServerStarting = false;
         this.setWechatPairButtonState(this.wechatIsPaired);
 
         let stopped = false;
         try {
-            const res = await fetch('/api/wechat/stop', { method: 'POST' });
+            const stopController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const stopTimeout = typeof window !== 'undefined' && typeof window.setTimeout === 'function'
+                ? window.setTimeout(() => {
+                    try {
+                        if (stopController) {
+                            stopController.abort();
+                        }
+                    } catch (_) {}
+                }, 8000)
+                : null;
+
+            let res;
+            try {
+                res = await fetch('/api/wechat/stop', {
+                    method: 'POST',
+                    signal: stopController ? stopController.signal : undefined
+                });
+            } finally {
+                if (stopTimeout) {
+                    clearTimeout(stopTimeout);
+                }
+            }
+
             if (!res.ok) {
                 console.warn('ConnectorsTab: stop WeChat server failed', await res.text());
             } else {
@@ -978,6 +1039,9 @@ If unsure, choose "chat".
             }
         }
         this.wechatServerStopping = false;
+        if (!stopped) {
+            await this.refreshWechatPairButton({ check: true });
+        }
         this.setWechatPairButtonState(this.wechatServerStarted ? this.wechatIsPaired : false);
     }
 
