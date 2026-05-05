@@ -1561,6 +1561,50 @@ class ConnectorWhatsapp {
         };
     }
 
+    _hasWhatsappExplicitResearchWorkflowTarget(text) {
+        const normalizedText = this._normalizeDocumentIntentKeymapText(text);
+        if (!normalizedText) {
+            return false;
+        }
+
+        const intentTokens = this._getResearchKeymapTokens('intent');
+        const compareTokens = this._getResearchKeymapTokens('actions.compare');
+        const createTokens = this._getResearchKeymapTokens('actions.create');
+        const outputTokens = this._getResearchKeymapTokens('outputs');
+
+        const hasIntent = this._textMatchesDocumentKeymapTokens(normalizedText, intentTokens);
+        const hasCompare = this._textMatchesDocumentKeymapTokens(normalizedText, compareTokens);
+        const hasCreate = this._textMatchesDocumentKeymapTokens(normalizedText, createTokens);
+        const hasOutput = this._textMatchesDocumentKeymapTokens(normalizedText, outputTokens);
+
+        return hasIntent || hasCompare || (hasCreate && hasOutput);
+    }
+
+    _hasWhatsappExplicitDocumentWorkflowTarget(text) {
+        const rawText = String(text || '').trim();
+        if (!rawText) {
+            return false;
+        }
+
+        const normalizedText = this._normalizeDocumentIntentKeymapText(rawText);
+        if (!normalizedText) {
+            return false;
+        }
+
+        const nounTokens = this._getDocumentKeymapTokens('nouns');
+        const browseTokens = this._getDocumentKeymapTokens('actions.browse');
+        const hasDocumentSelectionIntent = this._isDocumentSelectionIntent(rawText);
+        const hasDocumentNoun = this._textMatchesDocumentKeymapTokens(normalizedText, nounTokens);
+        const hasBrowseAction = this._textMatchesDocumentKeymapTokens(normalizedText, browseTokens);
+        const hasSummaryIntent = this._isSummaryIntent(normalizedText);
+        const hasQuestionIntent = this._isQuestionIntent(rawText);
+        const hasFilenameLikeReference = /\b[\w.-]+\.(pdf|docx?|txt|md|rtf|csv|xlsx?|pptx?)\b/i.test(rawText);
+
+        return hasDocumentSelectionIntent
+            || hasFilenameLikeReference
+            || (hasDocumentNoun && (hasBrowseAction || hasSummaryIntent || hasQuestionIntent));
+    }
+
     _detectWhatsappExplicitWorkflowTarget(text, orchTool = '') {
         const normalizedText = this._normalizeWhatsappResearchReportText(text);
         if (!normalizedText) {
@@ -1595,11 +1639,11 @@ class ConnectorWhatsapp {
             return 'knowledge';
         }
 
-        if (this._isResearchIntent(normalizedText)) {
+        if (this._hasWhatsappExplicitResearchWorkflowTarget(normalizedText)) {
             return 'research';
         }
 
-        if (this._isDocumentSelectionIntent(normalizedText) || this._isSummaryIntent(normalizedText)) {
+        if (this._hasWhatsappExplicitDocumentWorkflowTarget(normalizedText)) {
             return 'document-check';
         }
 

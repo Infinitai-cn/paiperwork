@@ -7968,8 +7968,18 @@ func stopEmbeddedWcfLink() error {
 	}
 	wechatEngineMu.Unlock()
 
-	if err := engineInstance.Shutdown(); err != nil {
-		return err
+	shutdownErrCh := make(chan error, 1)
+	go func() {
+		shutdownErrCh <- engineInstance.Shutdown()
+	}()
+
+	select {
+	case err := <-shutdownErrCh:
+		if err != nil {
+			return err
+		}
+	case <-time.After(8 * time.Second):
+		return fmt.Errorf("timed out waiting for WeChat gateway shutdown")
 	}
 
 	log.Printf("stopEmbeddedWcfLink: WeChat gateway stopped successfully")
