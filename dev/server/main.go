@@ -10102,11 +10102,19 @@ func main() {
 
 	defer stopKeepAwake()
 
+	serverAddr := fmt.Sprintf("%s:%s", bindHost, port)
+	isLocalOnlyBind := bindHost == "localhost" || bindHost == "127.0.0.1"
+
 	// Security-focused startup messages
-	log.Printf("🔒 Secure Paiperwork server starting on:")
-	log.Printf("🛡️  SECURITY: Server restricted to localhost access only")
-	log.Printf("💡 This ensures your data remains encrypted and secure")
-	log.Printf("🚫 Network access disabled for enterprise security")
+	log.Printf("🔒 Secure Paiperwork server starting on: %s", serverAddr)
+	if isLocalOnlyBind {
+		log.Printf("🛡️ SECURITY: Server restricted to localhost access only")
+		log.Printf("💡 This ensures your data remains encrypted and secure")
+		log.Printf("🚫 Network access disabled for enterprise security")
+	} else {
+		log.Printf("🌐 DEPLOYMENT: Network/cloud mode enabled")
+		log.Printf("🛡️ SECURITY: Server is reachable on configured network interface %s", bindHost)
+	}
 
 	// Open browser locally by default. Disable in headless/cloud via PAIPERWORK_OPEN_BROWSER=false.
 	localURL := fmt.Sprintf("http://localhost:%s", port)
