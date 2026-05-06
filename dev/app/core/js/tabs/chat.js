@@ -2691,7 +2691,7 @@ class Chat {
 
                     // Update UI to show cancelled state
                     if (thinkingMode.timerElement) {
-                        const cancelledText = Lang.get('cancelled') || 'cancelled';
+                        const cancelledText = (typeof Lang.getTranslation === 'function' ? Lang.getTranslation('cancelled') : '') || 'cancelled';
                         thinkingMode.timerElement.textContent = `${thinkingMode.elapsedSeconds}s (${cancelledText})`;
                         thinkingMode.timerElement.style.color = 'var(--thinking-cancelled-color, #e53e3e)';
                         thinkingMode.timerElement.style.textDecoration = 'line-through';

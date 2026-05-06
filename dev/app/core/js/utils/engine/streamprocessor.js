@@ -1552,7 +1552,7 @@ class StreamProcessor {
 
         // 1. IMMEDIATELY update UI to visually indicate cancellation
         if (this.thinkingMode.timerElement) {
-            const cancelledText = Lang.get('cancelled') || 'cancelled';
+            const cancelledText = (typeof Lang.getTranslation === 'function' ? Lang.getTranslation('cancelled') : '') || 'cancelled';
             this.thinkingMode.timerElement.textContent = `${this.thinkingMode.elapsedSeconds}s (${cancelledText})`;
             this.thinkingMode.timerElement.style.color = 'var(--thinking-cancelled-color, #e53e3e)';
             this.thinkingMode.timerElement.style.textDecoration = 'line-through';
