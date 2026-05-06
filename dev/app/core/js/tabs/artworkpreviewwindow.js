@@ -4767,13 +4767,13 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
     async ensureDomToImageLoaded() {
         if (window.domtoimage && typeof window.domtoimage.toCanvas === 'function') {
             return window.domtoimage;
-        }
+        } 
 
         if (this._domToImageLoaderPromise) {
             return this._domToImageLoaderPromise;
         }
 
-        const libraryUrl = new URL('/core/js/libraries/dom-to-image-more/dom-to-image-more-main/src/dom-to-image-more.js', window.location.origin).href;
+        const libraryUrl = new URL('/core/js/libraries/dom-to-image-more/dom-to-image-more.min.js', window.location.origin).href;
         this._domToImageLoaderPromise = new Promise((resolve, reject) => {
             const existingScript = Array.from(document.scripts || []).find((script) => String(script.src || '').trim() === libraryUrl);
             if (existingScript) {
