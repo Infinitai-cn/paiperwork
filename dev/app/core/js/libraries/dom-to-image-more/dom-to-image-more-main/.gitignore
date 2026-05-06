@@ -1,6 +1,0 @@
-*.iml
-.tags
-.tags*
-node_modules/
-spec/failure.html
-testing/
