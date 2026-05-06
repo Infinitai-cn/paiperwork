@@ -18,6 +18,9 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         // ===== INDEX.HTML (DE) =====
         indexPageTitle: "Paiperwork - Lokale Javascript KI-Schnittstelle",
         mainHeading: "Sichere Javascript WebUi-Schnittstelle für Ollama",
+        indexIntroHeading: "Chatten Sie mit KI, extrahieren Sie Informationen aus Ihren Dokumenten, erstellen Sie Präsentationen, Miniapps, poster und vieles mehr...",
+        indexIntroSubtitle: "Fernsteuerung über Whatsapp und Wechat aktiviert.",
+        indexIntroSubtitleHosted: "Fernsteuerung über Whatsapp und Wechat in der lokal installierten Version aktiviert.",
         requirementsHeading: "Anforderungen:",
         requirementsText: "muss lokal auf dem (Standard-)Port 11434 installiert und ausgeführt werden, stellen Sie sicher, dass Sie auf die neueste Version aktualisiert haben.",
         ollamaLinkText: "Ollama",

@@ -26,6 +26,9 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         // ===== INDEX.HTML (PT) =====
         indexPageTitle: "Paiperwork - Interface IA Javascript Local",
         mainHeading: "Interface WebUi Javascript Segura para Ollama",
+        indexIntroHeading: "Converse com IA, extraia informações dos seus documentos, crie apresentações, miniapps, cartazes e muito mais...",
+        indexIntroSubtitle: "Controle remoto por Whatsapp e Wechat habilitado.",
+        indexIntroSubtitleHosted: "Controle remoto por Whatsapp e Wechat habilitado na versão instalada localmente.",
         requirementsHeading: "Requisitos:",
         requirementsText: "deve estar instalado e rodando localmente na porta (padrão) 11434, certifique-se de ter atualizado para a versão mais recente.",
         ollamaLinkText: "Ollama",

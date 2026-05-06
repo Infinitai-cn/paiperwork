@@ -19,6 +19,28 @@
             justify-content: space-between;
             margin-top: 40px;
         }
+
+        .intro-copy {
+            max-width: 860px;
+            margin: 18px auto 0;
+            text-align: center;
+        }
+
+        .intro-copy h2 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 1.35;
+            color: var(--text-color);
+        }
+
+        .intro-copy p {
+            margin: 10px 0 0;
+            font-size: 16px;
+            line-height: 1.4;
+            color: var(--text-secondary, var(--text-color));
+            opacity: 0.9;
+        }
         
         .feature-list {
             text-align: left;
@@ -147,6 +169,20 @@
         if (mainHeading) {
             mainHeading.textContent = Lang.get('mainHeading') || 'Secure WebUi Interface for Ollama';
         }
+
+        const introHeading = document.getElementById('index-intro-heading');
+        if (introHeading) {
+            introHeading.textContent = Lang.get('indexIntroHeading') || 'Chat with Ai, extract information from your documents, create presentations, miniapps, posters and much more...';
+        }
+
+        const introSubtitle = document.getElementById('index-intro-subtitle');
+        if (introSubtitle) {
+            const subtitleKey = isHostedMode() ? 'indexIntroSubtitleHosted' : 'indexIntroSubtitle';
+            const fallbackSubtitle = isHostedMode()
+                ? 'Whatsapp and Wechat remote control enabled in locally installed version.'
+                : 'Whatsapp and Wechat remote control enabled.';
+            introSubtitle.textContent = Lang.get(subtitleKey) || fallbackSubtitle;
+        }
         
         // Update requirements section
         const requirementsHeading = document.querySelector('.requirements h2');
@@ -184,6 +220,10 @@
     <div class="landing-container">
         <img id="logo" class="logo" alt="Paiperwork Logo">
         <h1>Secure WebUi Interface for Ollama</h1>
+        <div class="intro-copy">
+            <h2 id="index-intro-heading">Chat with Ai, extract information from your documents, create presentations, miniapps, posters and much more...</h2>
+            <p id="index-intro-subtitle">Whatsapp and Wechat remote control enabled.</p>
+        </div>
         
         <div class="main-content">
             <div class="center-content">

@@ -17,6 +17,9 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 // ===== INDEX.HTML (ZH) =====
                 indexPageTitle: "Paiperwork - 本地Javascript AI界面",
                 mainHeading: "Ollama安全Javascript网页界面",
+                indexIntroHeading: "与 AI 对话，从您的文档中提取信息，创建演示文稿、迷你应用、海报以及更多内容...",
+                indexIntroSubtitle: "已启用 Whatsapp 和 Wechat 远程控制。",
+                indexIntroSubtitleHosted: "已在本地安装版本中启用 Whatsapp 和 Wechat 远程控制。",
                 requirementsHeading: "要求：",
                 requirementsText: "必须在本地（默认）端口11434上安装和运行，请确保您已更新到最新版本。",
                 ollamaLinkText: "Ollama",
