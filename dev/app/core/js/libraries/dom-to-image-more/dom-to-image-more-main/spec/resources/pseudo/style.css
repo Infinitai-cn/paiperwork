@@ -1,0 +1,24 @@
+div.only-before::before {
+    content: 'JustBefore';
+}
+
+div.only-after::after {
+    content: 'JustAfter';
+}
+
+div.both::before {
+    content: 'BothBefore';
+}
+
+div.both::after {
+    content: 'BothAfter';
+}
+
+#dom-node {
+    background-color: white;
+    color: black;
+    font-family: monospace;
+    font-size: 20px;
+    height: 400px;
+    width: 400px;
+}

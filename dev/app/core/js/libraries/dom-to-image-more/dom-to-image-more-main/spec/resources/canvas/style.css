@@ -1,0 +1,10 @@
+#dom-node {
+    height: 100px;
+    width: 100px;
+    font-family: monospace;
+}
+
+#content {
+    height: 100px;
+    width: 100px;
+}
