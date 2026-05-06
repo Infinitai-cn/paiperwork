@@ -33,6 +33,10 @@ class ArtworkPreviewWindow {
         this.textOverlayPositionLocked = false;
         this.textOverlayPreviewReady = false;
         this.textOverlayCodeSyncTimer = null;
+        this.textOverlayGeometrySyncTimer = null;
+        this.textOverlaySelectedElement = null;
+        this.textOverlayResizeObserver = null;
+        this.textOverlayAvailableFontWeights = new Map();
         this.styleTransferCodeSyncTimer = null;
         this.styleTransferImageEditorPanel = null;
         this.styleTransferImageEditorFileInput = null;
@@ -1003,10 +1007,309 @@ class ArtworkPreviewWindow {
     }
 
     normalizeTextOverlayDocument(frameDoc) {
-        // No-op normalizer: keep author-provided HTML/CSS intact.
-        // This preserves raw model-emitted HTML for style-transfer previews
-        // and avoids host-side layout changes that alter author intent.
-        return;
+        if (!this.isTextOverlayPreview || !frameDoc?.body) {
+            return;
+        }
+
+        const existingStyle = frameDoc.getElementById('artwork-text-overlay-editor-style');
+        if (!existingStyle) {
+            const styleEl = frameDoc.createElement('style');
+            styleEl.id = 'artwork-text-overlay-editor-style';
+            styleEl.textContent = `
+                [data-artwork-editable-text="true"] {
+                    outline: none;
+                    transition: box-shadow 0.15s ease, outline-color 0.15s ease;
+                }
+
+                [data-artwork-editable-text="true"][data-artwork-editing="true"] {
+                    cursor: text !important;
+                }
+
+                [data-artwork-editable-text="true"].artwork-text-overlay-selected {
+                    outline: 2px solid rgba(59, 130, 246, 0.95) !important;
+                    outline-offset: 2px;
+                    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.75);
+                    overflow: visible !important;
+                }
+
+                .artwork-text-overlay-resize-handle {
+                    position: absolute;
+                    width: 14px;
+                    height: 14px;
+                    border: 2px solid rgba(255, 255, 255, 0.95);
+                    background: rgba(59, 130, 246, 0.98);
+                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+                    border-radius: 999px;
+                    z-index: 2147483647;
+                    pointer-events: auto;
+                }
+
+                .artwork-text-overlay-resize-handle[data-artwork-resize-axis="height"] {
+                    top: -10px;
+                    right: -10px;
+                    cursor: ns-resize;
+                }
+
+                .artwork-text-overlay-resize-handle[data-artwork-resize-axis="width"] {
+                    right: -10px;
+                    bottom: -10px;
+                    cursor: ew-resize;
+                }
+            `;
+
+            if (frameDoc.head) {
+                frameDoc.head.appendChild(styleEl);
+            } else {
+                frameDoc.body.insertAdjacentElement('beforebegin', styleEl);
+            }
+        }
+
+        if (frameDoc.body.dataset.artworkTextOverlayEditorBound !== 'true') {
+            frameDoc.body.addEventListener('click', (event) => {
+                const clickedEditable = event.target instanceof frameDoc.defaultView.HTMLElement
+                    ? event.target.closest('[data-artwork-editable-text="true"]')
+                    : null;
+                if (!clickedEditable) {
+                    this.setTextOverlaySelectedElement(null);
+                }
+            });
+            frameDoc.body.dataset.artworkTextOverlayEditorBound = 'true';
+        }
+    }
+
+    setTextOverlaySelectedElement(element) {
+        if (this.textOverlaySelectedElement === element) {
+            return;
+        }
+
+        if (this.textOverlaySelectedElement) {
+            this.textOverlaySelectedElement.classList.remove('artwork-text-overlay-selected');
+            this.detachTextOverlayResizeHandles(this.textOverlaySelectedElement);
+        }
+
+        this.textOverlaySelectedElement = element || null;
+
+        if (this.textOverlaySelectedElement) {
+            this.textOverlaySelectedElement.classList.add('artwork-text-overlay-selected');
+            this.attachTextOverlayResizeHandles(this.textOverlaySelectedElement);
+        }
+    }
+
+    detachTextOverlayResizeHandles(element) {
+        if (!element || typeof element.querySelectorAll !== 'function') {
+            return;
+        }
+
+        Array.from(element.querySelectorAll('.artwork-text-overlay-resize-handle')).forEach((handle) => {
+            handle.remove();
+        });
+    }
+
+    attachTextOverlayResizeHandles(element) {
+        if (!element || !element.ownerDocument) {
+            return;
+        }
+
+        this.detachTextOverlayResizeHandles(element);
+
+        const frameDoc = element.ownerDocument;
+        const frameWindow = frameDoc.defaultView;
+        if (!frameWindow) {
+            return;
+        }
+
+        const computedStyle = frameWindow.getComputedStyle(element);
+        if (String(computedStyle.display || '').toLowerCase() === 'inline') {
+            element.style.display = 'inline-block';
+        }
+        if (String(computedStyle.position || '').toLowerCase() === 'static') {
+            element.style.position = 'relative';
+        }
+
+        const createHandle = (axis) => {
+            const handle = frameDoc.createElement('div');
+            handle.className = 'artwork-text-overlay-resize-handle';
+            handle.dataset.artworkResizeAxis = axis;
+            handle.contentEditable = 'false';
+            handle.tabIndex = -1;
+
+            handle.addEventListener('mousedown', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const startX = event.clientX;
+                const startY = event.clientY;
+                const startWidth = Math.max(1, Math.round(element.offsetWidth));
+                const startHeight = Math.max(1, Math.round(element.offsetHeight));
+
+                const moveHandler = (moveEvent) => {
+                    moveEvent.preventDefault();
+
+                    if (axis === 'width') {
+                        const nextWidth = Math.max(24, Math.round(startWidth + (moveEvent.clientX - startX)));
+                        element.style.width = `${nextWidth}px`;
+                        element.style.minWidth = `${nextWidth}px`;
+                        element.style.maxWidth = `${nextWidth}px`;
+                    } else {
+                        const nextHeight = Math.max(24, Math.round(startHeight - (moveEvent.clientY - startY)));
+                        element.style.height = `${nextHeight}px`;
+                        element.style.minHeight = `${nextHeight}px`;
+                        element.style.maxHeight = `${nextHeight}px`;
+                    }
+                };
+
+                const upHandler = () => {
+                    frameDoc.removeEventListener('mousemove', moveHandler, true);
+                    frameDoc.removeEventListener('mouseup', upHandler, true);
+                    this.scheduleTextOverlayGeometrySync();
+                };
+
+                frameDoc.addEventListener('mousemove', moveHandler, true);
+                frameDoc.addEventListener('mouseup', upHandler, true);
+            });
+
+            return handle;
+        };
+
+        element.appendChild(createHandle('height'));
+        element.appendChild(createHandle('width'));
+    }
+
+    scheduleTextOverlayGeometrySync() {
+        window.clearTimeout(this.textOverlayGeometrySyncTimer);
+        this.textOverlayGeometrySyncTimer = window.setTimeout(() => {
+            this.commitTextOverlayPreviewGeometryChange();
+        }, 120);
+    }
+
+    applyTextOverlayLiveGeometryToSourceElement(sourceElement, liveElement) {
+        if (!sourceElement?.style || !liveElement?.style) {
+            return;
+        }
+
+        const geometryProperties = [
+            'boxSizing',
+            'display',
+            'overflow',
+            'width',
+            'height',
+            'minWidth',
+            'minHeight',
+            'maxWidth',
+            'maxHeight',
+            'fontWeight',
+            'fontSynthesis'
+        ];
+
+        geometryProperties.forEach((propertyName) => {
+            const value = String(liveElement.style[propertyName] || '').trim();
+            if (value) {
+                sourceElement.style[propertyName] = value;
+            }
+        });
+    }
+
+    syncTextOverlayLiveEditsToSource() {
+        if (!this.isTextOverlayPreview || !this.codeEditor) {
+            return '';
+        }
+
+        const sourceCode = this.codeEditor.textContent || this.codeEditor.innerText;
+        const iframeDoc = this.previewFrame?.contentDocument || this.previewFrame?.contentWindow?.document;
+        if (!sourceCode || !iframeDoc?.documentElement) {
+            return sourceCode || '';
+        }
+
+        const parser = new DOMParser();
+        const parsedDoc = parser.parseFromString(sourceCode, 'text/html');
+        const sourceEditableElements = this.getTextOverlayEditableElements(parsedDoc);
+        const liveEditableElements = this.getTextOverlayEditableElements(iframeDoc);
+
+        sourceEditableElements.forEach((sourceElement, index) => {
+            const liveElement = liveEditableElements[index];
+            if (!sourceElement || !liveElement) {
+                return;
+            }
+
+            sourceElement.textContent = liveElement.innerText.replace(/\r\n/g, '\n');
+            this.applyTextOverlayLiveGeometryToSourceElement(sourceElement, liveElement);
+        });
+
+        const updatedCode = this.serializeSourceDocument(parsedDoc, sourceCode);
+        this.updateCodeEditorSource(updatedCode);
+        return updatedCode;
+    }
+
+    commitTextOverlayPreviewGeometryChange() {
+        if (!this.isTextOverlayPreview || !this.codeEditor) {
+            return;
+        }
+
+        this.syncTextOverlayLiveEditsToSource();
+    }
+
+    ensureTextOverlayResizeObserver(frameDoc) {
+        if (!this.isTextOverlayPreview || !frameDoc?.defaultView?.ResizeObserver) {
+            return;
+        }
+
+        if (!this.textOverlayResizeObserver) {
+            const ResizeObserverClass = frameDoc.defaultView.ResizeObserver;
+            this.textOverlayResizeObserver = new ResizeObserverClass((entries) => {
+                if (!Array.isArray(entries) || !entries.length) {
+                    return;
+                }
+
+                entries.forEach((entry) => {
+                    const target = entry?.target;
+                    if (!(target instanceof frameDoc.defaultView.HTMLElement)) {
+                        return;
+                    }
+
+                    const width = Math.max(0, Math.round(target.offsetWidth));
+                    const height = Math.max(0, Math.round(target.offsetHeight));
+                    const previousWidth = Number.parseInt(target.dataset.artworkObservedWidth || '0', 10) || 0;
+                    const previousHeight = Number.parseInt(target.dataset.artworkObservedHeight || '0', 10) || 0;
+
+                    target.dataset.artworkObservedWidth = String(width);
+                    target.dataset.artworkObservedHeight = String(height);
+
+                    if (target !== this.textOverlaySelectedElement) {
+                        return;
+                    }
+
+                    if (width === previousWidth && height === previousHeight) {
+                        return;
+                    }
+
+                    const computedStyle = frameDoc.defaultView.getComputedStyle(target);
+                    if (String(computedStyle.display || '').toLowerCase() === 'inline') {
+                        target.style.display = 'inline-block';
+                    }
+
+                    if (width > 0) {
+                        target.style.width = `${width}px`;
+                    }
+                    if (height > 0) {
+                        target.style.height = `${height}px`;
+                    }
+                });
+
+                this.scheduleTextOverlayGeometrySync();
+            });
+        }
+
+        const editableElements = this.getTextOverlayEditableElements(frameDoc);
+        editableElements.forEach((element) => {
+            if (element.dataset.artworkResizeObserved === 'true') {
+                return;
+            }
+
+            element.dataset.artworkObservedWidth = String(Math.max(0, Math.round(element.offsetWidth)));
+            element.dataset.artworkObservedHeight = String(Math.max(0, Math.round(element.offsetHeight)));
+            this.textOverlayResizeObserver.observe(element);
+            element.dataset.artworkResizeObserved = 'true';
+        });
     }
 
     getTextOverlayEditableElements(root) {
@@ -1102,6 +1405,314 @@ class ArtworkPreviewWindow {
         this.getTextOverlayEditableElements(root).forEach(addElement);
 
         return exportElements;
+    }
+
+    collectTextOverlayUsedFontFamilies(root) {
+        const scope = root?.body || root;
+        const defaultView = root?.defaultView || this.previewFrame?.contentWindow || null;
+        if (!scope || typeof scope.querySelectorAll !== 'function' || !defaultView?.getComputedStyle) {
+            return new Set();
+        }
+
+        const usedFamilies = new Set();
+        const visited = new Set();
+        const addFamilies = (fontFamilyValue) => {
+            String(fontFamilyValue || '')
+                .split(',')
+                .map((family) => family.trim().replace(/^['"]|['"]$/g, '').toLowerCase())
+                .filter(Boolean)
+                .forEach((family) => usedFamilies.add(family));
+        };
+
+        const collectFromElement = (element) => {
+            if (!element || visited.has(element)) {
+                return;
+            }
+
+            visited.add(element);
+
+            try {
+                const computedStyle = defaultView.getComputedStyle(element);
+                if (computedStyle) {
+                    addFamilies(computedStyle.fontFamily);
+                }
+            } catch (_error) {
+                // Ignore style lookup failures for detached nodes.
+            }
+
+            if (typeof element.querySelectorAll !== 'function') {
+                return;
+            }
+
+            Array.from(element.querySelectorAll('*')).forEach((descendant) => {
+                try {
+                    const computedStyle = defaultView.getComputedStyle(descendant);
+                    if (computedStyle) {
+                        addFamilies(computedStyle.fontFamily);
+                    }
+                } catch (_error) {
+                    // Ignore descendant style lookup failures.
+                }
+            });
+        };
+
+        this.getTextOverlayExportTextElements(root).forEach(collectFromElement);
+        return usedFamilies;
+    }
+
+    filterTextOverlayLocalizedFontCssByFamilies(cssText, usedFamilies) {
+        const source = String(cssText || '');
+        if (!source.trim() || !(usedFamilies instanceof Set) || usedFamilies.size === 0) {
+            return source;
+        }
+
+        const normalizedFamilies = new Set(
+            Array.from(usedFamilies)
+                .map((family) => String(family || '').trim().replace(/^['"]|['"]$/g, '').toLowerCase())
+                .filter(Boolean)
+        );
+        if (!normalizedFamilies.size) {
+            return source;
+        }
+
+        const fontFaceRegex = /@font-face\s*\{[\s\S]*?\}/gi;
+        return source.replace(fontFaceRegex, (block) => {
+            const familyMatch = block.match(/font-family\s*:\s*([^;]+);/i);
+            if (!familyMatch) {
+                return '';
+            }
+
+            const familyName = String(familyMatch[1] || '').trim().replace(/^['"]|['"]$/g, '').toLowerCase();
+            return normalizedFamilies.has(familyName) ? block : '';
+        });
+    }
+
+    async fetchTextOverlayStylesheetCssTree(stylesheetUrl, cache = new Map(), depth = 0) {
+        if (!stylesheetUrl || depth > 4) {
+            return '';
+        }
+
+        if (cache.has(stylesheetUrl)) {
+            return cache.get(stylesheetUrl);
+        }
+
+        const pendingPromise = (async () => {
+            let cssText = '';
+            try {
+                const response = await fetch(stylesheetUrl, { credentials: 'omit' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                cssText = await response.text();
+            } catch (_error) {
+                return '';
+            }
+
+            const importRegex = /@import\s+(?:url\(\s*)?(?:"([^"]+)"|'([^']+)'|([^'"\)\s;]+))\s*\)?[^;]*;/gi;
+            const importMatches = Array.from(cssText.matchAll(importRegex));
+            const importedCssChunks = [];
+
+            for (const importMatch of importMatches) {
+                const rawImportUrl = importMatch[1] || importMatch[2] || importMatch[3] || '';
+                let nestedUrl = null;
+                try {
+                    nestedUrl = new URL(rawImportUrl, stylesheetUrl).href;
+                } catch (_error) {
+                    nestedUrl = null;
+                }
+                if (!nestedUrl) {
+                    continue;
+                }
+
+                const nestedCss = await this.fetchTextOverlayStylesheetCssTree(nestedUrl, cache, depth + 1);
+                if (nestedCss) {
+                    importedCssChunks.push(nestedCss);
+                }
+            }
+
+            return `${importedCssChunks.join('\n')}${importedCssChunks.length ? '\n' : ''}${cssText.replace(importRegex, '')}`;
+        })();
+
+        cache.set(stylesheetUrl, pendingPromise);
+        return pendingPromise;
+    }
+
+    async collectTextOverlayAvailableFontWeightsFromHtml(sourceHtml, baseUrl) {
+        const stylesheetUrls = this.getRemoteFontStylesheetUrlsFromHtml(sourceHtml, baseUrl);
+        if (!stylesheetUrls.length) {
+            return new Map();
+        }
+
+        const cache = new Map();
+        let combinedCss = '';
+        for (const stylesheetUrl of stylesheetUrls) {
+            const cssChunk = await this.fetchTextOverlayStylesheetCssTree(stylesheetUrl, cache, 0);
+            if (cssChunk) {
+                combinedCss += `${combinedCss ? '\n\n' : ''}${cssChunk}`;
+            }
+        }
+
+        return this.parseTextOverlayAvailableFontWeightsFromCss(combinedCss);
+    }
+
+    normalizeTextOverlayPreviewEditableFontWeights(frameDoc) {
+        if (!this.isTextOverlayPreview || !frameDoc?.defaultView) {
+            return;
+        }
+
+        const editableElements = this.getTextOverlayEditableElements(frameDoc);
+        editableElements.forEach((element) => {
+            if (!element?.style) {
+                return;
+            }
+
+            const computedStyle = frameDoc.defaultView.getComputedStyle(element);
+            if (!computedStyle) {
+                return;
+            }
+
+            const resolvedWeight = this.resolveTextOverlayExportFontWeight(computedStyle.fontFamily || '', computedStyle.fontWeight || '');
+            const requestedWeight = this.parseTextOverlayFontWeightValue(computedStyle.fontWeight || '');
+            if (resolvedWeight == null) {
+                return;
+            }
+
+            element.style.fontWeight = String(resolvedWeight);
+            if (requestedWeight != null && requestedWeight !== resolvedWeight) {
+                element.style.fontSynthesis = 'none';
+            }
+        });
+    }
+
+    async prepareTextOverlayFontNormalization(frameDoc, sourceHtml = '', options = null) {
+        if (!this.isTextOverlayPreview || !frameDoc?.defaultView) {
+            return;
+        }
+
+        const htmlSource = String(sourceHtml || this.codeEditor?.textContent || this.codeEditor?.innerText || this.generatedCode || '');
+        const persistToSource = options?.persistToSource !== false;
+        const providedWeights = options?.availableWeights instanceof Map ? options.availableWeights : null;
+
+        if (!htmlSource.trim()) {
+            this.textOverlayAvailableFontWeights = new Map();
+            return;
+        }
+
+        const baseUrl = frameDoc.defaultView.location?.href || window.location.href;
+        this.textOverlayAvailableFontWeights = providedWeights || await this.collectTextOverlayAvailableFontWeightsFromHtml(htmlSource, baseUrl);
+        this.normalizeTextOverlayPreviewEditableFontWeights(frameDoc);
+        if (persistToSource) {
+            this.syncTextOverlayLiveEditsToSource();
+        }
+    }
+
+    parseTextOverlayFontWeightValue(rawWeight) {
+        const normalized = String(rawWeight || '').trim().toLowerCase();
+        if (!normalized) {
+            return null;
+        }
+
+        if (normalized === 'normal') return 400;
+        if (normalized === 'bold') return 700;
+        if (normalized === 'lighter' || normalized === 'bolder') return null;
+
+        const numericWeight = Number.parseInt(normalized, 10);
+        return Number.isFinite(numericWeight) ? numericWeight : null;
+    }
+
+    parseTextOverlayAvailableFontWeightsFromCss(cssText) {
+        const fontWeightsByFamily = new Map();
+        const source = String(cssText || '');
+        if (!source.trim()) {
+            return fontWeightsByFamily;
+        }
+
+        const fontFaceRegex = /@font-face\s*\{([\s\S]*?)\}/gi;
+        let match = null;
+        while ((match = fontFaceRegex.exec(source)) !== null) {
+            const block = String(match[1] || '');
+            const familyMatch = block.match(/font-family\s*:\s*([^;]+);/i);
+            const weightMatch = block.match(/font-weight\s*:\s*([^;]+);/i);
+            if (!familyMatch || !weightMatch) {
+                continue;
+            }
+
+            const familyName = String(familyMatch[1] || '').trim().replace(/^['"]|['"]$/g, '').toLowerCase();
+            if (!familyName) {
+                continue;
+            }
+
+            const weightSet = fontWeightsByFamily.get(familyName) || new Set();
+            const rawWeight = String(weightMatch[1] || '').trim().toLowerCase();
+            const rangeMatch = rawWeight.match(/^(\d+)\s+(\d+)$/);
+            if (rangeMatch) {
+                const start = Number.parseInt(rangeMatch[1], 10);
+                const end = Number.parseInt(rangeMatch[2], 10);
+                if (Number.isFinite(start) && Number.isFinite(end)) {
+                    for (let value = start; value <= end; value += 100) {
+                        weightSet.add(value);
+                    }
+                }
+            } else {
+                const parsedWeight = this.parseTextOverlayFontWeightValue(rawWeight);
+                if (parsedWeight != null) {
+                    weightSet.add(parsedWeight);
+                }
+            }
+
+            if (weightSet.size) {
+                fontWeightsByFamily.set(familyName, weightSet);
+            }
+        }
+
+        return fontWeightsByFamily;
+    }
+
+    resolveTextOverlayExportFontWeight(fontFamily, requestedWeight) {
+        const availableWeightsByFamily = this.textOverlayAvailableFontWeights;
+        if (!(availableWeightsByFamily instanceof Map) || availableWeightsByFamily.size === 0) {
+            return null;
+        }
+
+        const requestedNumericWeight = this.parseTextOverlayFontWeightValue(requestedWeight);
+        if (requestedNumericWeight == null) {
+            return null;
+        }
+
+        const familyCandidates = String(fontFamily || '')
+            .split(',')
+            .map((family) => family.trim().replace(/^['"]|['"]$/g, '').toLowerCase())
+            .filter(Boolean);
+
+        for (const familyName of familyCandidates) {
+            const availableWeights = availableWeightsByFamily.get(familyName);
+            if (!(availableWeights instanceof Set) || availableWeights.size === 0) {
+                continue;
+            }
+
+            if (availableWeights.has(requestedNumericWeight)) {
+                return requestedNumericWeight;
+            }
+
+            const sortedWeights = Array.from(availableWeights).sort((left, right) => left - right);
+            if (!sortedWeights.length) {
+                continue;
+            }
+
+            let closestWeight = sortedWeights[0];
+            let closestDistance = Math.abs(requestedNumericWeight - closestWeight);
+            sortedWeights.forEach((candidateWeight) => {
+                const candidateDistance = Math.abs(requestedNumericWeight - candidateWeight);
+                if (candidateDistance < closestDistance) {
+                    closestWeight = candidateWeight;
+                    closestDistance = candidateDistance;
+                }
+            });
+
+            return closestWeight;
+        }
+
+        return null;
     }
 
     textOverlayElementHasExplicitLineBreaks(element) {
@@ -1231,15 +1842,7 @@ class ArtworkPreviewWindow {
         const editableElements = this.getTextOverlayEditableElements(parsedDoc);
         const targetElement = editableElements[Number(editableId)];
         if (!targetElement) {
-            // Fallback: failed to map by index — serialize live iframe DOM
-            try {
-                const iframeDoc = this.previewFrame?.contentDocument || this.previewFrame?.contentWindow?.document;
-                if (iframeDoc && iframeDoc.documentElement) {
-                    let serialized = this.serializeSourceDocument(iframeDoc, sourceCode);
-                    serialized = this.stripPreviewMetadataFromHtml(serialized);
-                    this.updateCodeEditorSource(serialized);
-                }
-            } catch (_e) {}
+            this.syncTextOverlayLiveEditsToSource();
             return;
         }
 
@@ -1286,13 +1889,15 @@ class ArtworkPreviewWindow {
         }
 
         const editableElements = this.getTextOverlayEditableElements(frameDoc);
+        this.ensureTextOverlayResizeObserver(frameDoc);
         editableElements.forEach((element, index) => {
             element.dataset.artworkEditableText = 'true';
             element.dataset.artworkEditableTextId = String(index);
-            element.contentEditable = 'true';
+            element.contentEditable = 'false';
             element.spellcheck = false;
             element.tabIndex = 0;
-            element.style.cursor = 'text';
+            element.dataset.artworkEditing = 'false';
+            element.style.cursor = 'default';
 
             if (element.dataset.artworkEditableBound === 'true') {
                 return;
@@ -1307,12 +1912,59 @@ class ArtworkPreviewWindow {
                 }, 120);
             };
 
+            const stopEditing = ({ sync = true } = {}) => {
+                if (element.dataset.artworkEditing !== 'true') {
+                    return;
+                }
+
+                element.dataset.artworkEditing = 'false';
+                element.contentEditable = 'false';
+                element.style.cursor = 'default';
+
+                if (sync) {
+                    syncElementText();
+                }
+            };
+
+            const startEditing = () => {
+                this.setTextOverlaySelectedElement(element);
+                element.dataset.artworkEditing = 'true';
+                element.contentEditable = 'true';
+                element.style.cursor = 'text';
+                element.focus();
+
+                const selection = frameDoc.defaultView?.getSelection?.();
+                if (selection && typeof selection.selectAllChildren === 'function') {
+                    selection.removeAllRanges();
+                    selection.selectAllChildren(element);
+                }
+            };
+
             element.addEventListener('click', (event) => {
                 event.stopPropagation();
-                element.focus();
+                this.setTextOverlaySelectedElement(element);
+            });
+            element.addEventListener('dblclick', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                startEditing();
             });
             element.addEventListener('input', syncElementText);
-            element.addEventListener('blur', syncElementText);
+            element.addEventListener('blur', () => {
+                stopEditing({ sync: true });
+            });
+            element.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    stopEditing({ sync: true });
+                    element.blur();
+                }
+            });
+            element.addEventListener('mouseup', () => {
+                if (element.dataset.artworkEditing !== 'true') {
+                    this.scheduleTextOverlayGeometrySync();
+                }
+            });
             element.dataset.artworkEditableBound = 'true';
         });
     }
@@ -2595,8 +3247,9 @@ class ArtworkPreviewWindow {
                             const frameDoc = newIframe.contentDocument || newIframe.contentWindow?.document;
                             if (!frameDoc) return;
 
-                            // Do NOT inject normalization styles. Only enable
-                            // text editing bindings and mark the preview ready.
+                            // Keep the raw preview layout intact, but still inject
+                            // the editor selection styling/bindings required for
+                            // single-click box selection and resizing.
                             try {
                                 // Inject a minimal editing aid stylesheet to ensure
                                 // editable elements are clickable and selectable.
@@ -2758,7 +3411,18 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                                     } catch (_e) {}
                                 } catch (_) {}
 
+                                this.normalizeTextOverlayDocument(frameDoc);
                                 this.enableTextOverlayPreviewEditing(frameDoc);
+                                Promise.resolve().then(async () => {
+                                    try {
+                                        if (typeof frameDoc.defaultView?.__pwWaitForFonts === 'function') {
+                                            await frameDoc.defaultView.__pwWaitForFonts(4000);
+                                        }
+                                        await this.prepareTextOverlayFontNormalization(frameDoc, processedCode);
+                                    } catch (fontWeightError) {
+                                        console.warn('ArtworkPreviewWindow: Failed to normalize text-overlay preview font weights', fontWeightError);
+                                    }
+                                });
                                 this.setTextOverlayPreviewReady(true);
                             } catch (editErr) {
                                 console.warn('ArtworkPreviewWindow: Failed to enable text-overlay editing', editErr);
@@ -2799,6 +3463,16 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                 }
                 this.normalizeTextOverlayDocument(frameDoc);
                 this.enableTextOverlayPreviewEditing(frameDoc);
+                Promise.resolve().then(async () => {
+                    try {
+                        if (typeof frameDoc.defaultView?.__pwWaitForFonts === 'function') {
+                            await frameDoc.defaultView.__pwWaitForFonts(4000);
+                        }
+                        await this.prepareTextOverlayFontNormalization(frameDoc, processedCode);
+                    } catch (fontWeightError) {
+                        console.warn('ArtworkPreviewWindow: Failed to normalize text-overlay preview font weights', fontWeightError);
+                    }
+                });
                 this.setTextOverlayPreviewReady(false);
             } else {
                 // For generic HTML previews, provide editing hooks for style-transfer and schedule layout when appropriate.
@@ -4099,7 +4773,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             return this._domToImageLoaderPromise;
         }
 
-        const libraryUrl = new URL('/core/js/libraries/dom-to-image-more/dom-to-image-more.min.js', window.location.origin).href;
+        const libraryUrl = new URL('/core/js/libraries/dom-to-image-more/dom-to-image-more-main/src/dom-to-image-more.js', window.location.origin).href;
         this._domToImageLoaderPromise = new Promise((resolve, reject) => {
             const existingScript = Array.from(document.scripts || []).find((script) => String(script.src || '').trim() === libraryUrl);
             if (existingScript) {
@@ -4166,13 +4840,12 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
 
                 metricsById.set(metricId, {
                     width: rect.width,
+                    height: rect.height,
                     minHeight: rect.height,
-                    scrollWidth: element.scrollWidth || rect.width,
                     visualText: String(element.innerText || '').replace(/\r\n/g, '\n'),
                     sourceText: String(element.textContent || '').replace(/\r\n/g, '\n'),
                     renderedLines: this.getRenderedTextLinesForExport(element, iframeWindow),
                     explicitLineBreaks: this.textOverlayElementHasExplicitLineBreaks(element),
-                    measuredSingleLineWidth: this.measureTextOverlaySingleLineWidth(element.textContent || '', computedStyle, iframeDoc),
                     whiteSpace: computedStyle.whiteSpace,
                     wordBreak: computedStyle.wordBreak,
                     overflowWrap: computedStyle.overflowWrap,
@@ -4283,6 +4956,21 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             return;
         }
 
+        if (typeof clonedNode.querySelectorAll === 'function') {
+            Array.from(clonedNode.querySelectorAll('.artwork-text-overlay-resize-handle')).forEach((handle) => {
+                handle.remove();
+            });
+
+            Array.from(clonedNode.querySelectorAll('.artwork-text-overlay-selected')).forEach((element) => {
+                element.classList.remove('artwork-text-overlay-selected');
+                if (element.style) {
+                    element.style.outline = 'none';
+                    element.style.outlineOffset = '0';
+                    element.style.boxShadow = 'none';
+                }
+            });
+        }
+
         const exportWidth = Math.max(1, Math.round(captureMetrics.outputWidth || captureMetrics.width || 0));
         const exportHeight = Math.max(1, Math.round(captureMetrics.outputHeight || captureMetrics.height || 0));
         const renderedBounds = captureMetrics.renderedOverlayBounds || null;
@@ -4290,6 +4978,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         const renderedHeight = Math.max(1, Math.round(renderedBounds?.height || exportHeight));
         const overlayScaleX = renderedWidth > 0 ? (exportWidth / renderedWidth) : 1;
         const overlayScaleY = renderedHeight > 0 ? (exportHeight / renderedHeight) : 1;
+        const overlayUniformScale = Math.min(overlayScaleX, overlayScaleY) || 1;
         const cloneDoc = clonedNode.ownerDocument;
         const cloneRoot = cloneDoc?.documentElement || null;
         const cloneBody = cloneDoc?.body || null;
@@ -4424,7 +5113,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             element.style.maxHeight = `${renderedHeight}px`;
             element.style.minHeight = `${renderedHeight}px`;
             element.style.transformOrigin = 'top left';
-            element.style.transform = `scale(${overlayScaleX}, ${overlayScaleY})`;
+            element.style.transform = `scale(${overlayUniformScale})`;
             element.style.left = '0';
             element.style.top = '0';
         });
@@ -4459,29 +5148,25 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             }
 
             element.style.boxSizing = 'border-box';
-            const lockedWidth = keepSingleLine
-                ? Math.max(metric.width, metric.scrollWidth || 0, metric.measuredSingleLineWidth || 0)
-                : metric.width;
-            element.style.width = `${Math.max(1, Math.round(lockedWidth))}px`;
-            element.style.maxWidth = keepSingleLine
-                ? 'none'
-                : `${Math.max(1, Math.round(metric.width))}px`;
-            element.style.minWidth = `${Math.max(1, Math.round(lockedWidth))}px`;
-            element.style.minHeight = `${Math.max(1, Math.round(metric.minHeight))}px`;
+            const lockedWidth = Math.max(1, Math.round(metric.width));
+            const lockedHeight = Math.max(1, Math.round(metric.height || metric.minHeight));
+            element.style.width = `${lockedWidth}px`;
+            element.style.maxWidth = `${lockedWidth}px`;
+            element.style.minWidth = `${lockedWidth}px`;
+            element.style.height = `${lockedHeight}px`;
+            element.style.maxHeight = `${lockedHeight}px`;
+            element.style.minHeight = `${lockedHeight}px`;
             element.style.whiteSpace = (freezeToRenderedLines || freezeToVisualLines)
                 ? 'pre'
-                : (keepSingleLine ? 'pre' : (metric.whiteSpace || element.style.whiteSpace || 'normal'));
-            element.style.wordBreak = keepSingleLine
-                ? 'keep-all'
-                : (metric.wordBreak || element.style.wordBreak || 'normal');
-            element.style.overflowWrap = keepSingleLine
-                ? 'normal'
-                : (metric.overflowWrap || element.style.overflowWrap || 'normal');
+                : (metric.whiteSpace || element.style.whiteSpace || 'normal');
+            element.style.wordBreak = metric.wordBreak || element.style.wordBreak || 'normal';
+            element.style.overflowWrap = metric.overflowWrap || element.style.overflowWrap || 'normal';
             element.style.lineBreak = metric.lineBreak || element.style.lineBreak || 'auto';
-            element.style.hyphens = keepSingleLine
-                ? 'none'
-                : (metric.hyphens || element.style.hyphens || 'manual');
+            element.style.hyphens = metric.hyphens || element.style.hyphens || 'manual';
             element.style.overflow = 'visible';
+            element.style.outline = 'none';
+            element.style.outlineOffset = '0';
+            element.style.boxShadow = 'none';
             if (metric.textWrap) {
                 element.style.textWrap = metric.textWrap;
             }
@@ -4603,9 +5288,13 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         // the cloned document layout and scrollability.
         const exportWidth = Math.max(1, Math.round(captureMetrics.outputWidth || captureMetrics.width || 1));
         const exportHeight = Math.max(1, Math.round(captureMetrics.outputHeight || captureMetrics.height || 1));
+        const exportFontCss = typeof captureMetrics.fontEmbedCss === 'string' ? captureMetrics.fontEmbedCss : '';
         const options = {
             width: exportWidth,
             height: exportHeight,
+            fontEmbedCss: exportFontCss,
+            fontEmbedCSS: exportFontCss,
+            disableEmbedFonts: Boolean(exportFontCss),
             onclone: (clonedNode) => {
                 try {
                     const s = document.createElement('style');
@@ -4632,6 +5321,16 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                 }
             }
         };
+
+        this.logTextOverlayFontExport('domtoimage-render-options', {
+            width: exportWidth,
+            height: exportHeight,
+            disableEmbedFonts: options.disableEmbedFonts,
+            hasFontEmbedCss: Boolean(exportFontCss),
+            fontFamilies: Array.isArray(captureMetrics.fontEmbedFamilies) ? captureMetrics.fontEmbedFamilies : [],
+            targetTag: captureMetrics.target?.tagName || '',
+            targetClassName: captureMetrics.target?.className || '',
+        });
 
         const canvas = await domtoimage.toCanvas(captureMetrics.target, options);
         if (!(canvas instanceof HTMLCanvasElement)) {
@@ -4718,6 +5417,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             const progress = content.querySelector('.export-progress');
             const button = content.querySelector('.dismiss-export-btn');
             let fontExportCleanup = null;
+            let fontExportState = null;
             const cleanupFontExport = () => {
                 if (typeof fontExportCleanup === 'function') {
                     try {
@@ -4750,7 +5450,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                             detectedCount: remoteFontStylesheetUrls.length,
                         });
 
-                        const fontExportState = await this.prepareTextOverlayFontsForExport(sourceHtml, notification, remoteFontStylesheetUrls);
+                        fontExportState = await this.prepareTextOverlayFontsForExport(sourceHtml, notification, remoteFontStylesheetUrls);
                         fontExportCleanup = fontExportState?.cleanup || null;
 
                         if (fontExportState?.localized) {
@@ -4799,6 +5499,13 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                 outputWidth: captureMetrics.outputWidth,
                 outputHeight: captureMetrics.outputHeight,
             });
+
+            if (fontExportState?.localizedCss) {
+                captureMetrics.fontEmbedCss = fontExportState.localizedCss;
+                captureMetrics.fontEmbedFamilies = Array.isArray(fontExportState.usedFontFamilies)
+                    ? fontExportState.usedFontFamilies
+                    : [];
+            }
 
             try {
                 const canvas = await this.renderPreviewToCanvas(captureMetrics);
@@ -4849,6 +5556,13 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
     }
 
     async getPreviewExportSourceHtml() {
+        if (this.isTextOverlayPreview) {
+            const flushedSource = this.syncTextOverlayLiveEditsToSource();
+            if (flushedSource) {
+                return String(flushedSource || '');
+            }
+        }
+
         let sourceHtml = '';
         if (this.codeEditor) {
             sourceHtml = this.codeEditor.textContent || this.codeEditor.innerText || '';
@@ -4895,7 +5609,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         try {
             //logger('[TextOverlayFontExport]', step, entry.details || {});
         } catch (_error) {
-            console.info('[TextOverlayFontExport]', step);
+            //console.info('[TextOverlayFontExport]', step);
         }
 
         return entry;
@@ -5263,6 +5977,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             ? precomputedStylesheetUrls
             : this.getRemoteFontStylesheetUrlsFromHtml(sourceHtml, baseUrl);
         if (!stylesheetUrls.length) {
+            this.textOverlayAvailableFontWeights = new Map();
             this.logTextOverlayFontExport('font-install-no-stylesheets');
             return null;
         }
@@ -5303,7 +6018,14 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             }
         }
 
+        const usedFontFamilies = Array.from(this.collectTextOverlayUsedFontFamilies(iframeDoc)).sort();
+        localizedCss = this.filterTextOverlayLocalizedFontCssByFamilies(
+            localizedCss,
+            new Set(usedFontFamilies)
+        );
+
         if (!localizedCss.trim()) {
+            this.textOverlayAvailableFontWeights = new Map();
             this.logTextOverlayFontExport('font-install-empty-localized-css', {
                 stylesheetUrls,
             }, 'warn');
@@ -5314,6 +6036,8 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         }
 
         state.onStatus('Localizing imported fonts into the export preview...');
+        const availableWeights = this.parseTextOverlayAvailableFontWeightsFromCss(localizedCss);
+        this.textOverlayAvailableFontWeights = availableWeights;
 
         const styleEl = iframeDoc.createElement('style');
         styleEl.setAttribute('data-pw-export-font-localization', 'true');
@@ -5322,6 +6046,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         this.logTextOverlayFontExport('font-install-style-injected', {
             localizedCssLength: localizedCss.length,
             localizedAssetCount: state.localizedAssetCount,
+            usedFontFamilies,
         });
 
         try {
@@ -5342,6 +6067,15 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             this.logTextOverlayFontExport('font-install-preview-font-helper-error', null, 'warn');
         }
 
+        try {
+            await this.prepareTextOverlayFontNormalization(iframeDoc, sourceHtml, {
+                persistToSource: false,
+                availableWeights,
+            });
+        } catch (_error) {
+            this.logTextOverlayFontExport('font-install-normalization-error', null, 'warn');
+        }
+
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         this.updateTextOverlayFontWorkflowFromStatus(notification, 'Preparing final PNG capture...');
         this.logTextOverlayFontExport('font-install-complete', {
@@ -5351,12 +6085,16 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
 
         return {
             localized: true,
+            localizedCss,
+            usedFontFamilies,
             cleanup: () => {
                 try {
                     styleEl.remove();
                 } catch (_error) {
                     // Ignore cleanup failures.
                 }
+
+                this.textOverlayAvailableFontWeights = new Map();
 
                 state.objectUrls.forEach((objectUrl) => {
                     try {
@@ -5369,6 +6107,8 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                 this.logTextOverlayFontExport('font-install-cleanup-complete', {
                     revokedObjectUrlCount: state.objectUrls.length,
                 });
+
+                this.textOverlayAvailableFontWeights = new Map();
             }
         };
     }

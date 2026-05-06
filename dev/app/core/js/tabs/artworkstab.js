@@ -1637,6 +1637,7 @@ class ArtworksTab {
                                             - Ensure the preview container dimensions are explicit and minimal: do not add outer padding, decorative borders, outer shadows, card-like wrappers, or extra margins around the main preview container unless explicitly requested. Use box-sizing: border-box and overflow: hidden on the container.
                                             - Include PREVIEW-SIZE metadata EXACTLY in the HTML (example: <!-- PREVIEW-SIZE: width=2048 height=1024 -->). Use values that reflect the intended preview/export surface; when unsure prefer the host MAX_CONTAINER (2048×1024) as a safe default.
                                             - For the uploaded image size ${this.imageDimensions || 'Unknown'}, generate HTML so the main poster/image wrapper is intended to scale to that full image surface. Avoid any CSS that would cap it to a smaller desktop preview width such as "max-width: 600px".
+                                            - ALWAYS take the uploaded picture size into account when deciding the minimum font size. Choose text sizes large enough for that specific image surface so no important text ends up undersized or difficult to read in the final export.
 
                                             PLACEMENT & EXPORT NOTES
                                             - Position text using relative units (%, vw/vh, em/rem) and modern layout (flex/grid) so it scales consistently when the preview surface is resized or exported.
