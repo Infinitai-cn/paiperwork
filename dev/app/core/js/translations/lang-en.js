@@ -18,6 +18,9 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         // ===== INDEX.HTML =====
         indexPageTitle: "Paiperwork - Local Javascript AI Interface",
         mainHeading: "Secure Javascript WebUi Interface for Ollama",
+        indexIntroHeading: "Chat with Ai, extract information from your documents, create presentations, miniapps, posters and much more...",
+        indexIntroSubtitle: "Whatsapp and Wechat remote control enabled.",
+        indexIntroSubtitleHosted: "Whatsapp and Wechat remote control enabled in locally installed version.",
         requirementsHeading: "Requirements:",
         requirementsText: "must be installed and running locally on its (default) port 11434, make sure you have updated to the latest version.",
         ollamaLinkText: "Ollama",
