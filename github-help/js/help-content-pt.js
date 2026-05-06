@@ -1915,6 +1915,8 @@ window.helpContent = {
                 <h4>Janela de Visualização Interativa</h4>
                 <p>Os resultados abrem em uma janela flutuante onde você pode:</p>
                 <ul>
+                    <li><strong>Alterar o tamanho do nó de texto</strong> - Você pode alterar o tamanho do nó de texto (selecione com 1 clique e depois use a âncora inferior direita)</li>
+                    <li><strong>Duplo clique</strong> - Clique duplo permite que você altere o texto</li>
                     <li><strong>Alternar Visualizações</strong> - Alternar entre visualização de código e visualização ao vivo</li>
                     <li><strong>Editar Diretamente</strong> - Modificar código gerado em tempo real</li>
                     <li><strong>Copiar Código</strong> - Usar para seus próprios projetos</li>
@@ -1969,6 +1971,8 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Dica de Performance:</strong> O processamento visual é intensivo em recursos. Para melhores resultados, feche aplicações desnecessárias e use imagens de alta qualidade e claramente compostas.</p>
+                    <p>No Mac Osx você pode precisar exportar o png 2 vezes, pois na primeira vez pode falhar ao exportar a imagem de fundo (Safari).</p>
+                    <p>Se o texto ficar quebrado no png exportado, clique uma vez no texto afetado e expanda sua largura até que o problema seja resolvido.</p>
                 </div>
             `,
                 image: "artworks_examples3.png",

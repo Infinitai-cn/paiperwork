@@ -1930,6 +1930,8 @@ window.helpContent = {
                 <h4>Interactive Preview Window</h4>
                 <p>Results open in a floating window where you can:</p>
                 <ul>
+                    <li><strong>Change Text node Size</strong> - You can change the text node size (select with 1 click then use the right down side anchor)</li>
+                    <li><strong>Double Click</strong> - Double click allows you to change the text</li>
                     <li><strong>Switch Views</strong> - Toggle between code view and live preview</li>
                     <li><strong>Edit Directly</strong> - Modify generated code in real-time</li>
                     <li><strong>Copy Code</strong> - Use for your own projects</li>
@@ -1984,6 +1986,8 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Performance Tip:</strong> Visual processing is resource-intensive. For best results, close unnecessary applications and use high-quality, clearly composed images.</p>
+                    <p>In Mac Osx you may have two export the png 2 times as the first time may fail to export the background image (Safari).</p>
+                    <p>If text gets wrapped in the exported png do 1 click on the affected text and expand it's width untill the problem is solved.</p>
                 </div>
             `,
                 image: "artworks_examples3.png",

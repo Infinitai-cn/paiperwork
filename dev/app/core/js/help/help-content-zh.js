@@ -1920,6 +1920,8 @@ window.helpContent = {
                 <h4>交互式预览窗口</h4>
                 <p>结果在浮动窗口中打开，您可以：</p>
                 <ul>
+                    <li><strong>更改文本节点大小</strong> - 您可以更改文本节点大小（单击选择后使用右下角锚点）</li>
+                    <li><strong>双击</strong> - 双击可让您更改文本</li>
                     <li><strong>切换视图</strong> - 在代码视图和实时预览之间切换</li>
                     <li><strong>直接编辑</strong> - 实时修改生成的代码</li>
                     <li><strong>复制代码</strong> - 用于您自己的项目</li>
@@ -1974,6 +1976,8 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>性能提示：</strong> 视觉处理是资源密集型的。为了获得最佳结果，请关闭不必要的应用程序并使用高质量、构图清晰的图像。</p>
+                    <p>在 Mac Osx 上，您可能需要导出 png 两次，因为第一次可能无法导出背景图像（Safari）。</p>
+                    <p>如果导出的 png 中文本换行，请单击受影响的文本，然后将其宽度扩展，直到问题解决。</p>
                 </div>
             `,
                 image: "artworks_examples3.png",

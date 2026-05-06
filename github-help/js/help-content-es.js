@@ -1928,6 +1928,8 @@ window.helpContent = {
                 <h4>Ventana de Vista Previa Interactiva</h4>
                 <p>Los resultados se abren en una ventana flotante donde puedes:</p>
                 <ul>
+                    <li><strong>Cambiar el tamaño del nodo de texto</strong> - Puede cambiar el tamaño del nodo de texto (seleccione con 1 clic y luego use el ancla inferior derecha)</li>
+                    <li><strong>Doble clic</strong> - Doble clic le permite cambiar el texto</li>
                     <li><strong>Cambiar Vistas</strong> - Alternar entre vista de código y vista previa en vivo</li>
                     <li><strong>Editar Directamente</strong> - Modificar código generado en tiempo real</li>
                     <li><strong>Copiar Código</strong> - Usar para tus propios proyectos</li>
@@ -1982,6 +1984,8 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Consejo de Rendimiento:</strong> El procesamiento visual es intensivo en recursos. Para mejores resultados, cierra aplicaciones innecesarias y usa imágenes de alta calidad y claramente compuestas.</p>
+                    <p>En Mac Osx puede que tengas que exportar el png 2 veces ya que la primera vez puede fallar en exportar la imagen de fondo (Safari).</p>
+                    <p>Si el texto se envuelve en el png exportado, haz clic una vez en el texto afectado y expande su ancho hasta que el problema se resuelva.</p>
                 </div>
             `,
                 image: "artworks_examples3.png",
