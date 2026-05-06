@@ -20,7 +20,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         mainHeading: "Sichere Javascript WebUi-Schnittstelle für Ollama",
         indexIntroHeading: "Chatten Sie mit KI, extrahieren Sie Informationen aus Ihren Dokumenten, erstellen Sie Präsentationen, Miniapps, poster und vieles mehr...",
         indexIntroSubtitle: "Fernsteuerung über Whatsapp und Wechat aktiviert.",
-        indexIntroSubtitleHosted: "Fernsteuerung über Whatsapp und Wechat in der lokal installierten Version aktiviert.",
+        indexIntroSubtitleHosted: "Fernsteuerung von WhatsApp und WeChat in der lokal installierten Version aktiviert.",
         indexDemosTitle: "Demos",
         indexDemosDescription: "Die Demos zeigen verschiedene mit Paiperwork erstellte Inhalte. Klicken Sie, um eine eigene Demoseite mit einer Karte pro HTML-Demodatei zu öffnen.",
         indexVideosTitle: "Videos",

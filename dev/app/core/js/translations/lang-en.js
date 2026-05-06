@@ -20,7 +20,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         mainHeading: "Secure Javascript WebUi Interface for Ollama",
         indexIntroHeading: "Chat with Ai, extract information from your documents, create presentations, miniapps, posters and much more...",
         indexIntroSubtitle: "Whatsapp and Wechat remote control enabled.",
-        indexIntroSubtitleHosted: "Whatsapp and Wechat remote control enabled in locally installed version.",
+        indexIntroSubtitleHosted: "Remote control from WhatsApp and WeChat enabled in locally installed version.",
         indexDemosTitle: "Demos",
         indexDemosDescription: "Demos showcase different creations using Paiperwork. Click to open a dedicated demos page with one card per HTML demo file.",
         indexVideosTitle: "Videos",

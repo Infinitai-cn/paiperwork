@@ -20,7 +20,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         mainHeading: "Interface WebUi Javascript Sécurisée pour Ollama",
         indexIntroHeading: "Discutez avec l'IA, extrayez des informations de vos documents, créez des présentations, des miniapps, des affiches et bien plus encore...",
         indexIntroSubtitle: "Contrôle à distance via Whatsapp et Wechat activé.",
-        indexIntroSubtitleHosted: "Contrôle à distance via Whatsapp et Wechat activé dans la version installée localement.",
+        indexIntroSubtitleHosted: "Contrôle à distance depuis WhatsApp et WeChat activé dans la version installée localement.",
         indexDemosTitle: "Démos",
         indexDemosDescription: "Les démos présentent différentes créations réalisées avec Paiperwork. Cliquez pour ouvrir une page dédiée avec une carte par fichier de démo HTML.",
         indexVideosTitle: "Vidéos",
