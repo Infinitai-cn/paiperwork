@@ -1914,6 +1914,8 @@ window.helpContent = {
                 <h4>Fenêtre de prévisualisation interactive</h4>
                 <p>Les résultats s'ouvrent dans une fenêtre flottante où vous pouvez :</p>
                 <ul>
+                    <li><strong>Modifier la taille du nœud de texte</strong> - Vous pouvez modifier la taille du nœud de texte (sélectionnez avec un clic puis utilisez l'ancre en bas à droite)</li>
+                    <li><strong>Double clic</strong> - Un double clic vous permet de modifier le texte</li>
                     <li><strong>Changer de vue</strong> - Basculer entre la vue code et la prévisualisation en direct</li>
                     <li><strong>Éditer directement</strong> - Modifier le code généré en temps réel</li>
                     <li><strong>Copier le code</strong> - Utiliser pour vos propres projets</li>
@@ -1968,6 +1970,8 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Conseil de performance :</strong> Le traitement visuel est intensif en ressources. Pour de meilleurs résultats, fermez les applications inutiles et utilisez des images de haute qualité et clairement composées.</p>
+                    <p>Sur Mac Osx, vous devrez peut-être exporter le png deux fois, car la première tentative peut échouer à exporter l'image d'arrière-plan (Safari).</p>
+                    <p>Si le texte est renvoyé à la ligne dans le png exporté, cliquez une fois sur le texte affecté et élargissez sa largeur jusqu'à ce que le problème soit résolu.</p>
                 </div>
             `,
                 image: "artworks_examples3.png",

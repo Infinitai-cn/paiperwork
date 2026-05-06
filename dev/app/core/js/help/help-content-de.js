@@ -1915,6 +1915,8 @@ window.helpContent = {
                 <h4>Interaktives Vorschaufenster</h4>
                 <p>Ergebnisse öffnen sich in einem schwebenden Fenster, wo Sie:</p>
                 <ul>
+                    <li><strong>Textknoten-Größe ändern</strong> - Sie können die Textknotengröße ändern (einmal anklicken und dann den unteren rechten Anker verwenden)</li>
+                    <li><strong>Doppelklick</strong> - Doppelklick ermöglicht es Ihnen, den Text zu ändern</li>
                     <li><strong>Ansichten wechseln</strong> - Zwischen Code-Ansicht und Live-Vorschau umschalten</li>
                     <li><strong>Direkt bearbeiten</strong> - Generierten Code in Echtzeit modifizieren</li>
                     <li><strong>Code kopieren</strong> - Für Ihre eigenen Projekte verwenden</li>
@@ -1969,6 +1971,8 @@ window.helpContent = {
                 
                 <div class="note">
                     <p><strong>Leistungstipp:</strong> Visuelle Verarbeitung ist ressourcenintensiv. Für beste Ergebnisse schließen Sie unnötige Anwendungen und verwenden Sie hochqualitative, klar komponierte Bilder.</p>
+                    <p>Unter Mac Osx müssen Sie möglicherweise den PNG-Export zweimal ausführen, da beim ersten Mal möglicherweise das Hintergrundbild nicht exportiert wird (Safari).</p>
+                    <p>Wenn Text im exportierten PNG umgebrochen wird, klicken Sie einmal auf den betroffenen Text und erweitern Sie seine Breite, bis das Problem behoben ist.</p>
                 </div>
             `,
                 image: "artworks_examples3.png",
