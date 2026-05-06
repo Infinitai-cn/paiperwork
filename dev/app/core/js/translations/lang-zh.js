@@ -19,7 +19,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 mainHeading: "Ollama安全Javascript网页界面",
                 indexIntroHeading: "与 AI 对话，从您的文档中提取信息，创建演示文稿、迷你应用、海报以及更多内容...",
                 indexIntroSubtitle: "已启用 Whatsapp 和 Wechat 远程控制。",
-                indexIntroSubtitleHosted: "已在本地安装版本中启用 Whatsapp 和 Wechat 远程控制。",
+                indexIntroSubtitleHosted: "已在本地安装版本中启用来自 WhatsApp 和 WeChat 的远程控制。",
                 indexDemosTitle: "演示",
                 indexDemosDescription: "这些演示展示了使用 Paiperwork 创建的不同作品。点击可打开专门的演示页面，其中每个 HTML 演示文件都有一张单独卡片。",
                 indexVideosTitle: "视频",

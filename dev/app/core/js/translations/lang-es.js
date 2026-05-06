@@ -19,7 +19,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         mainHeading: "Interfaz Javascript WebUi Segura para Ollama",
         indexIntroHeading: "Chatea con IA, extrae información de tus documentos, crea presentaciones, miniapps, carteles y mucho más...",
         indexIntroSubtitle: "Control remoto mediante Whatsapp y Wechat habilitado.",
-        indexIntroSubtitleHosted: "Control remoto mediante Whatsapp y Wechat habilitado en la versión instalada localmente.",
+        indexIntroSubtitleHosted: "Control remoto desde WhatsApp y WeChat habilitado en la versión instalada localmente.",
         indexDemosTitle: "Demos",
         indexDemosDescription: "Los demos muestran diferentes creaciones hechas con Paiperwork. Haz clic para abrir una página dedicada con una tarjeta por cada archivo demo HTML.",
         indexVideosTitle: "Vídeos",
