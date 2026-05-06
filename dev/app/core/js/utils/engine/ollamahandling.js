@@ -844,6 +844,11 @@ class OllamaAPI {
                 }
             });
 
+            normalizedCloudDisplayNames.sort((left, right) => left.localeCompare(right, undefined, {
+                sensitivity: 'base',
+                numeric: true
+            }));
+
             this.localModelNames = onlineMode ? new Set() : new Set(localModels.map(model => model.name));
             this.cloudModelNames = new Set(normalizedCloudDisplayNames);
 
