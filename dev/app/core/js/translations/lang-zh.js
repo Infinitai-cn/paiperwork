@@ -440,7 +440,6 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 ragChooseDocumentWarmPrompt: "从现有文档中选择：",
                 ragNoDocumentsFound: "当前没有可用文档。请上传文档以开始。",
                 ragChooseDocumentPrompt: "我找到这些文档：",
-                ragChooseDocumentTip: "请回复文档名称或列表中的编号以开始。",
                 ragDocumentNotFound: "未找到匹配的文档：",
                 ragDocumentListPrompt: "可用文档：",
                 ragDocumentModeActivated: "文档问答模式已为以下文档启用：",

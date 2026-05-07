@@ -615,7 +615,6 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         ragNoDocumentsFound: "Nenhum documento disponível no momento. Faça upload de um para começar.",
         ragNoAttachmentHint: "Não envie anexos; escolha um dos documentos existentes no aplicativo.",
         ragChooseDocumentPrompt: "Encontrei estes documentos:",
-        ragChooseDocumentTip: "Responda com o nome do documento ou o número na lista para começar.",
 
         ragDocumentNotFound: "Nenhum documento correspondente encontrado para:",
         ragDocumentListPrompt: "Documentos disponíveis:",

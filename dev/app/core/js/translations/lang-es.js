@@ -437,7 +437,6 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         ragNoDocumentsFound: "No hay documentos disponibles en este momento. Cargue uno para comenzar.",
         ragNoAttachmentHint: "No envíe archivos adjuntos; elija uno de los documentos existentes en la aplicación.",
         ragChooseDocumentPrompt: "Encontré estos documentos:",
-        ragChooseDocumentTip: "Responda con el nombre del documento o el número de la lista para comenzar.",
         ragDocumentNotFound: "No se encontró un documento coincidente para:",
         ragDocumentListPrompt: "Documentos disponibles:",
         ragDocumentModeActivated: "Modo de consultas de documento activado para",

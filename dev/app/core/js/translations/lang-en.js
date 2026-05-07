@@ -813,7 +813,6 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         ragNoDocumentsFound: "No documents are currently available. Upload one to start document checking.",
         ragNoAttachmentHint: "Do not send attachments; please choose from existing documents in the app.",
         ragChooseDocumentPrompt: "I found these documents:",
-        ragChooseDocumentTip: "Reply with the document name or number from the list to start document questioning.",
         ragDocumentNotFound: "No matching document found for:",
         ragDocumentListPrompt: "Available documents:",
         ragDocumentModeActivated: "Document questioning mode activated for",
