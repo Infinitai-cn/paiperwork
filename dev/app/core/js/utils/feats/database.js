@@ -6530,13 +6530,24 @@ class PaiperworkDB {
 
             // Get existing database - this already checks OPFS first if supported
             const existingDb = await this.getExistingDatabase(hashedMasterKey);
-            if (!existingDb) {
-                console.error('No database found for masterkey:', hashedMasterKey);
-                return false;
-            }
+            const sqlDb = existingDb
+                ? new this.SQL.Database(existingDb)
+                : new this.SQL.Database();
 
-            // Update the database
-            const sqlDb = new this.SQL.Database(existingDb);
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS user_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    system_prompt TEXT,
+                    model TEXT,
+                    context_size TEXT,
+                    insights_enabled TEXT,
+                    visual_model TEXT,
+                    model_provider TEXT,
+                    ollama_api_key TEXT
+                )
+            `);
+            sqlDb.run(`INSERT OR IGNORE INTO user_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
+
             sqlDb.run(`
                 UPDATE user_settings
                 SET system_prompt = ?
@@ -6553,6 +6564,22 @@ class PaiperworkDB {
             // Keep prompt cache coherent across send-time prompt builds.
             if (window.OllamaAPI && typeof window.OllamaAPI.notifySystemPromptChanged === 'function') {
                 window.OllamaAPI.notifySystemPromptChanged(hashedMasterKey);
+            }
+
+            // Verify persistence and retry once if the value did not persist cleanly.
+            try {
+                const loaded = await this.loadSettings(hashedMasterKey);
+                if (String(loaded?.systemPrompt || '') !== String(promptText || '')) {
+                    const retryDb = await this.getExistingDatabase(hashedMasterKey);
+                    if (retryDb) {
+                        const retrySqlDb = new this.SQL.Database(retryDb);
+                        retrySqlDb.run(`INSERT OR IGNORE INTO user_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
+                        retrySqlDb.run(`UPDATE user_settings SET system_prompt = ? WHERE masterkey_hash = ?`, [JSON.stringify(encryptedPrompt), hashedMasterKey]);
+                        await this.saveToStorage(retrySqlDb.export(), hashedMasterKey);
+                    }
+                }
+            } catch (verifyError) {
+               //console.log('System prompt verification retry failed:', verifyError);
             }
 
            //console.log('System prompt saved successfully for masterkey:', hashedMasterKey);
