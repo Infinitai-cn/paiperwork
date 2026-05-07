@@ -4809,14 +4809,6 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         return this._domToImageLoaderPromise;
     }
 
-    isSafariBrowser() {
-        const userAgent = String(navigator.userAgent || '');
-        const vendor = String(navigator.vendor || '');
-        const isSafariEngine = /Safari/i.test(userAgent) && /Apple/i.test(vendor);
-        const isExcludedBrowser = /Chrome|Chromium|CriOS|Edg|EdgiOS|OPR|Opera|Firefox|FxiOS|Android/i.test(userAgent);
-        return isSafariEngine && !isExcludedBrowser;
-    }
-
     prepareClonedPreviewForExport(clonedNode, captureMetrics) {
         // No-op for bare-bones export. Previously used to scope cloned styles
         // and remove transforms; keep as a harmless stub so older callers
@@ -5381,14 +5373,6 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
 
     // Captures the preview as a PNG image and triggers a download, showing notifications
     async captureAndDownloadImage() {
-        if (this.isSafariBrowser()) {
-            const warningMessage = 'Safari export quality is currently limited by browser rendering behavior. PNG export may not match the preview accurately. A screen capture is recommended instead.';
-            this.logTextOverlayFontExport('safari-export-blocked', {
-                reason: 'browser-limitations',
-            }, 'warn');
-            window.alert(warningMessage);
-            return;
-        }
 
         // Make sure we're in preview mode first
         if (this.currentView !== 'preview') {

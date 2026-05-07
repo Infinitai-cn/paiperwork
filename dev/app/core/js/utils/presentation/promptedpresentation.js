@@ -1,5 +1,6 @@
 class PromptedPresentationWorkflow {
 	static savedSlideCount = 8;
+	static currentPresentationId = null;
 
 	static getActiveHashedMasterKey() {
 		return sessionStorage.getItem('hashedMasterKey') || '';
@@ -929,6 +930,7 @@ class PromptedPresentationWorkflow {
 					return;
 				}
 
+				this.currentPresentationId = item.id;
 				this.setPresentationHtml(this.normalizePromptableNavigationHtml(html));
 			};
 
@@ -1010,8 +1012,8 @@ class PromptedPresentationWorkflow {
 					return;
 				}
 
-				if (this.currentPresentationHtml && this.extractPresentationTitle(this.currentPresentationHtml) === (item.title || '')) {
-					this.currentPresentationHtml = '';
+				if (this.currentPresentationId === item.id) {
+					this.clearPresentationDisplay();
 				}
 
 				await this.refreshSavedPresentations();
@@ -1609,6 +1611,7 @@ class PromptedPresentationWorkflow {
 			'Use one topical content image per slide and make the image choice different for each slide topic.',
 			'For every slide image, include a concise descriptive alt text or data-image-query that names the ideal photo subject for that specific slide.',
 			'If you include external image URLs, use only direct image file URLs that return image bytes, not HTML page URLs. NEVER use those images as slide backgrounds.',
+			'ALWAYS use images from pixabay.com and pexels.com first and make unsplash.com as fallback in the code if pixabay pictures fail to load to enrich the presentation',
 			'ALWAYS use all text content provided by the user in the exact same order as provided; do not reorder any part of the text.',
 			'When the user does not specify an exact slide count, infer a suitable count from the source structure and amount of content.',
 			'Do not collapse substantial multi-section source material into only 2 slides. Use one cover slide plus enough content slides to cover the major sections and key details.',
@@ -1631,6 +1634,7 @@ class PromptedPresentationWorkflow {
 			'Use one topical content image per slide and make the image choice different for each slide topic.',
 			'For every slide image, include a concise descriptive alt text or data-image-query that names the ideal photo subject for that specific slide.',
 			'If you include external image URLs, use only direct image file URLs that return image bytes, not HTML page URLs. NEVER use those images as slide backgrounds.',
+			'ALWAYS use images from pixabay.com and pexels.com first and make unsplash.com as fallback in the code if pixabay pictures fail to load to enrich the presentation',
 			'ALWAYS use all text content provided by the user in the exact same order as provided; do not reorder any part of the text.',
 			'When the user does not specify an exact slide count, infer a suitable count from the source structure and amount of content.',
 			'Do not collapse substantial multi-section source material into only 2 slides. Use one cover slide plus enough content slides to cover the major sections and key details.',
@@ -4345,6 +4349,20 @@ class PromptedPresentationWorkflow {
 		if (typeof this.close === 'function') {
 			this.close();
 		}
+	}
+
+	static clearPresentationDisplay() {
+		if (!this.renderArea) {
+			return;
+		}
+
+		this.clearStreamingHtmlPreviewRefs();
+		this.teardownPromptableFrameImageClickHandler();
+		this.promptableImageOriginalSrcById = {};
+		this.currentPresentationHtml = '';
+		this.currentPresentationId = null;
+		this.renderArea.innerHTML = '';
+		this.renderArea.style.background = 'var(--presentation-modal-bg, var(--panel-background, #222426))';
 	}
 
 	static setPresentationHtml(htmlContent) {

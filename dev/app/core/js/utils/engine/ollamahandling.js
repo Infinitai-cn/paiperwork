@@ -2990,7 +2990,7 @@ class OllamaAPI {
         const selectedLanguageValue = orchestratorLanguageValue || whatsappLanguageValue || wechatLanguageValue || browserLanguageValue || 'en';
         const normalizedLanguageCode = this.getLanguageCode(selectedLanguageValue || 'en');
         const normalizedLanguageDisplayName = this.getLanguageDisplayName(selectedLanguageValue || normalizedLanguageCode || 'en');
-        /* console.log('OllamaAPI: buildCompleteSystemPrompt language auto-detect', {
+         /* console.log('OllamaAPI: buildCompleteSystemPrompt language auto-detect', {
             orchestratorLanguageValue,
             whatsappLanguageValue,
             wechatLanguageValue,
@@ -2999,7 +2999,7 @@ class OllamaAPI {
             originalIncomingTextExample: (window.whatsappIncomingLanguage && window.whatsappIncomingLanguageSample)
                 ? window.whatsappIncomingLanguageSample
                 : ((window.wechatIncomingLanguage && window.wechatIncomingLanguageSample) ? window.wechatIncomingLanguageSample : undefined)
-        }); */
+        });  */
         const dayKey = new Date().toISOString().slice(0, 10);
 
         let reasoningLevel = '';        
