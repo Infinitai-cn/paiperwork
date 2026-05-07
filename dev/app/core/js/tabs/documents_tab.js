@@ -42,6 +42,41 @@ function isEmbeddingModelCandidate(name) {
     return /embed|embedding/.test(value);
 }
 
+function getUIDocumentQuestioningStateStore() {
+    if (!window.__uiDocumentQuestioningState) {
+        window.__uiDocumentQuestioningState = {
+            documentId: null,
+            documentName: null
+        };
+    }
+    return window.__uiDocumentQuestioningState;
+}
+
+function getUIDocumentQuestioningState() {
+    const state = getUIDocumentQuestioningStateStore();
+    const documentId = String(state.documentId || '').trim();
+    const documentName = String(state.documentName || '').trim();
+
+    return {
+        documentId: documentId || null,
+        documentName: documentName || null
+    };
+}
+
+function setUIDocumentQuestioningState(documentInfo = null) {
+    const state = getUIDocumentQuestioningStateStore();
+    const documentId = String(documentInfo?.documentId || documentInfo?.id || '').trim();
+    const documentName = String(documentInfo?.documentName || documentInfo?.name || '').trim();
+
+    state.documentId = documentId || null;
+    state.documentName = documentName || null;
+    return getUIDocumentQuestioningState();
+}
+
+function clearUIDocumentQuestioningState() {
+    return setUIDocumentQuestioningState(null);
+}
+
 function getEmbeddingModelCandidatesFromMainSelector() {
     const modelSelector = document.getElementById('model-selector');
     if (!modelSelector || !modelSelector.options) {
@@ -327,15 +362,6 @@ function initializeDocumentUI() {
         console.error('RAG_Utils: No masterkey hash found in localStorage');
         return;
     }
-
-    // Migrate plaintext ragQuestioningDocumentName to encrypted storage if present
-    (async () => {
-        try {
-            await PaiperworkDB.migratePlaintextLocalStorageKeyToEncrypted('ragQuestioningDocumentName');
-        } catch (err) {
-            console.error('Migration of ragQuestioningDocumentName failed:', err);
-        }
-    })();
 
     const documentsTab = document.getElementById('documents-tab');
    //console.log('RAG_Utils: documents-tab element found:', !!documentsTab);
@@ -1058,7 +1084,7 @@ async function updateDocumentsList(forceReload = false) {
                         item.classList.remove('selected');
 
                         // Also exit document questioning mode if it's active for this document
-                        const activeDocumentId = localStorage.getItem('ragQuestioningDocumentId');
+                        const activeDocumentId = getUIDocumentQuestioningState().documentId;
                         if (activeDocumentId === documentId) {
                             exitDocumentQuestioningMode();
                         }
@@ -1073,7 +1099,7 @@ async function updateDocumentsList(forceReload = false) {
                         item.classList.add('selected');
 
                         // If there was any document mode active for another document, exit it
-                        const activeDocumentId = localStorage.getItem('ragQuestioningDocumentId');
+                        const activeDocumentId = getUIDocumentQuestioningState().documentId;
                         if (activeDocumentId && activeDocumentId !== documentId) {
                             exitDocumentQuestioningMode();
                         }
@@ -1166,7 +1192,7 @@ function removeSelectionPanel() {
 
     // If we are removing selection, also check if we need to disable document mode
     if (!selectedDocumentId) {
-        const activeDocumentId = localStorage.getItem('ragQuestioningDocumentId');
+        const activeDocumentId = getUIDocumentQuestioningState().documentId;
         if (activeDocumentId) {
             // Get the button element from the document mode indicator
             const exitButton = document.querySelector('.exit-questioning');
@@ -1285,7 +1311,7 @@ async function enableDocumentQuestioningMode(documentId, options = { force: fals
     }
 
     // Check if we're already in document mode for this document
-    const activeDocumentId = localStorage.getItem('ragQuestioningDocumentId');
+    const activeDocumentId = getUIDocumentQuestioningState().documentId;
     if (activeDocumentId === documentId) {
         //console.debug('[documents_tab] enableDocumentQuestioningMode - already active for this document:', documentId);
         return true;
@@ -1328,16 +1354,7 @@ async function enableDocumentQuestioningMode(documentId, options = { force: fals
         const encName = result[0].values[0][0];
         const docName = await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encName));
 
-        // Store document info for chat (encrypt the document name)
-        try {
-            localStorage.setItem('ragQuestioningDocumentId', documentId);
-            await PaiperworkDB.secureLocalStorageSet('ragQuestioningDocumentName', docName);
-        } catch (err) {
-            // Fallback to plain localStorage if secure storage fails
-            console.error('Could not securely store ragQuestioningDocumentName, falling back to plain localStorage', err);
-            localStorage.setItem('ragQuestioningDocumentId', documentId);
-            localStorage.setItem('ragQuestioningDocumentName', docName);
-        }
+        setUIDocumentQuestioningState({ id: documentId, name: docName });
 
         // Ensure document mode styles are available
         addDocumentModeStyles();
@@ -1528,9 +1545,10 @@ function getDocumentConversationScopeStore() {
 function getActiveDocumentConversation(scopeKey = 'ui') {
     const normalizedScopeKey = normalizeDocumentConversationScopeKey(scopeKey);
     if (normalizedScopeKey === 'ui') {
+        const uiState = getUIDocumentQuestioningState();
         return {
-            documentId: String(localStorage.getItem('ragQuestioningDocumentId') || '').trim() || null,
-            documentName: String(localStorage.getItem('ragQuestioningDocumentName') || '').trim() || null
+            documentId: uiState.documentId,
+            documentName: uiState.documentName
         };
     }
 
@@ -1821,12 +1839,10 @@ function exitDocumentQuestioningMode() {
     //console.debug('[documents_tab] exitDocumentQuestioningMode called');
 
     // Get the currently active document ID before clearing
-    const activeDocumentId = localStorage.getItem('ragQuestioningDocumentId');
+    const activeDocumentId = getUIDocumentQuestioningState().documentId;
 
     // Clear document mode data
-    localStorage.removeItem('ragQuestioningDocumentId');
-    // Removing the key is the same for both encrypted and plaintext storage
-    localStorage.removeItem('ragQuestioningDocumentName');
+    clearUIDocumentQuestioningState();
 
     // Remove document questioning active class from body
     document.body.classList.remove('document-questioning-active');
@@ -1883,7 +1899,7 @@ function exitDocumentQuestioningMode() {
 
 function updateDocumentQuestioningUI() {
     // Check if we're in document questioning mode and currently in the chat tab
-    const documentId = localStorage.getItem('ragQuestioningDocumentId');
+    const documentId = getUIDocumentQuestioningState().documentId;
     const isChatTabActive = document.querySelector('.tab-button[data-tab="chat-tab"].active') !== null;
 
     // Remove any existing indicator first for a clean state
@@ -1899,13 +1915,7 @@ function updateDocumentQuestioningUI() {
 
     // We need to get the (possibly encrypted) document name asynchronously
     (async () => {
-        let documentName;
-        try {
-            documentName = await PaiperworkDB.secureLocalStorageGet('ragQuestioningDocumentName');
-        } catch (err) {
-            console.error('Error loading secure ragQuestioningDocumentName, falling back to plain localStorage', err);
-            documentName = localStorage.getItem('ragQuestioningDocumentName');
-        }
+        const documentName = getUIDocumentQuestioningState().documentName;
 
         if (!documentName) return;
 
@@ -4392,11 +4402,10 @@ function addSelectionPanel(documentsList, documents) {
 // Exits document questioning mode and resets related UI
 function exitDocumentQuestioningMode() {
     // Get the currently active document ID before clearing
-    const activeDocumentId = localStorage.getItem('ragQuestioningDocumentId');
+    const activeDocumentId = getUIDocumentQuestioningState().documentId;
 
     // Clear document mode data
-    localStorage.removeItem('ragQuestioningDocumentId');
-    localStorage.removeItem('ragQuestioningDocumentName');
+    clearUIDocumentQuestioningState();
 
     // Remove document questioning active class from body
     document.body.classList.remove('document-questioning-active');
@@ -4454,8 +4463,7 @@ function exitDocumentQuestioningMode() {
 // Updates the document questioning mode UI banner in the chat tab
 function updateDocumentQuestioningUI(forceShow = false) {
     // Check if we're in document questioning mode
-    const documentId = localStorage.getItem('ragQuestioningDocumentId');
-    const documentName = localStorage.getItem('ragQuestioningDocumentName');
+    const { documentId, documentName } = getUIDocumentQuestioningState();
 
     // Remove any existing indicator first for a clean state
     const existingIndicator = document.querySelector('.document-questioning-indicator');

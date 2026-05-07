@@ -777,8 +777,14 @@ class Chat {
         const isDocumentsTabActive = document.querySelector('.tab-button[data-tab="documents"]')?.classList.contains('active');
 
         // Check if document questioning mode is active (specific document)
+        const globalUIDocument = allowGlobalDocumentFallback
+            && window.RAG_Utils
+            && typeof window.RAG_Utils.getActiveDocumentConversation === 'function'
+            ? (window.RAG_Utils.getActiveDocumentConversation('ui') || null)
+            : null;
         const activeDocumentId = activeDocumentConversation?.documentId
-            || (allowGlobalDocumentFallback ? localStorage.getItem('ragQuestioningDocumentId') : null);
+            || globalUIDocument?.documentId
+            || null;
         /*console.info('[Chat][debug] handleSendButtonClick scope state', {
             conversationScopeKey,
             activeDocumentConversation,
@@ -1331,20 +1337,18 @@ class Chat {
             const scopedDocument = (window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function')
                 ? (window.RAG_Utils.getActiveDocumentConversation(conversationScopeKey) || null)
                 : null;
+            const globalUIDocument = allowGlobalDocumentFallback
+                && window.RAG_Utils
+                && typeof window.RAG_Utils.getActiveDocumentConversation === 'function'
+                ? (window.RAG_Utils.getActiveDocumentConversation('ui') || null)
+                : null;
             const documentId = scopedDocument?.documentId
-                || (allowGlobalDocumentFallback ? localStorage.getItem('ragQuestioningDocumentId') : null);
+                || globalUIDocument?.documentId
+                || null;
             // Also allow triggering the document+websearch flow when the Documents tab is selected
             const isDocumentsTabSelected = document.querySelector('.tab-button[data-tab="documents"]')?.classList.contains('active');
             let documentName;
-            documentName = scopedDocument?.documentName || null;
-            if (!documentName && allowGlobalDocumentFallback) {
-                try {
-                    documentName = await PaiperworkDB.secureLocalStorageGet('ragQuestioningDocumentName');
-                } catch (err) {
-                    console.error('Chat: could not load secure ragQuestioningDocumentName, falling back to plain localStorage', err);
-                    documentName = localStorage.getItem('ragQuestioningDocumentName');
-                }
-            }
+            documentName = scopedDocument?.documentName || globalUIDocument?.documentName || null;
 
             // Check if web search is enabled
             const webSearchEnabled = document.getElementById('web-search').classList.contains('active');

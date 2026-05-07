@@ -270,8 +270,9 @@ class DataVizTab {
                     this.isVizModeActive = true;
                 
                     // Exit document questioning mode if enabled
-                    if (window.RAG_Utils &&
-                        localStorage.getItem('ragQuestioningDocumentId')) {
+                    if (window.RAG_Utils
+                        && typeof window.RAG_Utils.getActiveDocumentConversation === 'function'
+                        && window.RAG_Utils.getActiveDocumentConversation('ui')?.documentId) {
                        //console.log('DataVizTab: Exiting document questioning mode');
                         window.RAG_Utils.exitDocumentQuestioningMode();
                     }
