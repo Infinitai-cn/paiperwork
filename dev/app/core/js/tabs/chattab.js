@@ -4082,7 +4082,7 @@ class ChatTab {
 
                     if (!confirmed) {
                         // User canceled - restore the original prompt
-                        systemPrompt.value = settings.systemPrompt || '';
+                        systemPrompt.value = this._originalSystemPrompt || '';
                        //console.log('ChatTab: System prompt change canceled, reverting to:', systemPrompt.value);
                         saveButton.disabled = true; // Disable save button since we're back to original
                         return;
@@ -5642,8 +5642,11 @@ class ChatTab {
 
     // Updates the UI to show the document-questioning mode banner if active.
     updateDocumentQuestioningUI(forceShow = false) {
-        const documentId = localStorage.getItem('ragQuestioningDocumentId');
-        const documentName = localStorage.getItem('ragQuestioningDocumentName');
+        const uiDocumentConversation = window.RAG_Utils && typeof window.RAG_Utils.getActiveDocumentConversation === 'function'
+            ? (window.RAG_Utils.getActiveDocumentConversation('ui') || null)
+            : null;
+        const documentId = uiDocumentConversation?.documentId || null;
+        const documentName = uiDocumentConversation?.documentName || null;
 
         if (!documentId || !documentName) return;
 
@@ -5690,9 +5693,9 @@ class ChatTab {
 
     // Exits document-questioning mode, removes banner, and restores input placeholder.
     exitDocumentQuestioningMode() {
-        // Remove stored data
-        localStorage.removeItem('ragQuestioningDocumentId');
-        localStorage.removeItem('ragQuestioningDocumentName');
+        if (window.RAG_Utils && typeof window.RAG_Utils.exitDocumentQuestioningMode === 'function') {
+            window.RAG_Utils.exitDocumentQuestioningMode();
+        }
 
         // Remove banner
         const indicator = document.getElementById('document-mode-indicator');
