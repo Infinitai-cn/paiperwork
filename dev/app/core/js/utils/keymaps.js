@@ -30,7 +30,7 @@ const documentKeymap = {
             '보여', '목록', '열기', '찾아', '선택', '확인', '검토'
         ],
         summary: [
-            'summary', 'summarize', 'summarise', 'overview', 'brief', 'abstract',
+            'summary', 'summarize', 'summarise', 'overview', 'brief summary', 'abstract',
             'resumen', 'resumir', 'resumeme', 'resúmeme',
             'resumo', 'resumir', 'sumario', 'sumário', 'sintetizar',
             'resume', 'résumé', 'resumer', 'résumer', 'synthese', 'synthèse',
