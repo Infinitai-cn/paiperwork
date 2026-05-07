@@ -429,7 +429,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         exitDocumentMode: "Dokumentmodus verlassen",
         ragDocumentModeLabel: "Dokumentmodus",
         ragPromptDefault: "Geben Sie Ihre Nachricht ein...",
-        ragDocumentActionTip: "Antworten Sie mit \"Zusammenfassung\" um das Dokument zusammenzufassen oder stellen Sie eine Frage, um in den Dokumentabfragemodus zu wechseln.",
+        ragDocumentActionTip: "Antworten Sie mit \"Zusammenfassung\", um das Dokument zusammenzufassen, oder stellen Sie eine Frage, um in den Dokumentabfragemodus zu wechseln.",
         ragDocumentModeExitTip: "Wenn Sie fertig sind, antworten Sie mit \"Dokumentmodus verlassen\" oder sagen Sie \"ich bin fertig\".",
         ragDocumentSummaryRequested: "Dokumentzusammenfassung wird erstellt...",
         ragDocumentSummaryFollowUpQuestion: "Möchten Sie weiter mit diesem Dokument arbeiten?",
@@ -444,7 +444,6 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         ragNoDocumentsFound: "Derzeit sind keine Dokumente verfügbar. Laden Sie ein Dokument hoch, um zu beginnen.",
         ragNoAttachmentHint: "Senden Sie keine Anhänge; wählen Sie eines der vorhandenen Dokumente in der App.",
         ragChooseDocumentPrompt: "Ich habe diese Dokumente gefunden:",
-        ragChooseDocumentTip: "Antworten Sie mit dem Dokumentnamen oder der Nummer aus der Liste, um zu beginnen.",
 
         ragDocumentNotFound: "Kein passendes Dokument gefunden für:",
         ragDocumentListPrompt: "Verfügbare Dokumente:",

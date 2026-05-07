@@ -441,7 +441,6 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         ragNoDocumentsFound: "Aucun document n'est disponible pour le moment. Téléversez-en un pour commencer.",
         ragNoAttachmentHint: "N'envoyez pas de pièces jointes ; choisissez un document déjà importé dans l'application.",
         ragChooseDocumentPrompt: "J'ai trouvé ces documents :",
-        ragChooseDocumentTip: "Répondez avec le nom du document ou le numéro pour commencer.",
 
         ragDocumentNotFound: "Aucun document correspondant trouvé pour :",
         ragDocumentListPrompt: "Documents disponibles :",
