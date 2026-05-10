@@ -30,6 +30,7 @@ window.THINKING_MODELS = [
     'glm-4.7-flash:q4_K_M',
     'glm-4.7-flash:q8_0',
     'gemma4:26b-a4b-it-q8_0',
+    'gemma4:31b',
     'deepseek-v4-pro',
     'deepseek-v4-flash',
 ];
