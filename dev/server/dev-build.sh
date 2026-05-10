@@ -112,8 +112,6 @@ popd > /dev/null
 
 # --- Build WhatsApp Gateway ---
 echo ""
-echo "🔨 Gowa WhatsApp Gateway is now in-process; no standalone gowa build required."
-
 echo "🎉 Development build complete! Executables created in dev folder:"
 echo "   📦 Paiperwork-server-dev-osx (macOS arm64)"
 echo "   📦 Paiperwork-server-dev-osx-intel (macOS amd64)"
