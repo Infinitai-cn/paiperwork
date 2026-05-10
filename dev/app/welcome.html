@@ -11,6 +11,107 @@
         <script src="core/js/utils/selection.js"></script>
         <script src="core/js/utils/version.js"></script>
         <style>
+            /* Background SVG Styles */
+            .background-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 0;
+                overflow: hidden;
+            }
+
+            .background-svg {
+                width: 100%;
+                height: 100%;
+            }
+
+
+
+            /* Connection lines animation */
+            .connection-line {
+                stroke-dasharray: 1000;
+                stroke-dashoffset: 1000;
+                animation: drawLine 8s ease-in-out infinite;
+            }
+
+            .connection-line:nth-child(2) {
+                animation-delay: -2s;
+                animation-duration: 10s;
+            }
+
+            .connection-line:nth-child(3) {
+                animation-delay: -4s;
+                animation-duration: 12s;
+            }
+
+            @keyframes drawLine {
+                0% {
+                    stroke-dashoffset: 1000;
+                    opacity: 0;
+                }
+                10% {
+                    opacity: 0.6;
+                }
+                90% {
+                    opacity: 0.6;
+                }
+                100% {
+                    stroke-dashoffset: 0;
+                    opacity: 0;
+                }
+            }
+
+            /* Pulse animation for nodes */
+            .node {
+                animation: pulse 4s ease-in-out infinite;
+            }
+
+            .node:nth-child(2) {
+                animation-delay: -1s;
+            }
+
+            .node:nth-child(3) {
+                animation-delay: -2s;
+            }
+
+            .node:nth-child(4) {
+                animation-delay: -3s;
+            }
+
+            @keyframes pulse {
+                0%, 100% {
+                    opacity: 0.4;
+                    transform: scale(1);
+                }
+                50% {
+                    opacity: 0.8;
+                    transform: scale(1.2);
+                }
+            }
+
+            /* Rotating rings */
+            .ring {
+                transform-origin: center;
+                animation: rotate 30s linear infinite;
+            }
+
+            .ring:nth-child(2) {
+                animation-duration: 40s;
+                animation-direction: reverse;
+            }
+
+            .ring:nth-child(3) {
+                animation-duration: 50s;
+            }
+
+            @keyframes rotate {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+
+            /* Top navigation */
             .top-navigation {
                 position: absolute;
                 top: 15px;
@@ -77,7 +178,7 @@
                 border-color: var(--accent-color-hover) !important;
             }
 
-
+            /* Main content */
             .main-content {
                 padding-top: 40px;
                 /* Add space for the top navigation */
@@ -85,6 +186,8 @@
                 flex-direction: column;
                 align-items: center;
                 width: 100%;
+                position: relative;
+                z-index: 2;
             }
 
             /* Center the button container horizontally */
@@ -103,6 +206,7 @@
                 width: 80%;
                 max-width: 400px;
                 position: relative;
+                z-index: 2;
             }
 
             .password-input-wrapper {
@@ -130,6 +234,16 @@
             .masterkey-input {
                 padding-right: 40px;
                 /* Make room for the toggle button */
+            }
+
+            /* Logo glow effect */
+            .logo {
+                filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.5));
+                transition: filter 0.3s ease;
+            }
+
+            .logo:hover {
+                filter: drop-shadow(0 0 30px rgba(168, 85, 247, 0.7));
             }
         </style>
         <script>
@@ -257,6 +371,98 @@
     </head>
 
     <body class="selection-body">
+        <!-- Animated SVG Background -->
+        <div class="background-container">
+            <svg class="background-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <!-- Gradients -->
+                    <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.6" />
+                        <stop offset="100%" style="stop-color:#a855f7;stop-opacity:0.3" />
+                    </linearGradient>
+                    <linearGradient id="gradient2" x1="100%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:#ec4899;stop-opacity:0.5" />
+                        <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0.3" />
+                    </linearGradient>
+                    <radialGradient id="glow1" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.8" />
+                        <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0" />
+                    </radialGradient>
+                    <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#a855f7;stop-opacity:0.6" />
+                        <stop offset="100%" style="stop-color:#a855f7;stop-opacity:0" />
+                    </radialGradient>
+                    <radialGradient id="glow3" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#ec4899;stop-opacity:0.5" />
+                        <stop offset="100%" style="stop-color:#ec4899;stop-opacity:0" />
+                    </radialGradient>
+
+                    <!-- Glow filters -->
+                    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+
+                    <!-- Particle glow -->
+                    <filter id="particleGlow" x="-100%" y="-100%" width="300%" height="300%">
+                        <feGaussianBlur stdDeviation="2" result="blur"/>
+                        <feMerge>
+                            <feMergeNode in="blur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+
+                <!-- Rotating rings -->
+                <g class="ring" filter="url(#glow)">
+                    <ellipse cx="50%" cy="50%" rx="400" ry="100" fill="none" stroke="url(#gradient1)" stroke-width="1" opacity="0.3"/>
+                </g>
+                <g class="ring" filter="url(#glow)">
+                    <ellipse cx="50%" cy="50%" rx="450" ry="120" fill="none" stroke="url(#gradient2)" stroke-width="0.5" opacity="0.2"/>
+                </g>
+                <g class="ring" filter="url(#glow)">
+                    <ellipse cx="50%" cy="50%" rx="500" ry="140" fill="none" stroke="url(#gradient1)" stroke-width="0.5" opacity="0.15"/>
+                </g>
+
+
+                <!-- Connection lines -->
+                <g stroke="url(#gradient1)" stroke-width="1" opacity="0.4">
+                    <line x1="50%" y1="50%" x2="30%" y2="35%" class="connection-line"/>
+                    <line x1="50%" y1="50%" x2="70%" y2="35%" class="connection-line"/>
+                    <line x1="50%" y1="50%" x2="50%" y2="25%" class="connection-line"/>
+                    <line x1="50%" y1="50%" x2="20%" y2="60%" class="connection-line"/>
+                    <line x1="50%" y1="50%" x2="80%" y2="60%" class="connection-line"/>
+                    <line x1="50%" y1="50%" x2="35%" y2="75%" class="connection-line"/>
+                    <line x1="50%" y1="50%" x2="65%" y2="75%" class="connection-line"/>
+                    <line x1="50%" y1="50%" x2="50%" y2="85%" class="connection-line"/>
+                </g>
+
+                <!-- Additional connection lines for network effect -->
+                <g stroke="url(#gradient2)" stroke-width="0.5" opacity="0.3">
+                    <line x1="30%" y1="35%" x2="20%" y2="60%" class="connection-line" style="animation-delay: -1s;"/>
+                    <line x1="70%" y1="35%" x2="80%" y2="60%" class="connection-line" style="animation-delay: -2s;"/>
+                    <line x1="20%" y1="60%" x2="35%" y2="75%" class="connection-line" style="animation-delay: -3s;"/>
+                    <line x1="80%" y1="60%" x2="65%" y2="75%" class="connection-line" style="animation-delay: -4s;"/>
+                    <line x1="35%" y1="75%" x2="50%" y2="85%" class="connection-line" style="animation-delay: -5s;"/>
+                    <line x1="65%" y1="75%" x2="50%" y2="85%" class="connection-line" style="animation-delay: -6s;"/>
+                </g>
+
+                <!-- Subtle grid pattern -->
+                <defs>
+                    <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+                        <path d="M 100 0 L 0 0 0 100" fill="none" stroke="url(#gradient1)" stroke-width="0.5" opacity="0.1"/>
+                    </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)"/>
+            </svg>
+
+            <!-- Gradient overlay for better text readability -->
+            <div class="gradient-overlay"></div>
+        </div>
+
         <!-- Top navigation bar with utility buttons -->
         <div class="top-navigation">
             <div class="nav-left">
