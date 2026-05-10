@@ -23,6 +23,7 @@ window.VISUAL_MODELS = [
     'qwen3:30b-a3b-thinking-2507',
     'qwen3.6:35b-a3b-q8_0',
     'gemma4:26b-a4b-it-q8_0',
+    'gemma4:31b',
     'qwen3-vl:235b-instruct',
     'kimi-k2.6',
     'kimi-k2.5',
