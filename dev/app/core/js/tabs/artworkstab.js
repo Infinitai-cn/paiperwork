@@ -231,7 +231,18 @@ class ArtworksTab {
             webstyleCloneSection: document.getElementById('artwork-webstyle-clone-section'),
             webstyleCloneInput: document.getElementById('artwork-webstyle-clone-input'),
             generateBtn: document.getElementById('artwork-generate-btn'),
-            useAsBackgroundCheckbox: document.getElementById('artwork-use-as-background')
+            useAsBackgroundCheckbox: document.getElementById('artwork-use-as-background'),
+            propertiesPanel: document.getElementById('artwork-properties-panel'),
+            textContent: document.getElementById('artwork-text-content'),
+            fontFamily: document.getElementById('artwork-font-family'),
+            fontSize: document.getElementById('artwork-font-size'),
+            fontSizeValue: document.getElementById('artwork-font-size-value'),
+            fontWeight: document.getElementById('artwork-font-weight'),
+            textColor: document.getElementById('artwork-text-color'),
+            textColorValue: document.getElementById('artwork-text-color-value'),
+            textAlign: document.getElementById('artwork-text-align'),
+            fontStyle: document.getElementById('artwork-font-style'),
+            textShadow: document.getElementById('artwork-text-shadow')
         };
 
         // Set default mode
@@ -630,6 +641,11 @@ class ArtworksTab {
                 this.updatePromptPlaceholder();
                 this.updateWebsiteStyleCloneVisibility();
 
+                // Show/hide properties panel based on mode
+                if (this.elements.propertiesPanel) {
+                    this.elements.propertiesPanel.style.display = mode === 'overlay' ? 'block' : 'none';
+                }
+
                 // Show/hide "Use as background" checkbox based on mode
                 if (this.elements.useAsBackgroundCheckbox && this.imageBase64) {
                     if (mode === 'style') {
@@ -691,6 +707,80 @@ class ArtworksTab {
         generateBtn.addEventListener('click', () => {
             this.generateArtwork();
         });
+
+        // Properties Panel Event Handlers
+        const {
+            propertiesPanel, textContent, fontFamily, fontSize, fontSizeValue,
+            fontWeight, textColor, textColorValue, textAlign, fontStyle, textShadow
+        } = this.elements;
+
+        // Show/hide properties panel based on mode
+        if (propertiesPanel) {
+            propertiesPanel.style.display = this.activeMode === 'overlay' ? 'block' : 'none';
+        }
+
+        // Text content change
+        if (textContent) {
+            textContent.addEventListener('input', () => {
+                this.updateTextOverlay();
+            });
+        }
+
+        // Font family change
+        if (fontFamily) {
+            fontFamily.addEventListener('change', () => {
+                this.updateTextOverlay();
+            });
+        }
+
+        // Font size change
+        if (fontSize) {
+            fontSize.addEventListener('input', () => {
+                if (fontSizeValue) {
+                    fontSizeValue.textContent = fontSize.value;
+                }
+                this.updateTextOverlay();
+            });
+        }
+
+        // Font weight change
+        if (fontWeight) {
+            fontWeight.addEventListener('change', () => {
+                this.updateTextOverlay();
+            });
+        }
+
+        // Text color change
+        if (textColor) {
+            textColor.addEventListener('input', () => {
+                if (textColorValue) {
+                    textColorValue.textContent = textColor.value;
+                }
+                this.updateTextOverlay();
+            });
+        }
+
+        // Text alignment change
+        if (textAlign) {
+            textAlign.addEventListener('change', () => {
+                this.updateTextOverlay();
+            });
+        }
+
+        // Font style change
+        if (fontStyle) {
+            fontStyle.addEventListener('change', () => {
+                this.updateTextOverlay();
+            });
+        }
+
+        // Text shadow toggle
+        if (textShadow) {
+            textShadow.addEventListener('change', () => {
+                this.updateTextOverlay();
+            });
+        }
+
         const chatForm = document.querySelector('.chat-form');
         if (chatForm) {
             chatForm.addEventListener('submit', async (e) => {
@@ -944,6 +1034,33 @@ class ArtworksTab {
         this.elements.webstyleCloneSection.style.display = this.activeMode === 'overlay' ? 'block' : 'none';
     }
 
+    updateTextOverlay() {
+        // Update the canvas renderer with current text overlay properties
+        if (!this.artworksInstance || !this.artworksInstance.canvasRenderer) {
+            return;
+        }
+
+        const {
+            textContent, fontFamily, fontSize, fontWeight,
+            textColor, textAlign, fontStyle, textShadow
+        } = this.elements;
+
+        // Get current text overlay properties from the properties panel
+        const textOverlay = {
+            text: textContent ? textContent.value : '',
+            fontFamily: fontFamily ? fontFamily.value : 'Arial',
+            fontSize: fontSize ? parseInt(fontSize.value) : 24,
+            fontWeight: fontWeight ? fontWeight.value : 'normal',
+            fillStyle: textColor ? textColor.value : '#ffffff',
+            textAlign: textAlign ? textAlign.value : 'left',
+            fontStyle: fontStyle ? fontStyle.value : 'normal',
+            shadow: textShadow ? textShadow.checked : false
+        };
+
+        // Update the canvas renderer
+        this.artworksInstance.canvasRenderer.updateTextOverlay(textOverlay);
+    }
+
     setArtworkProgressMessage(message, timingMessage = null) {
         const progressWindow = document.querySelector('.artwork-progress-window');
         if (!progressWindow) {
@@ -1098,7 +1215,9 @@ class ArtworksTab {
         }
         if (fonts.length) {
             lines.push(`- Use these fonts when appropriate: ${fonts.join(', ')}`);
-            lines.push('- When using a referenced font that is not a standard system font, import it with CSS @import inside a <style> block before using it in font-family.');
+            lines.push('- For text overlay JSON, preserve website fonts by adding them to overlay.webFonts and referencing them from text elements using fontRef or fontFamily.');
+            lines.push('- If a referenced font is a Google Font, prefer source:"google" plus googleFont or googleFontUrl. If it is a direct web font, use fontUrl when available.');
+            lines.push('- Do not limit yourself to system fonts when the website uses custom fonts; reproduce the site font choices as web fonts whenever possible.');
         }
         if (colors.length) {
             lines.push(`- Use these colors when appropriate: ${colors.join(', ')}`);
@@ -1455,6 +1574,124 @@ class ArtworksTab {
             border-radius: 4px;
             width: 100%;
         }
+            
+            /* Properties Panel Styles */
+            .artwork-properties-panel {
+                background-color: var(--bg-muted, #f8fafc);
+                border: 1px solid var(--border-color, #e2e8f0);
+                border-radius: 8px;
+                padding: 20px;
+                margin-top: 20px;
+            }
+            
+            .artwork-properties-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 20px;
+            }
+            
+            .artwork-property-group {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .artwork-property-group label {
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--text-color);
+            }
+            
+            .artwork-text-content-input {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid var(--border-color, #e2e8f0);
+                border-radius: 6px;
+                font-family: inherit;
+                font-size: 14px;
+                resize: vertical;
+                background-color: var(--bg-color, #ffffff);
+                color: var(--text-color);
+            }
+            
+            .artwork-font-family-select,
+            .artwork-font-weight-select,
+            .artwork-text-align-select,
+            .artwork-font-style-select {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid var(--border-color, #e2e8f0);
+                border-radius: 6px;
+                font-family: inherit;
+                font-size: 14px;
+                background-color: var(--bg-color, #ffffff);
+                color: var(--text-color);
+                cursor: pointer;
+            }
+            
+            .artwork-font-size-input {
+                width: 100%;
+                padding: 8px;
+                border: 1px solid var(--border-color, #e2e8f0);
+                border-radius: 6px;
+                font-family: inherit;
+                font-size: 14px;
+                background-color: var(--bg-color, #ffffff);
+                color: var(--text-color);
+                cursor: pointer;
+            }
+            
+            .artwork-font-size-value {
+                font-weight: 600;
+                color: var(--accent-color, #4f46e5);
+            }
+            
+            .artwork-color-picker-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .artwork-text-color-input {
+                width: 50px;
+                height: 40px;
+                padding: 2px;
+                border: 1px solid var(--border-color, #e2e8f0);
+                border-radius: 6px;
+                cursor: pointer;
+                background-color: var(--bg-color, #ffffff);
+            }
+            
+            .artwork-color-value {
+                font-size: 13px;
+                color: var(--text-color);
+                font-family: monospace;
+            }
+            
+            .artwork-checkbox-container {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 14px;
+                cursor: pointer;
+            }
+            
+            .artwork-checkbox-container input[type="checkbox"] {
+                width: 18px;
+                height: 18px;
+                cursor: pointer;
+            }
+            
+            .artwork-checkbox-label {
+                color: var(--text-color);
+            }
+            
+            /* Responsive adjustments */
+            @media (max-width: 768px) {
+                .artwork-properties-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
     `;
         document.head.appendChild(styleEl);
     }
@@ -1579,7 +1816,7 @@ class ArtworksTab {
                                             .hero-content{position:relative;z-index:1}
                                             @media(max-width:600px){.hero{height:30vh}}
                                         </style>
-                                        MANDATORY: maximum hero height=30vh and the hero image width must always equal the hero section width.
+                                        MANDATORY: maximum hero height=30vh and the hero image width must always equal the hero section width exactly.
                                         ${this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked ?
                                         `IMPORTANT: Use the exact placeholder string BACKGROUND_IMAGE_PLACEHOLDER for background images (do not include base64 data). Example: background-image: url(BACKGROUND_IMAGE_PLACEHOLDER);` : ''}
 
@@ -1592,65 +1829,159 @@ class ArtworksTab {
                                      } Build it as a real webpage with multiple sections unless I explicitly asked for a single-panel composition. Use standard responsive webpage behavior with normal vertical scrolling, not a fixed-size poster or one-screen artboard.`;
                     break;
 
-                                case 'overlay': // Text Overlay mode
-                                        systemPrompt = `You are an expert designer specializing in creating responsive HTML/CSS for text overlays on product images. Your task is to position text elements in visually appropriate locations on the image to create professional-looking product displays.
+                                 case 'overlay': // Text Overlay mode
+                                        systemPrompt = `You are an expert designer specializing in creating text overlays on product images. Your task is to analyze the image and produce a JSON configuration that describes text overlays, SVG shapes/lines/ornaments, and their visual properties for rendering onto the background image.
 
-                                            TYPOGRAPHY (MANDATORY): Custom web fonts are allowed for Text Overlay outputs, but they must be imported only from inside a CSS "@import" rule placed in a "<style>" block in the generated HTML. Do NOT use "<link rel=\"stylesheet\">" tags for fonts. When the prompt references website fonts or asks you to mimic a website style, any referenced font that is not a standard system font must be imported in that same approved format before you use it in font-family declarations. Do NOT rely on a font with no fallback stack. Every custom font-family declaration must include sensible fallbacks, for example: font-family: 'Playfair Display', Georgia, 'Times New Roman', Times, serif; or font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; or font-family: 'Roboto Mono', 'Courier New', Courier, monospace. Prefer at most one or two imported font families unless the user explicitly asks for more.
+                                            SUPPORTED TEXT EFFECTS:
+                                            The rendering engine supports the following text effects. Use them to create visually compelling designs:
+                                            - Font family, size, weight, style: You may use system fonts OR web fonts (including Google Fonts). Use fontWeight "bold" or 700 for headlines, "normal" or 400 for body text. Use fontStyle "italic" for emphasis.
+                                            - Text color (solid): Set the "color" property to any hex color (e.g., "#FFFFFF", "#000000", "#FFD700"). Choose colors with strong contrast against the background image.
+                                            - Text shadow: Use the "shadow" object with properties: enabled (boolean), color (hex), blur (pixels), offsetX (pixels), offsetY (pixels). Example: {"enabled": true, "color": "#000000", "blur": 10, "offsetX": 3, "offsetY": 3}. Shadows improve readability and add depth.
+                                            - Text stroke (outline): Not directly supported in JSON — instead, use a contrasting backgroundColor panel behind text for outline-like emphasis.
+                                            - Gradient text: Not directly supported in JSON — instead, simulate gradient effect by using multiple text elements with different colors stacked vertically, or use a backgroundColor panel with a gradient-like color transition.
+                                            - Pattern/texture text: Not directly supported in JSON — instead, use a backgroundColor panel with a solid or semi-transparent color to create texture-like backgrounds behind text.
+                                            - Rotation/scale transforms: Use the "rotation" property (in degrees) to rotate text. Positive values rotate clockwise. Use maxWidth and fontSize to effectively scale text.
+                                            - Opacity/alpha: Use the "opacity" property (0-1) to make text semi-transparent. Values closer to 0 are more transparent, 1 is fully opaque.
+                                            - Text clipping: Not directly supported — instead, use maxWidth to constrain text width and ensure text stays within desired bounds.
+                                            - Compositing modes: Not directly supported — instead, use opacity and backgroundColor to achieve desired visual layering effects.
+                                            - Background panels: Use "backgroundColor" (hex color, optionally with alpha like "rgba(0,0,0,0.5)") and "backgroundPadding" (e.g., "10px 15px") to create readable text containers.
 
-                                            For each image, you will:
-                                            1. Analyze the image orientation and content.
-                                            2. Position text elements in visually balanced locations that complement the image.
-                                            3. Generate complete HTML/CSS code that creates a responsive overlay that SCALES the image inside a preview container (do not hardcode a huge fixed canvas unless requested).
-                                            4. PRIORITIZE TEXT READABILITY with high contrast ratios (minimum 4.5:1 for normal text).
-                                            5. Keep text styling export-safe and honest to the final PNG. Do NOT add decorative text effects such as text-shadow, drop-shadow, glow, outline, stroke, filter effects, backdrop-filter, or similar effect-based styling on text. If readability needs improvement, solve it with layout, stronger contrast, simpler typography, solid or semi-transparent flat background panels behind text, spacing, and font weight instead.
+                                            OUTPUT FORMAT (MANDATORY):
+                                            You MUST respond with a SINGLE valid JSON object wrapped in a markdown code block with language identifier "json". Do NOT include any explanatory text before or after the JSON. Do NOT output HTML, CSS, or any other format. The JSON must be parseable by standard JSON.parse().
 
-                                            IMPORTANT: Always choose text colors that maintain strong contrast against the background image, not just colors that are complementary aesthetically. White text on dark image areas and dark text on light image areas is often most effective.
+                                            JSON SCHEMA:
+                                            {
+                                              "overlay": {
+                                                "width": <number>,           // Background image width in pixels
+                                                "height": <number>,          // Background image height in pixels
+                                                                                                "webFonts": [                // Optional: web fonts to load before rendering text
+                                                                                                    {
+                                                                                                        "family": "<string>",  // Font family name used by text elements
+                                                                                                        "source": "<string>",  // Optional: "google" | "url"
+                                                                                                        "googleFont": "<string>", // Optional Google css2 family value, e.g. "Bebas Neue:wght@400;700"
+                                                                                                        "googleFontUrl": "<string>", // Optional full Google Fonts CSS URL
+                                                                                                        "url": "<string>",     // Optional direct font file URL (.woff2/.woff/.ttf) or CSS URL
+                                                                                                        "weight": "<string|number>", // Optional default weight for this descriptor
+                                                                                                        "style": "<string>"    // Optional default style for this descriptor
+                                                                                                    }
+                                                                                                ],
+                                                "texts": [                   // Array of text overlay elements
+                                                  {
+                                                    "id": "<string>",        // Unique identifier
+                                                    "text": "<string>",      // The text content
+                                                    "x": <number>,           // X position in pixels (0 = left edge)
+                                                    "y": <number>,           // Y position in pixels (0 = top edge)
+                                                    "fontSize": <number>,    // Font size in pixels
+                                                    "fontFamily": "<string>",// Font family name (e.g., "Helvetica", "Georgia", "Arial")
+                                                    "fontWeight": "<string|number>", // "normal", "bold", "100"-"900"
+                                                    "fontStyle": "<string>", // "normal" or "italic"
+                                                    "fontRef": "<string>", // Optional: references overlay.webFonts[i].family
+                                                    "fontUrl": "<string>", // Optional direct per-text webfont URL (woff2/woff/ttf/css)
+                                                    "googleFont": "<string>", // Optional per-text Google css2 family value
+                                                    "googleFontUrl": "<string>", // Optional per-text Google Fonts CSS URL
+                                                    "fontProvider": "<string>", // Optional per-text provider hint, e.g. "google"
+                                                    "color": "<string>",     // Text color in hex (e.g., "#FFFFFF")
+                                                    "textAlign": "<string>", // "left", "center", or "right"
+                                                    "lineHeight": <number>,  // Line height multiplier (e.g., 1.2, 1.5)
+                                                    "maxWidth": <number>,    // Maximum width in pixels (0 = no limit)
+                                                    "opacity": <number>,     // Opacity 0-1 (default 1)
+                                                    "rotation": <number>,    // Rotation in degrees (default 0)
+                                                    "letterSpacing": <number>, // Letter spacing in pixels (default 0)
+                                                    "backgroundColor": "<string>", // Optional semi-transparent background panel color in hex (e.g., "rgba(0,0,0,0.5)")
+                                                    "backgroundPadding": "<string>", // Padding around text on bg panel (e.g., "10px 15px")
+                                                    "shadow": {              // Optional text shadow
+                                                      "enabled": <boolean>,
+                                                      "color": "<string>",   // Shadow color
+                                                      "blur": <number>,      // Blur radius in pixels
+                                                      "offsetX": <number>,   // Horizontal offset
+                                                      "offsetY": <number>    // Vertical offset
+                                                    }
+                                                  }
+                                                ],
+                                                "shapes": [                // Array of SVG-like shape elements
+                                                  {
+                                                    "id": "<string>",      // Unique identifier
+                                                    "type": "<string>",    // "rect", "circle", "line", "polygon", "ellipse"
+                                                    "x": <number>,         // X position (for rect, circle center)
+                                                    "y": <number>,         // Y position (for rect, circle center)
+                                                    "width": <number>,     // Width (for rect, ellipse)
+                                                    "height": <number>,    // Height (for rect, ellipse)
+                                                    "rx": <number>,        // X-radius for rounded corners / ellipse
+                                                    "ry": <number>,        // Y-radius for ellipse
+                                                    "cx": <number>,        // Center X (for circle, ellipse)
+                                                    "cy": <number>,        // Center Y (for circle, ellipse)
+                                                    "points": "<string>",  // Polygon points string (e.g., "10,10 20,30 30,10")
+                                                    "color": "<string>",   // Fill color in hex
+                                                    "strokeColor": "<string>", // Stroke/outline color in hex
+                                                    "strokeWidth": <number>, // Stroke width in pixels
+                                                    "opacity": <number>,   // Opacity 0-1
+                                                    "rotation": <number>   // Rotation in degrees
+                                                  }
+                                                ],
+                                                "lines": [               // Array of decorative lines
+                                                  {
+                                                    "id": "<string>",      // Unique identifier
+                                                    "x1": <number>,        // Start X
+                                                    "y1": <number>,        // Start Y
+                                                    "x2": <number>,        // End X
+                                                    "y2": <number>,        // End Y
+                                                    "color": "<string>",   // Line color in hex
+                                                    "strokeWidth": <number>, // Line width in pixels
+                                                    "opacity": <number>,   // Opacity 0-1
+                                                    "dashArray": "<string>" // Dash pattern (e.g., "5,5" for dashed)
+                                                  }
+                                                ],
+                                                "ornaments": [           // Array of decorative ornaments (stars, icons, badges, etc.)
+                                                  {
+                                                    "id": "<string>",      // Unique identifier
+                                                    "type": "<string>",    // "star", "badge", "icon", "custom"
+                                                    "x": <number>,         // X position
+                                                    "y": <number>,         // Y position
+                                                    "size": <number>,      // Size in pixels
+                                                    "color": "<string>",   // Primary color in hex
+                                                    "secondaryColor": "<string>", // Secondary/accent color
+                                                    "opacity": <number>,   // Opacity 0-1
+                                                    "rotation": <number>   // Rotation in degrees
+                                                  }
+                                                ]
+                                              }
+                                            }
 
-                                            IMAGE AND ICON HANDLING:
-                                            - If the user prompt requests additional images, icons, or fallback images, you MAY include external images from reputable sources (e.g., Unsplash, Wikimedia, or user-specified URLs).
-                                            - If the uploaded image is missing or cannot be used, provide a visually appropriate fallback image from a public provider.
-                                            - When using external images, always provide descriptive alt text and ensure the image is appropriate for the context.
-                                            - If the user requests a specific image provider or style, honor that request.
+                                            POSITIONING GUIDELINES:
+                                            - All coordinates are in PIXELS relative to the background image dimensions (0,0 = top-left corner).
+                                            - Use the image width/height from the image information provided in the user prompt to calculate positions.
+                                            - Position text in visually balanced locations that complement the image content.
+                                            - Avoid covering key product features or important image areas.
+                                            - Use percentages converted to pixels: x = (percentage / 100) * width, y = (percentage / 100) * height.
+                                            - For example, center text: x = width * 0.5, y = height * 0.3 (adjust based on visual balance).
 
-                                            SIZING & SCALING GUIDELINES (CRITICAL)
-                                            - Treat the generated HTML as BOTH a preview and an export document. The main composition must occupy the full intended poster/export surface, not a smaller centered card inside a viewport.
-                                            - NEVER use preview-only wrapper constraints such as "max-width", "max-height", "min-height: 100vh", centered "body" flex layouts, large body padding, or decorative outer cards/shadows that shrink the actual composition area.
-                                            - The root composition wrapper must map directly to the uploaded image aspect ratio and intended export size. Use the uploaded image dimensions as the authoritative surface for the poster composition.
-                                            - The text overlay layer must fill the same surface as the image wrapper. If the image wrapper is 100% of the composition, the overlay root must also be "position:absolute; inset:0; width:100%; height:100%" (or equivalent) so text is not authored at a smaller preview size.
-                                            - Avoid authoring overlay typography and spacing as if the composition were only ~600px wide. Prefer percentages, "em"/"rem", and "clamp()" values that scale from the full image surface, not from a small centered preview card.
-                                            - Avoid fixed pixel paddings or fixed-width text blocks that make the overlay cluster into one corner when exported at the original image size. Use relative padding such as percentages for edge offsets on poster overlays.
-                                            - The preview must fill the host's preview container surface. For Text Overlay outputs, choose sizing behavior based on the source image orientation (DO NOT apply a single rule to all images):
-                                                - Portrait images (height > width): Ensure the full portrait image is visible. If the portrait image does not fit within the preview container, allow vertical scrolling instead of cropping so the entire poster can be viewed. Prefer an img-based approach with object-fit: contain and let the container enable scrolling without shrinking the composition to an arbitrary capped card. Example (preferred for predictable scaling):
-                                                    .preview-wrap { width: 100%; overflow-y: auto; display: block; }
-                                                    .preview-wrap img { display: block; width: 100%; height: auto; object-fit: contain; object-position: center top; }
-                                                - Landscape or square images (width >= height): PREFER COVER behavior so the preview container surface is fully filled (object-fit: cover / background-size: cover). Example:
-                                                    .preview-wrap img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center center; }
-                                                    .preview-wrap .bg { width: 100%; height: 100%; background-image: url('BACKGROUND_IMAGE_PLACEHOLDER'); background-repeat: no-repeat; background-position: center center; background-size: cover; overflow: hidden; }
-                                            - Provide one of the two supported implementations (choose one in your output):
-                                                1) img-based approach (preferred for overlays):
-                                                    .preview-wrap { width: 100%; height: 100%; overflow: hidden; display: block; }
-                                                    .preview-wrap img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center center; }
-                                                2) CSS background approach:
-                                                    .preview-wrap .bg { width: 100%; height: 100%; background-image: url('BACKGROUND_IMAGE_PLACEHOLDER'); background-repeat: no-repeat; background-position: center center; background-size: contain; overflow: hidden; }
+                                            TYPOGRAPHY GUIDELINES:
+                                            - PRIORITIZE TEXT READABILITY with high contrast ratios (minimum 4.5:1 for normal text).
+                                            - Choose text colors that maintain strong contrast against the background image.
+                                            - White text on dark image areas and dark text on light image areas is often most effective.
+                                            - Use font sizes proportional to the image dimensions. For a 1920px wide image, minimum font size should be 24px.
+                                            - You may use system fonts or web fonts. For web fonts, include valid entries in overlay.webFonts (or per-text fontUrl/googleFont/googleFontUrl fields).
+                                            - When a website style reference is provided, carry its fonts into overlay.webFonts and use matching fontRef or fontFamily values for the relevant text elements.
+                                            - Use fontWeight "bold" or 700 for headlines, "normal" or 400 for body text.
+                                            - Add semi-transparent backgroundColor panels behind text when needed for readability.
+                                            - Do NOT use decorative text effects like glow, outline, or filter-based effects.
 
-                                            - Do NOT place a smaller portrait image centered inside a much larger wrapper that effectively hides parts of the image. When instructed to show a full portrait, the image must be fully visible (contain). For landscape/square images, filling the container with cover and permitting cropping is acceptable to avoid empty gutters.
-                                            - Ensure the preview container dimensions are explicit and minimal: do not add outer padding, decorative borders, outer shadows, card-like wrappers, or extra margins around the main preview container unless explicitly requested. Use box-sizing: border-box and overflow: hidden on the container.
-                                            - Include PREVIEW-SIZE metadata EXACTLY in the HTML (example: <!-- PREVIEW-SIZE: width=2048 height=1024 -->). Use values that reflect the intended preview/export surface; when unsure prefer the host MAX_CONTAINER (2048×1024) as a safe default.
-                                            - For the uploaded image size ${this.imageDimensions || 'Unknown'}, generate HTML so the main poster/image wrapper is intended to scale to that full image surface. Avoid any CSS that would cap it to a smaller desktop preview width such as "max-width: 600px".
-                                            - ALWAYS take the uploaded picture size into account when deciding the minimum font size. Choose text sizes large enough for that specific image surface so no important text ends up undersized or difficult to read in the final export.
+                                            SHAPE/LINE/ORNAMEENT GUIDELINES:
+                                            - Shapes, lines, and ornaments should enhance the design without overwhelming it.
+                                            - Use shapes for decorative dividers, badges, highlights, or background panels behind text.
+                                            - Use lines for dividers, underlines, or decorative accents.
+                                            - Use ornaments sparingly for badges, stars, or decorative elements.
+                                            - All shapes/lines/ornaments must have valid pixel coordinates within the image bounds.
 
-                                            PLACEMENT & EXPORT NOTES
-                                            - Position text using relative units (%, vw/vh, em/rem) and modern layout (flex/grid) so it scales consistently when the preview surface is resized or exported.
-                                            - Text, call-to-action blocks, gradients, and decorative accents must be positioned relative to the full image surface, not relative to a reduced preview-card width.
-                                            - Preserve the image aspect ratio while using cover sizing; avoid distortion.
-                                            - Ensure the image fully covers the preview container area (no empty gutters) so the generated preview window size is representative of the exported image.
-                                            - Use semantic HTML and include alt text for any img.
-                                            - Use the exact placeholder string BACKGROUND_IMAGE_PLACEHOLDER when referencing the uploaded image (either in url() or as an img src). Example: background-image: url('BACKGROUND_IMAGE_PLACEHOLDER');
-
-                                            Your HTML code MUST:
-                                            - Be a single, self-contained file with embedded CSS and JavaScript.
-                                            - Ensure image sizing is appropriate for the orientation: for landscape/square images prefer covering the preview surface (use object-fit: cover or background-size: cover), and for portrait images prefer contain + scrolling so the full image is visible (no cropping).
-                                            - Preserve the original aspect ratio of the image; avoid distortion when scaling.
+                                            IMPORTANT RULES:
+                                            - The "width" and "height" fields in the overlay object MUST match the actual uploaded image dimensions.
+                                            - All numeric values must be actual numbers, not strings.
+                                            - All color values must be hex strings (e.g., "#FFFFFF", "#000000", "#FF0000").
+                                            - If you use Google Fonts, provide either googleFont (css2 family value) or googleFontUrl.
+                                            - If you use direct font files, use publicly reachable URLs that allow loading from browsers.
+                                            - The JSON must be valid and parseable. No trailing commas, no comments, no single quotes.
+                                            - Do NOT include any text outside the JSON code block.
+                                            - Do NOT wrap the JSON in any markdown other than the standard \`\`\`json ... \`\`\` fence.
                                             `;
                                         userPrompt = `Create text overlays for this product image with the following text:
                                         ${this.elements.promptInput.value}
@@ -1660,30 +1991,29 @@ class ArtworksTab {
                                         - Dimensions: ${this.imageDimensions || 'Unknown'}
                                         - Aspect ratio: ${this.imageRatio || 'Unknown'}
                     
-                                        Generate a single HTML file that displays this text in visually appropriate locations based on the image content. Position text to avoid covering key product features. Use colors that complement the image while ensuring text is clearly readable.
-
-                                        Important layout requirement: do not build this as a centered preview card or viewport demo. Build it as a full poster/export composition that occupies the full image surface. Avoid CSS such as max-width, max-height, body padding, min-height: 100vh, or centered flexbox on body/html unless explicitly required for the actual composition.
-                                        Important overlay requirement: the text overlay root must cover the same full area as the image, and text spacing/sizing must be authored for the full poster surface rather than for a small preview width.
+                                        Respond with a SINGLE valid JSON object (wrapped in a \`\`\`json code block) that describes the text overlays, shapes, lines, and ornaments to render on this background image. Use the exact image dimensions provided above to calculate all pixel positions. Position text in visually balanced locations that complement the image content and avoid covering key product features. Choose text colors with strong contrast against the background. Include shapes/lines/ornaments only if they enhance the design meaningfully.
                     
-                                        If you are requested to add external images, icons, or fallbacks, use reputable sources and always include fallbacks from different providers to avoid empty placeholders. For the background image, use: BACKGROUND_IMAGE_PLACEHOLDER.`;
-                                        {
-                                            const websiteStylePromptSuffix = this.buildWebsiteStylePromptSuffix(websiteStyleReference);
-                                            if (websiteStylePromptSuffix) {
-                                                userPrompt += `\n\n${websiteStylePromptSuffix}`;
-                                                this.logWebsiteStyleClone('prompt-augmented', {
-                                                    finalPromptLength: userPrompt.length,
-                                                    sourceUrl: websiteStyleReference?.url || ''
-                                                });
-                                            } else {
-                                                this.logWebsiteStyleClone('prompt-not-augmented', {
-                                                    finalPromptLength: userPrompt.length,
-                                                    sourceUrl: websiteStyleReference?.url || ''
-                                                });
-                                            }
+                                        If you are requested to add external fallbacks, use reputable sources and always include fallbacks from different providers to avoid empty placeholders.`;
+                                    {
+                                     const websiteStylePromptSuffix = this.buildWebsiteStylePromptSuffix(websiteStyleReference);
+                                        if (websiteStylePromptSuffix) {
+                                            userPrompt += `\n\n${websiteStylePromptSuffix}`;
+                                            this.logWebsiteStyleClone('prompt-augmented', {
+                                                finalPromptLength: userPrompt.length,
+                                            sourceUrl: websiteStyleReference?.url || ''
+                                            });
+                                        } else {
+                                            this.logWebsiteStyleClone('prompt-not-augmented', {
+                                                finalPromptLength: userPrompt.length,
+                                                sourceUrl: websiteStyleReference?.url || ''
+                                            });
                                         }
+                                    }
+                    
                     break;
 
             }
+
 
             // This ensures the image is sent properly
             const modelName = this.artworksInstance.selectedModel;
@@ -1787,9 +2117,50 @@ class ArtworksTab {
                 if (fullResponse) {
                     // IMPORTANT: Strip thinking tags from response before processing
                     fullResponse = this.stripThinkingTags(fullResponse);
+                    console.log('ArtworksTab[overlay-chain]: Received AI response', {
+                        mode: this.activeMode,
+                        responseLength: fullResponse.length,
+                        hasJsonFence: /```json/i.test(fullResponse),
+                        hasOverlayKey: /"overlay"\s*:/.test(fullResponse)
+                    });
                     // Debug log: Step 1 - AI response cleaned
+                    
+                    // Parse overlay JSON data if in overlay mode
+                    let overlayData = null;
+                    if (this.activeMode === 'overlay') {
+                       overlayData = this.parseOverlayJsonFromResponse(fullResponse);
+                        if (overlayData?.overlay) {
+                            const overlay = overlayData.overlay;
+                            console.log('ArtworksTab[overlay-chain]: parseOverlayJsonFromResponse succeeded', {
+                                width: overlay.width,
+                                height: overlay.height,
+                                texts: Array.isArray(overlay.texts) ? overlay.texts.length : 0,
+                                shapes: Array.isArray(overlay.shapes) ? overlay.shapes.length : 0,
+                                lines: Array.isArray(overlay.lines) ? overlay.lines.length : 0,
+                                ornaments: Array.isArray(overlay.ornaments) ? overlay.ornaments.length : 0
+                            });
+                            console.log('ArtworksTab[overlay-chain]: overlay web font hints parsed', {
+                                webFonts: Array.isArray(overlay.webFonts) ? overlay.webFonts.length : 0,
+                                textFontHints: Array.isArray(overlay.texts)
+                                    ? overlay.texts.filter((text) => text && (text.fontUrl || text.googleFont || text.googleFontUrl || text.fontProvider)).length
+                                    : 0,
+                                families: Array.isArray(overlay.webFonts)
+                                    ? overlay.webFonts.map((font) => font && (font.family || font.fontFamily || '')).filter(Boolean)
+                                    : []
+                            });
+                            console.log('ArtworksTab: Parsed overlay JSON data:', overlayData);
+                            if (this.artworksInstance && this.artworksInstance.canvasRenderer) {
+                                this.artworksInstance.canvasRenderer.loadOverlayData(overlayData);
+                            }
+                        } else {
+                            console.error('ArtworksTab: Failed to parse overlay JSON in overlay mode');
+                            throw new Error('Overlay mode requires valid JSON with an overlay object.');
+                        }
+                    }
+                    
                     // Store the full response in case we need it later, but don't display in tab
                     this._generatedResponse = fullResponse;
+                    
                     let imageUrl = null;
                     if (this.imageBase64) {
                         try {
@@ -1829,21 +2200,6 @@ class ArtworksTab {
 
                     // Debug log: Step 2 - after initial background placeholder replacement
                     // Check if ArtworkPreviewWindow is available
-                    if (typeof ArtworkPreviewWindow === 'undefined') {
-                        console.warn('ArtworksTab not available, loading dynamically...');
-                        // Try to load it dynamically
-                        await new Promise((resolve, reject) => {
-                            const script = document.createElement('script');
-                            script.src = 'app/core/js/tabs/artworkpreviewwindow.js';
-                            script.onload = resolve;
-                            script.onerror = () => reject(new Error('Failed to load ArtworkPreviewWindow'));
-                            document.head.appendChild(script);
-                        }).catch(err => {
-                            console.error('Error loading ArtworkPreviewWindow:', err);
-                        });
-                    }
-
-                    // Create the preview window
                     if (typeof ArtworkPreviewWindow !== 'undefined') {
                         // IMPORTANT: Store the actual image in a variable for the preview window
                         let imageUrl;
@@ -1930,6 +2286,7 @@ class ArtworksTab {
                                 sourceImageWidth: this.activeMode === 'overlay' && this.imageWidth ? this.imageWidth : 0,
                                 sourceImageHeight: this.activeMode === 'overlay' && this.imageHeight ? this.imageHeight : 0,
                                 exportBackgroundImage: this.activeMode === 'overlay' && this.imageBase64 ? this.imageBase64 : (imageUrl || null),
+                                overlayData: overlayData,
                             }
                         );
 
@@ -2115,8 +2472,8 @@ class ArtworksTab {
 
         // Remove thinking tags and their content
         let cleanedText = text
-            // Remove <think>...</think> blocks
-            .replace(/<think>[\s\S]*?<\/think>/gi, '')
+            // Remove  grandchildren blocks
+            .replace(/ grandchildren blocks/gi, '')
             // Remove <thinking>...</thinking> blocks
             .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
             // Remove <reflection>...</reflection> blocks
@@ -2155,6 +2512,65 @@ class ArtworksTab {
 
         return html;
     }
+
+    // Extracts and parses JSON overlay data from AI response
+    // Looks for ```json ... ``` code blocks or standalone JSON objects
+    parseOverlayJsonFromResponse(response) {
+        if (!response || typeof response !== 'string') return null;
+
+        let text = response.trim();
+        console.log('ArtworksTab[overlay-chain]: parseOverlayJsonFromResponse started', {
+            inputLength: text.length
+        });
+
+        // Try to extract JSON from markdown code block first
+        const jsonBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (jsonBlockMatch) {
+            const jsonStr = jsonBlockMatch[1].trim();
+            try {
+                const parsed = JSON.parse(jsonStr);
+                if (parsed && parsed.overlay) {
+                    console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from fenced block');
+                    return parsed;
+                }
+            } catch (e) {
+                console.warn('ArtworksTab[overlay-chain]: Fenced JSON parse failed', e);
+                // Fall through to try parsing the full response
+            }
+        }
+
+        // Try parsing the entire response as JSON
+        try {
+            const parsed = JSON.parse(text);
+            if (parsed && parsed.overlay) {
+                console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from full response');
+                return parsed;
+            }
+        } catch (e) {
+            console.warn('ArtworksTab[overlay-chain]: Full response JSON parse failed', e);
+            // Fall through to try finding JSON object in text
+        }
+
+        // Try to find a JSON object in the response using regex
+        const jsonMatch = text.match(/\{[\s\S]*"overlay"\s*:[\s\S]*\}/);
+        if (jsonMatch) {
+            try {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (parsed && parsed.overlay) {
+                    console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from regex object extraction');
+                    return parsed;
+                }
+            } catch (e) {
+                console.warn('ArtworksTab[overlay-chain]: Regex-extracted JSON parse failed', e);
+                // Failed to parse
+            }
+        }
+
+        console.warn('ArtworksTab[overlay-chain]: Failed to parse overlay JSON from response');
+
+        return null;
+    }
+
     // Resizes the uploaded image to fit within specified dimensions and returns base64 data
     resizeImageForAI(base64Data, maxWidth = 1024, maxHeight = 1024, quality = 0.8) {
         return new Promise((resolve, reject) => {
@@ -2303,4 +2719,4 @@ class ArtworksTab {
 window.ArtworksTab = ArtworksTab;
 
 // Flag to indicate this script has loaded
-window.ArtworksTabLoaded = true;
+window.ArtworksTabLoaded = true
