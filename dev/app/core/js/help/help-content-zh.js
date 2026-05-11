@@ -1771,7 +1771,8 @@ window.helpContent = {
                         <li><strong>需要视觉AI模型</strong> - 您需要在Ollama中安装具有视觉功能的模型（Gemma4、Qwen3.5、Qwen3.6、Kimi或其他具有视觉功能的Ollama模型）</li>
                         <li><strong>模型选择</strong> - 从选项卡顶部的下拉菜单中选择您的视觉模型</li>
                         <li><strong>图像要求</strong> - 上传清晰、高质量的图像（最大5MB），支持PNG、JPEG、GIF或WebP格式</li>
-                        <li><strong>文本叠加编辑</strong> - 文本叠加模式允许您在预览中直接编辑生成的文本。</li>
+                        <li><strong>文本叠加编辑</strong> - 文本叠加模式会生成基于 JSON 的 canvas 叠加层，其中的文本、形状、线条和装饰元素都可以编辑。</li>
+                        <li><strong>网站样式克隆</strong> - 在文本叠加模式下，您可以选择提供一个网站 URL，让 AI 复用该网站的外链 Web 字体和 CSS 颜色。</li>
                         <li><strong>风格迁移编辑</strong> - 风格迁移模式允许您在预览中编辑文本并替换结果中的图片。</li>
                     </ul>
                     <h4>兼容的视觉模型</h4>
@@ -1808,6 +1809,7 @@ window.helpContent = {
                     <li><strong>选择视觉模型</strong> - 从下拉菜单中选择（选择会保存供未来会话使用）</li>
                     <li><strong>选择设计模式</strong> - 选择HTML样式转换或文本叠加</li>
                     <li><strong>上传图像</strong> - 拖放或点击上传（系统分析尺寸和方向）</li>
+                    <li><strong>可选网站样式参考</strong> - 在文本叠加模式下添加网站 URL，以提取该网站的候选字体和颜色</li>
                     <li><strong>编写说明</strong> - 提供具体指导（占位符文本根据模式变化）</li>
                     <li><strong>生成和预览</strong> - 点击"生成设计"或按Enter键；结果在交互式预览窗口中打开</li>
                 </ol>
@@ -1825,7 +1827,9 @@ window.helpContent = {
                 <h5>文本叠加</h5>
                 <ul>
                     <li>分析图像以找到最佳文本放置区域</li>
-                    <li>为文本叠加生成响应式HTML/CSS</li>
+                    <li>生成结构化的叠加层 JSON，并作为 canvas 预览渲染在上传图像之上</li>
+                    <li>可以包含文本、装饰形状、线条、装饰元素、外链 Web 字体以及从网站提取的颜色</li>
+                    <li>生成后，您可以直接在预览中编辑文本，并移动选中的叠加元素</li>
                     <li>考虑图像尺寸和方向以进行适当定位</li>
                     <li>非常适合营销材料、横幅和产品展示</li>
                 </ul>
@@ -1870,13 +1874,17 @@ window.helpContent = {
                 
                 <h5>活动宣传</h5>
                 <p class="example-prompt">"创建宣传文本叠加：活动标题：'2024夏季音乐节'，日期：'2024年7月15-17日'，地点：'纽约中央公园'，头条艺人：'特色艺人待定'，票务信息：'早鸟票$89'，按钮：'购买门票'"</p>
+
+                <h5>匹配网站风格的海报</h5>
+                <p class="example-prompt">"使用上传的图片创建一张简洁的活动海报。使用参考网站中的外链字体和 CSS 颜色，在可读性允许的情况下，让主标题、辅助文案和行动按钮分别使用不同的网站字体，并且只有在能改善构图时才添加简单的分隔线或徽章。"</p>
                 
                 <h4>编写有效说明</h4>
                 <ul>
                     <li><strong>具体明确</strong> - 包含设计风格、目标受众和所需的关键组件</li>
                     <li><strong>提及图像元素</strong> - 引用上传图像中的特定颜色、布局或功能</li>
+                    <li><strong>说明网站参考目标</strong> - 如果您提供了网站 URL，请说明是否希望在叠加层中保留该网站的字体、配色或两者都保留</li>
                     <li><strong>定义目的</strong> - 解释目标（营销、作品集、电商等）</li>
-                    <li><strong>请求功能</strong> - 指定响应式行为、动画或交互元素</li>
+                    <li><strong>请求叠加层功能</strong> - 指定首选文本位置、装饰线条或形状，以及多个文本块是否应使用不同的网站字体</li>
                 </ul>
                 
                 <h4>选择合适的图像</h4>
@@ -1920,19 +1928,24 @@ window.helpContent = {
                 <h4>交互式预览窗口</h4>
                 <p>结果在浮动窗口中打开，您可以：</p>
                 <ul>
-                    <li><strong>更改文本节点大小</strong> - 您可以更改文本节点大小（单击选择后使用右下角锚点）</li>
-                    <li><strong>双击</strong> - 双击可让您更改文本</li>
+                    <li><strong>编辑文本</strong> - 双击文本块即可修改其内容</li>
+                    <li><strong>移动元素</strong> - 单击并拖动海报上选中的文本、形状、线条或装饰元素</li>
+                    <li><strong>调整文本尺寸</strong> - 选中文本块后拖动其控制点，以加宽或收紧文本区域</li>
+                    <li><strong>删除元素</strong> - 按 Delete 或 Backspace 删除当前选中的文本或装饰元素</li>
+                    <li><strong>撤销删除</strong> - 按 Cmd/Ctrl+Z 可恢复最近删除的最多 6 个叠加元素</li>
+                    <li><strong>滚动查看大型海报</strong> - 大型或纵向叠加层会保持图像原始尺寸，预览区域会出现滚动，而不是强行压缩海报</li>
                     <li><strong>切换视图</strong> - 在代码视图和实时预览之间切换</li>
-                    <li><strong>直接编辑</strong> - 实时修改生成的代码</li>
+                    <li><strong>直接编辑</strong> - 实时修改生成的 HTML 或叠加层 JSON</li>
                     <li><strong>复制代码</strong> - 用于您自己的项目</li>
                     <li><strong>导出PNG</strong> - 保存设计的截图</li>
                 </ul>
                 
                 <h4>处理生成的代码</h4>
                 <ul>
-                    <li><strong>起点</strong> - 将代码视为您可以进一步完善的基础</li>
+                    <li><strong>起点</strong> - 将生成的 HTML 或叠加层 JSON 视为可进一步完善的基础</li>
                     <li><strong>浏览器测试</strong> - 在不同浏览器和屏幕尺寸下测试</li>
                     <li><strong>直接编辑</strong> - 在结果窗口中直接修改和预览代码</li>
+                    <li><strong>网站字体引用</strong> - 在叠加模式下，外链网站字体会保存在 <code>overlay.webFonts</code> 中，文本元素可以引用它们</li>
                     <li><strong>重新生成</strong> - 如果需要，用更具体的说明重试</li>
                 </ul>
                 
@@ -1972,6 +1985,12 @@ window.helpContent = {
                 <ul>
                     <li><strong>解决方案：</strong> 在说明中指定首选位置</li>
                     <li><strong>示例：</strong> "将标题放在左上角，价格放在右下角"</li>
+                </ul>
+
+                <h5>网站字体或颜色没有按预期使用</h5>
+                <ul>
+                    <li><strong>解决方案：</strong> 在文本叠加模式的网站样式字段中提供有效的网站 URL，并明确要求模型保留该网站的字体和 CSS 颜色</li>
+                    <li><strong>说明：</strong> 如果网站没有暴露可用的字体文件，叠加层可能会退回到兼容的替代字体</li>
                 </ul>
                 
                 <div class="note">

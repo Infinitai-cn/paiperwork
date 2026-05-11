@@ -1779,7 +1779,8 @@ window.helpContent = {
                         <li><strong>Modelo de IA Visual Requerido</strong> - Necesitas un modelo con capacidades de visión instalado en Ollama (Gemma4, Qwen3.5, Qwen3.6, Kimi u otro modelo con capacidades de visión en Ollama)</li>
                         <li><strong>Selección de Modelo</strong> - Elige tu modelo visual del menú desplegable en la parte superior de la pestaña</li>
                         <li><strong>Requisitos de Imagen</strong> - Sube imágenes claras y de alta calidad (máx 5MB) en formato PNG, JPEG, GIF o WebP</li>
-                        <li><strong>Edición de superposición de texto</strong> - El modo Superposición de texto te permite editar el texto generado directamente en la vista previa.</li>
+                        <li><strong>Edición de superposición de texto</strong> - El modo Superposición de texto genera una superposición de lienzo basada en JSON con texto, formas, líneas y ornamentos editables.</li>
+                        <li><strong>Clonado de estilo web</strong> - En el modo Superposición de texto puedes proporcionar opcionalmente una URL de sitio web para que la IA reutilice fuentes web enlazadas y colores CSS de ese sitio.</li>
                         <li><strong>Edición de transferencia de estilo</strong> - El modo Transferencia de estilo te permite editar el texto en la vista previa y reemplazar imágenes en el resultado.</li>
                     </ul>
                     <h4>Modelos Visuales Compatibles</h4>
@@ -1816,6 +1817,7 @@ window.helpContent = {
                     <li><strong>Seleccionar Modelo Visual</strong> - Elige del menú desplegable (selección guardada para sesiones futuras)</li>
                     <li><strong>Elegir Modo de Diseño</strong> - Selecciona Transferencia de Estilo HTML o Superposición de Texto</li>
                     <li><strong>Subir Imagen</strong> - Arrastra/suelta o haz clic para subir (el sistema analiza dimensiones y orientación)</li>
+                    <li><strong>Referencia opcional de estilo web</strong> - En el modo Superposición de texto, añade una URL de sitio web para extraer fuentes y colores candidatos desde ese sitio</li>
                     <li><strong>Escribir Instrucciones</strong> - Proporciona orientación específica (el texto de marcador de posición cambia según el modo)</li>
                     <li><strong>Generar y Vista Previa</strong> - Haz clic en "Generar Diseño" o presiona Enter; los resultados se abren en ventana de vista previa interactiva</li>
                 </ol>
@@ -1833,7 +1835,9 @@ window.helpContent = {
                 <h5>Superposición de Texto</h5>
                 <ul>
                     <li>Analiza imágenes para encontrar áreas óptimas de colocación de texto</li>
-                    <li>Genera HTML/CSS responsivo para superposiciones de texto</li>
+                    <li>Genera un JSON de superposición estructurado que se renderiza como una vista previa de lienzo sobre la imagen subida</li>
+                    <li>Puede incluir texto, formas decorativas, líneas, ornamentos, fuentes web enlazadas y colores extraídos del sitio web</li>
+                    <li>Después de generar, puedes editar el texto directamente en la vista previa y mover los elementos seleccionados de la superposición</li>
                     <li>Considera dimensiones de imagen y orientación para posicionamiento apropiado</li>
                     <li>Ideal para materiales de marketing, banners y exhibiciones de productos</li>
                 </ul>
@@ -1878,13 +1882,17 @@ window.helpContent = {
                 
                 <h5>Promoción de Evento</h5>
                 <p class="example-prompt">"Crea superposición de texto promocional: Título del evento: 'Festival de Música de Verano 2024', Fecha: '15-17 de Julio, 2024', Ubicación: 'Central Park, NYC', Artistas principales: 'Artistas Destacados Por Anunciar', Información de boletos: 'Preventa $89', Botón: 'Obtener Boletos'"</p>
+
+                <h5>Póster alineado con un sitio web</h5>
+                <p class="example-prompt">"Crea un póster de evento limpio usando la imagen subida. Usa las fuentes enlazadas y los colores CSS del sitio web de referencia, asigna diferentes fuentes del sitio al encabezado principal, al texto de apoyo y a la llamada a la acción cuando la legibilidad lo permita, y agrega líneas divisorias o insignias simples solo si mejoran la composición."</p>
                 
                 <h4>Escribiendo Instrucciones Efectivas</h4>
                 <ul>
                     <li><strong>Sé Específico</strong> - Incluye estilo de diseño, audiencia objetivo y componentes clave necesarios</li>
                     <li><strong>Menciona Elementos de Imagen</strong> - Haz referencia a colores específicos, diseños o características de tu imagen subida</li>
+                    <li><strong>Menciona los objetivos de la referencia web</strong> - Si proporcionaste una URL, indica si quieres conservar sus fuentes, su paleta de colores o ambas en la superposición</li>
                     <li><strong>Define Propósito</strong> - Explica el objetivo (marketing, portafolio, e-commerce, etc.)</li>
-                    <li><strong>Solicita Características</strong> - Especifica comportamiento responsivo, animaciones o elementos interactivos</li>
+                    <li><strong>Solicita funciones de superposición</strong> - Especifica posiciones preferidas del texto, líneas o formas decorativas y si varios bloques de texto deben usar diferentes fuentes del sitio web</li>
                 </ul>
                 
                 <h4>Eligiendo las Imágenes Correctas</h4>
@@ -1928,19 +1936,24 @@ window.helpContent = {
                 <h4>Ventana de Vista Previa Interactiva</h4>
                 <p>Los resultados se abren en una ventana flotante donde puedes:</p>
                 <ul>
-                    <li><strong>Cambiar el tamaño del nodo de texto</strong> - Puede cambiar el tamaño del nodo de texto (seleccione con 1 clic y luego use el ancla inferior derecha)</li>
-                    <li><strong>Doble clic</strong> - Doble clic le permite cambiar el texto</li>
+                    <li><strong>Editar texto</strong> - Haz doble clic en un bloque de texto para cambiar su contenido</li>
+                    <li><strong>Mover elementos</strong> - Haz clic y arrastra texto, formas, líneas u ornamentos seleccionados sobre el póster</li>
+                    <li><strong>Redimensionar texto</strong> - Selecciona un bloque de texto y arrastra su controlador para ensanchar o ajustar el área de texto</li>
+                    <li><strong>Eliminar elementos</strong> - Pulsa Delete o Backspace para quitar el elemento de texto o decoración actualmente seleccionado</li>
+                    <li><strong>Deshacer eliminaciones</strong> - Pulsa Cmd/Ctrl+Z para restaurar hasta los últimos 6 elementos de superposición eliminados</li>
+                    <li><strong>Desplazar pósteres grandes</strong> - Las superposiciones grandes o verticales se mantienen al tamaño nativo de la imagen y el área de vista previa se desplaza en lugar de comprimir el póster</li>
                     <li><strong>Cambiar Vistas</strong> - Alternar entre vista de código y vista previa en vivo</li>
-                    <li><strong>Editar Directamente</strong> - Modificar código generado en tiempo real</li>
+                    <li><strong>Editar Directamente</strong> - Modificar HTML generado o el JSON de la superposición en tiempo real</li>
                     <li><strong>Copiar Código</strong> - Usar para tus propios proyectos</li>
                     <li><strong>Exportar PNG</strong> - Guardar captura de pantalla del diseño</li>
                 </ul>
                 
                 <h4>Trabajando con Código Generado</h4>
                 <ul>
-                    <li><strong>Punto de Partida</strong> - Considera el código como una base que puedes refinar más</li>
+                    <li><strong>Punto de Partida</strong> - Considera el HTML generado o el JSON de la superposición como una base que puedes refinar más</li>
                     <li><strong>Pruebas de Navegador</strong> - Prueba en diferentes navegadores y tamaños de pantalla</li>
                     <li><strong>Edición Directa</strong> - Modifica y previsualiza código directamente en la ventana de resultados</li>
+                    <li><strong>Referencias de fuentes web</strong> - En el modo de superposición, las fuentes web enlazadas se guardan en <code>overlay.webFonts</code> y pueden ser referenciadas por los elementos de texto</li>
                     <li><strong>Regeneración</strong> - Intenta de nuevo con instrucciones más específicas si es necesario</li>
                 </ul>
                 
@@ -1980,6 +1993,12 @@ window.helpContent = {
                 <ul>
                     <li><strong>Solución:</strong> Especifica posiciones preferidas en tus instrucciones</li>
                     <li><strong>Ejemplo:</strong> "Coloca encabezado en esquina superior izquierda, precio en inferior derecha"</li>
+                </ul>
+
+                <h5>Las fuentes o colores del sitio web no se usan como esperabas</h5>
+                <ul>
+                    <li><strong>Solución:</strong> Proporciona una URL válida en el campo de estilo web del modo Superposición de texto y pide explícitamente al modelo que conserve las fuentes y colores CSS del sitio</li>
+                    <li><strong>Nota:</strong> Si el sitio no expone archivos de fuente utilizables, la superposición puede recurrir a alternativas compatibles</li>
                 </ul>
                 
                 <div class="note">
