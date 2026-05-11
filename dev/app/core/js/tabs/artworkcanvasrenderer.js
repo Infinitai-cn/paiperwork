@@ -8,7 +8,11 @@ class ArtworkCanvasRenderer {
         this.ctx = canvas.getContext('2d');
         this.bgImage = null;           // Image element for background
         this.textBlocks = [];          // Array of text block objects
+        this.shapes = [];
+        this.lines = [];
+        this.ornaments = [];
         this.selectedBlockIndex = -1;
+        this.selectedDecorationTarget = null;
         this.scale = 1;
         this.onChange = null;          // Callback when canvas state changes
         this._renderCycle = 0;
@@ -16,6 +20,9 @@ class ArtworkCanvasRenderer {
         this._loadedWebFontKeys = new Set();
         this._loadedStylesheetHrefs = new Set();
         this._fontLoadGeneration = 0;
+        this._fontLoadingNoticeElement = null;
+        this._undoStack = [];
+        this._maxUndoSteps = 6;
     }
 
     /**
@@ -72,6 +79,8 @@ class ArtworkCanvasRenderer {
                 this.textBlocks.forEach((block, index) => {
                         this.drawTextBlock(ctx, block, index === this.selectedBlockIndex);
                     });
+
+                this.drawSelectedDecorationOutline(ctx);
         }
 
       /**
@@ -131,6 +140,14 @@ class ArtworkCanvasRenderer {
         const blockLogId = block.id || `${drawX},${drawY}:${block.text?.slice(0, 32) || ''}`;
         if (!this._renderLoggedBlockIds.has(blockLogId)) {
             this._renderLoggedBlockIds.add(blockLogId);
+            this.logOverlayFontEvent('text-block-render-font', {
+                blockId: block.id || null,
+                fontFamily: block.fontFamily || '',
+                fontRef: block.fontRef || '',
+                matchedCandidateFamily: this.normalizeFontFamilyName(block?.candidateFontMatched?.family || block?.candidateFontMatched?.fontFamily || ''),
+                usesCandidateFont: !!block?.candidateFontMatched,
+                textPreview: String(block.text || '').slice(0, 80)
+            });
         }
 
         // Draw backgroundColor panel behind text (for readability and workaround effects)
@@ -394,12 +411,15 @@ class ArtworkCanvasRenderer {
 
         // Render without selection indicators
         const selected = this.selectedBlockIndex;
+        const selectedDecorationTarget = this.selectedDecorationTarget;
         this.selectedBlockIndex = -1;
+        this.selectedDecorationTarget = null;
         this.render();
         exportCtx.drawImage(this.canvas, 0, 0);
 
         // Restore editor view
         this.selectedBlockIndex = selected;
+        this.selectedDecorationTarget = selectedDecorationTarget;
         this.render();
 
         return exportCanvas.toDataURL('image/png');
@@ -529,6 +549,7 @@ class ArtworkCanvasRenderer {
      */
     deleteTextBlock(index) {
         if (index < 0 || index >= this.textBlocks.length) return;
+        this.pushUndoSnapshot();
         this.textBlocks.splice(index, 1);
         if (this.selectedBlockIndex === index) {
             this.selectedBlockIndex = -1;
@@ -539,6 +560,95 @@ class ArtworkCanvasRenderer {
         if (this.onChange) this.onChange();
     }
 
+    deleteDecorationTarget(target) {
+        if (!target || typeof target.index !== 'number') {
+            return;
+        }
+
+        let collection = null;
+        if (target.type === 'shape') {
+            collection = this.shapes;
+        } else if (target.type === 'line') {
+            collection = this.lines;
+        } else if (target.type === 'ornament') {
+            collection = this.ornaments;
+        }
+
+        if (!Array.isArray(collection) || target.index < 0 || target.index >= collection.length) {
+            return;
+        }
+
+        this.pushUndoSnapshot();
+        collection.splice(target.index, 1);
+        if (this.selectedDecorationTarget && this.selectedDecorationTarget.type === target.type) {
+            if (this.selectedDecorationTarget.index === target.index) {
+                this.selectedDecorationTarget = null;
+            } else if (this.selectedDecorationTarget.index > target.index) {
+                this.selectedDecorationTarget = {
+                    ...this.selectedDecorationTarget,
+                    index: this.selectedDecorationTarget.index - 1
+                };
+            }
+        }
+
+        this.render();
+        if (this.onChange) this.onChange();
+    }
+
+    deleteSelectedTarget() {
+        if (this.selectedBlockIndex >= 0) {
+            this.deleteTextBlock(this.selectedBlockIndex);
+            return true;
+        }
+
+        if (this.selectedDecorationTarget) {
+            this.deleteDecorationTarget(this.selectedDecorationTarget);
+            return true;
+        }
+
+        return false;
+    }
+
+    setSelectedTarget(target) {
+        const previousTextIndex = this.selectedBlockIndex;
+        const previousDecorationType = this.selectedDecorationTarget?.type || null;
+        const previousDecorationIndex = Number.isInteger(this.selectedDecorationTarget?.index)
+            ? this.selectedDecorationTarget.index
+            : null;
+
+        if (!target) {
+            this.selectedBlockIndex = -1;
+            this.selectedDecorationTarget = null;
+            if (previousTextIndex !== -1 || previousDecorationType !== null) {
+                this.render();
+            }
+            return;
+        }
+
+        if (target.type === 'text') {
+            this.selectedBlockIndex = target.index;
+            this.selectedDecorationTarget = null;
+            if (previousTextIndex !== target.index || previousDecorationType !== null) {
+                this.render();
+            }
+            return;
+        }
+
+        this.selectedBlockIndex = -1;
+        this.selectedDecorationTarget = {
+            type: target.type,
+            index: target.index
+        };
+
+        if (
+            previousTextIndex !== -1
+            || previousDecorationType !== target.type
+            || previousDecorationIndex !== target.index
+        ) {
+            this.render();
+        }
+    }
+
     /**
      * Clear all text blocks
      */
@@ -547,6 +657,7 @@ class ArtworkCanvasRenderer {
         const shouldNotify = options.notify !== false;
         this.textBlocks = [];
         this.selectedBlockIndex = -1;
+        this.selectedDecorationTarget = null;
         if (shouldRender) {
             this.render();
         }
@@ -563,6 +674,35 @@ class ArtworkCanvasRenderer {
         this.onChange = callback;
     }
 
+    cloneStateSnapshot(state) {
+        return JSON.parse(JSON.stringify(state == null ? null : state));
+    }
+
+    pushUndoSnapshot() {
+        this._undoStack.push(this.getState());
+        if (this._undoStack.length > this._maxUndoSteps) {
+            this._undoStack.splice(0, this._undoStack.length - this._maxUndoSteps);
+        }
+    }
+
+    clearUndoStack() {
+        this._undoStack = [];
+    }
+
+    canUndoDelete() {
+        return Array.isArray(this._undoStack) && this._undoStack.length > 0;
+    }
+
+    undoLastDeletion() {
+        if (!this.canUndoDelete()) {
+            return false;
+        }
+
+        const snapshot = this._undoStack.pop();
+        this.setState(snapshot);
+        return true;
+    }
+
     /**
      * Get the current canvas state
      * @returns {Object} Canvas state
@@ -570,8 +710,12 @@ class ArtworkCanvasRenderer {
     getState() {
         return {
             bgImage: this.bgImage ? this.bgImage.src : null,
-            textBlocks: this.textBlocks,
-            selectedBlockIndex: this.selectedBlockIndex
+            textBlocks: this.cloneStateSnapshot(this.textBlocks) || [],
+            shapes: this.cloneStateSnapshot(this.shapes) || [],
+            lines: this.cloneStateSnapshot(this.lines) || [],
+            ornaments: this.cloneStateSnapshot(this.ornaments) || [],
+            selectedBlockIndex: this.selectedBlockIndex,
+            selectedDecorationTarget: this.cloneStateSnapshot(this.selectedDecorationTarget)
         };
     }
 
@@ -687,13 +831,115 @@ class ArtworkCanvasRenderer {
      * @param {Object} state - Canvas state
      */
     setState(state) {
-        if (state.bgImage) {
+        if (state.bgImage && state.bgImage !== this.bgImage?.src) {
             this.loadBackground(state.bgImage);
         }
-        this.textBlocks = state.textBlocks || [];
-        this.selectedBlockIndex = state.selectedBlockIndex || -1;
+        this.textBlocks = this.cloneStateSnapshot(state.textBlocks) || [];
+        this.shapes = this.cloneStateSnapshot(state.shapes) || [];
+        this.lines = this.cloneStateSnapshot(state.lines) || [];
+        this.ornaments = this.cloneStateSnapshot(state.ornaments) || [];
+        this.selectedBlockIndex = typeof state.selectedBlockIndex === 'number' ? state.selectedBlockIndex : -1;
+        this.selectedDecorationTarget = this.cloneStateSnapshot(state.selectedDecorationTarget);
         this.render();
         if (this.onChange) this.onChange();
+    }
+
+    drawSelectedDecorationOutline(ctx) {
+        const target = this.selectedDecorationTarget;
+        if (!target) {
+            return;
+        }
+
+        const bounds = this.getDecorationBounds(target);
+        if (!bounds) {
+            return;
+        }
+
+        ctx.save();
+        ctx.strokeStyle = '#00aaff';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        ctx.strokeRect(bounds.x - 4, bounds.y - 4, bounds.width + 8, bounds.height + 8);
+        ctx.restore();
+    }
+
+    getDecorationBounds(target) {
+        if (!target || typeof target.index !== 'number') {
+            return null;
+        }
+
+        if (target.type === 'ornament') {
+            const ornament = this.ornaments?.[target.index];
+            if (!ornament) return null;
+            const x = Number(ornament.x) || 0;
+            const y = Number(ornament.y) || 0;
+            const size = Math.max(1, Number(ornament.size) || 20);
+            return { x, y, width: size, height: size };
+        }
+
+        if (target.type === 'line') {
+            const line = this.lines?.[target.index];
+            if (!line) return null;
+            const x1 = Number(line.x1) || 0;
+            const y1 = Number(line.y1) || 0;
+            const x2 = Number(line.x2) || 0;
+            const y2 = Number(line.y2) || 0;
+            return {
+                x: Math.min(x1, x2),
+                y: Math.min(y1, y2),
+                width: Math.max(1, Math.abs(x2 - x1)),
+                height: Math.max(1, Math.abs(y2 - y1))
+            };
+        }
+
+        if (target.type === 'shape') {
+            const shape = this.shapes?.[target.index];
+            if (!shape) return null;
+            const type = String(shape.type || '').toLowerCase();
+
+            if (type === 'rect') {
+                return {
+                    x: Number(shape.x) || 0,
+                    y: Number(shape.y) || 0,
+                    width: Math.max(1, Number(shape.width) || 0),
+                    height: Math.max(1, Number(shape.height) || 0)
+                };
+            }
+
+            if (type === 'circle' || type === 'ellipse') {
+                const cx = Number(shape.cx) || ((Number(shape.x) || 0) + (Number(shape.width) || 0) / 2);
+                const cy = Number(shape.cy) || ((Number(shape.y) || 0) + (Number(shape.height) || 0) / 2);
+                const rx = Math.max(1, Number(shape.rx) || ((Number(shape.width) || (type === 'circle' ? 50 : 100)) / 2));
+                const ry = Math.max(1, Number(shape.ry) || ((Number(shape.height) || (type === 'circle' ? 50 : 100)) / 2));
+                return { x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 };
+            }
+
+            if (type === 'polygon' && typeof shape.points === 'string') {
+                const points = shape.points
+                    .trim()
+                    .split(/\s+/)
+                    .map((pair) => pair.split(',').map((value) => Number(value)))
+                    .filter((pair) => pair.length === 2 && Number.isFinite(pair[0]) && Number.isFinite(pair[1]));
+                if (!points.length) return null;
+                const xs = points.map((pair) => pair[0]);
+                const ys = points.map((pair) => pair[1]);
+                return {
+                    x: Math.min(...xs),
+                    y: Math.min(...ys),
+                    width: Math.max(1, Math.max(...xs) - Math.min(...xs)),
+                    height: Math.max(1, Math.max(...ys) - Math.min(...ys))
+                };
+            }
+
+            return {
+                x: Number(shape.x) || 0,
+                y: Number(shape.y) || 0,
+                width: Math.max(1, Number(shape.width) || 40),
+                height: Math.max(1, Number(shape.height) || 40)
+            };
+        }
+
+        return null;
     }
 
     /**
@@ -870,7 +1116,7 @@ class ArtworkCanvasRenderer {
      * @param {Object} overlayData - JSON overlay data from AI response
      * @returns {Promise<void>}
      */
-    loadOverlayData(overlayData) {
+    async loadOverlayData(overlayData) {
         //console.log('ArtworkCanvasRenderer: Received overlay data:', JSON.stringify(overlayData, null, 2));
         if (!overlayData || !overlayData.overlay) {
             console.warn('ArtworkCanvasRenderer: Invalid overlay data');
@@ -880,6 +1126,12 @@ class ArtworkCanvasRenderer {
         const overlay = overlayData.overlay;
         this._fontLoadGeneration += 1;
         const fontLoadGeneration = this._fontLoadGeneration;
+        const fontCandidates = this.collectOverlayFontCandidates(overlay).slice(0, 10);
+        this.logOverlayFontEvent('candidate-fonts-received', {
+            generation: fontLoadGeneration,
+            candidateCount: fontCandidates.length,
+            candidates: fontCandidates.map((descriptor) => this.describeOverlayFontCandidate(descriptor))
+        });
         
         // Set canvas dimensions to match the background image
         if (overlay.width && overlay.height) {
@@ -925,80 +1177,73 @@ class ArtworkCanvasRenderer {
                     shadow: shadow,
                     overlaySource: true,  // Mark as JSON overlay source for correct positioning
                     id: textData.id || null,
-                    fontRef: textData.fontRef || null
+                    fontRef: textData.fontRef || null,
+                    candidateFontMatched: this.findMatchingOverlayFontCandidate(fontCandidates, textData)
                 };
-
-                // Measure text dimensions with maxWidth support
-                const dimensions = this.measureTextBlock(block);
-                block.width = dimensions.width;
-                block.height = dimensions.height;
 
                 this.textBlocks.push(block);
             }
         }
+
+        this.logOverlayFontEvent('candidate-fonts-usage-summary', this.buildOverlayFontUsageSummary(fontCandidates, this.textBlocks));
+
+        this.clearUndoStack();
 
         // Process shapes, lines, and ornaments (stored for rendering)
         this.shapes = overlay.shapes || [];
         this.lines = overlay.lines || [];
         this.ornaments = overlay.ornaments || [];
 
-        // Render everything
+        const hasLinkedWebFonts = fontCandidates.some((descriptor) => this.isLinkedWebFontCandidate(descriptor));
+        let fontLoadResults = [];
+
+        if (hasLinkedWebFonts) {
+            this.showOverlayFontLoadingNotice('Grabbing website fonts...');
+        }
+
+        try {
+            fontLoadResults = await this.loadOverlayWebFonts(fontCandidates, fontLoadGeneration);
+            if (fontLoadGeneration !== this._fontLoadGeneration) {
+                return;
+            }
+            this.applyLoadedWebFontCandidatesToTextBlocks(fontCandidates, fontLoadResults, this.textBlocks);
+        } catch (error) {
+            this.logOverlayFontEvent('candidate-fonts-load-aborted', {
+                generation: fontLoadGeneration,
+                error: String(error && (error.message || error) || 'Unknown error')
+            });
+        } finally {
+            if (hasLinkedWebFonts) {
+                this.hideOverlayFontLoadingNotice();
+            }
+        }
+
+        this.textBlocks.forEach((block) => {
+            const dimensions = this.measureTextBlock(block);
+            block.width = dimensions.width;
+            block.height = dimensions.height;
+        });
+
         this.render();
         if (this.onChange) this.onChange();
-
-        // Load web fonts asynchronously and rerender after font files are ready.
-        this.loadOverlayWebFonts(overlay, fontLoadGeneration)
-            .then((loadedCount) => {
-                if (fontLoadGeneration !== this._fontLoadGeneration) {
-                    return;
-                }
-                if (loadedCount > 0) {
-                    /* console.log('ArtworkCanvasRenderer[overlay-chain]: web fonts loaded, rerendering', {
-                        loadedCount
-                    }); */
-                    this.render();
-                    if (this.onChange) this.onChange();
-                }
-            })
-            .catch((error) => {
-                //console.warn('ArtworkCanvasRenderer[overlay-chain]: web font loading failed', error);
-            });
     }
 
-    async loadOverlayWebFonts(overlay, generation) {
-        if (!overlay || generation !== this._fontLoadGeneration) {
-            return 0;
-        }
-
-        const descriptors = [];
-        if (Array.isArray(overlay.webFonts)) {
-            descriptors.push(...overlay.webFonts);
-        }
-        if (Array.isArray(overlay.texts)) {
-            overlay.texts.forEach((text) => {
-                if (text && (text.fontUrl || text.googleFont || text.googleFontUrl)) {
-                    descriptors.push({
-                        family: text.fontFamily,
-                        url: text.fontUrl || null,
-                        googleFont: text.googleFont || null,
-                        googleFontUrl: text.googleFontUrl || null,
-                        source: text.fontProvider || null,
-                        weight: text.fontWeight,
-                        style: text.fontStyle
-                    });
-                }
-            });
+    async loadOverlayWebFonts(descriptors, generation) {
+        if (!Array.isArray(descriptors) || generation !== this._fontLoadGeneration) {
+            return [];
         }
 
         if (!descriptors.length) {
-            return 0;
+            return [];
         }
 
-        let loadedCount = 0;
-        for (const descriptor of descriptors) {
+        const results = [];
+        for (let index = 0; index < descriptors.length; index += 1) {
+            const descriptor = descriptors[index];
             if (generation !== this._fontLoadGeneration) {
                 break;
             }
+            this.updateOverlayFontLoadingNotice(`Grabbing website fonts... ${index + 1}/${descriptors.length}`);
             const loaded = await this.loadSingleWebFontDescriptor({
                 family: descriptor.family,
                 url: descriptor.url,
@@ -1008,12 +1253,15 @@ class ArtworkCanvasRenderer {
                 weight: descriptor.weight,
                 style: descriptor.style
             });
-            if (loaded) {
-                loadedCount += 1;
-            }
+            results.push({ descriptor, loaded });
+            this.logOverlayFontEvent('candidate-font-load-finished', {
+                index,
+                family: this.normalizeFontFamilyName(descriptor?.family || descriptor?.fontFamily || ''),
+                loaded
+            });
         }
 
-        return loadedCount;
+        return results;
     }
 
     async loadSingleWebFontDescriptor(descriptor) {
@@ -1037,26 +1285,54 @@ class ArtworkCanvasRenderer {
         const url = String(descriptor.url || descriptor.fontUrl || '').trim();
 
         const googleCssUrl = explicitGoogleCssUrl || this.buildGoogleFontsCssUrl(normalizedFamily, explicitGoogleFamily || normalizedFamily, weight, style);
+        this.logOverlayFontEvent('descriptor-received', {
+            family: normalizedFamily,
+            provider,
+            weight,
+            style,
+            url,
+            explicitGoogleCssUrl,
+            explicitGoogleFamily,
+            isSystemFamily
+        });
         if (provider === 'google' || explicitGoogleCssUrl || explicitGoogleFamily) {
+            this.logOverlayFontEvent('descriptor-routing-stylesheet', {
+                family: normalizedFamily,
+                provider: provider || 'google',
+                href: googleCssUrl,
+                weight,
+                style
+            });
             return await this.ensureStylesheetFont(normalizedFamily, googleCssUrl, `${normalizedFamily}|google|${weight}|${style}`);
         }
 
         if (url) {
             const isStylesheet = /fonts\.googleapis\.com|\.css(\?|$)/i.test(url);
             if (isStylesheet) {
+                this.logOverlayFontEvent('descriptor-routing-external-stylesheet', {
+                    family: normalizedFamily,
+                    href: url,
+                    weight,
+                    style
+                });
                 return await this.ensureStylesheetFont(normalizedFamily, url, `${normalizedFamily}|css|${weight}|${style}`);
             }
+            this.logOverlayFontEvent('descriptor-routing-font-face', {
+                family: normalizedFamily,
+                url,
+                weight,
+                style
+            });
             return await this.ensureFontFaceFont(normalizedFamily, url, weight, style);
         }
 
-        if (!isSystemFamily) {
-            const fallbackUrl = this.buildGoogleFontsCssUrl(normalizedFamily, normalizedFamily, weight, style);
-            return await this.ensureStylesheetFont(
-                normalizedFamily,
-                fallbackUrl,
-                `${normalizedFamily}|fallback-google|${weight}|${style}`
-            );
-        }
+        this.logOverlayFontEvent('descriptor-skipped-no-usable-url', {
+            family: normalizedFamily,
+            provider,
+            weight,
+            style,
+            isSystemFamily
+        });
 
         return false;
     }
@@ -1102,49 +1378,134 @@ class ArtworkCanvasRenderer {
 
     async ensureStylesheetFont(family, href, key) {
         if (!href) {
+            this.logOverlayFontEvent('stylesheet-missing-href', { family, key });
             return false;
         }
         if (this._loadedWebFontKeys.has(key)) {
-            //console.log('ArtworkCanvasRenderer[overlay-chain]: stylesheet font already loaded', { family, href, key });
-            return false;
+            this.logOverlayFontEvent('stylesheet-already-loaded', { family, href, key });
+            return true;
         }
 
+        let stylesheetLink = document.querySelector(`link[rel="stylesheet"][href="${CSS.escape(href)}"]`);
         if (!this._loadedStylesheetHrefs.has(href)) {
-            //console.log('ArtworkCanvasRenderer[overlay-chain]: injecting stylesheet font link', { family, href, key });
+            this.logOverlayFontEvent('stylesheet-injecting-link', { family, href, key });
             const link = document.createElement('link');
             link.rel = 'stylesheet';
             link.href = href;
-            link.crossOrigin = 'anonymous';
             document.head.appendChild(link);
+            stylesheetLink = link;
             this._loadedStylesheetHrefs.add(href);
         } else {
-            //console.log('ArtworkCanvasRenderer[overlay-chain]: stylesheet already injected', { family, href, key });
+            this.logOverlayFontEvent('stylesheet-link-reused', { family, href, key });
         }
 
+        const stylesheetReady = await this.waitForStylesheetLink(stylesheetLink, href, family);
         const loaded = await this.waitForFontFamily(family, 3500);
-        //console.log('ArtworkCanvasRenderer[overlay-chain]: stylesheet font readiness result', { family, href, key, loaded });
+        this.logOverlayFontEvent('stylesheet-font-readiness-result', {
+            family,
+            href,
+            key,
+            stylesheetReady,
+            loaded
+        });
         if (loaded) {
             this._loadedWebFontKeys.add(key);
         }
         return loaded;
     }
 
+    waitForStylesheetLink(link, href, family, timeoutMs = 3500) {
+        if (!(link instanceof HTMLLinkElement)) {
+            this.logOverlayFontEvent('stylesheet-link-not-found', { family, href, timeoutMs });
+            return Promise.resolve(false);
+        }
+
+        if (link.sheet) {
+            this.logOverlayFontEvent('stylesheet-link-already-ready', { family, href, timeoutMs });
+            return Promise.resolve(true);
+        }
+
+        this.logOverlayFontEvent('stylesheet-link-waiting', { family, href, timeoutMs });
+        return new Promise((resolve) => {
+            let settled = false;
+            const cleanup = () => {
+                link.removeEventListener('load', handleLoad);
+                link.removeEventListener('error', handleError);
+            };
+            const finish = (ready, eventName) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                cleanup();
+                this.logOverlayFontEvent(eventName, { family, href, timeoutMs, ready });
+                resolve(ready);
+            };
+            const handleLoad = () => finish(true, 'stylesheet-link-loaded');
+            const handleError = () => finish(false, 'stylesheet-link-error');
+
+            link.addEventListener('load', handleLoad, { once: true });
+            link.addEventListener('error', handleError, { once: true });
+
+            window.setTimeout(() => {
+                finish(Boolean(link.sheet), 'stylesheet-link-timeout');
+            }, timeoutMs);
+        });
+    }
+
     async ensureFontFaceFont(family, url, weight, style) {
         const key = `${family}|${url}|${weight}|${style}`;
         if (this._loadedWebFontKeys.has(key)) {
-            //console.log('ArtworkCanvasRenderer[overlay-chain]: direct font already loaded', { family, url, weight, style, key });
-            return false;
+            this.logOverlayFontEvent('font-face-already-loaded', { family, url, weight, style, key });
+            return true;
         }
 
+        const candidateUrls = this.buildPreferredFontFaceUrls(url);
         try {
-            //console.log('ArtworkCanvasRenderer[overlay-chain]: loading direct font face', { family, url, weight, style, key });
-            const face = new FontFace(family, `url("${url}")`, { weight, style });
-            const loadedFace = await face.load();
-            document.fonts.add(loadedFace);
-            const ready = await this.waitForFontFamily(family, 3500);
-            //console.log('ArtworkCanvasRenderer[overlay-chain]: direct font face readiness result', { family, url, weight, style, key, ready });
-            this._loadedWebFontKeys.add(key);
-            return true;
+            for (const candidateUrl of candidateUrls) {
+                const resolvedUrl = this.buildFontProxyUrl(candidateUrl);
+                this.logOverlayFontEvent('font-face-loading', {
+                    family,
+                    url,
+                    candidateUrl,
+                    resolvedUrl,
+                    weight,
+                    style,
+                    key
+                });
+
+                try {
+                    const face = new FontFace(family, `url("${resolvedUrl}")`, { weight, style });
+                    const loadedFace = await face.load();
+                    document.fonts.add(loadedFace);
+                    const ready = await this.waitForFontFamily(family, 3500);
+                    this.logOverlayFontEvent('font-face-readiness-result', {
+                        family,
+                        url,
+                        candidateUrl,
+                        resolvedUrl,
+                        weight,
+                        style,
+                        key,
+                        ready
+                    });
+                    this._loadedWebFontKeys.add(key);
+                    return true;
+                } catch (candidateError) {
+                    this.logOverlayFontEvent('font-face-candidate-failed', {
+                        family,
+                        url,
+                        candidateUrl,
+                        resolvedUrl,
+                        weight,
+                        style,
+                        key,
+                        error: String(candidateError && (candidateError.message || candidateError) || 'Unknown error')
+                    });
+                }
+            }
+
+            throw new Error('No usable font face source could be loaded.');
         } catch (error) {
             console.warn('ArtworkCanvasRenderer[overlay-chain]: FontFace load failed', {
                 family,
@@ -1155,13 +1516,75 @@ class ArtworkCanvasRenderer {
         }
     }
 
-    async waitForFontFamily(family, timeoutMs = 3500) {
-        if (!document.fonts || !document.fonts.load) {
-            //console.log('ArtworkCanvasRenderer[overlay-chain]: document.fonts unavailable for font readiness check', { family, timeoutMs });
+    buildFontProxyUrl(url) {
+        const rawUrl = String(url || '').trim();
+        if (!rawUrl || /^(data:|blob:|\/api\/proxy\/font\?)/i.test(rawUrl)) {
+            return rawUrl;
+        }
+
+        try {
+            const normalizedUrl = rawUrl.startsWith('//') ? `https:${rawUrl}` : rawUrl;
+            const parsed = new URL(normalizedUrl, window.location.href);
+            if (parsed.origin === window.location.origin) {
+                return parsed.toString();
+            }
+            return `/api/proxy/font?url=${encodeURIComponent(parsed.toString())}`;
+        } catch (_error) {
+            return rawUrl;
+        }
+    }
+
+    buildPreferredFontFaceUrls(url) {
+        const rawUrl = String(url || '').trim();
+        if (!rawUrl) {
+            return [];
+        }
+
+        const candidates = [];
+        const seen = new Set();
+        const pushCandidate = (candidate) => {
+            const normalized = String(candidate || '').trim();
+            if (!normalized || seen.has(normalized)) {
+                return;
+            }
+            seen.add(normalized);
+            candidates.push(normalized);
+        };
+
+        const extensionMatch = rawUrl.match(/\.([a-z0-9]+)(\?.*)?$/i);
+        const extension = extensionMatch ? extensionMatch[1].toLowerCase() : '';
+        const query = extensionMatch ? (extensionMatch[2] || '') : '';
+        const baseWithoutExtension = extensionMatch ? rawUrl.slice(0, rawUrl.length - extensionMatch[0].length) : rawUrl;
+
+        if (extension === 'eot') {
+            ['woff2', 'woff', 'ttf', 'otf'].forEach((replacementExtension) => {
+                pushCandidate(`${baseWithoutExtension}.${replacementExtension}${query}`);
+            });
+        }
+
+        pushCandidate(rawUrl);
+        return candidates;
+    }
+
+    isLinkedWebFontCandidate(descriptor) {
+        if (!descriptor || typeof descriptor !== 'object') {
             return false;
         }
 
-        //console.log('ArtworkCanvasRenderer[overlay-chain]: waiting for font family', { family, timeoutMs });
+        return Boolean(
+            String(descriptor.url || descriptor.fontUrl || '').trim() ||
+            String(descriptor.googleFontUrl || '').trim() ||
+            String(descriptor.googleFont || '').trim()
+        );
+    }
+
+    async waitForFontFamily(family, timeoutMs = 3500) {
+        if (!document.fonts || !document.fonts.load) {
+            this.logOverlayFontEvent('font-readiness-unavailable', { family, timeoutMs });
+            return false;
+        }
+
+        this.logOverlayFontEvent('font-readiness-waiting', { family, timeoutMs });
         const timeoutPromise = new Promise((resolve) => {
             window.setTimeout(() => resolve(false), timeoutMs);
         });
@@ -1170,8 +1593,287 @@ class ArtworkCanvasRenderer {
             .then(() => true)
             .catch(() => false);
         const ready = await Promise.race([loadPromise, timeoutPromise]);
-        //console.log('ArtworkCanvasRenderer[overlay-chain]: font family wait finished', { family, timeoutMs, ready });
+        this.logOverlayFontEvent('font-readiness-finished', { family, timeoutMs, ready });
         return ready;
+    }
+
+    collectOverlayFontCandidates(overlay) {
+        const descriptors = [];
+        const descriptorByFamily = new Map();
+
+        if (!overlay || typeof overlay !== 'object') {
+            return descriptors;
+        }
+
+        const registerDescriptor = (descriptor, sourceKind) => {
+            if (!descriptor || typeof descriptor !== 'object') {
+                return;
+            }
+
+            const family = this.normalizeFontFamilyName(descriptor.family || descriptor.fontFamily || '');
+            if (!family) {
+                return;
+            }
+
+            const normalizedDescriptor = {
+                ...descriptor,
+                family,
+                __candidateSourceKind: sourceKind
+            };
+            const existing = descriptorByFamily.get(family);
+
+            if (!existing) {
+                descriptorByFamily.set(family, normalizedDescriptor);
+                descriptors.push(normalizedDescriptor);
+                return;
+            }
+
+            const existingPriority = this.getOverlayFontCandidateSourcePriority(existing.__candidateSourceKind);
+            const nextPriority = this.getOverlayFontCandidateSourcePriority(sourceKind);
+            if (nextPriority > existingPriority) {
+                const descriptorIndex = descriptors.indexOf(existing);
+                if (descriptorIndex >= 0) {
+                    descriptors[descriptorIndex] = normalizedDescriptor;
+                }
+                descriptorByFamily.set(family, normalizedDescriptor);
+                this.logOverlayFontEvent('candidate-font-family-replaced', {
+                    family,
+                    previousSourceKind: existing.__candidateSourceKind || '',
+                    nextSourceKind: sourceKind
+                });
+                return;
+            }
+
+            this.logOverlayFontEvent('candidate-font-family-deduped', {
+                family,
+                keptSourceKind: existing.__candidateSourceKind || '',
+                skippedSourceKind: sourceKind,
+                skippedUrl: String(descriptor.url || descriptor.fontUrl || '').trim(),
+                skippedGoogleFontUrl: String(descriptor.googleFontUrl || '').trim()
+            });
+        };
+
+        if (Array.isArray(overlay.webFonts)) {
+            overlay.webFonts.forEach((descriptor) => registerDescriptor(descriptor, 'overlay-web-font'));
+        }
+
+        if (Array.isArray(overlay.texts)) {
+            overlay.texts.forEach((text) => {
+                if (text && (text.fontUrl || text.googleFont || text.googleFontUrl)) {
+                    registerDescriptor({
+                        family: text.fontFamily,
+                        url: text.fontUrl || null,
+                        googleFont: text.googleFont || null,
+                        googleFontUrl: text.googleFontUrl || null,
+                        source: text.fontProvider || null,
+                        weight: text.fontWeight,
+                        style: text.fontStyle
+                    }, 'text-font-hint');
+                }
+            });
+        }
+
+        return descriptors;
+    }
+
+    getOverlayFontCandidateSourcePriority(sourceKind) {
+        switch (String(sourceKind || '').trim()) {
+        case 'overlay-web-font':
+            return 2;
+        case 'text-font-hint':
+            return 1;
+        default:
+            return 0;
+        }
+    }
+
+    describeOverlayFontCandidate(descriptor) {
+        if (!descriptor || typeof descriptor !== 'object') {
+            return { family: '', source: '', hasUrl: false, hasGoogleUrl: false };
+        }
+
+        return {
+            family: this.normalizeFontFamilyName(descriptor.family || descriptor.fontFamily || ''),
+            source: String(descriptor.source || descriptor.provider || '').trim(),
+            weight: String(descriptor.weight || descriptor.fontWeight || '').trim(),
+            style: String(descriptor.style || descriptor.fontStyle || '').trim(),
+            fontRef: String(descriptor.fontRef || '').trim(),
+            url: String(descriptor.url || descriptor.fontUrl || '').trim(),
+            googleFont: String(descriptor.googleFont || '').trim(),
+            googleFontUrl: String(descriptor.googleFontUrl || '').trim(),
+            hasUrl: !!String(descriptor.url || descriptor.fontUrl || '').trim(),
+            hasGoogleUrl: !!String(descriptor.googleFontUrl || '').trim()
+        };
+    }
+
+    findMatchingOverlayFontCandidate(fontCandidates, textData) {
+        if (!Array.isArray(fontCandidates) || !textData || typeof textData !== 'object') {
+            return null;
+        }
+
+        const requestedRef = this.normalizeFontFamilyName(textData.fontRef || '');
+        const requestedFamily = this.normalizeFontFamilyName(textData.fontFamily || '');
+
+        return fontCandidates.find((descriptor) => {
+            const descriptorFamily = this.normalizeFontFamilyName(descriptor?.family || descriptor?.fontFamily || '');
+            return (requestedRef && descriptorFamily === requestedRef) || (requestedFamily && descriptorFamily === requestedFamily);
+        }) || null;
+    }
+
+    getOverlayFontCandidateIndex(fontCandidates, candidate) {
+        if (!Array.isArray(fontCandidates) || !candidate) {
+            return -1;
+        }
+
+        const candidateFamily = this.normalizeFontFamilyName(candidate.family || candidate.fontFamily || '');
+        return fontCandidates.findIndex((descriptor) => {
+            const descriptorFamily = this.normalizeFontFamilyName(descriptor?.family || descriptor?.fontFamily || '');
+            return descriptorFamily && descriptorFamily === candidateFamily;
+        });
+    }
+
+    applyLoadedWebFontCandidatesToTextBlocks(fontCandidates, fontLoadResults, textBlocks) {
+        const candidates = Array.isArray(fontCandidates) ? fontCandidates : [];
+        const results = Array.isArray(fontLoadResults) ? fontLoadResults : [];
+        const blocks = Array.isArray(textBlocks) ? textBlocks : [];
+        const loadedCandidates = results.filter((result) => result && result.loaded).map((result) => result.descriptor);
+        const loadedCandidateFamilies = loadedCandidates.map((descriptor) => this.normalizeFontFamilyName(descriptor?.family || descriptor?.fontFamily || '')).filter(Boolean);
+
+        this.logOverlayFontEvent('candidate-fonts-loaded-summary', {
+            requestedCandidates: candidates.length,
+            loadedCandidates: loadedCandidateFamilies.length,
+            loadedFamilies: loadedCandidateFamilies
+        });
+
+        blocks.forEach((block, index) => {
+            const matchedCandidate = block?.candidateFontMatched || null;
+            const matchedIndex = this.getOverlayFontCandidateIndex(candidates, matchedCandidate);
+            const fallbackCandidate = this.findFirstLoadedFontCandidateAtOrAfter(results, matchedIndex >= 0 ? matchedIndex : 0);
+            const requestedFontFamily = block?.fontFamily || '';
+            const requestedFontRef = block?.fontRef || '';
+
+            if (!matchedCandidate || !fallbackCandidate) {
+                this.logOverlayFontEvent('text-block-font-resolution', {
+                    blockId: block?.id || null,
+                    index,
+                    requestedFontFamily,
+                    requestedFontRef,
+                    resolvedFontFamily: block?.fontFamily || '',
+                    resolution: matchedCandidate ? 'no-loaded-candidate-found' : 'no-linked-candidate-match'
+                });
+                return;
+            }
+
+            const resolvedFamily = this.normalizeFontFamilyName(fallbackCandidate.family || fallbackCandidate.fontFamily || '');
+            if (!resolvedFamily) {
+                return;
+            }
+
+            block.fontFamily = resolvedFamily;
+            block.fontRef = resolvedFamily;
+            block.resolvedWebFontCandidate = fallbackCandidate;
+            this.logOverlayFontEvent('text-block-font-resolution', {
+                blockId: block?.id || null,
+                index,
+                requestedFontFamily: this.normalizeFontFamilyName(matchedCandidate.family || matchedCandidate.fontFamily || requestedFontFamily),
+                requestedFontRef,
+                resolvedFontFamily: resolvedFamily,
+                resolution: resolvedFamily === this.normalizeFontFamilyName(matchedCandidate.family || matchedCandidate.fontFamily || '') ? 'matched-candidate-loaded' : 'fell-forward-to-next-candidate'
+            });
+        });
+    }
+
+    findFirstLoadedFontCandidateAtOrAfter(results, startIndex) {
+        if (!Array.isArray(results) || !results.length) {
+            return null;
+        }
+
+        const safeStartIndex = Number.isInteger(startIndex) && startIndex >= 0 ? startIndex : 0;
+        for (let index = safeStartIndex; index < results.length; index += 1) {
+            if (results[index]?.loaded) {
+                return results[index].descriptor || null;
+            }
+        }
+        return results.find((result) => result?.loaded)?.descriptor || null;
+    }
+
+    buildOverlayFontUsageSummary(fontCandidates, textBlocks) {
+        const candidates = Array.isArray(fontCandidates) ? fontCandidates : [];
+        const blocks = Array.isArray(textBlocks) ? textBlocks : [];
+        const usedFamilies = new Set();
+        const unusedFamilies = new Set(
+            candidates
+                .map((descriptor) => this.normalizeFontFamilyName(descriptor?.family || descriptor?.fontFamily || ''))
+                .filter(Boolean)
+        );
+        const unmatchedTextBlocks = [];
+
+        blocks.forEach((block, index) => {
+            const matchedFamily = this.normalizeFontFamilyName(block?.candidateFontMatched?.family || block?.candidateFontMatched?.fontFamily || '');
+            if (matchedFamily) {
+                usedFamilies.add(matchedFamily);
+                unusedFamilies.delete(matchedFamily);
+                return;
+            }
+
+            unmatchedTextBlocks.push({
+                index,
+                id: block?.id || null,
+                fontRef: block?.fontRef || '',
+                fontFamily: block?.fontFamily || '',
+                textPreview: String(block?.text || '').slice(0, 80)
+            });
+        });
+
+        return {
+            candidateCount: candidates.length,
+            usedCandidateFamilies: Array.from(usedFamilies),
+            unusedCandidateFamilies: Array.from(unusedFamilies),
+            matchedTextBlocks: blocks.length - unmatchedTextBlocks.length,
+            unmatchedTextBlocks
+        };
+    }
+
+    logOverlayFontEvent(eventName, details = {}) {
+        //console.log(`ArtworkCanvasRenderer[overlay-fonts]: ${eventName}`, details);
+    }
+
+    showOverlayFontLoadingNotice(message) {
+        let notice = this._fontLoadingNoticeElement;
+        if (!(notice instanceof HTMLElement)) {
+            notice = document.createElement('div');
+            notice.className = 'overlay-font-loading-notice';
+            notice.style.position = 'fixed';
+            notice.style.top = '24px';
+            notice.style.right = '24px';
+            notice.style.zIndex = '99999';
+            notice.style.padding = '10px 14px';
+            notice.style.borderRadius = '10px';
+            notice.style.background = 'rgba(17, 24, 39, 0.92)';
+            notice.style.color = '#F9FAFB';
+            notice.style.fontSize = '13px';
+            notice.style.fontWeight = '600';
+            notice.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.24)';
+            notice.style.backdropFilter = 'blur(10px)';
+            notice.style.pointerEvents = 'none';
+            document.body.appendChild(notice);
+            this._fontLoadingNoticeElement = notice;
+        }
+        notice.textContent = message;
+        notice.style.display = 'block';
+    }
+
+    updateOverlayFontLoadingNotice(message) {
+        if (this._fontLoadingNoticeElement instanceof HTMLElement) {
+            this._fontLoadingNoticeElement.textContent = message;
+        }
+    }
+
+    hideOverlayFontLoadingNotice() {
+        if (this._fontLoadingNoticeElement instanceof HTMLElement) {
+            this._fontLoadingNoticeElement.remove();
+        }
+        this._fontLoadingNoticeElement = null;
     }
 
     /**
