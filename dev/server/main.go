@@ -8882,12 +8882,27 @@ func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 }
 
 type websiteStyleAnalysisResponse struct {
-	URL             string   `json:"url"`
-	Fonts           []string `json:"fonts"`
-	Colors          []string `json:"colors"`
-	RawFontFamilies []string `json:"rawFontFamilies,omitempty"`
-	RawColors       []string `json:"rawColors,omitempty"`
-	ExtractedAt     string   `json:"extractedAt"`
+	URL             string                       `json:"url"`
+	Fonts           []string                     `json:"fonts"`
+	Colors          []string                     `json:"colors"`
+	FontDescriptors []websiteStyleFontDescriptor `json:"fontDescriptors,omitempty"`
+	RawFontFamilies []string                     `json:"rawFontFamilies,omitempty"`
+	RawColors       []string                     `json:"rawColors,omitempty"`
+	ExtractedAt     string                       `json:"extractedAt"`
+}
+
+type websiteStyleFontDescriptor struct {
+	Family        string `json:"family"`
+	Source        string `json:"source,omitempty"`
+	URL           string `json:"url,omitempty"`
+	GoogleFontURL string `json:"googleFontUrl,omitempty"`
+	Weight        string `json:"weight,omitempty"`
+	Style         string `json:"style,omitempty"`
+}
+
+type styleCloneCSSSource struct {
+	CSSText   string
+	SourceURL *url.URL
 }
 
 func fetchWebsiteStyleAnalysis(w http.ResponseWriter, r *http.Request) {
@@ -9025,14 +9040,15 @@ func extractWebsiteStyleAnalysis(client *http.Client, body []byte, baseURL *url.
 	colorScores := map[string]int{}
 	rawFontFamilies := map[string]struct{}{}
 	rawColors := map[string]struct{}{}
-	cssSources := make([]string, 0, 16)
+	fontDescriptorByFamily := map[string]websiteStyleFontDescriptor{}
+	cssSources := make([]styleCloneCSSSource, 0, 16)
 	stylesheetSeen := map[string]struct{}{}
 	metaThemeColors := make([]string, 0, 2)
 
 	doc.Find("style").Each(func(_ int, selection *goquery.Selection) {
 		cssText := strings.TrimSpace(selection.Text())
 		if cssText != "" {
-			cssSources = append(cssSources, cssText)
+			cssSources = append(cssSources, styleCloneCSSSource{CSSText: cssText})
 		}
 	})
 
@@ -9040,7 +9056,7 @@ func extractWebsiteStyleAnalysis(client *http.Client, body []byte, baseURL *url.
 		if inlineStyle, ok := selection.Attr("style"); ok {
 			inlineStyle = strings.TrimSpace(inlineStyle)
 			if inlineStyle != "" {
-				cssSources = append(cssSources, inlineStyle)
+				cssSources = append(cssSources, styleCloneCSSSource{CSSText: inlineStyle})
 			}
 		}
 	})
@@ -9079,41 +9095,152 @@ func extractWebsiteStyleAnalysis(client *http.Client, body []byte, baseURL *url.
 
 		cssText, err := fetchStyleCloneTextResource(client, resolvedURL.String())
 		if err != nil || strings.TrimSpace(cssText) == "" {
-			if err != nil {
-				log.Printf("[WebsiteStyleClone] stylesheet-fetch-failed url=%q err=%v", resolvedURL.String(), err)
-			}
 			return
 		}
 
 		stylesheetCount += 1
-		cssSources = append(cssSources, cssText)
+		cssSources = append(cssSources, styleCloneCSSSource{CSSText: cssText, SourceURL: resolvedURL})
 	})
 
-	for _, cssText := range cssSources {
-		collectStyleCloneHintsFromCSS(cssText, fontScores, colorScores, rawFontFamilies, rawColors)
+	cssSources = expandImportedStyleCloneCSSSources(client, cssSources, baseURL, stylesheetSeen, 10)
+
+	for _, cssSource := range cssSources {
+		collectStyleCloneHintsFromCSS(cssSource.CSSText, cssSource.SourceURL, fontScores, colorScores, rawFontFamilies, rawColors, fontDescriptorByFamily)
 	}
 
 	for _, metaColor := range metaThemeColors {
 		collectColorsFromValue(metaColor, colorScores, rawColors, 4)
 	}
 
-	analysis.Fonts = topRankedMapKeys(fontScores, 4)
+	analysis.Fonts = topRankedStyleCloneFontKeys(fontScores, 10)
 	analysis.Colors = topRankedMapKeys(colorScores, 6)
+	analysis.FontDescriptors = rankedStyleCloneFontDescriptors(analysis.Fonts, fontDescriptorByFamily, 10)
 	analysis.RawFontFamilies = sortedStringSet(rawFontFamilies)
 	analysis.RawColors = sortedStringSet(rawColors)
 	return analysis, nil
 }
 
-func collectStyleCloneHintsFromCSS(cssText string, fontScores, colorScores map[string]int, rawFontFamilies, rawColors map[string]struct{}) {
+func expandImportedStyleCloneCSSSources(client *http.Client, cssSources []styleCloneCSSSource, baseURL *url.URL, stylesheetSeen map[string]struct{}, maxStylesheets int) []styleCloneCSSSource {
+	importURLRegex := regexp.MustCompile(`(?i)@import\s+(?:url\()?\s*["']?([^"'\s)]+)`)
+	fetchedCount := 0
+
+	for index := 0; index < len(cssSources); index++ {
+		if fetchedCount >= maxStylesheets {
+			break
+		}
+
+		cssSource := cssSources[index]
+		cssBaseURL := baseURL
+		if cssSource.SourceURL != nil {
+			cssBaseURL = cssSource.SourceURL
+		}
+		if cssBaseURL == nil || strings.TrimSpace(cssSource.CSSText) == "" {
+			continue
+		}
+
+		for _, match := range importURLRegex.FindAllStringSubmatch(cssSource.CSSText, -1) {
+			if fetchedCount >= maxStylesheets || len(match) < 2 {
+				break
+			}
+
+			importTarget := strings.TrimSpace(match[1])
+			if importTarget == "" {
+				continue
+			}
+
+			resolvedURL, err := cssBaseURL.Parse(importTarget)
+			if err != nil || resolvedURL == nil {
+				continue
+			}
+			if _, exists := stylesheetSeen[resolvedURL.String()]; exists {
+				continue
+			}
+
+			cssText, err := fetchStyleCloneTextResource(client, resolvedURL.String())
+			if err != nil || strings.TrimSpace(cssText) == "" {
+				continue
+			}
+
+			stylesheetSeen[resolvedURL.String()] = struct{}{}
+			fetchedCount += 1
+			cssSources = append(cssSources, styleCloneCSSSource{CSSText: cssText, SourceURL: resolvedURL})
+		}
+	}
+
+	return cssSources
+}
+
+func collectStyleCloneHintsFromCSS(cssText string, sourceURL *url.URL, fontScores, colorScores map[string]int, rawFontFamilies, rawColors map[string]struct{}, fontDescriptorByFamily map[string]websiteStyleFontDescriptor) {
 	if strings.TrimSpace(cssText) == "" {
 		return
 	}
+	cssText = strings.ReplaceAll(cssText, `\"`, `"`)
+	cssText = strings.ReplaceAll(cssText, `\'`, `'`)
 
 	googleFontURLRegex := regexp.MustCompile(`https?://fonts\.googleapis\.com/css[^'"\s)]+`)
 	for _, match := range googleFontURLRegex.FindAllString(cssText, -1) {
-		for _, family := range extractFontNamesFromGoogleFontsURL(match) {
+		families := extractFontNamesFromGoogleFontsURL(match)
+		if len(families) == 0 {
+			continue
+		}
+		for _, family := range families {
 			rawFontFamilies[family] = struct{}{}
 			fontScores[family] += 5
+			mergeWebsiteStyleFontDescriptor(fontDescriptorByFamily, websiteStyleFontDescriptor{
+				Family:        family,
+				Source:        "google",
+				GoogleFontURL: match,
+			})
+		}
+	}
+
+	fontFaceRegex := regexp.MustCompile(`(?is)@font-face\s*\{([^}]*)\}`)
+	for _, match := range fontFaceRegex.FindAllStringSubmatch(cssText, -1) {
+		if len(match) < 2 {
+			continue
+		}
+
+		block := match[1]
+		families := extractStyleCloneDeclarationValues(block, "font-family")
+		if len(families) == 0 {
+			continue
+		}
+
+		weight := firstStyleCloneDeclarationValue(block, "font-weight")
+		style := firstStyleCloneDeclarationValue(block, "font-style")
+		srcValues := extractStyleCloneDeclarationValues(block, "src")
+		fontURL := ""
+		for _, srcValue := range srcValues {
+			preferredURL := extractPreferredStyleCloneFontURL(srcValue, sourceURL)
+			if preferredURL != "" {
+				fontURL = preferredURL
+				break
+			}
+		}
+
+		for _, familyValue := range families {
+			for _, family := range parseFontFamilyList(familyValue) {
+				if family == "" {
+					continue
+				}
+				rawFontFamilies[family] = struct{}{}
+				if !isGenericFontFamily(family) {
+					fontScores[family] += 4
+				}
+				descriptor := websiteStyleFontDescriptor{
+					Family: family,
+					Source: "url",
+					URL:    fontURL,
+					Weight: weight,
+					Style:  style,
+				}
+				if descriptor.URL == "" {
+					descriptor = inferWebsiteFontDescriptorFromStylesheetURL(family, sourceURL)
+					descriptor.Weight = weight
+					descriptor.Style = style
+				}
+				mergeWebsiteStyleFontDescriptor(fontDescriptorByFamily, descriptor)
+			}
 		}
 	}
 
@@ -9133,10 +9260,215 @@ func collectStyleCloneHintsFromCSS(cssText string, fontScores, colorScores map[s
 				weight = 3
 			}
 			fontScores[family] += weight
+			descriptor := inferWebsiteFontDescriptorFromStylesheetURL(family, sourceURL)
+			mergeWebsiteStyleFontDescriptor(fontDescriptorByFamily, descriptor)
 		}
 	}
 
 	collectColorsFromValue(cssText, colorScores, rawColors, 1)
+}
+
+func extractStyleCloneDeclarationValues(block string, property string) []string {
+	regex := regexp.MustCompile(`(?is)` + regexp.QuoteMeta(property) + `\s*:\s*([^;]+)`)
+	matches := regex.FindAllStringSubmatch(block, -1)
+	values := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		value := strings.TrimSpace(match[1])
+		if value != "" {
+			values = append(values, value)
+		}
+	}
+	return values
+}
+
+func firstStyleCloneDeclarationValue(block string, property string) string {
+	values := extractStyleCloneDeclarationValues(block, property)
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+func extractStyleCloneResolvedURLs(value string, baseURL *url.URL) []string {
+	urlRegex := regexp.MustCompile(`(?i)url\(([^)]+)\)`)
+	matches := urlRegex.FindAllStringSubmatch(value, -1)
+	result := make([]string, 0, len(matches))
+	seen := map[string]struct{}{}
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		candidate := strings.TrimSpace(strings.Trim(match[1], `"'`))
+		if candidate == "" || strings.HasPrefix(strings.ToLower(candidate), "data:") {
+			continue
+		}
+
+		resolved := candidate
+		if strings.HasPrefix(candidate, "//") {
+			resolved = "https:" + candidate
+		}
+		if baseURL != nil {
+			parsed, err := baseURL.Parse(candidate)
+			if err == nil && parsed != nil {
+				resolved = parsed.String()
+			}
+		}
+
+		if _, exists := seen[resolved]; exists {
+			continue
+		}
+		seen[resolved] = struct{}{}
+		result = append(result, resolved)
+	}
+	return result
+}
+
+func extractPreferredStyleCloneFontURL(value string, baseURL *url.URL) string {
+	type candidate struct {
+		url   string
+		score int
+	}
+
+	entries := strings.Split(value, ",")
+	best := candidate{}
+	for _, entry := range entries {
+		resolvedURLs := extractStyleCloneResolvedURLs(entry, baseURL)
+		if len(resolvedURLs) == 0 {
+			continue
+		}
+		resolvedURL := resolvedURLs[0]
+		score := scoreStyleCloneFontCandidate(entry, resolvedURL)
+		if score > best.score {
+			best = candidate{url: resolvedURL, score: score}
+		}
+	}
+
+	return best.url
+}
+
+func scoreStyleCloneFontCandidate(srcEntry string, resolvedURL string) int {
+	normalizedEntry := strings.ToLower(srcEntry)
+	normalizedURL := strings.ToLower(strings.Split(resolvedURL, "?")[0])
+
+	switch {
+	case strings.Contains(normalizedEntry, `format("woff2")`) || strings.Contains(normalizedEntry, `format('woff2')`) || strings.HasSuffix(normalizedURL, ".woff2"):
+		return 6
+	case strings.Contains(normalizedEntry, `format("woff")`) || strings.Contains(normalizedEntry, `format('woff')`) || strings.HasSuffix(normalizedURL, ".woff"):
+		return 5
+	case strings.Contains(normalizedEntry, `format("opentype")`) || strings.Contains(normalizedEntry, `format('opentype')`) || strings.HasSuffix(normalizedURL, ".otf"):
+		return 4
+	case strings.Contains(normalizedEntry, `format("truetype")`) || strings.Contains(normalizedEntry, `format('truetype')`) || strings.HasSuffix(normalizedURL, ".ttf"):
+		return 3
+	case strings.HasSuffix(normalizedURL, ".svg"):
+		return 2
+	case strings.HasSuffix(normalizedURL, ".eot"):
+		return 1
+	default:
+		return 2
+	}
+}
+
+func inferWebsiteFontDescriptorFromStylesheetURL(family string, sourceURL *url.URL) websiteStyleFontDescriptor {
+	if sourceURL == nil || family == "" {
+		return websiteStyleFontDescriptor{Family: family}
+	}
+
+	host := strings.ToLower(sourceURL.Host)
+	rawURL := sourceURL.String()
+	switch {
+	case strings.Contains(host, "fonts.googleapis.com"):
+		return websiteStyleFontDescriptor{Family: family, Source: "google", GoogleFontURL: rawURL}
+	case strings.Contains(host, "use.typekit.net"), strings.Contains(host, "fonts.adobe.com"), strings.Contains(host, "fonts.bunny.net"), strings.Contains(host, "fast.fonts.net"):
+		return websiteStyleFontDescriptor{Family: family, Source: "url", URL: rawURL}
+	default:
+		return websiteStyleFontDescriptor{Family: family}
+	}
+}
+
+func mergeWebsiteStyleFontDescriptor(target map[string]websiteStyleFontDescriptor, descriptor websiteStyleFontDescriptor) {
+	family := strings.TrimSpace(descriptor.Family)
+	if family == "" {
+		return
+	}
+
+	key := strings.ToLower(family)
+	descriptor.Family = family
+	existing, exists := target[key]
+	if !exists {
+		target[key] = descriptor
+		return
+	}
+
+	if websiteStyleFontDescriptorRank(descriptor) > websiteStyleFontDescriptorRank(existing) {
+		target[key] = descriptor
+		return
+	}
+
+	if existing.Source == "" && descriptor.Source != "" {
+		existing.Source = descriptor.Source
+	}
+	if existing.URL == "" && descriptor.URL != "" {
+		existing.URL = descriptor.URL
+	}
+	if existing.GoogleFontURL == "" && descriptor.GoogleFontURL != "" {
+		existing.GoogleFontURL = descriptor.GoogleFontURL
+	}
+	if existing.Weight == "" && descriptor.Weight != "" {
+		existing.Weight = descriptor.Weight
+	}
+	if existing.Style == "" && descriptor.Style != "" {
+		existing.Style = descriptor.Style
+	}
+	target[key] = existing
+}
+
+func websiteStyleFontDescriptorRank(descriptor websiteStyleFontDescriptor) int {
+	switch {
+	case descriptor.GoogleFontURL != "":
+		return 4
+	case descriptor.URL != "" && strings.HasSuffix(strings.ToLower(strings.Split(descriptor.URL, "?")[0]), ".woff2"):
+		return 3
+	case descriptor.URL != "" && strings.HasSuffix(strings.ToLower(strings.Split(descriptor.URL, "?")[0]), ".woff"):
+		return 2
+	case descriptor.URL != "":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func rankedStyleCloneFontDescriptors(fonts []string, fontDescriptorByFamily map[string]websiteStyleFontDescriptor, limit int) []websiteStyleFontDescriptor {
+	result := make([]websiteStyleFontDescriptor, 0, len(fonts))
+	seen := map[string]struct{}{}
+	for _, family := range fonts {
+		key := strings.ToLower(strings.TrimSpace(family))
+		if key == "" {
+			continue
+		}
+		descriptor, exists := fontDescriptorByFamily[key]
+		if !exists {
+			continue
+		}
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, descriptor)
+		if limit > 0 && len(result) >= limit {
+			break
+		}
+	}
+	return result
+}
+
+func stringURL(value *url.URL) string {
+	if value == nil {
+		return ""
+	}
+	return value.String()
 }
 
 func collectColorsFromValue(value string, colorScores map[string]int, rawColors map[string]struct{}, weight int) {
@@ -9187,11 +9519,19 @@ func isGenericFontFamily(value string) bool {
 }
 
 func extractFontNamesFromGoogleFontsURL(rawURL string) []string {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return nil
+	familyRegex := regexp.MustCompile(`(?i)(?:[?&])family=([^&]+)`)
+	matches := familyRegex.FindAllStringSubmatch(rawURL, -1)
+	values := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		decoded, err := url.QueryUnescape(match[1])
+		if err != nil {
+			decoded = strings.ReplaceAll(match[1], "+", " ")
+		}
+		values = append(values, decoded)
 	}
-	values := parsed.Query()["family"]
 	result := make([]string, 0, len(values))
 	seen := map[string]struct{}{}
 	for _, familyValue := range values {
@@ -9294,6 +9634,99 @@ func topRankedMapKeys(scores map[string]int, limit int) []string {
 		keys = keys[:limit]
 	}
 	return keys
+}
+
+func topRankedStyleCloneFontKeys(scores map[string]int, limit int) []string {
+	if len(scores) == 0 || limit <= 0 {
+		return nil
+	}
+
+	sortedKeys := topRankedMapKeys(scores, len(scores))
+	result := make([]string, 0, min(limit, len(sortedKeys)))
+	seenFamilies := map[string]struct{}{}
+	seenKeys := map[string]struct{}{}
+
+	for _, key := range sortedKeys {
+		familyRoot := normalizeStyleCloneFontFamilyRoot(key)
+		if familyRoot == "" {
+			familyRoot = strings.ToLower(strings.TrimSpace(key))
+		}
+		if _, exists := seenFamilies[familyRoot]; exists {
+			continue
+		}
+		seenFamilies[familyRoot] = struct{}{}
+		seenKeys[key] = struct{}{}
+		result = append(result, key)
+		if len(result) >= limit {
+			return result
+		}
+	}
+
+	for _, key := range sortedKeys {
+		if _, exists := seenKeys[key]; exists {
+			continue
+		}
+		result = append(result, key)
+		if len(result) >= limit {
+			break
+		}
+	}
+
+	return result
+}
+
+func normalizeStyleCloneFontFamilyRoot(family string) string {
+	trimmed := strings.TrimSpace(family)
+	if trimmed == "" {
+		return ""
+	}
+
+	variantTokens := map[string]struct{}{
+		"thin":       {},
+		"hairline":   {},
+		"ultralight": {},
+		"extra":      {},
+		"light":      {},
+		"book":       {},
+		"normal":     {},
+		"regular":    {},
+		"roman":      {},
+		"text":       {},
+		"medium":     {},
+		"semi":       {},
+		"semibold":   {},
+		"demi":       {},
+		"demibold":   {},
+		"bold":       {},
+		"extrabold":  {},
+		"ultrabold":  {},
+		"black":      {},
+		"heavy":      {},
+		"italic":     {},
+		"oblique":    {},
+		"condensed":  {},
+		"compressed": {},
+		"narrow":     {},
+		"wide":       {},
+		"extended":   {},
+	}
+
+	parts := strings.Fields(trimmed)
+	cutIndex := len(parts)
+	for cutIndex > 1 {
+		token := strings.ToLower(strings.Trim(parts[cutIndex-1], `"'`))
+		if _, isVariant := variantTokens[token]; !isVariant {
+			break
+		}
+		cutIndex -= 1
+	}
+
+	root := strings.Join(parts[:cutIndex], " ")
+	root = strings.ToLower(strings.TrimSpace(root))
+	if root == "" {
+		return strings.ToLower(trimmed)
+	}
+	return root
 }
 
 func sortedStringSet(values map[string]struct{}) []string {
@@ -9527,6 +9960,88 @@ func proxyPdfContent(w http.ResponseWriter, r *http.Request) {
 	// Write PDF data to response
 	w.Write(pdfData)
 }
+
+func proxyFontContent(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	fontURL := r.URL.Query().Get("url")
+	if fontURL == "" {
+		http.Error(w, "Missing url parameter", http.StatusBadRequest)
+		return
+	}
+
+	validatedFontURL, err := validateOutboundURL(fontURL)
+	if err != nil {
+		log.Printf("[FontProxy] rejected url=%q err=%v", fontURL, err)
+		http.Error(w, "Invalid or disallowed font URL", http.StatusBadRequest)
+		return
+	}
+
+	client := &http.Client{
+		Timeout: 20 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if _, err := validateOutboundURL(req.URL.String()); err != nil {
+				return fmt.Errorf("redirect blocked: %w", err)
+			}
+			if len(via) >= 10 {
+				return errors.New("too many redirects")
+			}
+			return nil
+		},
+	}
+
+	req, err := http.NewRequest(http.MethodGet, validatedFontURL.String(), nil)
+	if err != nil {
+		http.Error(w, "Failed to create font request", http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "font/woff2,font/woff,font/ttf,font/otf,application/font-woff,application/octet-stream,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Referer", validatedFontURL.Scheme+"://"+validatedFontURL.Host+"/")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("[FontProxy] fetch-failed url=%q err=%v", validatedFontURL.String(), err)
+		http.Error(w, "Failed to fetch font", http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("[FontProxy] bad-status url=%q status=%d content_type=%q", validatedFontURL.String(), resp.StatusCode, resp.Header.Get("Content-Type"))
+		http.Error(w, fmt.Sprintf("Font source returned status %d", resp.StatusCode), resp.StatusCode)
+		return
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if contentType != "" {
+		w.Header().Set("Content-Type", contentType)
+	} else {
+		w.Header().Set("Content-Type", "application/octet-stream")
+	}
+	if cacheControl := resp.Header.Get("Cache-Control"); cacheControl != "" {
+		w.Header().Set("Cache-Control", cacheControl)
+	} else {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+	}
+
+	bytesWritten, copyErr := io.Copy(w, io.LimitReader(resp.Body, 10*1024*1024))
+	if copyErr != nil {
+		log.Printf("[FontProxy] stream-failed url=%q err=%v", validatedFontURL.String(), copyErr)
+		return
+	}
+
+	log.Printf("[FontProxy] fetch-succeeded url=%q content_type=%q bytes=%d", validatedFontURL.String(), contentType, bytesWritten)
+}
+
 func openBrowser(url string) {
 	var err error
 
@@ -9990,6 +10505,7 @@ func main() {
 	mux.HandleFunc("/api/search/bing", proxyBingSearch)
 	mux.HandleFunc("/api/extract/raw-html", fetchRawHtmlForLinks)
 	mux.HandleFunc("/api/proxy/pdf", proxyPdfContent)
+	mux.HandleFunc("/api/proxy/font", proxyFontContent)
 	mux.HandleFunc("/api/proxy/image-search", proxyImageSearch)
 	mux.HandleFunc("/api/proxy/fetch-image", proxyFetchImage)
 	mux.HandleFunc("/api/version-check", proxyVersionCheck)
