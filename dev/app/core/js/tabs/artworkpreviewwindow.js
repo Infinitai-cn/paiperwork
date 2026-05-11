@@ -1905,16 +1905,10 @@ class ArtworkPreviewWindow {
             if (this.canvasPreviewManager.renderer) {
                 const overlayFromEditor = this.parseOverlayJsonFromEditorText(code);
                 if (overlayFromEditor) {
-                    console.log('ArtworkPreviewWindow[overlay-chain]: updatePreview reloading overlay JSON into canvas renderer', {
-                        texts: Array.isArray(overlayFromEditor.overlay?.texts) ? overlayFromEditor.overlay.texts.length : 0,
-                        shapes: Array.isArray(overlayFromEditor.overlay?.shapes) ? overlayFromEditor.overlay.shapes.length : 0,
-                        lines: Array.isArray(overlayFromEditor.overlay?.lines) ? overlayFromEditor.overlay.lines.length : 0,
-                        ornaments: Array.isArray(overlayFromEditor.overlay?.ornaments) ? overlayFromEditor.overlay.ornaments.length : 0
-                    });
                     this.overlayData = overlayFromEditor;
                     this.canvasPreviewManager.renderer.loadOverlayData(overlayFromEditor);
                 } else if (this.overlayData && this.overlayData.overlay) {
-                    console.log('ArtworkPreviewWindow[overlay-chain]: updatePreview preserving existing overlay JSON renderer state');
+                   // console.log('ArtworkPreviewWindow[overlay-chain]: updatePreview preserving existing overlay JSON renderer state');
                     this.canvasPreviewManager.renderer.loadOverlayData(this.overlayData);
                 } else {
                     console.error('ArtworkPreviewWindow[overlay-chain]: Overlay mode is JSON-only; HTML fallback disabled');
@@ -3721,6 +3715,16 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             height: 100%;
             background-color: #000;
             overflow: auto;
+        }
+
+        .canvas-preview-stage {
+            min-width: 100%;
+            min-height: 100%;
+            width: max-content;
+            height: max-content;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .canvas-preview-container canvas {

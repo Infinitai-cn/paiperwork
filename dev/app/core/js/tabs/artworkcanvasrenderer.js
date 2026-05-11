@@ -22,7 +22,8 @@ class ArtworkCanvasRenderer {
         this._fontLoadGeneration = 0;
         this._fontLoadingNoticeElement = null;
         this._undoStack = [];
-        this._maxUndoSteps = 6;
+        this._maxUndoSteps = 30;
+        this._verticalCenterGuide = null;
     }
 
     /**
@@ -81,7 +82,28 @@ class ArtworkCanvasRenderer {
                     });
 
                 this.drawSelectedDecorationOutline(ctx);
+                this.drawAlignmentGuides(ctx);
         }
+
+    drawAlignmentGuides(ctx) {
+        if (!this._verticalCenterGuide || typeof this._verticalCenterGuide.x !== 'number') {
+            return;
+        }
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 170, 255, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(this._verticalCenterGuide.x, 0);
+        ctx.lineTo(this._verticalCenterGuide.x, this.canvas.height);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    setVerticalCenterGuide(x) {
+        this._verticalCenterGuide = typeof x === 'number' ? { x } : null;
+    }
 
       /**
        * Draw a single text block with all styling
@@ -229,7 +251,25 @@ class ArtworkCanvasRenderer {
      * @returns {Array} Array of handle positions
      */
     getHandlePositions(block) {
-        return [];
+        if (!block) {
+            return [];
+        }
+
+        const layout = typeof block.outerLeft === 'number'
+            ? block
+            : this.getTextBlockLayout(block);
+
+        const rightX = layout.outerLeft + layout.outerWidth + 4;
+        const centerY = layout.outerTop + (layout.outerHeight / 2);
+
+        return [
+            {
+                index: 0,
+                x: rightX,
+                y: centerY,
+                cursor: 'ew-resize'
+            }
+        ];
     }
 
     /**
@@ -412,14 +452,17 @@ class ArtworkCanvasRenderer {
         // Render without selection indicators
         const selected = this.selectedBlockIndex;
         const selectedDecorationTarget = this.selectedDecorationTarget;
+        const verticalCenterGuide = this._verticalCenterGuide;
         this.selectedBlockIndex = -1;
         this.selectedDecorationTarget = null;
+        this._verticalCenterGuide = null;
         this.render();
         exportCtx.drawImage(this.canvas, 0, 0);
 
         // Restore editor view
         this.selectedBlockIndex = selected;
         this.selectedDecorationTarget = selectedDecorationTarget;
+        this._verticalCenterGuide = verticalCenterGuide;
         this.render();
 
         return exportCanvas.toDataURL('image/png');
@@ -678,8 +721,13 @@ class ArtworkCanvasRenderer {
         return JSON.parse(JSON.stringify(state == null ? null : state));
     }
 
-    pushUndoSnapshot() {
-        this._undoStack.push(this.getState());
+    hasStateChanged(previousState, nextState) {
+        return JSON.stringify(previousState || null) !== JSON.stringify(nextState || null);
+    }
+
+    pushUndoSnapshot(snapshot = null) {
+        const stateSnapshot = this.cloneStateSnapshot(snapshot || this.getState());
+        this._undoStack.push(stateSnapshot);
         if (this._undoStack.length > this._maxUndoSteps) {
             this._undoStack.splice(0, this._undoStack.length - this._maxUndoSteps);
         }
@@ -689,18 +737,26 @@ class ArtworkCanvasRenderer {
         this._undoStack = [];
     }
 
-    canUndoDelete() {
+    canUndoAction() {
         return Array.isArray(this._undoStack) && this._undoStack.length > 0;
     }
 
-    undoLastDeletion() {
-        if (!this.canUndoDelete()) {
+    undoLastAction() {
+        if (!this.canUndoAction()) {
             return false;
         }
 
         const snapshot = this._undoStack.pop();
         this.setState(snapshot);
         return true;
+    }
+
+    canUndoDelete() {
+        return this.canUndoAction();
+    }
+
+    undoLastDeletion() {
+        return this.undoLastAction();
     }
 
     /**
@@ -840,6 +896,7 @@ class ArtworkCanvasRenderer {
         this.ornaments = this.cloneStateSnapshot(state.ornaments) || [];
         this.selectedBlockIndex = typeof state.selectedBlockIndex === 'number' ? state.selectedBlockIndex : -1;
         this.selectedDecorationTarget = this.cloneStateSnapshot(state.selectedDecorationTarget);
+        this._verticalCenterGuide = null;
         this.render();
         if (this.onChange) this.onChange();
     }
@@ -1145,9 +1202,18 @@ class ArtworkCanvasRenderer {
         // Process text elements
         if (overlay.texts && Array.isArray(overlay.texts)) {
             for (const textData of overlay.texts) {
-                // Parse shadow - JSON overlay format is an object with enabled flag
+                // Parse shadow/glow - the renderer supports one shadow pass, so glow is
+                // treated as a centered shadow and takes precedence over a regular shadow.
                 let shadow = null;
-                if (textData.shadow && typeof textData.shadow === 'object') {
+                if (textData.glow && typeof textData.glow === 'object' && textData.glow.enabled !== false) {
+                    shadow = {
+                        enabled: true,
+                        color: textData.glow.color || 'rgba(255,255,255,0.85)',
+                        blur: Number(textData.glow.blur) || 12,
+                        offsetX: Number(textData.glow.offsetX) || 0,
+                        offsetY: Number(textData.glow.offsetY) || 0
+                    };
+                } else if (textData.shadow && typeof textData.shadow === 'object') {
                     shadow = {
                         enabled: textData.shadow.enabled !== false,
                         color: textData.shadow.color || 'rgba(0,0,0,0.5)',
@@ -1155,6 +1221,13 @@ class ArtworkCanvasRenderer {
                         offsetX: Number(textData.shadow.offsetX) || 2,
                         offsetY: Number(textData.shadow.offsetY) || 2
                     };
+                }
+
+                let strokeStyle = null;
+                let strokeWidth = 0;
+                if (textData.outline && typeof textData.outline === 'object' && textData.outline.enabled !== false) {
+                    strokeStyle = textData.outline.color || '#000000';
+                    strokeWidth = Math.max(1, Number(textData.outline.width) || 1);
                 }
 
                 const block = {
@@ -1174,6 +1247,8 @@ class ArtworkCanvasRenderer {
                     letterSpacing: Number(textData.letterSpacing) || 0,
                     backgroundColor: textData.backgroundColor || null,
                     backgroundPadding: textData.backgroundPadding || '8px 12px',
+                    strokeStyle: strokeStyle,
+                    strokeWidth: strokeWidth,
                     shadow: shadow,
                     overlaySource: true,  // Mark as JSON overlay source for correct positioning
                     id: textData.id || null,

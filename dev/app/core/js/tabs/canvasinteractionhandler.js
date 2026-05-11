@@ -17,6 +17,7 @@ class CanvasInteractionHandler {
         this.startElement = null;
         this.activeHandle = null;
         this.activeHandleIndex = null;
+        this.interactionStartState = null;
 
         this.bindEvents();
     }
@@ -80,20 +81,30 @@ class CanvasInteractionHandler {
         if (handle) {
             // Start resize
             this.isResizing = true;
+            this.renderer.setVerticalCenterGuide(null);
             this.activeHandle = handle;
             this.activeHandleIndex = handle.index;
             this.startX = coords.x;
             this.startY = coords.y;
-            this.startBlock = { ...this.renderer.textBlocks[this.renderer.selectedBlockIndex] };
+            const selectedBlock = this.renderer.textBlocks[this.renderer.selectedBlockIndex];
+            this.startBlock = selectedBlock
+                ? {
+                    ...JSON.parse(JSON.stringify(selectedBlock)),
+                    __layout: this.renderer.getTextBlockLayout(selectedBlock)
+                }
+                : null;
             this.renderer.setSelectedTarget({ type: 'text', index: this.renderer.selectedBlockIndex });
             this.canvas.style.cursor = handle.cursor;
+            this.interactionStartState = this.renderer.getState();
         } else {
             const target = this.renderer.hitTestAny(coords.x, coords.y);
             if (!target) {
                 // Clicked empty space — deselect
+                this.renderer.setVerticalCenterGuide(null);
                 this.renderer.setSelectedTarget(null);
                 this.dragTarget = null;
                 this.startElement = null;
+                this.interactionStartState = null;
                 this.onChange();
                 return;
             }
@@ -103,6 +114,7 @@ class CanvasInteractionHandler {
             this.startX = coords.x;
             this.startY = coords.y;
             this.renderer.setSelectedTarget(target);
+            this.interactionStartState = this.renderer.getState();
 
             if (target.type === 'text') {
                 this.startBlock = { ...this.renderer.textBlocks[target.index] };
@@ -151,9 +163,12 @@ class CanvasInteractionHandler {
             } else {
                 this.moveDecorationTarget(this.dragTarget, dx, dy);
             }
+
+            this.updateVerticalCenterGuide(this.dragTarget);
         } else if (this.isResizing) {
             const block = this.renderer.textBlocks[this.renderer.selectedBlockIndex];
             if (!block) return;
+            this.renderer.setVerticalCenterGuide(null);
             this.handleResize(block, this.activeHandleIndex, dx, dy);
         }
 
@@ -169,17 +184,50 @@ class CanvasInteractionHandler {
      * @param {number} dy - Delta Y from start
      */
     handleResize(block, handleIndex, dx, dy) {
-        switch (handleIndex) {
-            case 0: // right-top (height only)
-                block.height -= dy;
-                break;
-            case 1: // right-bottom (width only)
-                block.width += dx;
-                break;
+        if (!block || !this.startBlock) {
+            return;
         }
-        // Enforce minimum size
-        block.width = Math.max(30, block.width);
-        block.height = Math.max(20, block.height);
+
+        const startLayout = this.startBlock.__layout || this.renderer.getTextBlockLayout(this.startBlock);
+        const textAlign = this.startBlock.textAlign || 'left';
+        const startingTextWidth = Math.max(1, Number(startLayout.textWidth) || 0);
+        const startingMaxWidth = Number(this.startBlock.maxWidth) > 0
+            ? Number(this.startBlock.maxWidth)
+            : startingTextWidth;
+        const startingFontSize = Math.max(8, Number(this.startBlock.fontSize) || 16);
+        const startCenterX = startLayout.outerLeft + (startLayout.outerWidth / 2);
+        const startCenterY = startLayout.outerTop + (startLayout.outerHeight / 2);
+
+        let proposedMaxWidth = startingMaxWidth;
+        if (textAlign === 'center') {
+            proposedMaxWidth = startingMaxWidth + (dx * 2);
+        } else if (textAlign === 'right') {
+            proposedMaxWidth = startingMaxWidth - dx;
+        } else {
+            proposedMaxWidth = startingMaxWidth + dx;
+        }
+
+        if (handleIndex === 1) {
+            proposedMaxWidth += dy * 0.15;
+        }
+
+        const nextMaxWidth = Math.max(30, Math.round(proposedMaxWidth));
+        const widthScale = nextMaxWidth / Math.max(1, startingMaxWidth);
+        const nextFontSize = Math.max(8, Math.round(startingFontSize * widthScale));
+
+        block.maxWidth = nextMaxWidth;
+        block.fontSize = nextFontSize;
+
+        const resizedLayout = this.renderer.getTextBlockLayout(block);
+        const nextCenterX = resizedLayout.outerLeft + (resizedLayout.outerWidth / 2);
+        const nextCenterY = resizedLayout.outerTop + (resizedLayout.outerHeight / 2);
+
+        block.x += startCenterX - nextCenterX;
+        block.y += startCenterY - nextCenterY;
+
+        const dimensions = this.renderer.measureTextBlock(block);
+        block.width = dimensions.width;
+        block.height = dimensions.height;
     }
 
     /**
@@ -187,6 +235,16 @@ class CanvasInteractionHandler {
      * @param {Object} e - Event object
      */
     onMouseUp(e) {
+        const shouldStoreUndo = (this.isDragging || this.isResizing)
+            && this.interactionStartState
+            && this.renderer.hasStateChanged(this.interactionStartState, this.renderer.getState());
+
+        this.renderer.setVerticalCenterGuide(null);
+
+        if (shouldStoreUndo) {
+            this.renderer.pushUndoSnapshot(this.interactionStartState);
+        }
+
         this.isDragging = false;
         this.isResizing = false;
         this.isRotating = false;
@@ -195,13 +253,15 @@ class CanvasInteractionHandler {
         this.activeHandleIndex = null;
         this.startBlock = null;
         this.startElement = null;
+        this.interactionStartState = null;
         this.canvas.style.cursor = 'default';
+        this.renderer.render();
     }
 
     onKeyDown(e) {
         const isUndoShortcut = (e.metaKey || e.ctrlKey) && !e.shiftKey && String(e.key || '').toLowerCase() === 'z';
         if (isUndoShortcut) {
-            const restored = this.renderer.undoLastDeletion();
+            const restored = this.renderer.undoLastAction();
             if (!restored) {
                 return;
             }
@@ -210,6 +270,7 @@ class CanvasInteractionHandler {
             this.dragTarget = null;
             this.startElement = null;
             this.startBlock = null;
+            this.interactionStartState = null;
             if (this.onChange) {
                 this.onChange();
             }
@@ -236,6 +297,7 @@ class CanvasInteractionHandler {
         this.dragTarget = null;
         this.startElement = null;
         this.startBlock = null;
+        this.interactionStartState = null;
         if (this.onChange) {
             this.onChange();
         }
@@ -307,6 +369,40 @@ class CanvasInteractionHandler {
         }
     }
 
+    updateVerticalCenterGuide(target) {
+        const bounds = this.getTargetBounds(target);
+        if (!bounds) {
+            this.renderer.setVerticalCenterGuide(null);
+            return;
+        }
+
+        const elementCenterX = bounds.outerLeft !== undefined
+            ? bounds.outerLeft + (bounds.outerWidth / 2)
+            : bounds.x + (bounds.width / 2);
+        const imageCenterX = this.canvas.width / 2;
+        const guideThreshold = 6;
+
+        if (Math.abs(elementCenterX - imageCenterX) <= guideThreshold) {
+            this.renderer.setVerticalCenterGuide(imageCenterX);
+            return;
+        }
+
+        this.renderer.setVerticalCenterGuide(null);
+    }
+
+    getTargetBounds(target) {
+        if (!target) {
+            return null;
+        }
+
+        if (target.type === 'text') {
+            const block = this.renderer.textBlocks?.[target.index];
+            return block ? this.renderer.getTextBlockLayout(block) : null;
+        }
+
+        return this.renderer.getDecorationBounds(target);
+    }
+
     /**
      * Set the change callback
      * @param {Function} callback - Function to call on state change
@@ -336,10 +432,12 @@ class CanvasInteractionHandler {
         this.isDragging = false;
         this.isResizing = false;
         this.isRotating = false;
+        this.renderer.setVerticalCenterGuide(null);
         this.dragTarget = null;
         this.activeHandle = null;
         this.activeHandleIndex = null;
         this.startBlock = null;
         this.startElement = null;
+        this.renderer.render();
     }
 }

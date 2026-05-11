@@ -1908,7 +1908,8 @@ class ArtworksTab {
                                             - Font family, size, weight, style: You may use system fonts OR web fonts (including Google Fonts). Use fontWeight "bold" or 700 for headlines, "normal" or 400 for body text. Use fontStyle "italic" for emphasis.
                                             - Text color (solid): Set the "color" property to any hex color (e.g., "#FFFFFF", "#000000", "#FFD700"). Choose colors with strong contrast against the background image.
                                             - Text shadow: Use the "shadow" object with properties: enabled (boolean), color (hex), blur (pixels), offsetX (pixels), offsetY (pixels). Example: {"enabled": true, "color": "#000000", "blur": 10, "offsetX": 3, "offsetY": 3}. Shadows improve readability and add depth.
-                                            - Text stroke (outline): Not directly supported in JSON — instead, use a contrasting backgroundColor panel behind text for outline-like emphasis.
+                                            - Glow effect: Use the "glow" object with properties: enabled (boolean), color (hex or rgba), blur (pixels), offsetX (pixels, usually 0), offsetY (pixels, usually 0). Example: {"enabled": true, "color": "rgba(255,255,255,0.9)", "blur": 18, "offsetX": 0, "offsetY": 0}. Glow is best for a soft halo around short headline text.
+                                            - Text stroke (outline): Use the "outline" object with properties: enabled (boolean), color (hex), width (pixels). Example: {"enabled": true, "color": "#000000", "width": 3}. Outline works well for strong headline separation from busy backgrounds.
                                             - Gradient text: Not directly supported in JSON — instead, simulate gradient effect by using multiple text elements with different colors stacked vertically, or use a backgroundColor panel with a gradient-like color transition.
                                             - Pattern/texture text: Not directly supported in JSON — instead, use a backgroundColor panel with a solid or semi-transparent color to create texture-like backgrounds behind text.
                                             - Rotation/scale transforms: Use the "rotation" property (in degrees) to rotate text. Positive values rotate clockwise. Use maxWidth and fontSize to effectively scale text.
@@ -1966,6 +1967,18 @@ class ArtworksTab {
                                                       "blur": <number>,      // Blur radius in pixels
                                                       "offsetX": <number>,   // Horizontal offset
                                                       "offsetY": <number>    // Vertical offset
+                                                                                                        },
+                                                                                                        "glow": {                // Optional soft halo effect around text
+                                                                                                            "enabled": <boolean>,
+                                                                                                            "color": "<string>",   // Glow color, hex or rgba recommended
+                                                                                                            "blur": <number>,      // Glow blur radius in pixels
+                                                                                                            "offsetX": <number>,   // Usually 0 for even glow
+                                                                                                            "offsetY": <number>    // Usually 0 for even glow
+                                                                                                        },
+                                                                                                        "outline": {             // Optional text outline
+                                                                                                            "enabled": <boolean>,
+                                                                                                            "color": "<string>",   // Outline color
+                                                                                                            "width": <number>      // Outline width in pixels
                                                     }
                                                   }
                                                 ],
@@ -2037,7 +2050,8 @@ class ArtworksTab {
                                             - When website webfont descriptors are provided, prefer those exact linked font URLs over substitutes.
                                             - Use fontWeight "bold" or 700 for headlines, "normal" or 400 for body text.
                                             - Add semi-transparent backgroundColor panels behind text when needed for readability.
-                                            - Do NOT use decorative text effects like glow, outline, or filter-based effects.
+                                            - You may use subtle glow, shadow, or outline on key headline text when it improves readability against the image.
+                                            - Do not stack too many effects on the same text block. Prefer at most one of shadow or glow, and use outline only when the background is visually busy.
 
                                             COLOR GUIDELINES:
                                             - When a website style reference is provided, reuse its extracted CSS colors in the overlay JSON when they fit the design.
