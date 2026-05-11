@@ -1765,7 +1765,8 @@ window.helpContent = {
                         <li><strong>Modèle IA visuel requis</strong> - Vous avez besoin d'un modèle avec capacités visuelles installé dans Ollama (Gemma4, Qwen3.5, Qwen3.6, Kimi ou un autre modèle compatible vision dans Ollama)</li>
                         <li><strong>Sélection du modèle</strong> - Choisissez votre modèle visuel dans le menu déroulant en haut de l'onglet</li>
                         <li><strong>Exigences d'image</strong> - Téléchargez des images claires et de haute qualité (max 5MB) au format PNG, JPEG, GIF ou WebP</li>
-                        <li><strong>Modification de superposition de texte</strong> - Le mode Superposition de texte vous permet de modifier le texte généré directement dans l'aperçu.</li>
+                        <li><strong>Modification de superposition de texte</strong> - Le mode Superposition de texte génère une superposition canvas basée sur JSON avec du texte, des formes, des lignes et des ornements modifiables.</li>
+                        <li><strong>Clonage du style du site web</strong> - En mode Superposition de texte, vous pouvez fournir en option une URL de site web afin que l'IA réutilise les polices web liées et les couleurs CSS de ce site.</li>
                         <li><strong>Modification du transfert de style</strong> - Le mode Transfert de style vous permet de modifier le texte dans l'aperçu et de remplacer les images du résultat.</li>
                     </ul>
                     <h4>Modèles visuels compatibles</h4>
@@ -1802,6 +1803,7 @@ window.helpContent = {
                     <li><strong>Sélectionner le modèle visuel</strong> - Choisissez dans le menu déroulant (sélection sauvegardée pour les futures sessions)</li>
                     <li><strong>Choisir le mode de design</strong> - Sélectionnez Transfert de style HTML ou Superposition de texte</li>
                     <li><strong>Télécharger l'image</strong> - Glissez/déposez ou cliquez pour télécharger (le système analyse les dimensions et l'orientation)</li>
+                    <li><strong>Référence optionnelle de style web</strong> - En mode Superposition de texte, ajoutez une URL de site web pour récupérer des polices et couleurs candidates depuis ce site</li>
                     <li><strong>Écrire les instructions</strong> - Fournissez des conseils spécifiques (le texte d'espace réservé change selon le mode)</li>
                     <li><strong>Générer et prévisualiser</strong> - Cliquez sur "Générer le design" ou appuyez sur Entrée ; les résultats s'ouvrent dans une fenêtre de prévisualisation interactive</li>
                 </ol>
@@ -1819,7 +1821,9 @@ window.helpContent = {
                 <h5>Superposition de texte</h5>
                 <ul>
                     <li>Analyse les images pour trouver les zones de placement de texte optimales</li>
-                    <li>Génère du HTML/CSS responsive pour les superpositions de texte</li>
+                    <li>Génère un JSON de superposition structuré, rendu comme aperçu canvas au-dessus de l'image téléchargée</li>
+                    <li>Peut inclure du texte, des formes décoratives, des lignes, des ornements, des polices web liées et des couleurs extraites du site web</li>
+                    <li>Après la génération, vous pouvez modifier le texte directement dans l'aperçu et repositionner les éléments de superposition sélectionnés</li>
                     <li>Considère les dimensions et l'orientation de l'image pour un positionnement approprié</li>
                     <li>Idéal pour les matériaux marketing, bannières et présentations de produits</li>
                 </ul>
@@ -1864,13 +1868,17 @@ window.helpContent = {
                 
                 <h5>Promotion d'événement</h5>
                 <p class="example-prompt">"Créer une superposition de texte promotionnelle : Titre de l'événement : 'Festival de musique d'été 2024', Date : '15-17 juillet 2024', Lieu : 'Central Park, NYC', Têtes d'affiche : 'Artistes vedettes à annoncer', Info billets : 'Tarif précoce 89€', Bouton : 'Obtenir des billets'"</p>
+
+                <h5>Affiche assortie à un site web</h5>
+                <p class="example-prompt">"Créez une affiche d'événement sobre à partir de l'image téléchargée. Utilisez les polices liées et les couleurs CSS du site web de référence, attribuez si possible des polices du site différentes au titre principal, au texte secondaire et à l'appel à l'action, et n'ajoutez des lignes de séparation ou des badges simples que si cela améliore la composition."</p>
                 
                 <h4>Rédiger des instructions efficaces</h4>
                 <ul>
                     <li><strong>Être spécifique</strong> - Inclure le style de design, le public cible et les composants clés nécessaires</li>
                     <li><strong>Mentionner les éléments d'image</strong> - Référencer des couleurs, mises en page ou fonctionnalités spécifiques de votre image téléchargée</li>
+                    <li><strong>Mentionner l'objectif de la référence web</strong> - Si vous avez fourni une URL, précisez si vous souhaitez conserver les polices du site, sa palette de couleurs, ou les deux dans la superposition</li>
                     <li><strong>Définir l'objectif</strong> - Expliquer le but (marketing, portfolio, e-commerce, etc.)</li>
-                    <li><strong>Demander des fonctionnalités</strong> - Spécifier le comportement responsive, les animations ou les éléments interactifs</li>
+                    <li><strong>Demander des fonctions de superposition</strong> - Précisez les positions de texte souhaitées, les lignes ou formes décoratives et si plusieurs blocs de texte doivent utiliser différentes polices du site web</li>
                 </ul>
                 
                 <h4>Choisir les bonnes images</h4>
@@ -1914,19 +1922,24 @@ window.helpContent = {
                 <h4>Fenêtre de prévisualisation interactive</h4>
                 <p>Les résultats s'ouvrent dans une fenêtre flottante où vous pouvez :</p>
                 <ul>
-                    <li><strong>Modifier la taille du nœud de texte</strong> - Vous pouvez modifier la taille du nœud de texte (sélectionnez avec un clic puis utilisez l'ancre en bas à droite)</li>
-                    <li><strong>Double clic</strong> - Un double clic vous permet de modifier le texte</li>
+                    <li><strong>Modifier le texte</strong> - Double-cliquez sur un bloc de texte pour en changer le contenu</li>
+                    <li><strong>Déplacer des éléments</strong> - Cliquez et faites glisser le texte, les formes, les lignes ou les ornements sélectionnés sur l'affiche</li>
+                    <li><strong>Redimensionner le texte</strong> - Sélectionnez un bloc de texte et faites glisser sa poignée pour élargir ou resserrer la zone de texte</li>
+                    <li><strong>Supprimer des éléments</strong> - Appuyez sur Suppr ou Retour arrière pour retirer l'élément de texte ou de décoration actuellement sélectionné</li>
+                    <li><strong>Annuler les suppressions</strong> - Appuyez sur Cmd/Ctrl+Z pour restaurer jusqu'aux 6 derniers éléments de superposition supprimés</li>
+                    <li><strong>Faire défiler les grandes affiches</strong> - Les superpositions grandes ou en portrait restent à la taille native de l'image et la zone d'aperçu défile au lieu de comprimer l'affiche</li>
                     <li><strong>Changer de vue</strong> - Basculer entre la vue code et la prévisualisation en direct</li>
-                    <li><strong>Éditer directement</strong> - Modifier le code généré en temps réel</li>
+                    <li><strong>Éditer directement</strong> - Modifier le HTML généré ou le JSON de superposition en temps réel</li>
                     <li><strong>Copier le code</strong> - Utiliser pour vos propres projets</li>
                     <li><strong>Exporter PNG</strong> - Sauvegarder une capture d'écran du design</li>
                 </ul>
                 
                 <h4>Travailler avec le code généré</h4>
                 <ul>
-                    <li><strong>Point de départ</strong> - Considérer le code comme une base que vous pouvez affiner davantage</li>
+                    <li><strong>Point de départ</strong> - Considérez le HTML généré ou le JSON de superposition comme une base que vous pouvez affiner davantage</li>
                     <li><strong>Test navigateur</strong> - Tester sur différents navigateurs et tailles d'écran</li>
                     <li><strong>Édition directe</strong> - Modifier et prévisualiser le code directement dans la fenêtre de résultat</li>
+                    <li><strong>Références de polices web</strong> - En mode superposition, les polices web liées sont stockées dans <code>overlay.webFonts</code> et peuvent être référencées par les éléments de texte</li>
                     <li><strong>Régénération</strong> - Essayer à nouveau avec des instructions plus spécifiques si nécessaire</li>
                 </ul>
                 
@@ -1966,6 +1979,12 @@ window.helpContent = {
                 <ul>
                     <li><strong>Solution :</strong> Spécifiez les positions préférées dans vos instructions</li>
                     <li><strong>Exemple :</strong> "Placer le titre dans le coin supérieur gauche, le prix dans le coin inférieur droit"</li>
+                </ul>
+
+                <h5>Les polices ou couleurs du site web ne sont pas utilisées comme prévu</h5>
+                <ul>
+                    <li><strong>Solution :</strong> Fournissez une URL valide dans le champ de style web du mode Superposition de texte et demandez explicitement au modèle de conserver les polices et couleurs CSS du site</li>
+                    <li><strong>Remarque :</strong> Si le site n'expose pas de fichiers de police utilisables, la superposition peut se rabattre sur des alternatives compatibles</li>
                 </ul>
                 
                 <div class="note">

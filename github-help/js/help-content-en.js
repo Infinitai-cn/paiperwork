@@ -1781,7 +1781,8 @@ window.helpContent = {
                         <li><strong>Visual AI Model Required</strong> - You need a vision-capable model installed in Ollama (Gemma4, Qwen3.5, Qwen3.6, Kimi, or another vision-capable Ollama model)</li>
                         <li><strong>Model Selection</strong> - Choose your visual model from the dropdown at the top of the tab</li>
                         <li><strong>Image Requirements</strong> - Upload clear, high-quality images (max 5MB) in PNG, JPEG, GIF, or WebP format</li>
-                        <li><strong>Text Overlay Editing</strong> - Text Overlay mode lets you edit generated text directly in the preview</li>
+                        <li><strong>Text Overlay Editing</strong> - Text Overlay mode generates a JSON-based canvas overlay with editable text, shapes, lines, and ornaments</li>
+                        <li><strong>Website Style Clone</strong> - In Text Overlay mode you can optionally provide a website URL so the AI can reuse linked web fonts and CSS colors from that site</li>
                         <li><strong>Style Transfer Editing</strong> - Style Transfer mode allows you to edit text in the preview and replace images within the result</li>
                     </ul>
                     <h4>Compatible Visual Models</h4>
@@ -1818,6 +1819,7 @@ window.helpContent = {
                     <li><strong>Select Visual Model</strong> - Choose from the dropdown (selection saved for future sessions)</li>
                     <li><strong>Choose Design Mode</strong> - Pick HTML Style Transfer or Text Overlay</li>
                     <li><strong>Upload Image</strong> - Drag/drop or click to upload (system analyzes dimensions and orientation)</li>
+                    <li><strong>Optional Website Style Reference</strong> - In Text Overlay mode, add a website URL to pull candidate fonts and colors from that site</li>
                     <li><strong>Write Instructions</strong> - Provide specific guidance (placeholder text changes based on mode)</li>
                     <li><strong>Generate & Preview</strong> - Click "Generate Design" or press Enter; results open in interactive preview window</li>
                 </ol>
@@ -1835,7 +1837,9 @@ window.helpContent = {
                 <h5>Text Overlay</h5>
                 <ul>
                     <li>Analyzes images to find optimal text placement areas</li>
-                    <li>Generates responsive HTML/CSS for text overlays</li>
+                    <li>Generates a structured overlay JSON that renders as a canvas preview on top of the uploaded image</li>
+                    <li>Can include text, decorative shapes, lines, ornaments, linked web fonts, and extracted website colors</li>
+                    <li>After generation, you can edit text directly in the preview and reposition selected overlay elements</li>
                     <li>Considers image dimensions and orientation for proper positioning</li>
                     <li>Ideal for marketing materials, banners, and product showcases</li>
                 </ul>
@@ -1880,13 +1884,17 @@ window.helpContent = {
                 
                 <h5>Event Promotion</h5>
                 <p class="example-prompt">"Create promotional text overlay: Event title: 'Summer Music Festival 2024', Date: 'July 15-17, 2024', Location: 'Central Park, NYC', Headliners: 'Featured Artists TBA', Ticket info: 'Early Bird $89', Button: 'Get Tickets'"</p>
+
+                <h5>Website-Matched Poster</h5>
+                <p class="example-prompt">"Create a clean event poster using the uploaded image. Use the linked fonts and CSS colors from the reference website, assign different website fonts to the main heading, supporting copy, and call-to-action when readability allows, and add simple divider lines or badges only if they improve the composition."</p>
                 
                 <h4>Writing Effective Instructions</h4>
                 <ul>
                     <li><strong>Be Specific</strong> - Include design style, target audience, and key components needed</li>
                     <li><strong>Mention Image Elements</strong> - Reference specific colors, layouts, or features from your uploaded image</li>
+                    <li><strong>Mention Website Reference Goals</strong> - If you provided a site URL, say whether you want its fonts, color palette, or both preserved in the overlay</li>
                     <li><strong>Define Purpose</strong> - Explain the goal (marketing, portfolio, e-commerce, etc.)</li>
-                    <li><strong>Request Features</strong> - Specify responsive behavior, animations, or interactive elements</li>
+                    <li><strong>Request Overlay Features</strong> - Specify preferred text positions, decorative lines/shapes, and whether multiple text blocks should use different website fonts</li>
                 </ul>
                 
                 <h4>Choosing the Right Images</h4>
@@ -1930,19 +1938,24 @@ window.helpContent = {
                 <h4>Interactive Preview Window</h4>
                 <p>Results open in a floating window where you can:</p>
                 <ul>
-                    <li><strong>Change Text node Size</strong> - You can change the text node size (select with 1 click then use the right down side anchor)</li>
-                    <li><strong>Double Click</strong> - Double click allows you to change the text</li>
+                    <li><strong>Edit Text</strong> - Double click a text block to change its content</li>
+                    <li><strong>Move Elements</strong> - Click and drag selected text, shapes, lines, or ornaments on the poster</li>
+                    <li><strong>Resize Text</strong> - Select a text block and drag its resize handle to widen or tighten the text area</li>
+                    <li><strong>Delete Elements</strong> - Press Delete or Backspace to remove the currently selected text or decoration element</li>
+                    <li><strong>Undo Deletions</strong> - Press Cmd/Ctrl+Z to restore up to the last 6 deleted overlay elements</li>
+                    <li><strong>Scroll Large Posters</strong> - Large or portrait overlays stay at native image size and the preview area scrolls instead of squeezing the poster to fit</li>
                     <li><strong>Switch Views</strong> - Toggle between code view and live preview</li>
-                    <li><strong>Edit Directly</strong> - Modify generated code in real-time</li>
+                    <li><strong>Edit Directly</strong> - Modify generated HTML or overlay JSON in real-time</li>
                     <li><strong>Copy Code</strong> - Use for your own projects</li>
                     <li><strong>Export PNG</strong> - Save screenshot of the design</li>
                 </ul>
                 
                 <h4>Working with Generated Code</h4>
                 <ul>
-                    <li><strong>Starting Point</strong> - Consider code as a foundation you can refine further</li>
+                    <li><strong>Starting Point</strong> - Consider generated HTML or overlay JSON as a foundation you can refine further</li>
                     <li><strong>Browser Testing</strong> - Test across different browsers and screen sizes</li>
                     <li><strong>Direct Editing</strong> - Modify and preview code directly in the result window</li>
+                    <li><strong>Website Font References</strong> - In overlay mode, linked website fonts are carried in <code>overlay.webFonts</code> and can be referenced by text elements</li>
                     <li><strong>Regeneration</strong> - Try again with more specific instructions if needed</li>
                 </ul>
                 
@@ -1983,11 +1996,17 @@ window.helpContent = {
                     <li><strong>Solution:</strong> Specify preferred positions in your instructions</li>
                     <li><strong>Example:</strong> "Place heading in top-left corner, price in bottom-right"</li>
                 </ul>
+
+                <h5>Website Fonts or Colors Not Used as Expected</h5>
+                <ul>
+                    <li><strong>Solution:</strong> Provide a valid website URL in the Text Overlay website-style field and explicitly ask the model to preserve the site's fonts and CSS colors</li>
+                    <li><strong>Note:</strong> If the website does not expose usable font files, the overlay may fall back to compatible alternatives</li>
+                </ul>
                 
                 <div class="note">
                     <p><strong>Performance Tip:</strong> Visual processing is resource-intensive. For best results, close unnecessary applications and use high-quality, clearly composed images.</p>
                     <p>In Mac Osx you may have two export the png 2 times as the first time may fail to export the background image (Safari).</p>
-                    <p>If text gets wrapped in the exported png do 1 click on the affected text and expand it's width untill the problem is solved.</p>
+                    <p>If text gets wrapped in the exported png, click the affected text once and expand its width until the problem is solved.</p>
                 </div>
             `,
                 image: "artworks_examples3.png",

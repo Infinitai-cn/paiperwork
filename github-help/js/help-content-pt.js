@@ -1766,7 +1766,8 @@ window.helpContent = {
                         <li><strong>Modelo de IA Visual Necessário</strong> - Você precisa de um modelo com capacidades de visão instalado no Ollama (Gemma4, Qwen3.5, Qwen3.6, Kimi ou outro modelo com capacidades de visão no Ollama)</li>
                         <li><strong>Seleção de Modelo</strong> - Escolha seu modelo visual no menu suspenso no topo da aba</li>
                         <li><strong>Requisitos de Imagem</strong> - Carregue imagens claras e de alta qualidade (máx. 5MB) nos formatos PNG, JPEG, GIF ou WebP</li>
-                        <li><strong>Edição de Sobreposição de Texto</strong> - O modo Sobreposição de Texto permite editar o texto gerado diretamente na visualização.</li>
+                        <li><strong>Edição de Sobreposição de Texto</strong> - O modo Sobreposição de Texto gera uma sobreposição em canvas baseada em JSON com texto, formas, linhas e ornamentos editáveis.</li>
+                        <li><strong>Clonagem de estilo de website</strong> - No modo Sobreposição de Texto, você pode informar opcionalmente uma URL de website para que a IA reutilize webfonts vinculadas e cores CSS desse site.</li>
                         <li><strong>Edição de Transferência de Estilo</strong> - O modo Transferência de Estilo permite editar o texto na visualização e substituir imagens no resultado.</li>
                     </ul>
                     <h4>Modelos Visuais Compatíveis</h4>
@@ -1803,6 +1804,7 @@ window.helpContent = {
                     <li><strong>Selecionar Modelo Visual</strong> - Escolha no menu suspenso (seleção salva para sessões futuras)</li>
                     <li><strong>Escolher Modo de Design</strong> - Selecione Transferência de Estilo HTML ou Sobreposição de Texto</li>
                     <li><strong>Carregar Imagem</strong> - Arraste/solte ou clique para carregar (sistema analisa dimensões e orientação)</li>
+                    <li><strong>Referência opcional de estilo web</strong> - No modo Sobreposição de Texto, adicione uma URL de website para capturar fontes e cores candidatas desse site</li>
                     <li><strong>Escrever Instruções</strong> - Forneça orientação específica (texto de espaço reservado muda baseado no modo)</li>
                     <li><strong>Gerar e Visualizar</strong> - Clique em "Gerar Design" ou pressione Enter; resultados abrem em janela de visualização interativa</li>
                 </ol>
@@ -1820,7 +1822,9 @@ window.helpContent = {
                 <h5>Sobreposição de Texto</h5>
                 <ul>
                     <li>Analisa imagens para encontrar áreas ideais de posicionamento de texto</li>
-                    <li>Gera HTML/CSS responsivo para sobreposições de texto</li>
+                    <li>Gera um JSON de sobreposição estruturado, renderizado como uma visualização em canvas sobre a imagem enviada</li>
+                    <li>Pode incluir texto, formas decorativas, linhas, ornamentos, webfonts vinculadas e cores extraídas do website</li>
+                    <li>Após a geração, você pode editar o texto diretamente na visualização e reposicionar os elementos selecionados da sobreposição</li>
                     <li>Considera dimensões e orientação da imagem para posicionamento adequado</li>
                     <li>Ideal para materiais de marketing, banners e apresentações de produtos</li>
                 </ul>
@@ -1865,13 +1869,17 @@ window.helpContent = {
                 
                 <h5>Promoção de Evento</h5>
                 <p class="example-prompt">"Crie sobreposição de texto promocional: Título do evento: 'Festival de Música de Verão 2024', Data: '15-17 de julho, 2024', Local: 'Parque Ibirapuera, SP', Headliners: 'Artistas em Destaque a Confirmar', Info do ingresso: 'Lote Promocional R$ 179', Botão: 'Comprar Ingressos'"</p>
+
+                <h5>Pôster alinhado ao website</h5>
+                <p class="example-prompt">"Crie um pôster de evento limpo usando a imagem enviada. Use as fontes vinculadas e as cores CSS do website de referência, atribua fontes diferentes do site ao título principal, ao texto de apoio e ao call to action quando a legibilidade permitir, e adicione linhas divisórias ou selos simples apenas se melhorarem a composição."</p>
                 
                 <h4>Escrevendo Instruções Eficazes</h4>
                 <ul>
                     <li><strong>Seja Específico</strong> - Inclua estilo de design, público-alvo e componentes-chave necessários</li>
                     <li><strong>Mencione Elementos da Imagem</strong> - Referencie cores, layouts ou recursos específicos da sua imagem carregada</li>
+                    <li><strong>Mencione os objetivos da referência web</strong> - Se você forneceu uma URL, diga se quer preservar as fontes, a paleta de cores ou ambos na sobreposição</li>
                     <li><strong>Defina o Propósito</strong> - Explique o objetivo (marketing, portfólio, e-commerce, etc.)</li>
-                    <li><strong>Solicite Recursos</strong> - Especifique comportamento responsivo, animações ou elementos interativos</li>
+                    <li><strong>Peça recursos da sobreposição</strong> - Especifique posições preferidas para o texto, linhas ou formas decorativas e se vários blocos de texto devem usar fontes diferentes do website</li>
                 </ul>
                 
                 <h4>Escolhendo as Imagens Certas</h4>
@@ -1915,19 +1923,24 @@ window.helpContent = {
                 <h4>Janela de Visualização Interativa</h4>
                 <p>Os resultados abrem em uma janela flutuante onde você pode:</p>
                 <ul>
-                    <li><strong>Alterar o tamanho do nó de texto</strong> - Você pode alterar o tamanho do nó de texto (selecione com 1 clique e depois use a âncora inferior direita)</li>
-                    <li><strong>Duplo clique</strong> - Clique duplo permite que você altere o texto</li>
+                    <li><strong>Editar texto</strong> - Dê duplo clique em um bloco de texto para alterar seu conteúdo</li>
+                    <li><strong>Mover elementos</strong> - Clique e arraste texto, formas, linhas ou ornamentos selecionados no pôster</li>
+                    <li><strong>Redimensionar texto</strong> - Selecione um bloco de texto e arraste sua alça para ampliar ou ajustar a área de texto</li>
+                    <li><strong>Excluir elementos</strong> - Pressione Delete ou Backspace para remover o elemento de texto ou decoração atualmente selecionado</li>
+                    <li><strong>Desfazer exclusões</strong> - Pressione Cmd/Ctrl+Z para restaurar até os últimos 6 elementos de sobreposição excluídos</li>
+                    <li><strong>Rolar pôsteres grandes</strong> - Sobreposições grandes ou em retrato permanecem no tamanho nativo da imagem, e a área de visualização passa a rolar em vez de comprimir o pôster</li>
                     <li><strong>Alternar Visualizações</strong> - Alternar entre visualização de código e visualização ao vivo</li>
-                    <li><strong>Editar Diretamente</strong> - Modificar código gerado em tempo real</li>
+                    <li><strong>Editar Diretamente</strong> - Modificar o HTML gerado ou o JSON da sobreposição em tempo real</li>
                     <li><strong>Copiar Código</strong> - Usar para seus próprios projetos</li>
                     <li><strong>Exportar PNG</strong> - Salvar captura de tela do design</li>
                 </ul>
                 
                 <h4>Trabalhando com Código Gerado</h4>
                 <ul>
-                    <li><strong>Ponto de Partida</strong> - Considere o código como uma base que você pode refinar ainda mais</li>
+                    <li><strong>Ponto de Partida</strong> - Considere o HTML gerado ou o JSON da sobreposição como uma base que você pode refinar ainda mais</li>
                     <li><strong>Teste de Navegador</strong> - Teste em diferentes navegadores e tamanhos de tela</li>
                     <li><strong>Edição Direta</strong> - Modifique e visualize código diretamente na janela de resultado</li>
+                    <li><strong>Referências de fontes do website</strong> - No modo de sobreposição, as fontes web vinculadas ficam em <code>overlay.webFonts</code> e podem ser referenciadas pelos elementos de texto</li>
                     <li><strong>Regeneração</strong> - Tente novamente com instruções mais específicas se necessário</li>
                 </ul>
                 
@@ -1967,6 +1980,12 @@ window.helpContent = {
                 <ul>
                     <li><strong>Solução:</strong> Especifique posições preferidas em suas instruções</li>
                     <li><strong>Exemplo:</strong> "Coloque o título no canto superior esquerdo, preço no canto inferior direito"</li>
+                </ul>
+
+                <h5>As fontes ou cores do website não foram usadas como esperado</h5>
+                <ul>
+                    <li><strong>Solução:</strong> Forneça uma URL válida no campo de estilo web do modo Sobreposição de Texto e peça explicitamente ao modelo para preservar as fontes e cores CSS do site</li>
+                    <li><strong>Observação:</strong> Se o website não expuser arquivos de fonte utilizáveis, a sobreposição pode recorrer a alternativas compatíveis</li>
                 </ul>
                 
                 <div class="note">
