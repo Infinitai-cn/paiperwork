@@ -1766,7 +1766,8 @@ window.helpContent = {
                         <li><strong>Visuelles KI-Modell erforderlich</strong> - Sie benötigen ein visionsfähiges Modell, das in Ollama installiert ist (Gemma4, Qwen3.5, Qwen3.6, Kimi oder ein anderes visionsfähiges Ollama-Modell)</li>
                         <li><strong>Modellauswahl</strong> - Wählen Sie Ihr visuelles Modell aus dem Dropdown-Menü oben im Tab</li>
                         <li><strong>Bildanforderungen</strong> - Laden Sie klare, hochwertige Bilder (max. 5MB) im PNG-, JPEG-, GIF- oder WebP-Format hoch</li>
-                        <li><strong>Textüberlagerung bearbeiten</strong> - Im Textüberlagerungsmodus können Sie den generierten Text direkt in der Vorschau bearbeiten.</li>
+                        <li><strong>Textüberlagerung bearbeiten</strong> - Der Textüberlagerungsmodus erzeugt eine JSON-basierte Canvas-Überlagerung mit bearbeitbarem Text, Formen, Linien und Ornamenten.</li>
+                        <li><strong>Website-Stil klonen</strong> - Im Textüberlagerungsmodus können Sie optional eine Website-URL angeben, damit die KI verknüpfte Webfonts und CSS-Farben dieser Seite wiederverwenden kann.</li>
                         <li><strong>Style-Transfer bearbeiten</strong> - Im Style-Transfer-Modus können Sie Text in der Vorschau bearbeiten und Bilder in den Ergebnissen ersetzen.</li>
                     </ul>
                     <h4>Kompatible visuelle Modelle</h4>
@@ -1803,6 +1804,7 @@ window.helpContent = {
                     <li><strong>Visuelles Modell auswählen</strong> - Aus dem Dropdown wählen (Auswahl für zukünftige Sitzungen gespeichert)</li>
                     <li><strong>Design-Modus wählen</strong> - HTML-Stil-Transfer oder Textüberlagerung auswählen</li>
                     <li><strong>Bild hochladen</strong> - Ziehen/Ablegen oder Klicken zum Hochladen (System analysiert Dimensionen und Orientierung)</li>
+                    <li><strong>Optionale Website-Stilreferenz</strong> - Im Textüberlagerungsmodus eine Website-URL hinzufügen, um Kandidaten für Schriftarten und Farben von dieser Seite zu übernehmen</li>
                     <li><strong>Anweisungen schreiben</strong> - Spezifische Anleitung geben (Platzhaltertext ändert sich je nach Modus)</li>
                     <li><strong>Generieren & Vorschau</strong> - "Design generieren" klicken oder Enter drücken; Ergebnisse öffnen sich in interaktivem Vorschaufenster</li>
                 </ol>
@@ -1820,7 +1822,9 @@ window.helpContent = {
                 <h5>Textüberlagerung</h5>
                 <ul>
                     <li>Analysiert Bilder zur Findung optimaler Textplatzierungsbereiche</li>
-                    <li>Generiert responsives HTML/CSS für Textüberlagerungen</li>
+                    <li>Generiert strukturiertes Overlay-JSON, das als Canvas-Vorschau über dem hochgeladenen Bild gerendert wird</li>
+                    <li>Kann Text, dekorative Formen, Linien, Ornamente, verknüpfte Webfonts und extrahierte Website-Farben enthalten</li>
+                    <li>Nach der Generierung können Sie Text direkt in der Vorschau bearbeiten und ausgewählte Overlay-Elemente verschieben</li>
                     <li>Berücksichtigt Bildabmessungen und -orientierung für richtige Positionierung</li>
                     <li>Ideal für Marketingmaterialien, Banner und Produktpräsentationen</li>
                 </ul>
@@ -1865,13 +1869,17 @@ window.helpContent = {
                 
                 <h5>Event-Promotion</h5>
                 <p class="example-prompt">"Erstelle eine Werbe-Textüberlagerung: Event-Titel: 'Sommer Musikfestival 2024', Datum: '15.-17. Juli 2024', Ort: 'Central Park, NYC', Headliner: 'Featured Artists TBA', Ticket-Info: 'Frühbucher 89€', Button: 'Tickets holen'"</p>
+
+                <h5>Website-abgestimmtes Poster</h5>
+                <p class="example-prompt">"Erstelle ein klares Event-Poster mit dem hochgeladenen Bild. Verwende die verknüpften Schriftarten und CSS-Farben der Referenz-Website, weise der Hauptüberschrift, dem Begleittext und dem Call-to-Action nach Möglichkeit unterschiedliche Website-Schriftarten zu und füge einfache Trennlinien oder Badges nur hinzu, wenn sie die Komposition verbessern."</p>
                 
                 <h4>Effektive Anweisungen schreiben</h4>
                 <ul>
                     <li><strong>Spezifisch sein</strong> - Designstil, Zielgruppe und benötigte Schlüsselkomponenten einbeziehen</li>
                     <li><strong>Bildelemente erwähnen</strong> - Spezifische Farben, Layouts oder Features aus Ihrem hochgeladenen Bild referenzieren</li>
+                    <li><strong>Ziele der Website-Referenz erwähnen</strong> - Wenn Sie eine Site-URL angegeben haben, sagen Sie, ob Schriftarten, Farbpalette oder beides im Overlay erhalten bleiben sollen</li>
                     <li><strong>Zweck definieren</strong> - Das Ziel erklären (Marketing, Portfolio, E-Commerce, etc.)</li>
-                    <li><strong>Features anfordern</strong> - Responsives Verhalten, Animationen oder interaktive Elemente spezifizieren</li>
+                    <li><strong>Overlay-Funktionen anfordern</strong> - Bevorzugte Textpositionen, dekorative Linien/Formen und die Verwendung unterschiedlicher Website-Schriftarten für mehrere Textblöcke angeben</li>
                 </ul>
                 
                 <h4>Die richtigen Bilder wählen</h4>
@@ -1915,19 +1923,24 @@ window.helpContent = {
                 <h4>Interaktives Vorschaufenster</h4>
                 <p>Ergebnisse öffnen sich in einem schwebenden Fenster, wo Sie:</p>
                 <ul>
-                    <li><strong>Textknoten-Größe ändern</strong> - Sie können die Textknotengröße ändern (einmal anklicken und dann den unteren rechten Anker verwenden)</li>
-                    <li><strong>Doppelklick</strong> - Doppelklick ermöglicht es Ihnen, den Text zu ändern</li>
+                    <li><strong>Text bearbeiten</strong> - Doppelklicken Sie auf einen Textblock, um seinen Inhalt zu ändern</li>
+                    <li><strong>Elemente verschieben</strong> - Klicken und ziehen Sie ausgewählten Text, Formen, Linien oder Ornamente auf dem Poster</li>
+                    <li><strong>Textgröße anpassen</strong> - Wählen Sie einen Textblock und ziehen Sie seinen Größenanker, um den Textbereich zu verbreitern oder zu verengen</li>
+                    <li><strong>Elemente löschen</strong> - Drücken Sie Entf oder Rücktaste, um das aktuell ausgewählte Text- oder Dekorationselement zu entfernen</li>
+                    <li><strong>Löschungen rückgängig machen</strong> - Drücken Sie Cmd/Ctrl+Z, um bis zu 6 zuletzt gelöschte Overlay-Elemente wiederherzustellen</li>
+                    <li><strong>Große Poster scrollen</strong> - Große oder hochformatige Overlays bleiben in nativer Bildgröße, und der Vorschaubereich scrollt, statt das Poster zusammenzudrücken</li>
                     <li><strong>Ansichten wechseln</strong> - Zwischen Code-Ansicht und Live-Vorschau umschalten</li>
-                    <li><strong>Direkt bearbeiten</strong> - Generierten Code in Echtzeit modifizieren</li>
+                    <li><strong>Direkt bearbeiten</strong> - Generiertes HTML oder Overlay-JSON in Echtzeit modifizieren</li>
                     <li><strong>Code kopieren</strong> - Für Ihre eigenen Projekte verwenden</li>
                     <li><strong>PNG exportieren</strong> - Screenshot des Designs speichern</li>
                 </ul>
                 
                 <h4>Arbeiten mit generiertem Code</h4>
                 <ul>
-                    <li><strong>Ausgangspunkt</strong> - Code als Grundlage betrachten, die Sie weiter verfeinern können</li>
+                    <li><strong>Ausgangspunkt</strong> - Generiertes HTML oder Overlay-JSON als Grundlage betrachten, die Sie weiter verfeinern können</li>
                     <li><strong>Browser-Tests</strong> - Über verschiedene Browser und Bildschirmgrößen testen</li>
                     <li><strong>Direkte Bearbeitung</strong> - Code direkt im Ergebnisfenster modifizieren und vorschauen</li>
+                    <li><strong>Website-Schriftreferenzen</strong> - Im Overlay-Modus werden verknüpfte Website-Schriftarten in <code>overlay.webFonts</code> gespeichert und können von Textelementen referenziert werden</li>
                     <li><strong>Neugenerierung</strong> - Bei Bedarf mit spezifischeren Anweisungen erneut versuchen</li>
                 </ul>
                 
@@ -1967,6 +1980,12 @@ window.helpContent = {
                 <ul>
                     <li><strong>Lösung:</strong> Bevorzugte Positionen in Ihren Anweisungen spezifizieren</li>
                     <li><strong>Beispiel:</strong> "Überschrift in der oberen linken Ecke platzieren, Preis in der unteren rechten"</li>
+                </ul>
+
+                <h5>Website-Schriften oder Farben werden nicht wie erwartet verwendet</h5>
+                <ul>
+                    <li><strong>Lösung:</strong> Geben Sie im Feld für den Website-Stil im Textüberlagerungsmodus eine gültige URL an und bitten Sie das Modell ausdrücklich, die Schriftarten und CSS-Farben der Website beizubehalten</li>
+                    <li><strong>Hinweis:</strong> Wenn die Website keine verwendbaren Schriftdateien bereitstellt, kann das Overlay auf kompatible Alternativen zurückgreifen</li>
                 </ul>
                 
                 <div class="note">
