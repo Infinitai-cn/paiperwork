@@ -4067,9 +4067,14 @@ class ConnectorWechat {
         if (/\b(hallo|danke|bitte|schön|tschüss|morgen|heute|gestern|ich|du|wir|ihr)\b/.test(lower)) return 'German';
         if (/\b(ciao|per favore|grazie|buongiorno|arrivederci|domani|oggi|ieri|io|tu|noi|voi)\b/.test(lower)) return 'Italian';
         if (/\b(olá|obrigado|por favor|até logo|hoje|amanhã|ontem|eu|você|vocês|nós|eles|resumo|traduzir|português)\b/.test(lower)) return 'Portuguese';
-        if (/\b(你好|谢谢|请|再见)\b/.test(candidate)) return 'Chinese';
-        if (/\b(こんにちは|ありがとう|お願いします|さようなら)\b/.test(candidate)) return 'Japanese';
-        if (/\b(안녕하세요|감사합니다|제발|안녕)\b/.test(candidate)) return 'Korean';
+        if (/(你好|谢谢|请|再见)/.test(candidate)) return 'Chinese';
+        if (/(こんにちは|ありがとう|お願いします|さようなら)/.test(candidate)) return 'Japanese';
+        if (/(안녕하세요|감사합니다|제발|안녕)/.test(candidate)) return 'Korean';
+
+        // Script heuristics improve detection for ordinary CJK text such as model commands.
+        if (/[\uAC00-\uD7AF]/.test(candidate)) return 'Korean';
+        if (/[\u3040-\u30FF]/.test(candidate)) return 'Japanese';
+        if (/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/.test(candidate)) return 'Chinese';
 
         // Fallback: script heuristics for Cyrillic languages
         if (/[\u0400-\u04FF]/.test(candidate)) return 'Russian';
@@ -4078,13 +4083,95 @@ class ConnectorWechat {
         return null;
     }
 
+    async _ensurewechatBootstrapLanguage(account, text, accountContext = null) {
+        const normalizedAccount = String(account || '').replace(/@.*$/g, '').trim();
+        const sample = String(text || '').trim();
+        const resolvedAccountContext = (accountContext && typeof accountContext === 'object')
+            ? { ...accountContext }
+            : ((await this._getwechatAccountContext(normalizedAccount)) || {});
+
+        if (!normalizedAccount || !sample) {
+            return resolvedAccountContext;
+        }
+
+        if (this._normalizeLanguage(resolvedAccountContext.language)) {
+            return resolvedAccountContext;
+        }
+
+        let classifiedLanguage = null;
+        let rawClassification = '';
+
+        try {
+            if (typeof OllamaAPI === 'undefined' || !OllamaAPI.OrchestratorCall) {
+                console.warn('[Connectorwechat][language] OllamaAPI.OrchestratorCall not available for bootstrap classification');
+            } else {
+                rawClassification = await OllamaAPI.OrchestratorCall(
+                    sample,
+                    'You are a language classifier for incoming user messages. Detect the primary language of the user text even when it contains typos, grammar mistakes, missing accents, slang, or short phrasing. Return ONLY valid JSON with this shape: {"language":"English|Spanish|French|German|Italian|Portuguese|Russian|Japanese|Korean|Chinese|Arabic|Hindi","confidence":0.0}. Pick the closest language from that list. Do not explain anything.',
+                    '256',
+                    null,
+                    null,
+                    `wechat_lang_${Date.now()}`,
+                    null
+                );
+                const parsedClassification = this._parseOrchestratorJSON(rawClassification);
+                classifiedLanguage = this._normalizeLanguage(parsedClassification && parsedClassification.language
+                    ? parsedClassification.language
+                    : rawClassification);
+            }
+        } catch (err) {
+            console.warn('[Connectorwechat][language] Bootstrap language classification failed', err);
+        }
+
+        if (!classifiedLanguage) {
+            classifiedLanguage = this._normalizeLanguage(this._detectLanguage(sample));
+        }
+
+        if (!classifiedLanguage) {
+            return resolvedAccountContext;
+        }
+
+        const updatedAccountContext = {
+            ...resolvedAccountContext,
+            language: classifiedLanguage,
+            languageBootstrapSource: 'model-classifier',
+            languageBootstrapAt: new Date().toISOString()
+        };
+
+        await this._setwechatAccountContext(normalizedAccount, updatedAccountContext);
+        console.info('[Connectorwechat][language] Bootstrapped thread language', {
+            account: normalizedAccount,
+            language: classifiedLanguage,
+            sample: sample.slice(0, 160)
+        });
+        return updatedAccountContext;
+    }
+
+    _getTrustedwechatIncomingLanguage(language = null, text = '', source = 'unknown') {
+        const normalizedLanguage = this._normalizeLanguage(language);
+        const detectedLanguage = this._normalizeLanguage(this._detectLanguage(text));
+
+        if (normalizedLanguage && detectedLanguage && normalizedLanguage !== detectedLanguage) {
+            console.warn('[Connectorwechat][language] Ignoring conflicting upstream language in favor of local detection', {
+                source,
+                upstreamLanguage: normalizedLanguage,
+                detectedLanguage,
+                sample: String(text || '').trim().slice(0, 160)
+            });
+            return detectedLanguage;
+        }
+
+        return normalizedLanguage || detectedLanguage || null;
+    }
+
     _resolvewechatInteractionLanguage(language = null, text = '', accountContext = null, followUpSession = null) {
-        const detectedLanguage = this._detectLanguage(text);
+        const trustedLanguage = this._getTrustedwechatIncomingLanguage(language, text, 'interaction-resolution');
+        const detectedLanguage = this._normalizeLanguage(this._detectLanguage(text));
         const candidates = [
-            language,
+            trustedLanguage,
             followUpSession && followUpSession.language,
+            detectedLanguage && detectedLanguage !== trustedLanguage ? detectedLanguage : null,
             accountContext && accountContext.language,
-            detectedLanguage,
             this._getActivewechatReplyLanguage(),
             'English'
         ];
@@ -6281,7 +6368,6 @@ class ConnectorWechat {
         const currentTokens = this._getModelKeymapTokens('actions.current');
         const listTokens = this._getModelKeymapTokens('actions.list');
         const useTokens = this._getModelKeymapTokens('actions.use');
-
         const hasModelNoun = this._textMatchesDocumentKeymapTokens(normalizedText, nounTokens);
         const currentMatch = this._findLongestNormalizedTokenMatch(normalizedText, currentTokens);
         const listMatch = this._findLongestNormalizedTokenMatch(normalizedText, listTokens);
@@ -9448,6 +9534,8 @@ class ConnectorWechat {
                 accountContext = promptResolution.accountContext;
             }
 
+            accountContext = (await this._ensurewechatBootstrapLanguage(normalizedAccount, cleanedOriginal, accountContext)) || accountContext;
+
             const effectiveInput = promptResolution && promptResolution.effectiveText
                 ? promptResolution.effectiveText
                 : cleanedOriginal;
@@ -9621,9 +9709,13 @@ class ConnectorWechat {
                         decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected explicit request to switch to another document.';
                     }
 
-                    // Apply normalized language from orchestrator if provided, or fallback to local detection.
+                    // Prefer local message detection when the orchestrator emits a conflicting language.
                     if (parsed.language) {
-                        decision.language = this._normalizeLanguage(parsed.language) || parsed.language;
+                        decision.language = this._getTrustedwechatIncomingLanguage(
+                            parsed.language,
+                            cleaned,
+                            'orchestrator-output'
+                        );
                     }
 
                     if (parsed.think === false || parsed.think === 'false') {
@@ -10667,17 +10759,30 @@ class ConnectorWechat {
             let documentSummaryFollowUpIntent = !explicitDocumentSwitch
                 && this._iswechatDocumentSummaryQuestionIntent(routingIntentText || userText, accountContext, orchTool);
 
-            let orchestratorLanguage = null;
-            if (msg && msg.orchestrator && msg.orchestrator.language) {
-                orchestratorLanguage = this._normalizeLanguage(msg.orchestrator.language);
+            const interactionLanguageSample = preserveExistingLanguageForControlReply ? '' : (routingIntentText || userText);
+            const bootstrappedLanguage = accountContext && accountContext.languageBootstrapSource === 'model-classifier'
+                ? this._normalizeLanguage(accountContext.language)
+                : null;
+            let orchestratorLanguage = bootstrappedLanguage;
+            if (!orchestratorLanguage && msg && msg.orchestrator && msg.orchestrator.language) {
+                orchestratorLanguage = this._getTrustedwechatIncomingLanguage(
+                    msg.orchestrator.language,
+                    routingIntentText || userText,
+                    'incoming-orchestrator'
+                );
             }
 
-            if (orchestratorLanguage && orchestratorLanguage !== accountContext.language) {
+            if (!preserveExistingLanguageForControlReply && orchestratorLanguage && orchestratorLanguage !== accountContext.language) {
                 accountContext.language = orchestratorLanguage;
                 await this._setwechatAccountContext(normalizedAccount, accountContext);
             }
 
-            const resolvedLanguage = this._resolvewechatInteractionLanguage(orchestratorLanguage, routingIntentText || userText, accountContext, activeFollowUpSession);
+            const resolvedLanguage = this._resolvewechatInteractionLanguage(
+                orchestratorLanguage,
+                interactionLanguageSample,
+                accountContext,
+                activeFollowUpSession
+            );
 
             if (!preserveExistingLanguageForControlReply && resolvedLanguage && resolvedLanguage !== accountContext.language) {
                 accountContext.language = resolvedLanguage;

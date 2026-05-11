@@ -3548,9 +3548,14 @@ class ConnectorWhatsapp {
         if (/\b(hallo|danke|bitte|schön|tschüss|morgen|heute|gestern|ich|du|wir|ihr)\b/.test(lower)) return 'German';
         if (/\b(ciao|per favore|grazie|buongiorno|arrivederci|domani|oggi|ieri|io|tu|noi|voi)\b/.test(lower)) return 'Italian';
         if (/\b(olá|obrigado|por favor|até logo|hoje|amanhã|ontem|eu|você|vocês|nós|eles|resumo|traduzir|português)\b/.test(lower)) return 'Portuguese';
-        if (/\b(你好|谢谢|请|再见)\b/.test(candidate)) return 'Chinese';
-        if (/\b(こんにちは|ありがとう|お願いします|さようなら)\b/.test(candidate)) return 'Japanese';
-        if (/\b(안녕하세요|감사합니다|제발|안녕)\b/.test(candidate)) return 'Korean';
+        if (/(你好|谢谢|请|再见)/.test(candidate)) return 'Chinese';
+        if (/(こんにちは|ありがとう|お願いします|さようなら)/.test(candidate)) return 'Japanese';
+        if (/(안녕하세요|감사합니다|제발|안녕)/.test(candidate)) return 'Korean';
+
+        // Script heuristics improve detection for ordinary CJK text such as model commands.
+        if (/[\uAC00-\uD7AF]/.test(candidate)) return 'Korean';
+        if (/[\u3040-\u30FF]/.test(candidate)) return 'Japanese';
+        if (/[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/.test(candidate)) return 'Chinese';
 
         // Fallback: script heuristics for Cyrillic languages
         if (/[\u0400-\u04FF]/.test(candidate)) return 'Russian';
@@ -3559,13 +3564,95 @@ class ConnectorWhatsapp {
         return null;
     }
 
+    async _ensureWhatsappBootstrapLanguage(phone, text, phoneContext = null) {
+        const normalizedPhone = String(phone || '').replace(/@.*$/g, '').trim();
+        const sample = String(text || '').trim();
+        const resolvedPhoneContext = (phoneContext && typeof phoneContext === 'object')
+            ? { ...phoneContext }
+            : ((await this._getWhatsappPhoneContext(normalizedPhone)) || {});
+
+        if (!normalizedPhone || !sample) {
+            return resolvedPhoneContext;
+        }
+
+        if (this._normalizeLanguage(resolvedPhoneContext.language)) {
+            return resolvedPhoneContext;
+        }
+
+        let classifiedLanguage = null;
+        let rawClassification = '';
+
+        try {
+            if (typeof OllamaAPI === 'undefined' || !OllamaAPI.OrchestratorCall) {
+                console.warn('[ConnectorWhatsapp][language] OllamaAPI.OrchestratorCall not available for bootstrap classification');
+            } else {
+                rawClassification = await OllamaAPI.OrchestratorCall(
+                    sample,
+                    'You are a language classifier for incoming user messages. Detect the primary language of the user text even when it contains typos, grammar mistakes, missing accents, slang, or short phrasing. Return ONLY valid JSON with this shape: {"language":"English|Spanish|French|German|Italian|Portuguese|Russian|Japanese|Korean|Chinese|Arabic|Hindi","confidence":0.0}. Pick the closest language from that list. Do not explain anything.',
+                    '256',
+                    null,
+                    null,
+                    `wa_lang_${Date.now()}`,
+                    null
+                );
+                const parsedClassification = this._parseOrchestratorJSON(rawClassification);
+                classifiedLanguage = this._normalizeLanguage(parsedClassification && parsedClassification.language
+                    ? parsedClassification.language
+                    : rawClassification);
+            }
+        } catch (err) {
+            console.warn('[ConnectorWhatsapp][language] Bootstrap language classification failed', err);
+        }
+
+        if (!classifiedLanguage) {
+            classifiedLanguage = this._normalizeLanguage(this._detectLanguage(sample));
+        }
+
+        if (!classifiedLanguage) {
+            return resolvedPhoneContext;
+        }
+
+        const updatedPhoneContext = {
+            ...resolvedPhoneContext,
+            language: classifiedLanguage,
+            languageBootstrapSource: 'model-classifier',
+            languageBootstrapAt: new Date().toISOString()
+        };
+
+        await this._setWhatsappPhoneContext(normalizedPhone, updatedPhoneContext);
+        console.info('[ConnectorWhatsapp][language] Bootstrapped thread language', {
+            phone: normalizedPhone,
+            language: classifiedLanguage,
+            sample: sample.slice(0, 160)
+        });
+        return updatedPhoneContext;
+    }
+
+    _getTrustedWhatsappIncomingLanguage(language = null, text = '', source = 'unknown') {
+        const normalizedLanguage = this._normalizeLanguage(language);
+        const detectedLanguage = this._normalizeLanguage(this._detectLanguage(text));
+
+        if (normalizedLanguage && detectedLanguage && normalizedLanguage !== detectedLanguage) {
+            console.warn('[ConnectorWhatsapp][language] Ignoring conflicting upstream language in favor of local detection', {
+                source,
+                upstreamLanguage: normalizedLanguage,
+                detectedLanguage,
+                sample: String(text || '').trim().slice(0, 160)
+            });
+            return detectedLanguage;
+        }
+
+        return normalizedLanguage || detectedLanguage || null;
+    }
+
     _resolveWhatsappInteractionLanguage(language = null, text = '', phoneContext = null, followUpSession = null) {
-        const detectedLanguage = this._detectLanguage(text);
+        const trustedLanguage = this._getTrustedWhatsappIncomingLanguage(language, text, 'interaction-resolution');
+        const detectedLanguage = this._normalizeLanguage(this._detectLanguage(text));
         const candidates = [
-            language,
+            trustedLanguage,
             followUpSession && followUpSession.language,
+            detectedLanguage && detectedLanguage !== trustedLanguage ? detectedLanguage : null,
             phoneContext && phoneContext.language,
-            detectedLanguage,
             this._getActiveWhatsappReplyLanguage(),
             'English'
         ];
@@ -8623,6 +8710,8 @@ class ConnectorWhatsapp {
                 phoneContext = promptResolution.phoneContext;
             }
 
+            phoneContext = (await this._ensureWhatsappBootstrapLanguage(normalizedPhone, cleanedOriginal, phoneContext)) || phoneContext;
+
             const effectiveInput = promptResolution && promptResolution.effectiveText
                 ? promptResolution.effectiveText
                 : cleanedOriginal;
@@ -8784,9 +8873,13 @@ class ConnectorWhatsapp {
                         decision.reason = (decision.reason ? decision.reason + ' ' : '') + 'Detected explicit request to switch to another document.';
                     }
 
-                    // Apply normalized language from orchestrator if provided, or fallback to local detection.
+                    // Prefer local message detection when the orchestrator emits a conflicting language.
                     if (parsed.language) {
-                        decision.language = this._normalizeLanguage(parsed.language) || parsed.language;
+                        decision.language = this._getTrustedWhatsappIncomingLanguage(
+                            parsed.language,
+                            cleaned,
+                            'orchestrator-output'
+                        );
                     }
 
                     if (parsed.think === false || parsed.think === 'false') {
@@ -9728,17 +9821,30 @@ class ConnectorWhatsapp {
             let documentSummaryFollowUpIntent = !explicitDocumentSwitch
                 && this._isWhatsappDocumentSummaryQuestionIntent(routingIntentText || userText, phoneContext, orchTool);
 
-            let orchestratorLanguage = null;
-            if (msg && msg.orchestrator && msg.orchestrator.language) {
-                orchestratorLanguage = this._normalizeLanguage(msg.orchestrator.language);
+            const interactionLanguageSample = preserveExistingLanguageForControlReply ? '' : (routingIntentText || userText);
+            const bootstrappedLanguage = phoneContext && phoneContext.languageBootstrapSource === 'model-classifier'
+                ? this._normalizeLanguage(phoneContext.language)
+                : null;
+            let orchestratorLanguage = bootstrappedLanguage;
+            if (!orchestratorLanguage && msg && msg.orchestrator && msg.orchestrator.language) {
+                orchestratorLanguage = this._getTrustedWhatsappIncomingLanguage(
+                    msg.orchestrator.language,
+                    routingIntentText || userText,
+                    'incoming-orchestrator'
+                );
             }
 
-            if (orchestratorLanguage && orchestratorLanguage !== phoneContext.language) {
+            if (!preserveExistingLanguageForControlReply && orchestratorLanguage && orchestratorLanguage !== phoneContext.language) {
                 phoneContext.language = orchestratorLanguage;
                 await this._setWhatsappPhoneContext(normalizedPhone, phoneContext);
             }
 
-            const resolvedLanguage = this._resolveWhatsappInteractionLanguage(orchestratorLanguage, routingIntentText || userText, phoneContext, activeFollowUpSession);
+            const resolvedLanguage = this._resolveWhatsappInteractionLanguage(
+                orchestratorLanguage,
+                interactionLanguageSample,
+                phoneContext,
+                activeFollowUpSession
+            );
 
             if (!preserveExistingLanguageForControlReply && resolvedLanguage && resolvedLanguage !== phoneContext.language) {
                 phoneContext.language = resolvedLanguage;
