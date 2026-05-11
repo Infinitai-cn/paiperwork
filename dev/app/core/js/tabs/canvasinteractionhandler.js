@@ -189,6 +189,8 @@ class CanvasInteractionHandler {
         }
 
         const startLayout = this.startBlock.__layout || this.renderer.getTextBlockLayout(this.startBlock);
+        const startRawLines = String(this.startBlock.text || '').split('\n');
+        const preservesExplicitLineLayout = startLayout.lines.length === startRawLines.length;
         const textAlign = this.startBlock.textAlign || 'left';
         const startingTextWidth = Math.max(1, Number(startLayout.textWidth) || 0);
         const startingMaxWidth = Number(this.startBlock.maxWidth) > 0
@@ -215,8 +217,13 @@ class CanvasInteractionHandler {
         const widthScale = nextMaxWidth / Math.max(1, startingMaxWidth);
         const nextFontSize = Math.max(8, Math.round(startingFontSize * widthScale));
 
-        block.maxWidth = nextMaxWidth;
         block.fontSize = nextFontSize;
+
+        if (preservesExplicitLineLayout) {
+            block.maxWidth = 0;
+        } else {
+            block.maxWidth = nextMaxWidth;
+        }
 
         const resizedLayout = this.renderer.getTextBlockLayout(block);
         const nextCenterX = resizedLayout.outerLeft + (resizedLayout.outerWidth / 2);
@@ -307,13 +314,7 @@ class CanvasInteractionHandler {
         if (!target || typeof target.index !== 'number') {
             return null;
         }
-        if (target.type === 'shape') {
-            return this.renderer.shapes?.[target.index] || null;
-        }
-        if (target.type === 'line') {
-            return this.renderer.lines?.[target.index] || null;
-        }
-        if (target.type === 'ornament') {
+        if (target.type !== 'text') {
             return this.renderer.ornaments?.[target.index] || null;
         }
         return null;
@@ -324,7 +325,7 @@ class CanvasInteractionHandler {
         const start = this.startElement;
         if (!element || !start) return;
 
-        if (target.type === 'line') {
+        if ([start.x1, start.y1, start.x2, start.y2].some((value) => value !== undefined)) {
             element.x1 = (Number(start.x1) || 0) + dx;
             element.y1 = (Number(start.y1) || 0) + dy;
             element.x2 = (Number(start.x2) || 0) + dx;
@@ -332,40 +333,32 @@ class CanvasInteractionHandler {
             return;
         }
 
-        if (target.type === 'ornament') {
-            element.x = (Number(start.x) || 0) + dx;
-            element.y = (Number(start.y) || 0) + dy;
-            return;
+        if (start.points && typeof start.points === 'string') {
+            const translated = start.points
+                .trim()
+                .split(/\s+/)
+                .map((pair) => {
+                    const [px, py] = pair.split(',').map((value) => Number(value));
+                    if (!Number.isFinite(px) || !Number.isFinite(py)) {
+                        return pair;
+                    }
+                    return `${px + dx},${py + dy}`;
+                })
+                .join(' ');
+            element.points = translated;
         }
 
-        if (target.type === 'shape') {
-            if (start.points && typeof start.points === 'string') {
-                const translated = start.points
-                    .trim()
-                    .split(/\s+/)
-                    .map((pair) => {
-                        const [px, py] = pair.split(',').map((value) => Number(value));
-                        if (!Number.isFinite(px) || !Number.isFinite(py)) {
-                            return pair;
-                        }
-                        return `${px + dx},${py + dy}`;
-                    })
-                    .join(' ');
-                element.points = translated;
-            }
-
-            if (start.x !== undefined) {
-                element.x = (Number(start.x) || 0) + dx;
-            }
-            if (start.y !== undefined) {
-                element.y = (Number(start.y) || 0) + dy;
-            }
-            if (start.cx !== undefined) {
-                element.cx = (Number(start.cx) || 0) + dx;
-            }
-            if (start.cy !== undefined) {
-                element.cy = (Number(start.cy) || 0) + dy;
-            }
+        if (start.x !== undefined) {
+            element.x = (Number(start.x) || 0) + dx;
+        }
+        if (start.y !== undefined) {
+            element.y = (Number(start.y) || 0) + dy;
+        }
+        if (start.cx !== undefined) {
+            element.cx = (Number(start.cx) || 0) + dx;
+        }
+        if (start.cy !== undefined) {
+            element.cy = (Number(start.cy) || 0) + dy;
         }
     }
 

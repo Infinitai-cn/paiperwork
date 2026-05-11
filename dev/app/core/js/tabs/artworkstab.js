@@ -1910,7 +1910,7 @@ class ArtworksTab {
                                             - Text shadow: Use the "shadow" object with properties: enabled (boolean), color (hex), blur (pixels), offsetX (pixels), offsetY (pixels). Example: {"enabled": true, "color": "#000000", "blur": 10, "offsetX": 3, "offsetY": 3}. Shadows improve readability and add depth.
                                             - Glow effect: Use the "glow" object with properties: enabled (boolean), color (hex or rgba), blur (pixels), offsetX (pixels, usually 0), offsetY (pixels, usually 0). Example: {"enabled": true, "color": "rgba(255,255,255,0.9)", "blur": 18, "offsetX": 0, "offsetY": 0}. Glow is best for a soft halo around short headline text.
                                             - Text stroke (outline): Use the "outline" object with properties: enabled (boolean), color (hex), width (pixels). Example: {"enabled": true, "color": "#000000", "width": 3}. Outline works well for strong headline separation from busy backgrounds.
-                                            - Gradient text: Not directly supported in JSON — instead, simulate gradient effect by using multiple text elements with different colors stacked vertically, or use a backgroundColor panel with a gradient-like color transition.
+                                            - Gradient text: Do NOT simulate gradient text by duplicating or stacking the same words in multiple text elements. Use a single solid-color impactful headline instead.
                                             - Pattern/texture text: Not directly supported in JSON — instead, use a backgroundColor panel with a solid or semi-transparent color to create texture-like backgrounds behind text.
                                             - Rotation/scale transforms: Use the "rotation" property (in degrees) to rotate text. Positive values rotate clockwise. Use maxWidth and fontSize to effectively scale text.
                                             - Opacity/alpha: Use the "opacity" property (0-1) to make text semi-transparent. Values closer to 0 are more transparent, 1 is fully opaque.
@@ -1982,50 +1982,32 @@ class ArtworksTab {
                                                     }
                                                   }
                                                 ],
-                                                "shapes": [                // Array of SVG-like shape elements
+                                                                                                "ornaments": [           // Unified SVG-style decorations and ornaments
                                                   {
                                                     "id": "<string>",      // Unique identifier
-                                                    "type": "<string>",    // "rect", "circle", "line", "polygon", "ellipse"
-                                                    "x": <number>,         // X position (for rect, circle center)
-                                                    "y": <number>,         // Y position (for rect, circle center)
-                                                    "width": <number>,     // Width (for rect, ellipse)
-                                                    "height": <number>,    // Height (for rect, ellipse)
-                                                    "rx": <number>,        // X-radius for rounded corners / ellipse
-                                                    "ry": <number>,        // Y-radius for ellipse
-                                                    "cx": <number>,        // Center X (for circle, ellipse)
-                                                    "cy": <number>,        // Center Y (for circle, ellipse)
-                                                    "points": "<string>",  // Polygon points string (e.g., "10,10 20,30 30,10")
-                                                    "color": "<string>",   // Fill color in hex
-                                                    "strokeColor": "<string>", // Stroke/outline color in hex
-                                                    "strokeWidth": <number>, // Stroke width in pixels
-                                                    "opacity": <number>,   // Opacity 0-1
-                                                    "rotation": <number>   // Rotation in degrees
-                                                  }
-                                                ],
-                                                "lines": [               // Array of decorative lines
-                                                  {
-                                                    "id": "<string>",      // Unique identifier
-                                                    "x1": <number>,        // Start X
-                                                    "y1": <number>,        // Start Y
-                                                    "x2": <number>,        // End X
-                                                    "y2": <number>,        // End Y
-                                                    "color": "<string>",   // Line color in hex
-                                                    "strokeWidth": <number>, // Line width in pixels
-                                                    "opacity": <number>,   // Opacity 0-1
-                                                    "dashArray": "<string>" // Dash pattern (e.g., "5,5" for dashed)
-                                                  }
-                                                ],
-                                                "ornaments": [           // Array of decorative ornaments (stars, icons, badges, etc.)
-                                                  {
-                                                    "id": "<string>",      // Unique identifier
-                                                    "type": "<string>",    // "star", "badge", "icon", "custom"
-                                                    "x": <number>,         // X position
-                                                    "y": <number>,         // Y position
-                                                    "size": <number>,      // Size in pixels
-                                                    "color": "<string>",   // Primary color in hex
-                                                    "secondaryColor": "<string>", // Secondary/accent color
-                                                    "opacity": <number>,   // Opacity 0-1
-                                                    "rotation": <number>   // Rotation in degrees
+                                                                                                        "type": "<string>",    // "rect", "circle", "ellipse", "line", "polygon", "star", "badge", "path", "custom"
+                                                                                                        "x": <number>,         // Base X position for most ornament types
+                                                                                                        "y": <number>,         // Base Y position for most ornament types
+                                                                                                        "width": <number>,     // Width for rect/ellipse/path/custom/line fallback
+                                                                                                        "height": <number>,    // Height for rect/ellipse/path/custom/line fallback
+                                                                                                        "size": <number>,      // Size for star/badge ornaments
+                                                                                                        "rx": <number>,        // Corner radius for rect or x-radius for ellipse
+                                                                                                        "ry": <number>,        // Y-radius for ellipse
+                                                                                                        "cx": <number>,        // Optional center X for circle/ellipse
+                                                                                                        "cy": <number>,        // Optional center Y for circle/ellipse
+                                                                                                        "x1": <number>,        // Start X for line ornaments
+                                                                                                        "y1": <number>,        // Start Y for line ornaments
+                                                                                                        "x2": <number>,        // End X for line ornaments
+                                                                                                        "y2": <number>,        // End Y for line ornaments
+                                                                                                        "points": "<string>",  // Polygon points string (e.g., "10,10 20,30 30,10")
+                                                                                                        "pathData": "<string>", // SVG path data for type "path" or "custom"
+                                                                                                        "color": "<string>",   // Fill color or primary line color
+                                                                                                        "secondaryColor": "<string>", // Accent color for badge/star motifs
+                                                                                                        "strokeColor": "<string>", // Optional stroke/outline color
+                                                                                                        "strokeWidth": <number>, // Stroke width in pixels
+                                                                                                        "dashArray": "<string>", // Dash pattern for line ornaments (e.g., "5,5")
+                                                                                                        "opacity": <number>,   // Opacity 0-1
+                                                                                                        "rotation": <number>   // Rotation in degrees
                                                   }
                                                 ]
                                               }
@@ -2052,24 +2034,30 @@ class ArtworksTab {
                                             - Add semi-transparent backgroundColor panels behind text when needed for readability.
                                             - You may use subtle glow, shadow, or outline on key headline text when it improves readability against the image.
                                             - Do not stack too many effects on the same text block. Prefer at most one of shadow or glow, and use outline only when the background is visually busy.
+                                            - Never create fake gradient headlines by repeating the same text in darker or lighter stacked layers.
+                                            - Each semantic text block should appear only once in overlay.texts unless the user explicitly asks for duplicated decorative typography.
 
                                             COLOR GUIDELINES:
                                             - When a website style reference is provided, reuse its extracted CSS colors in the overlay JSON when they fit the design.
-                                            - Prefer website CSS colors for text, shapes, lines, ornaments, and background panels before inventing a different palette.
+                                            - Prefer website CSS colors for text, ornaments, and background panels before inventing a different palette.
                                             - Keep all chosen colors readable against the uploaded image and use only hex color strings in the JSON.
 
-                                            SHAPE/LINE/ORNAMEENT GUIDELINES:
-                                            - Shapes, lines, and ornaments should enhance the design without overwhelming it.
-                                            - Use shapes for decorative dividers, badges, highlights, or background panels behind text.
-                                            - Use lines for dividers, underlines, or decorative accents.
-                                            - Use ornaments sparingly for badges, stars, or decorative elements.
-                                            - Do NOT place lines or ornaments on top of text or through text. Keep clear spacing so decorative elements never overlap the readable text area.
-                                            - All shapes/lines/ornaments must have valid pixel coordinates within the image bounds.
+                                            SVG ORNAMENT GUIDELINES:
+                                            - Always include 1 to 5 cinematic SVG-style ornaments in overlay.ornaments that match the image theme and enhance the typography.
+                                            - Use overlay.ornaments as the ONLY vector decoration field. Do NOT output top-level shapes or lines arrays.
+                                            - Build ornaments as tasteful dividers, frames, rays, underlines, badges, flourishes, geometric motifs, or custom SVG path accents that fit the image theme.
+                                            - Use path ornament types as needed.
+                                            - Small example: {"id":"orn-1","type":"line","x1":180,"y1":860,"x2":980,"y2":860,"color":"#D4AF37","strokeWidth":3,"opacity":0.9}
+                                            - For type "path" or "custom", provide valid SVG pathData plus x, y, width, and height so the ornament can be rendered and edited correctly.
+                                            - Decorative SVG graphics should feel intentional and visually rich, not generic clipart.
+                                            - Do NOT place ornaments on top of text or through text. Keep clear spacing so decorative elements never overlap the readable text area.
+                                            - All ornaments must have valid pixel coordinates within the image bounds.
 
                                             IMPORTANT RULES:
                                             - The "width" and "height" fields in the overlay object MUST match the actual uploaded image dimensions.
                                             - All numeric values must be actual numbers, not strings.
                                             - All color values must be hex strings (e.g., "#FFFFFF", "#000000", "#FF0000").
+                                            - Always include theme-matching vector ornaments in overlay.ornaments unless the user explicitly asks for text-only output.
                                             - If website font descriptors are provided in the user prompt, use those exact linked URLs first and preserve their family names in overlay.webFonts.
                                             - If website CSS colors are provided in the user prompt, reuse them in the JSON wherever they fit the composition before inventing new colors.
                                             - Only use Google Fonts when the reference site uses Google Fonts or when no usable website font URL is available.
@@ -2086,7 +2074,9 @@ class ArtworksTab {
                                         - Dimensions: ${this.imageDimensions || 'Unknown'}
                                         - Aspect ratio: ${this.imageRatio || 'Unknown'}
                     
-                                        Respond with a SINGLE valid JSON object (wrapped in a \`\`\`json code block) that describes the text overlays, shapes, lines, and ornaments to render on this background image. Use the exact image dimensions provided above to calculate all pixel positions. Position text in visually balanced locations that complement the image content and avoid covering key product features. Choose text colors with strong contrast against the background. Include shapes/lines/ornaments only if they enhance the design meaningfully, and keep lines and ornaments clear of the text so they do not overlap or cross through readable text.
+                                        Respond with a SINGLE valid JSON object (wrapped in a \`\`\`json code block) that describes the text overlays and ornaments to render on this background image. Use the exact image dimensions provided above to calculate all pixel positions. Position text in visually balanced locations that complement the image content and avoid covering key product features. Choose text colors with strong contrast against the background. Include ornaments only if they enhance the design meaningfully, and keep ornaments clear of the text so they do not overlap or cross through readable text.
+
+                                        Do NOT fake gradient text by repeating the same header or sentence in multiple stacked text elements with darker or lighter colors. The main poster sentence should appear once as a single text block unless I explicitly ask for duplicated typography.
                     
                                         If website font descriptors are provided, use them directly in overlay.webFonts instead of substituting other providers. When the design has multiple text blocks, try to assign a different website-linked font to each block so the poster uses several of the provided website fonts. Reuse website CSS colors from the style reference in the overlay JSON when they fit the design. Only add a fallback provider when no usable website font source is available or the user explicitly asks for one.`;
                                     {
