@@ -42,6 +42,10 @@ class ArtworkPreviewWindow {
         this._assetDataUrlCache = new Map();
         this.htmlPreviewGutterRemoved = false;
         this.htmlPreviewStabilizationToken = 0;
+        this.textOverlayZoom = 1;
+        this.minTextOverlayZoom = 0.25;
+        this.maxTextOverlayZoom = 3;
+        this.textOverlayZoomStep = 0.25;
         this.setHtmlPreviewFitToPreview(typeof options?.autoFitHtmlPreview === 'boolean' ? options.autoFitHtmlPreview : true);
         this.position = {
             x: 0,
@@ -184,21 +188,43 @@ class ArtworkPreviewWindow {
             </div>
         </div>
         <div class="preview-window-view-controls">
-            <button class="preview-view-btn code " data-view="code">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="16 18 22 12 16 6"></polyline>
-                    <polyline points="8 6 2 12 8 18"></polyline>
-                </svg>
-                ${Lang.get('artworkCode')}
-            </button>
-            <button class="preview-view-btn preview active" data-view="preview">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                    <polyline points="21 15 16 10 5 21"></polyline>
-                </svg>
-                 ${Lang.get('artworkPreview')}
-            </button>
+            <div class="preview-view-buttons">
+                <button class="preview-view-btn code " data-view="code">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 18 22 12 16 6"></polyline>
+                        <polyline points="8 6 2 12 8 18"></polyline>
+                    </svg>
+                    ${Lang.get('artworkCode')}
+                </button>
+                <button class="preview-view-btn preview active" data-view="preview">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                     ${Lang.get('artworkPreview')}
+                </button>
+            </div>
+            ${this.isTextOverlayPreview ? `
+            <div class="preview-zoom-controls" aria-label="Overlay zoom controls">
+                <button class="preview-zoom-btn" data-zoom-action="out" title="Zoom out" aria-label="Zoom out">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                </button>
+                <span class="preview-zoom-level">100%</span>
+                <button class="preview-zoom-btn" data-zoom-action="in" title="Zoom in" aria-label="Zoom in">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                    </svg>
+                </button>
+            </div>` : '<div class="preview-view-controls-center"></div>'}
+            <div class="preview-view-controls-spacer"></div>
         </div>
         <div class="preview-window-content">
             <div class="preview-code-view active">
@@ -280,6 +306,7 @@ class ArtworkPreviewWindow {
         this.codeEditor = this.container.querySelector('.code-editor');
         this.previewFrameShell = this.container.querySelector('.preview-iframe-shell');
         this.previewFrame = this.container.querySelector('.preview-iframe');
+        this.updateTextOverlayZoomControls();
 
         // For text-overlay previews, adjust container and shell heights so the iframe
         // can display the full source image height (accounting for header/footer chrome).
@@ -1659,6 +1686,18 @@ class ArtworkPreviewWindow {
             });
         });
 
+        const zoomButtons = this.container.querySelectorAll('.preview-zoom-btn');
+        zoomButtons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.zoomAction;
+                if (action === 'in') {
+                    this.adjustTextOverlayZoom(this.textOverlayZoomStep);
+                } else if (action === 'out') {
+                    this.adjustTextOverlayZoom(-this.textOverlayZoomStep);
+                }
+            });
+        });
+
         // Dragging functionality
         const header = this.container.querySelector('.preview-window-header');
         header.addEventListener('mousedown', (e) => {
@@ -2548,6 +2587,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             }
             codeView.classList.add('active');
             previewView.classList.remove('active');
+            this.updateTextOverlayZoomControls();
         } else {
             codeView.classList.remove('active');
             previewView.classList.add('active');
@@ -2579,6 +2619,10 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                 } finally {
                     this._viewSwitchPending = false;
                 }
+            }
+
+            if (this.isTextOverlayPreview && this.canvasPreviewManager) {
+                this.canvasPreviewManager.setZoom(this.textOverlayZoom);
             }
 
             const previewContainer = this.container.querySelector('.preview-preview-view');
@@ -2623,6 +2667,57 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             if (needsPreviewRefresh) {
                 this.updatePreview();
             }
+
+            this.updateTextOverlayZoomControls();
+        }
+    }
+
+    adjustTextOverlayZoom(delta) {
+        this.setTextOverlayZoom(this.textOverlayZoom + delta);
+    }
+
+    setTextOverlayZoom(value) {
+        const nextZoom = Math.min(
+            this.maxTextOverlayZoom,
+            Math.max(this.minTextOverlayZoom, Math.round(Number(value) / this.textOverlayZoomStep) * this.textOverlayZoomStep)
+        );
+
+        if (!Number.isFinite(nextZoom)) {
+            return;
+        }
+
+        this.textOverlayZoom = nextZoom;
+        if (this.canvasPreviewManager) {
+            this.canvasPreviewManager.setZoom(nextZoom);
+        }
+        this.updateTextOverlayZoomControls();
+    }
+
+    updateTextOverlayZoomControls() {
+        if (!this.container || !this.isTextOverlayPreview) {
+            return;
+        }
+
+        const zoomControls = this.container.querySelector('.preview-zoom-controls');
+        if (!zoomControls) {
+            return;
+        }
+
+        const zoomLevel = zoomControls.querySelector('.preview-zoom-level');
+        if (zoomLevel) {
+            zoomLevel.textContent = `${Math.round(this.textOverlayZoom * 100)}%`;
+        }
+
+        const zoomOutButton = zoomControls.querySelector('[data-zoom-action="out"]');
+        const zoomInButton = zoomControls.querySelector('[data-zoom-action="in"]');
+        const isPreviewVisible = this.currentView === 'preview';
+
+        if (zoomOutButton) {
+            zoomOutButton.disabled = !isPreviewVisible || this.textOverlayZoom <= this.minTextOverlayZoom;
+        }
+
+        if (zoomInButton) {
+            zoomInButton.disabled = !isPreviewVisible || this.textOverlayZoom >= this.maxTextOverlayZoom;
         }
     }
     // Copies the code or rationale text to the clipboard, stripping markdown if needed
@@ -3454,10 +3549,29 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         }
         
         .preview-window-view-controls {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
             padding: 8px 15px;
             border-bottom: 1px solid var(--border-color, #ddd);
             background-color: var(--preview-toolbar-bg, #f5f5f5);
+        }
+
+        .preview-view-buttons {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-self: start;
+        }
+
+        .preview-view-controls-center {
+            justify-self: center;
+            min-height: 1px;
+        }
+
+        .preview-view-controls-spacer {
+            justify-self: end;
+            min-height: 1px;
         }
         
         .preview-view-btn {
@@ -3483,6 +3597,42 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         
         .preview-view-btn.active svg {
             stroke: white;
+        }
+
+        .preview-zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-self: center;
+        }
+
+        .preview-zoom-btn {
+            background: none;
+            border: none;
+            padding: 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color, #666);
+        }
+
+        .preview-zoom-btn:hover:not(:disabled) {
+            background-color: rgba(127, 127, 127, 0.1);
+        }
+
+        .preview-zoom-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .preview-zoom-level {
+            min-width: 48px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-color, #666);
         }
         
         .preview-window-content {
@@ -3511,11 +3661,11 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
 
         .artwork-preview-window.text-overlay-preview .preview-preview-view.active {
             display: flex;
-            align-items: center;
-            justify-content: center;
+            align-items: flex-start;
+            justify-content: flex-start;
             padding: 0;
             background-color: #000000;
-            overflow: hidden;
+            overflow: auto;
         }
         
         .preview-iframe-shell {
@@ -3561,7 +3711,7 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
 
         .artwork-preview-window.text-overlay-preview .preview-iframe-shell {
             flex: 0 0 auto;
-            overflow: hidden;
+            overflow: auto;
         }
 
         /* Canvas preview styles */
@@ -3570,13 +3720,15 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             width: 100%;
             height: 100%;
             background-color: #000;
-            overflow: hidden;
+            overflow: auto;
         }
 
         .canvas-preview-container canvas {
             display: block;
-            width: 100%;
-            height: 100%;
+            width: auto;
+            height: auto;
+            max-width: none;
+            max-height: none;
         }
 
         .canvas-controls {

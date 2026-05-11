@@ -12,6 +12,7 @@ class CanvasPreviewManager {
         this.textBlocks = [];
         this.selectedBlockIndex = -1;
         this.onChange = null;
+        this.zoomLevel = Number(previewWindow?.textOverlayZoom) || 1;
     }
 
     /**
@@ -21,13 +22,6 @@ class CanvasPreviewManager {
       */
     async initialize(code = null) {
         if (this.isCanvasMode) return;
-        console.log('CanvasPreviewManager[overlay-chain]: initialize called', {
-            hasCode: !!code,
-            hasOverlayData: !!this.previewWindow?.overlayData,
-            hasBackgroundImage: !!this.previewWindow?.backgroundImage,
-            sourceImageWidth: this.previewWindow?.sourceImageWidth || 0,
-            sourceImageHeight: this.previewWindow?.sourceImageHeight || 0
-        });
 
          // Create canvas container
         const container = this.previewWindow.container.querySelector('.preview-preview-view');
@@ -43,12 +37,14 @@ class CanvasPreviewManager {
         canvasContainer.style.width = '100%';
         canvasContainer.style.height = '100%';
         canvasContainer.style.position = 'relative';
-        canvasContainer.style.overflow = 'hidden';
+        canvasContainer.style.overflow = 'auto';
 
          // Create canvas element
         this.canvas = document.createElement('canvas');
-        this.canvas.style.width = '100%';
-        this.canvas.style.height = '100%';
+        this.canvas.style.width = 'auto';
+        this.canvas.style.height = 'auto';
+        this.canvas.style.maxWidth = 'none';
+        this.canvas.style.maxHeight = 'none';
         this.canvas.style.display = 'block';
         canvasContainer.appendChild(this.canvas);
 
@@ -86,6 +82,7 @@ class CanvasPreviewManager {
                     if (this.previewWindow.sourceImageWidth > 0 && this.previewWindow.sourceImageHeight > 0) {
                         this.canvas.width = this.previewWindow.sourceImageWidth;
                         this.canvas.height = this.previewWindow.sourceImageHeight;
+                                                this.syncCanvasDisplaySize();
                         this.renderer.render();
                       }
                   }
@@ -93,6 +90,7 @@ class CanvasPreviewManager {
                   // No background image but we have source dimensions
                 this.canvas.width = this.previewWindow.sourceImageWidth;
                 this.canvas.height = this.previewWindow.sourceImageHeight;
+                                this.syncCanvasDisplaySize();
                 this.renderer.render();
               }
 
@@ -101,20 +99,7 @@ class CanvasPreviewManager {
             if (overlayData) {
                 try {
                                         const overlay = overlayData.overlay || {};
-                                        console.log('CanvasPreviewManager[overlay-chain]: Loading overlay JSON data into renderer', {
-                                                width: overlay.width,
-                                                height: overlay.height,
-                                                texts: Array.isArray(overlay.texts) ? overlay.texts.length : 0,
-                                                shapes: Array.isArray(overlay.shapes) ? overlay.shapes.length : 0,
-                                                lines: Array.isArray(overlay.lines) ? overlay.lines.length : 0,
-                                                ornaments: Array.isArray(overlay.ornaments) ? overlay.ornaments.length : 0
-                                        });
-                    this.renderer.loadOverlayData(overlayData);
-                                        console.log('CanvasPreviewManager[overlay-chain]: Renderer overlay load complete', {
-                                                rendererTextBlocks: this.renderer.textBlocks.length,
-                                                canvasWidth: this.canvas.width,
-                                                canvasHeight: this.canvas.height
-                                        });
+                        await this.renderer.loadOverlayData(overlayData);
                   } catch (err) {
                     console.warn('CanvasPreviewManager: Failed to load overlay data', err);
                                         if (this.previewWindow?.isTextOverlayPreview) {
@@ -142,6 +127,8 @@ class CanvasPreviewManager {
                   // Add event listeners
             this.addEventListeners();
           })();
+          await this._initPromise;
+          this.centerCanvasInView();
           return this._initPromise;
          }
 
@@ -157,20 +144,46 @@ class CanvasPreviewManager {
      * Handle canvas resize     */
     handleResize() {
     if (!this.canvas || !this.renderer) return;
-
-    const container = this.canvas.parentElement;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-
-    // IMPORTANT:
-    // Only scale visually with CSS.
-    // Keep internal canvas coordinate system intact.
-    this.canvas.style.width = rect.width + 'px';
-    this.canvas.style.height = rect.height + 'px';
-
+    this.syncCanvasDisplaySize();
     this.renderer.render();
+    this.centerCanvasInView();
 }
+
+    syncCanvasDisplaySize() {
+        if (!this.canvas) return;
+
+        const zoomLevel = Number(this.zoomLevel) || 1;
+        const displayWidth = Math.max(1, Math.round((Number(this.canvas.width) || 0) * zoomLevel));
+        const displayHeight = Math.max(1, Math.round((Number(this.canvas.height) || 0) * zoomLevel));
+
+        this.canvas.style.width = `${displayWidth}px`;
+        this.canvas.style.height = `${displayHeight}px`;
+    }
+
+    centerCanvasInView() {
+        const canvasContainer = this.previewWindow?.container?.querySelector('.canvas-preview-container');
+        if (!canvasContainer) {
+            return;
+        }
+
+        window.requestAnimationFrame(() => {
+            const maxScrollLeft = Math.max(0, canvasContainer.scrollWidth - canvasContainer.clientWidth);
+            const maxScrollTop = Math.max(0, canvasContainer.scrollHeight - canvasContainer.clientHeight);
+            canvasContainer.scrollLeft = Math.round(maxScrollLeft / 2);
+            canvasContainer.scrollTop = Math.round(maxScrollTop / 2);
+        });
+    }
+
+    setZoom(zoomLevel) {
+        const nextZoom = Number(zoomLevel);
+        if (!Number.isFinite(nextZoom) || nextZoom <= 0) {
+            return;
+        }
+
+        this.zoomLevel = nextZoom;
+        this.syncCanvasDisplaySize();
+        this.centerCanvasInView();
+    }
 
     /**
      * Handle canvas state change
@@ -389,12 +402,6 @@ class CanvasPreviewManager {
             console.warn('CanvasPreviewManager: Cannot export — canvas not initialized');
             return;
         }
-        console.log('CanvasPreviewManager[overlay-chain]: exportCanvas', {
-            scale,
-            canvasWidth: this.canvas.width,
-            canvasHeight: this.canvas.height,
-            textBlocks: this.renderer.textBlocks.length
-        });
         const dataUrl = this.renderer.exportPNG(scale);
         const link = document.createElement('a');
         link.download = 'artwork-export.png';

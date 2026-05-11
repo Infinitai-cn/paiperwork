@@ -1061,6 +1061,57 @@ class ArtworksTab {
         this.artworksInstance.canvasRenderer.updateTextOverlay(textOverlay);
     }
 
+    async ensureOverlayEditorScriptsLoaded() {
+        const overlayEditorReady = () => (
+            typeof ArtworkCanvasRenderer !== 'undefined'
+            && typeof CanvasInteractionHandler !== 'undefined'
+            && typeof CanvasPreviewManager !== 'undefined'
+        );
+
+        if (overlayEditorReady()) {
+            return true;
+        }
+
+        const loader = window.tabLoader;
+        if (!loader || typeof loader.loadScript !== 'function') {
+            throw new Error('Overlay editor loader is unavailable.');
+        }
+
+        const overlayScripts = [
+            'js/tabs/artworkcanvasrenderer.js',
+            'js/tabs/canvasinteractionhandler.js',
+            'js/tabs/canvaspreviewmanager.js'
+        ];
+
+        for (const script of overlayScripts) {
+            if (!loader.loadedModules[script]) {
+                if (!loader.loadingPromises[script]) {
+                    loader.loadingPromises[script] = loader.loadScript(script);
+                }
+                await loader.loadingPromises[script];
+                loader.loadedModules[script] = true;
+                delete loader.loadingPromises[script];
+            }
+        }
+
+        await new Promise((resolve, reject) => {
+            let attempts = 0;
+            const maxAttempts = loader.getTabLoadMaxAttempts ? loader.getTabLoadMaxAttempts() : 50;
+            const checkInterval = window.setInterval(() => {
+                attempts += 1;
+                if (overlayEditorReady()) {
+                    window.clearInterval(checkInterval);
+                    resolve();
+                } else if (attempts >= maxAttempts) {
+                    window.clearInterval(checkInterval);
+                    reject(new Error('Timeout waiting for overlay editor components to load.'));
+                }
+            }, loader.pollIntervalMs || 100);
+        });
+
+        return true;
+    }
+
     setArtworkProgressMessage(message, timingMessage = null) {
         const progressWindow = document.querySelector('.artwork-progress-window');
         if (!progressWindow) {
@@ -1177,15 +1228,20 @@ class ArtworksTab {
         const result = {
             url: data && typeof data.url === 'string' ? data.url : normalizedUrl,
             fonts: Array.isArray(data?.fonts) ? data.fonts.filter(Boolean) : [],
-            colors: Array.isArray(data?.colors) ? data.colors.filter(Boolean) : []
+            colors: Array.isArray(data?.colors) ? data.colors.filter(Boolean) : [],
+            fontDescriptors: Array.isArray(data?.fontDescriptors)
+                ? data.fontDescriptors.filter((font) => font && typeof font === 'object' && (font.family || font.fontFamily))
+                : []
         };
 
         this.logWebsiteStyleClone('fetch-success', {
             normalizedUrl,
             resolvedUrl: result.url,
             fontCount: result.fonts.length,
+            fontDescriptorCount: result.fontDescriptors.length,
             colorCount: result.colors.length,
             fonts: result.fonts,
+            fontDescriptors: result.fontDescriptors,
             colors: result.colors
         });
 
@@ -1200,10 +1256,14 @@ class ArtworksTab {
 
         const fonts = Array.isArray(styleReference.fonts) ? styleReference.fonts.filter(Boolean) : [];
         const colors = Array.isArray(styleReference.colors) ? styleReference.colors.filter(Boolean) : [];
-        if (!fonts.length && !colors.length) {
+        const fontDescriptors = Array.isArray(styleReference.fontDescriptors)
+            ? styleReference.fontDescriptors.filter((font) => font && typeof font === 'object' && (font.family || font.fontFamily))
+            : [];
+        if (!fonts.length && !colors.length && !fontDescriptors.length) {
             this.logWebsiteStyleClone('prompt-suffix-skipped-no-fonts-or-colors', {
                 sourceUrl: styleReference.url || '',
                 fontCount: fonts.length,
+                fontDescriptorCount: fontDescriptors.length,
                 colorCount: colors.length
             });
             return '';
@@ -1215,20 +1275,33 @@ class ArtworksTab {
         }
         if (fonts.length) {
             lines.push(`- Use these fonts when appropriate: ${fonts.join(', ')}`);
+        }
+        if (fontDescriptors.length) {
+            lines.push('- Prefer these exact website webfont descriptors before inventing substitutes:');
+            fontDescriptors.slice(0, 10).forEach((font) => {
+                lines.push(`  ${JSON.stringify(font)}`);
+            });
+            lines.push('- For text overlay JSON, copy these website-linked descriptors into overlay.webFonts and reference them from text elements using fontRef or matching fontFamily values.');
+            lines.push('- When a website link is provided and the design has multiple text blocks, assign one website font per text block whenever practical so the overlay uses several different linked fonts instead of repeating one family everywhere.');
+            lines.push('- Use the provided website font URLs directly when they exist. Do not replace them with Google Fonts or invented substitutes unless the descriptor itself already points to Google or no usable website font URL is available.');
+        } else if (fonts.length) {
             lines.push('- For text overlay JSON, preserve website fonts by adding them to overlay.webFonts and referencing them from text elements using fontRef or fontFamily.');
-            lines.push('- If a referenced font is a Google Font, prefer source:"google" plus googleFont or googleFontUrl. If it is a direct web font, use fontUrl when available.');
-            lines.push('- Do not limit yourself to system fonts when the website uses custom fonts; reproduce the site font choices as web fonts whenever possible.');
+            lines.push('- When a website link is provided and the design has multiple text blocks, spread the available website font families across the text blocks instead of repeating a single family unless readability clearly requires repetition.');
+            lines.push('- When you only know the family name and not a real font URL, you may fall back to a compatible web font source, but do not default to Google Fonts unless it is a clear match.');
         }
         if (colors.length) {
-            lines.push(`- Use these colors when appropriate: ${colors.join(', ')}`);
+            lines.push(`- Use these CSS colors when appropriate: ${colors.join(', ')}`);
+            lines.push('- Reuse these website CSS colors for text, shapes, lines, ornaments, and text background panels when they fit the composition and maintain readability.');
         }
         lines.push('- Adapt these style cues to the uploaded image and preserve strong readability and contrast.');
 
         this.logWebsiteStyleClone('prompt-suffix-built', {
             sourceUrl: styleReference.url || '',
             fontCount: fonts.length,
+            fontDescriptorCount: fontDescriptors.length,
             colorCount: colors.length,
             fonts,
+            fontDescriptors,
             colors
         });
 
@@ -1308,6 +1381,10 @@ class ArtworksTab {
         if (overlay) {
             overlay.style.display = 'none';
         }
+        const systemPrompt = document.getElementById('system-prompt');
+        if (systemPrompt) {
+            systemPrompt.disabled = false;
+        }
 
         // Clear the global generating flag
         window.isGenerating = false;
@@ -1316,30 +1393,24 @@ class ArtworksTab {
         this.enableChatControls();
     }
 
-    // Disables chat controls while artwork is being generated
     disableChatControls() {
-        // Disable the send button
         const sendButton = document.getElementById('send-prompt');
         if (sendButton) {
             sendButton.disabled = true;
         }
 
-        // Disable the prompt input
         const promptInput = document.getElementById('prompt-input');
         if (promptInput) {
             promptInput.disabled = true;
         }
 
-        // Disable system prompt edit if it exists
         const systemPrompt = document.getElementById('system-prompt');
         if (systemPrompt) {
             systemPrompt.disabled = true;
         }
     }
 
-    // Enables chat controls after artwork generation is complete or canceled
     enableChatControls() {
-        // Enable the send button
         const sendButton = document.getElementById('send-prompt');
         if (sendButton) {
             sendButton.disabled = false;
@@ -1347,18 +1418,17 @@ class ArtworksTab {
             sendButton.classList.remove('cancel-state');
         }
 
-        // Enable the prompt input
         const promptInput = document.getElementById('prompt-input');
         if (promptInput) {
             promptInput.disabled = false;
         }
 
-        // Enable system prompt edit if it exists
         const systemPrompt = document.getElementById('system-prompt');
         if (systemPrompt) {
             systemPrompt.disabled = false;
         }
     }
+
     // Stores the current system prompt before updating it for artwork generation
     async storeAndUpdateSystemPrompt() {
         // First, check if we already have stored the original system prompt
@@ -1745,6 +1815,7 @@ class ArtworksTab {
 
             let websiteStyleReference = null;
             if (this.activeMode === 'overlay') {
+                await this.ensureOverlayEditorScriptsLoaded();
                 const websiteStyleUrlRaw = this.elements.webstyleCloneInput?.value || '';
                 this.logWebsiteStyleClone('workflow-mode-check', {
                     activeMode: this.activeMode,
@@ -1961,23 +2032,33 @@ class ArtworksTab {
                                             - White text on dark image areas and dark text on light image areas is often most effective.
                                             - Use font sizes proportional to the image dimensions. For a 1920px wide image, minimum font size should be 24px.
                                             - You may use system fonts or web fonts. For web fonts, include valid entries in overlay.webFonts (or per-text fontUrl/googleFont/googleFontUrl fields).
-                                            - When a website style reference is provided, carry its fonts into overlay.webFonts and use matching fontRef or fontFamily values for the relevant text elements.
+                                            - When a website style reference is provided, carry its linked website fonts into overlay.webFonts and use matching fontRef or fontFamily values for the relevant text elements.
+                                            - When a website style reference is provided and there are multiple text blocks, prefer one website font family per text block so the design uses as many different linked website fonts as possible without harming readability.
+                                            - When website webfont descriptors are provided, prefer those exact linked font URLs over substitutes.
                                             - Use fontWeight "bold" or 700 for headlines, "normal" or 400 for body text.
                                             - Add semi-transparent backgroundColor panels behind text when needed for readability.
                                             - Do NOT use decorative text effects like glow, outline, or filter-based effects.
+
+                                            COLOR GUIDELINES:
+                                            - When a website style reference is provided, reuse its extracted CSS colors in the overlay JSON when they fit the design.
+                                            - Prefer website CSS colors for text, shapes, lines, ornaments, and background panels before inventing a different palette.
+                                            - Keep all chosen colors readable against the uploaded image and use only hex color strings in the JSON.
 
                                             SHAPE/LINE/ORNAMEENT GUIDELINES:
                                             - Shapes, lines, and ornaments should enhance the design without overwhelming it.
                                             - Use shapes for decorative dividers, badges, highlights, or background panels behind text.
                                             - Use lines for dividers, underlines, or decorative accents.
                                             - Use ornaments sparingly for badges, stars, or decorative elements.
+                                            - Do NOT place lines or ornaments on top of text or through text. Keep clear spacing so decorative elements never overlap the readable text area.
                                             - All shapes/lines/ornaments must have valid pixel coordinates within the image bounds.
 
                                             IMPORTANT RULES:
                                             - The "width" and "height" fields in the overlay object MUST match the actual uploaded image dimensions.
                                             - All numeric values must be actual numbers, not strings.
                                             - All color values must be hex strings (e.g., "#FFFFFF", "#000000", "#FF0000").
-                                            - If you use Google Fonts, provide either googleFont (css2 family value) or googleFontUrl.
+                                            - If website font descriptors are provided in the user prompt, use those exact linked URLs first and preserve their family names in overlay.webFonts.
+                                            - If website CSS colors are provided in the user prompt, reuse them in the JSON wherever they fit the composition before inventing new colors.
+                                            - Only use Google Fonts when the reference site uses Google Fonts or when no usable website font URL is available.
                                             - If you use direct font files, use publicly reachable URLs that allow loading from browsers.
                                             - The JSON must be valid and parseable. No trailing commas, no comments, no single quotes.
                                             - Do NOT include any text outside the JSON code block.
@@ -1991,9 +2072,9 @@ class ArtworksTab {
                                         - Dimensions: ${this.imageDimensions || 'Unknown'}
                                         - Aspect ratio: ${this.imageRatio || 'Unknown'}
                     
-                                        Respond with a SINGLE valid JSON object (wrapped in a \`\`\`json code block) that describes the text overlays, shapes, lines, and ornaments to render on this background image. Use the exact image dimensions provided above to calculate all pixel positions. Position text in visually balanced locations that complement the image content and avoid covering key product features. Choose text colors with strong contrast against the background. Include shapes/lines/ornaments only if they enhance the design meaningfully.
+                                        Respond with a SINGLE valid JSON object (wrapped in a \`\`\`json code block) that describes the text overlays, shapes, lines, and ornaments to render on this background image. Use the exact image dimensions provided above to calculate all pixel positions. Position text in visually balanced locations that complement the image content and avoid covering key product features. Choose text colors with strong contrast against the background. Include shapes/lines/ornaments only if they enhance the design meaningfully, and keep lines and ornaments clear of the text so they do not overlap or cross through readable text.
                     
-                                        If you are requested to add external fallbacks, use reputable sources and always include fallbacks from different providers to avoid empty placeholders.`;
+                                        If website font descriptors are provided, use them directly in overlay.webFonts instead of substituting other providers. When the design has multiple text blocks, try to assign a different website-linked font to each block so the poster uses several of the provided website fonts. Reuse website CSS colors from the style reference in the overlay JSON when they fit the design. Only add a fallback provider when no usable website font source is available or the user explicitly asks for one.`;
                                     {
                                      const websiteStylePromptSuffix = this.buildWebsiteStylePromptSuffix(websiteStyleReference);
                                         if (websiteStylePromptSuffix) {
@@ -2117,12 +2198,12 @@ class ArtworksTab {
                 if (fullResponse) {
                     // IMPORTANT: Strip thinking tags from response before processing
                     fullResponse = this.stripThinkingTags(fullResponse);
-                    console.log('ArtworksTab[overlay-chain]: Received AI response', {
+                    /* console.log('ArtworksTab[overlay-chain]: Received AI response', {
                         mode: this.activeMode,
                         responseLength: fullResponse.length,
                         hasJsonFence: /```json/i.test(fullResponse),
                         hasOverlayKey: /"overlay"\s*:/.test(fullResponse)
-                    });
+                    }); */
                     // Debug log: Step 1 - AI response cleaned
                     
                     // Parse overlay JSON data if in overlay mode
@@ -2131,27 +2212,6 @@ class ArtworksTab {
                        overlayData = this.parseOverlayJsonFromResponse(fullResponse);
                         if (overlayData?.overlay) {
                             const overlay = overlayData.overlay;
-                            console.log('ArtworksTab[overlay-chain]: parseOverlayJsonFromResponse succeeded', {
-                                width: overlay.width,
-                                height: overlay.height,
-                                texts: Array.isArray(overlay.texts) ? overlay.texts.length : 0,
-                                shapes: Array.isArray(overlay.shapes) ? overlay.shapes.length : 0,
-                                lines: Array.isArray(overlay.lines) ? overlay.lines.length : 0,
-                                ornaments: Array.isArray(overlay.ornaments) ? overlay.ornaments.length : 0
-                            });
-                            console.log('ArtworksTab[overlay-chain]: overlay web font hints parsed', {
-                                webFonts: Array.isArray(overlay.webFonts) ? overlay.webFonts.length : 0,
-                                textFontHints: Array.isArray(overlay.texts)
-                                    ? overlay.texts.filter((text) => text && (text.fontUrl || text.googleFont || text.googleFontUrl || text.fontProvider)).length
-                                    : 0,
-                                families: Array.isArray(overlay.webFonts)
-                                    ? overlay.webFonts.map((font) => font && (font.family || font.fontFamily || '')).filter(Boolean)
-                                    : []
-                            });
-                            console.log('ArtworksTab: Parsed overlay JSON data:', overlayData);
-                            if (this.artworksInstance && this.artworksInstance.canvasRenderer) {
-                                this.artworksInstance.canvasRenderer.loadOverlayData(overlayData);
-                            }
                         } else {
                             console.error('ArtworksTab: Failed to parse overlay JSON in overlay mode');
                             throw new Error('Overlay mode requires valid JSON with an overlay object.');
@@ -2519,9 +2579,7 @@ class ArtworksTab {
         if (!response || typeof response !== 'string') return null;
 
         let text = response.trim();
-        console.log('ArtworksTab[overlay-chain]: parseOverlayJsonFromResponse started', {
-            inputLength: text.length
-        });
+
 
         // Try to extract JSON from markdown code block first
         const jsonBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -2530,7 +2588,7 @@ class ArtworksTab {
             try {
                 const parsed = JSON.parse(jsonStr);
                 if (parsed && parsed.overlay) {
-                    console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from fenced block');
+                    //console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from fenced block');
                     return parsed;
                 }
             } catch (e) {
@@ -2543,7 +2601,7 @@ class ArtworksTab {
         try {
             const parsed = JSON.parse(text);
             if (parsed && parsed.overlay) {
-                console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from full response');
+                //console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from full response');
                 return parsed;
             }
         } catch (e) {
@@ -2557,7 +2615,7 @@ class ArtworksTab {
             try {
                 const parsed = JSON.parse(jsonMatch[0]);
                 if (parsed && parsed.overlay) {
-                    console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from regex object extraction');
+                    //console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from regex object extraction');
                     return parsed;
                 }
             } catch (e) {

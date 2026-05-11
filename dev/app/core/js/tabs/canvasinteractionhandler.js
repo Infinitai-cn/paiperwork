@@ -25,11 +25,16 @@ class CanvasInteractionHandler {
      * Bind mouse and touch event listeners to canvas
      */
     bindEvents() {
+        if (!this.canvas.hasAttribute('tabindex')) {
+            this.canvas.setAttribute('tabindex', '0');
+        }
+
         // Mouse events
         this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
         this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
         this.canvas.addEventListener('mouseleave', (e) => this.onMouseUp(e));
+        this.canvas.addEventListener('keydown', (e) => this.onKeyDown(e));
 
         // Touch events
         this.canvas.addEventListener('touchstart', (e) => {
@@ -68,6 +73,7 @@ class CanvasInteractionHandler {
      * @param {Object} e - Event object
      */
     onMouseDown(e) {
+        this.canvas.focus();
         const coords = this.getCanvasCoords(e);
         const handle = this.renderer.hitTestHandle(coords.x, coords.y);
 
@@ -79,12 +85,13 @@ class CanvasInteractionHandler {
             this.startX = coords.x;
             this.startY = coords.y;
             this.startBlock = { ...this.renderer.textBlocks[this.renderer.selectedBlockIndex] };
+            this.renderer.setSelectedTarget({ type: 'text', index: this.renderer.selectedBlockIndex });
             this.canvas.style.cursor = handle.cursor;
         } else {
             const target = this.renderer.hitTestAny(coords.x, coords.y);
             if (!target) {
                 // Clicked empty space — deselect
-                this.renderer.selectedBlockIndex = -1;
+                this.renderer.setSelectedTarget(null);
                 this.dragTarget = null;
                 this.startElement = null;
                 this.onChange();
@@ -95,13 +102,12 @@ class CanvasInteractionHandler {
             this.isDragging = true;
             this.startX = coords.x;
             this.startY = coords.y;
+            this.renderer.setSelectedTarget(target);
 
             if (target.type === 'text') {
-                this.renderer.selectedBlockIndex = target.index;
                 this.startBlock = { ...this.renderer.textBlocks[target.index] };
                 this.startElement = null;
             } else {
-                this.renderer.selectedBlockIndex = -1;
                 this.startBlock = null;
                 const element = this.getTargetElement(target);
                 this.startElement = element ? JSON.parse(JSON.stringify(element)) : null;
@@ -190,6 +196,49 @@ class CanvasInteractionHandler {
         this.startBlock = null;
         this.startElement = null;
         this.canvas.style.cursor = 'default';
+    }
+
+    onKeyDown(e) {
+        const isUndoShortcut = (e.metaKey || e.ctrlKey) && !e.shiftKey && String(e.key || '').toLowerCase() === 'z';
+        if (isUndoShortcut) {
+            const restored = this.renderer.undoLastDeletion();
+            if (!restored) {
+                return;
+            }
+
+            e.preventDefault();
+            this.dragTarget = null;
+            this.startElement = null;
+            this.startBlock = null;
+            if (this.onChange) {
+                this.onChange();
+            }
+            return;
+        }
+
+        if (e.key !== 'Delete' && e.key !== 'Backspace') {
+            return;
+        }
+
+        const activeElement = document.activeElement;
+        const tagName = String(activeElement?.tagName || '').toLowerCase();
+        const isEditable = activeElement?.isContentEditable || tagName === 'input' || tagName === 'textarea';
+        if (isEditable && activeElement !== this.canvas) {
+            return;
+        }
+
+        const deleted = this.renderer.deleteSelectedTarget();
+        if (!deleted) {
+            return;
+        }
+
+        e.preventDefault();
+        this.dragTarget = null;
+        this.startElement = null;
+        this.startBlock = null;
+        if (this.onChange) {
+            this.onChange();
+        }
     }
 
     getTargetElement(target) {
