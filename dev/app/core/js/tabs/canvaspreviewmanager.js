@@ -336,6 +336,12 @@ class CanvasPreviewManager {
             return serializedText;
         });
 
+        overlay.ornaments = Array.isArray(this.renderer.ornaments)
+            ? cloneOverlayData(this.renderer.ornaments)
+            : [];
+        delete overlay.shapes;
+        delete overlay.lines;
+
         return overlayData;
     }
 

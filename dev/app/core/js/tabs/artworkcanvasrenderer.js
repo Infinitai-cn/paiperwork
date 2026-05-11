@@ -309,27 +309,50 @@ class ArtworkCanvasRenderer {
             }
         }
 
-        for (let i = (this.shapes?.length || 0) - 1; i >= 0; i--) {
-            if (this.hitTestShape(this.shapes[i], x, y)) {
-                return { type: 'shape', index: i };
-            }
-        }
-
-        for (let i = (this.lines?.length || 0) - 1; i >= 0; i--) {
-            if (this.hitTestLineElement(this.lines[i], x, y)) {
-                return { type: 'line', index: i };
-            }
-        }
-
         return null;
     }
 
     hitTestOrnament(ornament, x, y) {
         if (!ornament) return false;
-        const ox = Number(ornament.x) || 0;
-        const oy = Number(ornament.y) || 0;
-        const size = Math.max(1, Number(ornament.size) || 20);
-        return x >= ox && x <= ox + size && y >= oy && y <= oy + size;
+
+        const type = this.getOrnamentType(ornament);
+        const bounds = this.getOrnamentBoundsFromData(ornament);
+        if (!bounds) {
+            return false;
+        }
+
+        if (type === 'line') {
+            const { x1, y1, x2, y2 } = this.getOrnamentLineEndpoints(ornament);
+            const stroke = Math.max(2, Number(ornament.strokeWidth) || 2);
+            return this.isPointNearLineSegment(x, y, x1, y1, x2, y2, stroke + 6);
+        }
+
+        if (type === 'circle' || type === 'ellipse') {
+            const cx = bounds.x + (bounds.width / 2);
+            const cy = bounds.y + (bounds.height / 2);
+            const rx = Math.max(1, bounds.width / 2);
+            const ry = Math.max(1, bounds.height / 2);
+            const nx = (x - cx) / rx;
+            const ny = (y - cy) / ry;
+            return (nx * nx + ny * ny) <= 1;
+        }
+
+        if ((type === 'path' || type === 'custom') && ornament.pathData && typeof Path2D === 'function') {
+            try {
+                const path = new Path2D(ornament.pathData);
+                const ctx = this.ctx;
+                ctx.save();
+                ctx.translate(Number(ornament.x) || 0, Number(ornament.y) || 0);
+                ctx.lineWidth = Math.max(1, Number(ornament.strokeWidth) || 1);
+                const hit = ctx.isPointInPath(path, x, y) || ctx.isPointInStroke(path, x, y);
+                ctx.restore();
+                return hit;
+            } catch (_error) {
+                return x >= bounds.x && x <= bounds.x + bounds.width && y >= bounds.y && y <= bounds.y + bounds.height;
+            }
+        }
+
+        return x >= bounds.x && x <= bounds.x + bounds.width && y >= bounds.y && y <= bounds.y + bounds.height;
     }
 
     hitTestShape(shape, x, y) {
@@ -413,6 +436,175 @@ class ArtworkCanvasRenderer {
         const ddx = px - projX;
         const ddy = py - projY;
         return Math.sqrt(ddx * ddx + ddy * ddy) <= threshold;
+    }
+
+    normalizeOverlayOrnaments(overlay = {}) {
+        const ornaments = [];
+
+        if (Array.isArray(overlay.ornaments)) {
+            overlay.ornaments.forEach((ornament, index) => {
+                const normalized = this.normalizeOrnamentRecord(ornament, `ornament-${index}`);
+                if (normalized) {
+                    ornaments.push(normalized);
+                }
+            });
+        }
+
+        if (Array.isArray(overlay.shapes)) {
+            overlay.shapes.forEach((shape, index) => {
+                const normalized = this.normalizeLegacyShapeToOrnament(shape, index);
+                if (normalized) {
+                    ornaments.push(normalized);
+                }
+            });
+        }
+
+        if (Array.isArray(overlay.lines)) {
+            overlay.lines.forEach((line, index) => {
+                const normalized = this.normalizeLegacyLineToOrnament(line, index);
+                if (normalized) {
+                    ornaments.push(normalized);
+                }
+            });
+        }
+
+        return ornaments;
+    }
+
+    normalizeOrnamentRecord(ornament, fallbackId = null) {
+        if (!ornament || typeof ornament !== 'object') {
+            return null;
+        }
+
+        const clone = this.cloneStateSnapshot(ornament) || {};
+        clone.id = clone.id || fallbackId || null;
+        clone.type = this.getOrnamentType(clone);
+        return clone;
+    }
+
+    normalizeLegacyShapeToOrnament(shape, index) {
+        const normalized = this.normalizeOrnamentRecord(shape, `shape-${index}`);
+        if (!normalized) {
+            return null;
+        }
+
+        normalized.type = this.getOrnamentType(shape);
+        return normalized;
+    }
+
+    normalizeLegacyLineToOrnament(line, index) {
+        const normalized = this.normalizeOrnamentRecord(line, `line-${index}`);
+        if (!normalized) {
+            return null;
+        }
+
+        normalized.type = 'line';
+        return normalized;
+    }
+
+    getOrnamentType(ornament) {
+        return String(ornament?.type || 'custom').toLowerCase();
+    }
+
+    parsePolygonPoints(pointsString) {
+        if (typeof pointsString !== 'string') {
+            return [];
+        }
+
+        return pointsString
+            .trim()
+            .split(/\s+/)
+            .map((pair) => pair.split(',').map((value) => Number(value)))
+            .filter((pair) => pair.length === 2 && Number.isFinite(pair[0]) && Number.isFinite(pair[1]))
+            .map(([x, y]) => ({ x, y }));
+    }
+
+    getOrnamentLineEndpoints(ornament) {
+        if (!ornament) {
+            return { x1: 0, y1: 0, x2: 0, y2: 0 };
+        }
+
+        if ([ornament.x1, ornament.y1, ornament.x2, ornament.y2].every((value) => Number.isFinite(Number(value)))) {
+            return {
+                x1: Number(ornament.x1) || 0,
+                y1: Number(ornament.y1) || 0,
+                x2: Number(ornament.x2) || 0,
+                y2: Number(ornament.y2) || 0
+            };
+        }
+
+        const x1 = Number(ornament.x) || 0;
+        const y1 = Number(ornament.y) || 0;
+        return {
+            x1,
+            y1,
+            x2: x1 + (Number(ornament.width) || 100),
+            y2: y1 + (Number(ornament.height) || 0)
+        };
+    }
+
+    getOrnamentBoundsFromData(ornament) {
+        if (!ornament) {
+            return null;
+        }
+
+        const type = this.getOrnamentType(ornament);
+
+        if (type === 'line') {
+            const { x1, y1, x2, y2 } = this.getOrnamentLineEndpoints(ornament);
+            return {
+                x: Math.min(x1, x2),
+                y: Math.min(y1, y2),
+                width: Math.max(1, Math.abs(x2 - x1)),
+                height: Math.max(1, Math.abs(y2 - y1))
+            };
+        }
+
+        if (type === 'rect') {
+            return {
+                x: Number(ornament.x) || 0,
+                y: Number(ornament.y) || 0,
+                width: Math.max(1, Number(ornament.width) || 0),
+                height: Math.max(1, Number(ornament.height) || 0)
+            };
+        }
+
+        if (type === 'circle' || type === 'ellipse') {
+            const width = Number(ornament.width) || (type === 'circle' ? 100 : 120);
+            const height = Number(ornament.height) || (type === 'circle' ? width : 80);
+            const rx = Math.max(1, Number(ornament.rx) || (width / 2));
+            const ry = Math.max(1, Number(ornament.ry) || (height / 2));
+            const cx = Number(ornament.cx);
+            const cy = Number(ornament.cy);
+            const centerX = Number.isFinite(cx) ? cx : ((Number(ornament.x) || 0) + rx);
+            const centerY = Number.isFinite(cy) ? cy : ((Number(ornament.y) || 0) + ry);
+            return { x: centerX - rx, y: centerY - ry, width: rx * 2, height: ry * 2 };
+        }
+
+        if (type === 'polygon') {
+            const points = this.parsePolygonPoints(ornament.points);
+            if (!points.length) {
+                return null;
+            }
+            const xs = points.map((point) => point.x);
+            const ys = points.map((point) => point.y);
+            return {
+                x: Math.min(...xs),
+                y: Math.min(...ys),
+                width: Math.max(1, Math.max(...xs) - Math.min(...xs)),
+                height: Math.max(1, Math.max(...ys) - Math.min(...ys))
+            };
+        }
+
+        const size = Math.max(1, Number(ornament.size) || 0);
+        const width = Math.max(1, Number(ornament.width) || size || 40);
+        const height = Math.max(1, Number(ornament.height) || size || 40);
+        return {
+            x: Number(ornament.x) || 0,
+            y: Number(ornament.y) || 0,
+            width,
+            height
+        };
     }
 
     /**
@@ -608,25 +800,21 @@ class ArtworkCanvasRenderer {
             return;
         }
 
-        let collection = null;
-        if (target.type === 'shape') {
-            collection = this.shapes;
-        } else if (target.type === 'line') {
-            collection = this.lines;
-        } else if (target.type === 'ornament') {
-            collection = this.ornaments;
-        }
+        const normalizedTarget = target.type === 'ornament'
+            ? target
+            : { type: 'ornament', index: target.index };
+        const collection = this.ornaments;
 
-        if (!Array.isArray(collection) || target.index < 0 || target.index >= collection.length) {
+        if (!Array.isArray(collection) || normalizedTarget.index < 0 || normalizedTarget.index >= collection.length) {
             return;
         }
 
         this.pushUndoSnapshot();
-        collection.splice(target.index, 1);
-        if (this.selectedDecorationTarget && this.selectedDecorationTarget.type === target.type) {
-            if (this.selectedDecorationTarget.index === target.index) {
+        collection.splice(normalizedTarget.index, 1);
+        if (this.selectedDecorationTarget && this.selectedDecorationTarget.type === 'ornament') {
+            if (this.selectedDecorationTarget.index === normalizedTarget.index) {
                 this.selectedDecorationTarget = null;
-            } else if (this.selectedDecorationTarget.index > target.index) {
+            } else if (this.selectedDecorationTarget.index > normalizedTarget.index) {
                 this.selectedDecorationTarget = {
                     ...this.selectedDecorationTarget,
                     index: this.selectedDecorationTarget.index - 1
@@ -679,13 +867,13 @@ class ArtworkCanvasRenderer {
 
         this.selectedBlockIndex = -1;
         this.selectedDecorationTarget = {
-            type: target.type,
+            type: 'ornament',
             index: target.index
         };
 
         if (
             previousTextIndex !== -1
-            || previousDecorationType !== target.type
+            || previousDecorationType !== 'ornament'
             || previousDecorationIndex !== target.index
         ) {
             this.render();
@@ -767,8 +955,8 @@ class ArtworkCanvasRenderer {
         return {
             bgImage: this.bgImage ? this.bgImage.src : null,
             textBlocks: this.cloneStateSnapshot(this.textBlocks) || [],
-            shapes: this.cloneStateSnapshot(this.shapes) || [],
-            lines: this.cloneStateSnapshot(this.lines) || [],
+            shapes: [],
+            lines: [],
             ornaments: this.cloneStateSnapshot(this.ornaments) || [],
             selectedBlockIndex: this.selectedBlockIndex,
             selectedDecorationTarget: this.cloneStateSnapshot(this.selectedDecorationTarget)
@@ -891,11 +1079,18 @@ class ArtworkCanvasRenderer {
             this.loadBackground(state.bgImage);
         }
         this.textBlocks = this.cloneStateSnapshot(state.textBlocks) || [];
-        this.shapes = this.cloneStateSnapshot(state.shapes) || [];
-        this.lines = this.cloneStateSnapshot(state.lines) || [];
-        this.ornaments = this.cloneStateSnapshot(state.ornaments) || [];
+        this.shapes = [];
+        this.lines = [];
+        this.ornaments = this.normalizeOverlayOrnaments({
+            ornaments: this.cloneStateSnapshot(state.ornaments) || [],
+            shapes: this.cloneStateSnapshot(state.shapes) || [],
+            lines: this.cloneStateSnapshot(state.lines) || []
+        });
         this.selectedBlockIndex = typeof state.selectedBlockIndex === 'number' ? state.selectedBlockIndex : -1;
-        this.selectedDecorationTarget = this.cloneStateSnapshot(state.selectedDecorationTarget);
+        const selectedDecorationTarget = this.cloneStateSnapshot(state.selectedDecorationTarget);
+        this.selectedDecorationTarget = selectedDecorationTarget && selectedDecorationTarget.type !== 'text'
+            ? { type: 'ornament', index: selectedDecorationTarget.index }
+            : selectedDecorationTarget;
         this._verticalCenterGuide = null;
         this.render();
         if (this.onChange) this.onChange();
@@ -926,77 +1121,23 @@ class ArtworkCanvasRenderer {
         }
 
         if (target.type === 'ornament') {
-            const ornament = this.ornaments?.[target.index];
-            if (!ornament) return null;
-            const x = Number(ornament.x) || 0;
-            const y = Number(ornament.y) || 0;
-            const size = Math.max(1, Number(ornament.size) || 20);
-            return { x, y, width: size, height: size };
+            return this.getOrnamentBoundsFromData(this.ornaments?.[target.index]);
         }
 
-        if (target.type === 'line') {
-            const line = this.lines?.[target.index];
-            if (!line) return null;
-            const x1 = Number(line.x1) || 0;
-            const y1 = Number(line.y1) || 0;
-            const x2 = Number(line.x2) || 0;
-            const y2 = Number(line.y2) || 0;
-            return {
-                x: Math.min(x1, x2),
-                y: Math.min(y1, y2),
-                width: Math.max(1, Math.abs(x2 - x1)),
-                height: Math.max(1, Math.abs(y2 - y1))
-            };
+        const legacyCollection = target.type === 'line'
+            ? this.lines
+            : target.type === 'shape'
+                ? this.shapes
+                : null;
+        const legacyItem = legacyCollection?.[target.index];
+        if (!legacyItem) {
+            return null;
         }
 
-        if (target.type === 'shape') {
-            const shape = this.shapes?.[target.index];
-            if (!shape) return null;
-            const type = String(shape.type || '').toLowerCase();
-
-            if (type === 'rect') {
-                return {
-                    x: Number(shape.x) || 0,
-                    y: Number(shape.y) || 0,
-                    width: Math.max(1, Number(shape.width) || 0),
-                    height: Math.max(1, Number(shape.height) || 0)
-                };
-            }
-
-            if (type === 'circle' || type === 'ellipse') {
-                const cx = Number(shape.cx) || ((Number(shape.x) || 0) + (Number(shape.width) || 0) / 2);
-                const cy = Number(shape.cy) || ((Number(shape.y) || 0) + (Number(shape.height) || 0) / 2);
-                const rx = Math.max(1, Number(shape.rx) || ((Number(shape.width) || (type === 'circle' ? 50 : 100)) / 2));
-                const ry = Math.max(1, Number(shape.ry) || ((Number(shape.height) || (type === 'circle' ? 50 : 100)) / 2));
-                return { x: cx - rx, y: cy - ry, width: rx * 2, height: ry * 2 };
-            }
-
-            if (type === 'polygon' && typeof shape.points === 'string') {
-                const points = shape.points
-                    .trim()
-                    .split(/\s+/)
-                    .map((pair) => pair.split(',').map((value) => Number(value)))
-                    .filter((pair) => pair.length === 2 && Number.isFinite(pair[0]) && Number.isFinite(pair[1]));
-                if (!points.length) return null;
-                const xs = points.map((pair) => pair[0]);
-                const ys = points.map((pair) => pair[1]);
-                return {
-                    x: Math.min(...xs),
-                    y: Math.min(...ys),
-                    width: Math.max(1, Math.max(...xs) - Math.min(...xs)),
-                    height: Math.max(1, Math.max(...ys) - Math.min(...ys))
-                };
-            }
-
-            return {
-                x: Number(shape.x) || 0,
-                y: Number(shape.y) || 0,
-                width: Math.max(1, Number(shape.width) || 40),
-                height: Math.max(1, Number(shape.height) || 40)
-            };
-        }
-
-        return null;
+        const normalizedLegacy = target.type === 'line'
+            ? this.normalizeLegacyLineToOrnament(legacyItem, target.index)
+            : this.normalizeLegacyShapeToOrnament(legacyItem, target.index);
+        return this.getOrnamentBoundsFromData(normalizedLegacy);
     }
 
     /**
@@ -1168,8 +1309,8 @@ class ArtworkCanvasRenderer {
     }
 
     /**
-     * Load overlay data from JSON configuration
-     * This method parses the JSON overlay data and creates text blocks, shapes, lines, and ornaments
+    * Load overlay data from JSON configuration
+    * This method parses the JSON overlay data and creates text blocks and ornaments
      * @param {Object} overlayData - JSON overlay data from AI response
      * @returns {Promise<void>}
      */
@@ -1264,10 +1405,10 @@ class ArtworkCanvasRenderer {
 
         this.clearUndoStack();
 
-        // Process shapes, lines, and ornaments (stored for rendering)
-        this.shapes = overlay.shapes || [];
-        this.lines = overlay.lines || [];
-        this.ornaments = overlay.ornaments || [];
+        // Normalize all vector decorations into a single ornaments collection.
+        this.shapes = [];
+        this.lines = [];
+        this.ornaments = this.normalizeOverlayOrnaments(overlay);
 
         const hasLinkedWebFonts = fontCandidates.some((descriptor) => this.isLinkedWebFontCandidate(descriptor));
         let fontLoadResults = [];
@@ -1955,121 +2096,175 @@ class ArtworkCanvasRenderer {
      * Render shapes, lines, and ornaments to canvas
      */
     renderDecorations(ctx) {
-        // Render lines first (behind everything)
-        if (this.lines && Array.isArray(this.lines)) {
-            for (const line of this.lines) {
-                ctx.save();
-                ctx.globalAlpha = this.normalizeOpacity(line.opacity, 1);
-                ctx.strokeStyle = line.color || '#FFFFFF';
-                ctx.lineWidth = Number(line.strokeWidth) || 2;
-                
-                if (line.dashArray) {
-                    ctx.setLineDash(line.dashArray.split(',').map(d => Number(d.trim()) || 0));
-                }
-                
-                ctx.beginPath();
-                ctx.moveTo(Number(line.x1) || 0, Number(line.y1) || 0);
-                ctx.lineTo(Number(line.x2) || 0, Number(line.y2) || 0);
-                ctx.stroke();
-                ctx.restore();
-            }
+        if (!Array.isArray(this.ornaments) || !this.ornaments.length) {
+            return;
         }
 
-        // Render shapes
-        if (this.shapes && Array.isArray(this.shapes)) {
-            for (const shape of this.shapes) {
-                ctx.save();
-                ctx.globalAlpha = this.normalizeOpacity(shape.opacity, 1);
-                
-                const cx = Number(shape.cx) || (Number(shape.x) || 0) + (Number(shape.width) || 0) / 2;
-                const cy = Number(shape.cy) || (Number(shape.y) || 0) + (Number(shape.height) || 0) / 2;
-                
-                if (shape.rotation) {
-                    ctx.translate(cx, cy);
-                    ctx.rotate(shape.rotation * Math.PI / 180);
-                    ctx.translate(-cx, -cy);
-                }
+        const lineOrnaments = this.ornaments.filter((ornament) => this.getOrnamentType(ornament) === 'line');
+        const otherOrnaments = this.ornaments.filter((ornament) => this.getOrnamentType(ornament) !== 'line');
 
-                if (shape.type === 'rect') {
-                    const w = Number(shape.width) || 100;
-                    const h = Number(shape.height) || 100;
-                    const x = Number(shape.x) || 0;
-                    const y = Number(shape.y) || 0;
-                    const rx = Number(shape.rx) || 0;
-                    
-                    if (shape.color) {
-                        ctx.fillStyle = shape.color;
-                        this.roundedRect(ctx, x, y, w, h, rx);
-                        ctx.fill();
-                    }
-                    if (shape.strokeColor) {
-                        ctx.strokeStyle = shape.strokeColor;
-                        ctx.lineWidth = Number(shape.strokeWidth) || 2;
-                        this.roundedRect(ctx, x, y, w, h, rx);
-                        ctx.stroke();
-                    }
-                } else if (shape.type === 'circle' || shape.type === 'ellipse') {
-                    ctx.beginPath();
-                    const rx = Number(shape.rx) || (shape.type === 'circle' ? (Number(shape.width) || 50) : (Number(shape.width) || 100) / 2);
-                    const ry = Number(shape.ry) || (shape.type === 'circle' ? (Number(shape.height) || 50) : (Number(shape.height) || 100) / 2);
-                    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-                    if (shape.color) {
-                        ctx.fillStyle = shape.color;
-                        ctx.fill();
-                    }
-                    if (shape.strokeColor) {
-                        ctx.strokeStyle = shape.strokeColor;
-                        ctx.lineWidth = Number(shape.strokeWidth) || 2;
-                        ctx.stroke();
-                    }
-                } else if (shape.type === 'line') {
-                    ctx.strokeStyle = shape.strokeColor || shape.color || '#FFFFFF';
-                    ctx.lineWidth = Number(shape.strokeWidth) || 2;
-                    ctx.beginPath();
-                    ctx.moveTo(Number(shape.x) || 0, Number(shape.y) || 0);
-                    ctx.lineTo((Number(shape.x) || 0) + (Number(shape.width) || 100), (Number(shape.y) || 0) + (Number(shape.height) || 0));
+        [...lineOrnaments, ...otherOrnaments].forEach((ornament) => {
+            this.drawOrnament(ctx, ornament);
+        });
+    }
+
+    drawOrnament(ctx, ornament) {
+        if (!ornament) {
+            return;
+        }
+
+        const type = this.getOrnamentType(ornament);
+        const bounds = this.getOrnamentBoundsFromData(ornament);
+        if (!bounds) {
+            return;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = this.normalizeOpacity(ornament.opacity, 1);
+
+        const centerX = bounds.x + (bounds.width / 2);
+        const centerY = bounds.y + (bounds.height / 2);
+        if (ornament.rotation) {
+            ctx.translate(centerX, centerY);
+            ctx.rotate((Number(ornament.rotation) || 0) * Math.PI / 180);
+            ctx.translate(-centerX, -centerY);
+        }
+
+        const fillColor = ornament.color || ornament.fillColor || null;
+        const strokeColor = ornament.strokeColor || null;
+        const strokeWidth = Math.max(1, Number(ornament.strokeWidth) || 1);
+
+        if (ornament.dashArray) {
+            ctx.setLineDash(String(ornament.dashArray).split(',').map((dash) => Number(dash.trim()) || 0));
+        }
+
+        if (type === 'line') {
+            const { x1, y1, x2, y2 } = this.getOrnamentLineEndpoints(ornament);
+            ctx.strokeStyle = strokeColor || fillColor || '#FFFFFF';
+            ctx.lineWidth = Math.max(1, Number(ornament.strokeWidth) || 2);
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+            ctx.restore();
+            return;
+        }
+
+        if (type === 'rect') {
+            const x = Number(ornament.x) || 0;
+            const y = Number(ornament.y) || 0;
+            const width = Math.max(1, Number(ornament.width) || 100);
+            const height = Math.max(1, Number(ornament.height) || 100);
+            const radius = Math.max(0, Number(ornament.rx) || 0);
+            this.roundedRect(ctx, x, y, width, height, radius);
+            if (fillColor) {
+                ctx.fillStyle = fillColor;
+                ctx.fill();
+            }
+            if (strokeColor) {
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = strokeWidth;
+                ctx.stroke();
+            }
+            ctx.restore();
+            return;
+        }
+
+        if (type === 'circle' || type === 'ellipse') {
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, Math.max(1, bounds.width / 2), Math.max(1, bounds.height / 2), 0, 0, Math.PI * 2);
+            if (fillColor) {
+                ctx.fillStyle = fillColor;
+                ctx.fill();
+            }
+            if (strokeColor) {
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = strokeWidth;
+                ctx.stroke();
+            }
+            ctx.restore();
+            return;
+        }
+
+        if (type === 'polygon') {
+            const points = this.parsePolygonPoints(ornament.points);
+            if (points.length >= 2) {
+                ctx.beginPath();
+                ctx.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i].x, points[i].y);
+                }
+                ctx.closePath();
+                if (fillColor) {
+                    ctx.fillStyle = fillColor;
+                    ctx.fill();
+                }
+                if (strokeColor) {
+                    ctx.strokeStyle = strokeColor;
+                    ctx.lineWidth = strokeWidth;
                     ctx.stroke();
                 }
-                
+            }
+            ctx.restore();
+            return;
+        }
+
+        if ((type === 'path' || type === 'custom') && ornament.pathData && typeof Path2D === 'function') {
+            try {
+                const path = new Path2D(ornament.pathData);
+                ctx.translate(Number(ornament.x) || 0, Number(ornament.y) || 0);
+                if (fillColor) {
+                    ctx.fillStyle = fillColor;
+                    ctx.fill(path);
+                }
+                if (strokeColor) {
+                    ctx.strokeStyle = strokeColor;
+                    ctx.lineWidth = strokeWidth;
+                    ctx.stroke(path);
+                }
                 ctx.restore();
+                return;
+            } catch (_error) {
+                // Fall through to a bounds-based fallback below.
             }
         }
 
-        // Render ornaments (simplified - stars and badges)
-        if (this.ornaments && Array.isArray(this.ornaments)) {
-            for (const ornament of this.ornaments) {
-                ctx.save();
-                ctx.globalAlpha = this.normalizeOpacity(ornament.opacity, 1);
-                
-                const x = Number(ornament.x) || 0;
-                const y = Number(ornament.y) || 0;
-                const size = Number(ornament.size) || 20;
-                
-                if (ornament.rotation) {
-                    ctx.translate(x + size / 2, y + size / 2);
-                    ctx.rotate(ornament.rotation * Math.PI / 180);
-                    ctx.translate(-(x + size / 2), -(y + size / 2));
-                }
+        const x = Number(ornament.x) || 0;
+        const y = Number(ornament.y) || 0;
+        const size = Math.max(1, Number(ornament.size) || Math.max(bounds.width, bounds.height));
 
-                if (ornament.type === 'star') {
-                    this.drawStar(ctx, x + size / 2, y + size / 2, 5, size / 2, size / 4, ornament.color || '#FFD700');
-                } else if (ornament.type === 'badge') {
-                    ctx.beginPath();
-                    ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
-                    ctx.fillStyle = ornament.color || '#FF0000';
-                    ctx.fill();
-                    if (ornament.secondaryColor) {
-                        ctx.fillStyle = ornament.secondaryColor;
-                        ctx.font = `bold ${size / 2}px Arial`;
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText('!', x + size / 2, y + size / 2 + 1);
-                    }
-                }
-                
-                ctx.restore();
-            }
+        if (type === 'star') {
+            this.drawStar(ctx, x + (size / 2), y + (size / 2), 5, size / 2, size / 4, fillColor || '#FFD700');
+            ctx.restore();
+            return;
         }
+
+        if (type === 'badge') {
+            ctx.beginPath();
+            ctx.arc(x + (size / 2), y + (size / 2), size / 2, 0, Math.PI * 2);
+            ctx.fillStyle = fillColor || '#FF0000';
+            ctx.fill();
+            if (ornament.secondaryColor) {
+                ctx.fillStyle = ornament.secondaryColor;
+                ctx.font = `bold ${size / 2}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('!', x + (size / 2), y + (size / 2) + 1);
+            }
+            ctx.restore();
+            return;
+        }
+
+        if (fillColor) {
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        }
+        if (strokeColor) {
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        }
+        ctx.restore();
     }
 
     /**
