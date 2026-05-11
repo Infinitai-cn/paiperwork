@@ -6,6 +6,7 @@ class CanvasPreviewManager {
     constructor(previewWindow) {
         this.previewWindow = previewWindow;
         this.canvas = null;
+        this.canvasStage = null;
         this.renderer = null;
         this.interactionHandler = null;
         this.isCanvasMode = false;
@@ -40,13 +41,17 @@ class CanvasPreviewManager {
         canvasContainer.style.overflow = 'auto';
 
          // Create canvas element
+        this.canvasStage = document.createElement('div');
+        this.canvasStage.className = 'canvas-preview-stage';
+
         this.canvas = document.createElement('canvas');
         this.canvas.style.width = 'auto';
         this.canvas.style.height = 'auto';
         this.canvas.style.maxWidth = 'none';
         this.canvas.style.maxHeight = 'none';
         this.canvas.style.display = 'block';
-        canvasContainer.appendChild(this.canvas);
+        this.canvasStage.appendChild(this.canvas);
+        canvasContainer.appendChild(this.canvasStage);
 
 
          // Insert canvas container before the footer in the window container.
