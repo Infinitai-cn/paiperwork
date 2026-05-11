@@ -39,9 +39,6 @@ class TabLoader {
             'artwork': {
                 scripts: [
                     'js/tabs/artworks.js',
-                    'js/tabs/artworkcanvasrenderer.js',
-                    'js/tabs/canvasinteractionhandler.js',
-                    'js/tabs/canvaspreviewmanager.js',
                     'js/tabs/artworkpreviewwindow.js',
                     'js/tabs/artworkstab.js',
                 ]
