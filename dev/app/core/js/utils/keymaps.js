@@ -19,7 +19,7 @@ const documentKeymap = {
     actions: {
         browse: [
             'show', 'list', 'open', 'browse', 'review', 'check', 'see', 'find', 'choose', 'select',
-            'mostrar', 'lista', 'listar', 'abre', 'abrir', 'revisar', 'ver', 'buscar', 'elige', 'elegir', 'seleccionar', 'selecciona',
+            'mostrar', 'muestra', 'lista', 'listar', 'abre', 'abrir', 'revisar', 'ver', 'buscar', 'elige', 'elegir', 'seleccionar', 'selecciona',
             'mostrar', 'listar', 'abrir', 'revisar', 'ver', 'procurar', 'buscar', 'escolher', 'selecionar', 'seleccione', 'navegar',
             'afficher', 'liste', 'lister', 'ouvrir', 'parcourir', 'examiner', 'voir', 'chercher', 'choisir', 'selectionner', 'sélectionner',
             'zeigen', 'liste', 'auflisten', 'offnen', 'öffnen', 'durchsuchen', 'prufen', 'prüfen', 'ansehen', 'finden', 'auswahlen', 'auswählen',
@@ -158,6 +158,121 @@ const commonFollowUpContinueCueGroups = {
     Hindi: ['हाँ', 'हां', 'हाँ कृपया', 'ज़रूर', 'ठीक है', 'जारी रखें', 'आगे बढ़ो', 'और बदलाव']
 };
 
+const workflowModeKeymap = {
+    modes: {
+        document: {
+            enter: [
+                'document mode', 'documents mode',
+                'modo documento', 'modo documentos',
+                'modo documento', 'modo documentos',
+                'mode document', 'mode documents',
+                'dokumentmodus',
+                'modalita documento', 'modalità documento', 'modalita documenti', 'modalità documenti',
+                'режим документа', 'режим документов',
+                '文档模式', '文件模式',
+                'ドキュメントモード', '文書モード',
+                '문서 모드',
+                'وضع المستند', 'وضع المستندات', 'وضع الوثائق',
+                'दस्तावेज़ मोड', 'दस्तावेज मोड', 'डॉक्यूमेंट मोड'
+            ]
+        },
+        dataviz: {
+            enter: [
+                'graphics mode', 'graphic mode', 'charts mode', 'chart mode', 'dataviz mode', 'data viz mode', 'visualization mode', 'visualisation mode',
+                'modo graficos', 'modo gráficos', 'modo grafico', 'modo gráfico', 'modo graficas', 'modo gráficas', 'modo dataviz', 'modo visualizacion', 'modo visualización',
+                'modo graficos', 'modo gráficos', 'modo grafico', 'modo gráfico', 'modo dataviz', 'modo visualizacao', 'modo visualização',
+                'mode graphiques', 'mode graphique', 'mode dataviz', 'mode visualisation',
+                'grafikmodus', 'diagrammmodus', 'dataviz modus', 'visualisierungsmodus',
+                'modalita grafici', 'modalità grafici', 'modalita grafico', 'modalità grafico', 'modalita dataviz', 'modalità dataviz', 'modalita visualizzazione', 'modalità visualizzazione',
+                'режим графиков', 'режим графика', 'режим визуализации',
+                '图表模式', '图形模式', '数据可视化模式', '可视化模式',
+                'グラフモード', 'チャートモード', '可視化モード',
+                '그래프 모드', '차트 모드', '시각화 모드',
+                'وضع الرسوم البيانية', 'وضع الرسم البياني', 'وضع التصور البياني',
+                'ग्राफ मोड', 'चार्ट मोड', 'डेटाविज़ मोड', 'डेटा विज़ मोड', 'विज़ुअलाइज़ेशन मोड'
+            ]
+        },
+        model: {
+            enter: [
+                'models mode', 'model mode',
+                'modo modelos', 'modo modelo',
+                'modo modelos', 'modo modelo',
+                'mode modeles', 'mode modèles', 'mode modele', 'mode modèle',
+                'modellmodus', 'modelle modus',
+                'modalita modelli', 'modalità modelli', 'modalita modello', 'modalità modello',
+                'режим моделей', 'режим модели',
+                '模型模式',
+                'モデルモード',
+                '모델 모드',
+                'وضع النماذج', 'وضع النموذج',
+                'मॉडल्स मोड', 'मॉडल मोड'
+            ]
+        },
+        research: {
+            enter: [
+                'research mode',
+                'modo investigacion', 'modo investigación',
+                'modo pesquisa',
+                'mode recherche',
+                'forschungsmodus', 'recherchemodus',
+                'modalita ricerca', 'modalità ricerca',
+                'режим исследования', 'режим исследований',
+                '研究模式', '调研模式',
+                'リサーチモード', '研究モード',
+                '리서치 모드', '연구 모드',
+                'وضع البحث',
+                'रिसर्च मोड', 'अनुसंधान मोड', 'शोध मोड'
+            ]
+        },
+        presentation: {
+            enter: [
+                'presentation mode', 'presentations mode', 'slide mode', 'slides mode',
+                'modo presentacion', 'modo presentación', 'modo presentaciones', 'modo diapositivas',
+                'modo apresentacao', 'modo apresentação', 'modo apresentacoes', 'modo apresentações', 'modo slides',
+                'mode presentation', 'mode présentation', 'mode presentations', 'mode présentations', 'mode diapositives',
+                'prasentationsmodus', 'präsentationsmodus', 'folienmodus',
+                'modalita presentazione', 'modalità presentazione', 'modalita presentazioni', 'modalità presentazioni', 'modalita slide', 'modalità slide',
+                'режим презентации', 'режим презентаций', 'режим слайдов',
+                '演示模式', '演示文稿模式', '幻灯片模式',
+                'プレゼンモード', 'プレゼンテーションモード', 'スライドモード',
+                '프레젠테이션 모드', '슬라이드 모드',
+                'وضع العرض التقديمي', 'وضع العروض التقديمية', 'وضع الشرائح',
+                'प्रेजेंटेशन मोड', 'प्रस्तुति मोड', 'स्लाइड मोड'
+            ]
+        },
+        artifact: {
+            enter: [
+                'mini app mode', 'miniapp mode', 'artifact mode', 'mini application mode',
+                'modo mini app', 'modo miniapp', 'modo mini aplicacion', 'modo mini aplicación', 'modo artefacto',
+                'modo mini app', 'modo miniapp', 'modo mini aplicacao', 'modo mini aplicação', 'modo artefato',
+                'mode mini app', 'mode miniapp', 'mode mini application', 'mode artefact',
+                'miniapp modus', 'mini app modus', 'artefaktmodus',
+                'modalita mini app', 'modalità mini app', 'modalita miniapp', 'modalità miniapp', 'modalita artefatto', 'modalità artefatto',
+                'режим мини-приложения', 'режим мини-приложений', 'режим артефакта', 'режим артефактов',
+                '迷你应用模式', '小应用模式', '工件模式',
+                'ミニアプリモード', 'アーティファクトモード',
+                '미니앱 모드', '아티팩트 모드',
+                'وضع التطبيق المصغر', 'وضع التطبيقات المصغرة', 'وضع الأداة',
+                'मिनीऐप मोड', 'मिनी ऐप मोड', 'आर्टिफैक्ट मोड'
+            ]
+        }
+    },
+    exit: [
+        'exit mode', 'leave mode', 'close mode', 'disable mode',
+        'salir del modo', 'dejar el modo', 'cerrar modo', 'desactivar modo',
+        'sair do modo', 'fechar modo', 'desativar modo',
+        'quitter le mode', 'fermer le mode', 'desactiver le mode', 'désactiver le mode',
+        'modus verlassen', 'modus beenden', 'modus schliessen', 'modus schließen',
+        'esci dalla modalita', 'esci dalla modalità', 'chiudi modalita', 'chiudi modalità', 'disattiva modalita', 'disattiva modalità',
+        'выйти из режима', 'закрыть режим', 'отключить режим',
+        '退出模式', '关闭模式', '离开模式',
+        'モード終了', 'モードを終了', 'モードを閉じる',
+        '모드 종료', '모드 닫기', '모드 끄기',
+        'الخروج من الوضع', 'إغلاق الوضع', 'تعطيل الوضع',
+        'मोड से बाहर निकलें', 'मोड बंद करें', 'मोड निष्क्रिय करें'
+    ]
+};
+
 const flattenCueGroups = (groups) => [...new Set(Object.values(groups).flat())];
 
 const commonFollowUpCloseCues = flattenCueGroups(commonFollowUpCloseCueGroups);
@@ -168,7 +283,7 @@ const commonFollowUpContinueCues = flattenCueGroups(commonFollowUpContinueCueGro
 const researchKeymap = {
     intent: [
         'research', 'investigate', 'investigation', 'analyze', 'analyse', 'analysis', 'study', 'explore', 'examine',
-        'investigar', 'investigacion', 'investigación', 'analizar', 'analise', 'análisis', 'estudiar', 'explorar', 'examinar',
+        'investiga', 'investigar', 'investigacion', 'investigación', 'analizar', 'analise', 'análisis', 'estudiar', 'explorar', 'examinar',
         'investigar', 'investigacao', 'investigação', 'analisar', 'analise', 'análise', 'estudar', 'explorar', 'examinar',
         'recherche', 'rechercher', 'analyser', 'analyse', 'etudier', 'étudier', 'explorer', 'examiner',
         'forschung', 'recherchieren', 'analysieren', 'analyse', 'untersuchen', 'studieren',
@@ -179,7 +294,7 @@ const researchKeymap = {
     actions: {
         create: [
             'prepare', 'create', 'make', 'write', 'generate', 'compile',
-            'preparar', 'crear', 'hacer', 'escribir', 'generar', 'compilar',
+            'preparar', 'crea','crear', 'hacer', 'escribir', 'generar', 'compilar',
             'preparar', 'criar', 'fazer', 'escrever', 'gerar', 'compilar',
             'preparer', 'préparer', 'creer', 'créer', 'rediger', 'rédiger', 'generer', 'générer', 'compiler',
             'erstellen', 'vorbereiten', 'schreiben', 'generieren', 'zusammenstellen',
@@ -269,7 +384,7 @@ const presentationKeymap = {
         ],
         browse: [
             'show', 'list', 'open', 'browse', 'view', 'find', 'choose', 'select', 'pick',
-            'mostrar', 'muestrame', 'muéstrame', 'lista', 'listar', 'abrir', 'buscar', 'elige', 'elegir', 'seleccionar', 'seleccionala', 'ensename', 'enséñame',
+            'mostrar', 'muestra', 'muestrame', 'muéstrame', 'lista', 'listar', 'abrir', 'buscar', 'elige', 'elegir', 'seleccionar', 'seleccionala', 'ensename', 'enséñame',
             'mostrar', 'mostra-me', 'mostrame', 'listar', 'abrir', 'ver', 'procurar', 'buscar', 'escolher', 'selecionar', 'mostre-me',
             'afficher', 'montre-moi', 'montrer', 'lister', 'ouvrir', 'parcourir', 'voir', 'chercher', 'choisir', 'selectionner', 'sélectionner',
             'zeigen', 'zeig', 'zeig mir', 'auflisten', 'offnen', 'öffnen', 'durchsuchen', 'ansehen', 'finden', 'auswahlen', 'auswählen',
@@ -486,11 +601,11 @@ const artifactKeymap = {
     actions: {
         create: [
             'create', 'make', 'build', 'generate', 'prepare', 'craft', 'design',
-            'crear', 'hacer', 'generar', 'preparar', 'disenar', 'diseñar',
-            'criar', 'fazer', 'gerar', 'preparar', 'montar',
-            'creer', 'créer', 'generer', 'générer', 'preparer', 'préparer', 'concevoir',
-            'erstellen', 'machen', 'generieren', 'vorbereiten', 'entwerfen',
-            'creare', 'fare', 'generare', 'preparare', 'progettare',
+            'crear', 'crea', 'creame', 'créame', 'hacer', 'haz', 'hazme', 'generar', 'genera', 'generame', 'genérame', 'preparar', 'prepara', 'preparame', 'prepárame', 'disenar', 'diseñar', 'disena', 'diseña',
+            'criar', 'cria', 'cria-me', 'criame', 'fazer', 'faz', 'faz-me', 'fazeme', 'gerar', 'gera', 'gera-me', 'gerame', 'preparar', 'prepara', 'prepara-me', 'preparame', 'montar', 'monta',
+            'creer', 'créer', 'cree', 'crée', 'cree-moi', 'crée-moi', 'generer', 'générer', 'genere', 'génère', 'preparer', 'préparer', 'prepare', 'prepare-moi', 'prépare-moi', 'concevoir', 'concois', 'conçois',
+            'erstellen', 'erstelle', 'machen', 'mach', 'generieren', 'generiere', 'vorbereiten', 'bereite vor', 'entwerfen', 'entwirf',
+            'creare', 'crea', 'creami', 'fare', 'fai', 'fammi', 'generare', 'genera', 'generami', 'preparare', 'prepara', 'preparami', 'progettare', 'progetta',
             'создать', 'сделать', 'сгенерировать', 'подготовить',
             '创建', '生成', '制作', '构建',
             '作成', '生成', '作る', '構築',
@@ -498,7 +613,7 @@ const artifactKeymap = {
         ],
         browse: [
             'show', 'list', 'open', 'browse', 'view', 'find', 'choose', 'select', 'pick',
-            'mostrar', 'lista', 'listar', 'abrir', 'ver', 'buscar', 'elige', 'elegir', 'seleccionar', 'mostrarme', 'muéstrame',
+            'mostrar', 'muestra', 'lista', 'listar', 'abrir', 'ver', 'buscar', 'elige', 'elegir', 'seleccionar', 'mostrarme', 'muéstrame',
             'mostrar', 'listar', 'abrir', 'ver', 'procurar', 'buscar', 'escolher', 'selecionar', 'mostra-me',
             'afficher', 'lister', 'ouvrir', 'parcourir', 'voir', 'chercher', 'choisir', 'selectionner', 'sélectionner', 'montre-moi',
             'zeigen', 'auflisten', 'offnen', 'öffnen', 'durchsuchen', 'ansehen', 'finden', 'auswahlen', 'auswählen', 'zeig', 'zeig mir',
@@ -696,7 +811,7 @@ const modelKeymap = {
         ],
         list: [
             'show', 'list', 'show my models', 'show me my models', 'list my models', 'what models do i have', 'which models do i have', 'available models', 'installed models',
-            'mostrar', 'mostrar mis modelos', 'muestrame mis modelos', 'muéstrame mis modelos', 'listar', 'lista mis modelos', 'que modelos tengo', 'qué modelos tengo', 'cuales son mis modelos', 'cuáles son mis modelos', 'modelos disponibles', 'modelos instalados',
+            'mostrar', 'muestra', 'mostrar mis modelos', 'muestrame mis modelos', 'muéstrame mis modelos', 'listar', 'lista mis modelos', 'que modelos tengo', 'qué modelos tengo', 'cuales son mis modelos', 'cuáles son mis modelos', 'modelos disponibles', 'modelos instalados',
             'mostrar', 'mostra meus modelos', 'mostra me meus modelos', 'listar', 'liste meus modelos', 'quais modelos eu tenho', 'quais sao meus modelos', 'quais são meus modelos', 'modelos disponiveis', 'modelos disponíveis', 'modelos instalados',
             'afficher', 'montre moi mes modeles', 'montre-moi mes modèles', 'liste', 'lister', 'liste mes modeles', 'liste mes modèles', 'quels modeles ai je', 'quels modèles ai-je', 'modeles disponibles', 'modèles disponibles', 'modeles installes', 'modèles installés',
             'zeigen', 'zeige meine modelle', 'liste meine modelle', 'welche modelle habe ich', 'verfugbare modelle', 'verfügbare modelle', 'installierte modelle',
@@ -859,7 +974,7 @@ const dataVizKeymap = {
     actions: {
         create: [
             'create', 'make', 'build', 'generate', 'show', 'draw', 'plot',
-            'crear', 'hacer', 'genera', 'generar', 'mostrar', 'dibujar',
+            'crear', 'hacer', 'genera', 'generar', 'mostrar', 'muestra', 'dibujar',
             'criar', 'fazer', 'gerar', 'mostrar', 'desenhar',
             'creer', 'créer', 'generer', 'générer', 'afficher', 'dessiner',
             'erstellen', 'machen', 'generieren', 'zeigen', 'zeichnen',
@@ -1081,6 +1196,7 @@ window.Keymaps = {
     knowledge: knowledgeKeymap,
     artifact: artifactKeymap,
     model: modelKeymap,
+    mode: workflowModeKeymap,
     chat: chatKeymap,
     webSearch: webSearchKeymap,
     workflowRules,

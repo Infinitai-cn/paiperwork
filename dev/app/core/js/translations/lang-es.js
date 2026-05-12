@@ -52,6 +52,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         wechatSummaryArtifactWorkflowContinue: "Resumen listo, ahora lo envío a la creación de la miniapp.",
         wechatSummaryArtifactWorkflowStart: "Primero resumiré el documento y luego crearé una miniapp a partir de ese resumen.",
         wechatSummaryPresentationWorkflowStart: "Primero resumiré el documento y luego crearé una presentación a partir de ese resumen.",
+        workflowModeActivated: "Modo activado.",
+        workflowModeExited: "Has vuelto al chat normal.",
 
 
         // ===== HELP.HTML =====

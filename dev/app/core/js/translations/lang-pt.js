@@ -52,6 +52,8 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         wechatSummaryArtifactWorkflowContinue: "Resumo concluído, enviando agora para a criação da miniapp.",
         wechatSummaryArtifactWorkflowStart: "Primeiro vou resumir o documento e depois criar uma miniapp a partir desse resumo.",
         wechatSummaryPresentationWorkflowStart: "Primeiro vou resumir o documento e depois criar uma apresentação a partir desse resumo.",
+        workflowModeActivated: "Modo ativado.",
+        workflowModeExited: "Voltou ao chat normal.",
 
         // ===== HELP.HTML =====
         helpPageTitle: 'Paiperwork - Ajuda',

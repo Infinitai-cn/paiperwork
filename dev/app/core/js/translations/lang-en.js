@@ -63,6 +63,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         wechatSummaryPresentationWorkflowStart: "I will summarize the document first, then create a presentation from that summary.",
         wechatSummaryArtifactWorkflowStart: "I will summarize the document first, then create a miniapp from that summary.",
         wechatSummaryArtifactWorkflowContinue: "Summary done, sending now to miniapp creation.",
+        workflowModeActivated: "Mode activated.",
+        workflowModeExited: "Returned to normal chat.",
         wechatKnowledgeCollectionsEmpty: "No Knowledge Base collections are currently available.",
         wechatKnowledgeEntriesEmpty: "This collection does not contain any entries yet.",
         wechatKnowledgeChooseCollectionPrompt: "Choose one of the Knowledge Base collections:",

@@ -52,6 +52,8 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         wechatSummaryArtifactWorkflowContinue: "Zusammenfassung fertig, sende jetzt die Mini-App-Erstellung.",
         wechatSummaryArtifactWorkflowStart: "Ich werde zuerst das Dokument zusammenfassen und dann eine Mini-App aus dieser Zusammenfassung erstellen.",
         wechatSummaryPresentationWorkflowStart: "Ich werde zuerst das Dokument zusammenfassen und dann eine Präsentation aus dieser Zusammenfassung erstellen.",
+        workflowModeActivated: "Modus aktiviert.",
+        workflowModeExited: "Zurück zum normalen Chat.",
 
 
         // ===== HELP.HTML =====
