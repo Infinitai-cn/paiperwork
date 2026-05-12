@@ -3056,6 +3056,7 @@ window.helpContent = {
 
                 <h4>Base de conhecimento</h4>
                 <p>Pode navegar pela sua base de conhecimento guardada no WhatsApp listando coleções, abrindo uma coleção, listando as respetivas entradas e lendo a entrada selecionada. Os nomes das coleções e das entradas não precisam de ser exatos.</p>
+                <p>Entre neste modo com <code>modo conhecimento</code>, <code>modo base de conhecimento</code>, <code>modo base de conhecimentos</code> ou <code>modo kb</code>.</p>
                 <ul>
                     <li><code>Mostrar minha base de conhecimento</code></li>
                     <li><code>Listar minhas coleções de conhecimento</code></li>
