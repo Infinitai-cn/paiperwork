@@ -21,7 +21,6 @@ We're grateful to the amazing open-source community and the brilliant developers
 - **[Llama.cpp](https://github.com/ggml-org/llama.cpp)** - The backbone for running LLMs locally, ensuring privacy and control *(MIT License)*
 - **[Ollama](https://ollama.com/)** - For making it easy to download and use Ai models *(MIT License)*
 - **[html2canvas](https://html2canvas.hertzen.com/)** - For capturing and converting HTML elements to images, enabling our visual design features *(MIT License)*
-- **[dom-to-image-more](https://github.com/1904labs/dom-to-image-more)** - Enhanced fork of dom-to-image that improves DOM cloning and capture reliability for complex layouts (used for DOM→canvas exports) *(MIT License)*
 - **[PDF.js](https://mozilla.github.io/pdf.js/)** - Mozilla's powerful PDF rendering library that powers our document processing capabilities *(Apache-2.0 License)*
 - **[SQL.js](https://sql.js.org/)** - SQLite compiled to JavaScript, providing our local database functionality with privacy-first storage *(MIT License)*
 - **[Konva.js](https://konvajs.org/)** - Powerful 2D canvas library for desktop and mobile applications, enabling our interactive visual design and presentation features *(MIT License)*
