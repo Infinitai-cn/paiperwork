@@ -2967,7 +2967,7 @@ window.helpContent = {
                     <li><code>usa &lt;nome do modelo&gt;</code></li>
                 </ul>
                 <p>Se não quiser permitir mudanças de modelo pelo WhatsApp, ative <strong>Lock AI model</strong> na aba Conectores.</p>
-                <p>No chat, pode falar com o seu modelo de IA como de costume pelo WhatsApp. Use expressões como <code>pesquisar na internet</code> ou <code>procurar online</code> quando quiser pesquisa web. Se uma resposta contiver HTML, o Paiperwork devolve-a como ficheiro HTML clicável para pré-visualização ou download.</p>
+                <p>No chat, pode falar com o seu modelo de IA como de costume pelo WhatsApp. Quando precisar de resultados web em tempo real, mude para o <strong>modo Internet</strong>. Se uma resposta contiver HTML, o Paiperwork devolve-a como ficheiro HTML clicável para pré-visualização ou download.</p>
                 <h4>Exemplos de uso no chat</h4>
                 <ul>
                     <li><code>olá</code></li>
@@ -2980,6 +2980,15 @@ window.helpContent = {
                 title: "Documentos, Gráficos, Pesquisa, Apresentações e Artefatos",
                 content: `
                 <p>Os fluxos do conector ficam no chat normal até entrar explicitamente num modo. Use as palavras-chave abaixo em cada secção.</p>
+                <h4>Internet</h4>
+                <p>Use o modo Internet quando quiser que as respostas normais do chat sejam apoiadas por pesquisa web em tempo real, em vez de o modelo responder apenas com conhecimento local.</p>
+                <p>Entre neste modo com <code>modo internet</code>, <code>modo web</code>, <code>modo pesquisa web</code> ou <code>modo online</code>.</p>
+                <ul>
+                    <li><code>Quais são as últimas notícias sobre a guerra entre o Irão e os Estados Unidos?</code></li>
+                    <li><code>Como está o tempo hoje na minha localização?</code></li>
+                    <li><code>Pesquisa na internet o tempo de hoje em Guangzhou</code></li>
+                </ul>
+
                 <h4>Documentos</h4>
                 <p>Pode fazer perguntas sobre um documento importado ou pedir um resumo. Os nomes dos documentos não precisam de ser exatos.</p>
                 <p>Entre neste modo com <code>modo documento</code> ou <code>modo documentos</code>.</p>

@@ -2967,7 +2967,7 @@ window.helpContent = {
                     <li><code>nutze &lt;modellname&gt;</code></li>
                 </ul>
                 <p>Wenn WhatsApp keine Modelle wechseln soll, aktivieren Sie im Verbindungen-Tab <strong>Lock AI model</strong>.</p>
-                <p>Im Chat können Sie wie gewohnt mit Ihrem KI-Modell über WhatsApp sprechen. Verwenden Sie Formulierungen wie <code>im internet suchen</code> oder <code>online suchen</code>, wenn Sie eine Websuche möchten. Wenn eine Antwort HTML enthält, sendet Paiperwork sie als anklickbare HTML-Datei zur Vorschau oder zum Download zurück.</p>
+                <p>Im Chat können Sie wie gewohnt mit Ihrem KI-Modell über WhatsApp sprechen. Wenn Sie aktuelle Web-Ergebnisse benötigen, wechseln Sie in den <strong>Internetmodus</strong>. Wenn eine Antwort HTML enthält, sendet Paiperwork sie als anklickbare HTML-Datei zur Vorschau oder zum Download zurück.</p>
                 <h4>Chat-Beispiele</h4>
                 <ul>
                     <li><code>hallo</code></li>
@@ -2980,6 +2980,15 @@ window.helpContent = {
                 title: "Dokumente, Diagramme, Recherche, Präsentationen und Artefakte",
                 content: `
                 <p>Die Connector-Workflows bleiben im normalen Chat, bis Sie ausdrücklich einen Modus aktivieren. Verwenden Sie die folgenden Schlüsselwörter in den jeweiligen Abschnitten.</p>
+                <h4>Internet</h4>
+                <p>Verwenden Sie den Internetmodus, wenn normale Chat-Antworten mit Live-Websuche gestützt werden sollen, statt dass das Modell nur mit lokalem Wissen antwortet.</p>
+                <p>Aktivieren Sie diesen Modus mit <code>internetmodus</code>, <code>webmodus</code>, <code>websuchmodus</code> oder <code>onlinemodus</code>.</p>
+                <ul>
+                    <li><code>Was sind die neuesten Nachrichten über den Krieg zwischen Iran und den USA?</code></li>
+                    <li><code>Wie ist heute das Wetter an meinem Standort?</code></li>
+                    <li><code>Suche im Internet nach dem heutigen Wetter in Guangzhou</code></li>
+                </ul>
+
                 <h4>Dokumente</h4>
                 <p>Sie können Fragen zu einem importierten Dokument stellen oder eine Zusammenfassung anfordern. Dokumentnamen müssen nicht exakt sein.</p>
                 <p>Aktivieren Sie diesen Modus mit <code>dokumentmodus</code>.</p>

@@ -3006,7 +3006,7 @@ window.helpContent = {
                     <li><code>Use &lt;model name&gt;</code></li>
                 </ul>
                 <p>If you do not want WhatsApp to change models, press <strong>Lock AI model</strong> in the Connectors tab.</p>
-                <p>Chat lets you talk with your AI model as usual from WhatsApp. Use phrases like <code>search internet</code> or <code>find online</code> when you want web search. If a response contains HTML, Paiperwork sends it back as a clickable HTML file for preview or download.</p>
+                <p>Chat lets you talk with your AI model as usual from WhatsApp. When you need live web results, switch to <strong>Internet mode</strong>. If a response contains HTML, Paiperwork sends it back as a clickable HTML file for preview or download.</p>
                 <h4>Chat usage examples</h4>
                 <ul>
                     <li><code>Hello</code></li>
