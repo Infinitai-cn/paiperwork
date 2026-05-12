@@ -4503,6 +4503,7 @@ class ResearchAutomation {
         this.isCancelled = true;
         this.isResearching = false;
         this._skipAllSummarizations = true;
+        this._activeResearchRunId = null;
         // Call the complete termination method
         this.completeTermination();
 
@@ -4538,7 +4539,7 @@ class ResearchAutomation {
         }
 
         // 7. Remove any overlays from the DOM
-        document.querySelectorAll('.research-overlay, .floating-overlay').forEach(el => {
+        document.querySelectorAll('.research-overlay, .floating-overlay, .research-results-overlay').forEach(el => {
             try {
                 if (document.body.contains(el)) {
                     document.body.removeChild(el);
@@ -4563,6 +4564,10 @@ class ResearchAutomation {
     // Completes termination of all research processes and resets state
     completeTermination() {
        //console.log('ENHANCED TERMINATION: Ensuring all processes are fully stopped');
+
+          this._activeResearchRunId = null;
+          this.isCancelled = true;
+          this.isResearching = false;
 
         // 1. Abort any ongoing fetch operations
         if (this.abortController) {
