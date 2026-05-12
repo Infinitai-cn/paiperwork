@@ -52,6 +52,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 wechatSummaryArtifactWorkflowContinue: "摘要完成，正在将其发送到迷你应用创建。",
                 wechatSummaryArtifactWorkflowStart: "我会先对文档进行摘要，然后基于该摘要创建一个迷你应用。",
                 wechatSummaryPresentationWorkflowStart: "我会先总结该文档，然后根据该摘要创建演示文稿。",
+                workflowModeActivated: "模式已激活。",
+                workflowModeExited: "已返回普通聊天。",
 
                 // ===== HELP.HTML =====
                 helpPageTitle: 'Paiperwork - 帮助',
