@@ -2971,7 +2971,7 @@ window.helpContent = {
                     <li><code>使用 &lt;模型名称&gt;</code></li>
                 </ul>
                 <p>如果您不希望通过 WhatsApp 切换模型，请在连接器选项卡中点击 <strong>Lock AI model</strong>。</p>
-                <p>聊天部分可让您像平时一样通过 WhatsApp 与 AI 模型交流。需要网页搜索时，可使用 <code>搜索互联网</code> 或 <code>在线查找</code> 之类的短语。如果响应包含 HTML，Paiperwork 会把它作为可点击的 HTML 文件返回，便于预览或下载。</p>
+                <p>聊天部分可让您像平时一样通过 WhatsApp 与 AI 模型交流。需要实时网页结果时，请切换到 <strong>互联网模式</strong>。如果响应包含 HTML，Paiperwork 会把它作为可点击的 HTML 文件返回，便于预览或下载。</p>
                 <h4>聊天使用示例</h4>
                 <ul>
                     <li><code>你好</code></li>
@@ -2984,6 +2984,15 @@ window.helpContent = {
                 title: "文档、图表、研究、演示文稿与工件",
                 content: `
                 <p>连接器工作流默认保持在普通聊天中，只有在您明确进入某个模式后才会切换。请在下面各部分使用对应的模式关键词。</p>
+                <h4>互联网</h4>
+                <p>当您希望普通聊天直接使用实时网页搜索，而不是仅依赖模型本地知识作答时，请使用互联网模式。</p>
+                <p>进入此模式可发送 <code>互联网模式</code>、<code>网络模式</code>、<code>网页搜索模式</code> 或 <code>在线模式</code>。</p>
+                <ul>
+                    <li><code>伊朗和美国战争的最新消息是什么？</code></li>
+                    <li><code>我所在位置今天的天气怎么样？</code></li>
+                    <li><code>在互联网上搜索今天广州的天气</code></li>
+                </ul>
+
                 <h4>文档</h4>
                 <p>您可以针对已导入的文档提问，或请求生成摘要。文档名称不需要完全精确。</p>
                 <p>进入此模式可发送 <code>文档模式</code> 或 <code>文件模式</code>。</p>

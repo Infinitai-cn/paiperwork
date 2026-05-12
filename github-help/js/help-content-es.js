@@ -2984,7 +2984,7 @@ window.helpContent = {
                     <li><code>usa &lt;nombre del modelo&gt;</code></li>
                 </ul>
                 <p>Si no quieres permitir cambios de modelo desde WhatsApp, pulsa <strong>Lock AI model</strong> en la pestaña Conectores.</p>
-                <p>Chat te permite hablar con tu modelo de IA de forma normal desde WhatsApp. Usa frases como <code>buscar en internet</code> o <code>buscar online</code> cuando quieras búsqueda web. Si una respuesta contiene HTML, Paiperwork la devuelve como un archivo HTML clicable para vista previa o descarga.</p>
+                <p>Chat te permite hablar con tu modelo de IA de forma normal desde WhatsApp. Cuando necesites resultados web en tiempo real, cambia a <strong>modo Internet</strong>. Si una respuesta contiene HTML, Paiperwork la devuelve como un archivo HTML clicable para vista previa o descarga.</p>
                 <h4>Ejemplos de uso en chat</h4>
                 <ul>
                     <li><code>hola</code></li>
@@ -2997,6 +2997,15 @@ window.helpContent = {
                 title: "Documentos, Gráficos, Investigación, Presentaciones y Artefactos",
                 content: `
                 <p>Los flujos del conector se quedan en chat normal hasta que entres explícitamente en un modo. Usa las palabras clave de abajo en cada sección.</p>
+                <h4>Internet</h4>
+                <p>Usa el modo Internet cuando quieras que las respuestas del chat normal se apoyen en búsqueda web en tiempo real en lugar de responder solo con conocimiento local del modelo.</p>
+                <p>Entra en este modo con <code>modo internet</code>, <code>modo web</code>, <code>modo búsqueda web</code>, <code>modo busqueda web</code> o <code>modo en línea</code>.</p>
+                <ul>
+                    <li><code>¿Cuáles son las últimas noticias sobre la guerra entre Irán y Estados Unidos?</code></li>
+                    <li><code>¿Qué tiempo hace hoy en mi ubicación?</code></li>
+                    <li><code>Busca en internet el tiempo de hoy en Guangzhou</code></li>
+                </ul>
+
                 <h4>Documentos</h4>
                 <p>Puedes hacer preguntas sobre un documento importado o pedir un resumen. Los nombres no tienen que ser exactos.</p>
                 <p>Entra en este modo con <code>modo documento</code> o <code>modo documentos</code>.</p>

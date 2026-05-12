@@ -3007,7 +3007,7 @@ window.helpContent = {
                     <li><code>Use &lt;model name&gt;</code></li>
                 </ul>
                 <p>If you do not want WhatsApp to change models, press <strong>Lock AI model</strong> in the Connectors tab.</p>
-                <p>Chat lets you talk with your AI model as usual from WhatsApp. Use phrases like <code>search internet</code> or <code>find online</code> when you want web search. If a response contains HTML, Paiperwork sends it back as a clickable HTML file for preview or download.</p>
+                <p>Chat lets you talk with your AI model as usual from WhatsApp. When you need live web results, switch to <strong>Internet mode</strong>. If a response contains HTML, Paiperwork sends it back as a clickable HTML file for preview or download.</p>
                 <h4>Chat usage examples</h4>
                 <ul>
                     <li><code>Hello</code></li>
@@ -3020,6 +3020,15 @@ window.helpContent = {
                 title: "Documents, Charts, Research, Presentations, and Artifacts",
                 content: `
                 <p>Connector workflows stay in normal chat until you explicitly enter a workflow mode. In English, use the mode keywords shown below for each workflow.</p>
+                <h4>Internet</h4>
+                <p>Use Internet mode when you want ordinary chat replies to be grounded with live web search instead of the model answering only from its local knowledge.</p>
+                <p>Enter this mode with <code>Internet mode</code>, <code>Web mode</code>, <code>Web search mode</code>, or <code>Online mode</code>.</p>
+                <ul>
+                    <li><code>What is the latest news about the war between Iran and the USA?</code></li>
+                    <li><code>What is the weather today for my location?</code></li>
+                    <li><code>Search on the internet for today's weather in Guangzhou</code></li>
+                </ul>
+
                 <h4>Documents</h4>
                 <p>You can ask questions about an imported document or request a summary. Document names do not need to be exact.</p>
                 <p>Enter this mode with <code>Document mode</code> or <code>Documents mode</code>.</p>

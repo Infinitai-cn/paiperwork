@@ -2971,7 +2971,7 @@ window.helpContent = {
                     <li><code>使用 &lt;模型名称&gt;</code></li>
                 </ul>
                 <p>如果您不希望通过 WhatsApp 切换模型，请在连接器选项卡中点击 <strong>Lock AI model</strong>。</p>
-                <p>聊天部分可让您像平时一样通过 WhatsApp 与 AI 模型交流。需要网页搜索时，可使用 <code>搜索互联网</code> 或 <code>在线查找</code> 之类的短语。如果响应包含 HTML，Paiperwork 会把它作为可点击的 HTML 文件返回，便于预览或下载。</p>
+                <p>聊天部分可让您像平时一样通过 WhatsApp 与 AI 模型交流。需要实时网页结果时，请切换到 <strong>互联网模式</strong>。如果响应包含 HTML，Paiperwork 会把它作为可点击的 HTML 文件返回，便于预览或下载。</p>
                 <h4>聊天使用示例</h4>
                 <ul>
                     <li><code>你好</code></li>
