@@ -5345,6 +5345,15 @@ class KnowledgeBase {
         header.appendChild(actionBtnsContainer);
         entryOverlay.appendChild(header);
 
+        const readingColumn = document.createElement('div');
+        readingColumn.className = 'entry-reading-column';
+        readingColumn.style.cssText = `
+        width: min(100%, 1100px);
+        margin: 0 auto;
+        padding: 8px clamp(24px, 6vw, 96px) 48px;
+        box-sizing: border-box;
+    `;
+
         // Entry content
         const contentEl = document.createElement('div');
         contentEl.className = 'entry-full-content';
@@ -5361,7 +5370,7 @@ class KnowledgeBase {
         // extra visual spacing for numbered lists and paragraphs.
         contentEl.textContent = entry.content || '';
 
-        entryOverlay.appendChild(contentEl);
+        readingColumn.appendChild(contentEl);
         // Add styling for markdown content
         const markdownStyles = document.createElement('style');
         markdownStyles.textContent = `
@@ -5455,6 +5464,9 @@ class KnowledgeBase {
         ${entry.updated ? `<div><strong>Last updated:</strong> ${new Date(entry.updated).toLocaleString()}</div>` : ''}
         <div><strong>Source:</strong> ${entry.source?.type || 'Unknown'}</div>
     `;
+
+        readingColumn.appendChild(metaEl);
+        entryOverlay.appendChild(readingColumn);
 
         document.body.appendChild(entryOverlay);
 
