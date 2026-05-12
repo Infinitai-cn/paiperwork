@@ -3267,7 +3267,7 @@ class ConnectorWechat {
         if (hashedMasterKey && typeof PaiperworkDB !== 'undefined' && typeof PaiperworkDB.loadSettings === 'function') {
             try {
                 const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                if (settings && typeof settings.systemPrompt === 'string' && settings.systemPrompt.trim()) {
+                if (settings && typeof settings.systemPrompt === 'string') {
                     resolvedSystemPrompt = settings.systemPrompt.trim();
                 }
             } catch (settingsErr) {

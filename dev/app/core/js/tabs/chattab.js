@@ -4090,6 +4090,7 @@ class ChatTab {
 
                     // Proceed with saving and reset context
                     await PaiperworkDB.saveSystemPrompt(hashedMasterKey, newSystemPrompt);
+                    this._originalSystemPrompt = newSystemPrompt;
                     saveButton.disabled = true;
 
                     // Reset the context
@@ -4166,6 +4167,7 @@ class ChatTab {
                 } else {
                     // No conversation yet, just save without warning
                     await PaiperworkDB.saveSystemPrompt(hashedMasterKey, newSystemPrompt);
+                    this._originalSystemPrompt = newSystemPrompt;
                     saveButton.disabled = true;
                     OllamaAPI.resetContext();
                 }
@@ -4430,7 +4432,7 @@ class ChatTab {
             if (settings) {
                 // Load system prompt
                 const systemPrompt = document.getElementById('system-prompt');
-                if (systemPrompt && settings.systemPrompt) {
+                if (systemPrompt && settings && typeof settings.systemPrompt === 'string') {
                     systemPrompt.value = settings.systemPrompt;
                     this._originalSystemPrompt = settings.systemPrompt;
                 }
