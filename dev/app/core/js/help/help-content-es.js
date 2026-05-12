@@ -2975,6 +2975,7 @@ window.helpContent = {
                 content: `
                 <p>Una vez conectado, WhatsApp usa el modelo que está seleccionado en la pestaña Chat.</p>
                 <p>Puedes consultar qué modelo de IA está activo y cambiarlo directamente desde tu chat de WhatsApp.</p>
+                <p>Para entrar primero en el modo de control de modelos, envía <code>modo modelos</code> o <code>modo modelo</code>.</p>
                 <h4>Comandos útiles de modelo</h4>
                 <ul>
                     <li><code>qué modelo está seleccionado</code></li>
@@ -2995,8 +2996,10 @@ window.helpContent = {
                 id: "connectors-workflows",
                 title: "Documentos, Gráficos, Investigación, Presentaciones y Artefactos",
                 content: `
+                <p>Los flujos del conector se quedan en chat normal hasta que entres explícitamente en un modo. Usa las palabras clave de abajo en cada sección.</p>
                 <h4>Documentos</h4>
                 <p>Puedes hacer preguntas sobre un documento importado o pedir un resumen. Los nombres no tienen que ser exactos.</p>
+                <p>Entra en este modo con <code>modo documento</code> o <code>modo documentos</code>.</p>
                 <p>Para esta función debes tener un modelo de embeddings local instalado y seleccionado en la pestaña Documentos.</p>
                 <ul>
                     <li><code>quiero revisar mis documentos</code></li>
@@ -3030,6 +3033,7 @@ window.helpContent = {
 
                 <h4>Gráficos</h4>
                 <p>Puedes solicitar gráficos compatibles con Paiperwork. Cuando el gráfico se crea, se envía a tu conversación de WhatsApp.</p>
+                <p>Entra en este modo con <code>modo gráficos</code>, <code>modo grafico</code>, <code>modo gráficas</code>, <code>modo gráfico</code>, <code>modo dataviz</code>, <code>modo visualización</code> o <code>modo visualizacion</code>.</p>
                 <ul>
                     <li><code>crear un gráfico circular de muestra</code></li>
                     <li><code>crear un gráfico radar de muestra</code></li>
@@ -3039,6 +3043,7 @@ window.helpContent = {
 
                 <h4>Investigación</h4>
                 <p>Puedes pedir a Paiperwork que investigue un tema por ti. Los informes estándar suelen tener entre 1000 y 1500 palabras, así que puede tardar un poco.</p>
+                <p>Entra en este modo con <code>modo investigación</code> o <code>modo investigacion</code>.</p>
                 <ul>
                     <li><code>investigar las últimas tendencias en baterías para vehículos eléctricos y resumir oportunidades para startups</code></li>
                     <li><code>investigar precios de vivienda en australia</code></li>
@@ -3100,6 +3105,7 @@ window.helpContent = {
 
                 <h4>Presentaciones</h4>
                 <p>Puedes crear presentaciones proporcionando el texto base. Paiperwork estima el número de diapositivas según la cantidad de contenido, salvo que indiques una cantidad concreta.</p>
+                <p>Entra en este modo con <code>modo presentación</code>, <code>modo presentacion</code>, <code>modo presentaciones</code> o <code>modo diapositivas</code>.</p>
                 <div class="note"><p><strong>Nota:</strong> Las apps de WhatsApp para teléfono, tablet y ordenador restringen la ejecución de código por motivos de seguridad, por lo que las presentaciones pueden no mostrarse allí. Usa WhatsApp Web para poder descargarlas a tu ordenador y verlas correctamente.</p></div>
                 <div class="note"><p><strong>Nota:</strong> Las versiones de Wechat para teléfono y tablet restringen la ejecución de código por motivos de seguridad, por lo que las presentaciones pueden no mostrarse allí. Usa la app de Wechat en el ordenador para poder descargarlas a tu equipo y verlas correctamente (asegúrate de guardar el archivo fuera de la propia carpeta de Wechat).</p></div>
                 <ul>
@@ -3118,6 +3124,7 @@ window.helpContent = {
 
                 <h4>Artefactos</h4>
                 <p>Puedes solicitar artefactos o mini apps HTML de muchos tipos directamente desde WhatsApp.</p>
+                <p>Entra en este modo con <code>modo mini app</code>, <code>modo miniapp</code>, <code>modo mini aplicación</code>, <code>modo mini aplicacion</code> o <code>modo artefacto</code>.</p>
                 <div class="note"><p><strong>Nota:</strong> Las apps de WhatsApp para teléfono, tablet y ordenador restringen la ejecución de código por motivos de seguridad, por lo que las mini apps pueden no mostrarse ni ejecutarse allí. Usa WhatsApp Web para poder descargarlas a tu ordenador y utilizarlas correctamente.</p></div>
                 <div class="note"><p><strong>Nota:</strong> Las versiones de Wechat para teléfono y tablet restringen la ejecución de código por motivos de seguridad, por lo que las mini apps pueden no mostrarse ni ejecutarse allí. Usa la app de Wechat en el ordenador para poder descargarlas a tu equipo y utilizarlas correctamente (asegúrate de guardar el archivo fuera de la propia carpeta de Wechat).</p></div>
                 <ul>
@@ -3139,6 +3146,7 @@ window.helpContent = {
 
                 <h4>Modos de seguimiento y frases de salida</h4>
                 <p>Paiperwork mantiene el contexto del flujo por teléfono. Cuando aparezca una pregunta de seguimiento, las frases compatibles para continuar incluyen <code>sí</code>, <code>sí por favor</code> y <code>continuar</code>. Las frases compatibles para cerrar incluyen <code>no</code>, <code>no gracias</code> y <code>ya terminé</code>. En documentos también puedes salir del modo de preguntas con <code>salir del modo documento</code>.</p>
+                <p>Para salir de un modo explícito y volver al chat normal, usa <code>salir del modo</code>, <code>dejar el modo</code>, <code>cerrar modo</code> o <code>desactivar modo</code>.</p>
                 <p>El mismo flujo de transformación de seguimiento también funciona después de resúmenes de documentos, informes de investigación y respuestas dadas mientras el modo de preguntas sobre documentos está activo.</p>
                 <h5>Ejemplo de interacción</h5>
                 <p><strong>Usuario:</strong> <code>&lt;nombre del documento&gt; resumen</code></p>
@@ -3158,7 +3166,7 @@ window.helpContent = {
                 <ul>
                     <li>Enviar archivos e imágenes al modelo de IA todavía no está soportado.</li>
                     <li>Los flujos de documentos requieren un modelo de embeddings local seleccionado en la pestaña Documentos.</li>
-                    <li>Paiperwork usa un orquestador interno para decidir qué función del conector utilizar en cada solicitud de WhatsApp/WeChat.</li>
+                    <li>Paiperwork se queda en chat normal por defecto. Los flujos de documentos, gráficos, modelos, investigación, presentaciones y mini apps solo empiezan después de enviar sus palabras clave de modo explícito.</li>
                     <li>Si vuelves de la página de generación a la página de bienvenida o recargas el navegador, el servidor de WhatsApp/WeChat se cerrará. Debes iniciarlo manualmente de nuevo para reanudar la comunicación por WhatsApp/WeChat.</li>
                     <li>Las presentaciones y los artefactos generados desde WhatsApp/WeChat se envían como archivos HTML. Después puedes abrirlos en Paiperwork para hacer ediciones manuales más profundas.</li>
                     <li>Durante operaciones largas como resumen de documentos, investigación, creación de presentaciones o miniaplicaciones, puede cancelar en cualquier momento enviando <code>Cancel</code>, <code>Stop</code> o <code>Exit</code> desde WhatsApp/WeChat.</li>

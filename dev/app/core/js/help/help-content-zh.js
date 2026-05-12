@@ -2962,6 +2962,7 @@ window.helpContent = {
                 content: `
                 <p>连接成功后，WhatsApp 会使用聊天选项卡中当前选定的模型。</p>
                 <p>您可以直接在 WhatsApp 聊天中查看当前启用的 AI 模型，并在那里切换模型。</p>
+                <p>如果您想先进入模型控制模式，请发送 <code>模型模式</code>。</p>
                 <h4>常用模型命令</h4>
                 <ul>
                     <li><code>现在选择的模型</code></li>
@@ -2982,8 +2983,10 @@ window.helpContent = {
                 id: "connectors-workflows",
                 title: "文档、图表、研究、演示文稿与工件",
                 content: `
+                <p>连接器工作流默认保持在普通聊天中，只有在您明确进入某个模式后才会切换。请在下面各部分使用对应的模式关键词。</p>
                 <h4>文档</h4>
                 <p>您可以针对已导入的文档提问，或请求生成摘要。文档名称不需要完全精确。</p>
+                <p>进入此模式可发送 <code>文档模式</code> 或 <code>文件模式</code>。</p>
                 <p>此功能要求您已在文档选项卡中安装并选择本地嵌入模型。</p>
                 <ul>
                     <li><code>查看 文档</code></li>
@@ -3017,6 +3020,7 @@ window.helpContent = {
 
                 <h4>图表</h4>
                 <p>您可以请求 Paiperwork 支持的图表。图表创建完成后，会发送到您的 WhatsApp 对话中。</p>
+                <p>进入此模式可发送 <code>图表模式</code>、<code>图形模式</code>、<code>数据可视化模式</code> 或 <code>可视化模式</code>。</p>
                 <ul>
                     <li><code>创建一个示例饼图</code></li>
                     <li><code>创建一个示例雷达图</code></li>
@@ -3026,6 +3030,7 @@ window.helpContent = {
 
                 <h4>研究</h4>
                 <p>您可以让 Paiperwork 为您研究某个主题。标准报告通常约为 1000 到 1500 字，因此可能需要一些时间。</p>
+                <p>进入此模式可发送 <code>研究模式</code> 或 <code>调研模式</code>。</p>
                 <ul>
                     <li><code>研究 电动车电池的最新趋势 并总结初创公司的机会</code></li>
                     <li><code>创建一份关于澳大利亚房价的报告</code></li>
@@ -3087,6 +3092,7 @@ window.helpContent = {
 
                 <h4>演示文稿</h4>
                 <p>您可以通过提供源文本来创建演示文稿。除非您明确指定页数，否则 Paiperwork 会根据内容量估算幻灯片数量。</p>
+                <p>进入此模式可发送 <code>演示模式</code>、<code>演示文稿模式</code> 或 <code>幻灯片模式</code>。</p>
                 <div class="note"><p><strong>注意：</strong>WhatsApp 的手机、平板和电脑应用出于安全原因会限制代码执行，因此演示文稿可能无法在这些应用中正常显示。请使用 WhatsApp Web，将其下载到您的电脑后再正确查看。</p></div>
                 <div class="note"><p><strong>注意：</strong>Wechat 的手机和平板版本出于安全原因会限制代码执行，因此演示文稿可能无法在这些版本中正常显示。请在电脑上使用 Wechat 应用，这样您可以将它们下载到电脑并正确查看（确保将文件保存到 Wechat 自身文件夹之外）。</p></div>
                 <ul>
@@ -3105,6 +3111,7 @@ window.helpContent = {
 
                 <h4>工件</h4>
                 <p>您可以直接通过 WhatsApp 请求创建各种类型的工件或 HTML 迷你应用。</p>
+                <p>进入此模式可发送 <code>迷你应用模式</code>、<code>小应用模式</code> 或 <code>工件模式</code>。</p>
                 <div class="note"><p><strong>注意：</strong>WhatsApp 的手机、平板和电脑应用出于安全原因会限制代码执行，因此迷你应用可能无法在这些应用中正常显示或运行。请使用 WhatsApp Web，将其下载到您的电脑后再正确查看和使用。</p></div>
                 <div class="note"><p><strong>注意：</strong>Wechat 的手机和平板版本出于安全原因会限制代码执行，因此迷你应用可能无法在这些版本中正常显示或运行。请在电脑上使用 Wechat 应用，这样您可以将它们下载到电脑并正确查看和使用（确保将文件保存到 Wechat 自身文件夹之外）。</p></div>
                 <ul>
@@ -3126,6 +3133,7 @@ window.helpContent = {
 
                 <h4>后续模式与退出短语</h4>
                 <p>Paiperwork 会按电话号码保留工作流上下文。当出现后续问题时，可继续的短语包括 <code>是</code>、<code>好的</code> 和 <code>继续</code>。可关闭的短语包括 <code>不用了</code>、<code>不用</code> 和 <code>完成了</code>。对于文档流程，您也可以用 <code>退出文档模式</code> 离开提问模式。</p>
+                <p>如果要退出显式模式并返回普通聊天，请发送 <code>退出模式</code>、<code>关闭模式</code> 或 <code>离开模式</code>。</p>
                 <p>同样的后续转换流程也适用于文档摘要、研究报告，以及文档提问模式下已经返回的回答。</p>
                 <h5>交互示例</h5>
                 <p><strong>用户：</strong><code>&lt;文档名称&gt; 总结</code></p>
@@ -3145,7 +3153,7 @@ window.helpContent = {
                 <ul>
                     <li>目前还不支持把文件和图片直接发送给 AI 模型。</li>
                     <li>文档工作流需要在文档选项卡中选择一个本地嵌入模型。</li>
-                    <li>Paiperwork 会使用内部编排器来判断每条 WhatsApp/WeChat 请求应该调用哪种连接器功能。</li>
+                    <li>Paiperwork 默认保持在普通聊天中。文档、图表、模型、研究、演示文稿和迷你应用工作流只有在您发送对应的显式模式关键词后才会启动。</li>
                     <li>如果您从生成页面返回欢迎页面，或刷新浏览器，WhatsApp/WeChat 服务器都会关闭。您必须手动重新启动它，才能恢复 WhatsApp/WeChat 通信。</li>
                     <li>通过 WhatsApp/WeChat 生成的演示文稿和工件会作为 HTML 文件发回。之后您可以在 Paiperwork 中打开它们进行更深入的手动编辑。</li>
                     <li>在文档摘要、研究、演示文稿创建或迷你应用生成等长时间操作期间，您可以随时通过 WhatsApp/WeChat 发送 <code>Cancel</code>、<code>Stop</code> 或 <code>Exit</code> 来取消。</li>
