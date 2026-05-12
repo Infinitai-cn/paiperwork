@@ -224,6 +224,22 @@ const workflowModeKeymap = {
                 'रिसर्च मोड', 'अनुसंधान मोड', 'शोध मोड'
             ]
         },
+        knowledge: {
+            enter: [
+                'knowledge mode', 'knowledge base mode', 'knowledgebase mode', 'kb mode',
+                'modo conocimiento', 'modo base de conocimiento', 'modo base de conocimientos', 'modo kb',
+                'modo conhecimento', 'modo base de conhecimento', 'modo base de conhecimentos', 'modo kb',
+                'mode connaissance', 'mode base de connaissances', 'mode kb',
+                'wissensmodus', 'wissensdatenbank modus', 'wissensbasis modus', 'kb modus',
+                'modalita conoscenza', 'modalità conoscenza', 'modalita base di conoscenza', 'modalità base di conoscenza', 'modalita kb', 'modalità kb',
+                'режим знаний', 'режим базы знаний', 'режим kb',
+                '知识模式', '知识库模式', 'kb模式',
+                'ナレッジモード', 'ナレッジベースモード', 'kbモード',
+                '지식 모드', '지식 베이스 모드', 'kb 모드',
+                'وضع المعرفة', 'وضع قاعدة المعرفة', 'وضع kb',
+                'नॉलेज मोड', 'ज्ञान मोड', 'नॉलेज बेस मोड', 'ज्ञान आधार मोड', 'केबी मोड'
+            ]
+        },
         presentation: {
             enter: [
                 'presentation mode', 'presentations mode', 'slide mode', 'slides mode',
