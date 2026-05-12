@@ -3056,6 +3056,7 @@ window.helpContent = {
 
                 <h4>Wissensdatenbank</h4>
                 <p>Sie können Ihre gespeicherte Wissensdatenbank über WhatsApp durchsuchen, indem Sie Wissenssammlungen auflisten, eine Sammlung öffnen, deren Einträge auflisten und den ausgewählten Eintrag lesen. Die Namen von Sammlungen und Einträgen müssen nicht exakt sein.</p>
+                <p>Aktivieren Sie diesen Modus mit <code>wissensmodus</code>, <code>wissensdatenbank modus</code>, <code>wissensbasis modus</code> oder <code>kb modus</code>.</p>
                 <ul>
                     <li><code>Zeig mir meine Wissensdatenbank</code></li>
                     <li><code>Liste meine Wissenssammlungen</code></li>
