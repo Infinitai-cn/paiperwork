@@ -6496,6 +6496,84 @@ class ConnectorWechat {
         };
     }
 
+    async _preparewechatIncomingMessageForDispatch(msg) {
+        if (!msg || !msg.body) return msg;
+
+        const original = String(msg.body || '');
+        const cleanedOriginal = this._stripThinkingContent(original);
+        const normalizedAccount = this._getwechatIncomingThreadKey(msg);
+        let accountContext = (await this._getwechatAccountContext(normalizedAccount)) || {};
+        const promptResolution = await this._resolvewechatEffectivePrompt(
+            { ...msg, body: cleanedOriginal },
+            accountContext
+        );
+
+        if (promptResolution && promptResolution.accountContext) {
+            accountContext = promptResolution.accountContext;
+        }
+
+        const effectiveInput = promptResolution && promptResolution.effectiveText
+            ? promptResolution.effectiveText
+            : cleanedOriginal;
+        const cleaned = this._stripThinkingContent(effectiveInput);
+        const routingIntentText = this._getwechatRoutingIntentText(cleaned);
+
+        msg.wechatRegenerate = {
+            requested: !!(promptResolution && promptResolution.regenerateRequested),
+            missingPreviousPrompt: !!(promptResolution && promptResolution.missingPreviousPrompt),
+            originalCommand: promptResolution && promptResolution.regenerateRequested ? cleanedOriginal : '',
+            reusedPrompt: promptResolution && promptResolution.regenerateRequested ? cleaned : ''
+        };
+
+        if (msg.wechatRegenerate.missingPreviousPrompt) {
+            const resolvedLanguage = this._resolvewechatInteractionLanguage(null, cleanedOriginal, accountContext);
+            msg.orchestrator = {
+                tool: 'chat',
+                confidence: 1,
+                reason: 'regenerate_requested_without_previous_prompt',
+                language: resolvedLanguage
+            };
+            return msg;
+        }
+
+        const explicitModeState = this._getwechatExplicitModeState(accountContext);
+        const explicitModeCommand = this._detectwechatExplicitModeCommand(routingIntentText || cleaned, accountContext);
+        const shouldBypassOrchestration = !explicitModeState || explicitModeState.mode === 'model' || !!explicitModeCommand;
+
+        if (!shouldBypassOrchestration) {
+            return this._orchestrateMessage(msg);
+        }
+
+        const resolvedLanguage = this._resolvewechatInteractionLanguage(null, cleaned, accountContext);
+        const deterministicRouting = explicitModeCommand
+            ? null
+            : await this._buildwechatDeterministicRoutingDecision(routingIntentText || cleaned, accountContext, {
+                account: normalizedAccount,
+                language: resolvedLanguage,
+                currentTool: 'chat'
+            });
+        const localTool = deterministicRouting && deterministicRouting.decision && deterministicRouting.decision.tool === 'chat+websearch'
+            ? 'chat+websearch'
+            : 'chat';
+
+        this._appendwechatOrchestratorContext(normalizedAccount, { role: 'user', text: cleaned });
+        accountContext = (await this._appendwechatAccountConversationTurn(normalizedAccount, { role: 'user', text: cleaned }, accountContext)) || accountContext;
+
+        msg.body = cleaned;
+        msg.orchestrator = {
+            tool: localTool,
+            confidence: localTool === 'chat+websearch' ? 0.9 : 1,
+            reason: explicitModeCommand
+                ? 'explicit_mode_command_fast_path'
+                : (localTool === 'chat+websearch' ? 'chat_fast_path_websearch' : 'chat_fast_path'),
+            language: resolvedLanguage,
+            source: 'fast-path',
+            shortAnswer: localTool === 'chat+websearch' || localTool === 'chat'
+        };
+
+        return msg;
+    }
+
     _detectwechatRequestedModelProvider(text) {
         const normalizedText = this._normalizeDocumentIntentKeymapText(text);
         if (!normalizedText) return null;
@@ -10791,9 +10869,9 @@ class ConnectorWechat {
                 ? ((await this._applywechatQueueSnapshot(queueSnapshot)) || {})
                 : null;
 
-            if ((!msg || !msg.orchestrator) && typeof this._orchestrateMessage === 'function') {
+            if ((!msg || !msg.orchestrator) && typeof this._preparewechatIncomingMessageForDispatch === 'function') {
                 try {
-                    msg = await this._orchestrateMessage(msg) || msg;
+                    msg = await this._preparewechatIncomingMessageForDispatch(msg) || msg;
                     /* console.info('[Connectorwechat] WeChat incoming message preprocessed by _orchestrateMessage', {
                         account: normalizedAccount,
                         orchDecision: msg && msg.orchestrator ? msg.orchestrator : null

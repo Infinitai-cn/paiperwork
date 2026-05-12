@@ -6034,6 +6034,84 @@ class ConnectorWhatsapp {
         };
     }
 
+    async _prepareWhatsappIncomingMessageForDispatch(msg) {
+        if (!msg || !msg.body) return msg;
+
+        const original = String(msg.body || '');
+        const cleanedOriginal = this._stripThinkingContent(original);
+        const normalizedPhone = this._getWhatsappIncomingThreadKey(msg);
+        let phoneContext = (await this._getWhatsappPhoneContext(normalizedPhone)) || {};
+        const promptResolution = await this._resolveWhatsappEffectivePrompt(
+            { ...msg, body: cleanedOriginal },
+            phoneContext
+        );
+
+        if (promptResolution && promptResolution.phoneContext) {
+            phoneContext = promptResolution.phoneContext;
+        }
+
+        const effectiveInput = promptResolution && promptResolution.effectiveText
+            ? promptResolution.effectiveText
+            : cleanedOriginal;
+        const cleaned = this._stripThinkingContent(effectiveInput);
+        const routingIntentText = this._getWhatsappRoutingIntentText(cleaned);
+
+        msg.whatsappRegenerate = {
+            requested: !!(promptResolution && promptResolution.regenerateRequested),
+            missingPreviousPrompt: !!(promptResolution && promptResolution.missingPreviousPrompt),
+            originalCommand: promptResolution && promptResolution.regenerateRequested ? cleanedOriginal : '',
+            reusedPrompt: promptResolution && promptResolution.regenerateRequested ? cleaned : ''
+        };
+
+        if (msg.whatsappRegenerate.missingPreviousPrompt) {
+            const resolvedLanguage = this._resolveWhatsappInteractionLanguage(null, cleanedOriginal, phoneContext);
+            msg.orchestrator = {
+                tool: 'chat',
+                confidence: 1,
+                reason: 'regenerate_requested_without_previous_prompt',
+                language: resolvedLanguage
+            };
+            return msg;
+        }
+
+        const explicitModeState = this._getWhatsappExplicitModeState(phoneContext);
+        const explicitModeCommand = this._detectWhatsappExplicitModeCommand(routingIntentText || cleaned, phoneContext);
+        const shouldBypassOrchestration = !explicitModeState || explicitModeState.mode === 'model' || !!explicitModeCommand;
+
+        if (!shouldBypassOrchestration) {
+            return this._orchestrateMessage(msg);
+        }
+
+        const resolvedLanguage = this._resolveWhatsappInteractionLanguage(null, cleaned, phoneContext);
+        const deterministicRouting = explicitModeCommand
+            ? null
+            : await this._buildWhatsappDeterministicRoutingDecision(routingIntentText || cleaned, phoneContext, {
+                phone: normalizedPhone,
+                language: resolvedLanguage,
+                currentTool: 'chat'
+            });
+        const localTool = deterministicRouting && deterministicRouting.decision && deterministicRouting.decision.tool === 'chat+websearch'
+            ? 'chat+websearch'
+            : 'chat';
+
+        this._appendWhatsappOrchestratorContext(normalizedPhone, { role: 'user', text: cleaned });
+        phoneContext = (await this._appendWhatsappPhoneConversationTurn(normalizedPhone, { role: 'user', text: cleaned }, phoneContext)) || phoneContext;
+
+        msg.body = cleaned;
+        msg.orchestrator = {
+            tool: localTool,
+            confidence: localTool === 'chat+websearch' ? 0.9 : 1,
+            reason: explicitModeCommand
+                ? 'explicit_mode_command_fast_path'
+                : (localTool === 'chat+websearch' ? 'chat_fast_path_websearch' : 'chat_fast_path'),
+            language: resolvedLanguage,
+            source: 'fast-path',
+            shortAnswer: localTool === 'chat+websearch' || localTool === 'chat'
+        };
+
+        return msg;
+    }
+
     _detectWhatsappRequestedModelProvider(text) {
         const normalizedText = this._normalizeDocumentIntentKeymapText(text);
         if (!normalizedText) return null;
@@ -8607,7 +8685,7 @@ class ConnectorWhatsapp {
                         const replyTarget = this._getWhatsappIncomingReplyTarget(msg) || this._getWhatsappIncomingThreadKey(msg);
                         await this._ensureWhatsappPresenceStartedIfNeeded(replyTarget);
                     }
-                    const processed = await this._orchestrateMessage(msg);
+                    const processed = await this._prepareWhatsappIncomingMessageForDispatch(msg);
                     const isStillBusy = this._whatsappIncomingProcessing || window.isGenerating || (window.chat && window.chat.isGenerating);
                     if (isStillBusy) {
                         //console.info('[ConnectorWhatsapp] Busy generating, queueing incoming WA message');
@@ -9875,6 +9953,14 @@ class ConnectorWhatsapp {
             let phoneContext = queueSnapshot
                 ? ((await this._applyWhatsappQueueSnapshot(queueSnapshot)) || {})
                 : null;
+
+            if ((!msg || !msg.orchestrator) && typeof this._prepareWhatsappIncomingMessageForDispatch === 'function') {
+                try {
+                    msg = await this._prepareWhatsappIncomingMessageForDispatch(msg) || msg;
+                } catch (prepareErr) {
+                    console.warn('ConnectorWhatsapp: _prepareWhatsappIncomingMessageForDispatch failed', prepareErr);
+                }
+            }
 
             let orchTool = msg && msg.orchestrator && msg.orchestrator.tool ? String(msg.orchestrator.tool).toLowerCase() : null;
             let pendingDoc = this._getPendingDocSelection(normalizedPhone);
