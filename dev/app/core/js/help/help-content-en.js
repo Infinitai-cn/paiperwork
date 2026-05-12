@@ -2998,6 +2998,7 @@ window.helpContent = {
                 content: `
                 <p>Once connected, WhatsApp uses the model currently selected in the Chat tab.</p>
                 <p>You can check which AI model is currently active and change it directly from your WhatsApp chat.</p>
+                <p>To enter model control mode first, send <code>Models mode</code> or <code>Model mode</code>.</p>
                 <h4>Useful model commands</h4>
                 <ul>
                     <li><code>What model is selected now?</code></li>
@@ -3018,8 +3019,10 @@ window.helpContent = {
                 id: "connectors-workflows",
                 title: "Documents, Charts, Research, Presentations, and Artifacts",
                 content: `
+                <p>Connector workflows stay in normal chat until you explicitly enter a workflow mode. In English, use the mode keywords shown below for each workflow.</p>
                 <h4>Documents</h4>
                 <p>You can ask questions about an imported document or request a summary. Document names do not need to be exact.</p>
+                <p>Enter this mode with <code>Document mode</code> or <code>Documents mode</code>.</p>
                 <p>A local embedding model must be installed and selected in the Documents tab for this feature.</p>
                 <ul>
                     <li><code>I want to check my documents</code></li>
@@ -3053,6 +3056,7 @@ window.helpContent = {
 
                 <h4>Charts</h4>
                 <p>You can request charts supported by Paiperwork. Once created, the chart is sent to your WhatsApp conversation.</p>
+                <p>Enter this mode with <code>Graphics mode</code>, <code>Graphic mode</code>, <code>Charts mode</code>, <code>Chart mode</code>, <code>Dataviz mode</code>, <code>Data viz mode</code>, <code>Visualization mode</code>, or <code>Visualisation mode</code>.</p>
                 <ul>
                     <li><code>Create a sample pie chart</code></li>
                     <li><code>Create a demo radar chart</code></li>
@@ -3062,6 +3066,7 @@ window.helpContent = {
 
                 <h4>Research</h4>
                 <p>You can ask Paiperwork to research a topic for you. Standard reports are usually around 1000 to 1500 words, so this may take some time.</p>
+                <p>Enter this mode with <code>Research mode</code>.</p>
                 <ul>
                     <li><code>Research the latest trends in electric vehicle batteries and summarize opportunities for startups</code></li>
                     <li><code>Research home prices in Australia</code></li>
@@ -3123,6 +3128,7 @@ window.helpContent = {
 
                 <h4>Presentations</h4>
                 <p>You can create presentations by providing the source text. Paiperwork estimates the number of slides from the amount of content unless you explicitly request a slide count.</p>
+                <p>Enter this mode with <code>Presentation mode</code>, <code>Presentations mode</code>, <code>Slide mode</code>, or <code>Slides mode</code>.</p>
                 <div class="note"><p><strong>Note:</strong> WhatsApp phone, tablet, and computer apps restrict the execution of code for security reasons, so presentations may not display there. Use WhatsApp Web so you can download them to your computer and view them correctly.</p></div>
                 <div class="note"><p><strong>Note:</strong> Wechat phone and tablet versions restrict the execution of code for security reasons, so presentations may not display there. Use Wechat App in the computer so you can download them to your computer and view them correctly (make sure to save the file outside of Wechat's own folder).</p></div>
                 <ul>
@@ -3141,6 +3147,7 @@ window.helpContent = {
 
                 <h4>Artifacts</h4>
                 <p>You can request artifacts or HTML mini apps of many kinds directly from WhatsApp.</p>
+                <p>Enter this mode with <code>Mini app mode</code>, <code>Miniapp mode</code>, <code>Artifact mode</code>, or <code>Mini application mode</code>.</p>
                 <div class="note"><p><strong>Note:</strong> WhatsApp phone, tablet, and computer apps restrict the execution of code for security reasons, so mini apps may not display or run there. Use WhatsApp Web so you can download them to your computer and use them correctly.</p></div>
                 <div class="note"><p><strong>Note:</strong> Wechat phone and tablet versions restrict the execution of code for security reasons, so mini apps may not display or run there. Use Wechat App in the computer so you can download them to your computer and use them correctly (make sure to save the file outside of Wechat's own folder).</p></div>
                 <ul>
@@ -3162,6 +3169,7 @@ window.helpContent = {
 
                 <h4>Follow-up Modes and Exit Cues</h4>
                 <p>Paiperwork keeps workflow context per phone. When a follow-up question appears, supported continue cues include <code>yes</code>, <code>yes please</code>, and <code>continue</code>. Supported close cues include <code>no</code>, <code>no thanks</code>, and <code>I am finished</code>. For documents, you can also leave questioning mode with <code>exit document mode</code>.</p>
+                <p>To leave an explicit workflow mode and return to normal chat, use <code>Exit mode</code>, <code>Leave mode</code>, <code>Close mode</code>, or <code>Disable mode</code>.</p>
                 <p>The same follow-up transformation flow also works after document summaries, research reports, and answers returned while document questioning mode is active.</p>
                 <h5>Interaction Example</h5>
                 <p><strong>User:</strong> <code>&lt;document name&gt; summary</code></p>
@@ -3181,7 +3189,7 @@ window.helpContent = {
                 <ul>
                     <li>Sending files and images to the AI model is not supported yet.</li>
                     <li>Document workflows require a local embedding model selected in the Documents tab.</li>
-                    <li>Paiperwork uses an internal orchestrator to decide which connector function to use for each WhatsApp/WeChat request.</li>
+                    <li>Paiperwork stays in normal chat by default. Document, chart, model, research, presentation, and mini app workflows only start after you send their explicit mode keywords.</li>
                     <li>If you go back from the generation page to the welcome page or refresh the browser, the WhatsApp/WeChat server is closed. Start it manually again to resume WhatsApp/WeChat communication.</li>
                     <li>Presentations and artifacts generated from WhatsApp/WeChat are sent back as HTML files. You can later open them in Paiperwork for deeper manual edits.</li>
                     <li>During long operations like Document summary, Research, presentation creation, or mini app generation, you can cancel at any time by sending <code>Cancel</code>, <code>Stop</code>, or <code>Exit</code> from WhatsApp/WeChat.</li>

@@ -2958,6 +2958,7 @@ window.helpContent = {
                 content: `
                 <p>Nach der Verbindung verwendet WhatsApp das Modell, das aktuell im Chat-Tab ausgewählt ist.</p>
                 <p>Sie können direkt in Ihrem WhatsApp-Chat prüfen, welches KI-Modell aktiv ist, und es dort auch wechseln.</p>
+                <p>Um zuerst in den Modellsteuerungsmodus zu wechseln, senden Sie <code>modellmodus</code> oder <code>modelle modus</code>.</p>
                 <h4>Nützliche Modellbefehle</h4>
                 <ul>
                     <li><code>welches modell ist ausgewählt</code></li>
@@ -2978,8 +2979,10 @@ window.helpContent = {
                 id: "connectors-workflows",
                 title: "Dokumente, Diagramme, Recherche, Präsentationen und Artefakte",
                 content: `
+                <p>Die Connector-Workflows bleiben im normalen Chat, bis Sie ausdrücklich einen Modus aktivieren. Verwenden Sie die folgenden Schlüsselwörter in den jeweiligen Abschnitten.</p>
                 <h4>Dokumente</h4>
                 <p>Sie können Fragen zu einem importierten Dokument stellen oder eine Zusammenfassung anfordern. Dokumentnamen müssen nicht exakt sein.</p>
+                <p>Aktivieren Sie diesen Modus mit <code>dokumentmodus</code>.</p>
                 <p>Für diese Funktion muss im Tab Dokumente ein lokales Embedding-Modell installiert und ausgewählt sein.</p>
                 <ul>
                     <li><code>dokumente durchsuchen</code></li>
@@ -3013,6 +3016,7 @@ window.helpContent = {
 
                 <h4>Diagramme</h4>
                 <p>Sie können von Paiperwork unterstützte Diagramme anfordern. Sobald das Diagramm erstellt ist, wird es an Ihre WhatsApp-Konversation gesendet.</p>
+                <p>Aktivieren Sie diesen Modus mit <code>grafikmodus</code>, <code>diagrammmodus</code>, <code>dataviz modus</code> oder <code>visualisierungsmodus</code>.</p>
                 <ul>
                     <li><code>erstelle ein pie chart</code></li>
                     <li><code>erstelle ein radar chart</code></li>
@@ -3022,6 +3026,7 @@ window.helpContent = {
 
                 <h4>Recherche</h4>
                 <p>Sie können Paiperwork bitten, ein Thema für Sie zu recherchieren. Standardberichte haben meist etwa 1000 bis 1500 Wörter, daher kann das etwas dauern.</p>
+                <p>Aktivieren Sie diesen Modus mit <code>forschungsmodus</code> oder <code>recherchemodus</code>.</p>
                 <ul>
                     <li><code>recherchieren die neuesten trends bei batterien für elektrofahrzeuge und analysieren chancen für startups</code></li>
                     <li><code>recherchieren wohnungspreise in australien</code></li>
@@ -3083,6 +3088,7 @@ window.helpContent = {
 
                 <h4>Präsentationen</h4>
                 <p>Sie können Präsentationen erstellen, indem Sie den Ausgangstext bereitstellen. Paiperwork schätzt die Anzahl der Folien anhand der Inhaltsmenge, sofern Sie keine konkrete Folienzahl angeben.</p>
+                <p>Aktivieren Sie diesen Modus mit <code>präsentationsmodus</code>, <code>prasentationsmodus</code> oder <code>folienmodus</code>.</p>
                 <div class="note"><p><strong>Hinweis:</strong> Die WhatsApp-Apps auf Telefon, Tablet und Computer beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Präsentationen dort möglicherweise nicht angezeigt. Verwenden Sie WhatsApp Web, damit Sie sie auf Ihren Computer herunterladen und korrekt ansehen können.</p></div>
                 <div class="note"><p><strong>Hinweis:</strong> Die Wechat-Versionen für Telefon und Tablet beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Präsentationen dort möglicherweise nicht angezeigt. Verwenden Sie die Wechat-App auf dem Computer, damit Sie sie auf Ihrem Computer herunterladen und korrekt ansehen können (stellen Sie sicher, dass Sie die Datei außerhalb des eigenen Wechat-Ordners speichern).</p></div>
                 <ul>
@@ -3101,6 +3107,7 @@ window.helpContent = {
 
                 <h4>Artefakte</h4>
                 <p>Sie können direkt über WhatsApp Artefakte oder HTML-Mini-Apps vieler Arten anfordern.</p>
+                <p>Aktivieren Sie diesen Modus mit <code>miniapp modus</code>, <code>mini app modus</code> oder <code>artefaktmodus</code>.</p>
                 <div class="note"><p><strong>Hinweis:</strong> Die WhatsApp-Apps auf Telefon, Tablet und Computer beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Mini-Apps dort möglicherweise nicht angezeigt oder ausgeführt. Verwenden Sie WhatsApp Web, damit Sie sie auf Ihren Computer herunterladen und korrekt nutzen können.</p></div>
                 <div class="note"><p><strong>Hinweis:</strong> Die Wechat-Versionen für Telefon und Tablet beschränken aus Sicherheitsgründen die Ausführung von Code, daher werden Mini-Apps dort möglicherweise nicht angezeigt oder ausgeführt. Verwenden Sie die Wechat-App auf dem Computer, damit Sie sie auf Ihrem Computer herunterladen und korrekt nutzen können (stellen Sie sicher, dass Sie die Datei außerhalb des eigenen Wechat-Ordners speichern).</p></div>
                 <ul>
@@ -3122,6 +3129,7 @@ window.helpContent = {
 
                 <h4>Nachverfolgungsmodi und Beendigungsbefehle</h4>
                 <p>Paiperwork behält den Workflow-Kontext pro Telefonnummer bei. Wenn eine Nachverfolgungsfrage erscheint, gehören <code>ja</code>, <code>ja bitte</code> und <code>weiter</code> zu den unterstützten Weiter-Befehlen. Unterstützte Beendigungsbefehle sind <code>nein</code>, <code>nein danke</code> und <code>ich bin fertig</code>. Bei Dokumenten können Sie den Fragemodus außerdem mit <code>dokumentmodus verlassen</code> beenden.</p>
+                <p>Um einen expliziten Modus zu verlassen und in den normalen Chat zurückzukehren, verwenden Sie <code>modus verlassen</code>, <code>modus beenden</code>, <code>modus schließen</code> oder <code>modus schliessen</code>.</p>
                 <p>Dieselbe Nachverfolgungs-Transformation funktioniert auch nach Dokumentzusammenfassungen, Rechercheberichten und Antworten, die im aktiven Dokument-Fragemodus zurückgegeben wurden.</p>
                 <h5>Interaktionsbeispiel</h5>
                 <p><strong>Nutzer:</strong> <code>&lt;dokumentname&gt; zusammenfassung</code></p>
@@ -3141,7 +3149,7 @@ window.helpContent = {
                 <ul>
                     <li>Das Senden von Dateien und Bildern an das KI-Modell wird derzeit noch nicht unterstützt.</li>
                     <li>Dokument-Workflows erfordern ein lokal ausgewähltes Embedding-Modell im Dokumente-Tab.</li>
-                    <li>Paiperwork verwendet einen internen Orchestrator, um für jede WhatsApp/WeChat-Anfrage die passende Connector-Funktion auszuwählen.</li>
+                    <li>Paiperwork bleibt standardmäßig im normalen Chat. Dokument-, Diagramm-, Modell-, Recherche-, Präsentations- und Mini-App-Workflows starten erst, nachdem Sie ihre expliziten Modus-Schlüsselwörter gesendet haben.</li>
                     <li>Wenn Sie von der Generierungsseite zur Willkommensseite zurückgehen oder den Browser aktualisieren, wird der WhatsApp/WeChat-Server geschlossen. Starten Sie ihn anschließend manuell neu, um die WhatsApp/WeChat-Kommunikation fortzusetzen.</li>
                     <li>Präsentationen und Artefakte aus WhatsApp/WeChat werden als HTML-Dateien zurückgesendet. Später können Sie sie in Paiperwork öffnen und manuell weiter bearbeiten.</li>
                     <li>Während langer Vorgänge wie Dokumentenzusammenfassung, Recherche, Präsentationserstellung oder Mini-App-Generierung können Sie jederzeit abbrechen, indem Sie <code>Cancel</code>, <code>Stop</code> oder <code>Exit</code> über WhatsApp/WeChat senden.</li>
