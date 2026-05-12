@@ -56,15 +56,26 @@ class ArtworksTab {
 
     isOllamaApiKeyError(error) {
         const msg = String(error?.message || '').toLowerCase();
+        const directStatus = Number(error?.status || error?.statusCode || error?.response?.status || NaN);
         if (this.isOllamaSubscriptionRequiredError(error)) {
             return false;
         }
-        return msg.includes('no response received from ollama')
+        if (directStatus === 401 || directStatus === 403) {
+            return true;
+        }
+
+        return /(^|\D)401(\D|$)/.test(msg)
+            || /(^|\D)403(\D|$)/.test(msg)
             || msg.includes('unauthorized')
+            || msg.includes('forbidden')
+            || msg.includes('cloudproxy401')
+            || msg.includes('keylen=0')
             || msg.includes('invalid api key')
             || msg.includes('missing api key')
-            || msg.includes('api key')
-            || msg.includes('401');
+            || msg.includes('api key required')
+            || msg.includes('ollama api key required')
+            || msg.includes('api key appears invalid')
+            || msg.includes('api key appears expired');
     }
 
     // Initializes the ArtworksTab, sets up UI, event handlers, and loads preferences
