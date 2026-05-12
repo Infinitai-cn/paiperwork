@@ -1694,6 +1694,177 @@ class ConnectorWechat {
         return this._setwechatFollowUpSession(account, null, existingAccountContext);
     }
 
+    _getwechatModeKeymapConfig() {
+        return window.Keymaps && window.Keymaps.mode ? window.Keymaps.mode : { modes: {}, exit: [] };
+    }
+
+    _getwechatModeKeymapTokens(mode = '', cueType = 'enter') {
+        const keymap = this._getwechatModeKeymapConfig();
+        const normalizedMode = this._normalizewechatExplicitMode(mode);
+        const value = cueType === 'exit' && !normalizedMode
+            ? keymap.exit
+            : keymap && keymap.modes && keymap.modes[normalizedMode]
+                ? keymap.modes[normalizedMode][cueType]
+                : null;
+
+        return Array.isArray(value)
+            ? [...new Set(value.map(token => String(token || '').trim()).filter(Boolean))]
+            : [];
+    }
+
+    _normalizewechatExplicitMode(mode = '') {
+        const normalizedMode = this._normalizeDocumentIntentKeymapText(mode);
+        const modeMap = {
+            chat: 'chat',
+            document: 'document',
+            documents: 'document',
+            dataviz: 'dataviz',
+            graphics: 'dataviz',
+            graphic: 'dataviz',
+            model: 'model',
+            models: 'model',
+            research: 'research',
+            presentation: 'presentation',
+            presentations: 'presentation',
+            artifact: 'artifact',
+            miniapp: 'artifact',
+            'mini app': 'artifact'
+        };
+
+        return modeMap[normalizedMode] || '';
+    }
+
+    _getwechatExplicitModeTool(mode = '') {
+        const normalizedMode = this._normalizewechatExplicitMode(mode);
+        const toolMap = {
+            chat: 'chat',
+            document: 'document-check',
+            dataviz: 'dataviz',
+            model: 'chat',
+            research: 'research',
+            presentation: 'presentation',
+            artifact: 'artifact'
+        };
+
+        return toolMap[normalizedMode] || 'chat';
+    }
+
+    _getwechatExplicitModeLabel(mode = '') {
+        const normalizedMode = this._normalizewechatExplicitMode(mode);
+        const labelMap = {
+            chat: 'Chat mode',
+            document: 'Document mode',
+            dataviz: 'Graphics mode',
+            model: 'Models mode',
+            research: 'Research mode',
+            presentation: 'Presentation mode',
+            artifact: 'Mini app mode'
+        };
+
+        return labelMap[normalizedMode] || 'Chat mode';
+    }
+
+    _getwechatExplicitModeState(accountContext = null) {
+        const modeState = accountContext && typeof accountContext === 'object' ? accountContext.explicitWorkflowMode : null;
+        if (!modeState || typeof modeState !== 'object') {
+            return null;
+        }
+
+        const mode = this._normalizewechatExplicitMode(modeState.mode || '');
+        if (!mode) {
+            return null;
+        }
+
+        return {
+            mode,
+            tool: this._getwechatExplicitModeTool(mode),
+            updatedAt: String(modeState.updatedAt || '').trim()
+        };
+    }
+
+    async _setwechatExplicitModeState(account, modeState, existingAccountContext = null) {
+        const normalizedAccount = String(account || '').replace(/@.*$/g, '').trim();
+        if (!normalizedAccount) return existingAccountContext || null;
+
+        const accountContext = (existingAccountContext && typeof existingAccountContext === 'object')
+            ? { ...existingAccountContext }
+            : ((await this._getwechatAccountContext(normalizedAccount)) || {});
+
+        if (!modeState) {
+            delete accountContext.explicitWorkflowMode;
+        } else {
+            const mode = this._normalizewechatExplicitMode(modeState.mode || '');
+            if (mode) {
+                accountContext.explicitWorkflowMode = {
+                    mode,
+                    updatedAt: new Date().toISOString()
+                };
+            } else {
+                delete accountContext.explicitWorkflowMode;
+            }
+        }
+
+        await this._setwechatAccountContext(normalizedAccount, accountContext);
+        return accountContext;
+    }
+
+    async _clearwechatExplicitModeState(account, existingAccountContext = null) {
+        return this._setwechatExplicitModeState(account, null, existingAccountContext);
+    }
+
+    _detectwechatExplicitModeCommand(text, accountContext = null) {
+        const normalizedText = this._normalizewechatResearchReportText(text);
+        if (!normalizedText) {
+            return null;
+        }
+
+        const activeModeState = this._getwechatExplicitModeState(accountContext);
+
+        if (activeModeState && this._isExactDocumentKeymapCommand(normalizedText, this._getwechatModeKeymapTokens('', 'exit'))) {
+            return { action: 'exit', mode: 'chat' };
+        }
+
+        const modeOrder = ['document', 'dataviz', 'model', 'research', 'presentation', 'artifact'];
+        for (const mode of modeOrder) {
+            if (this._isExactDocumentKeymapCommand(normalizedText, this._getwechatModeKeymapTokens(mode, 'enter'))) {
+                return { action: 'enter', mode };
+            }
+        }
+
+        return null;
+    }
+
+    async _resetwechatWorkflowRoutingState(account, existingAccountContext = null) {
+        const normalizedAccount = String(account || '').replace(/@.*$/g, '').trim();
+        if (!normalizedAccount) return existingAccountContext || null;
+
+        let accountContext = (existingAccountContext && typeof existingAccountContext === 'object')
+            ? existingAccountContext
+            : ((await this._getwechatAccountContext(normalizedAccount)) || {});
+
+        this._clearPendingDocSelection(normalizedAccount);
+        this._clearPendingPresentationSelection(normalizedAccount);
+        this._clearPendingArtifactSelection(normalizedAccount);
+        this._clearPendingKnowledgeCollectionSelection(normalizedAccount);
+        this._clearPendingKnowledgeEntrySelection(normalizedAccount);
+        this._exitwechatDocumentScope(normalizedAccount);
+
+        accountContext = (await this._clearwechatArtifactSession(normalizedAccount, accountContext)) || accountContext;
+        accountContext = (await this._clearwechatFollowUpSession(normalizedAccount, accountContext)) || accountContext;
+        accountContext = (await this._clearwechatDocumentSummaryMemory(normalizedAccount, accountContext)) || accountContext;
+        accountContext = (await this._clearwechatKnowledgeEntryMemory(normalizedAccount, accountContext)) || accountContext;
+        accountContext = (await this._clearwechatResearchReportMemory(normalizedAccount, accountContext)) || accountContext;
+        return accountContext;
+    }
+
+    async _sendwechatExplicitModeStatus(account, mode, action = 'enter', language = null) {
+        const fallback = action === 'enter'
+            ? 'Mode activated.'
+            : 'Returned to normal chat.';
+        const message = await this._getLocalizedLangText(language, action === 'enter' ? 'workflowModeActivated' : 'workflowModeExited', fallback);
+        await this._postwechatOrchestratorText(account, `💬 ${message}`);
+    }
+
     _getwechatDocumentSummaryMemory(accountContext = null) {
         const memory = accountContext && typeof accountContext === 'object' ? accountContext.documentSummaryMemory : null;
         if (!memory || typeof memory !== 'object') {
@@ -1883,6 +2054,11 @@ class ConnectorWechat {
     }
 
     _getwechatDeterministicWorkflowSession(accountContext = null) {
+        const explicitModeState = this._getwechatExplicitModeState(accountContext);
+        if (!explicitModeState || explicitModeState.mode === 'chat' || explicitModeState.mode === 'model') {
+            return null;
+        }
+
         const artifactSession = this._getwechatArtifactSession(accountContext);
         if (artifactSession && artifactSession.active) {
             return {
@@ -2066,6 +2242,16 @@ class ConnectorWechat {
     }
 
     _resolvewechatDeterministicWorkflowRouting(text, accountContext = null, orchTool = '') {
+        const explicitModeState = this._getwechatExplicitModeState(accountContext);
+        if (explicitModeState && explicitModeState.mode !== 'chat' && explicitModeState.mode !== 'model') {
+            return {
+                activeSession: this._getwechatDeterministicWorkflowSession(accountContext),
+                retain: true,
+                explicitTarget: explicitModeState.tool,
+                tool: explicitModeState.tool
+            };
+        }
+
         const activeSession = this._getwechatDeterministicWorkflowSession(accountContext);
         if (!activeSession) {
             return {
@@ -2797,7 +2983,13 @@ class ConnectorWechat {
             }
         }
 
-        if (!options.allowSummaryIntent && this._isSummaryIntent(normalizedText)) {
+        const transformCueTokens = this._getwechatCachedTextTransformCueTokens();
+        const formatCueTokens = this._getwechatCachedTextFormatCueTokens();
+        const hasTransformCue = this._textMatchesDocumentKeymapTokens(normalizedText, transformCueTokens);
+        const hasFormatCue = this._textMatchesDocumentKeymapTokens(normalizedText, formatCueTokens);
+        const wordCount = (normalizedText.match(/\S+/g) || []).length;
+
+        if (!options.allowSummaryIntent && this._isSummaryIntent(normalizedText) && !hasTransformCue) {
             return false;
         }
 
@@ -2805,12 +2997,6 @@ class ConnectorWechat {
         if (!options.allowExactSummaryCommand && this._isExactDocumentKeymapCommand(rawText, summaryTokens)) {
             return false;
         }
-
-        const transformCueTokens = this._getwechatCachedTextTransformCueTokens();
-        const formatCueTokens = this._getwechatCachedTextFormatCueTokens();
-        const hasTransformCue = this._textMatchesDocumentKeymapTokens(normalizedText, transformCueTokens);
-        const hasFormatCue = this._textMatchesDocumentKeymapTokens(normalizedText, formatCueTokens);
-        const wordCount = (normalizedText.match(/\S+/g) || []).length;
 
         if (hasTransformCue) {
             return true;
@@ -5077,9 +5263,10 @@ class ConnectorWechat {
     }
 
     async _closewechatResearchWindows() {
+        const researchAutomation = window.researchTab && window.researchTab.researchAutomation;
         try {
-            if (window.researchTab && typeof window.researchTab.forceStopAllOperations === 'function') {
-                await window.researchTab.forceStopAllOperations();
+            if (researchAutomation && typeof researchAutomation.forceStopAllOperations === 'function') {
+                await researchAutomation.forceStopAllOperations();
             }
         } catch (closeErr) {
             console.warn('[Connectorwechat][research] Failed to stop research operations before closing window', closeErr);
@@ -5092,8 +5279,11 @@ class ConnectorWechat {
         }
 
         try {
-            if (window.researchTab && window.researchTab.researchAutomation) {
-                window.researchTab.researchAutomation.activeWindow = null;
+            if (researchAutomation && researchAutomation.activeWindow && typeof researchAutomation.activeWindow.close === 'function') {
+                researchAutomation.activeWindow.close();
+            }
+            if (researchAutomation) {
+                researchAutomation.activeWindow = null;
             }
             if (window.researchTab) {
                 window.researchTab.activeWindow = null;
@@ -9896,43 +10086,7 @@ class ConnectorWechat {
                 ) && !!(researchAutomation && researchAutomation.isCancelled);
 
                 if (wasCancelled) {
-                    await this._setwechatFollowUpSession(account, {
-                        kind: 'research',
-                        active: true,
-                        awaitingFollowUpConfirmation: true,
-                        basePrompt: researchPromptResolution && researchPromptResolution.basePrompt
-                            ? researchPromptResolution.basePrompt
-                            : query,
-                        currentPrompt: effectiveQuery,
-                        sourceText: researchPromptResolution && researchPromptResolution.session && researchPromptResolution.session.sourceText
-                            ? researchPromptResolution.session.sourceText
-                            : '',
-                        refinements: researchPromptResolution && Array.isArray(researchPromptResolution.refinements)
-                            ? researchPromptResolution.refinements
-                            : [],
-                        title: query || 'Research Report'
-                    });
-                    await this._sendwechatFollowUpSessionQuestion(target, 'research', language, {
-                        ...accountContext,
-                        followUpSession: this._getwechatFollowUpSession({
-                            followUpSession: {
-                                kind: 'research',
-                                active: true,
-                                awaitingFollowUpConfirmation: true,
-                                basePrompt: researchPromptResolution && researchPromptResolution.basePrompt
-                                    ? researchPromptResolution.basePrompt
-                                    : query,
-                                currentPrompt: effectiveQuery,
-                                sourceText: researchPromptResolution && researchPromptResolution.session && researchPromptResolution.session.sourceText
-                                    ? researchPromptResolution.session.sourceText
-                                    : '',
-                                refinements: researchPromptResolution && Array.isArray(researchPromptResolution.refinements)
-                                    ? researchPromptResolution.refinements
-                                    : [],
-                                title: query || 'Research Report'
-                            }
-                        })
-                    });
+                    await this._clearwechatFollowUpSession(account, accountContext);
                     await this._closewechatResearchWindows();
                     return { continueToChat: false };
                 }
@@ -10680,12 +10834,42 @@ class ConnectorWechat {
                 : ((await this._getwechatAccountContext(normalizedAccount)) || {});
             const activeFollowUpSession = this._getwechatFollowUpSession(accountContext);
             const documentSummaryMemory = this._getwechatDocumentSummaryMemory(accountContext);
+            let explicitModeState = this._getwechatExplicitModeState(accountContext);
             const inferredLanguage = this._detectLanguage(routingIntentText || userText);
             const hasActiveWorkflowSession = !!this._getwechatArtifactSession(accountContext)
-                || !!activeFollowUpSession;
+                || !!activeFollowUpSession
+                || !!explicitModeState;
             const preserveExistingLanguageForControlReply = !!accountContext?.language
                 && hasActiveWorkflowSession
                 && this._iswechatLowSignalControlReply(routingIntentText || userText);
+
+            if (!explicitModeState && (this._getwechatArtifactSession(accountContext) || activeFollowUpSession || docModeActive)) {
+                accountContext = (await this._resetwechatWorkflowRoutingState(normalizedAccount, accountContext)) || accountContext;
+                pendingDoc = null;
+                docModeActive = false;
+            }
+
+            const explicitModeCommand = this._detectwechatExplicitModeCommand(routingIntentText || userText, accountContext);
+            if (explicitModeCommand) {
+                const modeReplyLanguage = this._resolvewechatInteractionLanguage(
+                    msg?.user_language || msg?.orchestrator?.language,
+                    routingIntentText || userText,
+                    accountContext,
+                    activeFollowUpSession
+                );
+
+                accountContext = (await this._resetwechatWorkflowRoutingState(normalizedAccount, accountContext)) || accountContext;
+                if (explicitModeCommand.action === 'enter' && explicitModeCommand.mode !== 'chat') {
+                    accountContext = (await this._setwechatExplicitModeState(normalizedAccount, { mode: explicitModeCommand.mode }, accountContext)) || accountContext;
+                    await this._sendwechatExplicitModeStatus(replyTarget || normalizedAccount, explicitModeCommand.mode, 'enter', modeReplyLanguage);
+                } else {
+                    accountContext = (await this._clearwechatExplicitModeState(normalizedAccount, accountContext)) || accountContext;
+                    await this._sendwechatExplicitModeStatus(replyTarget || normalizedAccount, 'chat', 'exit', modeReplyLanguage);
+                }
+                return;
+            }
+
+            explicitModeState = this._getwechatExplicitModeState(accountContext);
 
             accountContext = (await this._ensurewechatBotConversationThread(msg, normalizedAccount, accountContext)) || accountContext;
 
@@ -10740,16 +10924,17 @@ class ConnectorWechat {
                 }
             }
 
+            if (explicitModeState && explicitModeState.tool) {
+                orchTool = explicitModeState.tool;
+                msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: orchTool });
+            } else if (['artifact', 'research', 'presentation', 'knowledge', 'document-check', 'dataviz'].includes(String(orchTool || '').trim().toLowerCase())) {
+                orchTool = 'chat';
+                msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: orchTool });
+            }
+
             if (!orchTool) {
-                const fallbackRouting = await this._buildwechatDeterministicRoutingDecision(routingIntentText || userText, accountContext, {
-                    account: normalizedAccount,
-                    language: this._resolvewechatInteractionLanguage(null, routingIntentText || userText, accountContext, activeFollowUpSession),
-                    currentTool: 'chat'
-                });
-                orchTool = fallbackRouting && fallbackRouting.decision && fallbackRouting.decision.tool
-                    ? fallbackRouting.decision.tool
-                    : 'chat';
-                msg.orchestrator = Object.assign({}, msg.orchestrator, fallbackRouting && fallbackRouting.decision ? fallbackRouting.decision : { tool: orchTool });
+                orchTool = 'chat';
+                msg.orchestrator = Object.assign({}, msg.orchestrator, { tool: orchTool });
             }
 
             let artifactFollowUpIntent = this._iswechatArtifactFollowUpIntent(routingIntentText || userText, accountContext, orchTool);
@@ -10988,7 +11173,7 @@ class ConnectorWechat {
                 }
             }
 
-            if (this._isSummaryToPresentationWorkflowIntent(routingIntentText || userText)) {
+            if (explicitModeState && explicitModeState.mode === 'presentation' && this._isSummaryToPresentationWorkflowIntent(routingIntentText || userText)) {
                 this._setwechatPendingReplyContext(replyTarget, normalizedAccount, String(msg?.device_id || '').trim());
 
                 const workflowHandled = await this._handlewechatSummaryToPresentationWorkflow(
@@ -11004,7 +11189,7 @@ class ConnectorWechat {
                 }
             }
 
-            if (this._isSummaryToArtifactWorkflowIntent(routingIntentText || userText)) {
+            if (explicitModeState && explicitModeState.mode === 'artifact' && this._isSummaryToArtifactWorkflowIntent(routingIntentText || userText)) {
                 this._setwechatPendingReplyContext(replyTarget, normalizedAccount, String(msg?.device_id || '').trim());
 
                 const workflowHandled = await this._handlewechatSummaryToArtifactWorkflow(
@@ -11986,6 +12171,7 @@ class ConnectorWechat {
                                 sourceText: transformedSummaryText,
                                 title: requestScope.researchTransform.title || followUpSession.title
                             }, accountContext)) || accountContext;
+                            await this._sendwechatFollowUpSessionQuestion(normalizedAccount, 'research', null, accountContext);
                         }
 
                         /*console.info('[Connectorwechat][research] Cached transformed report for follow-up reuse', {

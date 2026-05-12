@@ -1229,7 +1229,7 @@ class ArtifactsWindow {
 			'You are an elite software engineer and creative technical architect specialized in HTML, CSS, JavaScript, and modern web tooling.',
 			'Generate professional, artistic, smart, production-quality code solutions that directly satisfy the user request (this code solutions can be called Miniapp or Artifact).',
 			'Return ONLY one fenced HTML code block with CSS and JS and nothing else.',
-			'Artifacts must support keyboard, mouse and touch interactions and be responsive to different screen sizes. They should work well on both desktop and mobile browsers.',
+			'Artifacts must support keyboard, mouse and touch interactions and be responsive to different screen sizes, default to computer browser size. They should work well on both desktop and mobile browsers.',
 			'Add responsive web design — using fluid layouts, CSS media queries, and flexible UI elements so one HTML works across desktops, tablets, and phones.',
 			'Start with ```html and end with ```.',
 			'Inside the fence, provide one complete runnable HTML document.',
@@ -1243,7 +1243,7 @@ class ArtifactsWindow {
 			'When embedding video, include iframe allow attributes for playback APIs and set allowfullscreen.',
 			'For non-YouTube video streams such as .m3u8 (HLS), generate player code that uses native HLS where available and hls.js fallback for browsers that do not natively play HLS.',
 			'If the requested media format needs a runtime library, include and initialize the required library inside the generated HTML.',
-			'If you need to use pictures, always search for pictures related to the user request, ALWAYS use images from pixabay.com and pexels.com first and make unsplash.com as fallback in the code if pixabay pictures fail to load to enrich the miniapp or artifact, and make sure to use the correct API to fetch the image URLs and include them properly in the HTML.',
+			'If you need to use pictures, always search for pictures related to the user request, ALWAYS use images from pixabay.com first and make pexels.com and unsplash.com as fallback in the code if pixabay pictures fail to load to enrich the miniapp or artifact, and make sure to use the correct API to fetch the image URLs and include them properly in the HTML.',
 			'Ensure the output renders correctly in modern browsers without additional explanation from you.',
 			'If the user request a modification, always comply and return the fixed/upgraded/updated full html code.'
 		].join(' ');
@@ -3356,6 +3356,19 @@ class ArtifactsWindow {
 </html>`;
 	}
 
+	static resetArtifactPreviewToDefault() {
+		const defaultHtml = this.getDefaultArtifactHtml();
+		this.currentArtifactId = null;
+		this.currentArtifactTitle = '';
+		this.currentArtifactPrompt = '';
+		this.currentArtifactHtml = defaultHtml;
+		if (this.codeEditor) {
+			this.setCodeEditorValue(defaultHtml);
+		}
+		this.renderCurrentArtifact();
+		this.setViewMode('artifact');
+	}
+
 	static renderCurrentArtifact() {
 		if (!this.renderFrame) {
 			return;
@@ -3571,16 +3584,7 @@ class ArtifactsWindow {
 					return;
 				}
 
-				if (this.currentArtifactId === item.id) {
-					this.currentArtifactId = null;
-					this.currentArtifactTitle = '';
-					this.currentArtifactPrompt = '';
-					this.currentArtifactHtml = '';
-					if (this.codeEditor) {
-						this.setCodeEditorValue(this.getDefaultArtifactHtml());
-					}
-					this.renderCurrentArtifact();
-				}
+				this.resetArtifactPreviewToDefault();
 
 				await this.refreshSavedArtifacts();
 			});
