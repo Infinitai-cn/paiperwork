@@ -192,6 +192,22 @@ const workflowModeKeymap = {
                 'ग्राफ मोड', 'चार्ट मोड', 'डेटाविज़ मोड', 'डेटा विज़ मोड', 'विज़ुअलाइज़ेशन मोड'
             ]
         },
+        internet: {
+            enter: [
+                'internet mode', 'web mode', 'web search mode', 'online mode',
+                'modo internet', 'modo web', 'modo busqueda web', 'modo búsqueda web', 'modo en linea', 'modo en línea',
+                'modo internet', 'modo web', 'modo pesquisa web', 'modo online',
+                'mode internet', 'mode web', 'mode recherche web', 'mode en ligne',
+                'internetmodus', 'webmodus', 'websuchmodus', 'onlinemodus',
+                'modalita internet', 'modalità internet', 'modalita web', 'modalità web', 'modalita ricerca web', 'modalità ricerca web', 'modalita online', 'modalità online',
+                'режим интернета', 'режим веба', 'режим веб-поиска', 'онлайн режим',
+                '互联网模式', '网络模式', '网页搜索模式', '在线模式',
+                'インターネットモード', 'ウェブモード', 'ウェブ検索モード', 'オンラインモード',
+                '인터넷 모드', '웹 모드', '웹 검색 모드', '온라인 모드',
+                'وضع الإنترنت', 'وضع الويب', 'وضع البحث على الويب', 'الوضع عبر الإنترنت',
+                'इंटरनेट मोड', 'वेब मोड', 'वेब सर्च मोड', 'ऑनलाइन मोड'
+            ]
+        },
         model: {
             enter: [
                 'models mode', 'model mode',
@@ -930,52 +946,6 @@ chatKeymap.terms = [...new Set([
     ...chatKeymap.fillers
 ])];
 
-const webSearchKeymap = {
-    direct: [
-        'search the web', 'search web', 'search online', 'search internet', 'look online', 'look on the web', 'browse the web',
-        'use internet', 'use the internet', 'use web', 'use the web', 'with web search', 'using web search',
-        'buscar en internet', 'buscar en la web', 'busca en internet', 'busca en la web', 'usar internet', 'usa internet', 'con busqueda web', 'con búsqueda web',
-        'pesquisar na internet', 'pesquisar na web', 'busca na internet', 'busca na web', 'usar internet', 'usa internet', 'com pesquisa web',
-        'chercher en ligne', 'chercher sur le web', 'recherche web', 'utilise internet', 'utilise le web', 'avec recherche web',
-        'im web suchen', 'online suchen', 'nutze das internet', 'nutze websuche', 'mit websuche',
-        'cerca online', 'cerca sul web', 'usa internet', 'usa il web', 'con ricerca web',
-        'ищи в интернете', 'поиск в интернете', 'используй интернет', 'с веб-поиском',
-        '在线搜索', '在线查找', '搜索网络', '搜索互联网', '使用网络搜索', '使用互联网',
-        'ウェブで検索', 'オンラインで検索', 'ウェブ検索を使う', 'インターネットを使う',
-        '웹 검색', '온라인 검색', '인터넷 검색', '웹 검색 사용'
-    ],
-    freshness: [
-        'latest', 'current', 'recent', 'up to date', 'today', 'now', 'news', 'live updates',
-        'ultimo', 'último', 'actual', 'reciente', 'hoy', 'ahora', 'noticias',
-        'atual', 'recente', 'hoje', 'agora', 'noticias', 'notícias',
-        'actuel', 'actuelle', 'recent', 'récente', 'aujourdhui', "aujourd'hui", 'maintenant', 'actualites', 'actualités',
-        'aktuell', 'neueste', 'letzte', 'heute', 'jetzt', 'nachrichten',
-        'attuale', 'recente', 'oggi', 'adesso', 'notizie',
-        'последние', 'актуальные', 'сегодня', 'сейчас', 'новости',
-        '最新', '当前', '最近', '今天', '现在', '新闻',
-        '最新', '現在', '最近', '今日', '今', 'ニュース',
-        '최신', '현재', '최근', '오늘', '지금', '뉴스'
-    ],
-    citations: [
-        'citation', 'citations', 'sources', 'source', 'references', 'reference', 'verify', 'verifiable',
-        'cita', 'citas', 'fuentes', 'fuente', 'referencias', 'referencia', 'verificar',
-        'citacao', 'citação', 'citacoes', 'citações', 'fontes', 'fonte', 'referencias', 'referências', 'verificar',
-        'citation', 'citations', 'sources', 'references', 'verifier', 'vérifier',
-        'zitat', 'zitate', 'quelle', 'quellen', 'referenz', 'referenzen', 'verifizieren',
-        'citazione', 'citazioni', 'fonti', 'riferimenti', 'verificare',
-        'цитата', 'цитаты', 'источник', 'источники', 'ссылки', 'проверить',
-        '引用', '来源', '参考', '可验证',
-        '引用', '出典', '参考', '検証',
-        '인용', '출처', '참고', '검증'
-    ]
-};
-
-webSearchKeymap.terms = [...new Set([
-    ...webSearchKeymap.direct,
-    ...webSearchKeymap.freshness,
-    ...webSearchKeymap.citations
-])];
-
 const dataVizKeymap = {
     nouns: [
         'chart', 'charts', 'graph', 'graphs', 'plot', 'plots', 'diagram', 'diagrams', 'visualization', 'visualisation',
@@ -1057,153 +1027,6 @@ const dataVizKeymap = {
     }
 };
 
-const workflowRules = {
-    dataviz: {
-        required: [
-            { id: 'chartType', tokens: Object.values(dataVizKeymap.chartType).flat(), wholeWordOnly: true },
-            { id: 'vizNoun', tokens: dataVizKeymap.nouns, wholeWordOnly: true }
-        ],
-        optional: [
-            { id: 'createAction', tokens: dataVizKeymap.actions.create, wholeWordOnly: true }
-        ],
-        strong: [
-            { id: 'explicitChartPhrase', tokens: [
-                'pie chart', 'donut chart', 'doughnut chart', 'bar chart', 'line chart',
-                'scatter plot', 'area chart', 'radar chart', 'heat map', 'bubble chart'
-            ], wholeWordOnly: true }
-        ],
-        negative: [
-            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true },
-            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true }
-        ],
-        followUpOnly: false
-    },
-    artifact: {
-        required: [
-            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true },
-            { id: 'artifactCreate', tokens: artifactKeymap.actions.create, wholeWordOnly: true }
-        ],
-        optional: [
-            { id: 'artifactBrowse', tokens: artifactKeymap.actions.browse, wholeWordOnly: true },
-            { id: 'artifactSend', tokens: artifactKeymap.actions.send, wholeWordOnly: true },
-            { id: 'artifactWeb', tokens: artifactKeymap.webCues, wholeWordOnly: true },
-            { id: 'artifactSourceCue', tokens: artifactKeymap.sourceCues, wholeWordOnly: true }
-        ],
-        strong: [
-            { id: 'savedArtifact', tokens: artifactKeymap.savedCues, wholeWordOnly: true },
-            { id: 'summaryToArtifact', tokens: artifactKeymap.workflows.summaryToArtifact, wholeWordOnly: true },
-            { id: 'researchToArtifact', tokens: artifactKeymap.workflows.researchToArtifact, wholeWordOnly: true },
-            { id: 'knowledgeToArtifact', tokens: artifactKeymap.workflows.knowledgeToArtifact, wholeWordOnly: true }
-        ],
-        negative: [
-            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true },
-            { id: 'documentNoun', tokens: documentKeymap.nouns, wholeWordOnly: true }
-        ],
-        followUpOnly: false
-    },
-    presentation: {
-        required: [
-            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true },
-            { id: 'presentationAction', tokens: [
-                ...presentationKeymap.actions.create,
-                ...presentationKeymap.actions.browse,
-                ...presentationKeymap.actions.send,
-                ...presentationKeymap.sourceCues,
-                ...presentationKeymap.savedCues
-            ], wholeWordOnly: true }
-        ],
-        optional: [
-            { id: 'presentationWeb', tokens: presentationKeymap.webCues, wholeWordOnly: true },
-            { id: 'presentationSections', tokens: presentationKeymap.sectionAnchors, wholeWordOnly: true }
-        ],
-        strong: [
-            { id: 'summaryToPresentation', tokens: presentationKeymap.workflows.summaryToPresentation, wholeWordOnly: true },
-            { id: 'savedPresentation', tokens: presentationKeymap.savedCues, wholeWordOnly: true }
-        ],
-        negative: [
-            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true }
-        ],
-        followUpOnly: false
-    },
-    knowledge: {
-        required: [
-            { id: 'knowledgeTarget', tokens: [...knowledgeKeymap.intent, ...knowledgeKeymap.collectionNouns, ...knowledgeKeymap.entryNouns, ...knowledgeKeymap.savedCues], wholeWordOnly: true },
-            { id: 'knowledgeAction', tokens: knowledgeKeymap.actions.browse, wholeWordOnly: true }
-        ],
-        optional: [
-            { id: 'knowledgeSaved', tokens: knowledgeKeymap.savedCues, wholeWordOnly: true }
-        ],
-        strong: [
-            { id: 'knowledgeIntent', tokens: knowledgeKeymap.intent, wholeWordOnly: true },
-            { id: 'knowledgeSavedCue', tokens: knowledgeKeymap.savedCues, wholeWordOnly: true }
-        ],
-        negative: [
-            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true },
-            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true },
-            { id: 'documentNoun', tokens: documentKeymap.nouns, wholeWordOnly: true }
-        ],
-        followUpOnly: false
-    },
-    research: {
-        required: [
-            { id: 'researchIntent', tokens: researchKeymap.intent, wholeWordOnly: true },
-            { id: 'researchTarget', tokens: [...researchKeymap.outputs, ...researchKeymap.modifiers], wholeWordOnly: true }
-        ],
-        optional: [
-            { id: 'researchCreate', tokens: researchKeymap.actions.create, wholeWordOnly: true },
-            { id: 'researchCompare', tokens: researchKeymap.actions.compare, wholeWordOnly: true }
-        ],
-        strong: [
-            { id: 'researchExplicit', tokens: ['research', 'investigate', 'market research', 'competitive analysis', 'trend report', ...researchKeymap.intent], wholeWordOnly: true }
-        ],
-        negative: [
-            { id: 'documentNoun', tokens: documentKeymap.nouns, wholeWordOnly: true },
-            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true },
-            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true }
-        ],
-        followUpOnly: false
-    },
-    'document-check': {
-        required: [
-            { id: 'documentNoun', tokens: documentKeymap.nouns, wholeWordOnly: true },
-            { id: 'documentAction', tokens: [
-                ...documentKeymap.actions.browse,
-                ...documentKeymap.actions.summary,
-                ...documentKeymap.actions.question
-            ], wholeWordOnly: true }
-        ],
-        optional: [
-            { id: 'documentQuestionStarter', tokens: documentKeymap.questionStarters, wholeWordOnly: true }
-        ],
-        strong: [
-            { id: 'documentExit', tokens: documentKeymap.actions.exit, wholeWordOnly: true },
-            { id: 'documentSummary', tokens: documentKeymap.actions.summary, wholeWordOnly: true }
-        ],
-        negative: [
-            { id: 'artifactNoun', tokens: artifactKeymap.intent, wholeWordOnly: true },
-            { id: 'presentationNoun', tokens: presentationKeymap.intent, wholeWordOnly: true }
-        ],
-        followUpOnly: false
-    },
-    'chat+websearch': {
-        required: [
-            { id: 'webCue', tokens: [...webSearchKeymap.direct, ...webSearchKeymap.citations], wholeWordOnly: true }
-        ],
-        optional: [
-            { id: 'freshnessCue', tokens: webSearchKeymap.freshness, wholeWordOnly: true }
-        ],
-        strong: [
-            { id: 'directWebCue', tokens: webSearchKeymap.direct, wholeWordOnly: true },
-            { id: 'citationCue', tokens: webSearchKeymap.citations, wholeWordOnly: true }
-        ],
-        negative: [
-            { id: 'artifactWeb', tokens: artifactKeymap.webCues, wholeWordOnly: true },
-            { id: 'presentationWeb', tokens: presentationKeymap.webCues, wholeWordOnly: true }
-        ],
-        followUpOnly: false
-    }
-};
-
 window.Keymaps = {
     dataViz: dataVizKeymap,
     research: researchKeymap,
@@ -1214,8 +1037,6 @@ window.Keymaps = {
     model: modelKeymap,
     mode: workflowModeKeymap,
     chat: chatKeymap,
-    webSearch: webSearchKeymap,
-    workflowRules,
     meta: {
         followUpCloseCueGroups: commonFollowUpCloseCueGroups,
         followUpContinueCueGroups: commonFollowUpContinueCueGroups,

@@ -1447,6 +1447,9 @@ class ConnectorWhatsapp {
             dataviz: 'dataviz',
             graphics: 'dataviz',
             graphic: 'dataviz',
+            internet: 'internet',
+            web: 'internet',
+            online: 'internet',
             model: 'model',
             models: 'model',
             research: 'research',
@@ -1467,6 +1470,7 @@ class ConnectorWhatsapp {
             chat: 'chat',
             document: 'document-check',
             dataviz: 'dataviz',
+            internet: 'chat+websearch',
             model: 'chat',
             research: 'research',
             knowledge: 'knowledge',
@@ -1483,6 +1487,7 @@ class ConnectorWhatsapp {
             chat: 'Chat mode',
             document: 'Document mode',
             dataviz: 'Graphics mode',
+            internet: 'Internet mode',
             model: 'Models mode',
             research: 'Research mode',
             knowledge: 'Knowledge Base mode',
@@ -1509,6 +1514,11 @@ class ConnectorWhatsapp {
             tool: this._getWhatsappExplicitModeTool(mode),
             updatedAt: String(modeState.updatedAt || '').trim()
         };
+    }
+
+    _shouldAllowWhatsappModelCommands(phoneContext = null) {
+        const explicitModeState = this._getWhatsappExplicitModeState(phoneContext);
+        return !!(explicitModeState && explicitModeState.mode === 'model');
     }
 
     async _setWhatsappExplicitModeState(phone, modeState, existingPhoneContext = null) {
@@ -1557,7 +1567,7 @@ class ConnectorWhatsapp {
             return { action: 'exit', mode: 'chat' };
         }
 
-        const modeOrder = ['document', 'dataviz', 'model', 'research', 'knowledge', 'presentation', 'artifact'];
+        const modeOrder = ['document', 'dataviz', 'internet', 'model', 'research', 'knowledge', 'presentation', 'artifact'];
         for (const mode of modeOrder) {
             if (this._isExactDocumentKeymapCommand(normalizedText, this._getWhatsappModeKeymapTokens(mode, 'enter'))) {
                 return { action: 'enter', mode };
@@ -1749,6 +1759,16 @@ class ConnectorWhatsapp {
         const explicitModeState = this._getWhatsappExplicitModeState(phoneContext);
         if (!explicitModeState || explicitModeState.mode === 'chat' || explicitModeState.mode === 'model') {
             return null;
+        }
+
+        if (explicitModeState.mode === 'internet') {
+            return {
+                type: 'explicit-mode',
+                kind: 'internet',
+                tool: 'chat+websearch',
+                session: null,
+                awaitingFollowUpConfirmation: false
+            };
         }
 
         const artifactSession = this._getWhatsappArtifactSession(phoneContext);
@@ -2707,13 +2727,21 @@ class ConnectorWhatsapp {
         return hasFormatCue && wordCount <= 24;
     }
 
-    _shouldTreatWhatsappActiveCachedTextFollowUpAsTransform(text, currentTool = '') {
+    _shouldTreatWhatsappActiveCachedTextFollowUpAsTransform(text, currentTool = '', phoneContext = null) {
         const normalizedText = this._normalizeWhatsappResearchReportText(text);
         if (!normalizedText) {
             return false;
         }
 
         const normalizedTool = String(currentTool || '').trim().toLowerCase();
+        if (phoneContext && (
+            this._isWhatsappFollowUpSessionCloseIntent(normalizedText, phoneContext, normalizedTool)
+            || this._isWhatsappFollowUpSessionContinueIntent(normalizedText, phoneContext, normalizedTool)
+            || this._isWhatsappFollowUpSessionInlineContinueIntent(normalizedText, phoneContext, normalizedTool)
+        )) {
+            return false;
+        }
+
         const explicitTarget = this._detectWhatsappExplicitWorkflowTarget(normalizedText, normalizedTool);
         if (explicitTarget === 'summary-presentation') {
             return false;
@@ -2791,7 +2819,7 @@ class ConnectorWhatsapp {
             return false;
         }
 
-        if (hasActiveDocumentSummarySession && this._shouldTreatWhatsappActiveCachedTextFollowUpAsTransform(rawText, 'document-check')) {
+        if (hasActiveDocumentSummarySession && this._shouldTreatWhatsappActiveCachedTextFollowUpAsTransform(rawText, 'document-check', phoneContext)) {
             return true;
         }
 
@@ -3171,7 +3199,7 @@ class ConnectorWhatsapp {
             return false;
         }
 
-        if (this._shouldTreatWhatsappActiveCachedTextFollowUpAsTransform(rawText, 'research')) {
+        if (this._shouldTreatWhatsappActiveCachedTextFollowUpAsTransform(rawText, 'research', phoneContext)) {
             return true;
         }
 
@@ -3308,7 +3336,7 @@ class ConnectorWhatsapp {
             return false;
         }
 
-        if (hasActiveKnowledgeEntrySession && this._shouldTreatWhatsappActiveCachedTextFollowUpAsTransform(rawText, 'knowledge')) {
+        if (hasActiveKnowledgeEntrySession && this._shouldTreatWhatsappActiveCachedTextFollowUpAsTransform(rawText, 'knowledge', phoneContext)) {
             return true;
         }
 
@@ -5811,214 +5839,29 @@ class ConnectorWhatsapp {
         return [...new Set(collected.map(token => String(token || '').trim()).filter(Boolean))];
     }
 
-    _getWhatsappWorkflowRules() {
-        const rules = window.Keymaps && window.Keymaps.workflowRules;
-        return rules && typeof rules === 'object' ? rules : {};
-    }
-
-    _getWhatsappWorkflowRuleConfig(tool) {
-        const rules = this._getWhatsappWorkflowRules();
-        const entry = rules && rules[tool];
-        return entry && typeof entry === 'object'
-            ? entry
-            : { required: [], optional: [], strong: [], negative: [], followUpOnly: false };
-    }
-
-    _matchWhatsappWorkflowRuleGroup(text, group = {}) {
-        const tokens = Array.isArray(group.tokens)
-            ? group.tokens.map(token => String(token || '').trim()).filter(Boolean)
-            : [];
-        if (!tokens.length) {
-            return { matched: false, token: '', tokens: [] };
-        }
-
-        const matcher = group.wholeWordOnly
-            ? this._findLongestNormalizedTokenMatch(text, tokens)
-            : (this._textMatchesDocumentKeymapTokens(text, tokens)
-                ? this._findLongestNormalizedTokenMatch(text, tokens)
-                    || this._normalizeDocumentIntentKeymapText(tokens[0])
-                : '');
-
-        return {
-            matched: !!matcher,
-            token: matcher || '',
-            tokens: matcher ? [matcher] : []
-        };
-    }
-
-    _scoreWhatsappWorkflowFromRules(tool, text, options = {}) {
-        const config = this._getWhatsappWorkflowRuleConfig(tool);
-        const normalizedText = this._normalizeDocumentIntentKeymapText(text);
-        if (!normalizedText) {
-            return {
-                tool,
-                score: 0,
-                qualifies: false,
-                strongMatches: 0,
-                requiredMatches: 0,
-                optionalMatches: 0,
-                negativeMatches: 0,
-                matchedTokens: [],
-                reasonParts: []
-            };
-        }
-
-        if (config.followUpOnly && !options.hasActiveFollowUp) {
-            return {
-                tool,
-                score: 0,
-                qualifies: false,
-                strongMatches: 0,
-                requiredMatches: 0,
-                optionalMatches: 0,
-                negativeMatches: 0,
-                matchedTokens: [],
-                reasonParts: ['follow-up-only rule skipped without active session']
-            };
-        }
-
-        const matchGroups = (groups = []) => groups.map(group => ({
-            group,
-            result: this._matchWhatsappWorkflowRuleGroup(normalizedText, group)
-        }));
-
-        const strongResults = matchGroups(config.strong || []);
-        const requiredResults = matchGroups(config.required || []);
-        const optionalResults = matchGroups(config.optional || []);
-        const negativeResults = matchGroups(config.negative || []);
-
-        const strongMatches = strongResults.filter(item => item.result.matched);
-        const requiredMatches = requiredResults.filter(item => item.result.matched);
-        const optionalMatches = optionalResults.filter(item => item.result.matched);
-        const negativeMatches = negativeResults.filter(item => item.result.matched);
-
-        const matchedTokens = [
-            ...strongMatches,
-            ...requiredMatches,
-            ...optionalMatches
-        ].flatMap(item => item.result.tokens);
-
-        const qualifies = strongMatches.length > 0
-            || (requiredResults.length > 0 && requiredMatches.length === requiredResults.length);
-
-        const score = (strongMatches.length * 8)
-            + (requiredMatches.length * 4)
-            + optionalMatches.length
-            - (negativeMatches.length * 6);
-
-        const reasonParts = [];
-        if (strongMatches.length) {
-            reasonParts.push(`strong=${strongMatches.map(item => item.group.id || item.result.token).join(',')}`);
-        }
-        if (requiredMatches.length) {
-            reasonParts.push(`required=${requiredMatches.map(item => item.group.id || item.result.token).join(',')}`);
-        }
-        if (optionalMatches.length) {
-            reasonParts.push(`optional=${optionalMatches.map(item => item.group.id || item.result.token).join(',')}`);
-        }
-        if (negativeMatches.length) {
-            reasonParts.push(`negative=${negativeMatches.map(item => item.group.id || item.result.token).join(',')}`);
-        }
-
-        return {
-            tool,
-            score,
-            qualifies: qualifies && score > 0,
-            strongMatches: strongMatches.length,
-            requiredMatches: requiredMatches.length,
-            optionalMatches: optionalMatches.length,
-            negativeMatches: negativeMatches.length,
-            matchedTokens,
-            reasonParts
-        };
-    }
-
-    async _scoreWhatsappWorkflowCandidates(text, phoneContext = null, options = {}) {
-        const normalizedText = this._normalizeDocumentIntentKeymapText(text);
-        const scores = [];
-        const hasActiveFollowUp = !!this._getWhatsappDeterministicWorkflowSession(phoneContext);
-
-        for (const tool of ['dataviz', 'artifact', 'presentation', 'knowledge', 'research', 'document-check', 'chat+websearch']) {
-            scores.push(this._scoreWhatsappWorkflowFromRules(tool, normalizedText, {
-                hasActiveFollowUp,
-                ...options
-            }));
-        }
-
-        let documentReference = null;
-        if (this._shouldLookupDocumentReference(text)) {
-            try {
-                documentReference = await this._findReferencedDocumentFromText(
-                    text,
-                    sessionStorage.getItem('hashedMasterKey')
-                );
-            } catch (docRefErr) {
-                console.warn('[ConnectorWhatsapp][routing] Failed to score referenced document', docRefErr);
-            }
-        }
-
-        const documentScore = scores.find(entry => entry.tool === 'document-check');
-        if (documentScore && documentReference) {
-            const wantsDocumentFlow = this._isSummaryIntent(text)
-                || this._isDocumentSelectionIntent(text)
-                || this._hasRunnableDocumentQuestionText(text, documentReference.name);
-            if (wantsDocumentFlow) {
-                documentScore.score += 7;
-                documentScore.qualifies = true;
-                documentScore.reasonParts.push('document_reference');
-                documentScore.document = documentReference.name;
-            }
-        }
-
-        const presentationScore = scores.find(entry => entry.tool === 'presentation');
-        if (presentationScore && this._matchPendingSavedPresentationFollowUp(options.phone || '', text)) {
-            presentationScore.score += 7;
-            presentationScore.qualifies = true;
-            presentationScore.reasonParts.push('pending_saved_presentation');
-        }
-
-        const knowledgeScore = scores.find(entry => entry.tool === 'knowledge');
-        if (knowledgeScore && (this._getPendingKnowledgeCollectionSelection(options.phone || '') || this._getPendingKnowledgeEntrySelection(options.phone || ''))) {
-            knowledgeScore.score += 7;
-            knowledgeScore.qualifies = true;
-            knowledgeScore.reasonParts.push('pending_knowledge_selection');
-        }
-
-        const researchScore = scores.find(entry => entry.tool === 'research');
-        if (researchScore && this._isResearchIntent(text)) {
-            researchScore.score += 7;
-            researchScore.qualifies = true;
-            researchScore.reasonParts.push('research_intent_helper');
-        }
-
-        const webSearchScore = scores.find(entry => entry.tool === 'chat+websearch');
-        if (webSearchScore) {
-            const artifactWantsWeb = this._artifactRequestWantsWebSearch(text);
-            const presentationWantsWeb = this._presentationRequestWantsWebSearch(text);
-            if (artifactWantsWeb || presentationWantsWeb) {
-                webSearchScore.score -= 8;
-                webSearchScore.reasonParts.push('workflow_scoped_websearch');
-            }
-        }
-
-        return scores
-            .map(entry => ({ ...entry, score: Math.max(-20, entry.score) }))
-            .sort((left, right) => right.score - left.score);
-    }
-
-    async _buildWhatsappDeterministicRoutingDecision(text, phoneContext = null, options = {}) {
+    async _buildWhatsappExplicitModeFallbackDecision(text, phoneContext = null, options = {}) {
         const normalizedText = this._normalizeDocumentIntentKeymapText(text);
         const explicitDocumentAction = options.explicitDocumentAction || null;
         const activeSessionRouting = this._resolveWhatsappDeterministicWorkflowRouting(text, phoneContext, options.currentTool || 'chat');
         const resolvedLanguage = this._resolveWhatsappInteractionLanguage(options.language, normalizedText, phoneContext);
-        const buildFallbackDecision = (entry = null, reason = 'deterministic fallback') => ({
-            tool: entry && entry.qualifies ? entry.tool : 'chat',
-            document: entry && entry.tool === 'document-check' ? String(entry.document || '') : '',
-            confidence: entry && entry.qualifies ? Math.min(0.85, 0.45 + (Math.max(entry.score, 0) * 0.02)) : 0.45,
-            reason,
+        const explicitModeState = this._getWhatsappExplicitModeState(phoneContext);
+        const fallbackTool = activeSessionRouting && activeSessionRouting.tool
+            ? activeSessionRouting.tool
+            : (explicitModeState ? explicitModeState.tool : 'chat');
+        const fallbackDecision = {
+            tool: fallbackTool,
+            document: '',
+            confidence: explicitModeState ? 0.72 : 0.45,
+            reason: explicitModeState
+                ? `Explicit ${explicitModeState.mode} mode fallback.`
+                : 'Explicit-mode fallback.',
             language: resolvedLanguage,
-            source: 'deterministic-fallback'
-        });
+            source: 'explicit-mode-fallback'
+        };
+
+        if (fallbackTool === 'chat' || fallbackTool === 'chat+websearch') {
+            fallbackDecision.shortAnswer = true;
+        }
 
         if (explicitDocumentAction
             && (explicitDocumentAction.action === 'enter' || explicitDocumentAction.action === 'switch')
@@ -6030,76 +5873,41 @@ class ConnectorWhatsapp {
                     tool: 'document-check',
                     document: explicitDocumentAction.match.documentName || '',
                     confidence: 0.99,
-                    reason: 'Deterministic explicit document switch.',
+                    reason: 'Explicit document switch.',
                     language: resolvedLanguage,
-                    source: 'deterministic'
+                    source: 'explicit-mode'
                 },
-                scores: []
+                fallbackDecision
             };
         }
 
         if (activeSessionRouting && activeSessionRouting.activeSession && activeSessionRouting.retain) {
             const retainedTool = activeSessionRouting.tool || activeSessionRouting.activeSession.tool || 'chat';
+            const retainedDecision = {
+                tool: retainedTool,
+                document: retainedTool === 'document-check' && activeSessionRouting.activeSession.session
+                    ? String(activeSessionRouting.activeSession.session.documentName || '')
+                    : '',
+                confidence: 0.98,
+                reason: `Retained active ${activeSessionRouting.activeSession.kind} session.`,
+                language: resolvedLanguage,
+                source: 'explicit-mode'
+            };
+
+            if (retainedTool === 'chat' || retainedTool === 'chat+websearch') {
+                retainedDecision.shortAnswer = true;
+            }
+
             return {
                 useLLM: false,
-                decision: {
-                    tool: retainedTool,
-                    document: retainedTool === 'document-check' && activeSessionRouting.activeSession.session
-                        ? String(activeSessionRouting.activeSession.session.documentName || '')
-                        : '',
-                    confidence: 0.98,
-                    reason: `Deterministically retained active ${activeSessionRouting.activeSession.kind} session.`,
-                    language: resolvedLanguage,
-                    source: 'deterministic'
-                },
-                scores: []
+                decision: retainedDecision,
+                fallbackDecision
             };
-        }
-
-        const scores = await this._scoreWhatsappWorkflowCandidates(text, phoneContext, options);
-        const top = scores[0] || null;
-        const runnerUp = scores[1] || null;
-
-        if (!top || !top.qualifies || top.score < 6) {
-            return {
-                useLLM: true,
-                scores,
-                reason: 'low deterministic confidence',
-                fallbackDecision: buildFallbackDecision(top, 'Low-confidence deterministic fallback.')
-            };
-        }
-
-        if (runnerUp && runnerUp.qualifies && (top.score - runnerUp.score) <= 1) {
-            return {
-                useLLM: true,
-                scores,
-                reason: 'deterministic tie',
-                fallbackDecision: buildFallbackDecision(top, 'Tie-broken deterministic fallback.')
-            };
-        }
-
-        const decision = {
-            tool: top.tool,
-            document: top.tool === 'document-check' ? String(top.document || '') : '',
-            confidence: Math.min(0.99, 0.55 + (top.score * 0.03)),
-            reason: `Deterministic workflow score selected ${top.tool}: ${top.reasonParts.join('; ')}`.trim(),
-            language: resolvedLanguage,
-            source: 'deterministic',
-            deterministicScores: scores.map(entry => ({
-                tool: entry.tool,
-                score: entry.score,
-                qualifies: entry.qualifies
-            }))
-        };
-
-        if (top.tool === 'chat+websearch' || top.tool === 'chat') {
-            decision.shortAnswer = true;
         }
 
         return {
-            useLLM: false,
-            decision,
-            scores
+            useLLM: true,
+            fallbackDecision
         };
     }
 
@@ -6336,30 +6144,19 @@ class ConnectorWhatsapp {
         phoneContext = (await this._ensureWhatsappBootstrapLanguage(normalizedPhone, cleanedOriginal || cleaned, phoneContext)) || phoneContext;
 
         const resolvedLanguage = this._resolveWhatsappInteractionLanguage(null, cleaned, phoneContext);
-        const deterministicRouting = explicitModeCommand
-            ? null
-            : await this._buildWhatsappDeterministicRoutingDecision(routingIntentText || cleaned, phoneContext, {
-                phone: normalizedPhone,
-                language: resolvedLanguage,
-                currentTool: 'chat'
-            });
-        const localTool = deterministicRouting && deterministicRouting.decision && deterministicRouting.decision.tool === 'chat+websearch'
-            ? 'chat+websearch'
-            : 'chat';
-
         this._appendWhatsappOrchestratorContext(normalizedPhone, { role: 'user', text: cleaned });
         phoneContext = (await this._appendWhatsappPhoneConversationTurn(normalizedPhone, { role: 'user', text: cleaned }, phoneContext)) || phoneContext;
 
         msg.body = cleaned;
         msg.orchestrator = {
-            tool: localTool,
-            confidence: localTool === 'chat+websearch' ? 0.9 : 1,
+            tool: 'chat',
+            confidence: 1,
             reason: explicitModeCommand
                 ? 'explicit_mode_command_fast_path'
-                : (localTool === 'chat+websearch' ? 'chat_fast_path_websearch' : 'chat_fast_path'),
+                : 'chat_fast_path',
             language: resolvedLanguage,
             source: 'fast-path',
-            shortAnswer: localTool === 'chat+websearch' || localTool === 'chat'
+            shortAnswer: true
         };
 
         return msg;
@@ -6804,6 +6601,10 @@ class ConnectorWhatsapp {
     }
 
     async _handleWhatsappModelCommand(phone, replyTarget, userText, language, phoneContext = null) {
+        if (!this._shouldAllowWhatsappModelCommands(phoneContext)) {
+            return false;
+        }
+
         const command = this._parseWhatsappModelCommand(userText);
         if (!command) {
             return false;
@@ -9175,7 +8976,7 @@ class ConnectorWhatsapp {
                 }
             }
 
-            const deterministicRouting = await this._buildWhatsappDeterministicRoutingDecision(routingIntentText || cleaned, phoneContext, {
+            const explicitModeFallback = await this._buildWhatsappExplicitModeFallbackDecision(routingIntentText || cleaned, phoneContext, {
                 phone: normalizedPhone,
                 language: this._resolveWhatsappInteractionLanguage(null, cleaned, phoneContext),
                 explicitDocumentAction,
@@ -9184,14 +8985,14 @@ class ConnectorWhatsapp {
 
             let orchText = '';
             let routingSession = null;
-            let decision = deterministicRouting && deterministicRouting.decision
-                ? { ...deterministicRouting.decision }
-                : (deterministicRouting && deterministicRouting.fallbackDecision
-                    ? { ...deterministicRouting.fallbackDecision }
+            let decision = explicitModeFallback && explicitModeFallback.decision
+                ? { ...explicitModeFallback.decision }
+                : (explicitModeFallback && explicitModeFallback.fallbackDecision
+                    ? { ...explicitModeFallback.fallbackDecision }
                     : null)
-                || { tool: 'chat', confidence: 0, reason: 'orchestrator_unavailable_or_failed', source: 'deterministic-fallback' };
+                || { tool: 'chat', confidence: 0, reason: 'orchestrator_unavailable_or_failed', source: 'explicit-mode-fallback' };
 
-            if (deterministicRouting && deterministicRouting.useLLM) {
+            if (explicitModeFallback && explicitModeFallback.useLLM) {
                 try {
                     if (typeof OllamaAPI === 'undefined' || !OllamaAPI.OrchestratorCall) {
                         console.warn('[ConnectorWhatsapp][orchestrator] OllamaAPI.OrchestratorCall not available - skipping orchestration');
@@ -9253,8 +9054,8 @@ class ConnectorWhatsapp {
 
                     if ((toolNormalized === 'artifact' || toolNormalized === 'presentation')
                         && !this._isWhatsappLLMWorkflowDecisionGrounded(toolNormalized, originalRoutingText, normalizedPhone)) {
-                        const fallbackTool = deterministicRouting && deterministicRouting.fallbackDecision && deterministicRouting.fallbackDecision.tool
-                            ? deterministicRouting.fallbackDecision.tool
+                        const fallbackTool = explicitModeFallback && explicitModeFallback.fallbackDecision && explicitModeFallback.fallbackDecision.tool
+                            ? explicitModeFallback.fallbackDecision.tool
                             : 'chat';
                         parsed.reason = `${parsed.reason ? `${parsed.reason} ` : ''}Specialized workflow rejected because the request did not explicitly mention a presentation, slide deck, miniapp, artifact, or supported saved-workflow cue.`.trim();
                         toolNormalized = fallbackTool;
@@ -9306,24 +9107,26 @@ class ConnectorWhatsapp {
                     decision.source = 'llm';
                 } else {
                     console.warn('[ConnectorWhatsapp][orchestrator] Could not parse orchestrator JSON, falling back to chat', { rawOut });
-                    if (deterministicRouting && deterministicRouting.decision) {
-                        decision = { ...deterministicRouting.decision, reason: `${deterministicRouting.decision.reason} LLM parse failure fallback.`.trim() };
-                    } else if (deterministicRouting && deterministicRouting.fallbackDecision) {
-                        decision = { ...deterministicRouting.fallbackDecision, reason: `${deterministicRouting.fallbackDecision.reason} LLM parse failure fallback.`.trim() };
+                    if (explicitModeFallback && explicitModeFallback.decision) {
+                        decision = { ...explicitModeFallback.decision, reason: `${explicitModeFallback.decision.reason} LLM parse failure fallback.`.trim() };
+                    } else if (explicitModeFallback && explicitModeFallback.fallbackDecision) {
+                        decision = { ...explicitModeFallback.fallbackDecision, reason: `${explicitModeFallback.fallbackDecision.reason} LLM parse failure fallback.`.trim() };
                     } else {
-                        decision = { tool: 'chat', confidence: 0, reason: 'parse_failure', source: 'deterministic-fallback' };
+                        decision = { tool: 'chat', confidence: 0, reason: 'parse_failure', source: 'explicit-mode-fallback' };
                     }
                 }
-            } else if (!(deterministicRouting && !deterministicRouting.useLLM)) {
+            } else if (!(explicitModeFallback && !explicitModeFallback.useLLM)) {
                 //console.info('[ConnectorWhatsapp][orchestrator] Empty orchestrator response, defaulting to chat');
-                if (deterministicRouting && deterministicRouting.decision) {
-                    decision = { ...deterministicRouting.decision, reason: `${deterministicRouting.decision.reason} LLM unavailable or empty response fallback.`.trim() };
-                } else if (deterministicRouting && deterministicRouting.fallbackDecision) {
-                    decision = { ...deterministicRouting.fallbackDecision, reason: `${deterministicRouting.fallbackDecision.reason} LLM unavailable or empty response fallback.`.trim() };
+                if (explicitModeFallback && explicitModeFallback.decision) {
+                    decision = { ...explicitModeFallback.decision, reason: `${explicitModeFallback.decision.reason} LLM unavailable or empty response fallback.`.trim() };
+                } else if (explicitModeFallback && explicitModeFallback.fallbackDecision) {
+                    decision = { ...explicitModeFallback.fallbackDecision, reason: `${explicitModeFallback.fallbackDecision.reason} LLM unavailable or empty response fallback.`.trim() };
                 }
             }
 
-            const modelCommand = this._parseWhatsappModelCommand(routingIntentText || cleaned);
+            const modelCommand = this._shouldAllowWhatsappModelCommands(phoneContext)
+                ? this._parseWhatsappModelCommand(routingIntentText || cleaned)
+                : null;
             if (modelCommand && (!decision.tool || decision.tool === 'chat' || decision.tool === 'chat+websearch')) {
                 decision.tool = 'chat';
                 decision.document = '';
@@ -11024,11 +10827,18 @@ class ConnectorWhatsapp {
     }
 
     _appendWhatsappDeliveryTextSegment(segments, value) {
-        const normalizedValue = this._stripWhatsappSourceCitations(value)
+        let normalizedValue = this._stripWhatsappSourceCitations(value)
             .replace(/^[\-*•]\s*$/g, '')
             .trim();
         if (!normalizedValue) return;
         const lastSegment = segments.length ? segments[segments.length - 1] : null;
+        if (lastSegment && lastSegment.type === 'link') {
+            if (/^[.,;:!?。，；：！？]+$/.test(normalizedValue)) {
+                return;
+            }
+            normalizedValue = normalizedValue.replace(/^[.,;:!?。，；：！？]+\s*/, '').trim();
+            if (!normalizedValue) return;
+        }
         if (lastSegment && lastSegment.type === 'text') {
             lastSegment.value = `${lastSegment.value}\n${normalizedValue}`.replace(/\n{3,}/g, '\n\n').trim();
             return;
