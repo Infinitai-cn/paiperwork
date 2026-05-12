@@ -1241,7 +1241,9 @@ class Chat {
         }
         try {
             const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-            basePrompt = settings.systemPrompt || baseSystemPrompt;
+            basePrompt = (settings && typeof settings.systemPrompt === 'string')
+                ? settings.systemPrompt
+                : baseSystemPrompt;
         } catch (error) {
             console.error('Chat: Error loading system prompt from database:', error);
             basePrompt = baseSystemPrompt;
@@ -3228,7 +3230,9 @@ class Chat {
                 let basePrompt;
                 try {
                     const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                    basePrompt = settings.systemPrompt || baseSystemPrompt;
+                    basePrompt = (settings && typeof settings.systemPrompt === 'string')
+                        ? settings.systemPrompt
+                        : baseSystemPrompt;
                 } catch (error) {
                     console.error('Chat: Error loading system prompt from database:', error);
                     basePrompt = baseSystemPrompt;
