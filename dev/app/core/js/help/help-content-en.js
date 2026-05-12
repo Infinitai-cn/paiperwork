@@ -3096,6 +3096,7 @@ window.helpContent = {
 
                 <h4>Knowledge Base</h4>
                 <p>You can browse your saved knowledge base from WhatsApp by listing collections, opening one collection, listing its entries, and reading the selected entry. Collection names and entry names do not need to be exact.</p>
+                <p>Enter this mode with <code>Knowledge mode</code>, <code>Knowledge base mode</code>, <code>Knowledgebase mode</code>, or <code>KB mode</code>.</p>
                 <ul>
                     <li><code>Show my knowledge base</code></li>
                     <li><code>List my knowledge collections</code></li>

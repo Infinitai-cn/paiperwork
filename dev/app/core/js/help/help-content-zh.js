@@ -3060,6 +3060,7 @@ window.helpContent = {
 
                 <h4>知识库</h4>
                 <p>您可以通过 WhatsApp 浏览已保存的知识库，先列出知识集合，再打开一个集合，列出其中的知识条目，然后阅读所选条目。集合名称和条目名称不需要完全精确。</p>
+                <p>进入此模式可发送 <code>知识模式</code>、<code>知识库模式</code> 或 <code>kb模式</code>。</p>
                 <ul>
                     <li><code>显示 我的知识库</code></li>
                     <li><code>列出 我的知识集合</code></li>
