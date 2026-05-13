@@ -1717,6 +1717,14 @@ class PromptedPresentationWorkflow {
 		}
 	}
 
+	static updatePromptableSendButtonState() {
+		if (!this.sendBtn || this.currentAbortController) {
+			return;
+		}
+
+		this.sendBtn.disabled = !String(this.savedSourceText || '').trim();
+	}
+
 	static async ensureWebSearchModuleLoaded() {
 		if (typeof window.WebSearch !== 'undefined') {
 			if (window.WebSearch && typeof window.WebSearch.initializeWebSearchReferences === 'function') {
@@ -3539,6 +3547,7 @@ class PromptedPresentationWorkflow {
 				this.savedSourceText = textArea.value || '';
 			}
 			this.updateTextActionButtons();
+			this.updatePromptableSendButtonState();
 			if (editorOverlay && document.body.contains(editorOverlay)) {
 				document.body.removeChild(editorOverlay);
 			}
@@ -3991,6 +4000,7 @@ class PromptedPresentationWorkflow {
 		sendBtn.style.background = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
 		sendBtn.style.color = 'var(--presentation-export-color, #ffffff)';
 		sendBtn.style.transition = 'background 0.2s, color 0.2s';
+		this.sendBtn = sendBtn;
 
 		const webSearchToggleBtn = document.createElement('button');
 		webSearchToggleBtn.type = 'button';
@@ -4131,7 +4141,6 @@ class PromptedPresentationWorkflow {
 				sendBtn.textContent = previousSendLabel;
 				sendBtn.style.background = previousSendBackground;
 				sendBtn.style.color = previousSendColor;
-				sendBtn.disabled = false;
 				slideCountSelector.disabled = false;
 				htmlModeBtn.disabled = false;
 				pdfModeBtn.disabled = false;
@@ -4139,6 +4148,7 @@ class PromptedPresentationWorkflow {
 				extraRequestBtn.disabled = false;
 				webSearchToggleBtn.disabled = false;
 				this.updatePromptableWebSearchUiState();
+				this.updatePromptableSendButtonState();
 			}
 		});
 
@@ -4333,6 +4343,7 @@ class PromptedPresentationWorkflow {
 		this.renderArea = renderArea;
 		this.addTextBtn = addTextBtn;
 		this.extraRequestBtn = extraRequestBtn;
+		this.sendBtn = sendBtn;
 		this.slideCountSelector = slideCountSelector;
 		this.fullscreenBtn = fullscreenBtn;
 		this.sidebarList = sidebarList;
@@ -4341,6 +4352,7 @@ class PromptedPresentationWorkflow {
 		this.requestProgressBar = requestProgressBar;
 		this.setRequestProgressVisible(false);
 		this.updateTextActionButtons();
+		this.updatePromptableSendButtonState();
 		this.updateFullscreenButtonLabel();
 		this.refreshSavedPresentations();
 	}
