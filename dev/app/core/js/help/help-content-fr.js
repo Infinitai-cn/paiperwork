@@ -2923,7 +2923,8 @@ window.helpContent = {
             "Langues prises en charge par l'orchestrateur WhatsApp/WeChat : anglais, espagnol, portugais, allemand, chinois, français, japonais, coréen et russe.",
             "Les connecteurs relient Paiperwork à WhatsApp/WeChat. Les requêtes n'utilisent que les ressources déjà disponibles dans Paiperwork et n'accèdent pas à votre système d'exploitation, à la mémoire, au disque dur ni à des fichiers externes arbitraires.",
             "Pour recevoir les messages WhatsApp/WeChat entrants, gardez actif l'onglet du navigateur qui exécute Paiperwork et empêchez l'ordinateur de se mettre en veille. L'écran de verrouillage interrompra les messages entrants ; vous pouvez envisager de le désactiver temporairement pour activer les fonctionnalités WhatsApp/WeChat.",
-            "Les documents, recherches, présentations et artefacts peuvent ouvrir un mode de suivi dédié. Restez dans ce mode jusqu'à sa fermeture avec la commande de sortie appropriée."
+            "Les documents, recherches, présentations et artefacts peuvent ouvrir un mode de suivi dédié. Restez dans ce mode jusqu'à sa fermeture avec la commande de sortie appropriée.",
+            "Vous pouvez créer des présentations et des mini-apps à partir des résumés de documents et de leurs modifications de suivi, des rapports de recherche et de leurs modifications de suivi, ainsi que des entrées de base de connaissances et de leurs modifications de suivi."
         ],
         articles: [
             {

@@ -2928,7 +2928,8 @@ window.helpContent = {
             "Unterstützte Sprachen für den WhatsApp/WeChat-Orchestrator: Englisch, Spanisch, Portugiesisch, Deutsch, Chinesisch, Französisch, Japanisch, Koreanisch und Russisch.",
             "Verbindungen koppeln Paiperwork mit WhatsApp/WeChat. Anfragen verwenden nur Ressourcen, die bereits in Paiperwork vorhanden sind, und greifen nicht auf Betriebssystem, Speicher, Festplatte oder beliebige externe Dateien zu.",
             "Damit eingehende WhatsApp/WeChat-Nachrichten ankommen, muss der Browser-Tab mit Paiperwork aktiv bleiben und der Computer wach bleiben. Der Sperrbildschirm stoppt eingehende Nachrichten, Sie sollten erwägen, ihn vorübergehend zu deaktivieren, um WhatsApp/WeChat-Funktionen zu nutzen.",
-            "Dokumente, Recherchen, Präsentationen und Artefakte können einen speziellen Nachverfolgungsmodus öffnen. Bleiben Sie in diesem Modus, bis Sie ihn mit dem passenden Beendigungsbefehl schließen."
+            "Dokumente, Recherchen, Präsentationen und Artefakte können einen speziellen Nachverfolgungsmodus öffnen. Bleiben Sie in diesem Modus, bis Sie ihn mit dem passenden Beendigungsbefehl schließen.",
+            "Sie können Präsentationen und Mini-Apps aus Dokumentzusammenfassungen und deren Nachverfolgungsänderungen, Rechercheberichten und deren Nachverfolgungsänderungen sowie Wissensdatenbank-Einträgen und deren Nachverfolgungsänderungen erstellen."
         ],
         articles: [
             {
