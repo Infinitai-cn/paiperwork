@@ -2967,7 +2967,8 @@ window.helpContent = {
             "Supported WhatsApp/Wechat orchestrator languages: English, Spanish, Portuguese, German, Chinese, French, Japanese, Korean, and Russian.",
             "Connectors pair Paiperwork with WhatsApp/Wechat. Requests only use resources already available inside Paiperwork and do not access your operating system, memory, hard disk, or arbitrary external files.",
             "To receive incoming WhatsApp/Wechat messages, keep the Paiperwork browser tab active and keep your computer awake. Lock screen will stop incoming messages, you may consider to disable it temporarily to enable WhatsApp/Wechat features.",
-            "Documents, research, presentations, and artifacts can open a dedicated follow-up mode. Stay in that mode until you close it with the corresponding exit cue."
+            "Documents, research, presentations, and artifacts can open a dedicated follow-up mode. Stay in that mode until you close it with the corresponding exit cue.",
+            "You can create presentations and mini apps from document summaries and their follow-up modifications, research reports and their follow-up modifications, and knowledge base entries and their follow-up modifications."
         ],
         articles: [
             {
