@@ -972,7 +972,7 @@ const dataVizKeymap = {
         ]
     },
     intent: [
-        'pie', 'bar', 'line', 'scatter', 'area', 'radar', 'heatmap', 'bubble',
+        'pie', 'pies', 'bar', 'bars', 'line', 'lines', 'scatter', 'scatters', 'area', 'areas', 'radar', 'radars', 'heatmap', 'heatmaps', 'bubble', 'bubbles',
         'chart', 'charts', 'graph', 'plot', 'diagram', 'visualization', 'visualisation',
         'gráfico', 'graficos', 'gráfica', 'grafic', 'grafico', 'grafica', 'diagrama',
         'graphique', 'diagramme', 'graphe',
@@ -982,47 +982,49 @@ const dataVizKeymap = {
         '图', '图表', '图形', '图示',
         'グラフ', 'チャート', '図表',
         '차트', '그래프',
-        'pie chart', 'donut chart', 'doughnut chart', 'bar chart', 'line chart',
-        'scatter plot', 'area chart', 'radar chart', 'heat map', 'bubble chart',
+        'pie chart', 'pie charts', 'pies chart', 'donut chart', 'donut charts', 'doughnut chart', 'doughnut charts',
+        'bar chart', 'bar charts', 'bars chart', 'line chart', 'line charts', 'lines chart',
+        'scatter plot', 'scatter plots', 'scatters plot', 'area chart', 'area charts', 'areas chart',
+        'radar chart', 'radar charts', 'radars chart', 'heat map', 'heat maps', 'bubble chart', 'bubble charts', 'bubbles chart',
         'circular', 'torta', 'pastel', '円グラフ', '파이', '饼', '円', '圆形'
     ],
     chartType: {
         pie: [
-            'pie', 'pie chart', 'donut', 'doughnut', 'donut chart', 'doughnut chart',
-            'pastel', 'torta', 'circular', 'camembert', 'sector', 'sectores', 'setores',
+            'pie', 'pies', 'pie chart', 'pie charts', 'pies chart', 'donut', 'donuts', 'doughnut', 'doughnuts', 'donut chart', 'donut charts', 'doughnut chart', 'doughnut charts',
+            'pastel', 'pasteles', 'torta', 'tortas', 'circular', 'circulares', 'camembert', 'camemberts', 'sector', 'sectores', 'setores',
             '饼图', '圈图', '圆饼图', '円グラフ', 'ドーナツ', '파이 차트', '파이차트', '파이'
         ],
         bar: [
-            'bar', 'bar chart', 'barras', 'grafico de barras', 'gráfico de barras',
-            'balken', 'balkendiagramm', 'barre', 'graphique en barres',
+            'bar', 'bars', 'bar chart', 'bar charts', 'bars chart', 'barras', 'grafico de barras', 'graficos de barras', 'gráfico de barras', 'gráficos de barras',
+            'balken', 'balkendiagramm', 'balkendiagramme', 'barre', 'barres', 'graphique en barres', 'graphiques en barres',
             '棒状图', '柱状图', '条形图', '棒グラフ', '棒状', '막대 그래프', '막대차트', '막대'
         ],
         line: [
-            'line', 'line chart', 'línea', 'grafico de linea', 'gráfico de línea',
-            'ligne', 'graphique en ligne', 'linie', 'liniendiagramm',
-            '线图', '折线图', '折れ線グラフ', '선형', '선 그래프', 'linea'
+            'line', 'lines', 'line chart', 'line charts', 'lines chart', 'línea', 'líneas', 'grafico de linea', 'grafico de lineas', 'gráfico de línea', 'gráficos de líneas',
+            'ligne', 'lignes', 'graphique en ligne', 'graphiques en ligne', 'linie', 'linien', 'liniendiagramm', 'liniendiagramme',
+            '线图', '折线图', '折れ線グラフ', '선형', '선 그래프', 'linea', 'linee'
         ],
         scatter: [
-            'scatter', 'scatter plot', 'dispersión', 'diagrama de dispersion', 'diagrama de dispersión',
-            'nuage de points', 'streudiagramm',
+            'scatter', 'scatters', 'scatter plot', 'scatter plots', 'scatters plot', 'dispersión', 'dispersiones', 'diagrama de dispersion', 'diagramas de dispersion', 'diagrama de dispersión', 'diagramas de dispersión',
+            'nuage de points', 'nuages de points', 'streudiagramm', 'streudiagramme',
             '散点图', '散布図', '산점도'
         ],
         area: [
-            'area', 'area chart', 'área', 'grafico de area', 'gráfico de área',
-            'zone', 'graphique de zone', 'flachendiagramm',
+            'area', 'areas', 'area chart', 'area charts', 'areas chart', 'área', 'áreas', 'grafico de area', 'graficos de area', 'gráfico de área', 'gráficos de áreas',
+            'zone', 'zones', 'graphique de zone', 'graphiques de zone', 'flachendiagramm', 'flachendiagramme',
             '区域图', '面积图', 'エリアチャート', '영역 차트'
         ],
         radar: [
-            'radar', 'radar chart', 'spider chart', 'araña', 'telaraña', 'toile',
+            'radar', 'radars', 'radar chart', 'radar charts', 'radars chart', 'spider chart', 'spider charts', 'araña', 'arañas', 'telaraña', 'telarañas', 'toile', 'toiles',
             '雷达图', 'レーダーチャート', '레이더 차트'
         ],
         heatmap: [
-            'heatmap', 'heat map', 'mapa de calor', 'carte thermique', 'wärmekarte',
+            'heatmap', 'heatmaps', 'heat map', 'heat maps', 'mapa de calor', 'mapas de calor', 'carte thermique', 'cartes thermiques', 'wärmekarte', 'wärmekarten',
             '热图', '热力图', 'ヒートマップ', '히트맵'
         ],
         bubble: [
-            'bubble', 'bubble chart', 'burbuja', 'grafico de burbujas', 'gráfico de burbujas',
-            'bulles', 'blasendiagramm', '泡', '气泡图', 'バブルチャート', '버블', '버블 차트'
+            'bubble', 'bubbles', 'bubble chart', 'bubble charts', 'bubbles chart', 'burbuja', 'burbujas', 'grafico de burbujas', 'graficos de burbujas', 'gráfico de burbujas', 'gráficos de burbujas',
+            'bulle', 'bulles', 'blasendiagramm', 'blasendiagramme', '泡', '气泡图', 'バブルチャート', '버블', '버블 차트'
         ]
     }
 };
