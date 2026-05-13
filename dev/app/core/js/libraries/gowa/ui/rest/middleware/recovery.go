@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/infrastructure/whatsapp"
 	pkgError "github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/error"
 	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/utils"
 	"github.com/gofiber/fiber/v2"
@@ -27,6 +28,15 @@ func isRecoverableLoginWarmupError(err any) bool {
 	}
 
 	return strings.Contains(message, "you are not logged in")
+}
+
+func isRecoverableNotConnectedError(err any) bool {
+	message := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", err)))
+	if message == "" {
+		return false
+	}
+
+	return strings.Contains(message, "you are not connect to services server")
 }
 
 func Recovery() fiber.Handler {
@@ -69,6 +79,13 @@ func Recovery() fiber.Handler {
 				res.Status = ge.StatusCode()
 				res.Code = ge.ErrCode()
 				res.Message = ge.Error()
+
+				if ge.ErrCode() == "AUTHENTICATION_ERROR" && isRecoverableNotConnectedError(ge.Error()) {
+					deviceID := strings.TrimSpace(fmt.Sprintf("%v", ctx.Locals("device_id")))
+					if deviceID != "" && whatsapp.TriggerReconnectForDeviceID(deviceID, "recovered authentication error") {
+						logrus.Warnf("Triggered automatic reconnect after recovered auth error for device %s", deviceID)
+					}
+				}
 
 				if ge.ErrCode() == "SESSION_SAVED_ERROR" {
 					logrus.Debugf("Session warmup state (recover path): %v", ge.Error())
