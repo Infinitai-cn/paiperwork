@@ -2,10 +2,12 @@ package whatsapp
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	domainChatStorage "github.com/aldinokemal/go-whatsapp-web-multidevice/domains/chatstorage"
+	"github.com/aldinokemal/go-whatsapp-web-multidevice/pkg/logmask"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 )
@@ -13,6 +15,13 @@ import (
 var (
 	autoReconnectMu     sync.Mutex
 	autoReconnectCancel context.CancelFunc
+	autoRecoverMu       sync.Mutex
+	autoRecoverLastTry  = make(map[string]time.Time)
+)
+
+const (
+	autoReconnectCheckInterval = 30 * time.Second
+	autoReconnectRetryCooldown = 20 * time.Second
 )
 
 // UpdateGlobalClient updates the global cli variable with a new client instance
@@ -76,7 +85,72 @@ func ResetStateOnShutdown() {
 	}
 }
 
-// StartAutoReconnectChecker starts a looping reconnect monitor for disconnected WhatsApp client.
+func triggerReconnectForClient(cli *whatsmeow.Client, deviceID string, reason string) bool {
+	if cli == nil {
+		return false
+	}
+
+	trimmedDeviceID := strings.TrimSpace(deviceID)
+	if trimmedDeviceID == "" {
+		if clientStore := cli.Store; clientStore != nil && clientStore.ID != nil {
+			trimmedDeviceID = clientStore.ID.String()
+		}
+	}
+	if strings.TrimSpace(trimmedDeviceID) == "" {
+		return false
+	}
+
+	autoRecoverMu.Lock()
+	if lastAttempt, ok := autoRecoverLastTry[trimmedDeviceID]; ok && time.Since(lastAttempt) < autoReconnectRetryCooldown {
+		autoRecoverMu.Unlock()
+		return false
+	}
+	autoRecoverLastTry[trimmedDeviceID] = time.Now()
+	autoRecoverMu.Unlock()
+
+	go func() {
+		maskedDeviceID := logmask.MaskPhoneNumber(trimmedDeviceID)
+		log.Infof("[AUTO-RECOVER][%s] attempting reconnect (%s)", maskedDeviceID, strings.TrimSpace(reason))
+
+		cli.EnableAutoReconnect = true
+		if cli.IsConnected() && !cli.IsLoggedIn() {
+			cli.Disconnect()
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		if err := cli.Connect(); err != nil {
+			log.Warnf("[AUTO-RECOVER][%s] reconnect attempt failed: %v", maskedDeviceID, err)
+			return
+		}
+
+		connected := cli.IsConnected()
+		loggedIn := cli.IsLoggedIn()
+		log.Infof("[AUTO-RECOVER][%s] reconnect attempt completed connected=%v loggedIn=%v", maskedDeviceID, connected, loggedIn)
+	}()
+
+	return true
+}
+
+func TriggerReconnectForDeviceID(deviceID string, reason string) bool {
+	trimmedDeviceID := strings.TrimSpace(deviceID)
+	if trimmedDeviceID == "" {
+		return false
+	}
+
+	if manager := GetDeviceManager(); manager != nil {
+		if instance, ok := manager.GetDevice(trimmedDeviceID); ok && instance != nil {
+			return triggerReconnectForClient(instance.GetClient(), instance.ID(), reason)
+		}
+	}
+
+	if current := GetClient(); current != nil {
+		return triggerReconnectForClient(current, trimmedDeviceID, reason)
+	}
+
+	return false
+}
+
+// StartAutoReconnectChecker starts a looping reconnect monitor for unhealthy WhatsApp client state.
 func StartAutoReconnectChecker(cli *whatsmeow.Client) {
 	if cli == nil {
 		return
@@ -95,7 +169,7 @@ func StartAutoReconnectChecker(cli *whatsmeow.Client) {
 	cli.EnableAutoReconnect = true
 
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(autoReconnectCheckInterval)
 		defer ticker.Stop()
 
 		for {
@@ -107,11 +181,12 @@ func StartAutoReconnectChecker(cli *whatsmeow.Client) {
 				if cli == nil {
 					continue
 				}
-				if !cli.IsConnected() {
-					log.Infof("StartAutoReconnectChecker: client disconnected; attempting reconnect")
-					if err := cli.Connect(); err != nil {
-						log.Warnf("StartAutoReconnectChecker: reconnect attempt failed: %v", err)
+				if !cli.IsConnected() || !cli.IsLoggedIn() {
+					reason := "periodic health check"
+					if cli.IsConnected() && !cli.IsLoggedIn() {
+						reason = "connected without login state"
 					}
+					_ = triggerReconnectForClient(cli, "", reason)
 				}
 			}
 		}

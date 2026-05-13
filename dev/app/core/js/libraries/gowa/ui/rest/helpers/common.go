@@ -124,8 +124,23 @@ func SetAutoConnectAfterBooting(service domainApp.IAppUsecase) {
 	}
 	selectedDeviceID := autoConnectDeviceID()
 	if strings.EqualFold(strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_EXPECT_SESSION_RESTORE")), "true") && strings.TrimSpace(selectedDeviceID) != "" {
-		logrus.Infof("auto-connect skipped: no-disk mode waiting for browser session restore for selected device %s", logmask.MaskPhoneNumber(selectedDeviceID))
-		return
+		maskedDeviceID := logmask.MaskPhoneNumber(selectedDeviceID)
+		logrus.Infof("auto-connect: no-disk mode waiting for browser session restore for selected device %s", maskedDeviceID)
+		restoreWaitDeadline := time.Now().Add(45 * time.Second)
+		for strings.EqualFold(strings.TrimSpace(os.Getenv("PAIPERWORK_WHATSAPP_EXPECT_SESSION_RESTORE")), "true") {
+			if ctx.Err() != nil {
+				logrus.Info("auto-connect: cancelled while waiting for browser session restore")
+				return
+			}
+			if time.Now().After(restoreWaitDeadline) {
+				logrus.Warnf("auto-connect: session restore wait timed out for selected device %s; continuing with reconnect/login recovery", maskedDeviceID)
+				break
+			}
+			if !sleepWithContext(ctx, 2*time.Second) {
+				logrus.Info("auto-connect: cancelled while waiting for browser session restore")
+				return
+			}
+		}
 	}
 	if service == nil {
 		logrus.Warn("auto-connect skipped: appUsecase is nil")
