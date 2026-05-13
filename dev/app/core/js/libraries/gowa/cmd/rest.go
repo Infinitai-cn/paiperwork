@@ -217,6 +217,11 @@ func ShutdownRestServer(ctx context.Context) error {
 	app := embeddedRestApp
 	embeddedRestAppMu.Unlock()
 
+	// Stop the in-process WhatsApp runtime first so reconnect loops do not keep
+	// running after the HTTP listener is gone or already cleared.
+	helpers.StopAutoConnectAfterBooting()
+	whatsapp.ResetStateOnShutdown()
+
 	if app == nil {
 		logrus.Info("ShutdownRestServer: no embedded gowa server to shut down")
 		return nil
