@@ -338,7 +338,7 @@ class DatabaseTab {
                         <div class="db-breakdown-card">
                             <div class="db-breakdown-title">WeChat</div>
                             <div class="db-breakdown-size">${breakdown.wechat?.formatted || '-'}</div>
-                            <div class="db-breakdown-meta">${openState.wechat ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | Accounts: ${breakdown.wechat?.accounts || 0} | Sessions: ${breakdown.wechat?.sessions || 0} | Events: ${breakdown.wechat?.events || 0} | Logs: ${breakdown.wechat?.logs || 0} | Peer contexts: ${breakdown.wechat?.peerContexts || 0} | Account contexts: ${breakdown.wechat?.accountContexts || 0}</div>
+                            <div class="db-breakdown-meta">${openState.wechat ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | Accounts: ${breakdown.wechat?.accounts || 0} | Sessions: ${breakdown.wechat?.sessions || 0} | Events: ${breakdown.wechat?.events || 0} (${breakdown.wechat?.eventsPayloadFormatted || '0 B'}) | Logs: ${breakdown.wechat?.logs || 0} | Peer contexts: ${breakdown.wechat?.peerContexts || 0} (${breakdown.wechat?.peerContextFormatted || '0 B'}) | Account contexts: ${breakdown.wechat?.accountContexts || 0} (${breakdown.wechat?.accountContextFormatted || '0 B'})</div>
                         </div>
                     </div>
                 </div>
