@@ -217,6 +217,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         artifactPromptButton: "Prompt",
         artifactPromptDialogTitle: "Prompt usado",
         artifactPromptEmpty: "Nao ha prompt salvo para este artefato.",
+        artifactModificationsButton: "Modificacoes",
         artifactWebButtonInactive: "Web",
         artifactWebButtonActive: "Web ativo",
 

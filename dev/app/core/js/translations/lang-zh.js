@@ -210,6 +210,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 artifactPromptButton: "提示词",
                 artifactPromptDialogTitle: "使用的提示词",
                 artifactPromptEmpty: "此工件没有保存提示词。",
+                artifactModificationsButton: "修改",
                 artifactWebButtonInactive: "网页",
                 artifactWebButtonActive: "网页已启用",
 
