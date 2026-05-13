@@ -2263,6 +2263,65 @@ class ArtifactsWindow {
 			: '1px solid var(--border-color, #404040)';
 	}
 
+	static applyArtifactsModificationToggleStyles() {
+		if (!this.modificationsBtn) {
+			return;
+		}
+
+		const activeBackground = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
+		const activeColor = 'var(--presentation-export-color, #ffffff)';
+		const inactiveBackground = 'var(--background-color, #18181b)';
+		const inactiveColor = 'var(--text-color, #ffffff)';
+		const label = this.t('artifactModificationsButton', 'Modifications');
+
+		this.modificationsBtn.textContent = label;
+		this.modificationsBtn.setAttribute('aria-pressed', this.isArtifactModificationModeEnabled ? 'true' : 'false');
+		this.modificationsBtn.style.background = this.isArtifactModificationModeEnabled ? activeBackground : inactiveBackground;
+		this.modificationsBtn.style.color = this.isArtifactModificationModeEnabled ? activeColor : inactiveColor;
+		this.modificationsBtn.style.border = this.isArtifactModificationModeEnabled
+			? '1px solid var(--presentation-export-border, transparent)'
+			: '1px solid var(--border-color, #404040)';
+	}
+
+	static getCurrentArtifactHtmlForModification() {
+		try {
+			if (this.renderFrame && this.renderFrame.contentDocument && this.renderFrame.contentDocument.documentElement) {
+				const renderedHtml = this.serializeArtifactDocument(this.renderFrame.contentDocument).trim();
+				if (renderedHtml) {
+					return renderedHtml;
+				}
+			}
+		} catch (_error) {
+		}
+
+		const currentHtml = String(this.currentArtifactHtml || '').trim();
+		if (currentHtml) {
+			return currentHtml;
+		}
+
+		return this.codeEditor ? String(this.codeEditor.value || '').trim() : '';
+	}
+
+	static buildArtifactModificationPrompt(requestText = '', currentHtml = '', webSearchSourceText = '') {
+		const normalizedRequest = this.normalizeArtifactPromptText(requestText);
+		const normalizedHtml = String(currentHtml || '').trim();
+		const normalizedWebContext = String(webSearchSourceText || '').trim();
+
+		if (!normalizedHtml) {
+			return normalizedRequest;
+		}
+
+		return [
+			'Modify the current self-contained HTML artifact below.',
+			'Use the provided HTML as the original code to edit instead of generating a completely different artifact from scratch.',
+			'Preserve the existing structure, behavior, styling, and content unless the modification request explicitly changes them.',
+			normalizedRequest ? `Modification request:\n${normalizedRequest}` : '',
+			normalizedWebContext,
+			'Current artifact HTML to modify:',
+			normalizedHtml,
+		].filter(Boolean).join('\n\n');
+	}
+
 	static async promptArtifactName(defaultTitle = '') {
 		return new Promise((resolve) => {
 			const initialName = (defaultTitle || '').trim() || this.t('artifactUntitled', 'Untitled artifact');
@@ -2737,8 +2796,8 @@ class ArtifactsWindow {
 
 		const bottomBar = document.createElement('div');
 		bottomBar.style.flex = '0 0 auto';
-		bottomBar.style.display = 'flex';
-		bottomBar.style.justifyContent = 'space-between';
+		bottomBar.style.display = 'grid';
+		bottomBar.style.gridTemplateColumns = '1fr minmax(0, 900px) 1fr';
 		bottomBar.style.alignItems = 'center';
 		bottomBar.style.gap = '10px';
 		bottomBar.style.padding = '12px 16px 16px 16px';
@@ -2748,7 +2807,11 @@ class ArtifactsWindow {
 		const leftFooterGroup = document.createElement('div');
 		leftFooterGroup.style.display = 'flex';
 		leftFooterGroup.style.alignItems = 'center';
+		leftFooterGroup.style.justifyContent = 'center';
 		leftFooterGroup.style.gap = '8px';
+		leftFooterGroup.style.gridColumn = '2';
+		leftFooterGroup.style.justifySelf = 'stretch';
+		leftFooterGroup.style.width = '100%';
 		leftFooterGroup.style.flex = '1 1 auto';
 		leftFooterGroup.style.minWidth = '0';
 
@@ -2756,6 +2819,8 @@ class ArtifactsWindow {
 		rightFooterGroup.style.display = 'flex';
 		rightFooterGroup.style.alignItems = 'center';
 		rightFooterGroup.style.gap = '10px';
+		rightFooterGroup.style.gridColumn = '3';
+		rightFooterGroup.style.justifySelf = 'end';
 		rightFooterGroup.style.flex = '0 0 auto';
 
 		const promptInput = document.createElement('input');
@@ -2814,6 +2879,16 @@ class ArtifactsWindow {
 		sendBtn.style.background = 'var(--presentation-export-bg, var(--accent-color, #4f46e5))';
 		sendBtn.style.color = 'var(--presentation-export-color, #ffffff)';
 
+		const modificationsBtn = document.createElement('button');
+		modificationsBtn.type = 'button';
+		modificationsBtn.textContent = this.t('artifactModificationsButton', 'Modifications');
+		modificationsBtn.style.height = '40px';
+		modificationsBtn.style.minWidth = '132px';
+		modificationsBtn.style.padding = '0 16px';
+		modificationsBtn.style.borderRadius = '8px';
+		modificationsBtn.style.cursor = 'pointer';
+		modificationsBtn.style.transition = 'background 0.2s, color 0.2s, border-color 0.2s';
+
 		const webSearchBtn = document.createElement('button');
 		webSearchBtn.type = 'button';
 		webSearchBtn.textContent = this.t('artifactWebButtonInactive', 'Web');
@@ -2852,6 +2927,7 @@ class ArtifactsWindow {
 			this.saveArtifactBtn = null;
 			this.promptInput = null;
 			this.sendBtn = null;
+			this.modificationsBtn = null;
 			this.webSearchBtn = null;
 			this.statusLabel = null;
 			this.requestProgressTrack = null;
@@ -2867,6 +2943,7 @@ class ArtifactsWindow {
 			this.sidebarList = null;
 			this.sidebarEmpty = null;
 			this.closeWindowHandler = null;
+			this.isArtifactModificationModeEnabled = false;
 
 			if (typeof onClose === 'function') {
 				onClose();
@@ -2949,13 +3026,31 @@ class ArtifactsWindow {
 
 		this.currentAbortController = null;
 		this.isArtifactsWebSearchEnabled = false;
+		this.isArtifactModificationModeEnabled = false;
+		this.modificationsBtn = modificationsBtn;
+		this.applyArtifactsModificationToggleStyles();
 		this.webSearchBtn = webSearchBtn;
 		this.applyArtifactsWebSearchToggleStyles();
+
+		modificationsBtn.addEventListener('click', () => {
+			this.isArtifactModificationModeEnabled = !this.isArtifactModificationModeEnabled;
+			this.applyArtifactsModificationToggleStyles();
+		});
 
 		webSearchBtn.addEventListener('click', () => {
 			this.isArtifactsWebSearchEnabled = !this.isArtifactsWebSearchEnabled;
 			this.applyArtifactsWebSearchToggleStyles();
 		});
+
+		const updateSendButtonEnabledState = () => {
+			if (!sendBtn || this.currentAbortController) {
+				return;
+			}
+
+			sendBtn.disabled = !String(promptInput.value || '').trim();
+		};
+
+		promptInput.addEventListener('input', updateSendButtonEnabledState);
 
 		promptInput.addEventListener('keydown', (event) => {
 			if (event.key !== 'Enter') {
@@ -2981,6 +3076,11 @@ class ArtifactsWindow {
 
 			const abortController = new AbortController();
 			this.currentAbortController = abortController;
+			const promptText = String(promptInput.value || '').trim();
+			const currentHtmlToModify = this.isArtifactModificationModeEnabled
+				? this.getCurrentArtifactHtmlForModification()
+				: '';
+			promptInput.value = '';
 			this.currentArtifactId = null;
 			this.currentArtifactTitle = '';
 			this.setViewMode('code');
@@ -2994,13 +3094,13 @@ class ArtifactsWindow {
 			sendBtn.style.color = '#ffffff';
 			sendBtn.disabled = false;
 			promptInput.disabled = true;
+			modificationsBtn.disabled = true;
 			webSearchBtn.disabled = true;
 			this.setRequestProgressVisible(true);
 
 			try {
-				const promptText = String(promptInput.value || '').trim();
-				promptInput.value = '';
 				let effectiveUserPrompt = promptText;
+				let webSearchSourceText = '';
 
 				let smoothQueue = '';
 				let smoothRaf = null;
@@ -3042,7 +3142,7 @@ class ArtifactsWindow {
 
 				if (this.isArtifactsWebSearchEnabled && promptText) {
 					this.setGenerationStatus(this.t('artifactStatusWebSearchRunning', 'Web search running...'), 'idle');
-					const webSearchSourceText = await this.buildWebSearchSourceText(promptText, abortController.signal);
+					webSearchSourceText = await this.buildWebSearchSourceText(promptText, abortController.signal);
 					if (webSearchSourceText) {
 						effectiveUserPrompt = [
 							'Use the following user goal and web research context to produce the artifact HTML.',
@@ -3051,6 +3151,10 @@ class ArtifactsWindow {
 							webSearchSourceText,
 						].join('\n');
 					}
+				}
+
+				if (this.isArtifactModificationModeEnabled && currentHtmlToModify) {
+					effectiveUserPrompt = this.buildArtifactModificationPrompt(promptText, currentHtmlToModify, webSearchSourceText);
 				}
 
 				this.setGenerationStatus(this.t('artifactStatusGenerating', 'Generating artifact...'), 'idle');
@@ -3092,9 +3196,10 @@ class ArtifactsWindow {
 				sendBtn.textContent = previousLabel;
 				sendBtn.style.background = previousBackground;
 				sendBtn.style.color = previousColor;
-				sendBtn.disabled = false;
 				promptInput.disabled = false;
+				modificationsBtn.disabled = false;
 				webSearchBtn.disabled = false;
+				updateSendButtonEnabledState();
 			}
 		});
 
@@ -3117,9 +3222,10 @@ class ArtifactsWindow {
 		overlay.appendChild(topBar);
 		overlay.appendChild(workspace);
 		leftFooterGroup.appendChild(promptInput);
-		leftFooterGroup.appendChild(statusLabel);
 		leftFooterGroup.appendChild(sendBtn);
+		leftFooterGroup.appendChild(modificationsBtn);
 		leftFooterGroup.appendChild(webSearchBtn);
+		leftFooterGroup.appendChild(statusLabel);
 		rightFooterGroup.appendChild(saveArtifactBtn);
 		rightFooterGroup.appendChild(fullscreenBtn);
 		bottomBar.appendChild(leftFooterGroup);
@@ -3135,6 +3241,7 @@ class ArtifactsWindow {
 		this.saveArtifactBtn = saveArtifactBtn;
 		this.promptInput = promptInput;
 		this.sendBtn = sendBtn;
+		this.modificationsBtn = modificationsBtn;
 		this.statusLabel = statusLabel;
 		this.requestProgressTrack = requestProgressTrack;
 		this.requestProgressBar = requestProgressBar;
@@ -3160,6 +3267,7 @@ class ArtifactsWindow {
 		this.renderCurrentArtifact();
 		this.setViewMode('artifact');
 		this.setRequestProgressVisible(false);
+		updateSendButtonEnabledState();
 		this.updateFullscreenButtonLabel();
 		this.refreshSavedArtifacts();
 	}
