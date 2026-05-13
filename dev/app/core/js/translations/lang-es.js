@@ -207,6 +207,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         artifactPromptButton: "Prompt",
         artifactPromptDialogTitle: "Prompt usado",
         artifactPromptEmpty: "No hay prompt guardado para este artefacto.",
+        artifactModificationsButton: "Modificaciones",
         artifactWebButtonInactive: "Web",
         artifactWebButtonActive: "Web activo",
         activateThinking: "Activar Razonamiento",

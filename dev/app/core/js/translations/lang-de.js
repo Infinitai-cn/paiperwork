@@ -214,6 +214,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         artifactPromptButton: "Prompt",
         artifactPromptDialogTitle: "Verwendeter Prompt",
         artifactPromptEmpty: "Kein Prompt fuer dieses Artefakt gespeichert.",
+        artifactModificationsButton: "Aenderungen",
         artifactWebButtonInactive: "Web",
         artifactWebButtonActive: "Web aktiv",
 
