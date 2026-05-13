@@ -2423,9 +2423,34 @@ class ResearchAutomation {
                 originalQuery: mainQuery
             });*/
 
+            let responseText = cleanedResponse.trim();
             try {
+                const parseQueryListFromLines = (text) => {
+                    const normalizedText = String(text || '').trim();
+                    if (!normalizedText) return null;
+
+                    const parsedLines = normalizedText
+                        .split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line && !line.startsWith('```'))
+                        .map(line => line.replace(/^[-*•]\s+|^\d+[.)]\s+/u, '').trim())
+                        .map(line => line.replace(/^"|"$|^'|'$|,$/g, '').trim())
+                        .filter(Boolean);
+
+                    if (parsedLines.length === 0) return null;
+
+                    const looksLikeQueryList = parsedLines.every(line => {
+                        if (!line) return false;
+                        if (line.startsWith('{') || line.startsWith('[') || line.endsWith('}') || line.endsWith(']')) {
+                            return false;
+                        }
+                        return true;
+                    });
+
+                    return looksLikeQueryList ? parsedLines.slice(0, 5) : null;
+                };
+
                 // First remove markdown code block markers if present
-                let responseText = cleanedResponse.trim();
                 if (responseText.startsWith('```json') || responseText.startsWith('```')) {
                     // Extract content between code blocks
                     const startIndex = responseText.indexOf('\n') + 1;
@@ -2438,8 +2463,35 @@ class ResearchAutomation {
                     }
                 }
 
-                // Try to parse the cleaned JSON
-                const queries = JSON.parse(responseText);
+                let queries = null;
+                try {
+                    queries = JSON.parse(responseText);
+                } catch (parseError) {
+                    const firstArrayIndex = responseText.indexOf('[');
+                    const lastArrayIndex = responseText.lastIndexOf(']');
+                    const firstObjectIndex = responseText.indexOf('{');
+                    const lastObjectIndex = responseText.lastIndexOf('}');
+
+                    let extractedJson = '';
+                    if (firstArrayIndex !== -1 && lastArrayIndex > firstArrayIndex) {
+                        extractedJson = responseText.slice(firstArrayIndex, lastArrayIndex + 1).trim();
+                    } else if (firstObjectIndex !== -1 && lastObjectIndex > firstObjectIndex) {
+                        extractedJson = responseText.slice(firstObjectIndex, lastObjectIndex + 1).trim();
+                    }
+
+                    if (!extractedJson) {
+                        const lineParsedQueries = parseQueryListFromLines(responseText);
+                        if (!lineParsedQueries) {
+                            throw parseError;
+                        }
+
+                        queries = lineParsedQueries;
+                        responseText = JSON.stringify(lineParsedQueries);
+                    } else {
+                        queries = JSON.parse(extractedJson);
+                        responseText = extractedJson;
+                    }
+                }
 
                 // Validate that queries are in the same language
                 const validatedQueries = this.validateQueryLanguage(queries, queryLanguage, mainQuery);
@@ -2767,13 +2819,20 @@ class ResearchAutomation {
     generateBasicQueries(mainQuery) {
         // Generate some basic search queries without using AI
         const baseQuery = mainQuery.trim();
+        const currentLangData = (typeof Lang !== 'undefined' && Lang && Lang.loadedLanguages)
+            ? (Lang.loadedLanguages[Lang.getCurrentLanguage()] || {})
+            : {};
+        const fallbackLangData = (typeof Lang !== 'undefined' && Lang && Lang.loadedLanguages)
+            ? (Lang.loadedLanguages.en || {})
+            : {};
+        const localizedAnalysis = currentLangData.analysis || fallbackLangData.analysis || 'analysis';
 
         // Generate variations
         const queries = [
             baseQuery, // Original query
             `${baseQuery} ${Lang.get('factsAndStatistics')}`,
             `${Lang.get('latestResearchOn')} ${baseQuery}`,
-            `${baseQuery} ${Lang.get('analysis')}`
+            `${baseQuery} ${localizedAnalysis}`
         ];
 
         // Remove duplicates and return
