@@ -2,8 +2,64 @@ class ChatTab {
     constructor() {
         this.initialized = false;
         this.ollamaApiKeyModalPromise = null;
+        this._systemPromptSyncTimer = null;
+        window.__paiperworkSystemPromptOwner = 'chat-tab';
         window.chat = new Chat();
         window.chatInstance = window.chat;
+    }
+
+    async syncCurrentSystemPromptState(options = {}) {
+        const hashedMasterKey = options.hashedMasterKey || sessionStorage.getItem('hashedMasterKey');
+        if (!hashedMasterKey) {
+            return {
+                basePrompt: '',
+                enhancedPrompt: '',
+                didPersist: false
+            };
+        }
+
+        const systemPromptElement = document.getElementById('system-prompt');
+        const currentPrompt = systemPromptElement ? String(systemPromptElement.value || '') : '';
+
+        let storedPrompt = '';
+        try {
+            const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
+            storedPrompt = (settings && typeof settings.systemPrompt === 'string')
+                ? settings.systemPrompt
+                : '';
+        } catch (error) {
+            console.error('ChatTab: Error loading persisted system prompt:', error);
+        }
+
+        const shouldPersist = options.forcePersist === true || currentPrompt !== storedPrompt;
+        if (shouldPersist) {
+            await PaiperworkDB.saveSystemPrompt(hashedMasterKey, currentPrompt);
+        }
+
+        const enhancedPrompt = await OllamaAPI.buildCompleteSystemPrompt(hashedMasterKey, currentPrompt);
+        window.enhancedSystemPrompt = enhancedPrompt;
+        this._originalSystemPrompt = currentPrompt;
+
+        return {
+            basePrompt: currentPrompt,
+            enhancedPrompt,
+            didPersist: shouldPersist
+        };
+    }
+
+    scheduleSystemPromptSync() {
+        if (this._systemPromptSyncTimer) {
+            clearTimeout(this._systemPromptSyncTimer);
+        }
+
+        this._systemPromptSyncTimer = setTimeout(async () => {
+            this._systemPromptSyncTimer = null;
+            try {
+                await this.syncCurrentSystemPromptState();
+            } catch (error) {
+                console.error('ChatTab: Failed to sync system prompt state:', error);
+            }
+        }, 300);
     }
 
     getDefaultContextSize() {
@@ -150,13 +206,12 @@ class ChatTab {
             // Set up event handlers
             this.setupEventListeners();
 
-            const systemPromptElement = document.getElementById('system-prompt');
-            if (systemPromptElement) {
-               //console.log('ChatTab: Building complete system prompt using OllamaAPI');
-                const enhancedPrompt = await OllamaAPI.buildCompleteSystemPrompt(hashedMasterKey);
-               //console.log('ChatTab: System prompt enhanced with temporal context and insights');
-                window.enhancedSystemPrompt = enhancedPrompt; // Store for future use
-            }
+                const systemPromptElement = document.getElementById('system-prompt');
+                if (systemPromptElement) {
+                    //console.log('ChatTab: Building complete system prompt using OllamaAPI');
+                     await this.syncCurrentSystemPromptState({ hashedMasterKey });
+                    //console.log('ChatTab: System prompt enhanced with temporal context and insights');
+                }
 
             //Load conversation sessions instead of loading the full history
             const sessions = await this.loadSessionsList(hashedMasterKey);
@@ -4045,6 +4100,7 @@ class ChatTab {
 
             systemPrompt.addEventListener('input', () => {
                 saveButton.disabled = false;
+                this.scheduleSystemPromptSync();
             });
 
 
@@ -4089,8 +4145,7 @@ class ChatTab {
                     }
 
                     // Proceed with saving and reset context
-                    await PaiperworkDB.saveSystemPrompt(hashedMasterKey, newSystemPrompt);
-                    this._originalSystemPrompt = newSystemPrompt;
+                    await this.syncCurrentSystemPromptState({ hashedMasterKey, forcePersist: true });
                     saveButton.disabled = true;
 
                     // Reset the context
@@ -4166,8 +4221,7 @@ class ChatTab {
                     }
                 } else {
                     // No conversation yet, just save without warning
-                    await PaiperworkDB.saveSystemPrompt(hashedMasterKey, newSystemPrompt);
-                    this._originalSystemPrompt = newSystemPrompt;
+                    await this.syncCurrentSystemPromptState({ hashedMasterKey, forcePersist: true });
                     saveButton.disabled = true;
                     OllamaAPI.resetContext();
                 }

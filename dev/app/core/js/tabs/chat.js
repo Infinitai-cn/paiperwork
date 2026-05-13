@@ -384,6 +384,10 @@ class Chat {
 
     // Sets up the system prompt save button and its event handler
     setupSystemPromptButton() {
+        if (window.__paiperworkSystemPromptOwner === 'chat-tab') {
+            return;
+        }
+
         const saveSystemPromptButton = document.getElementById('save-system-prompt');
         if (saveSystemPromptButton) {
             // Remove any existing event listeners first
@@ -1228,28 +1232,37 @@ class Chat {
 
         progressBar.classList.add('active', 'indeterminate');
 
-        const baseSystemPrompt = document.getElementById('system-prompt').value;
         const contextSize = document.getElementById('context-selector').value;
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         this.aiResponse = '';
 
         // First load the base system prompt
-        let basePrompt;
+        let basePrompt = '';
+        let enhancedSystemPrompt = '';
         const isShortAnswer = window.lastOrchestratorDecision && window.lastOrchestratorDecision.shortAnswer;
-        if (isShortAnswer) {
-            basePrompt = (basePrompt || '') + '\n\nPlease answer in 2-3 short sentences in the same language as the user. Keep it concise and readable on mobile.';
-        }
         try {
-            const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-            basePrompt = (settings && typeof settings.systemPrompt === 'string')
-                ? settings.systemPrompt
-                : baseSystemPrompt;
+            if (window.chatTab && typeof window.chatTab.syncCurrentSystemPromptState === 'function') {
+                const promptState = await window.chatTab.syncCurrentSystemPromptState({ hashedMasterKey });
+                basePrompt = promptState.basePrompt;
+                enhancedSystemPrompt = promptState.enhancedPrompt;
+            } else {
+                const baseSystemPrompt = document.getElementById('system-prompt').value;
+                const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
+                basePrompt = (settings && typeof settings.systemPrompt === 'string')
+                    ? settings.systemPrompt
+                    : baseSystemPrompt;
+            }
         } catch (error) {
             console.error('Chat: Error loading system prompt from database:', error);
-            basePrompt = baseSystemPrompt;
+            basePrompt = document.getElementById('system-prompt').value || '';
         }
 
-        let enhancedSystemPrompt = await this.enhanceSystemPromptWithInsights(basePrompt);
+        if (isShortAnswer) {
+            basePrompt += '\n\nPlease answer in 2-3 short sentences in the same language as the user. Keep it concise and readable on mobile.';
+            enhancedSystemPrompt = await this.enhanceSystemPromptWithInsights(basePrompt);
+        } else if (!enhancedSystemPrompt) {
+            enhancedSystemPrompt = await this.enhanceSystemPromptWithInsights(basePrompt);
+        }
 
         // NOTE: WhatsApp language enforcement is now handled in OllamaAPI.buildCompleteSystemPrompt.
         // The routine will inspect window.whatsappIncomingLanguage and enforce it at the model system level.
@@ -3226,19 +3239,28 @@ class Chat {
 
             try {
                 const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-                const baseSystemPrompt = document.getElementById('system-prompt').value;
-                let basePrompt;
+                let basePrompt = '';
+                let systemPrompt = '';
                 try {
-                    const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
-                    basePrompt = (settings && typeof settings.systemPrompt === 'string')
-                        ? settings.systemPrompt
-                        : baseSystemPrompt;
+                    if (window.chatTab && typeof window.chatTab.syncCurrentSystemPromptState === 'function') {
+                        const promptState = await window.chatTab.syncCurrentSystemPromptState({ hashedMasterKey });
+                        basePrompt = promptState.basePrompt;
+                        systemPrompt = promptState.enhancedPrompt;
+                    } else {
+                        const baseSystemPrompt = document.getElementById('system-prompt').value;
+                        const settings = await PaiperworkDB.loadSettings(hashedMasterKey);
+                        basePrompt = (settings && typeof settings.systemPrompt === 'string')
+                            ? settings.systemPrompt
+                            : baseSystemPrompt;
+                    }
                 } catch (error) {
                     console.error('Chat: Error loading system prompt from database:', error);
-                    basePrompt = baseSystemPrompt;
+                    basePrompt = document.getElementById('system-prompt').value || '';
                 }
 
-                const systemPrompt = await OllamaAPI.buildCompleteSystemPrompt(hashedMasterKey, basePrompt);
+                if (!systemPrompt) {
+                    systemPrompt = await OllamaAPI.buildCompleteSystemPrompt(hashedMasterKey, basePrompt);
+                }
                 const contextSize = document.getElementById('context-selector').value;
 
                 //  ROUTE TO APPROPRIATE METHOD: Choose the right generation method
