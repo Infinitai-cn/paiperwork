@@ -38,7 +38,6 @@ class ConnectorsTab {
         this.whatsappPersonalModeButton = null;
         this.whatsappBotModeButton = null;
         this.whatsappModelLockButton = null;
-        this.whatsappPairNewDeviceButton = null;
         this.wechatButton = null;
         this.wechatServerStarted = false;
         this.wechatServerStarting = false;
@@ -322,9 +321,6 @@ If unsure, choose "chat".
                     <div class="whatsapp-model-lock-button-container">
                         <button id="whatsapp-model-lock-btn" class="connectors-mode-button connectors-mode-button-full" title="Lock AI model">Lock AI model</button>
                     </div>
-                    <div class="whatsapp-new-device-button-container" style="margin-top:16px;">
-                        <button id="whatsapp-pair-new-device-btn" class="connectors-mode-button connectors-mode-button-full connectors-mode-button-neutral" title="Pair a new WhatsApp device">Pair new device</button>
-                    </div>
                     <div class="whatsapp-clear-contexts-button-container" style="margin-top:12px;">
                         <button id="whatsapp-clear-contexts-btn" class="connectors-mode-button connectors-mode-button-full connectors-mode-button-neutral" title="Clear WhatsApp Contexts">Clear WhatsApp Contexts</button>
                     </div>
@@ -407,7 +403,6 @@ If unsure, choose "chat".
         this.whatsappPersonalModeButton = document.getElementById('whatsapp-personal-mode-btn');
         this.whatsappBotModeButton = document.getElementById('whatsapp-bot-mode-btn');
         this.whatsappModelLockButton = document.getElementById('whatsapp-model-lock-btn');
-        this.whatsappPairNewDeviceButton = document.getElementById('whatsapp-pair-new-device-btn');
         this.whatsappClearContextsButton = document.getElementById('whatsapp-clear-contexts-btn');
         this.whatsappDeleteAllPairedButton = document.getElementById('whatsapp-delete-all-paired-btn');
 
@@ -424,18 +419,6 @@ If unsure, choose "chat".
         if (this.whatsappModelLockButton) {
             this.whatsappModelLockButton.addEventListener('click', async () => {
                 await this.setWhatsappModelLock(!this.whatsappModelLocked);
-            });
-        }
-        if (this.whatsappPairNewDeviceButton) {
-            this.whatsappPairNewDeviceButton.addEventListener('click', async () => {
-                if (this._isWhatsappPairNewDeviceBlocked()) {
-                    return;
-                }
-                const readyForFreshPair = await this._prepareWhatsappFreshPairingStart();
-                if (!readyForFreshPair) {
-                    return;
-                }
-                await this.startWhatsappFreshPairing();
             });
         }
         if (this.whatsappClearContextsButton && window.DatabaseTab && typeof window.DatabaseTab.bindClearWhatsappPhoneContextsButton === 'function') {
@@ -2120,16 +2103,6 @@ If unsure, choose "chat".
         return !!(this.whatsappRestartBlockedUntil && Date.now() < this.whatsappRestartBlockedUntil);
     }
 
-    _isWhatsappPairNewDeviceBlocked() {
-        return !!(
-            this.serverStarted
-            ||
-            this.serverStopping
-            || this.serverStarting
-            || this._isWhatsappRestartBlocked()
-        );
-    }
-
     _isWhatsappStoppedServerActionBlocked() {
         return !!(
             this.serverStarted
@@ -2319,35 +2292,6 @@ If unsure, choose "chat".
             this.whatsappButton.style.cursor = 'pointer';
         }
 
-        if (this.whatsappPairNewDeviceButton) {
-            this.whatsappPairNewDeviceButton.style.width = '100%';
-            this.whatsappPairNewDeviceButton.style.padding = '12px 16px';
-            this.whatsappPairNewDeviceButton.style.borderRadius = '8px';
-            this.whatsappPairNewDeviceButton.style.fontWeight = '600';
-            this.whatsappPairNewDeviceButton.disabled = this._isWhatsappPairNewDeviceBlocked() || !this.whatsappMode;
-            if (this.serverStarted && !this.serverStarting && !this.serverStopping) {
-                this.whatsappPairNewDeviceButton.textContent = 'Pair new device';
-                this.whatsappPairNewDeviceButton.title = 'Stop the WhatsApp server before pairing a new device';
-            } else if (this._isWhatsappRestartBlocked()) {
-                this.whatsappPairNewDeviceButton.textContent = 'Please wait...';
-                this.whatsappPairNewDeviceButton.title = 'Please wait before pairing a new device';
-            } else {
-                this.whatsappPairNewDeviceButton.textContent = 'Pair new device';
-                this.whatsappPairNewDeviceButton.title = 'Pair a new WhatsApp device';
-            }
-            if (this.whatsappPairNewDeviceButton.disabled) {
-                this.whatsappPairNewDeviceButton.style.backgroundColor = 'var(--button-secondary-disabled-bg, #e5e7eb)';
-                this.whatsappPairNewDeviceButton.style.borderColor = 'var(--button-secondary-disabled-border, var(--button-secondary-border, #cbd5e1))';
-                this.whatsappPairNewDeviceButton.style.color = 'var(--button-secondary-disabled-text, #6b7280)';
-                this.whatsappPairNewDeviceButton.style.cursor = 'not-allowed';
-            } else {
-                this.whatsappPairNewDeviceButton.style.backgroundColor = 'var(--button-secondary-bg, #f5f5f5)';
-                this.whatsappPairNewDeviceButton.style.borderColor = 'var(--button-secondary-border, #cbd5e1)';
-                this.whatsappPairNewDeviceButton.style.color = 'var(--button-secondary-text, #333333)';
-                this.whatsappPairNewDeviceButton.style.cursor = 'pointer';
-            }
-        }
-
         if (this.whatsappDeleteAllPairedButton) {
             this.whatsappDeleteAllPairedButton.style.width = '100%';
             this.whatsappDeleteAllPairedButton.style.padding = '12px 16px';
@@ -2437,6 +2381,10 @@ If unsure, choose "chat".
         }
 
         return this._normalizeWhatsappDeviceIdentity(candidatePhoneNumber) || candidatePhoneNumber;
+    }
+
+    _getLocalizedText(key, fallback) {
+        return (window.Lang && typeof Lang.get === 'function' && Lang.get(key)) || fallback;
     }
 
     _escapeHtml(value) {
@@ -2586,85 +2534,12 @@ If unsure, choose "chat".
             this.setWhatsappPairButtonState(false);
             this.closeWhatsappPairModal();
             this.stopPolling();
-            this.setWhatsappModalStatus('WhatsApp unpaired and cleared from Paiperwork.');
+            this.setWhatsappModalStatus(this._getLocalizedText('whatsappUnpairedClearedStatus', 'WhatsApp unpaired and cleared from Paiperwork.'));
             this.setWhatsappMode(null);
         } catch (err) {
             console.warn('ConnectorsTab: unpairWhatsappDevice failed', err);
-            this.setWhatsappModalStatus('Failed to unpair WhatsApp. See console logs.');
+            this.setWhatsappModalStatus(this._getLocalizedText('whatsappUnpairFailedStatus', 'Failed to unpair WhatsApp. See console logs.'));
         }
-    }
-
-    async _hasPersistedWhatsappDeviceInDb() {
-        const savedDeviceId = String(this.savedWhatsappDeviceId || '').trim();
-        if (savedDeviceId) {
-            return true;
-        }
-
-        if (Array.isArray(this.savedWhatsappDevices) && this.savedWhatsappDevices.some(entry => String(entry && entry.deviceId || '').trim())) {
-            return true;
-        }
-
-        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-        if (!hashedMasterKey) {
-            return false;
-        }
-
-        try {
-            const dbHandle = await this._getPaiperworkDBHandle();
-            if (!dbHandle) {
-                return false;
-            }
-
-            if (typeof dbHandle.initializeDatabase === 'function') {
-                await dbHandle.initializeDatabase(hashedMasterKey);
-            }
-
-            if (typeof dbHandle.hasWhatsappPersistedPairingData === 'function') {
-                return !!(await dbHandle.hasWhatsappPersistedPairingData(hashedMasterKey));
-            }
-
-            const hasFn = typeof dbHandle.getWhatsappDeviceInfo === 'function';
-            if (!hasFn) {
-                return false;
-            }
-
-            const info = await dbHandle.getWhatsappDeviceInfo(hashedMasterKey);
-            const normalized = this._normalizeWhatsappDeviceCatalog(info);
-            const selectedDeviceId = String(normalized.selectedDeviceId || '').trim();
-            if (selectedDeviceId) {
-                return true;
-            }
-
-            return normalized.devices.some(entry => String(entry && entry.deviceId || '').trim());
-        } catch (err) {
-            console.warn('ConnectorsTab: _hasPersistedWhatsappDeviceInDb failed', err);
-            return false;
-        }
-    }
-
-    _confirmWhatsappFreshPairingReplacement() {
-        const confirmMessage = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappPairNewDeviceReplaceWarning'))
-            || 'A WhatsApp device is already paired in Paiperwork. Pairing a new device will remove the existing pairing before continuing. Do you want to continue?';
-        if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
-            return true;
-        }
-
-        return !!window.confirm(confirmMessage);
-    }
-
-    async _prepareWhatsappFreshPairingStart() {
-        // The first side effect after clicking Pair new device must be the warning.
-        // This method only reads local/runtime DB state before asking the user.
-        const hasPersistedDevice = await this._hasPersistedWhatsappDeviceInDb();
-        if (!hasPersistedDevice) {
-            return true;
-        }
-
-        if (!this._confirmWhatsappFreshPairingReplacement()) {
-            return false;
-        }
-
-        return this.deleteAllPairedWhatsappDevices({ skipConfirm: true, suppressSuccessStatus: true });
     }
 
     async deleteAllPairedWhatsappDevices(options = {}) {
@@ -2716,7 +2591,7 @@ If unsure, choose "chat".
             this.closeWhatsappPairModal();
             this.setWhatsappPairButtonState(false);
             if (!suppressSuccessStatus) {
-                this.setWhatsappModalStatus((window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedSuccess')) || 'Paiperwork WhatsApp DB tables cleared. Click Start server to pair a new device now.');
+                this.setWhatsappModalStatus(this._getLocalizedText('whatsappDeleteAllPairedSuccess', 'Paiperwork WhatsApp pairing data cleared. Click Start server to pair again.'));
             }
             return true;
         } catch (err) {
@@ -4141,9 +4016,9 @@ If unsure, choose "chat".
             this.savedWhatsappDeviceId = null;
             if (this.serverStarted && !this.serverStopping) {
                 await this.stopWhatsappServer();
-                this.setWhatsappModalPhase('starting', 'Saved device restore failed. Server stopped; choose another saved device or pair new.');
+                    this.setWhatsappModalPhase('starting', this._getLocalizedText('whatsappSavedRestoreFailedServerStopped', 'Saved device restore failed. Server stopped; choose another saved device or delete paired devices before starting again.'));
             } else {
-                this.setWhatsappModalStatus('Saved device restore failed. Choose another saved device or use Pair new device.');
+                    this.setWhatsappModalStatus(this._getLocalizedText('whatsappSavedRestoreFailedChooseOrDelete', 'Saved device restore failed. Choose another saved device or delete paired devices before starting again.'));
             }
             return;
         }
@@ -4255,14 +4130,14 @@ If unsure, choose "chat".
 
     _getWhatsappQrWithheldStatusMessage(data = null) {
         if (data && data.qrWithheld && this.savedWhatsappDeviceId) {
-            return 'Saved WhatsApp device found. Waiting for a confirmed reconnect result before showing a QR code. If you unpaired it from the phone, remove it from saved devices or use Pair new device.';
+            return this._getLocalizedText('whatsappQrWithheldSavedDevice', 'Saved WhatsApp device found. Waiting for a confirmed reconnect result before showing a QR code. If you unpaired it from the phone, remove it from saved devices and start the server again.');
         }
 
         if (this.savedWhatsappDeviceId) {
-            return 'Recovering saved WhatsApp session, please wait...';
+            return this._getLocalizedText('whatsappRecoveringSavedSession', 'Recovering saved WhatsApp session, please wait...');
         }
 
-        return 'Recovering WhatsApp session, please wait...';
+        return this._getLocalizedText('whatsappRecoveringSession', 'Recovering WhatsApp session, please wait...');
     }
 
     setWhatsappModalStatus(message, whiteText = false) {
@@ -4338,8 +4213,9 @@ If unsure, choose "chat".
 
     _showWindowsWhatsappStartupFailure(rawDetail = '') {
         const detail = this._extractWindowsWhatsappStartupFailureDetail(rawDetail);
-        const baseMessage = 'Windows WhatsApp startup failed, but Paiperwork stayed open. Try Start server again. If it keeps failing, rebuild or update the Windows package.';
-        const fullMessage = detail ? `${baseMessage} Detail: ${detail}` : baseMessage;
+        const baseMessage = this._getLocalizedText('whatsappWindowsStartupFailed', 'Windows WhatsApp startup failed, but Paiperwork stayed open. Try Start server again. If it keeps failing, rebuild or update the Windows package.');
+        const detailLabel = this._getLocalizedText('whatsappDetailLabel', 'Detail');
+        const fullMessage = detail ? `${baseMessage} ${detailLabel}: ${detail}` : baseMessage;
 
         if (this.whatsappModalPhase === 'starting' || this.serverStarting) {
             this.setWhatsappModalPhase('starting', fullMessage);
@@ -4360,7 +4236,7 @@ If unsure, choose "chat".
 
     setWhatsappModalPhase(phase, statusMessage = '') {
         const normalized = phase === 'qr' ? 'qr' : 'starting';
-        const desiredStartingMessage = statusMessage || 'Server starting, please wait...';
+        const desiredStartingMessage = statusMessage || this._getLocalizedText('whatsappServerStartingPleaseWait', 'Server starting, please wait...');
         const currentPhase = this.whatsappModalPhase;
 
         // Keep starting-phase UI stable during poll ticks: only update text.
@@ -4605,7 +4481,7 @@ If unsure, choose "chat".
         this.serverStarting = true;
         this.serverStopping = false;
         this.openWhatsappPairModal(true);
-        this.setWhatsappModalPhase('starting', 'Starting WhatsApp server, please wait...');
+        this.setWhatsappModalPhase('starting', this._getLocalizedText('whatsappStartingServerPleaseWait', 'Starting WhatsApp server, please wait...'));
         this.setWhatsappPairButtonState(this.isPaired);
 
         try {
@@ -4652,82 +4528,6 @@ If unsure, choose "chat".
             this.serverStopping = false;
             this.setWhatsappPairButtonState(false);
             console.error('ConnectorsTab: failed to start server', err);
-        }
-    }
-
-    async startWhatsappFreshPairing() {
-        if (!this._ensureWhatsappModelSelected()) {
-            return;
-        }
-
-        this.whatsappRemoteLogoutNoticeShown = null;
-        this.whatsappRemoteLogoutActive = false;
-        await this._syncCurrentWhatsappModeSelection();
-
-        this._setWhatsappFreshPairRequested(true);
-        this.whatsappFreshPairDeviceId = null;
-        this.whatsappSessionImportedForDevice = null;
-        this.whatsappSessionRestoreSkippedForDevice = null;
-        this.whatsappSessionRestoreStatus = '';
-        this.isPaired = false;
-
-        if (this.serverStarted) {
-            const activeDeviceId = String(this.whatsappFreshPairDeviceId || this.savedWhatsappDeviceId || '').trim();
-            try {
-                await this._clearWhatsappRuntimeSession(activeDeviceId || null);
-            } catch (err) {
-                console.warn('ConnectorsTab: failed to clear runtime session before fresh pairing restart', err);
-            }
-
-            await this.stopWhatsappServer({ suppressRestartBlock: true, preserveFreshPairRequested: true });
-            this._setWhatsappRestartBlocked(0);
-            this._setWhatsappFreshPairRequested(true);
-            this.whatsappFreshPairDeviceId = null;
-        }
-
-        const requestGeneration = this._beginWhatsappRequestGeneration();
-        this.whatsappPairModalDismissed = false;
-        this.serverStarted = true;
-        this.serverStarting = true;
-        this.serverStopping = false;
-        this.setWhatsappPairButtonState(this.isPaired);
-
-        try {
-            this.openWhatsappPairModal(true);
-        } catch (e) {
-            console.warn('ConnectorsTab: openWhatsappPairModal failed during fresh pair start', e);
-        }
-
-        try {
-            await this._loadSavedWhatsappDeviceInfo();
-            this._armWhatsappQrGracePeriod();
-
-            const data = await this.refreshWhatsappPairButton({ start: true, check: true, requestGeneration, freshPair: true });
-
-            if (!this._isWhatsappRequestActive(requestGeneration)) {
-                return;
-            }
-
-            this.serverStarting = false;
-            if (data && !(data.gatewayRunning || data.connected)) {
-                this.serverStarted = false;
-            }
-
-            this.setWhatsappPairButtonState(this.isPaired);
-
-            if (this.serverStarted && !this.isPaired && !this.whatsappPairModalDismissed) {
-                this.openWhatsappPairModal(true);
-            }
-        } catch (err) {
-            if (!this._isWhatsappRequestActive(requestGeneration, true)) {
-                return;
-            }
-            this.serverStarted = false;
-            this.serverStarting = false;
-            this.serverStopping = false;
-            this._setWhatsappFreshPairRequested(false);
-            this.setWhatsappPairButtonState(false);
-            console.error('ConnectorsTab: failed to start fresh WhatsApp pairing', err);
         }
     }
 
@@ -4920,7 +4720,7 @@ If unsure, choose "chat".
         this.stopPolling();
         this.stopWhatsappModalCountdown();
         this.setWhatsappPairButtonState(false);
-        this.setWhatsappModalStatus('WhatsApp server stopped.');
+        this.setWhatsappModalStatus(this._getLocalizedText('whatsappServerStoppedStatus', 'WhatsApp server stopped.'));
     }
 
     async refreshWhatsappPairButton(options = { start: false, check: true }) {
@@ -5012,7 +4812,7 @@ If unsure, choose "chat".
                 if (!this._isWhatsappRequestActive(requestGeneration)) {
                     return null;
                 }
-                const message = errorBody.message || 'WhatsApp gateway locked to another user session. Please stop and restart for this user key.';
+                const message = errorBody.message || this._getLocalizedText('whatsappGatewayLockedAnotherUser', 'WhatsApp gateway locked to another user session. Please stop and restart for this user key.');
                 this.setWhatsappPairButtonState(false);
                 this.setWhatsappModalStatus(message);
                 console.warn('ConnectorsTab: refreshWhatsappPairButton user mismatch', errorBody);
@@ -5024,7 +4824,7 @@ If unsure, choose "chat".
                     return null;
                 }
                 this.setWhatsappPairButtonState(false);
-                this.setWhatsappModalStatus(String((errorBody && errorBody.message) || 'Reconnect could not resolve the stored WhatsApp device. Use Pair new device if the saved pairing is no longer valid.'));
+                this.setWhatsappModalStatus(String((errorBody && errorBody.message) || this._getLocalizedText('whatsappReconnectStoredDeviceFailed', 'Reconnect could not resolve the stored WhatsApp device. Delete paired device(s) and start the server again if the saved pairing is no longer valid.')));
                 return null;
             }
             if (!res.ok) {
@@ -5117,19 +4917,19 @@ If unsure, choose "chat".
             let modalStatus;
 
             if (options.start) {
-                modalStatus = 'Starting gateway...';
+                modalStatus = this._getLocalizedText('whatsappStartingGateway', 'Starting gateway...');
             } else if (data.gatewayRunning) {
                 if (data.loggedIn) {
-                    modalStatus = 'WhatsApp connected.';
+                    modalStatus = this._getLocalizedText('whatsappConnectedStatus', 'WhatsApp connected.');
                 } else if (data.qrWithheld) {
                     modalStatus = this._getWhatsappQrWithheldStatusMessage(data);
                 } else if (data.qrDataUrl) {
-                    modalStatus = 'Gateway running, scan QR code in the window.';
+                    modalStatus = this._getLocalizedText('whatsappGatewayRunningScanQr', 'Gateway running, scan QR code in the window.');
                 } else {
-                    modalStatus = 'Gateway running; waiting for session recovery (no QR yet).';
+                    modalStatus = this._getLocalizedText('whatsappGatewayWaitingSessionRecovery', 'Gateway running; waiting for session recovery (no QR yet).');
                 }
             } else {
-                modalStatus = 'WhatsApp gateway is not running. Click Pair to start.';
+                modalStatus = this._getLocalizedText('whatsappGatewayNotRunningStartServer', 'WhatsApp gateway is not running. Click Start server to start.');
             }
 
             // Avoid flicker: keep the explicit starting-phase message stable
@@ -5558,7 +5358,7 @@ If unsure, choose "chat".
             document.head.appendChild(spinnerStyle);
         }
 
-        this.setWhatsappModalPhase('starting', 'Server starting, please wait...');
+        this.setWhatsappModalPhase('starting', this._getLocalizedText('whatsappServerStartingPleaseWait', 'Server starting, please wait...'));
 
         // Start polling for QR code
         this.startQrPolling(modal, this.whatsappRequestGeneration);
@@ -5648,7 +5448,7 @@ If unsure, choose "chat".
                             this.serverStarted = true;
                             this.serverStarting = false;
                             this.setWhatsappPairButtonState(false);
-                            this.setWhatsappModalPhase('starting', 'Recovering WhatsApp session, please wait...');
+                            this.setWhatsappModalPhase('starting', this._getLocalizedText('whatsappRecoveringSession', 'Recovering WhatsApp session, please wait...'));
                             unavailablePollCount = 0;
                             return;
                         }
@@ -5659,7 +5459,7 @@ If unsure, choose "chat".
                         this.stopPolling();
                         this.stopWhatsappWebsocketListener();
                         this.setWhatsappPairButtonState(false);
-                        this.setWhatsappModalPhase('starting', 'WhatsApp server stopped. Click Pair to start.');
+                        this.setWhatsappModalPhase('starting', this._getLocalizedText('whatsappServerStoppedStartServer', 'WhatsApp server stopped. Click Start server to start again.'));
                         return;
                     }
 
@@ -5668,8 +5468,8 @@ If unsure, choose "chat".
                     // server-cached QR image directly. The server will return
                     // cached image bytes even when the gateway API is transient.
                     const startupWaitMessage = this._shouldDelayWhatsappQrRender()
-                        ? 'Recovering WhatsApp session, please wait...'
-                        : 'Server starting, please wait...';
+                        ? this._getLocalizedText('whatsappRecoveringSession', 'Recovering WhatsApp session, please wait...')
+                        : this._getLocalizedText('whatsappServerStartingPleaseWait', 'Server starting, please wait...');
                     this.setWhatsappModalPhase('starting', startupWaitMessage);
                     if (this._shouldDelayWhatsappQrRender()) {
                         return;
@@ -5705,7 +5505,7 @@ If unsure, choose "chat".
                         console.warn('ConnectorsTab: cached QR fetch attempt failed', err);
                     }
 
-                    this.setWhatsappModalPhase('starting', 'Server starting, please wait...');
+                    this.setWhatsappModalPhase('starting', this._getLocalizedText('whatsappServerStartingPleaseWait', 'Server starting, please wait...'));
                     return;
                 }
 
@@ -5779,7 +5579,7 @@ If unsure, choose "chat".
                 if (!qrUrl) {
                     const noQrStatus = data.qrWithheld
                         ? this._getWhatsappQrWithheldStatusMessage(data)
-                        : 'Server starting, please wait...';
+                        : this._getLocalizedText('whatsappServerStartingPleaseWait', 'Server starting, please wait...');
                     this.setWhatsappModalPhase('starting', noQrStatus);
                 }
 
