@@ -7435,14 +7435,21 @@ class ConnectorWhatsapp {
         }
 
         const title = String(presentationItem.title || 'SlideForge Presentation').trim() || 'SlideForge Presentation';
+        const finalSlideCount = window.PromptedPresentationWorkflow && typeof window.PromptedPresentationWorkflow.countSlidesInPromptableHtml === 'function'
+            ? window.PromptedPresentationWorkflow.countSlidesInPromptableHtml(normalizedHtml)
+            : 0;
         const filename = this._sanitizeWhatsappPresentationFilename(title);
-        const blob = new Blob([normalizedHtml], { type: 'text/html' });
+        const exportHtml = window.PromptedPresentationWorkflow && typeof window.PromptedPresentationWorkflow.buildStandalonePromptableHtml === 'function'
+            ? await window.PromptedPresentationWorkflow.buildStandalonePromptableHtml(normalizedHtml, null, { includeEditorShell: true })
+            : normalizedHtml;
+        const blob = new Blob([exportHtml], { type: 'text/html' });
         await this.postWhatsappFile(phone, blob, filename, `💬 ${title}`);
 
         const sentText = await this._getLocalizedLangText(
             language,
-            'presentationSent',
-            'Presentation created and sent as an HTML file.'
+            finalSlideCount > 0 ? 'presentationSentWithSlides' : 'presentationSent',
+            finalSlideCount > 0 ? 'Presentation created with {slides} slides and sent as an HTML file.' : 'Presentation created and sent as an HTML file.',
+            finalSlideCount > 0 ? { slides: finalSlideCount } : undefined
         );
         await this.postWhatsappText(phone, `💬 ${sentText}`);
         return true;
@@ -8675,6 +8682,7 @@ class ConnectorWhatsapp {
         const clampedSlideCount = Math.max(1, Math.min(20, Number(slideCount) || 5));
         const deriveCoverFromSourceSummary = !!(options && options.deriveCoverFromSourceSummary);
         const useWebSearch = !!(options && options.useWebSearch);
+        let resolvedSourceText = sanitizedSourceText;
 
         /*console.log('[ConnectorWhatsapp][presentation] Sending source text to PromptedPresentationWorkflow', {
             slideCount: clampedSlideCount,
@@ -8701,8 +8709,8 @@ class ConnectorWhatsapp {
         }
 
         let prompt = sanitizedExtraRequestText
-            ? workflow.buildUserPromptWithExtra(clampedSlideCount, sanitizedSourceText, sanitizedExtraRequestText)
-            : workflow.buildUserPrompt(clampedSlideCount, sanitizedSourceText);
+            ? workflow.buildUserPromptWithExtra(null, resolvedSourceText, sanitizedExtraRequestText, useWebSearch)
+            : workflow.buildUserPromptWithExtra(null, resolvedSourceText, '', useWebSearch);
 
         if (originalHtmlToModify) {
             prompt = [
@@ -8717,7 +8725,7 @@ class ConnectorWhatsapp {
                 sanitizedExtraRequestText || 'Keep the existing presentation structure and improve it using the source context below.',
                 '',
                 'Original presentation source/context:',
-                sanitizedSourceText
+                resolvedSourceText
             ].join('\n');
         }
 
@@ -8744,9 +8752,14 @@ class ConnectorWhatsapp {
         }, timeoutMs);
         workflow.currentAbortController = abortController;
         if (useWebSearch && typeof workflow.ensureWebSearchModuleLoaded === 'function') {
+            console.log('[ConnectorWhatsapp][presentation] Loading web search module for SlideForge generation');
             await workflow.ensureWebSearchModuleLoaded();
         }
         workflow.isPromptableWebSearchEnabled = useWebSearch;
+        console.log('[ConnectorWhatsapp][presentation] Web search flag applied to SlideForge workflow', {
+            previousWebSearchState,
+            currentWebSearchState: !!workflow.isPromptableWebSearchEnabled
+        });
         if (typeof workflow.updatePromptableWebSearchUiState === 'function') {
             workflow.updatePromptableWebSearchUiState();
         }
@@ -8755,6 +8768,50 @@ class ConnectorWhatsapp {
         }
         if (typeof workflow.showStreamingHtmlPreview === 'function') {
             workflow.showStreamingHtmlPreview(window.Lang ? (Lang.get('generatingSlideForge') || 'Generating SlideForge...') : 'Generating SlideForge...');
+        }
+
+        if (useWebSearch && typeof workflow.buildWebSearchSourceText === 'function') {
+            console.log('[ConnectorWhatsapp][presentation] Executing web search for presentation source');
+            const webSearchSourceText = await workflow.buildWebSearchSourceText(sanitizedSourceText, abortController.signal);
+            if (String(webSearchSourceText || '').trim()) {
+                resolvedSourceText = String(webSearchSourceText).trim();
+                console.log('[ConnectorWhatsapp][presentation] Web search source prepared', {
+                    sourceLength: resolvedSourceText.length,
+                    sourcePreview: resolvedSourceText.slice(0, 180)
+                });
+                prompt = sanitizedExtraRequestText
+                    ? workflow.buildUserPromptWithExtra(null, resolvedSourceText, sanitizedExtraRequestText, true)
+                    : workflow.buildUserPromptWithExtra(null, resolvedSourceText, '', true);
+                if (originalHtmlToModify) {
+                    prompt = [
+                        'Modify the existing SlideForge HTML presentation below.',
+                        'Use this HTML as the original code to edit instead of creating a completely different presentation from scratch.',
+                        'Preserve the existing deck structure, slide flow, styling, and content unless the latest request explicitly changes them.',
+                        'Do not mention or imply that any content comes from web search, search results, or web research.',
+                        'Avoid labels or disclaimers that reference web search in the final presentation.',
+                        '',
+                        'Original HTML to modify:',
+                        originalHtmlToModify,
+                        '',
+                        'Requested presentation changes:',
+                        sanitizedExtraRequestText || 'Keep the existing presentation structure and improve it using the source context below.',
+                        '',
+                        'Original presentation source/context:',
+                        resolvedSourceText
+                    ].join('\n');
+                }
+                if (deriveCoverFromSourceSummary) {
+                    prompt = [
+                        'For this presentation only, derive the cover slide title and subtitle from the source summary content itself.',
+                        'Do not use orchestration wrappers, filenames by themselves, or phrases such as "Create a presentation" or "based on the content of" as the cover title or subtitle unless the summary explicitly centers on those words.',
+                        'Write a concise presentation-ready title and a subtitle that reflect the summary\'s actual topic and main takeaway.',
+                        '',
+                        prompt
+                    ].join('\n');
+                }
+            } else {
+                console.log('[ConnectorWhatsapp][presentation] Web search returned no source text; falling back to original presentation source');
+            }
         }
 
         try {
@@ -8856,14 +8913,22 @@ class ConnectorWhatsapp {
             || !!(activePresentationSession && activePresentationSession.kind === 'presentation' && activePresentationSession.useWebSearch);
         const slideCount = this._estimatePromptablePresentationSlides(effectiveSourceText);
 
+        console.log('[ConnectorWhatsapp][presentation] Web search decision', {
+            useWebSearch,
+            requestedViaPromptCue: this._presentationRequestWantsWebSearch(originalRequestText),
+            inheritedFromActiveSession: !!(activePresentationSession && activePresentationSession.kind === 'presentation' && activePresentationSession.useWebSearch),
+            slideCount,
+            requestPreview: String(originalRequestText || '').slice(0, 180)
+        });
+
         this._clearPendingPresentationSelection(phone);
 
         const creatingText = await this._getLocalizedLangText(
             language,
             useWebSearch ? 'presentationCreatingWithWeb' : 'presentationCreating',
             useWebSearch
-                ? 'Creating a promptable SlideForge presentation with {slides} slides using web search...'
-                : 'Creating a promptable SlideForge presentation with {slides} slides...',
+                ? 'Creating a promptable SlideForge presentation using web search...'
+                : 'Creating a promptable SlideForge presentation...',
             { slides: slideCount }
         );
         await this.postWhatsappText(phone, `💬 ${creatingText}`);
@@ -8888,8 +8953,14 @@ class ConnectorWhatsapp {
             const title = window.PromptedPresentationWorkflow && typeof window.PromptedPresentationWorkflow.extractPresentationTitle === 'function'
                 ? window.PromptedPresentationWorkflow.extractPresentationTitle(normalizedHtml)
                 : 'SlideForge Presentation';
+            const finalSlideCount = window.PromptedPresentationWorkflow && typeof window.PromptedPresentationWorkflow.countSlidesInPromptableHtml === 'function'
+                ? window.PromptedPresentationWorkflow.countSlidesInPromptableHtml(normalizedHtml)
+                : 0;
             const filename = this._sanitizeWhatsappPresentationFilename(title);
-            const blob = new Blob([normalizedHtml], { type: 'text/html' });
+            const exportHtml = window.PromptedPresentationWorkflow && typeof window.PromptedPresentationWorkflow.buildStandalonePromptableHtml === 'function'
+                ? await window.PromptedPresentationWorkflow.buildStandalonePromptableHtml(normalizedHtml, null, { includeEditorShell: true })
+                : normalizedHtml;
+            const blob = new Blob([exportHtml], { type: 'text/html' });
 
             if (shouldKeepPresentationFollowUp) {
                 phoneContext = (await this._setWhatsappFollowUpSession(phone, {
@@ -8968,8 +9039,9 @@ class ConnectorWhatsapp {
 
             const sentText = await this._getLocalizedLangText(
                 language,
-                'presentationSent',
-                'Presentation created and sent as an HTML file.'
+                finalSlideCount > 0 ? 'presentationSentWithSlides' : 'presentationSent',
+                finalSlideCount > 0 ? 'Presentation created with {slides} slides and sent as an HTML file.' : 'Presentation created and sent as an HTML file.',
+                finalSlideCount > 0 ? { slides: finalSlideCount } : undefined
             );
             await this.postWhatsappText(phone, `💬 ${sentText}`);
             if (shouldKeepPresentationFollowUp) {
