@@ -2448,6 +2448,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
             presentationCreating: 'Creando una presentación promptable de SlideForge...',
             presentationCreatingWithWeb: 'Creando una presentación promptable de SlideForge usando búsqueda web...',
         presentationSent: 'Presentación creada y enviada como archivo HTML.',
+        presentationSentWithSlides: 'Presentación creada con {slides} diapositivas y enviada como archivo HTML.',
         presentationFailed: 'No se pudo generar la presentación. Por favor intenta de nuevo más tarde.',
         presentationSendFailed: 'La presentación se creó pero no se pudo enviar a WeChat. Por favor, comprueba la conexión e inténtalo de nuevo.',
         wechatArtifactSendFailed: 'La miniapp se creó pero no se pudo enviar a WeChat. Por favor, comprueba la conexión e inténtalo de nuevo.',

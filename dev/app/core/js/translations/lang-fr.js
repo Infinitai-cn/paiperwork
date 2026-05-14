@@ -2552,6 +2552,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
             presentationCreating: 'Création d\'une présentation promptable SlideForge...',
             presentationCreatingWithWeb: 'Création d\'une présentation promptable SlideForge avec recherche web...',
         presentationSent: 'Présentation créée et envoyée en fichier HTML.',
+        presentationSentWithSlides: 'Présentation créée avec {slides} diapositives et envoyée en fichier HTML.',
         presentationFailed: 'La génération de la présentation a échoué. Veuillez réessayer plus tard.',
         presentationSendFailed: 'La présentation a été créée, mais n’a pas pu être envoyée à WeChat. Veuillez vérifier la connexion et réessayer.',
         wechatArtifactSendFailed: 'La miniapp a été créée, mais n’a pas pu être envoyée à WeChat. Veuillez vérifier la connexion et réessayer.',
