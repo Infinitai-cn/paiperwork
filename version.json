@@ -1,12 +1,17 @@
 {
-    "version": "1.2.7",
-    "releaseDate": "2026-04-24",
+    "version": "1.2.8",
+    "releaseDate": "2026-05-14",
     "notes": [
         "<p><strong>What's new:</strong></p>",
-        "<p>Revamped Artworks engine for HTML Style Transfer and Overlay text</p>",
-        "<p>Overlay Text now editable</p>",
-        "<p>HTML Style transfer now can edit text and change pictures</p>",
-        "<p>More bug fixes.</p>"
+        "<p>Connector WhatsApp: To improve stability now only one device will be saved in the database.</p>",
+        "<p>Connector WhatsApp: New modes functionality, you stay in Chat mode unless any other mode requested (Internet search,</p>", 
+        "<p>documents, research, knowledge base, presentations, mini apps) Check help file for guidance.</p>",
+        "<p>Connectors tab: New WeChat functionality.</p>",
+        "<p>Connectors tab: Improved WhatsApp engine. Documents tab: Click on a document card in Documents tab now scrolls to the top to show the Summary/Questioning mode</p>",
+        "<p>Documents tab: Document summaries can now be sent directly to create presentations or mini apps.</p>",
+        "<p>Artworks tab: New engine, fonts export 100% accurate.</p>",
+        "<p>Artworks tab: Now you can use a website link for fonts and colors inspiration.</p>",
+        "<p>Translate tab removed, translate docs functionality is sub par, will come back when a better solution is found.</p>"
     ],
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
     "requiredUpdate": false
