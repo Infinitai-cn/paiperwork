@@ -39,6 +39,7 @@ class ConnectorsTab {
         this.whatsappBotModeButton = null;
         this.whatsappModelLockButton = null;
         this.wechatButton = null;
+        this.wechatModelLockButton = null;
         this.wechatServerStarted = false;
         this.wechatServerStarting = false;
         this.wechatServerStopping = false;
@@ -58,6 +59,7 @@ class ConnectorsTab {
         this.whatsappClearContextsButton = null;
         this.whatsappDeleteAllPairedButton = null;
         this.whatsappModelLocked = false;
+        this.wechatModelLocked = false;
         this.whatsappUnpairButton = null;
         this.savedWhatsappDeviceId = null;
         this.savedWhatsappDevices = [];
@@ -497,6 +499,8 @@ If unsure, choose "chat".
     setupWechatButton() {
         if (!this.wechatButton) return;
 
+        this.wechatModelLockButton = document.getElementById('wechat-model-lock-btn');
+
         this.wechatButton.addEventListener('click', async () => {
             if (this.wechatServerStopping) {
                 return;
@@ -508,12 +512,23 @@ If unsure, choose "chat".
             await this.stopWechatServer();
         });
 
+        if (this.wechatModelLockButton) {
+            this.wechatModelLockButton.addEventListener('click', async () => {
+                await this.setWechatModelLock(!this.wechatModelLocked);
+            });
+        }
+
         this.wechatClearContextsButton = document.getElementById('wechat-clear-contexts-btn');
         if (this.wechatClearContextsButton) {
             this.wechatClearContextsButton.addEventListener('click', async () => {
                 await this.clearAllWechatContexts();
             });
         }
+
+        this.loadWechatModelLockFromDb().catch(err => {
+            console.warn('ConnectorsTab: loadWechatModelLockFromDb failed', err);
+            this.setWechatModelLock(false, true);
+        });
 
         this.setWechatPairButtonState(false);
         (async () => {
@@ -2507,6 +2522,41 @@ If unsure, choose "chat".
         }
     }
 
+    async setWechatModelLock(locked, fromDB = false) {
+        const normalizedLocked = locked === true || String(locked).toLowerCase() === 'true';
+        this.wechatModelLocked = normalizedLocked;
+
+        if (this.wechatModelLockButton) {
+            this.wechatModelLockButton.classList.toggle('active', normalizedLocked);
+            this.wechatModelLockButton.textContent = normalizedLocked
+                ? this._getLocalizedText('wechatModelLockedButton', 'AI model locked')
+                : this._getLocalizedText('wechatModelLockButton', 'Lock AI model');
+            this.wechatModelLockButton.title = normalizedLocked
+                ? this._getLocalizedText('wechatModelLockedButtonTitle', 'AI model changes from WeChat are disabled')
+                : this._getLocalizedText('wechatModelLockButtonTitle', 'Prevent WeChat from changing the AI model');
+            this.wechatModelLockButton.setAttribute('aria-pressed', normalizedLocked ? 'true' : 'false');
+        }
+
+        if (typeof window !== 'undefined') {
+            window.wechatModelLocked = normalizedLocked;
+        }
+
+        const dbInstance = window.PaiperworkDB || (typeof PaiperworkDB !== 'undefined' ? PaiperworkDB : null);
+        if (!fromDB && dbInstance && typeof dbInstance.savewechatModelLock === 'function') {
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+            if (hashedMasterKey) {
+                try {
+                    const saveResult = await dbInstance.savewechatModelLock(hashedMasterKey, normalizedLocked);
+                    if (!saveResult) {
+                        console.warn('ConnectorsTab: savewechatModelLock returned false');
+                    }
+                } catch (err) {
+                    console.warn('ConnectorsTab: savewechatModelLock failed', err);
+                }
+            }
+        }
+    }
+
     async unpairWhatsappDevice() {
         //console.log('ConnectorsTab: unpairWhatsappDevice called');
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
@@ -2688,6 +2738,39 @@ If unsure, choose "chat".
                 return;
             }
             this.setWhatsappModelLock(false, true);
+        }
+    }
+
+    async loadWechatModelLockFromDb(retryCount = 0) {
+        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+        const dbHandle = window.PaiperworkDB || (typeof PaiperworkDB !== 'undefined' ? PaiperworkDB : null);
+
+        if (!hashedMasterKey || !dbHandle || typeof dbHandle.getwechatModelLock !== 'function') {
+            if (retryCount < 5) {
+                setTimeout(() => this.loadWechatModelLockFromDb(retryCount + 1), 300);
+                return;
+            }
+
+            this.setWechatModelLock(false, true);
+            return;
+        }
+
+        try {
+            const dbInstance = window.PaiperworkDB || (typeof PaiperworkDB !== 'undefined' ? PaiperworkDB : null);
+            if (!dbInstance) {
+                throw new Error('PaiperworkDB is not available');
+            }
+
+            await dbInstance.initializeDatabase(hashedMasterKey);
+            const locked = await dbInstance.getwechatModelLock(hashedMasterKey);
+            await this.setWechatModelLock(locked, true);
+        } catch (err) {
+            console.warn('ConnectorsTab: loadWechatModelLockFromDb failed', err);
+            if (retryCount < 5) {
+                setTimeout(() => this.loadWechatModelLockFromDb(retryCount + 1), 300);
+                return;
+            }
+            this.setWechatModelLock(false, true);
         }
     }
 
