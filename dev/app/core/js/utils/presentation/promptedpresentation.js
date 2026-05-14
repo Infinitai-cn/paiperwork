@@ -1558,7 +1558,334 @@ class PromptedPresentationWorkflow {
 		return doctype ? `${doctype}\n${body}` : body;
 	}
 
-	static async buildStandalonePromptableHtml(htmlContent, abortSignal = null) {
+	static countSlidesInPromptableHtml(htmlContent) {
+		const raw = String(htmlContent || '').trim();
+		if (!raw) {
+			return 0;
+		}
+
+		let documentRef = null;
+		try {
+			const parser = new DOMParser();
+			documentRef = parser.parseFromString(raw, 'text/html');
+		} catch (_error) {
+			return 0;
+		}
+
+		if (!documentRef || !documentRef.body) {
+			return 0;
+		}
+
+		const countUnique = (selector) => {
+			try {
+				const nodes = Array.from(documentRef.querySelectorAll(selector)).filter((node) => {
+					if (!node || node.closest('#pw-standalone-editor-toolbar')) {
+						return false;
+					}
+					const className = String(node.className || '').toLowerCase();
+					if (className.includes('background') || className.includes('progress') || className.includes('counter')) {
+						return false;
+					}
+					return true;
+				});
+				return new Set(nodes).size;
+			} catch (_error) {
+				return 0;
+			}
+		};
+
+		const selectorCandidates = [
+			'.slide',
+			'.swiper-slide',
+			'[data-slide]',
+			'section.slide, article.slide',
+			'section[data-slide], article[data-slide]'
+		];
+
+		for (const selector of selectorCandidates) {
+			const count = countUnique(selector);
+			if (count > 0) {
+				return count;
+			}
+		}
+
+		const topLevelSections = countUnique('body > section, main > section, .slides > section, .reveal .slides > section');
+		if (topLevelSections > 1) {
+			return topLevelSections;
+		}
+
+		return documentRef.body && String(documentRef.body.textContent || '').trim() ? 1 : 0;
+	}
+
+	static injectStandalonePromptableEditor(documentRef, options = {}) {
+		if (!documentRef || !documentRef.body) {
+			return;
+		}
+
+		const resolvedOptions = options || {};
+		if (!resolvedOptions.includeEditorShell) {
+			return;
+		}
+
+		let head = documentRef.head;
+		if (!head && documentRef.documentElement) {
+			head = documentRef.createElement('head');
+			documentRef.documentElement.insertBefore(head, documentRef.body || documentRef.documentElement.firstChild);
+		}
+
+		const styleId = 'pw-standalone-editor-style';
+		const existingStyle = head ? head.querySelector(`#${styleId}`) : null;
+		const styleText = [
+			':root{--pw-standalone-editor-bg:rgba(15,23,42,.88);--pw-standalone-editor-fg:#f8fafc;--pw-standalone-editor-accent:#f59e0b;--pw-standalone-editor-border:rgba(255,255,255,.15);--pw-standalone-editor-shadow:0 18px 40px rgba(15,23,42,.28);}',
+			'@media (prefers-color-scheme: light){:root{--pw-standalone-editor-bg:rgba(255,255,255,.92);--pw-standalone-editor-fg:#0f172a;--pw-standalone-editor-border:rgba(15,23,42,.12);--pw-standalone-editor-shadow:0 18px 40px rgba(15,23,42,.16);}}',
+			'#pw-standalone-editor-toolbar{position:fixed;top:18px;right:18px;z-index:2147483646;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:999px;background:var(--pw-standalone-editor-bg);color:var(--pw-standalone-editor-fg);border:1px solid var(--pw-standalone-editor-border);box-shadow:var(--pw-standalone-editor-shadow);backdrop-filter:blur(16px);font:600 13px/1.2 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;}',
+			':fullscreen #pw-standalone-editor-toolbar,:-webkit-full-screen #pw-standalone-editor-toolbar,html:fullscreen #pw-standalone-editor-toolbar,html:-webkit-full-screen #pw-standalone-editor-toolbar,body:fullscreen #pw-standalone-editor-toolbar,body:-webkit-full-screen #pw-standalone-editor-toolbar{display:none !important;}',
+			'#pw-standalone-editor-toolbar button{appearance:none;border:0;border-radius:999px;padding:9px 14px;font:inherit;cursor:pointer;background:rgba(148,163,184,.18);color:inherit;transition:background .18s ease, transform .18s ease;}',
+			'#pw-standalone-editor-toolbar button:hover{background:rgba(148,163,184,.28);transform:translateY(-1px);}',
+			'#pw-standalone-editor-toolbar button[data-active="true"]{background:var(--pw-standalone-editor-accent);color:#111827;}',
+			'#pw-standalone-editor-toolbar .pw-standalone-editor-save{background:var(--pw-standalone-editor-accent);color:#111827;}',
+			'#pw-standalone-editor-toolbar .pw-standalone-editor-save:hover{background:#fbbf24;}',
+			'#pw-standalone-editor-toolbar .pw-standalone-editor-hint{font-weight:500;opacity:.82;white-space:nowrap;}',
+			'.pw-standalone-editing [data-pw-editable="true"]{outline:2px dashed rgba(245,158,11,.9);outline-offset:4px;cursor:text;}',
+			'.pw-standalone-image-replace img{cursor:pointer !important;}',
+			'img[data-pw-image-selected="true"]{cursor:pointer !important;box-shadow:0 0 0 3px rgba(245,158,11,.92),0 0 0 10px rgba(245,158,11,.18) !important;}',
+			'@media (max-width: 720px){#pw-standalone-editor-toolbar{top:10px;right:10px;left:10px;justify-content:center;flex-wrap:wrap;border-radius:20px;}#pw-standalone-editor-toolbar .pw-standalone-editor-hint{width:100%;text-align:center;}}'
+		].join('');
+
+		if (existingStyle) {
+			existingStyle.textContent = styleText;
+		} else if (head) {
+			const style = documentRef.createElement('style');
+			style.id = styleId;
+			style.textContent = styleText;
+			head.appendChild(style);
+		}
+
+		const existingToolbar = documentRef.getElementById('pw-standalone-editor-toolbar');
+		if (existingToolbar) {
+			existingToolbar.remove();
+		}
+
+		const existingFileInput = documentRef.getElementById('pw-standalone-editor-image-input');
+		if (existingFileInput) {
+			existingFileInput.remove();
+		}
+
+		const toolbar = documentRef.createElement('div');
+		toolbar.id = 'pw-standalone-editor-toolbar';
+		toolbar.innerHTML = [
+			'<button type="button" data-role="toggle-text-edit">Edit text</button>',
+			'<button type="button" data-role="toggle-image-replace">Replace image</button>',
+			'<button type="button" class="pw-standalone-editor-save" data-role="save-html">Save</button>',
+			'<span class="pw-standalone-editor-hint" data-role="hint">Offline editing enabled</span>'
+		].join('');
+
+		const imageInput = documentRef.createElement('input');
+		imageInput.id = 'pw-standalone-editor-image-input';
+		imageInput.type = 'file';
+		imageInput.accept = 'image/*';
+		imageInput.hidden = true;
+
+		documentRef.body.appendChild(toolbar);
+		documentRef.body.appendChild(imageInput);
+
+		const scriptId = 'pw-standalone-editor-script';
+		const existingScript = documentRef.getElementById(scriptId);
+		if (existingScript) {
+			existingScript.remove();
+		}
+
+		const script = documentRef.createElement('script');
+		script.id = scriptId;
+		script.textContent = [
+			'(function(){',
+			'  if (window.__pwStandaloneEditorBound) return;',
+			'  window.__pwStandaloneEditorBound = true;',
+			'  var doc = document;',
+			'  var body = doc.body;',
+			'  if (!body) return;',
+			'  var toolbar = doc.getElementById("pw-standalone-editor-toolbar");',
+			'  var imageInput = doc.getElementById("pw-standalone-editor-image-input");',
+			'  if (!toolbar || !imageInput) return;',
+			'  var textButton = toolbar.querySelector("[data-role=toggle-text-edit]");',
+			'  var imageButton = toolbar.querySelector("[data-role=toggle-image-replace]");',
+			'  var saveButton = toolbar.querySelector("[data-role=save-html]");',
+			'  var hint = toolbar.querySelector("[data-role=hint]");',
+			'  var activeImage = null;',
+			'  var editableSelector = "h1,h2,h3,h4,h5,h6,p,li,blockquote,figcaption,td,th,em,strong,span";',
+			'  var updateHint = function(message){ if (hint) { hint.textContent = message; } };',
+			'  var setButtonState = function(button, isActive){ if (button) { button.setAttribute("data-active", isActive ? "true" : "false"); } };',
+				'  var isVisible = function(element){',
+				'    if (!element) return false;',
+				'    try {',
+				'      var rect = element.getBoundingClientRect();',
+				'      var style = window.getComputedStyle ? window.getComputedStyle(element) : null;',
+				'      if (style && (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || "1") === 0)) return false;',
+				'      return rect.width > 0 && rect.height > 0;',
+				'    } catch (_error) {',
+				'      return true;',
+				'    }',
+				'  };',
+				'  var getAllStandaloneImages = function(){',
+				'    return Array.prototype.slice.call(doc.querySelectorAll("img")).filter(function(node){ return node && !node.closest("#pw-standalone-editor-toolbar"); });',
+				'  };',
+				'  var getCurrentSlideElement = function(){',
+				'    var selectors = [',
+				'      ".slide.active",',
+				'      ".swiper-slide-active",',
+				'      ".swiper-slide-active img",',
+				'      ".reveal .slides section.present",',
+				'      ".reveal .slides section.stack.present",',
+				'      "section[data-slide].active",',
+				'      "article[data-slide].active",',
+				'      "section[aria-hidden=\"false\"]",',
+				'      "article[aria-hidden=\"false\"]"',
+				'    ];',
+				'    for (var i = 0; i < selectors.length; i++) {',
+				'      try {',
+				'        var match = doc.querySelector(selectors[i]);',
+				'        if (match) {',
+				'          return String(match.tagName || "").toLowerCase() === "img" ? match.closest("section,article,div") || match.parentElement : match;',
+				'        }',
+				'      } catch (_error) {}',
+				'    }',
+				'    var slideCandidates = Array.prototype.slice.call(doc.querySelectorAll(".slide,.swiper-slide,section[data-slide],article[data-slide],.reveal .slides section,body > section,main > section")).filter(isVisible);',
+				'    return slideCandidates.length ? slideCandidates[0] : null;',
+				'  };',
+				'  var getAutoTargetImage = function(){',
+				'    var currentSlide = getCurrentSlideElement();',
+				'    if (currentSlide) {',
+				'      var slideImages = Array.prototype.slice.call(currentSlide.querySelectorAll("img")).filter(isVisible);',
+				'      if (slideImages.length) return slideImages[0];',
+				'    }',
+				'    var visibleImages = getAllStandaloneImages().filter(isVisible);',
+				'    if (visibleImages.length) return visibleImages[0];',
+				'    var allImages = getAllStandaloneImages();',
+				'    return allImages.length ? allImages[0] : null;',
+				'  };',
+			'  var setActiveImage = function(image){',
+			'    Array.prototype.slice.call(doc.querySelectorAll("img[data-pw-image-selected=\"true\"]")).forEach(function(node){ node.removeAttribute("data-pw-image-selected"); });',
+			'    activeImage = image || null;',
+			'    if (activeImage) { activeImage.setAttribute("data-pw-image-selected", "true"); }',
+			'  };',
+			'  var openImagePicker = function(){',
+			'    if (!activeImage) {',
+				'      setActiveImage(getAutoTargetImage());',
+				'    }',
+				'    if (!activeImage) {',
+			'      setImageReplaceMode(true);',
+				'      updateHint("No image found on this slide");',
+			'      return;',
+			'    }',
+			'    imageInput.click();',
+			'  };',
+			'  var getEditableElements = function(){ return Array.prototype.slice.call(doc.body.querySelectorAll(editableSelector)).filter(function(node){ return !node.closest("#pw-standalone-editor-toolbar") && String((node.textContent || "")).trim(); }); };',
+			'  var setTextEditing = function(enabled){',
+			'    body.classList.toggle("pw-standalone-editing", enabled);',
+			'    getEditableElements().forEach(function(node){',
+			'      if (enabled) {',
+			'        node.setAttribute("contenteditable", "true");',
+			'        node.setAttribute("spellcheck", "true");',
+			'        node.setAttribute("data-pw-editable", "true");',
+			'      } else {',
+			'        node.removeAttribute("contenteditable");',
+			'        node.removeAttribute("spellcheck");',
+			'        node.removeAttribute("data-pw-editable");',
+			'      }',
+			'    });',
+				'    setButtonState(textButton, enabled);',
+				'    updateHint(enabled ? "Text editing on" : (body.classList.contains("pw-standalone-image-replace") ? "Click an image to replace it" : "Offline editing enabled"));',
+			'  };',
+			'  var setImageReplaceMode = function(enabled){',
+			'    body.classList.toggle("pw-standalone-image-replace", enabled);',
+			'    setButtonState(imageButton, enabled);',
+			'    if (!enabled) { setActiveImage(null); }',
+				'    updateHint(enabled ? "Click an image to replace it" : (body.classList.contains("pw-standalone-editing") ? "Text editing on" : "Offline editing enabled"));',
+			'  };',
+			'  var buildExportHtml = function(){',
+			'    var clone = doc.documentElement.cloneNode(true);',
+			'    clone.classList.remove("pw-standalone-editing", "pw-standalone-image-replace");',
+			'    Array.prototype.slice.call(clone.querySelectorAll("[contenteditable],[spellcheck],[data-pw-editable],[data-pw-image-selected]")).forEach(function(node){',
+			'      node.removeAttribute("contenteditable");',
+			'      node.removeAttribute("spellcheck");',
+			'      node.removeAttribute("data-pw-editable");',
+			'      node.removeAttribute("data-pw-image-selected");',
+			'    });',
+			'    return "<!DOCTYPE html>\\n" + clone.outerHTML;',
+			'  };',
+			'  var triggerDownload = async function(){',
+			'    var html = buildExportHtml();',
+			'    var blob = new Blob([html], { type: "text/html;charset=utf-8" });',
+			'    var titleNode = doc.querySelector("title, h1, h2");',
+			'    var rawName = titleNode ? String(titleNode.textContent || titleNode.innerText || "slideforge-presentation") : "slideforge-presentation";',
+			'    var filename = rawName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "slideforge-presentation";',
+			'    filename += ".html";',
+			'    if (typeof window.showSaveFilePicker === "function") {',
+			'      try {',
+			'        var fileHandle = await window.showSaveFilePicker({ suggestedName: filename, types: [{ description: "HTML file", accept: { "text/html": [".html"] } }] });',
+			'        var writable = await fileHandle.createWritable();',
+			'        await writable.write(blob);',
+			'        await writable.close();',
+			'        updateHint("Saved to disk");',
+			'        return;',
+			'      } catch (error) {',
+			'        if (!error || error.name !== "AbortError") { console.error("[PromptablePresentation][standalone-editor] Save failed", error); }',
+			'      }',
+			'    }',
+			'    var url = URL.createObjectURL(blob);',
+			'    var anchor = doc.createElement("a");',
+			'    anchor.href = url;',
+			'    anchor.download = filename;',
+			'    doc.body.appendChild(anchor);',
+			'    anchor.click();',
+			'    doc.body.removeChild(anchor);',
+			'    setTimeout(function(){ URL.revokeObjectURL(url); }, 0);',
+			'    updateHint("Downloaded updated HTML");',
+			'  };',
+			'  textButton && textButton.addEventListener("click", function(){',
+			'    var nextState = !body.classList.contains("pw-standalone-editing");',
+			'    setTextEditing(nextState);',
+			'  });',
+			'  imageButton && imageButton.addEventListener("click", function(){',
+			'    if (!body.classList.contains("pw-standalone-image-replace")) {',
+			'      setImageReplaceMode(true);',
+			'    }',
+				'    openImagePicker();',
+			'  });',
+			'  saveButton && saveButton.addEventListener("click", function(){ void triggerDownload(); });',
+			'  doc.addEventListener("click", function(event){',
+			'    var image = event.target && event.target.closest ? event.target.closest("img") : null;',
+			'    if (!image || image.closest("#pw-standalone-editor-toolbar")) return;',
+			'    if (!body.classList.contains("pw-standalone-image-replace")) return;',
+			'    event.preventDefault();',
+			'    setActiveImage(image);',
+				'    openImagePicker();',
+			'  }, true);',
+			'  imageInput.addEventListener("change", function(){',
+			'    var file = imageInput.files && imageInput.files[0];',
+			'    if (!file || !activeImage) return;',
+			'    var reader = new FileReader();',
+			'    reader.onload = function(){',
+			'      activeImage.src = String(reader.result || "");',
+			'      activeImage.removeAttribute("srcset");',
+			'      updateHint("Image replaced");',
+			'      imageInput.value = "";',
+			'    };',
+			'    reader.onerror = function(){',
+			'      updateHint("Image replacement failed");',
+			'      imageInput.value = "";',
+			'    };',
+			'    reader.readAsDataURL(file);',
+			'  });',
+			'  doc.addEventListener("keydown", function(event){ if (event.key === "Escape" && body.classList.contains("pw-standalone-image-replace")) { setImageReplaceMode(false); } });',
+			'  updateHint("Offline editing enabled");',
+			'})();'
+		].join('');
+
+		documentRef.body.appendChild(script);
+	}
+
+	static async buildStandalonePromptableHtml(htmlContent, abortSignal = null, options = {}) {
 		const normalizedHtml = this.normalizePromptableNavigationHtml(htmlContent || '');
 		if (!normalizedHtml) {
 			return '';
@@ -1577,6 +1904,7 @@ class PromptedPresentationWorkflow {
 		}
 
 		await this.inlinePromptablePresentationImages(documentRef, abortSignal);
+		this.injectStandalonePromptableEditor(documentRef, options);
 		return this.serializePromptableDocument(documentRef);
 	}
 
