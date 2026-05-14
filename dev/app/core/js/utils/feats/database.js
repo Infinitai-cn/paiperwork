@@ -683,6 +683,92 @@ class PaiperworkDB {
                 context TEXT
             )
         `);
+
+        sqlDb.run(`
+            CREATE TABLE IF NOT EXISTS wechat_settings (
+                masterkey_hash TEXT PRIMARY KEY,
+                wechat_model_locked TEXT DEFAULT 'false'
+            )
+        `);
+    }
+
+    static async savewechatModelLock(hashedMasterKey, locked) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const normalizedLocked = String(locked).toLowerCase() === 'true' ? 'true' : 'false';
+            const encryptedLocked = await this.encrypt(hashedMasterKey, normalizedLocked);
+            const sqlDb = await this.getWechatRoleSqlDatabase(hashedMasterKey, true);
+            if (!sqlDb) return false;
+
+            sqlDb.run(`
+                CREATE TABLE IF NOT EXISTS wechat_settings (
+                    masterkey_hash TEXT PRIMARY KEY,
+                    wechat_model_locked TEXT DEFAULT 'false'
+                )
+            `);
+
+            const columnCheck = sqlDb.exec(`PRAGMA table_info(wechat_settings)`);
+            const settingsColumns = columnCheck[0]?.values || [];
+            const hasModelLock = settingsColumns.some(col => col[1] === 'wechat_model_locked');
+            if (!hasModelLock) {
+                sqlDb.run(`ALTER TABLE wechat_settings ADD COLUMN wechat_model_locked TEXT DEFAULT 'false'`);
+            }
+
+            sqlDb.run(`INSERT OR IGNORE INTO wechat_settings (masterkey_hash) VALUES (?)`, [hashedMasterKey]);
+            sqlDb.run(`
+                UPDATE wechat_settings
+                SET wechat_model_locked = ?
+                WHERE masterkey_hash = ?
+            `, [JSON.stringify(encryptedLocked), hashedMasterKey]);
+
+            await this.saveWechatRoleSqlDatabase(sqlDb, hashedMasterKey);
+            return true;
+        } catch (error) {
+            console.error('Error saving WeChat model lock:', error);
+            return false;
+        }
+    }
+
+    static async getwechatModelLock(hashedMasterKey) {
+        try {
+            await this.initializeDatabase(hashedMasterKey);
+            const existingDb = await this.getExistingDatabase(hashedMasterKey, 'wechat');
+            if (!existingDb) return false;
+
+            const sqlDb = new this.SQL.Database(existingDb);
+            this._ensureWechatRoleSqlDatabaseSchema(sqlDb);
+
+            const columnCheck = sqlDb.exec(`PRAGMA table_info(wechat_settings)`);
+            const settingsColumns = columnCheck[0]?.values || [];
+            const hasModelLock = settingsColumns.some(col => col[1] === 'wechat_model_locked');
+            if (!hasModelLock) {
+                sqlDb.run(`ALTER TABLE wechat_settings ADD COLUMN wechat_model_locked TEXT DEFAULT 'false'`);
+                await this.saveWechatRoleSqlDatabase(sqlDb, hashedMasterKey);
+                return false;
+            }
+
+            const row = sqlDb.exec(`SELECT wechat_model_locked FROM wechat_settings WHERE masterkey_hash = ? LIMIT 1`, [hashedMasterKey]);
+            if (!row || !row[0] || !row[0].values || !row[0].values.length) {
+                return false;
+            }
+
+            const storedLocked = String(row[0].values[0][0] || '').trim();
+            if (!storedLocked) {
+                return false;
+            }
+
+            try {
+                const decryptedLocked = await this.decrypt(hashedMasterKey, storedLocked);
+                return String(decryptedLocked || '').trim().toLowerCase() === 'true';
+            } catch (_e) {
+                const normalizedPlaintext = storedLocked.toLowerCase() === 'true';
+                await this.savewechatModelLock(hashedMasterKey, normalizedPlaintext);
+                return normalizedPlaintext;
+            }
+        } catch (error) {
+            console.error('Error getting WeChat model lock:', error);
+            return false;
+        }
     }
 
     static async saveWechatAccountContext(hashedMasterKey, account, context) {
