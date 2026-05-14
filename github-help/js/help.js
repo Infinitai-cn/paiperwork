@@ -86,6 +86,168 @@ function createLightbox() {
 // Initialize lightbox once
 let helpLightbox;
 
+function normalizeHelpModeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function isHelpModeHeading(text) {
+  const normalized = normalizeHelpModeText(text);
+  return new Set([
+    "documents",
+    "dokumente",
+    "documentos",
+    "文档",
+    "charts",
+    "diagramme",
+    "graficos",
+    "graficos",
+    "图表",
+    "research",
+    "recherche",
+    "investigacion",
+    "pesquisa",
+    "研究",
+    "knowledge base",
+    "wissensdatenbank",
+    "base de conocimiento",
+    "base de connaissances",
+    "base de conhecimento",
+    "知识库",
+    "presentations",
+    "prasentationen",
+    "presentaciones",
+    "presentations",
+    "apresentacoes",
+    "演示文稿",
+    "artifacts",
+    "artefakte",
+    "artefactos",
+    "artefacts",
+    "artefatos",
+    "工件",
+  ]).has(normalized);
+}
+
+function isHelpModeActivationParagraph(text) {
+  const normalized = normalizeHelpModeText(text);
+  return [
+    "to enter model control mode first, send",
+    "enter this mode with",
+    "aktivieren sie diesen modus mit",
+    "entra en este modo con",
+    "entrez dans ce mode avec",
+    "entre neste modo com",
+    "进入此模式可发送",
+  ].some((token) => normalized.includes(token));
+}
+
+function isHelpModeExitParagraph(text) {
+  const normalized = normalizeHelpModeText(text);
+  return [
+    "to leave",
+    "to close",
+    "to exit",
+    "zum verlassen",
+    "zum schliessen",
+    "zum schließen",
+    "para salir",
+    "para cerrar",
+    "pour quitter",
+    "pour fermer",
+    "para sair",
+    "para fechar",
+    "要退出",
+    "要关闭",
+    "如果要退出",
+  ].some((token) => normalized.includes(token));
+}
+
+function decorateHelpModeBlocks(articleId, contentElement) {
+  if (!contentElement) {
+    return;
+  }
+
+  if (articleId === "connectors-models-chat") {
+    const firstHeading = contentElement.querySelector("h4");
+    if (firstHeading) {
+      const introParagraphs = [];
+      let node = contentElement.firstElementChild;
+      while (node && node !== firstHeading) {
+        const nextNode = node.nextElementSibling;
+        if (node.tagName === "P") {
+          introParagraphs.push(node);
+        }
+        node = nextNode;
+      }
+
+      if (introParagraphs.length) {
+        const card = document.createElement("div");
+        card.className = "help-mode-block help-mode-block-models";
+
+        const activationParagraph = introParagraphs.find((paragraph) =>
+          isHelpModeActivationParagraph(paragraph.textContent),
+        );
+        const firstCode = activationParagraph && activationParagraph.querySelector("code");
+        if (firstCode && firstCode.textContent.trim()) {
+          const kicker = document.createElement("div");
+          kicker.className = "help-mode-kicker";
+          kicker.textContent = firstCode.textContent.trim();
+          card.appendChild(kicker);
+        }
+
+        firstHeading.parentNode.insertBefore(card, firstHeading);
+        introParagraphs.forEach((paragraph) => {
+          if (isHelpModeActivationParagraph(paragraph.textContent)) {
+            paragraph.classList.add("help-mode-command", "help-mode-activation");
+          }
+          card.appendChild(paragraph);
+        });
+      }
+    }
+  }
+
+  if (articleId === "connectors-workflows") {
+    const headings = Array.from(contentElement.querySelectorAll("h4"));
+    headings.forEach((heading) => {
+      if (!isHelpModeHeading(heading.textContent)) {
+        return;
+      }
+
+      const card = document.createElement("div");
+      card.className = "help-mode-block";
+      heading.parentNode.insertBefore(card, heading);
+      card.appendChild(heading);
+
+      let sibling = card.nextElementSibling;
+      while (sibling && sibling.tagName === "P") {
+        const nextSibling = sibling.nextElementSibling;
+        if (isHelpModeActivationParagraph(sibling.textContent)) {
+          sibling.classList.add("help-mode-command", "help-mode-activation");
+        }
+        if (isHelpModeExitParagraph(sibling.textContent)) {
+          sibling.classList.add("help-mode-command", "help-mode-exit");
+        }
+        card.appendChild(sibling);
+        sibling = nextSibling;
+      }
+    });
+  }
+
+  Array.from(contentElement.querySelectorAll("p")).forEach((paragraph) => {
+    if (isHelpModeActivationParagraph(paragraph.textContent)) {
+      paragraph.classList.add("help-mode-command", "help-mode-activation");
+    }
+    if (isHelpModeExitParagraph(paragraph.textContent)) {
+      paragraph.classList.add("help-mode-command", "help-mode-exit");
+    }
+  });
+}
+
 function createArticleElement(article) {
     if (!helpLightbox) {
         helpLightbox = createLightbox();
@@ -103,6 +265,7 @@ function createArticleElement(article) {
   const contentElement = document.createElement("div");
   contentElement.className = "help-article-content";
   contentElement.innerHTML = article.content;
+  decorateHelpModeBlocks(article.id, contentElement);
   articleElement.appendChild(contentElement);
 
     // Handle images - support both array format and legacy single image format
