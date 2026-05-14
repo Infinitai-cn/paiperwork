@@ -6986,20 +6986,26 @@ func wechatSendFileProxyHandler(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	safeName := filepath.Base(header.Filename)
-	tempFile, err := os.CreateTemp("", fmt.Sprintf("paiperwork-wechat-%d-%s", time.Now().UnixNano(), safeName))
+	tempDir, err := os.MkdirTemp("", fmt.Sprintf("paiperwork-wechat-%d-", time.Now().UnixNano()))
 	if err != nil {
 		http.Error(w, "failed to save file", http.StatusInternalServerError)
 		return
 	}
-	tempPath := tempFile.Name()
+	tempPath := filepath.Join(tempDir, safeName)
+	tempFile, err := os.Create(tempPath)
+	if err != nil {
+		os.RemoveAll(tempDir)
+		http.Error(w, "failed to save file", http.StatusInternalServerError)
+		return
+	}
 	if _, err := io.Copy(tempFile, file); err != nil {
 		tempFile.Close()
-		os.Remove(tempPath)
+		os.RemoveAll(tempDir)
 		http.Error(w, "failed to save file", http.StatusInternalServerError)
 		return
 	}
 	tempFile.Close()
-	defer os.Remove(tempPath)
+	defer os.RemoveAll(tempDir)
 
 	payload := map[string]any{
 		"account_id": account,
@@ -7102,20 +7108,26 @@ func wechatSendImageProxyHandler(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	safeName := filepath.Base(header.Filename)
-	tempFile, err := os.CreateTemp("", fmt.Sprintf("paiperwork-wechat-%d-%s", time.Now().UnixNano(), safeName))
+	tempDir, err := os.MkdirTemp("", fmt.Sprintf("paiperwork-wechat-%d-", time.Now().UnixNano()))
 	if err != nil {
 		http.Error(w, "failed to save image", http.StatusInternalServerError)
 		return
 	}
-	tempPath := tempFile.Name()
+	tempPath := filepath.Join(tempDir, safeName)
+	tempFile, err := os.Create(tempPath)
+	if err != nil {
+		os.RemoveAll(tempDir)
+		http.Error(w, "failed to save image", http.StatusInternalServerError)
+		return
+	}
 	if _, err := io.Copy(tempFile, file); err != nil {
 		tempFile.Close()
-		os.Remove(tempPath)
+		os.RemoveAll(tempDir)
 		http.Error(w, "failed to save image", http.StatusInternalServerError)
 		return
 	}
 	tempFile.Close()
-	defer os.Remove(tempPath)
+	defer os.RemoveAll(tempDir)
 
 	payload := map[string]any{
 		"account_id": account,
