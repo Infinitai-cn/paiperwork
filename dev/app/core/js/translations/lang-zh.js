@@ -2598,6 +2598,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                         presentationCreating: '正在创建可提示的 SlideForge 演示文稿...',
                         presentationCreatingWithWeb: '正在使用网络搜索创建可提示的 SlideForge 演示文稿...',
                 presentationSent: '演示文稿已创建并作为 HTML 文件发送。',
+                                presentationSentWithSlides: '演示文稿已创建，共 {slides} 张幻灯片，并作为 HTML 文件发送。',
                 presentationFailed: '演示文稿生成失败。请稍后再试。',
                 presentationSendFailed: '演示文稿已创建，但无法发送到微信。请检查连接并重试。',
                 wechatArtifactSendFailed: 'Miniapp 已创建，但无法发送到微信。请检查连接并重试。',
