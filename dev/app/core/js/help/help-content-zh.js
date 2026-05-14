@@ -3106,6 +3106,7 @@ window.helpContent = {
                 <p>进入此模式可发送 <code>演示模式</code>、<code>演示文稿模式</code> 或 <code>幻灯片模式</code>。</p>
                 <div class="note"><p><strong>注意：</strong>WhatsApp 的手机、平板和电脑应用出于安全原因会限制代码执行，因此演示文稿可能无法在这些应用中正常显示。请使用 WhatsApp Web，将其下载到您的电脑后再正确查看。</p></div>
                 <div class="note"><p><strong>注意：</strong>Wechat 的手机和平板版本出于安全原因会限制代码执行，因此演示文稿可能无法在这些版本中正常显示。请在电脑上使用 Wechat 应用，这样您可以将它们下载到电脑并正确查看（确保将文件保存到 Wechat 自身文件夹之外）。</p></div>
+                <div class="note"><p><strong>注意：</strong>当您把演示文稿 HTML 文件下载到电脑后，可以使用右上角的小工具栏离线编辑它。手机和平板不支持这一编辑流程。点击 <strong>Edit text</strong> 可以直接修改任意文字，点击 <strong>Replace image</strong> 可以把当前幻灯片中的图片替换为本地图像，然后将结果另存为新的 HTML 文件。演示文稿进入全屏模式时，工具栏会自动隐藏。</p></div>
                 <ul>
                     <li><code>用这段文字 创建演示文稿: &lt;演示文稿文本&gt;</code></li>
                     <li><code>使用以下文本 创建演示文稿: &lt;演示文稿文本&gt;</code></li>
