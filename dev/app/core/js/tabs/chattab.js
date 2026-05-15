@@ -1524,7 +1524,6 @@ class ChatTab {
                 }
             }
 
-           //console.log(`ChatTab: Successfully loaded ${renderedSessions.length} conversation sessions`);
             return renderedSessions;
 
         } catch (error) {

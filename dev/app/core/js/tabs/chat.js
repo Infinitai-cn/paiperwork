@@ -3538,7 +3538,6 @@ class Chat {
 
         // Store the most recent fetched group ID
         if (!this.lastFetchedGroupId || this.lastFetchedGroupId !== groupId) {
-           //console.log(`Chat: Group changed from ${this.lastFetchedGroupId} to ${groupId}, refreshing conversation list`);
             this.lastFetchedGroupId = groupId;
 
             if (window.chatTab && typeof window.chatTab.loadSessionsList === 'function') {
@@ -3547,7 +3546,6 @@ class Chat {
             }
             return true;
         } else {
-           //console.log(`Chat: Still in group ${groupId}, skipping conversation list refresh`);
             return false;
         }
     }
