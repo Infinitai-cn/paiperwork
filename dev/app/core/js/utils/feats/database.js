@@ -6762,6 +6762,13 @@ class PaiperworkDB {
             // Determine conversation group (existing code)
             let conversationGroup = 1; // Default to group 1
             let previousMaxGroup = 0;
+            const rawUserPreview = typeof userMessage === 'string'
+                ? userMessage
+                : (userMessage && typeof userMessage === 'object' ? String(userMessage.text || '') : '');
+            const normalizedUserPreview = String(rawUserPreview || '').replace(/<[^>]*>/g, '').trim().slice(0, 200);
+            const isWechatConversationDebug = normalizedUserPreview.startsWith('WeChat account conversation (')
+                || normalizedUserPreview.startsWith('Conversation started by Wechat Paiperwork Bot')
+                || normalizedUserPreview.startsWith('Personal wechat conversation for ');
 
             if (forceNewGroup) {
                 // Get the max group ID and increment
@@ -6793,6 +6800,20 @@ class PaiperworkDB {
                     conversationGroup = result[0].values[0][0];
                 }
                //console.log(`Using existing conversation group: ${conversationGroup}`);
+            }
+
+            if (isWechatConversationDebug) {
+                console.info('[PaiperworkDB][conversation-debug] storeConversationOnly:group-selected', {
+                    forceNewGroup: !!forceNewGroup,
+                    targetGroup,
+                    previousMaxGroup,
+                    conversationGroup,
+                    userPreview: normalizedUserPreview,
+                    messageIds: {
+                        userMessageId: messageIds?.userMessageId || null,
+                        assistantMessageId: messageIds?.assistantMessageId || null
+                    }
+                });
             }
 
             // Store the AI message exactly as is - no pre-processing
@@ -6958,6 +6979,14 @@ class PaiperworkDB {
             await this.saveToStorage(db.export(), hashedMasterKey);
             if (imageData.length > 0) {
                 await this.saveToStorage(attachmentDb.export(), hashedMasterKey, 'images');
+            }
+            if (isWechatConversationDebug) {
+                console.info('[PaiperworkDB][conversation-debug] storeConversationOnly:saved', {
+                    conversationGroup,
+                    userMessageId,
+                    assistantMessageId,
+                    userPreview: normalizedUserPreview
+                });
             }
             return {
                 success: true,
@@ -7339,9 +7368,6 @@ class PaiperworkDB {
                 });
             }
 
-            // Log a summary of retrieved data
-           //console.log(`Successfully loaded ${conversations.length} messages for group ${groupId}`);
-
             // Ensure stable sort by timestamp to preserve order
             conversations.sort((a, b) => {
                 if (a.timestamp < b.timestamp) return -1;
@@ -7381,6 +7407,7 @@ class PaiperworkDB {
             const normalizedPhone = String(options?.normalizedPhone || options?.normalizedAccount || '').replace(/@.*$/g, '').trim();
             const exactCandidates = new Set([expected].filter(Boolean));
             const seenGroups = new Set();
+            const debugCandidates = [];
 
             for (const row of queryResult[0].values) {
                 const groupId = Number(row[0] || 0);
@@ -7424,7 +7451,25 @@ class PaiperworkDB {
                     continue;
                 }
 
+                debugCandidates.push({
+                    groupId,
+                    normalizedMessage: normalizedMessage.slice(0, 180),
+                    normalizedPhone,
+                    exactMatch: exactCandidates.has(normalizedMessage),
+                    phoneHeuristicMatch: !!(
+                        normalizedPhone
+                        && normalizedMessage.includes(`(${normalizedPhone})`)
+                        && (
+                            normalizedMessage.startsWith('Conversation started by ')
+                            || normalizedMessage.startsWith('Personal WhatsApp conversation for ')
+                            || normalizedMessage.startsWith('Personal wechat conversation for ')
+                            || (normalizedMessage.startsWith('Group conversation') && normalizedMessage.includes(`participant ${normalizedPhone}`))
+                        )
+                    )
+                });
+
                 if (exactCandidates.has(normalizedMessage)) {
+
                     return groupId;
                 }
 

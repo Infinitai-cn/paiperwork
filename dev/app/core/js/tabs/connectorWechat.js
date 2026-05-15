@@ -972,6 +972,12 @@ class ConnectorWechat {
     async _createwechatConversationGroup(hashedMasterKey, threadLabel) {
         const previousConversationGroup = window.currentConversationGroup;
         const previousForceNewConversationGroup = window.forceNewConversationGroup;
+        /* this._logwechatConversationDebug('create-group:start', {
+            hashedMasterKeyPresent: !!hashedMasterKey,
+            threadLabel,
+            previousConversationGroup: Number(previousConversationGroup || 0),
+            previousForceNewConversationGroup: !!previousForceNewConversationGroup
+        }); */
         try {
             const bootstrapAssistantMessage = '<div class="ai-response-container wechat-thread-bootstrap" style="display:none" data-wechat-thread-bootstrap="true"></div>';
             const created = await PaiperworkDB.storeConversationOnly(
@@ -982,6 +988,11 @@ class ConnectorWechat {
                 null
             );
             const createdGroup = Number(window.currentConversationGroup || 0);
+            /* this._logwechatConversationDebug('create-group:result', {
+                threadLabel,
+                created,
+                createdGroup
+            }); */
             return {
                 created: !!created,
                 conversationGroup: createdGroup > 0 ? createdGroup : 0
@@ -998,14 +1009,50 @@ class ConnectorWechat {
         }
 
         try {
-            return Number(await PaiperworkDB.findConversationGroupByInitialUserText(hashedMasterKey, threadLabel, {
+            /* this._logwechatConversationDebug('recover-group:start', {
+                threadLabel,
+                normalizedThreadKey
+            }); */
+            const recoveredGroup = Number(await PaiperworkDB.findConversationGroupByInitialUserText(hashedMasterKey, threadLabel, {
                 normalizedAccount: normalizedThreadKey
             }) || 0);
+            /* this._logwechatConversationDebug('recover-group:result', {
+                threadLabel,
+                normalizedThreadKey,
+                recoveredGroup
+            }); */
+            return recoveredGroup;
         } catch (err) {
             console.warn('Connectorwechat: failed to recover existing wechat conversation group', err);
             return 0;
         }
     }
+
+    _summarizewechatAccountContext(context) {
+        if (!context || typeof context !== 'object') {
+            return null;
+        }
+
+        return {
+            botConversationGroup: Number(context.botConversationGroup || 0),
+            botThreadLabel: String(context.botThreadLabel || '').trim(),
+            botConversationStartedAt: String(context.botConversationStartedAt || '').trim(),
+            conversationTurnsCount: Array.isArray(context.conversationTurns) ? context.conversationTurns.length : 0,
+            explicitMode: String(context.explicitMode || '').trim(),
+            hasArtifactSession: !!context.artifactSession,
+            hasFollowUpSession: !!context.followUpSession,
+            hasDocumentSummaryMemory: !!context.documentSummaryMemory,
+            hasResearchReportMemory: !!context.researchReportMemory
+        };
+    }
+
+    /* _logwechatConversationDebug(eventName, details = {}) {
+        try {
+            console.info('[Connectorwechat][conversation-debug]', eventName, details);
+        } catch (_error) {
+            // Ignore logging failures.
+        }
+    } */
 
     _getwechatOutgoingRequestUrl(basePath, chatId = '') {
         return basePath;
@@ -1088,10 +1135,25 @@ class ConnectorWechat {
         let hasExistingGroup = false;
         let createdNewGroup = false;
 
+        /* this._logwechatConversationDebug('ensure-thread:start', {
+            normalizedThreadKey,
+            threadLabel,
+            accountContext: this._summarizewechatAccountContext(accountContext),
+            legacyThreadKey,
+            legacyAccountContext: this._summarizewechatAccountContext(legacyAccountContext),
+            initialConversationGroup: conversationGroup
+        }); */
+
         if (conversationGroup > 0) {
             try {
                 const existingGroup = await PaiperworkDB.loadConversationsByGroup(hashedMasterKey, conversationGroup);
                 hasExistingGroup = !!(existingGroup && Array.isArray(existingGroup.conversations) && existingGroup.conversations.length > 0);
+                /* this._logwechatConversationDebug('ensure-thread:validate-existing-group', {
+                    normalizedThreadKey,
+                    conversationGroup,
+                    hasExistingGroup,
+                    loadedConversationCount: Array.isArray(existingGroup && existingGroup.conversations) ? existingGroup.conversations.length : 0
+                }); */
             } catch (err) {
                 console.warn('Connectorwechat: failed to validate existing bot conversation group', err);
             }
@@ -1102,6 +1164,11 @@ class ConnectorWechat {
             if (recoveredGroup > 0) {
                 conversationGroup = recoveredGroup;
                 hasExistingGroup = true;
+                /* this._logwechatConversationDebug('ensure-thread:recovered-group', {
+                    normalizedThreadKey,
+                    threadLabel,
+                    conversationGroup
+                }); */
             }
         }
 
@@ -1116,14 +1183,31 @@ class ConnectorWechat {
             conversationGroup = createdGroup.conversationGroup;
             accountContext.botConversationStartedAt = accountContext.botConversationStartedAt || new Date().toISOString();
             createdNewGroup = true;
+            /* this._logwechatConversationDebug('ensure-thread:created-group', {
+                normalizedThreadKey,
+                threadLabel,
+                conversationGroup
+            }); */
         }
 
         accountContext.botConversationGroup = conversationGroup;
         accountContext.botThreadLabel = threadLabel;
         await this._setwechatAccountContext(normalizedThreadKey, accountContext);
 
+        /* this._logwechatConversationDebug('ensure-thread:context-saved', {
+            normalizedThreadKey,
+            conversationGroup,
+            createdNewGroup,
+            accountContext: this._summarizewechatAccountContext(accountContext)
+        }); */
+
         try {
             if (!createdNewGroup && window.chatInstance && typeof window.chatInstance.refreshConversationListIfNeeded === 'function') {
+                /* this._logwechatConversationDebug('ensure-thread:refresh-list', {
+                    normalizedThreadKey,
+                    conversationGroup,
+                    refreshReason: 'existing-group'
+                }); */
                 await window.chatInstance.refreshConversationListIfNeeded(hashedMasterKey, conversationGroup);
             }
         } catch (err) {
@@ -1382,20 +1466,32 @@ class ConnectorWechat {
 
         try {
             if (typeof PaiperworkDB.getWechatAccountContext === 'function') {
-                return this._mergewechatRuntimeWorkflowSessionsIntoContext(
+                const loadedContext = this._mergewechatRuntimeWorkflowSessionsIntoContext(
                     normalizedAccount,
                     this._stripwechatWorkflowSessionsFromPersistedContext(
                         (await PaiperworkDB.getWechatAccountContext(hashedMasterKey, normalizedAccount)) || null
                     )
                 );
+                /* this._logwechatConversationDebug('account-context:load', {
+                    normalizedAccount,
+                    source: 'getWechatAccountContext',
+                    context: this._summarizewechatAccountContext(loadedContext)
+                }); */
+                return loadedContext;
             }
             if (typeof PaiperworkDB.getwechatAccountContext === 'function') {
-                return this._mergewechatRuntimeWorkflowSessionsIntoContext(
+                const loadedContext = this._mergewechatRuntimeWorkflowSessionsIntoContext(
                     normalizedAccount,
                     this._stripwechatWorkflowSessionsFromPersistedContext(
                         (await PaiperworkDB.getwechatAccountContext(hashedMasterKey, normalizedAccount)) || null
                     )
                 );
+                /* this._logwechatConversationDebug('account-context:load', {
+                    normalizedAccount,
+                    source: 'getwechatAccountContext',
+                    context: this._summarizewechatAccountContext(loadedContext)
+                }); */
+                return loadedContext;
             }
             console.warn('Connectorwechat: PaiperworkDB does not expose getWechatAccountContext/getwechatAccountContext');
             return null;
@@ -1410,6 +1506,11 @@ class ConnectorWechat {
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey') || 'default';
         const normalizedAccount = this._normalizewechatIdentity(account);
         const sanitizedContext = this._stripwechatWorkflowSessionsFromPersistedContext(context);
+
+        /* this._logwechatConversationDebug('account-context:save', {
+            normalizedAccount,
+            context: this._summarizewechatAccountContext(sanitizedContext)
+        }); */
 
         try {
             if (typeof PaiperworkDB.saveWechatAccountContext === 'function') {
