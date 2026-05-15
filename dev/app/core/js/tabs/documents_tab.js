@@ -1656,6 +1656,10 @@ async function detectDocumentQuestionIntent(prompt, options = {}) {
     const hasQuestionLikeSignal = textContainsAnyDocumentIntentToken(rawPrompt, questionLikeTerms);
     const hasDocumentNounSignal = textContainsAnyDocumentIntentToken(rawPrompt, documentNouns);
 
+    if (!hasDocumentNounSignal && isClearlyGeneralChatPrompt(rawPrompt)) {
+        return null;
+    }
+
     if (!/[?？¿]/.test(rawPrompt) && !hasQuestionLikeSignal) {
         if (!(activeDocumentMode && hasDocumentNounSignal)) {
             return null;
@@ -1793,6 +1797,9 @@ function isClearlyGeneralChatPrompt(prompt) {
     }
 
     const generalPatterns = [
+        /\btell\s+me\s+about\s+(?:you|yourself)\b/i,
+        /\b(?:who|what)\s+are\s+you\b/i,
+        /\bintroduce\s+yourself\b/i,
         /\bwhat\s+(day|date|time)\b/i,
         /\bwhat\s+is\s+today\b/i,
         /\bweather\b|\btemperature\b|\bforecast\b/i,
