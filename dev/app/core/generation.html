@@ -92,23 +92,23 @@
             <div class="sidebar right">
                 <div class="tab-container">
                     <div class="tab-buttons">
-                        <button class="tab-button active" data-tab="chat">Chat</button>
-                        <button class="tab-button" data-tab="documents">Documents</button>
-                        <button class="tab-button" data-tab="translate">Translate</button>
-                        <button class="tab-button" data-tab="dataviz">DataViz</button>
-                        <button class="tab-button" data-tab="paperwork">Paperwork</button>
-                        <button class="tab-button" data-tab="research">Research</button>
-                        <button class="tab-button" data-tab="artwork">Artwork</button>
-                        <button class="tab-button" data-tab="presentation">SlideForge</button>
-                        <button class="tab-button" data-tab="artifacts">Artifacts</button>
-                        <button class="tab-button" data-tab="models">Models</button>
-                        <button class="tab-button" data-tab="database">Database</button>
-                        <button class="tab-button" data-tab="connectors">Connectors</button>
+                        <button class="tab-button" data-tab="chat" data-icon-label="CH" data-description="Chat with AI models and get intelligent responses.">Chat</button>
+                        <button class="tab-button" data-tab="documents" data-icon-label="DOC" data-description="Upload and analyze documents with AI assistance.">Documents</button>
+                        <button class="tab-button" data-tab="translate" data-icon-label="TR" data-description="Translate text between multiple languages instantly.">Translate</button>
+                        <button class="tab-button" data-tab="dataviz" data-icon-label="DV" data-description="Create charts and visual stories from your data.">DataViz</button>
+                        <button class="tab-button" data-tab="paperwork" data-icon-label="PW" data-description="Manage and process your paperwork efficiently.">Paperwork</button>
+                        <button class="tab-button" data-tab="research" data-icon-label="RS" data-description="Research topics and find relevant information quickly.">Research</button>
+                        <button class="tab-button" data-tab="artwork" data-icon-label="AR" data-description="Generate creative artworks with AI assistance.">Artwork</button>
+                        <button class="tab-button" data-tab="presentation" data-icon-label="SF" data-description="Create stunning presentations automatically.">SlideForge</button>
+                        <button class="tab-button" data-tab="artifacts" data-icon-label="AT" data-description="Build reusable AI artifacts and outputs.">Artifacts</button>
+                        <button class="tab-button" data-tab="models" data-icon-label="ML" data-description="Access and manage AI models and configurations.">Models</button>
+                        <button class="tab-button" data-tab="database" data-icon-label="DB" data-description="Manage and query your databases efficiently.">Database</button>
+                        <button class="tab-button" data-tab="connectors" data-icon-label="CN" data-description="Connect Paiperwork to external messaging apps.">Connectors</button>
                     </div>
 
                     <div class="tab-content">
                         <!-- Chat Tab -->
-                        <div class="tab-pane active" id="chat-tab">
+                        <div class="tab-pane" id="chat-tab">
                             <div class="insights-container">
                                 <label id="insights-label" class="insights-label">Insights</label>
                                 <div class="toggle-switch">
@@ -277,11 +277,9 @@
                 updateElementText('send-prompt', 'sendButton');
                 updateElementText('web-search', 'webButton');
 
-                // Update tab buttons
-                document.querySelectorAll('.tab-button').forEach(button => {
-                    const tab = button.getAttribute('data-tab');
-                    button.textContent = Lang.get(tab + 'Tab');
-                });
+                if (typeof window.renderTabLauncherCards === 'function') {
+                    window.renderTabLauncherCards();
+                }
 
                 // Fix toggle switches translation
                 document.querySelectorAll('.toggle-option').forEach(button => {

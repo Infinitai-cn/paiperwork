@@ -214,6 +214,47 @@ if (typeof window !== 'undefined') {
     };
 }
 
+function getTabLauncherIcon(tab) {
+    const icons = {
+        chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18.5A8.38 8.38 0 0 1 3.5 12 8.5 8.5 0 0 1 12 3.5 8.5 8.5 0 0 1 20.5 12 8.5 8.5 0 0 1 12 20.5c-1.52 0-2.95-.4-4.18-1.1L4 20z"/><path d="M8.5 10.5h.01"/><path d="M12 10.5h.01"/><path d="M15.5 10.5h.01"/></svg>',
+        documents: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h6"/></svg>',
+        translate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h9"/><path d="M9 4v3"/><path d="M8 7a10 10 0 0 1-3 7"/><path d="M6 11c1.1 2.2 2.7 4.1 4.8 5.5"/><path d="M14 13l4 8"/><path d="M12.5 18h7"/><path d="M16 13l-3.5 8"/></svg>',
+        dataviz: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20v-4"/></svg>',
+        paperwork: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h5.5A2.5 2.5 0 0 1 20 9.5v8A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z"/></svg>',
+        research: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
+        artwork: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1 0 1.8-.8 1.8-1.8 0-.42-.14-.8-.14-1.2 0-1 1-1.7 2-1.7h1.3A3.57 3.57 0 0 0 20.5 12 8.5 8.5 0 0 0 12 3.5z"/><circle cx="7.5" cy="11" r=".8" fill="currentColor" stroke="none"/><circle cx="10.5" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8.5" r=".8" fill="currentColor" stroke="none"/><circle cx="16.5" cy="12" r=".8" fill="currentColor" stroke="none"/></svg>',
+        presentation: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v10H4z"/><path d="M12 15.5v5"/><path d="M9 20.5h6"/><path d="M8 9.5l2.5 2.5L16 7"/></svg>',
+        artifacts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8 19 6.8v10.4l-7 4-7-4V6.8z"/><path d="M12 2.8v8.4"/><path d="M19 6.8 12 11.2 5 6.8"/></svg>',
+        models: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 4v10l-7 4-7-4V7z"/><path d="M5 7l7 4 7-4"/><path d="M12 11v10"/></svg>',
+        database: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6"/><path d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6"/></svg>',
+        connectors: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7v4"/><path d="M15 7v4"/><path d="M8 11h8"/><path d="M12 11v5"/><path d="M9.5 16h5"/><path d="M8.5 20h7"/><path d="M7 7.5A1.5 1.5 0 0 1 8.5 6h7A1.5 1.5 0 0 1 17 7.5V11a5 5 0 0 1-5 5 5 5 0 0 1-5-5z"/></svg>'
+    };
+
+    return icons[tab] || icons.chat;
+}
+
+window.renderTabLauncherCards = function renderTabLauncherCards() {
+    document.querySelectorAll('.tab-button').forEach(button => {
+        const tab = button.getAttribute('data-tab');
+        const title = Lang.get(`${tab}Tab`);
+        const descriptionKey = `${tab}TabDescription`;
+        const localizedDescription = Lang.get(descriptionKey);
+        const description = localizedDescription === descriptionKey
+            ? (button.dataset.description || '')
+            : localizedDescription;
+        const iconMarkup = getTabLauncherIcon(tab);
+
+        button.innerHTML = `
+            <span class="tab-card-icon" aria-hidden="true">${iconMarkup}</span>
+            <span class="tab-card-copy">
+                <span class="tab-card-title">${title}</span>
+                <span class="tab-card-description">${description}</span>
+            </span>
+            <span class="tab-card-arrow" aria-hidden="true">&rsaquo;</span>
+        `;
+    });
+};
+
 document.addEventListener('DOMContentLoaded', async function () {
    //console.log('DOM Content Loaded');
     await Lang.initialize();
@@ -234,12 +275,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         database: 'databaseTab'
     };
 
-    Object.entries(tabTranslations).forEach(([tab, key]) => {
-        const button = document.querySelector(`.tab-button[data-tab="${tab}"]`);
-        if (button) {
-            button.textContent = Lang.get(key);
-        }
-    });
+    if (typeof window.renderTabLauncherCards === 'function') {
+        window.renderTabLauncherCards();
+    }
 
     hideLocalOnlyTabsForCloudOnly();
 
@@ -368,130 +406,268 @@ function setupTabSwitching() {
     //console.debug('[app] setupTabSwitching initializing');
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabPanes = document.querySelectorAll('.tab-pane');
+    const tabContainer = document.querySelector('.tab-container');
+    const tabButtonsContainer = document.querySelector('.tab-buttons');
+    const tabContent = document.querySelector('.tab-content');
+    const orderedTabButtons = Array.from(tabButtons);
 
    //console.log('App: Setting up tab buttons:', tabButtons.length);
    //console.log('App: Setting up tab panes:', tabPanes.length);
 
     let previousTab = document.querySelector('.tab-button.active')?.dataset?.tab || null;
 
+    orderedTabButtons.forEach((button, index) => {
+        button.dataset.originalLauncherIndex = String(index);
+    });
+
+    const animateTabButtonReorder = mutateLayout => {
+        if (!tabButtonsContainer) {
+            mutateLayout();
+            return;
+        }
+
+        const buttonsBefore = Array.from(tabButtonsContainer.querySelectorAll('.tab-button'));
+        const firstRects = new Map(buttonsBefore.map(button => [button, button.getBoundingClientRect()]));
+
+        mutateLayout();
+
+        Array.from(tabButtonsContainer.querySelectorAll('.tab-button')).forEach(button => {
+            const firstRect = firstRects.get(button);
+            if (!firstRect) {
+                return;
+            }
+
+            const lastRect = button.getBoundingClientRect();
+            const deltaX = firstRect.left - lastRect.left;
+            const deltaY = firstRect.top - lastRect.top;
+
+            if (!deltaX && !deltaY) {
+                return;
+            }
+
+            button.style.transition = 'none';
+            button.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+            void button.offsetWidth;
+
+            requestAnimationFrame(() => {
+                button.style.transition = 'transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease, filter 0.2s ease';
+                button.style.transform = '';
+
+                window.setTimeout(() => {
+                    if (!button.matches(':hover') && !button.classList.contains('active')) {
+                        button.style.transition = '';
+                    }
+                }, 320);
+            });
+        });
+    };
+
+    const moveSelectedCardToTop = selectedButton => {
+        if (!tabButtonsContainer || !selectedButton) {
+            return;
+        }
+
+        animateTabButtonReorder(() => {
+            const buttonsInOriginalOrder = Array.from(tabButtonsContainer.querySelectorAll('.tab-button'))
+                .sort((leftButton, rightButton) => Number(leftButton.dataset.originalLauncherIndex) - Number(rightButton.dataset.originalLauncherIndex));
+
+            tabButtonsContainer.prepend(selectedButton);
+            buttonsInOriginalOrder.forEach(button => {
+                if (button !== selectedButton) {
+                    tabButtonsContainer.appendChild(button);
+                }
+            });
+        });
+    };
+
+    const restoreOriginalCardOrder = () => {
+        if (!tabButtonsContainer) {
+            return;
+        }
+
+        animateTabButtonReorder(() => {
+            Array.from(tabButtonsContainer.querySelectorAll('.tab-button'))
+                .sort((leftButton, rightButton) => Number(leftButton.dataset.originalLauncherIndex) - Number(rightButton.dataset.originalLauncherIndex))
+                .forEach(button => {
+                    tabButtonsContainer.appendChild(button);
+                });
+
+            if (tabContent) {
+                tabButtonsContainer.insertAdjacentElement('afterend', tabContent);
+            }
+        });
+    };
+
+    const setTabSelectionState = hasActiveTab => {
+        if (tabContainer) {
+            tabContainer.classList.toggle('has-active-tab', hasActiveTab);
+        }
+    };
+
+    const deactivateTab = async (tabName, nextTabName = null) => {
+        if (!tabName) {
+            return;
+        }
+
+        const prevTabInstance = window[`${tabName}Tab`];
+        if (prevTabInstance && typeof prevTabInstance.handleTabChange === 'function') {
+           //console.log(`App: Notifying ${tabName}Tab it's being deactivated`);
+            prevTabInstance.handleTabChange(false);
+        }
+
+        if (tabName === 'documents' && nextTabName !== 'documents' && window.PaiperworkDB) {
+            const isStillProcessingDocs = !!(window.RAG_Utils &&
+                typeof window.RAG_Utils.isDocumentProcessing === 'function' &&
+                window.RAG_Utils.isDocumentProcessing());
+
+            if (!isStillProcessingDocs && typeof window.PaiperworkDB.closeRagDatabases === 'function') {
+                await window.PaiperworkDB.closeRagDatabases(sessionStorage.getItem('hashedMasterKey'));
+            }
+        }
+
+        const leavesHtmlTabs = (tabName === 'artifacts' || tabName === 'presentation') &&
+            nextTabName !== 'artifacts' &&
+            nextTabName !== 'presentation';
+
+        if (leavesHtmlTabs && window.PaiperworkDB) {
+            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+
+            if (typeof window.PaiperworkDB.closePresentationsDatabases === 'function') {
+                await window.PaiperworkDB.closePresentationsDatabases(hashedMasterKey);
+            }
+
+            if (typeof window.PaiperworkDB.closeArtifactDatabases === 'function') {
+                await window.PaiperworkDB.closeArtifactDatabases(hashedMasterKey);
+            }
+        }
+
+        if (tabName === 'research' && nextTabName !== 'research' && window.PaiperworkDB && typeof window.PaiperworkDB.closeKnowledgeDatabases === 'function') {
+            await window.PaiperworkDB.closeKnowledgeDatabases(sessionStorage.getItem('hashedMasterKey'));
+        }
+    };
+
+    const activateTab = async button => {
+        if (!button) {
+            return;
+        }
+
+       //console.log('App: Tab clicked:', button.dataset.tab);
+
+        const clickedTab = button.dataset.tab;
+        const isClosingActiveTab = previousTab === clickedTab && button.classList.contains('active');
+
+        // Remove active class from all buttons and panes
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        tabPanes.forEach(pane => pane.classList.remove('active'));
+
+        if (isClosingActiveTab) {
+            await deactivateTab(clickedTab, null);
+            setTabSelectionState(false);
+            restoreOriginalCardOrder();
+            previousTab = null;
+            return;
+        }
+
+        // Add active class to clicked button
+        button.classList.add('active');
+        setTabSelectionState(true);
+
+        moveSelectedCardToTop(button);
+
+        if (tabButtonsContainer && tabContent) {
+            button.insertAdjacentElement('afterend', tabContent);
+        }
+
+        // Get corresponding tab pane and activate it
+        const tabId = `${button.dataset.tab}-tab`;
+        const tabElement = document.getElementById(tabId);
+       //console.log(`App: Looking for tab element: ${tabId}`, !!tabElement);
+
+        if (tabElement) {
+            tabElement.classList.add('active');
+
+            // Force repaint to ensure consistent styling
+            void tabElement.offsetWidth;
+        }
+        // Notify the previous tab it's being deactivated (if it has a handler)
+        if (previousTab && previousTab !== button.dataset.tab) {
+            await deactivateTab(previousTab, button.dataset.tab);
+        }
+        // Handle specific tab activations
+        if (button.dataset.tab === 'models') {
+            handleModelsTab();
+        } else if (button.dataset.tab === 'chat') {
+            await handleChatTab();
+        } else if (button.dataset.tab === 'documents') {
+            await handleDocumentsTab();
+        } else if (button.dataset.tab === 'dataviz') {
+            await handleDataVizTab();
+        } else if (button.dataset.tab === 'paperwork') {
+            await handlePaperworkTab();
+        } else if (button.dataset.tab === 'artwork') {
+            await handleArtworksTab();
+        } else if (button.dataset.tab === 'research') {
+            await handleResearchTab();
+            if (window.researchTab && typeof window.researchTab.clearModelWarningIfModelSelected === 'function') {
+                window.researchTab.clearModelWarningIfModelSelected();
+            }
+        } else if (button.dataset.tab === 'presentation') {
+            await handlepresentationtab();
+        } else if (button.dataset.tab === 'database') {
+            await handleDatabaseTab();
+        } else if (button.dataset.tab === 'connectors') {
+            await handleConnectorsTab();
+        }
+        // Notify the new tab it's being activated (if it has a handler)
+        const newTabInstance = window[`${button.dataset.tab}Tab`];
+        if (newTabInstance && typeof newTabInstance.handleTabChange === 'function') {
+           //console.log(`App: Notifying ${button.dataset.tab}Tab it's being activated`);
+            newTabInstance.handleTabChange(true);
+        }
+        // Special case: SlideForge tab (ensure UI always renders)
+       /* ß */
+        // Apply consistent styling to tab container
+        if (tabContainer) {
+            tabContainer.classList.add('tab-switched');
+            setTimeout(() => {
+                tabContainer.classList.remove('tab-switched');
+            }, 50);
+        }
+
+        // If documents tab and progressContainer is showing, disable upload zone
+        if (button.dataset.tab === 'documents' &&
+            window.RAG_Utils &&
+            window.RAG_Utils.documentUIElements &&
+            window.RAG_Utils.documentUIElements.progressContainer &&
+            window.RAG_Utils.documentUIElements.progressContainer.style.display !== 'none') {
+
+            // Processing in progress - make sure upload zone is hidden
+            if (window.RAG_Utils.documentUIElements.uploadZone) {
+                window.RAG_Utils.documentUIElements.uploadZone.style.display = 'none';
+            }
+        }
+
+        previousTab = button.dataset.tab;
+    };
+
     tabButtons.forEach(button => {
         button.addEventListener('click', async () => {
-           //console.log('App: Tab clicked:', button.dataset.tab);
-
-            // Remove active class from all buttons and panes
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            tabPanes.forEach(pane => pane.classList.remove('active'));
-
-            // Add active class to clicked button
-            button.classList.add('active');
-
-            // Get corresponding tab pane and activate it
-            const tabId = `${button.dataset.tab}-tab`;
-            const tabElement = document.getElementById(tabId);
-           //console.log(`App: Looking for tab element: ${tabId}`, !!tabElement);
-
-            if (tabElement) {
-                tabElement.classList.add('active');
-
-                // Force repaint to ensure consistent styling
-                void tabElement.offsetWidth;
-            }
-            // Notify the previous tab it's being deactivated (if it has a handler)
-            if (previousTab && previousTab !== button.dataset.tab) {
-                const prevTabInstance = window[`${previousTab}Tab`];
-                if (prevTabInstance && typeof prevTabInstance.handleTabChange === 'function') {
-                   //console.log(`App: Notifying ${previousTab}Tab it's being deactivated`);
-                    prevTabInstance.handleTabChange(false);
-                }
-
-                // Release heavy vector DB instances when leaving Documents tab.
-                if (previousTab === 'documents' && button.dataset.tab !== 'documents' && window.PaiperworkDB) {
-                    const isStillProcessingDocs = !!(window.RAG_Utils &&
-                        typeof window.RAG_Utils.isDocumentProcessing === 'function' &&
-                        window.RAG_Utils.isDocumentProcessing());
-
-                    if (!isStillProcessingDocs && typeof window.PaiperworkDB.closeRagDatabases === 'function') {
-                        await window.PaiperworkDB.closeRagDatabases(sessionStorage.getItem('hashedMasterKey'));
-                    }
-                }
-
-                // Release dedicated payload DB handles when exiting Artifacts/SlideForge context.
-                const leavesHtmlTabs = (previousTab === 'artifacts' || previousTab === 'presentation') &&
-                    button.dataset.tab !== 'artifacts' &&
-                    button.dataset.tab !== 'presentation';
-
-                if (leavesHtmlTabs && window.PaiperworkDB) {
-                    const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-
-                    if (typeof window.PaiperworkDB.closePresentationsDatabases === 'function') {
-                        await window.PaiperworkDB.closePresentationsDatabases(hashedMasterKey);
-                    }
-
-                    if (typeof window.PaiperworkDB.closeArtifactDatabases === 'function') {
-                        await window.PaiperworkDB.closeArtifactDatabases(hashedMasterKey);
-                    }
-                }
-
-                // Release knowledge-base DB handles when exiting Research tab.
-                if (previousTab === 'research' && button.dataset.tab !== 'research' && window.PaiperworkDB && typeof window.PaiperworkDB.closeKnowledgeDatabases === 'function') {
-                    await window.PaiperworkDB.closeKnowledgeDatabases(sessionStorage.getItem('hashedMasterKey'));
-                }
-            }
-            // Handle specific tab activations
-            if (button.dataset.tab === 'models') {
-                handleModelsTab();
-            } else if (button.dataset.tab === 'chat') {
-                await handleChatTab();
-            } else if (button.dataset.tab === 'documents') {
-                await handleDocumentsTab();
-            } else if (button.dataset.tab === 'dataviz') {
-                await handleDataVizTab();
-            } else if (button.dataset.tab === 'paperwork') {
-                await handlePaperworkTab();
-            } else if (button.dataset.tab === 'artwork') {
-                await handleArtworksTab();
-            } else if (button.dataset.tab === 'research') {
-                await handleResearchTab();
-                if (window.researchTab && typeof window.researchTab.clearModelWarningIfModelSelected === 'function') {
-                    window.researchTab.clearModelWarningIfModelSelected();
-                }
-            } else if (button.dataset.tab === 'presentation') {
-                await handlepresentationtab();
-            } else if (button.dataset.tab === 'database') {
-                await handleDatabaseTab();
-            } else if (button.dataset.tab === 'connectors') {
-                await handleConnectorsTab();
-            }
-            // Notify the new tab it's being activated (if it has a handler)
-            const newTabInstance = window[`${button.dataset.tab}Tab`];
-            if (newTabInstance && typeof newTabInstance.handleTabChange === 'function') {
-               //console.log(`App: Notifying ${button.dataset.tab}Tab it's being activated`);
-                newTabInstance.handleTabChange(true);
-            }
-            // Special case: SlideForge tab (ensure UI always renders)
-           /* ß */
-            // Apply consistent styling to tab container
-            document.querySelector('.tab-container').classList.add('tab-switched');
-            setTimeout(() => {
-                document.querySelector('.tab-container').classList.remove('tab-switched');
-            }, 50);
-
-            // If documents tab and progressContainer is showing, disable upload zone
-            if (button.dataset.tab === 'documents' &&
-                window.RAG_Utils &&
-                window.RAG_Utils.documentUIElements &&
-                window.RAG_Utils.documentUIElements.progressContainer &&
-                window.RAG_Utils.documentUIElements.progressContainer.style.display !== 'none') {
-
-                // Processing in progress - make sure upload zone is hidden
-                if (window.RAG_Utils.documentUIElements.uploadZone) {
-                    window.RAG_Utils.documentUIElements.uploadZone.style.display = 'none';
-                }
-            }
-
-            previousTab = button.dataset.tab;
+            await activateTab(button);
         });
     });
+
+    window.tabManager = {
+        switchTab(tabIdOrName) {
+            const normalizedTab = String(tabIdOrName || '').replace(/-tab$/, '');
+            const targetButton = document.querySelector(`.tab-button[data-tab="${normalizedTab}"]`);
+            if (targetButton) {
+                targetButton.click();
+            }
+        }
+    };
+
+    setTabSelectionState(!!document.querySelector('.tab-button.active'));
 }
 
 // Handles initialization and UI setup for the DataViz tab
