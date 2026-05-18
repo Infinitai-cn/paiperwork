@@ -281,11 +281,16 @@ class Artworks {
         
         .artwork-model-selector {
             width: 100%;
-            padding: 8px 12px;
+            height: 40px;
+            min-height: 40px;
+            padding: 0 12px;
             border-radius: 6px;
             border: 1px solid var(--border-color);
             background-color: var(--bg-color);
             color: var(--text-color);
+            font-size: 16px;
+            line-height: 1.2;
+            box-sizing: border-box;
             margin-bottom: 16px;
         }
         
