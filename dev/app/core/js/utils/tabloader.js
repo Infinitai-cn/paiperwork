@@ -128,7 +128,7 @@ class TabLoader {
     }
 
     // Initializes the UI components or class instances for the specified tab after its scripts are loaded.
-    initializeTabComponent(tabName) {
+    async initializeTabComponent(tabName) {
        //console.log(`TabLoader: Initializing component for tab "${tabName}"`);
 
         if (tabName === 'documents') {
