@@ -563,6 +563,22 @@ function setupTabSwitching() {
         }
     };
 
+    const scrollActiveTabCardIntoView = selectedButton => {
+        if (!tabContainer || !selectedButton) {
+            return;
+        }
+
+        tabContainer.scrollTop = 0;
+
+        requestAnimationFrame(() => {
+            tabContainer.scrollTop = 0;
+            if (typeof selectedButton.scrollIntoView === 'function') {
+                selectedButton.scrollIntoView({ block: 'start', inline: 'nearest' });
+            }
+            tabContainer.scrollTop = 0;
+        });
+    };
+
     const deactivateTab = async (tabName, nextTabName = null) => {
         if (!tabName) {
             return;
@@ -636,6 +652,8 @@ function setupTabSwitching() {
         if (tabButtonsContainer && tabContent) {
             button.insertAdjacentElement('afterend', tabContent);
         }
+
+        scrollActiveTabCardIntoView(button);
 
         // Get corresponding tab pane and activate it
         const tabId = `${button.dataset.tab}-tab`;
