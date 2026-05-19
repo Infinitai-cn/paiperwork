@@ -1323,6 +1323,24 @@ class ArtworksTab {
         return window.__campaignManagedArtworkProgress === true;
     }
 
+    concealPreviewWindowForExternalWorkflow(previewWindow) {
+        if (!this.isExternalProgressManaged() || !previewWindow) {
+            return;
+        }
+
+        if (previewWindow.container) {
+            previewWindow.container.style.visibility = 'hidden';
+            previewWindow.container.style.opacity = '0';
+            previewWindow.container.style.pointerEvents = 'none';
+        }
+
+        if (previewWindow.overlay) {
+            previewWindow.overlay.style.visibility = 'hidden';
+            previewWindow.overlay.style.opacity = '0';
+            previewWindow.overlay.style.pointerEvents = 'none';
+        }
+    }
+
     // Shows a floating progress indicator window during image analysis/generation
     showProgressIndicator() {
         if (this.isExternalProgressManaged()) {
@@ -2034,6 +2052,109 @@ class ArtworksTab {
                                               }
                                             }
 
+                                                                                        VALID EXAMPLE (structure only, adapt positions/colors/content to the uploaded image):
+                                                                                        \`\`\`json
+                                                                                        {
+                                                                                            "overlay": {
+                                                                                                "width": 1200,
+                                                                                                "height": 1600,
+                                                                                                "webFonts": [],
+                                                                                                "texts": [
+                                                                                                    {
+                                                                                                        "id": "headline",
+                                                                                                        "text": "Brew Bold",
+                                                                                                        "x": 600,
+                                                                                                        "y": 420,
+                                                                                                        "fontSize": 118,
+                                                                                                        "fontFamily": "Arial",
+                                                                                                        "fontWeight": 700,
+                                                                                                        "fontStyle": "normal",
+                                                                                                        "color": "#FFF7ED",
+                                                                                                        "textAlign": "center",
+                                                                                                        "lineHeight": 1.05,
+                                                                                                        "maxWidth": 760,
+                                                                                                        "opacity": 1,
+                                                                                                        "rotation": 0,
+                                                                                                        "letterSpacing": 1.5,
+                                                                                                        "backgroundColor": "#0F172ACC",
+                                                                                                        "backgroundPadding": "18px 26px",
+                                                                                                        "shadow": {
+                                                                                                            "enabled": true,
+                                                                                                            "color": "#000000",
+                                                                                                            "blur": 18,
+                                                                                                            "offsetX": 0,
+                                                                                                            "offsetY": 8
+                                                                                                        },
+                                                                                                        "glow": {
+                                                                                                            "enabled": false,
+                                                                                                            "color": "#FFFFFF",
+                                                                                                            "blur": 0,
+                                                                                                            "offsetX": 0,
+                                                                                                            "offsetY": 0
+                                                                                                        },
+                                                                                                        "outline": {
+                                                                                                            "enabled": false,
+                                                                                                            "color": "#000000",
+                                                                                                            "width": 0
+                                                                                                        }
+                                                                                                    },
+                                                                                                    {
+                                                                                                        "id": "subhead",
+                                                                                                        "text": "Small batch flavor for every morning.",
+                                                                                                        "x": 600,
+                                                                                                        "y": 575,
+                                                                                                        "fontSize": 42,
+                                                                                                        "fontFamily": "Arial",
+                                                                                                        "fontWeight": 400,
+                                                                                                        "fontStyle": "normal",
+                                                                                                        "color": "#F8FAFC",
+                                                                                                        "textAlign": "center",
+                                                                                                        "lineHeight": 1.3,
+                                                                                                        "maxWidth": 700,
+                                                                                                        "opacity": 1,
+                                                                                                        "rotation": 0,
+                                                                                                        "letterSpacing": 0,
+                                                                                                        "backgroundColor": "#00000066",
+                                                                                                        "backgroundPadding": "10px 16px",
+                                                                                                        "shadow": {
+                                                                                                            "enabled": false,
+                                                                                                            "color": "#000000",
+                                                                                                            "blur": 0,
+                                                                                                            "offsetX": 0,
+                                                                                                            "offsetY": 0
+                                                                                                        },
+                                                                                                        "glow": {
+                                                                                                            "enabled": false,
+                                                                                                            "color": "#FFFFFF",
+                                                                                                            "blur": 0,
+                                                                                                            "offsetX": 0,
+                                                                                                            "offsetY": 0
+                                                                                                        },
+                                                                                                        "outline": {
+                                                                                                            "enabled": false,
+                                                                                                            "color": "#000000",
+                                                                                                            "width": 0
+                                                                                                        }
+                                                                                                    }
+                                                                                                ],
+                                                                                                "ornaments": [
+                                                                                                    {
+                                                                                                        "id": "divider-1",
+                                                                                                        "type": "line",
+                                                                                                        "x1": 290,
+                                                                                                        "y1": 660,
+                                                                                                        "x2": 910,
+                                                                                                        "y2": 660,
+                                                                                                        "color": "#FDBA74",
+                                                                                                        "strokeWidth": 4,
+                                                                                                        "opacity": 0.9,
+                                                                                                        "rotation": 0
+                                                                                                    }
+                                                                                                ]
+                                                                                            }
+                                                                                        }
+                                                                                        \`\`\`
+
                                             POSITIONING GUIDELINES:
                                             - All coordinates are in PIXELS relative to the background image dimensions (0,0 = top-left corner).
                                             - Use the image width/height from the image information provided in the user prompt to calculate positions.
@@ -2375,6 +2496,8 @@ class ArtworksTab {
                             }
                         );
 
+                        this.concealPreviewWindowForExternalWorkflow(previewWindow);
+
                         // Debug log: Step 4 - preview window created
 
                         // Set up cleanup function for when preview window is closed
@@ -2617,51 +2740,136 @@ class ArtworksTab {
 
         let text = response.trim();
 
+        const buildResponseSnippet = source => String(source || '')
+            .replace(/\s+/g, ' ')
+            .slice(0, 1200);
+
+        const parseOverlayCandidate = candidate => {
+            if (!candidate || typeof candidate !== 'string') {
+                return null;
+            }
+
+            try {
+                const parsed = JSON.parse(candidate.trim());
+                return parsed && parsed.overlay ? parsed : null;
+            } catch (_error) {
+                return null;
+            }
+        };
+
+        const extractBalancedOverlayObject = source => {
+            const overlayKeyIndex = String(source || '').search(/"overlay"\s*:/);
+            if (overlayKeyIndex < 0) {
+                return null;
+            }
+
+            let objectStart = -1;
+            for (let index = overlayKeyIndex; index >= 0; index -= 1) {
+                const char = source[index];
+                if (char === '{') {
+                    objectStart = index;
+                    break;
+                }
+            }
+
+            if (objectStart < 0) {
+                return null;
+            }
+
+            let depth = 0;
+            let inString = false;
+            let escaping = false;
+
+            for (let index = objectStart; index < source.length; index += 1) {
+                const char = source[index];
+
+                if (escaping) {
+                    escaping = false;
+                    continue;
+                }
+
+                if (char === '\\') {
+                    escaping = true;
+                    continue;
+                }
+
+                if (char === '"') {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (inString) {
+                    continue;
+                }
+
+                if (char === '{') {
+                    depth += 1;
+                    continue;
+                }
+
+                if (char === '}') {
+                    depth -= 1;
+                    if (depth === 0) {
+                        return source.slice(objectStart, index + 1);
+                    }
+                }
+            }
+
+            return null;
+        };
+
 
         // Try to extract JSON from markdown code block first
         const jsonBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (jsonBlockMatch) {
             const jsonStr = jsonBlockMatch[1].trim();
-            try {
-                const parsed = JSON.parse(jsonStr);
-                if (parsed && parsed.overlay) {
-                    //console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from fenced block');
-                    return parsed;
-                }
-            } catch (e) {
-                console.warn('ArtworksTab[overlay-chain]: Fenced JSON parse failed', e);
-                // Fall through to try parsing the full response
+            const parsedFencedJson = parseOverlayCandidate(jsonStr);
+            if (parsedFencedJson) {
+                return parsedFencedJson;
             }
+
+            const extractedFencedOverlay = extractBalancedOverlayObject(jsonStr);
+            const parsedExtractedFencedOverlay = parseOverlayCandidate(extractedFencedOverlay);
+            if (parsedExtractedFencedOverlay) {
+                return parsedExtractedFencedOverlay;
+            }
+
+            console.warn('ArtworksTab[overlay-chain]: Fenced JSON parse failed');
+            // Fall through to try parsing the full response
         }
 
         // Try parsing the entire response as JSON
-        try {
-            const parsed = JSON.parse(text);
-            if (parsed && parsed.overlay) {
-                //console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from full response');
-                return parsed;
-            }
-        } catch (e) {
-            console.warn('ArtworksTab[overlay-chain]: Full response JSON parse failed', e);
-            // Fall through to try finding JSON object in text
+        const parsedFullResponse = parseOverlayCandidate(text);
+        if (parsedFullResponse) {
+            return parsedFullResponse;
         }
+
+        console.warn('ArtworksTab[overlay-chain]: Full response JSON parse failed');
 
         // Try to find a JSON object in the response using regex
         const jsonMatch = text.match(/\{[\s\S]*"overlay"\s*:[\s\S]*\}/);
         if (jsonMatch) {
-            try {
-                const parsed = JSON.parse(jsonMatch[0]);
-                if (parsed && parsed.overlay) {
-                    //console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from regex object extraction');
-                    return parsed;
-                }
-            } catch (e) {
-                console.warn('ArtworksTab[overlay-chain]: Regex-extracted JSON parse failed', e);
-                // Failed to parse
+            const parsedRegexJson = parseOverlayCandidate(jsonMatch[0]);
+            if (parsedRegexJson) {
+                return parsedRegexJson;
             }
+
+            console.warn('ArtworksTab[overlay-chain]: Regex-extracted JSON parse failed');
         }
 
-        console.warn('ArtworksTab[overlay-chain]: Failed to parse overlay JSON from response');
+        const balancedOverlayObject = extractBalancedOverlayObject(text);
+        const parsedBalancedOverlayObject = parseOverlayCandidate(balancedOverlayObject);
+        if (parsedBalancedOverlayObject) {
+            return parsedBalancedOverlayObject;
+        }
+
+        console.warn('ArtworksTab[overlay-chain]: Failed to parse overlay JSON from response', {
+            responseLength: text.length,
+            hasJsonFence: /```json/i.test(text),
+            hasOverlayKey: /"overlay"\s*:/.test(text),
+            balancedOverlayLength: balancedOverlayObject ? balancedOverlayObject.length : 0,
+            responseSnippet: buildResponseSnippet(text)
+        });
 
         return null;
     }
