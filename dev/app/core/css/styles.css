@@ -176,6 +176,18 @@ body {
     background-color: var(--accent-color-hover, #4338ca);
 }
 
+.conversation-history-sidebar #back-button {
+    margin-bottom: 8px;
+}
+
+.help-button {
+    background-color: var(--campaign-accent-soft, #ea580c);
+}
+
+.help-button:hover {
+    background-color: var(--campaign-accent-strong, #c2410c);
+}
+
 .main-container {
     position: relative;
     width: 100%;

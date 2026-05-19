@@ -67,6 +67,7 @@
                     <img id="app-logo" src="images/Paiperwork-APP-light.png" alt="Paiperwork Logo" class="app-logo">
                 </div>
                 <button id="back-button" class="back-button">Back</button>
+                <button id="help-button" class="back-button help-button">Help</button>
                 <div class="history-header">
                     <button class="new-conversation-btn">New Chat</button>
                 </div>
@@ -264,11 +265,19 @@
 
                 // Update all text content with error handling
                 updateElementText('back-button', 'backButton');
+                updateElementText('help-button', 'helpButton');
 
                 const backButton = document.getElementById('back-button');
                 if (backButton) {
                     backButton.addEventListener('click', async () => {
                         await navigateAfterStoppingConnectors('../welcome.html');
+                    });
+                }
+
+                const helpButton = document.getElementById('help-button');
+                if (helpButton) {
+                    helpButton.addEventListener('click', () => {
+                        window.open('js/help/help.html', '_blank');
                     });
                 }
 
