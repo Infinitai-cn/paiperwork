@@ -14,6 +14,10 @@ class CampaignTab {
 		this.campaignPosterRenderer = null;
 		this.campaignPosterInteractionHandler = null;
 		this.campaignPosterSyncTimer = null;
+		this.campaignPosterZoom = 1;
+		this.campaignPosterMinZoom = 0.25;
+		this.campaignPosterMaxZoom = 3;
+		this.campaignPosterZoomStep = 0.25;
 		this.isSavingCampaignPoster = false;
 		this.hasManualOutputEdits = false;
 		this.state = {
@@ -473,10 +477,15 @@ class CampaignTab {
 			.campaign-poster-editor-canvas { display: block; max-width: 100%; max-height: 100%; height: auto; border-radius: 14px; box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12); background: #ffffff; }
 			.campaign-poster-image-wrap { min-height: 0; padding: 12px; display: grid; place-items: center; overflow: auto; }
 			.campaign-poster-image-wrap .campaign-output-image { width: auto; max-width: 100%; height: auto; min-height: 0; max-height: 100%; }
-			.campaign-poster-actions { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 12px 16px; border-top: 1px solid color-mix(in srgb, var(--campaign-accent-soft, #ea580c) 16%, var(--card-border, #dbe4ee)); background: color-mix(in srgb, var(--card-bg, #ffffff) 96%, transparent); }
+			.campaign-poster-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 12px 16px; border-top: 1px solid color-mix(in srgb, var(--campaign-accent-soft, #ea580c) 16%, var(--card-border, #dbe4ee)); background: color-mix(in srgb, var(--card-bg, #ffffff) 96%, transparent); }
+			.campaign-poster-action-group { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; margin-left: auto; flex-wrap: wrap; }
 			.campaign-poster-action { border: 0; border-radius: 999px; padding: 9px 14px; cursor: pointer; font: inherit; font-weight: 700; background: color-mix(in srgb, var(--campaign-accent-tint, #fed7aa) 40%, var(--card-bg, #ffffff)); color: var(--campaign-accent-strong, #c2410c); }
 			.campaign-poster-action:disabled { opacity: 0.45; cursor: not-allowed; }
 			.campaign-poster-action.is-cancelling { background: color-mix(in srgb, #fecaca 62%, var(--card-bg, #ffffff)); color: #b91c1c; }
+			.campaign-poster-zoom-controls { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+			.campaign-poster-zoom-button { border: 0; border-radius: 999px; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font: inherit; font-weight: 800; font-size: 1rem; background: color-mix(in srgb, var(--campaign-accent-tint, #fed7aa) 36%, var(--card-bg, #ffffff)); color: var(--campaign-accent-strong, #c2410c); }
+			.campaign-poster-zoom-button:disabled { opacity: 0.45; cursor: not-allowed; }
+			.campaign-poster-zoom-level { min-width: 56px; text-align: center; font-size: 0.82rem; font-weight: 800; letter-spacing: 0.04em; color: var(--label-color, #475569); }
 			.campaign-placeholder-copy { max-width: 640px; }
 			.campaign-placeholder-copy strong { display: block; margin-bottom: 10px; color: var(--card-title, var(--text-color, #0f172a)); }
 			.campaign-placeholder-copy p { margin: 0; }
@@ -491,6 +500,8 @@ class CampaignTab {
 			}
 			@media (max-width: 980px) {
 				.campaign-modal-body { grid-template-columns: 1fr; }
+				.campaign-poster-actions { flex-wrap: wrap; justify-content: center; }
+				.campaign-poster-action-group { margin-left: 0; justify-content: center; }
 			}
 		`;
 		document.head.appendChild(style);
@@ -852,13 +863,13 @@ class CampaignTab {
 		this.updatePromptComposerState();
 	}
 
-	renderChatLog() {
+	renderChatLog(options = {}) {
 		const chatLog = this.modalElement?.querySelector('#campaign-chat-log');
 		if (!chatLog) {
 			return;
 		}
 
-		const shouldStickToBottom = this.isChatLogNearBottom(chatLog);
+		const shouldStickToBottom = !!options.forceScrollToBottom || this.isChatLogNearBottom(chatLog);
 
 		if (!this.state.chatMessages.length) {
 				chatLog.innerHTML = '';
@@ -1013,6 +1024,15 @@ class CampaignTab {
 					<div class="campaign-poster-actions" data-campaign-poster-actions="true">${this.getCampaignPosterActionMarkup()}</div>
 				</div>
 			`;
+				const posterImage = preview.querySelector('.campaign-poster-image-wrap .campaign-output-image');
+				if (posterImage) {
+					const applyImageZoom = () => this.applyCampaignPosterZoom();
+					if (posterImage.complete) {
+						window.requestAnimationFrame(applyImageZoom);
+					} else {
+						posterImage.addEventListener('load', applyImageZoom, { once: true });
+					}
+				}
 			return;
 		}
 
@@ -1160,6 +1180,7 @@ class CampaignTab {
 				this.scheduleCampaignPosterStateSync();
 			});
 			canvas.setAttribute('aria-label', Lang.get('campaignPosterView'));
+			this.applyCampaignPosterZoom();
 			canvas.focus();
 			this.updateCampaignPosterActionState();
 		} catch (error) {
@@ -1212,6 +1233,16 @@ class CampaignTab {
 			return;
 		}
 
+		if (action === 'zoom-out') {
+			this.adjustCampaignPosterZoom(-this.campaignPosterZoomStep);
+			return;
+		}
+
+		if (action === 'zoom-in') {
+			this.adjustCampaignPosterZoom(this.campaignPosterZoomStep);
+			return;
+		}
+
 		const renderer = this.campaignPosterRenderer;
 		if (!renderer) {
 			return;
@@ -1258,6 +1289,72 @@ class CampaignTab {
 		}
 	}
 
+	adjustCampaignPosterZoom(delta) {
+		this.setCampaignPosterZoom(this.campaignPosterZoom + delta);
+	}
+
+	setCampaignPosterZoom(value) {
+		const steppedZoom = Math.round(Number(value) / this.campaignPosterZoomStep) * this.campaignPosterZoomStep;
+		const nextZoom = Math.min(this.campaignPosterMaxZoom, Math.max(this.campaignPosterMinZoom, steppedZoom));
+
+		if (!Number.isFinite(nextZoom)) {
+			return;
+		}
+
+		this.campaignPosterZoom = nextZoom;
+		this.applyCampaignPosterZoom();
+		this.updateCampaignPosterActionState();
+	}
+
+	applyCampaignPosterZoom() {
+		if (!this.modalElement || this.state.activeViewport !== 'poster') {
+			return;
+		}
+
+		const zoomLevel = Number(this.campaignPosterZoom) || 1;
+		const editorStage = this.modalElement.querySelector('.campaign-poster-editor-stage');
+		if (this.campaignPosterCanvas && editorStage) {
+			const intrinsicWidth = Number(this.campaignPosterCanvas.width) || 0;
+			const intrinsicHeight = Number(this.campaignPosterCanvas.height) || 0;
+			const fitScale = this.getCampaignPosterFitScale(intrinsicWidth, intrinsicHeight, editorStage.clientWidth, editorStage.clientHeight);
+			this.campaignPosterCanvas.style.width = `${Math.max(1, Math.round(intrinsicWidth * fitScale * zoomLevel))}px`;
+			this.campaignPosterCanvas.style.height = `${Math.max(1, Math.round(intrinsicHeight * fitScale * zoomLevel))}px`;
+			this.centerCampaignPosterScroll(editorStage);
+		}
+
+		const posterImage = this.modalElement.querySelector('.campaign-poster-image-wrap .campaign-output-image');
+		const imageWrap = posterImage?.closest('.campaign-poster-image-wrap');
+		if (posterImage && imageWrap) {
+			const intrinsicWidth = Number(posterImage.naturalWidth) || 0;
+			const intrinsicHeight = Number(posterImage.naturalHeight) || 0;
+			const fitScale = this.getCampaignPosterFitScale(intrinsicWidth, intrinsicHeight, imageWrap.clientWidth, imageWrap.clientHeight);
+			posterImage.style.width = `${Math.max(1, Math.round(intrinsicWidth * fitScale * zoomLevel))}px`;
+			posterImage.style.height = `${Math.max(1, Math.round(intrinsicHeight * fitScale * zoomLevel))}px`;
+			this.centerCampaignPosterScroll(imageWrap);
+		}
+	}
+
+	getCampaignPosterFitScale(contentWidth, contentHeight, viewportWidth, viewportHeight) {
+		const safeContentWidth = Math.max(1, Number(contentWidth) || 1);
+		const safeContentHeight = Math.max(1, Number(contentHeight) || 1);
+		const safeViewportWidth = Math.max(1, Number(viewportWidth) || 1);
+		const safeViewportHeight = Math.max(1, Number(viewportHeight) || 1);
+		return Math.min(safeViewportWidth / safeContentWidth, safeViewportHeight / safeContentHeight);
+	}
+
+	centerCampaignPosterScroll(container) {
+		if (!container) {
+			return;
+		}
+
+		window.requestAnimationFrame(() => {
+			const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+			const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+			container.scrollLeft = Math.round(maxScrollLeft / 2);
+			container.scrollTop = Math.round(maxScrollTop / 2);
+		});
+	}
+
 	getCampaignPosterActionMarkup() {
 		const posterRegeneration = this.getArtifactRegenerationState('poster');
 		const isPosterRegenerating = posterRegeneration.isPending;
@@ -1265,11 +1362,21 @@ class CampaignTab {
 		const posterSaveLabel = this.isSavingCampaignPoster
 			? Lang.get('campaignPosterRenderingButton')
 			: Lang.get('saveToDiskButton');
+		const zoomPercentage = `${Math.round((Number(this.campaignPosterZoom) || 1) * 100)}%`;
+		const canZoomOut = (Number(this.campaignPosterZoom) || 1) > this.campaignPosterMinZoom;
+		const canZoomIn = (Number(this.campaignPosterZoom) || 1) < this.campaignPosterMaxZoom;
 
 		return `
-			${isPosterRegenerating ? '<div class="campaign-artifact-progress" aria-hidden="true"></div>' : ''}
-			<button class="campaign-poster-action${isPosterRegenerating ? ' is-cancelling' : ''}" type="button" data-campaign-poster-action="${isPosterRegenerating ? 'cancel' : 'regenerate'}"${isPosterBusy ? ' disabled' : ''}>${this.escapeHtml(isPosterRegenerating ? (Lang.get('cancelButton') || Lang.get('cancel') || 'Cancel') : Lang.get('regenerateMessage'))}</button>
-			<button class="campaign-poster-action" type="button" data-campaign-poster-action="save"${isPosterBusy || isPosterRegenerating ? ' disabled' : ''}>${this.escapeHtml(posterSaveLabel)}</button>
+			<div class="campaign-poster-zoom-controls" aria-label="Poster zoom controls">
+				<button class="campaign-poster-zoom-button" type="button" data-campaign-poster-action="zoom-out" aria-label="Zoom out" title="Zoom out"${canZoomOut ? '' : ' disabled'}>-</button>
+				<span class="campaign-poster-zoom-level">${this.escapeHtml(zoomPercentage)}</span>
+				<button class="campaign-poster-zoom-button" type="button" data-campaign-poster-action="zoom-in" aria-label="Zoom in" title="Zoom in"${canZoomIn ? '' : ' disabled'}>+</button>
+			</div>
+			<div class="campaign-poster-action-group">
+				${isPosterRegenerating ? '<div class="campaign-artifact-progress" aria-hidden="true"></div>' : ''}
+				<button class="campaign-poster-action${isPosterRegenerating ? ' is-cancelling' : ''}" type="button" data-campaign-poster-action="${isPosterRegenerating ? 'cancel' : 'regenerate'}"${isPosterBusy ? ' disabled' : ''}>${this.escapeHtml(isPosterRegenerating ? (Lang.get('cancelButton') || Lang.get('cancel') || 'Cancel') : Lang.get('regenerateMessage'))}</button>
+				<button class="campaign-poster-action" type="button" data-campaign-poster-action="save"${isPosterBusy || isPosterRegenerating ? ' disabled' : ''}>${this.escapeHtml(posterSaveLabel)}</button>
+			</div>
 		`;
 	}
 
@@ -2298,7 +2405,7 @@ class CampaignTab {
 			content,
 			createdAt: new Date().toISOString()
 		});
-		this.renderChatLog();
+		this.renderChatLog({ forceScrollToBottom: role === 'user' });
 	}
 
 	updateChatMessage(messageId, content) {
@@ -2668,6 +2775,7 @@ class CampaignTab {
 					miniappHtml: campaign.miniapp_html || ''
 				}
 			};
+			this.campaignPosterZoom = 1;
 			this.state.chatMessages = this.normalizeChatHistory(campaign.chat_history);
 			this.restorePersistedOrchestratorContext(this.state.currentCampaign.id, campaign.orchestrator_context);
 			this.hasManualOutputEdits = false;
@@ -2765,6 +2873,7 @@ class CampaignTab {
 		this.state.imageRegistry = [];
 		this.state.pendingArtifacts = [];
 		this.state.pendingWorkflow = null;
+		this.campaignPosterZoom = 1;
 		this.hasManualOutputEdits = false;
 		this.renderChatLog();
 		this.renderImageRegistry();
