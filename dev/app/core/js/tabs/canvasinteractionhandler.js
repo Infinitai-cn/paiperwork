@@ -18,6 +18,7 @@ class CanvasInteractionHandler {
         this.activeHandle = null;
         this.activeHandleIndex = null;
         this.interactionStartState = null;
+        this._renderRafId = null;
 
         this.bindEvents();
     }
@@ -172,8 +173,26 @@ class CanvasInteractionHandler {
             this.handleResize(block, this.activeHandleIndex, dx, dy);
         }
 
+        this.scheduleRender();
+    }
+
+    scheduleRender() {
+        if (this._renderRafId !== null) {
+            return;
+        }
+
+        this._renderRafId = window.requestAnimationFrame(() => {
+            this._renderRafId = null;
+            this.renderer.render();
+        });
+    }
+
+    flushRender() {
+        if (this._renderRafId !== null) {
+            window.cancelAnimationFrame(this._renderRafId);
+            this._renderRafId = null;
+        }
         this.renderer.render();
-        this.onChange();
     }
 
     /**
@@ -262,7 +281,11 @@ class CanvasInteractionHandler {
         this.startElement = null;
         this.interactionStartState = null;
         this.canvas.style.cursor = 'default';
-        this.renderer.render();
+        this.flushRender();
+
+        if (this.onChange) {
+            this.onChange();
+        }
     }
 
     onKeyDown(e) {
@@ -431,6 +454,6 @@ class CanvasInteractionHandler {
         this.activeHandleIndex = null;
         this.startBlock = null;
         this.startElement = null;
-        this.renderer.render();
+        this.flushRender();
     }
 }
