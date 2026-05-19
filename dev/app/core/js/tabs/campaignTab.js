@@ -2596,7 +2596,10 @@ class CampaignTab {
 		}
 
 		try {
-			const shouldForkVariant = !!this.state.currentCampaign.id && this.hasManualOutputEdits;
+			const existingCampaignName = String(this.state.currentCampaign.name || '').trim();
+			const shouldForkVariant = !!this.state.currentCampaign.id && (
+				this.hasManualOutputEdits || trimmedName !== existingCampaignName
+			);
 			const createdAt = shouldForkVariant ? new Date().toISOString() : (this.state.currentCampaign.createdAt || new Date().toISOString());
 			const previousContextKey = String(this.state.currentCampaign.id || 'draft').trim() || 'draft';
 			const persistedContext = this.getPersistedOrchestratorContext();
