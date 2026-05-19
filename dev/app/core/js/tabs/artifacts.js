@@ -1244,6 +1244,8 @@ class ArtifactsWindow {
 			'For non-YouTube video streams such as .m3u8 (HLS), generate player code that uses native HLS where available and hls.js fallback for browsers that do not natively play HLS.',
 			'If the requested media format needs a runtime library, include and initialize the required library inside the generated HTML.',
 			'If you need to use pictures, always search for pictures related to the user request, ALWAYS use images from pixabay.com first and make pexels.com and unsplash.com as fallback in the code if pixabay pictures fail to load to enrich the miniapp or artifact, and make sure to use the correct API to fetch the image URLs and include them properly in the HTML.',
+			'Do not invent navigation links, hash anchors, or placeholder href targets such as #features, #about, or #contact unless the user explicitly requested internal section navigation or provided concrete link destinations to use.',
+			'If the user did not provide real links or request section-link navigation, use non-link UI controls such as buttons, tabs, cards, or plain text labels instead of anchor tags for navigation-like elements.',
 			'Ensure the output renders correctly in modern browsers without additional explanation from you.',
 			'If the user request a modification, always comply and return the fixed/upgraded/updated full html code.'
 		].join(' ');
