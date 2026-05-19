@@ -856,6 +856,11 @@ class ChatTab {
 
         // Set up insights toggle
         const insightsEnabled = localStorage.getItem('insightsEnabled') === 'true';
+        if (insightsEnabled && typeof window.ensureSubjectiveInteractionsLoaded === 'function') {
+            window.ensureSubjectiveInteractionsLoaded().catch(error => {
+                console.error('ChatTab: failed to pre-load subjective interactions helpers', error);
+            });
+        }
         document.querySelectorAll('.toggle-option').forEach(button => {
             const isOn = button.getAttribute('data-value') === 'on';
             if ((isOn && insightsEnabled) || (!isOn && !insightsEnabled)) {
@@ -4070,6 +4075,10 @@ class ChatTab {
                         await PaiperworkDB.saveInsightsEnabled(hashedMasterKey, isToggleOn);
                        //console.log('INSIGHTS TOGGLE: State saved to database:', isToggleOn);
 
+                        if (isToggleOn && typeof window.ensureSubjectiveInteractionsLoaded === 'function') {
+                            await window.ensureSubjectiveInteractionsLoaded();
+                        }
+
                         // CORRECTED LOGIC: This toggle ONLY controls whether insights are included in system prompts
                         // Insights are ALWAYS loaded from the database - this just controls their USAGE
                         if (isToggleOn) {
@@ -4494,6 +4503,10 @@ class ChatTab {
                 if (settings.insights_enabled !== undefined) {
                     const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
                     localStorage.setItem('insightsEnabled', insightsEnabled.toString());
+
+                    if (insightsEnabled && typeof window.ensureSubjectiveInteractionsLoaded === 'function') {
+                        await window.ensureSubjectiveInteractionsLoaded();
+                    }
 
                     // Update toggle UI
                     document.querySelectorAll('.toggle-option').forEach(btn => {
@@ -5231,6 +5244,10 @@ class ChatTab {
     async openInsightsEditor() {
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         if (!hashedMasterKey) return;
+
+        if (typeof window.ensureSubjectiveInteractionsLoaded === 'function') {
+            await window.ensureSubjectiveInteractionsLoaded();
+        }
 
         // Load insights from database
         const insights = await SubjectiveInteractions.loadInsights(hashedMasterKey);
