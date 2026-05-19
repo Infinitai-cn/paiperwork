@@ -503,7 +503,10 @@ class CampaignWorkflowManager {
 		const scripts = [
 			{ src: 'js/tabs/artworks.js', globalName: 'Artworks' },
 			{ src: 'js/tabs/artworkpreviewwindow.js', globalName: null },
-			{ src: 'js/tabs/artworkstab.js', globalName: 'ArtworksTab' }
+			{ src: 'js/tabs/artworkstab.js', globalName: 'ArtworksTab' },
+			{ src: 'js/tabs/artworkcanvasrenderer.js', globalName: 'ArtworkCanvasRenderer' },
+			{ src: 'js/tabs/canvasinteractionhandler.js', globalName: 'CanvasInteractionHandler' },
+			{ src: 'js/tabs/canvaspreviewmanager.js', globalName: 'CanvasPreviewManager' }
 		];
 
 		for (const script of scripts) {
@@ -511,8 +514,90 @@ class CampaignWorkflowManager {
 		}
 	}
 
+	async ensureArtworkEditorDependenciesLoaded() {
+		const overlayEditorReady = () => (
+			(typeof ArtworkCanvasRenderer !== 'undefined' || !!window.ArtworkCanvasRenderer)
+			&& (typeof CanvasInteractionHandler !== 'undefined' || !!window.CanvasInteractionHandler)
+			&& (typeof CanvasPreviewManager !== 'undefined' || !!window.CanvasPreviewManager)
+		);
+
+		if (overlayEditorReady()) {
+			return true;
+		}
+
+		const loader = window.tabLoader;
+		if (!loader || typeof loader.loadScript !== 'function') {
+			throw new Error('Overlay editor loader is unavailable.');
+		}
+
+		const overlayScripts = [
+			'js/tabs/artworkcanvasrenderer.js',
+			'js/tabs/canvasinteractionhandler.js',
+			'js/tabs/canvaspreviewmanager.js'
+		];
+
+		for (const script of overlayScripts) {
+			if (!loader.loadedModules[script]) {
+				if (!loader.loadingPromises[script]) {
+					loader.loadingPromises[script] = loader.loadScript(script);
+				}
+				await loader.loadingPromises[script];
+				loader.loadedModules[script] = true;
+				delete loader.loadingPromises[script];
+			}
+		}
+
+		await new Promise((resolve, reject) => {
+			let attempts = 0;
+			const maxAttempts = loader.getTabLoadMaxAttempts ? loader.getTabLoadMaxAttempts() : 50;
+			const checkInterval = window.setInterval(() => {
+				attempts += 1;
+				if (overlayEditorReady()) {
+					window.clearInterval(checkInterval);
+					resolve();
+				} else if (attempts >= maxAttempts) {
+					window.clearInterval(checkInterval);
+					reject(new Error('Timeout waiting for overlay editor components to load.'));
+				}
+			}, loader.pollIntervalMs || 100);
+		});
+
+		this.resolveLoadedGlobal('ArtworkCanvasRenderer');
+		this.resolveLoadedGlobal('CanvasInteractionHandler');
+		this.resolveLoadedGlobal('CanvasPreviewManager');
+
+		return true;
+	}
+
+	resolveLoadedGlobal(globalName) {
+		if (!globalName) {
+			return null;
+		}
+
+		if (window[globalName]) {
+			return window[globalName];
+		}
+
+		let resolved = null;
+		try {
+			resolved = new Function(`return typeof ${globalName} !== 'undefined' ? ${globalName} : null;`)();
+		} catch (error) {
+			resolved = null;
+		}
+
+		if (resolved) {
+			window[globalName] = resolved;
+		}
+
+		return resolved;
+	}
+
 	loadScriptIfNeeded(scriptSrc, globalName) {
-		if (globalName && window[globalName]) {
+		if (!globalName) {
+			return Promise.resolve();
+		}
+
+		if (this.resolveLoadedGlobal(globalName)) {
 			return Promise.resolve();
 		}
 
@@ -527,12 +612,19 @@ class CampaignWorkflowManager {
 		window._campaignScriptLoadingPromises[scriptSrc] = new Promise((resolve, reject) => {
 			const existingScript = document.querySelector(`script[src="${scriptSrc}"]`);
 			if (existingScript) {
-				if (!globalName || window[globalName]) {
+				if (this.resolveLoadedGlobal(globalName)) {
 					resolve();
 					return;
 				}
 
-				existingScript.addEventListener('load', () => resolve(), { once: true });
+				existingScript.addEventListener('load', () => {
+					if (this.resolveLoadedGlobal(globalName)) {
+						resolve();
+						return;
+					}
+
+					reject(new Error(`${globalName} is not available after loading ${scriptSrc}`));
+				}, { once: true });
 				existingScript.addEventListener('error', () => reject(new Error(`Failed to load ${scriptSrc}`)), { once: true });
 				return;
 			}
@@ -540,7 +632,14 @@ class CampaignWorkflowManager {
 			const script = document.createElement('script');
 			script.type = 'text/javascript';
 			script.src = scriptSrc;
-			script.onload = () => resolve();
+			script.onload = () => {
+				if (this.resolveLoadedGlobal(globalName)) {
+					resolve();
+					return;
+				}
+
+				reject(new Error(`${globalName} is not available after loading ${scriptSrc}`));
+			};
 			script.onerror = () => reject(new Error(`Failed to load ${scriptSrc}`));
 			document.head.appendChild(script);
 		});
@@ -791,9 +890,15 @@ class CampaignWorkflowManager {
 
 	buildMiniappExtraPrompt(request) {
 		const colorPaletteDesignRequest = this.buildColorPaletteDesignRequest(request);
+		const miniappCustomization = request?.campaign?.brief?.miniapp_customization || {};
+		const addRequests = String(miniappCustomization.add || '').trim();
+		const removeRequests = String(miniappCustomization.remove || '').trim();
 		return [
 			'Create a very beautiful and modern mini app related to the provided campaign brief,',
 			'with responsive design, clear calls to action, interactive buttons, and tasteful animations.',
+			(addRequests || removeRequests) ? 'Treat the mini app customization requests as functional guidance, not visible body copy.' : '',
+			addRequests ? `Requested mini app functionality to add or emphasize: ${addRequests}.` : '',
+			removeRequests ? `Requested mini app functionality to remove, avoid, or keep out: ${removeRequests}.` : '',
 			colorPaletteDesignRequest,
 			request?.reason ? `Workflow reason: ${request.reason}.` : '',
 			request?.prompt ? `User request: ${request.prompt}` : ''
@@ -807,7 +912,7 @@ class CampaignWorkflowManager {
 		return [
 			'Create a visually strong poster with text overlays using the uploaded reference image.',
 			'The poster must stay concise, clear, and impactful. Do not overcrowd it with text.',
-			'Use the dedicated poster copy as the source of truth for the overlay text hierarchy.',
+			'Use the dedicated poster brief section as the source of truth for the overlay text hierarchy.',
 			posterCopy.header ? `Poster header: ${posterCopy.header}` : '',
 			posterCopy.subheader ? `Poster subheader: ${posterCopy.subheader}` : '',
 			posterCopy.body ? `Poster body: ${posterCopy.body}` : '',
@@ -1106,11 +1211,28 @@ class CampaignWorkflowManager {
 		].join('\n');
 	}
 
+	getUserLanguageInstruction() {
+		const fallbackLanguageCode = 'en';
+		const currentLanguage = (typeof Lang !== 'undefined' && Lang && typeof Lang.getCurrentLanguage === 'function')
+			? (Lang.getCurrentLanguage() || fallbackLanguageCode)
+			: fallbackLanguageCode;
+		const normalizedLanguageCode = (window.OllamaAPI && typeof window.OllamaAPI.getLanguageCode === 'function')
+			? window.OllamaAPI.getLanguageCode(currentLanguage || fallbackLanguageCode)
+			: String(currentLanguage || fallbackLanguageCode).trim().toLowerCase() || fallbackLanguageCode;
+		const languageDisplayName = (window.OllamaAPI && typeof window.OllamaAPI.getLanguageDisplayName === 'function')
+			? window.OllamaAPI.getLanguageDisplayName(currentLanguage || normalizedLanguageCode || fallbackLanguageCode)
+			: normalizedLanguageCode;
+
+		return `Absolute priority: reply in the user's language only: ${languageDisplayName} (${normalizedLanguageCode}). Every visible sentence in chat_message and every user-facing phrase in status_message must be written in ${languageDisplayName}. Do not switch to English unless the user explicitly switches to English.`;
+	}
+
 	getOrchestratorSystemPrompt() {
 		return [
+			this.getUserLanguageInstruction(),
 			'You are the Paiperwork Campaign Orchestrator.',
 			'You are an expert campaign strategist acting as a sparring partner, not a passive assistant.',
 			'You build and refine a campaign brief through discussion only.',
+			'This language rule outranks tone, style, brevity, and every other instruction. If there is any conflict, keep the reply in the user language.',
 			'Use the selected model as the orchestrator brain, but keep orchestration state separate from the visible chat conversation.',
 			'The visible chat must feel like a sharp brainstorming exchange between experienced teammates shaping a strong campaign.',
 			'Write like a real person thinking out loud with context, not like customer support, a polished assistant template, or a corporate memo.',
@@ -1123,14 +1245,16 @@ class CampaignWorkflowManager {
 			'Always update the campaign brief first, then palette if useful, but never decide when campaign generation should start.',
 			'The campaign brief may include a subtitle. Use it when it sharpens the positioning, headline hierarchy, or storytelling, but keep it concise.',
 			'The campaign brief may include a campaign color palette note describing the intended visual direction for presentations and mini apps. Refine it collaboratively with the user when useful.',
-			'The campaign brief includes a dedicated poster_copy section for concise poster text. Keep it sharp and impactful, not crowded.',
+			'The campaign brief includes a dedicated poster_copy section that serves as the poster-specific brief section for concise poster text. Keep it sharp and impactful, not crowded.',
+			'The campaign brief may also include a dedicated miniapp_customization section with user-authored requests about features to add or remove. Use it to help the user tune the mini app, preserve it carefully, and treat it as product guidance rather than visible copy.',
 			'Use poster_copy.header, poster_copy.subheader, poster_copy.body, and poster_copy.footer for poster-specific text planning.',
-			'Poster copy should be shorter and more forceful than the general campaign brief. Do not dump the full brief into poster_copy.',
+			'Use miniapp_customization.add and miniapp_customization.remove to track mini app feature preferences and exclusions when the user discusses them.',
+			'The poster brief section should be shorter and more forceful than the general campaign brief. Do not dump the full brief into poster_copy.',
 			'Campaign generation and update are deterministic UI actions outside your control. Do not decide, recommend, trigger, or schedule poster, presentation, or miniapp execution.',
 			'If the user request is ambiguous, weak, or missing critical information, use chat_message to ask clarifying questions and improve the strategy instead of pretending the brief is complete.',
 			'Always keep workflow.recommended_action = "none" and workflow.targets = [] because execution is handled deterministically by the user buttons, not by you.',
 			'Never use internal workflow wording in chat_message. Do not say things like queued, payload, backend, JSON, structured response, trigger, or workflow plan in the visible reply.',
-			'Use status_message for short machine-facing UI status text. Use chat_message for natural, user-facing strategic conversation.',
+			'Use status_message for short machine-facing UI status text, but still write it in the user language. Use chat_message for natural, user-facing strategic conversation in that same language.',
 			'Treat every turn as brainstorming only: refine the brief, challenge the idea, ask questions, and keep workflow.recommended_action = "none" with an empty targets list.',
 			'Every turn already includes the current campaign brief. Read it carefully and revise it incrementally instead of restarting from scratch.',
 			'Preserve manual edits. Prefer narrow updates and patch-friendly changes. When a safe targeted update is not possible, explain the conflict briefly in chat_message and keep workflow.recommended_action as "none".',
@@ -1151,6 +1275,10 @@ class CampaignWorkflowManager {
 			'      "subheader": "",',
 			'      "body": "",',
 			'      "footer": ""',
+			'    },',
+			'    "miniapp_customization": {',
+			'      "add": "",',
+			'      "remove": ""',
 			'    }',
 			'  },',
 			'  "palette": ["#000000", "#ffffff"],',
