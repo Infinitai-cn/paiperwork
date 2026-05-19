@@ -16,6 +16,7 @@ class PaiperworkDB {
         if (role === 'rag') return 'rag';
         if (role === 'slideforge' || role === 'presentation' || role === 'presentations') return 'presentations';
         if (role === 'artifact' || role === 'artifacts') return 'artifacts';
+        if (role === 'campaign' || role === 'campaigns' || role === 'campaings') return 'campaings';
         if (role === 'kb') return 'kb';
         if (role === 'images' || role === 'attachments' || role === 'media') return 'images';
         if (role === 'whatsapp') return 'whatsapp';
@@ -52,6 +53,8 @@ class PaiperworkDB {
             presentations: !!this.getTrackedOpenDatabase(hashedMasterKey, 'presentations'),
             slideforge: !!this.getTrackedOpenDatabase(hashedMasterKey, 'presentations'),
             artifacts: !!this.getTrackedOpenDatabase(hashedMasterKey, 'artifacts'),
+            campaigns: !!this.getTrackedOpenDatabase(hashedMasterKey, 'campaings'),
+            campaings: !!this.getTrackedOpenDatabase(hashedMasterKey, 'campaings'),
             kb: !!this.getTrackedOpenDatabase(hashedMasterKey, 'kb'),
             images: !!this.getTrackedOpenDatabase(hashedMasterKey, 'images'),
             whatsapp: !!this.getTrackedOpenDatabase(hashedMasterKey, 'whatsapp'),
@@ -69,6 +72,9 @@ class PaiperworkDB {
         }
         if (normalizedRole === 'artifacts') {
             return `${hashedMasterKey}.artifacts.db`;
+        }
+        if (normalizedRole === 'campaings') {
+            return `${hashedMasterKey}.campaings.db`;
         }
         if (normalizedRole === 'kb') {
             return `${hashedMasterKey}.kb.db`;
@@ -95,6 +101,9 @@ class PaiperworkDB {
         }
         if (normalizedRole === 'artifacts') {
             return `${hashedMasterKey}::artifacts`;
+        }
+        if (normalizedRole === 'campaings') {
+            return `${hashedMasterKey}::campaings`;
         }
         if (normalizedRole === 'kb') {
             return `${hashedMasterKey}::kb`;
@@ -516,6 +525,10 @@ class PaiperworkDB {
 
     static async getArtifactsDatabase(hashedMasterKey) {
         return this.getDatabase(hashedMasterKey, 'artifacts', true);
+    }
+
+    static async getCampaignsDatabase(hashedMasterKey) {
+        return this.getDatabase(hashedMasterKey, 'campaings', true);
     }
 
     static async getKnowledgeDatabase(hashedMasterKey) {
@@ -1500,6 +1513,7 @@ class PaiperworkDB {
             const ragDb = await this.exportDatabase(hashedMasterKey, 'rag');
             const presentationsDb = await this.exportDatabase(hashedMasterKey, 'presentations');
             const artifactsDb = await this.exportDatabase(hashedMasterKey, 'artifacts');
+            const campaingsDb = await this.exportDatabase(hashedMasterKey, 'campaings');
             const kbDb = await this.exportDatabase(hashedMasterKey, 'kb');
             const imagesDb = await this.exportDatabase(hashedMasterKey, 'images');
             const whatsappDb = await this.exportDatabase(hashedMasterKey, 'whatsapp');
@@ -1509,6 +1523,7 @@ class PaiperworkDB {
                 rag: ragDb?.length || 0,
                 presentations: presentationsDb?.length || 0,
                 artifacts: artifactsDb?.length || 0,
+                campaings: campaingsDb?.length || 0,
                 kb: kbDb?.length || 0,
                 images: imagesDb?.length || 0,
                 whatsapp: whatsappDb?.length || 0
@@ -1523,6 +1538,7 @@ class PaiperworkDB {
                     rag: this.encodeUint8ArrayToBase64(ragDb),
                     presentations: this.encodeUint8ArrayToBase64(presentationsDb),
                     artifacts: this.encodeUint8ArrayToBase64(artifactsDb),
+                    campaings: this.encodeUint8ArrayToBase64(campaingsDb),
                     kb: this.encodeUint8ArrayToBase64(kbDb),
                     images: this.encodeUint8ArrayToBase64(imagesDb),
                     whatsapp: this.encodeUint8ArrayToBase64(whatsappDb)
@@ -1540,7 +1556,7 @@ class PaiperworkDB {
         try {
             let rawBytes = null;
             let bundleText = '';
-            const persistedRoles = ['main', 'rag', 'presentations', 'artifacts', 'kb', 'images', 'whatsapp'];
+            const persistedRoles = ['main', 'rag', 'presentations', 'artifacts', 'campaings', 'kb', 'images', 'whatsapp'];
 
             const existingRolesBeforeImport = [];
             for (const role of persistedRoles) {
@@ -1588,7 +1604,7 @@ class PaiperworkDB {
             const isLegacyBundle = parsed.format === this.LEGACY_DB_BUNDLE_FORMAT;
             const allRoles = isLegacyBundle
                 ? ['main', 'rag', 'html', 'kb', 'images', 'whatsapp']
-                : ['main', 'rag', 'presentations', 'artifacts', 'kb', 'images', 'whatsapp'];
+                : ['main', 'rag', 'presentations', 'artifacts', 'campaings', 'kb', 'images', 'whatsapp'];
             if (typeof parsed.dbs.main !== 'string' || !parsed.dbs.main) {
                 throw new Error('Backup is missing main database data');
             }
@@ -2415,6 +2431,117 @@ class PaiperworkDB {
         `);
     }
 
+    static ensureCampaignsTable(campaignsDb, hashedMasterKey) {
+        const tableName = `campaigns_${hashedMasterKey}`;
+        campaignsDb.run(`
+            CREATE TABLE IF NOT EXISTS ${tableName} (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                campaign_brief TEXT,
+                poster_png TEXT,
+                poster_overlay_json TEXT,
+                poster_background_image TEXT,
+                presentation_html TEXT,
+                miniapp_html TEXT,
+                palette_json TEXT,
+                chat_history_json TEXT,
+                orchestrator_context_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        `);
+        this.ensureCampaignConversationColumns(campaignsDb, hashedMasterKey);
+        this.ensureCampaignPosterEditorColumns(campaignsDb, hashedMasterKey);
+        return tableName;
+    }
+
+    static ensureCampaignConversationColumns(campaignsDb, hashedMasterKey) {
+        if (!campaignsDb || !hashedMasterKey) {
+            return;
+        }
+
+        const tableName = `campaigns_${hashedMasterKey}`;
+        const tableCheck = campaignsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+        if (!tableCheck?.[0]?.values?.length) {
+            return;
+        }
+
+        const columns = campaignsDb.exec(`PRAGMA table_info(${tableName})`)[0]?.values || [];
+        const columnNames = new Set(columns.map(column => String(column?.[1] || '')));
+
+        if (!columnNames.has('chat_history_json')) {
+            campaignsDb.run(`ALTER TABLE ${tableName} ADD COLUMN chat_history_json TEXT`);
+        }
+
+        if (!columnNames.has('orchestrator_context_json')) {
+            campaignsDb.run(`ALTER TABLE ${tableName} ADD COLUMN orchestrator_context_json TEXT`);
+        }
+    }
+
+    static ensureCampaignPosterEditorColumns(campaignsDb, hashedMasterKey) {
+        if (!campaignsDb || !hashedMasterKey) {
+            return;
+        }
+
+        const tableName = `campaigns_${hashedMasterKey}`;
+        const tableCheck = campaignsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+        if (!tableCheck?.[0]?.values?.length) {
+            return;
+        }
+
+        const columns = campaignsDb.exec(`PRAGMA table_info(${tableName})`)[0]?.values || [];
+        const columnNames = new Set(columns.map(column => String(column?.[1] || '')));
+
+        if (!columnNames.has('poster_overlay_json')) {
+            campaignsDb.run(`ALTER TABLE ${tableName} ADD COLUMN poster_overlay_json TEXT`);
+        }
+
+        if (!columnNames.has('poster_background_image')) {
+            campaignsDb.run(`ALTER TABLE ${tableName} ADD COLUMN poster_background_image TEXT`);
+        }
+    }
+
+    static async migrateLegacyCampaignsToDedicatedRoleDb(mainDb, hashedMasterKey) {
+        const tableName = `campaigns_${hashedMasterKey}`;
+        const legacyTableCheck = mainDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+        const campaignsDb = await this.getCampaignsDatabase(hashedMasterKey);
+        this.ensureCampaignsTable(campaignsDb, hashedMasterKey);
+
+        let migratedRows = 0;
+        let hadLegacyTable = false;
+
+        if (legacyTableCheck[0]?.values?.length) {
+            hadLegacyTable = true;
+            const rows = mainDb.exec(`
+                SELECT id, name, campaign_brief, poster_png, presentation_html, miniapp_html, palette_json, created_at, updated_at
+                FROM ${tableName}
+            `);
+
+            for (const row of rows?.[0]?.values || []) {
+                campaignsDb.run(
+                    `INSERT OR REPLACE INTO ${tableName} (
+                        id,
+                        name,
+                        campaign_brief,
+                        poster_png,
+                        presentation_html,
+                        miniapp_html,
+                        palette_json,
+                        created_at,
+                        updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    row
+                );
+                migratedRows += 1;
+            }
+
+            mainDb.run(`DROP TABLE IF EXISTS ${tableName}`);
+        }
+
+        await this.saveToStorage(campaignsDb.export(), hashedMasterKey, 'campaings');
+        return { migratedRows, hadLegacyTable };
+    }
+
     static async migrateLegacyHtmlRoleDbToDedicatedRoles(hashedMasterKey, options = {}) {
         let legacyHtmlDb = options.legacyHtmlDb || null;
         let shouldCloseLegacyDb = false;
@@ -2780,7 +2907,7 @@ class PaiperworkDB {
        //console.log('Migrating database for masterkey:', hashedMasterKey);
 
         try {
-            const latestVersion = 30;
+            const latestVersion = 33;
             // Get current version
             const versionResult = db.exec('SELECT version FROM db_version');
             const currentVersion = versionResult.length ? versionResult[0].values[0][0] : 0;
@@ -3674,7 +3801,42 @@ class PaiperworkDB {
                 }
             }
 
-            // Update database version to 30 (remove persisted connector workflow sessions from context blobs)
+            // Version 31: Move Campaign Studio payloads into the dedicated campaings role DB.
+            if (currentVersion < 31) {
+                try {
+                    const migrationResult = await this.migrateLegacyCampaignsToDedicatedRoleDb(db, hashedMasterKey);
+                    if (migrationResult.migratedRows > 0) {
+                        db.exec('VACUUM');
+                    }
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error migrating campaigns role database', error);
+                }
+            }
+
+            // Version 32: Add persisted Campaign conversation history/context columns to the dedicated campaings role DB.
+            if (currentVersion < 32) {
+                try {
+                    const campaignsDb = await this.getCampaignsDatabase(hashedMasterKey);
+                    this.ensureCampaignsTable(campaignsDb, hashedMasterKey);
+                    await this.saveToStorage(campaignsDb.export(), hashedMasterKey, 'campaings');
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error adding Campaign conversation persistence columns', error);
+                }
+            }
+
+            // Version 33: Persist Campaign poster editor overlay/background state in the dedicated campaings role DB.
+            if (currentVersion < 33) {
+                try {
+                    const campaignsDb = await this.getCampaignsDatabase(hashedMasterKey);
+                    this.ensureCampaignsTable(campaignsDb, hashedMasterKey);
+                    this.ensureCampaignPosterEditorColumns(campaignsDb, hashedMasterKey);
+                    await this.saveToStorage(campaignsDb.export(), hashedMasterKey, 'campaings');
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error adding Campaign poster editor persistence columns', error);
+                }
+            }
+
+            // Update database version to 33 (Campaign Studio dedicated role DB plus persisted conversation/context and poster editor state)
             if (currentVersion === 0) {
                 db.run(`INSERT INTO db_version (version) VALUES (${latestVersion})`);
             } else {
@@ -4755,6 +4917,203 @@ class PaiperworkDB {
         }
     }
 
+    static async saveCampaign(hashedMasterKey, payload) {
+        try {
+            if (!hashedMasterKey) throw new Error('Missing master key');
+
+            const name = String(payload?.name || '').trim();
+            if (!name) {
+                throw new Error('Missing campaign name');
+            }
+
+            const tableName = `campaigns_${hashedMasterKey}`;
+            const now = new Date().toISOString();
+            const campaignId = String(payload?.id || `campaign_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`);
+            const createdAt = String(payload?.created_at || now);
+
+            await this.initializeDatabase(hashedMasterKey);
+            const campaignsDb = await this.getCampaignsDatabase(hashedMasterKey);
+            this.ensureCampaignsTable(campaignsDb, hashedMasterKey);
+
+            campaignsDb.run(
+                `INSERT OR REPLACE INTO ${tableName} (
+                    id,
+                    name,
+                    campaign_brief,
+                    poster_png,
+                    poster_overlay_json,
+                    poster_background_image,
+                    presentation_html,
+                    miniapp_html,
+                    palette_json,
+                    chat_history_json,
+                    orchestrator_context_json,
+                    created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    campaignId,
+                    name,
+                    JSON.stringify(payload?.campaign_brief || {}),
+                    payload?.poster_png || '',
+                    JSON.stringify(payload?.poster_overlay_data || null),
+                    payload?.poster_background_image || '',
+                    payload?.presentation_html || '',
+                    payload?.miniapp_html || '',
+                    JSON.stringify(Array.isArray(payload?.palette) ? payload.palette : []),
+                    JSON.stringify(Array.isArray(payload?.chat_history) ? payload.chat_history : []),
+                    JSON.stringify(Array.isArray(payload?.orchestrator_context) ? payload.orchestrator_context : []),
+                    createdAt,
+                    now
+                ]
+            );
+
+            await this.saveToStorage(campaignsDb.export(), hashedMasterKey, 'campaings');
+            return campaignId;
+        } catch (error) {
+            console.error('saveCampaign error:', error);
+            throw error;
+        }
+    }
+
+    static async getCampaigns(hashedMasterKey) {
+        try {
+            if (!hashedMasterKey) return [];
+
+            console.log('PaiperworkDB.getCampaigns: start', {
+                hashPrefix: String(hashedMasterKey || '').slice(0, 8),
+                dbInitialized: !!this.dbInitialized,
+                openCampaignRole: !!this.getTrackedOpenDatabase(hashedMasterKey, 'campaings')
+            });
+
+            await this.initializeDatabase(hashedMasterKey);
+            const campaignsDb = await this.getDatabase(hashedMasterKey, 'campaings', false);
+            if (!campaignsDb) {
+                console.warn('PaiperworkDB.getCampaigns: no campaings DB available after initialization', {
+                    hashPrefix: String(hashedMasterKey || '').slice(0, 8)
+                });
+                return [];
+            }
+
+            const tableName = `campaigns_${hashedMasterKey}`;
+            const tableCheck = campaignsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+            if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
+                console.warn('PaiperworkDB.getCampaigns: campaigns table missing in campaings DB', {
+                    hashPrefix: String(hashedMasterKey || '').slice(0, 8),
+                    tableName
+                });
+                return [];
+            }
+
+            const rows = campaignsDb.exec(`
+                SELECT id, name, created_at, updated_at
+                FROM ${tableName}
+                ORDER BY updated_at DESC, created_at DESC, id DESC
+            `);
+
+            if (!rows || !rows[0] || !rows[0].values) {
+                console.warn('PaiperworkDB.getCampaigns: query returned no rows array', {
+                    hashPrefix: String(hashedMasterKey || '').slice(0, 8),
+                    tableName
+                });
+                return [];
+            }
+
+            console.log('PaiperworkDB.getCampaigns: loaded rows', {
+                hashPrefix: String(hashedMasterKey || '').slice(0, 8),
+                tableName,
+                rowCount: rows[0].values.length,
+                campaignIds: rows[0].values.map(row => String(row?.[0] || ''))
+            });
+
+            return rows[0].values.map(row => ({
+                id: row[0] || '',
+                name: row[1] || '',
+                created_at: row[2] || '',
+                updated_at: row[3] || ''
+            }));
+        } catch (error) {
+            console.error('getCampaigns error:', error);
+            return [];
+        }
+    }
+
+    static async loadCampaign(hashedMasterKey, campaignId) {
+        try {
+            if (!hashedMasterKey || !campaignId) return null;
+
+            await this.initializeDatabase(hashedMasterKey);
+            const campaignsDb = await this.getDatabase(hashedMasterKey, 'campaings', false);
+            if (!campaignsDb) return null;
+
+            const tableName = this.ensureCampaignsTable(campaignsDb, hashedMasterKey);
+
+            const rows = campaignsDb.exec(
+                `SELECT id, name, campaign_brief, poster_png, poster_overlay_json, poster_background_image, presentation_html, miniapp_html, palette_json, chat_history_json, orchestrator_context_json, created_at, updated_at FROM ${tableName} WHERE id = ? LIMIT 1`,
+                [campaignId]
+            );
+
+            if (!rows || !rows[0] || !rows[0].values || !rows[0].values.length) {
+                return null;
+            }
+
+            const row = rows[0].values[0];
+            return {
+                id: row[0] || '',
+                name: row[1] || '',
+                campaign_brief: this.safeParseJson(row[2], {}),
+                poster_png: row[3] || '',
+                poster_overlay_data: this.safeParseJson(row[4], null),
+                poster_background_image: row[5] || '',
+                presentation_html: row[6] || '',
+                miniapp_html: row[7] || '',
+                palette: this.safeParseJson(row[8], []),
+                chat_history: this.safeParseJson(row[9], []),
+                orchestrator_context: this.safeParseJson(row[10], []),
+                created_at: row[11] || '',
+                updated_at: row[12] || ''
+            };
+        } catch (error) {
+            console.error('loadCampaign error:', error);
+            return null;
+        }
+    }
+
+    static async deleteCampaign(hashedMasterKey, campaignId) {
+        try {
+            if (!hashedMasterKey || !campaignId) return false;
+
+            await this.initializeDatabase(hashedMasterKey);
+            const campaignsDb = await this.getDatabase(hashedMasterKey, 'campaings', false);
+            if (!campaignsDb) return false;
+
+            const tableName = `campaigns_${hashedMasterKey}`;
+            const tableCheck = campaignsDb.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name='${tableName}'`);
+            if (!tableCheck || !tableCheck[0] || !tableCheck[0].values.length) {
+                return false;
+            }
+
+            campaignsDb.run(`DELETE FROM ${tableName} WHERE id = ?`, [campaignId]);
+            await this.saveToStorage(campaignsDb.export(), hashedMasterKey, 'campaings');
+            return true;
+        } catch (error) {
+            console.error('deleteCampaign error:', error);
+            return false;
+        }
+    }
+
+    static safeParseJson(value, fallback) {
+        if (typeof value !== 'string' || !value.trim()) {
+            return fallback;
+        }
+
+        try {
+            return JSON.parse(value);
+        } catch (_error) {
+            return fallback;
+        }
+    }
+
     static async hashMasterKeyValue(masterkey) {
        //console.log('Generating hash for masterkey:', masterkey);
         const encoder = new TextEncoder();
@@ -4836,6 +5195,7 @@ class PaiperworkDB {
         await this.closeRoleDatabases('rag', hashedMasterKey);
         await this.closeRoleDatabases('presentations', hashedMasterKey);
         await this.closeRoleDatabases('artifacts', hashedMasterKey);
+        await this.closeRoleDatabases('campaings', hashedMasterKey);
         await this.closeRoleDatabases('kb', hashedMasterKey);
         await this.closeRoleDatabases('images', hashedMasterKey);
         await this.closeRoleDatabases('whatsapp', hashedMasterKey);
@@ -4889,6 +5249,15 @@ class PaiperworkDB {
                 }
 
                 try {
+                    await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'campaings'));
+                } catch (error) {
+                    if (error?.name !== 'NotFoundError') {
+                        console.warn('Error deleting campaings database from OPFS:', error);
+                        opfsDeleted = false;
+                    }
+                }
+
+                try {
                     await dbDir.removeEntry(this.getDbFileName(hashedMasterKey, 'kb'));
                 } catch (error) {
                     if (error?.name !== 'NotFoundError') {
@@ -4932,6 +5301,7 @@ class PaiperworkDB {
                 const ragKey = this.getDbStorageKey(hashedMasterKey, 'rag');
                 const presentationsKey = this.getDbStorageKey(hashedMasterKey, 'presentations');
                 const artifactsKey = this.getDbStorageKey(hashedMasterKey, 'artifacts');
+                const campaingsKey = this.getDbStorageKey(hashedMasterKey, 'campaings');
                 const kbKey = this.getDbStorageKey(hashedMasterKey, 'kb');
                 const imagesKey = this.getDbStorageKey(hashedMasterKey, 'images');
                 const whatsappKey = this.getDbStorageKey(hashedMasterKey, 'whatsapp');
@@ -4944,24 +5314,31 @@ class PaiperworkDB {
                         deletePresentationsRequest.onsuccess = () => {
                             const deleteArtifactsRequest = store.delete(artifactsKey);
                             deleteArtifactsRequest.onsuccess = () => {
-                                const deleteKbRequest = store.delete(kbKey);
-                                deleteKbRequest.onsuccess = () => {
-                                    const deleteImagesRequest = store.delete(imagesKey);
-                                    deleteImagesRequest.onsuccess = () => {
-                                        const deleteWhatsappRequest = store.delete(whatsappKey);
-                                        deleteWhatsappRequest.onsuccess = () => resolve(true);
-                                        deleteWhatsappRequest.onerror = () => {
-                                            console.error('Error deleting whatsapp database from IndexedDB:', deleteWhatsappRequest.error);
+                                const deleteCampaingsRequest = store.delete(campaingsKey);
+                                deleteCampaingsRequest.onsuccess = () => {
+                                    const deleteKbRequest = store.delete(kbKey);
+                                    deleteKbRequest.onsuccess = () => {
+                                        const deleteImagesRequest = store.delete(imagesKey);
+                                        deleteImagesRequest.onsuccess = () => {
+                                            const deleteWhatsappRequest = store.delete(whatsappKey);
+                                            deleteWhatsappRequest.onsuccess = () => resolve(true);
+                                            deleteWhatsappRequest.onerror = () => {
+                                                console.error('Error deleting whatsapp database from IndexedDB:', deleteWhatsappRequest.error);
+                                                resolve(false);
+                                            };
+                                        };
+                                        deleteImagesRequest.onerror = () => {
+                                            console.error('Error deleting images database from IndexedDB:', deleteImagesRequest.error);
                                             resolve(false);
                                         };
                                     };
-                                    deleteImagesRequest.onerror = () => {
-                                        console.error('Error deleting images database from IndexedDB:', deleteImagesRequest.error);
+                                    deleteKbRequest.onerror = () => {
+                                        console.error('Error deleting kb database from IndexedDB:', deleteKbRequest.error);
                                         resolve(false);
                                     };
                                 };
-                                deleteKbRequest.onerror = () => {
-                                    console.error('Error deleting kb database from IndexedDB:', deleteKbRequest.error);
+                                deleteCampaingsRequest.onerror = () => {
+                                    console.error('Error deleting campaings database from IndexedDB:', deleteCampaingsRequest.error);
                                     resolve(false);
                                 };
                             };
@@ -9037,6 +9414,7 @@ class PaiperworkDB {
             const ragData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'rag');
             const presentationsData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'presentations');
             const artifactsData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'artifacts');
+            const campaingsData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'campaings');
             const kbData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'kb');
             const imagesData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'images');
             const whatsappData = await PaiperworkDB.getExistingDatabase(hashedMasterKey, 'whatsapp');
@@ -9045,6 +9423,7 @@ class PaiperworkDB {
             const ragDb = ragData ? new this.SQL.Database(ragData) : null;
             const presentationsDb = presentationsData ? new this.SQL.Database(presentationsData) : null;
             const artifactsDb = artifactsData ? new this.SQL.Database(artifactsData) : null;
+            const campaingsDb = campaingsData ? new this.SQL.Database(campaingsData) : null;
             const kbDb = kbData ? new this.SQL.Database(kbData) : null;
             const imagesDb = imagesData ? new this.SQL.Database(imagesData) : null;
             const whatsappDb = whatsappData ? new this.SQL.Database(whatsappData) : null;
@@ -9104,6 +9483,7 @@ class PaiperworkDB {
             const exportedRagDb = ragDb ? ragDb.export() : new Uint8Array(0);
             const exportedPresentationsDb = presentationsDb ? presentationsDb.export() : new Uint8Array(0);
             const exportedArtifactsDb = artifactsDb ? artifactsDb.export() : new Uint8Array(0);
+            const exportedCampaingsDb = campaingsDb ? campaingsDb.export() : new Uint8Array(0);
             const exportedKbDb = kbDb ? kbDb.export() : new Uint8Array(0);
             const exportedImagesDb = imagesDb ? imagesDb.export() : new Uint8Array(0);
             const exportedWhatsappDb = whatsappDb ? whatsappDb.export() : new Uint8Array(0);
@@ -9112,11 +9492,12 @@ class PaiperworkDB {
             const ragSizeBytes = exportedRagDb.length;
             const presentationsSizeBytes = exportedPresentationsDb.length;
             const artifactsSizeBytes = exportedArtifactsDb.length;
+            const campaignsSizeBytes = exportedCampaingsDb.length;
             const kbSizeBytes = exportedKbDb.length;
             const imagesSizeBytes = exportedImagesDb.length;
             const whatsappSizeBytes = exportedWhatsappDb.length;
             const wechatSizeBytes = exportedWechatDb.length;
-            const totalSizeInBytes = mainSizeBytes + ragSizeBytes + presentationsSizeBytes + artifactsSizeBytes + kbSizeBytes + imagesSizeBytes + whatsappSizeBytes + wechatSizeBytes;
+            const totalSizeInBytes = mainSizeBytes + ragSizeBytes + presentationsSizeBytes + artifactsSizeBytes + campaignsSizeBytes + kbSizeBytes + imagesSizeBytes + whatsappSizeBytes + wechatSizeBytes;
 
             const documentsTable = `documents_${hashedMasterKey}`;
             const chunksTable = `document_chunks_${hashedMasterKey}`;
@@ -9124,6 +9505,7 @@ class PaiperworkDB {
             const promptableHtmlTable = `promptable_presentations_html_${hashedMasterKey}`;
             const artifactsTable = `artifacts_${hashedMasterKey}`;
             const artifactsHtmlTable = `artifacts_html_${hashedMasterKey}`;
+            const campaignsTable = `campaigns_${hashedMasterKey}`;
             const kbCollectionsTable = `knowledge_collections_${hashedMasterKey}`;
             const kbEntriesTable = `knowledge_entries_${hashedMasterKey}`;
             const attachmentsTable = `conversation_attachments_${hashedMasterKey}`;
@@ -9142,6 +9524,9 @@ class PaiperworkDB {
 
             const artifactsCount = countRows(db, artifactsTable);
             const artifactsPayloadBytes = textColumnBytes(artifactsDb, artifactsHtmlTable, 'html_content');
+
+            const campaignsCount = countRows(campaingsDb, campaignsTable);
+            const campaignsPayloadBytes = multiColumnBytes(campaingsDb, campaignsTable, ['campaign_brief', 'poster_png', 'poster_overlay_json', 'poster_background_image', 'presentation_html', 'miniapp_html', 'palette_json']);
 
             const kbCollectionsCount = countRows(db, kbCollectionsTable);
             const kbPayloadCollectionsCount = countRows(kbDb, kbEntriesTable);
@@ -9217,6 +9602,13 @@ class PaiperworkDB {
                         count: artifactsCount,
                         payloadBytes: artifactsPayloadBytes,
                         payloadFormatted: this.formatFileSize(artifactsPayloadBytes)
+                    },
+                    campaigns: {
+                        bytes: campaignsSizeBytes,
+                        formatted: this.formatFileSize(campaignsSizeBytes),
+                        count: campaignsCount,
+                        payloadBytes: campaignsPayloadBytes,
+                        payloadFormatted: this.formatFileSize(campaignsPayloadBytes)
                     },
                     knowledgeBase: {
                         bytes: kbSizeBytes,
@@ -9356,7 +9748,7 @@ class PaiperworkDB {
 
     static async vacuumDatabase(hashedMasterKey) {
         try {
-            const roles = ['main', 'rag', 'presentations', 'artifacts', 'kb', 'images', 'whatsapp', 'wechat'];
+            const roles = ['main', 'rag', 'presentations', 'artifacts', 'campaings', 'kb', 'images', 'whatsapp', 'wechat'];
             let totalBeforeSize = 0;
             let totalAfterSize = 0;
 

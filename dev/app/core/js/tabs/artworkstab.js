@@ -1319,8 +1319,18 @@ class ArtworksTab {
         return lines.join('\n');
     }
 
+    isExternalProgressManaged() {
+        return window.__campaignManagedArtworkProgress === true;
+    }
+
     // Shows a floating progress indicator window during image analysis/generation
     showProgressIndicator() {
+        if (this.isExternalProgressManaged()) {
+            window.isGenerating = true;
+            this.disableChatControls();
+            return;
+        }
+
         // First, check if we already have a floating window
         let progressWindow = document.querySelector('.artwork-progress-window');
 
@@ -1913,7 +1923,7 @@ class ArtworksTab {
 
                                  case 'overlay': // Text Overlay mode
                                         systemPrompt = `You are an expert designer specializing in creating text overlays on product images. Your task is to analyze the image and produce a JSON configuration that describes text overlays, SVG shapes/lines/ornaments, and their visual properties for rendering onto the background image.
-
+                                            REQUIREMENT: Never overlap text elements on top of each other. Always ensure strong readability and contrast against the background image.
                                             SUPPORTED TEXT EFFECTS:
                                             The rendering engine supports the following text effects. Use them to create visually compelling designs:
                                             - Font family, size, weight, style: You may use system fonts OR web fonts (including Google Fonts). Use fontWeight "bold" or 700 for headlines, "normal" or 400 for body text. Use fontStyle "italic" for emphasis.
@@ -2377,6 +2387,18 @@ class ArtworksTab {
                                 }
                             });
                         }
+
+						try {
+							window.__lastArtworkPreviewWindow = previewWindow;
+							window.dispatchEvent(new CustomEvent('artwork:preview-ready', {
+								detail: {
+									previewWindow,
+									mode: this.activeMode
+								}
+							}));
+						} catch (previewEventError) {
+							console.warn('ArtworksTab: failed to publish preview-ready event', previewEventError);
+						}
                     } else {
                         console.error('ArtworkPreviewWindow not available, skipping in-tab fallback rendering');
                     }

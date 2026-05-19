@@ -3268,6 +3268,14 @@ class PromptedPresentationWorkflow {
 			return;
 		}
 		this.currentPresentationHtml = this.serializePromptableFrameDocument(targetFrame);
+
+		if (typeof this.onPromptableHtmlMutated === 'function') {
+			try {
+				this.onPromptableHtmlMutated(this.currentPresentationHtml, targetFrame);
+			} catch (error) {
+				console.error('[PromptablePresentation] onPromptableHtmlMutated callback failed', error);
+			}
+		}
 	}
 
 	static getPromptableImageStableId(imageElement) {
