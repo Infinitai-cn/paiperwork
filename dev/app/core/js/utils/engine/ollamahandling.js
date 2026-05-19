@@ -3089,11 +3089,15 @@ class OllamaAPI {
         // Create temporal context section
         const temporalContext = `Current date and time: ${formattedDate}. When providing information: 1) Consider if your knowledge might be outdated relative to the current date. 2) For time-sensitive topics, mention possible limitations. 3) Be transparent about knowledge cutoff when discussing rapidly evolving topics.`;
 
-        // LOAD INSIGHTS: Always load insights from database
+        // LOAD INSIGHTS: Only load them when the subjective interactions toggle is enabled.
         let insightsString = '';
         try {
-           //console.log('OllamaAPI DEBUG: Loading insights from database (always loaded regardless of toggle)...');
-            const insights = await SubjectiveInteractions.loadInsights(hashedMasterKey);
+            const insightsEnabled = localStorage.getItem('insightsEnabled') === 'true';
+            if (insightsEnabled && typeof window.ensureSubjectiveInteractionsLoaded === 'function') {
+                await window.ensureSubjectiveInteractionsLoaded();
+            }
+
+            const insights = insightsEnabled ? await SubjectiveInteractions.loadInsights(hashedMasterKey) : [];
 
             if (insights && insights.length > 0) {
                //console.log('OllamaAPI DEBUG: Found insights in database:', insights.length);
