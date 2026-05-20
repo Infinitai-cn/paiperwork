@@ -409,12 +409,48 @@ document.addEventListener('DOMContentLoaded', async function () {
                //console.log('App.js: Initializing ChatTab');
                 await ChatTab.initialize();
                //console.log('App.js: ChatTab UI initialization complete');
+
+                await ensureChatTabVisibleWhenModelMissing(settings);
             }
         } catch (error) {
             console.error('Initialization error:', error);
         }
     }
 });
+
+async function ensureChatTabVisibleWhenModelMissing(settings = null) {
+    const chatButton = document.querySelector('.tab-button[data-tab="chat"]');
+    if (!chatButton || typeof chatButton.click !== 'function') {
+        return;
+    }
+
+    const hasPersistedModel = !!String(settings && settings.model ? settings.model : '').trim();
+    if (hasPersistedModel) {
+        return;
+    }
+
+    let modelSelector = document.getElementById('model-selector');
+    if (!modelSelector && window.chatTab && typeof window.chatTab.switchToChatTabFromModelWarning === 'function') {
+        window.chatTab.switchToChatTabFromModelWarning();
+        return;
+    }
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+        if (modelSelector && modelSelector.options && modelSelector.options.length > 0) {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 120));
+        modelSelector = document.getElementById('model-selector');
+    }
+
+    const selectedValue = modelSelector ? String(modelSelector.value || '').trim() : '';
+    const selectedIndex = modelSelector ? modelSelector.selectedIndex : -1;
+    const noModelSelected = !selectedValue || selectedIndex === 0;
+
+    if (noModelSelected) {
+        chatButton.click();
+    }
+}
 
 function hideLocalOnlyTabsForCloudOnly() {
     let localOnlyTabs;
