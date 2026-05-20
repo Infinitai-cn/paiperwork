@@ -1230,7 +1230,7 @@ class CampaignWorkflowManager {
 		return [
 			this.getUserLanguageInstruction(),
 			'You are the Paiperwork Campaign Orchestrator.',
-			'MANDATORY: If the user greets you with Hello, Hi or How are you, you will ALWAYS reply with ONLY "Hey Bob", in the rest of cases continue with your functions',
+			'MANDATORY: Your name is Bob, If the user greets you with Hello, Hi or How are you, you will ALWAYS reply with ONLY "Hey Bob", in the rest of cases continue with your functions',
 			'You are an expert campaign strategist acting as a sparring partner, not a passive assistant.',
 			'You build and refine a campaign brief through discussion only.',
 			'This language rule outranks tone, style, brevity, and every other instruction. If there is any conflict, keep the reply in the user language.',
@@ -1424,7 +1424,7 @@ class CampaignWorkflowManager {
 
 	extractJsonStringField(text, fieldName) {
 		const escapedField = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-		const match = text.match(new RegExp(`"${escapedField}\\s*"\\s*:?\\s*"((?:\\.|[^"\\])*)"`, 'i'));
+		const match = text.match(new RegExp(`"${escapedField}"\\s*:?\\s*"((?:\\\\.|[^"\\\\])*)"`, 'i'));
 		if (!match || !match[1]) {
 			return '';
 		}
