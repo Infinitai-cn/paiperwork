@@ -161,7 +161,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 campaignBriefFieldMiniappRemove: "从迷你应用中移除",
                 campaignPromptPlaceholder: "在点击生成或更新之前，请完善活动简报、添加约束或描述你想要的方向。",
                 campaignUserRole: "用户",
-                campaignAssistantRole: "编排器",
+                campaignAssistantRole: "Bob",
                 campaignWarningRole: "警告",
                 campaignImagesQueued: "已将 {count} 张图片加入活动图片注册表。",
                 campaignImageRemoved: "图片已从活动图片注册表中移除。",

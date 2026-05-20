@@ -162,7 +162,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         campaignBriefFieldMiniappRemove: "Retirer de la mini application",
         campaignPromptPlaceholder: "Affinez le brief de campagne, ajoutez des contraintes ou décrivez la direction voulue avant d'appuyer sur Générer ou Mettre à jour.",
         campaignUserRole: "Utilisateur",
-        campaignAssistantRole: "Orchestrateur",
+        campaignAssistantRole: "Bob",
         campaignWarningRole: "Alerte",
         campaignImagesQueued: "{count} image(s) ajoutée(s) au registre d'images de la campagne.",
         campaignImageRemoved: "L'image a été retirée du registre d'images de la campagne.",

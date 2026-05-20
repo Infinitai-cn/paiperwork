@@ -223,7 +223,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         campaignBriefFieldMiniappRemove: "Remove from the mini app",
         campaignPromptPlaceholder: "Refine the campaign brief, add constraints, or describe the direction you want before pressing Generate or Update.",
         campaignUserRole: "User",
-        campaignAssistantRole: "Orchestrator",
+        campaignAssistantRole: "Bob",
         campaignWarningRole: "Warning",
         campaignImagesQueued: "Added {count} image(s) to the campaign image registry.",
         campaignImageRemoved: "Image removed from the campaign image registry.",
