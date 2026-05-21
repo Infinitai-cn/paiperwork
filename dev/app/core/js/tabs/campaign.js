@@ -21,7 +21,7 @@ class CampaignWorkflowManager {
 			workflow,
 			artifactRequests: this.buildArtifactRequests(workflow, payload, action)
 		};
-	}
+	 }
 
 	async runWorkflow(action, payload) {
 		const selectedModel = String(payload?.model?.value || '').trim();
