@@ -2048,6 +2048,7 @@ window.helpContent = {
 
                 <div class="note">
                     <p><strong>重要：</strong>Campaign 生成需要上传图片，因为海报工作流依赖该图片。其他输出共享相同的 campaign 策略，但海报会特别使用这张上传的视觉参考。</p>
+                    <p><strong>海报要求：</strong>在运行 Campaign 工作流之前，还必须先在 Artworks 选项卡卡片中选择一个视觉模型，才能生成或重新生成海报。</p>
                 </div>
             `,
             },
@@ -2138,6 +2139,7 @@ window.helpContent = {
                     <li>你可以选择叠加元素、移动它们、删除它们，并撤销最近的删除</li>
                     <li>当前海报状态可以导出为 PNG</li>
                     <li><strong>Regenerate</strong> 只会重新运行海报工作流，并使用最新的海报 brief 部分、campaign brief、色板指引和上传图片</li>
+                    <li><strong>需要视觉模型</strong> - 在生成或重新生成 Campaign 海报之前，请先在 Artworks 选项卡卡片中选择一个视觉模型</li>
                 </ul>
 
                 <h4>演示文稿编辑</h4>

@@ -243,6 +243,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         campaignArtifactLaunchFailed: "Could not start the requested campaign artifact workflow.",
         campaignPosterImageRequired: "Poster generation requires at least one uploaded campaign image.",
         campaignPosterVisualModelRequired: "Poster generation requires a selected visual model in the Artworks tab.",
+        campaignPosterVisualModelModalTitle: "Select visual model for the poster",
+        campaignPosterVisualModelModalBody: "Choose the visual model for the campaign poster before generation starts. The selected model will also be saved as the default visual model in the Artworks tab.",
         campaignChooseImageButton: "Choose file",
         campaignOrchestratorUnavailable: "Campaign orchestration is not available right now.",
         campaignOrchestratorEmptyResponse: "The campaign orchestrator returned an empty response.",
@@ -2489,7 +2491,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         presentationNameDialogTitle: 'Name your presentation',
         presentationNamePlaceholder: 'Enter presentation name',
         saveToDiskButton: 'Save to disk',
-        campaignPosterRenderingButton: 'Rendering...',
+        campaignPosterRenderingButton: 'Exporting PNG...',
+        campaignMiniappExportingButton: 'Exporting HTML...',
         saveToDiskSuccess: 'Presentation saved to disk.',
         saveToDiskSuccessHtml: 'HTML presentation saved to disk.',
         saveToDiskSuccessPdf: 'PDF presentation saved to disk.',
@@ -2664,7 +2667,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         noValidJsonOrMarkdownDetected: 'No valid JSON or markdown detected in AI reply.',
         docxWordXmlNotFound: 'DOCX structure invalid: word/document.xml not found.',
         noTextExtractedFromDocx: 'No text was extracted from the DOCX file.',
-        noModelSelected: 'No AI model selected. Please choose a model before generating.',
+        noModelSelected: 'No AI model selected. Please choose a model in Chat tab before generating.',
         whatsappNoModelSelected: 'No AI model selected, please select a model in Chat Tab first.',
 
         // Presentation retry message when AI returns incomplete JSON

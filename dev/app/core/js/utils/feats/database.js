@@ -4980,12 +4980,6 @@ class PaiperworkDB {
         try {
             if (!hashedMasterKey) return [];
 
-            console.log('PaiperworkDB.getCampaigns: start', {
-                hashPrefix: String(hashedMasterKey || '').slice(0, 8),
-                dbInitialized: !!this.dbInitialized,
-                openCampaignRole: !!this.getTrackedOpenDatabase(hashedMasterKey, 'campaings')
-            });
-
             await this.initializeDatabase(hashedMasterKey);
             const campaignsDb = await this.getDatabase(hashedMasterKey, 'campaings', false);
             if (!campaignsDb) {
@@ -5018,13 +5012,6 @@ class PaiperworkDB {
                 });
                 return [];
             }
-
-            console.log('PaiperworkDB.getCampaigns: loaded rows', {
-                hashPrefix: String(hashedMasterKey || '').slice(0, 8),
-                tableName,
-                rowCount: rows[0].values.length,
-                campaignIds: rows[0].values.map(row => String(row?.[0] || ''))
-            });
 
             return rows[0].values.map(row => ({
                 id: row[0] || '',

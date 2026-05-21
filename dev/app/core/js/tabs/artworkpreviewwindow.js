@@ -1272,9 +1272,10 @@ class ArtworkPreviewWindow {
             window.Lang ? (Lang.get('searchingImagesLabel') || 'Searching images...') : 'Searching images...',
             'info'
         );
+        const abortSignal = window.artworkAbortController?.signal || null;
 
         try {
-            const urls = await this.searchStyleTransferImageUrls(query, 18);
+            const urls = await this.searchStyleTransferImageUrls(query, 18, abortSignal);
             this.renderStyleTransferImageSearchResults(urls);
             if (!urls.length) {
                 this.updateStyleTransferImageEditorStatus(
@@ -1289,6 +1290,10 @@ class ArtworkPreviewWindow {
                 'info'
             );
         } catch (error) {
+            if (error?.name === 'AbortError') {
+                this.updateStyleTransferImageEditorStatus(window.Lang ? (Lang.get('artworkGenerationCanceled') || 'Cancelled') : 'Cancelled', 'muted');
+                return;
+            }
             console.error('ArtworkPreviewWindow: Style transfer image search failed', error);
             this.updateStyleTransferImageEditorStatus(String(error && error.message ? error.message : error), 'error');
         } finally {
@@ -1298,7 +1303,7 @@ class ArtworkPreviewWindow {
         }
     }
 
-    async searchStyleTransferImageUrls(query, count = 18) {
+    async searchStyleTransferImageUrls(query, count = 18, abortSignal = null) {
         const q = String(query || '').trim();
         if (!q) {
             return [];
@@ -1306,15 +1311,18 @@ class ArtworkPreviewWindow {
 
         if (window.PromptablePresentation && typeof window.PromptablePresentation.searchPromptableImageUrls === 'function') {
             try {
-                return await window.PromptablePresentation.searchPromptableImageUrls(q, count);
+                return await window.PromptablePresentation.searchPromptableImageUrls(q, count, abortSignal);
             } catch (e) {
+                if (e?.name === 'AbortError') {
+                    throw e;
+                }
                 console.warn('ArtworkPreviewWindow: promptable search failed, falling back', e);
             }
         }
 
         let urls = [];
         try {
-            const multiResp = await fetch(`/api/proxy/image-search-multi?q=${encodeURIComponent(q)}`);
+            const multiResp = await fetch(`/api/proxy/image-search-multi?q=${encodeURIComponent(q)}`, { signal: abortSignal || undefined });
             if (multiResp && multiResp.ok) {
                 const multiData = await multiResp.json();
                 let multiList = [];
@@ -1341,18 +1349,24 @@ class ArtworkPreviewWindow {
                 });
             }
         } catch (error) {
+            if (error?.name === 'AbortError') {
+                throw error;
+            }
             console.warn('ArtworkPreviewWindow: image-search-multi failed', error);
         }
 
         if (urls.length < count) {
             try {
-                const singleResp = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(q)}`);
+                const singleResp = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(q)}`, { signal: abortSignal || undefined });
                 if (singleResp && singleResp.ok) {
                     const singleData = await singleResp.json();
                     const extracted = this.extractStyleTransferImageSearchUrls(singleData);
                     urls = urls.concat(extracted);
                 }
             } catch (error) {
+                if (error?.name === 'AbortError') {
+                    throw error;
+                }
                 console.warn('ArtworkPreviewWindow: image-search fallback failed', error);
             }
         }

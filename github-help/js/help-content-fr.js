@@ -2042,6 +2042,7 @@ window.helpContent = {
 
                 <div class="note">
                     <p><strong>Important :</strong> La génération de campagne nécessite une image téléversée, car le flux d'affiche en dépend. Les autres sorties partagent la même stratégie de campagne, mais l'affiche utilise spécifiquement la référence visuelle téléversée.</p>
+                    <p><strong>Condition pour l'affiche :</strong> La génération et la régénération de l'affiche exigent aussi qu'un modèle visuel soit sélectionné dans la carte de l'onglet Artworks avant de lancer le flux de campagne.</p>
                 </div>
             `,
             },
@@ -2132,6 +2133,7 @@ window.helpContent = {
                     <li>Vous pouvez sélectionner les éléments de superposition, les déplacer, les supprimer et annuler les suppressions récentes</li>
                     <li>L'état actuel de l'affiche peut être exporté en PNG</li>
                     <li><strong>Regenerate</strong> relance uniquement le flux de l'affiche en utilisant la dernière section du brief de l'affiche, le brief de campagne, les indications de palette et l'image téléversée</li>
+                    <li><strong>Modèle visuel requis</strong> - Sélectionnez un modèle visuel dans la carte de l'onglet Artworks avant de générer ou régénérer l'affiche de campagne</li>
                 </ul>
 
                 <h4>Édition de la présentation</h4>

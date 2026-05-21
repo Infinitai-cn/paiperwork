@@ -2056,6 +2056,7 @@ window.helpContent = {
 
                 <div class="note">
                     <p><strong>Importante:</strong> La generación de la campaña requiere una imagen subida porque el flujo del póster depende de ella. Las otras salidas comparten la misma estrategia de campaña, pero el póster usa específicamente la referencia visual subida.</p>
+                    <p><strong>Requisito del póster:</strong> La generación y regeneración del póster también requieren que haya un modelo visual seleccionado en la tarjeta de la pestaña Artworks antes de ejecutar el flujo de campaña.</p>
                 </div>
             `,
             },
@@ -2146,6 +2147,7 @@ window.helpContent = {
                     <li>Puedes seleccionar elementos de la superposición, moverlos, eliminarlos y deshacer eliminaciones recientes</li>
                     <li>El estado actual del póster puede exportarse como PNG</li>
                     <li><strong>Regenerate</strong> vuelve a ejecutar solo el flujo del póster usando la última sección del briefing del póster, el briefing de campaña, la guía de paleta y la imagen subida</li>
+                    <li><strong>Se requiere un modelo visual</strong> - Selecciona un modelo visual en la tarjeta de la pestaña Artworks antes de generar o regenerar el póster de campaña</li>
                 </ul>
 
                 <h4>Edición de la presentación</h4>

@@ -19,13 +19,17 @@ class CampaignTab {
 		this.campaignPosterMinZoom = 0.25;
 		this.campaignPosterMaxZoom = 3;
 		this.campaignPosterZoomStep = 0.25;
+		this.isSavingCampaignPresentation = false;
 		this.isSavingCampaignPoster = false;
+		this.isSavingCampaignMiniapp = false;
 		this.hasManualOutputEdits = false;
+		this.posterVisualModelPromptResolver = null;
 		this.state = {
 			activeViewport: 'brief',
 			draftPrompt: '',
 			isWorkflowPending: false,
 			artifactRegeneration: this.createArtifactRegenerationState(),
+			posterVisualModelPrompt: this.createPosterVisualModelPromptState(),
 			chatMessages: [],
 			imageRegistry: [],
 			pendingArtifacts: [],
@@ -100,6 +104,16 @@ class CampaignTab {
 				isPending: false,
 				abortController: null
 			}
+		};
+	}
+
+	createPosterVisualModelPromptState() {
+		return {
+			isOpen: false,
+			message: '',
+			errorMessage: '',
+			selectedModel: '',
+			models: []
 		};
 	}
 
@@ -185,12 +199,7 @@ class CampaignTab {
 	async loadSavedCampaigns() {
 		const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
 		const databaseApi = this.getDatabaseApi();
-		console.log('CampaignTab: loadSavedCampaigns start', {
-			hashedMasterKeyPresent: !!hashedMasterKey,
-			hashPrefix: String(hashedMasterKey || '').slice(0, 8),
-			hasWindowDatabaseApi: !!(typeof window !== 'undefined' && window.PaiperworkDB),
-			hasResolvedDatabaseApi: !!databaseApi
-		});
+
 		if (!hashedMasterKey || !databaseApi || typeof databaseApi.getCampaigns !== 'function') {
 			console.warn('CampaignTab: loadSavedCampaigns aborted before DB read', {
 				hashedMasterKeyPresent: !!hashedMasterKey,
@@ -204,10 +213,7 @@ class CampaignTab {
 
 		try {
 			const campaigns = await databaseApi.getCampaigns(hashedMasterKey);
-			console.log('CampaignTab: loadSavedCampaigns DB result', {
-				count: Array.isArray(campaigns) ? campaigns.length : 0,
-				campaignIds: Array.isArray(campaigns) ? campaigns.map(campaign => String(campaign?.id || '')) : []
-			});
+
 			this.state.savedCampaigns = Array.isArray(campaigns)
 				? campaigns.map(campaign => ({
 					id: campaign.id,
@@ -215,10 +221,7 @@ class CampaignTab {
 					dateCreated: this.formatCampaignDate(campaign.updated_at || campaign.created_at)
 				}))
 				: [];
-			console.log('CampaignTab: loadSavedCampaigns mapped state', {
-				count: this.state.savedCampaigns.length,
-				names: this.state.savedCampaigns.map(campaign => campaign.name)
-			});
+
 		} catch (error) {
 			console.warn('CampaignTab: failed to load saved campaigns', error);
 			this.state.savedCampaigns = [];
@@ -364,6 +367,21 @@ class CampaignTab {
 			.campaign-modal-dialog { position: relative; height: 100%; width: 100%; display: grid; grid-template-rows: auto 1fr auto; background: linear-gradient(180deg, var(--bg-color, #f8fafc) 0%, var(--bg-color-secondary, #e2e8f0) 100%); }
 			.campaign-progress-overlay { position: absolute; inset: 0; z-index: 4; display: none; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(14px); }
 			.campaign-progress-overlay.is-open { display: flex; }
+			.campaign-poster-model-overlay { position: absolute; inset: 0; z-index: 5; display: none; align-items: center; justify-content: center; padding: 24px; background: rgba(15, 23, 42, 0.42); backdrop-filter: blur(16px); }
+			.campaign-poster-model-overlay.is-open { display: flex; }
+			.campaign-poster-model-card { width: min(520px, calc(100vw - 48px)); display: grid; gap: 16px; padding: 24px; border-radius: 24px; background: color-mix(in srgb, var(--card-bg, #ffffff) 92%, rgba(15, 23, 42, 0.12)); border: 1px solid color-mix(in srgb, var(--card-border, #cbd5e1) 72%, rgba(255, 255, 255, 0.16)); box-shadow: 0 28px 90px rgba(15, 23, 42, 0.24); color: var(--card-text, var(--text-color, #0f172a)); }
+			.campaign-poster-model-title { margin: 0; font-size: 1.18rem; font-weight: 800; color: var(--heading-color, var(--text-color, #0f172a)); }
+			.campaign-poster-model-body { margin: 0; line-height: 1.6; color: var(--label-color, #475569); }
+			.campaign-poster-model-error { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--danger-color, #dc2626) 14%, var(--card-bg, #ffffff)); border: 1px solid color-mix(in srgb, var(--danger-color, #dc2626) 34%, var(--card-border, #dbe4ee)); color: var(--danger-color, #dc2626); line-height: 1.5; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger-color, #dc2626) 10%, transparent); }
+			.campaign-poster-model-field { display: grid; gap: 8px; }
+			.campaign-poster-model-label { font-size: 0.82rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--campaign-accent-strong, #c2410c); }
+			.campaign-poster-model-select { width: 100%; border: 1px solid var(--card-border, #cbd5e1); border-radius: 14px; padding: 11px 12px; background: var(--input-background, var(--card-bg, #ffffff)); color: var(--text-color, #0f172a); font: inherit; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--card-border, #cbd5e1) 14%, transparent); }
+			.campaign-poster-model-select:focus { outline: 2px solid color-mix(in srgb, var(--campaign-accent-soft, #ea580c) 48%, transparent); outline-offset: 2px; border-color: color-mix(in srgb, var(--campaign-accent-soft, #ea580c) 42%, var(--card-border, #cbd5e1)); }
+			.campaign-poster-model-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+			.campaign-poster-model-button { border: 0; border-radius: 999px; padding: 10px 16px; cursor: pointer; font: inherit; font-weight: 700; }
+			.campaign-poster-model-button.secondary { background: var(--button-secondary-bg, #ffffff); color: var(--button-secondary-text, #0f172a); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-border, #cbd5e1) 72%, transparent); }
+			.campaign-poster-model-button.primary { background: var(--campaign-accent-soft, #ea580c); color: var(--button-primary-text, var(--accent-text, #fff7ed)); box-shadow: 0 10px 24px color-mix(in srgb, var(--campaign-accent-soft, #ea580c) 24%, transparent); }
+			.campaign-poster-model-button:disabled { opacity: 0.55; cursor: not-allowed; }
 			.campaign-progress-card { width: min(520px, calc(100vw - 48px)); display: grid; gap: 14px; padding: 24px; border-radius: 24px; background: color-mix(in srgb, var(--card-bg, #ffffff) 86%, rgba(15, 23, 42, 0.14)); border: 1px solid color-mix(in srgb, var(--card-border, #cbd5e1) 72%, rgba(255, 255, 255, 0.4)); box-shadow: 0 28px 90px rgba(15, 23, 42, 0.24); color: var(--card-text, var(--text-color, #0f172a)); }
 			.campaign-progress-eyebrow { font-size: 0.76rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--campaign-accent-strong, #c2410c); }
 			.campaign-progress-title { margin: 0; font-size: 1.3rem; font-weight: 800; color: var(--heading-color, var(--text-color, #0f172a)); }
@@ -621,6 +639,7 @@ class CampaignTab {
 						</div>
 					</div>
 				</div>
+				<div class="campaign-poster-model-overlay" id="campaign-poster-model-overlay" aria-hidden="true"></div>
 			</div>
 		`;
 	}
@@ -688,12 +707,37 @@ class CampaignTab {
 		this.modalElement.addEventListener('change', event => {
 			if (event.target.id === 'campaign-upload-input') {
 				this.handleUploadSelection(event.target.files);
+				return;
+			}
+
+			if (event.target.id === 'campaign-poster-model-select') {
+				this.state.posterVisualModelPrompt = {
+					...this.createPosterVisualModelPromptState(),
+					...this.state.posterVisualModelPrompt,
+					selectedModel: String(event.target.value || '').trim()
+				};
+				this.renderPosterVisualModelPrompt();
 			}
 		});
 
 		this.modalElement.addEventListener('click', event => {
+			const promptCancelButton = event.target.closest('[data-campaign-poster-model-cancel]');
+			if (promptCancelButton) {
+				this.resolvePosterVisualModelPrompt('');
+				return;
+			}
+
+			const promptConfirmButton = event.target.closest('[data-campaign-poster-model-confirm]');
+			if (promptConfirmButton) {
+				this.confirmPosterVisualModelPrompt();
+				return;
+			}
+
 			const closeRequested = event.target.closest('[data-campaign-close="true"]');
 			if (closeRequested) {
+				if (this.state.posterVisualModelPrompt?.isOpen) {
+					return;
+				}
 				if (this.state.workflowProgress?.isOpen) {
 					return;
 				}
@@ -864,7 +908,115 @@ class CampaignTab {
 		this.renderImageRegistry();
 		this.renderViewport();
 		this.renderWorkflowProgress();
+		this.renderPosterVisualModelPrompt();
 		this.updatePromptComposerState();
+	}
+
+	promptForPosterVisualModel(options = {}) {
+		const models = Array.isArray(options.models)
+			? options.models
+				.map(model => ({
+					name: String(model?.name || '').trim(),
+					provider: String(model?.provider || '').trim().toLowerCase()
+				}))
+				.filter(model => model.name)
+			: [];
+
+		if (!models.length) {
+			return Promise.resolve('');
+		}
+
+		if (this.posterVisualModelPromptResolver) {
+			this.resolvePosterVisualModelPrompt('');
+		}
+
+		const preferredModel = String(options.selectedModel || '').trim();
+		const selectedModel = models.some(model => model.name === preferredModel)
+			? preferredModel
+			: models[0].name;
+
+		this.state.posterVisualModelPrompt = {
+			isOpen: true,
+			message: String(options.message || Lang.get('campaignPosterVisualModelModalBody') || '').trim(),
+			errorMessage: String(options.errorMessage || '').trim(),
+			selectedModel,
+			models
+		};
+		this.renderPosterVisualModelPrompt();
+
+		return new Promise(resolve => {
+			this.posterVisualModelPromptResolver = resolve;
+		});
+	}
+
+	confirmPosterVisualModelPrompt() {
+		const selectedModel = String(this.state.posterVisualModelPrompt?.selectedModel || '').trim();
+		if (!selectedModel) {
+			this.state.posterVisualModelPrompt = {
+				...this.state.posterVisualModelPrompt,
+				errorMessage: Lang.get('artworkPleaseSelectVisualModel') || ''
+			};
+			this.renderPosterVisualModelPrompt();
+			return;
+		}
+
+		this.resolvePosterVisualModelPrompt(selectedModel);
+	}
+
+	resolvePosterVisualModelPrompt(selectedModel) {
+		const resolver = this.posterVisualModelPromptResolver;
+		this.posterVisualModelPromptResolver = null;
+		this.state.posterVisualModelPrompt = this.createPosterVisualModelPromptState();
+		this.renderPosterVisualModelPrompt();
+		if (typeof resolver === 'function') {
+			resolver(String(selectedModel || '').trim());
+		}
+	}
+
+	renderPosterVisualModelPrompt() {
+		const overlay = this.modalElement?.querySelector('#campaign-poster-model-overlay');
+		if (!overlay) {
+			return;
+		}
+
+		const promptState = this.state.posterVisualModelPrompt || this.createPosterVisualModelPromptState();
+		overlay.classList.toggle('is-open', !!promptState.isOpen);
+		overlay.setAttribute('aria-hidden', promptState.isOpen ? 'false' : 'true');
+
+		if (!promptState.isOpen) {
+			overlay.innerHTML = '';
+			return;
+		}
+
+		const optionMarkup = promptState.models.map(model => {
+			const providerLabel = model.provider === 'cloud'
+				? (Lang.get('artworkCloudVisualModelsHeader') || 'Cloud')
+				: (Lang.get('artworkLocalVisualModelsHeader') || 'Local');
+			return `<option value="${this.escapeHtml(model.name)}"${model.name === promptState.selectedModel ? ' selected' : ''}>${this.escapeHtml(`${model.name} (${providerLabel})`)}</option>`;
+		}).join('');
+
+		overlay.innerHTML = `
+			<div class="campaign-poster-model-card" role="dialog" aria-modal="true" aria-labelledby="campaign-poster-model-title">
+				<h3 class="campaign-poster-model-title" id="campaign-poster-model-title">${this.escapeHtml(Lang.get('campaignPosterVisualModelModalTitle') || Lang.get('artworkSelectVisualModel') || '')}</h3>
+				<p class="campaign-poster-model-body">${this.escapeHtml(promptState.message || Lang.get('campaignPosterVisualModelModalBody') || '')}</p>
+				${promptState.errorMessage ? `<div class="campaign-poster-model-error">${this.escapeHtml(promptState.errorMessage)}</div>` : ''}
+				<div class="campaign-poster-model-field">
+					<label class="campaign-poster-model-label" for="campaign-poster-model-select">${this.escapeHtml(Lang.get('artworkSelectVisualModel') || '')}</label>
+					<select id="campaign-poster-model-select" class="campaign-poster-model-select">${optionMarkup}</select>
+				</div>
+				<div class="campaign-poster-model-actions">
+					<button class="campaign-poster-model-button secondary" type="button" data-campaign-poster-model-cancel="true">${this.escapeHtml(Lang.get('cancelButton') || Lang.get('closeButton') || 'Cancel')}</button>
+					<button class="campaign-poster-model-button primary" type="button" data-campaign-poster-model-confirm="true">${this.escapeHtml(Lang.get('selectButton') || 'Select')}</button>
+				</div>
+			</div>
+		`;
+
+		window.requestAnimationFrame(() => {
+			const select = overlay.querySelector('#campaign-poster-model-select');
+			if (select) {
+				select.focus();
+			}
+		});
 	}
 
 	renderChatLog(options = {}) {
@@ -1043,6 +1195,9 @@ class CampaignTab {
 		if (this.state.activeViewport === 'presentation' && outputs.presentationHtml) {
 			const presentationRegeneration = this.getArtifactRegenerationState('presentation');
 			const isPresentationRegenerating = presentationRegeneration.isPending;
+			const presentationSaveLabel = this.isSavingCampaignPresentation
+				? Lang.get('artworkExportingHTML')
+				: Lang.get('saveToDiskButton');
 			preview.classList.add('has-output');
 			preview.innerHTML = `
 				<div class="campaign-presentation-shell">
@@ -1053,7 +1208,7 @@ class CampaignTab {
 						<div class="campaign-presentation-action-group">
 							${isPresentationRegenerating ? '<div class="campaign-artifact-progress" aria-hidden="true"></div>' : ''}
 							<button class="campaign-presentation-action${isPresentationRegenerating ? ' is-cancelling' : ''}" type="button" data-campaign-presentation-action="${isPresentationRegenerating ? 'cancel' : 'regenerate'}"${this.state.isWorkflowPending ? ' disabled' : ''}>${this.escapeHtml(isPresentationRegenerating ? (Lang.get('cancelButton') || Lang.get('cancel') || 'Cancel') : Lang.get('regenerateMessage'))}</button>
-							<button class="campaign-presentation-action" type="button" data-campaign-presentation-action="save"${this.state.isWorkflowPending || isPresentationRegenerating ? ' disabled' : ''}>${this.escapeHtml(Lang.get('saveToDiskButton'))}</button>
+							<button class="campaign-presentation-action" type="button" data-campaign-presentation-action="save"${this.state.isWorkflowPending || isPresentationRegenerating || this.isSavingCampaignPresentation ? ' disabled' : ''}>${this.escapeHtml(presentationSaveLabel)}</button>
 						</div>
 					</div>
 				</div>
@@ -1066,6 +1221,9 @@ class CampaignTab {
 		if (this.state.activeViewport === 'miniapp' && outputs.miniappHtml) {
 			const miniappRegeneration = this.getArtifactRegenerationState('miniapp');
 			const isMiniappRegenerating = miniappRegeneration.isPending;
+			const miniappSaveLabel = this.isSavingCampaignMiniapp
+				? Lang.get('artworkExportingHTML')
+				: Lang.get('saveToDiskButton');
 			preview.classList.add('has-output');
 			preview.innerHTML = `
 				<div class="campaign-miniapp-shell">
@@ -1076,7 +1234,7 @@ class CampaignTab {
 						<div class="campaign-miniapp-action-group">
 							${isMiniappRegenerating ? '<div class="campaign-artifact-progress" aria-hidden="true"></div>' : ''}
 							<button class="campaign-miniapp-action${isMiniappRegenerating ? ' is-cancelling' : ''}" type="button" data-campaign-miniapp-action="${isMiniappRegenerating ? 'cancel' : 'regenerate'}"${this.state.isWorkflowPending ? ' disabled' : ''}>${this.escapeHtml(isMiniappRegenerating ? (Lang.get('cancelButton') || Lang.get('cancel') || 'Cancel') : Lang.get('regenerateMessage'))}</button>
-							<button class="campaign-miniapp-action" type="button" data-campaign-miniapp-action="save"${this.state.isWorkflowPending || isMiniappRegenerating ? ' disabled' : ''}>${this.escapeHtml(Lang.get('saveToDiskButton'))}</button>
+							<button class="campaign-miniapp-action" type="button" data-campaign-miniapp-action="save"${this.state.isWorkflowPending || isMiniappRegenerating || this.isSavingCampaignMiniapp ? ' disabled' : ''}>${this.escapeHtml(miniappSaveLabel)}</button>
 						</div>
 					</div>
 				</div>
@@ -1180,14 +1338,6 @@ class CampaignTab {
 			this.campaignPosterRenderer = renderer;
 			await renderer.loadBackground(outputs.posterBackgroundImage);
 			await renderer.loadOverlayData(this.cloneCampaignJson(outputs.posterOverlayData));
-			console.log('CampaignTab: poster editor loaded regenerated poster state', {
-				backgroundLength: String(outputs.posterBackgroundImage || '').length,
-				overlayWidth: Number(outputs.posterOverlayData?.overlay?.width) || 0,
-				overlayHeight: Number(outputs.posterOverlayData?.overlay?.height) || 0,
-				overlayTextCount: Array.isArray(outputs.posterOverlayData?.overlay?.texts) ? outputs.posterOverlayData.overlay.texts.length : 0,
-				canvasWidth: Number(renderer.canvas?.width) || 0,
-				canvasHeight: Number(renderer.canvas?.height) || 0
-			});
 			renderer.setOnChange(() => {
 				this.scheduleCampaignPosterStateSync();
 				this.updateCampaignPosterActionState();
@@ -1487,10 +1637,14 @@ class CampaignTab {
 		}
 
 		this.isSavingCampaignPoster = true;
-		this.renderViewport();
+		if (this.state.activeViewport === 'poster') {
+			this.updateCampaignPosterActionState();
+		} else {
+			this.renderViewport();
+		}
 
 		try {
-			await new Promise(resolve => window.requestAnimationFrame(resolve));
+			await this.waitForCampaignActionPaint();
 			this.flushCampaignPosterStateSync();
 			const renderer = this.campaignPosterRenderer;
 			const posterPng = renderer && typeof renderer.exportPNG === 'function'
@@ -1504,8 +1658,20 @@ class CampaignTab {
 			this.downloadCampaignPng(posterPng, fileName);
 		} finally {
 			this.isSavingCampaignPoster = false;
-			this.renderViewport();
+			if (this.state.activeViewport === 'poster') {
+				this.updateCampaignPosterActionState();
+			} else {
+				this.renderViewport();
+			}
 		}
+	}
+
+	waitForCampaignActionPaint() {
+		return new Promise(resolve => {
+			window.requestAnimationFrame(() => {
+				window.requestAnimationFrame(resolve);
+			});
+		});
 	}
 
 	scheduleCampaignPosterStateSync() {
@@ -1779,16 +1945,29 @@ class CampaignTab {
 	}
 
 	async saveCampaignPresentationToDisk() {
+		if (this.isSavingCampaignPresentation) {
+			return;
+		}
+
 		const presentationHtml = String(this.state.currentCampaign?.outputs?.presentationHtml || '').trim();
 		if (!presentationHtml) {
 			return;
 		}
 
-		const fileName = `${this.sanitizeCampaignFileName(this.state.currentCampaign.name || this.state.currentCampaign.brief.title || Lang.get('campaignPresentationView'))}-presentation.html`;
-		this.logCampaignExportDiagnostics('presentation source', presentationHtml);
-		const exportHtml = await this.buildCampaignExportHtml(presentationHtml);
-		this.logCampaignExportDiagnostics('presentation export', exportHtml || presentationHtml);
-		this.downloadCampaignTextFile(exportHtml || presentationHtml, fileName, 'text/html;charset=utf-8');
+		this.isSavingCampaignPresentation = true;
+		this.renderViewport();
+
+		try {
+			await this.waitForCampaignActionPaint();
+			const fileName = `${this.sanitizeCampaignFileName(this.state.currentCampaign.name || this.state.currentCampaign.brief.title || Lang.get('campaignPresentationView'))}-presentation.html`;
+			this.logCampaignExportDiagnostics('presentation source', presentationHtml);
+			const exportHtml = await this.buildCampaignExportHtml(presentationHtml);
+			this.logCampaignExportDiagnostics('presentation export', exportHtml || presentationHtml);
+			this.downloadCampaignTextFile(exportHtml || presentationHtml, fileName, 'text/html;charset=utf-8');
+		} finally {
+			this.isSavingCampaignPresentation = false;
+			this.renderViewport();
+		}
 	}
 
 	async regenerateCampaignMiniapp() {
@@ -1828,16 +2007,29 @@ class CampaignTab {
 	}
 
 	async saveCampaignMiniappToDisk() {
+		if (this.isSavingCampaignMiniapp) {
+			return;
+		}
+
 		const miniappHtml = String(this.state.currentCampaign?.outputs?.miniappHtml || '').trim();
 		if (!miniappHtml) {
 			return;
 		}
 
-		const fileName = `${this.sanitizeCampaignFileName(this.state.currentCampaign.name || this.state.currentCampaign.brief.title || Lang.get('campaignMiniAppView'))}-miniapp.html`;
-		this.logCampaignExportDiagnostics('miniapp source', miniappHtml);
-		const exportHtml = await this.buildCampaignExportHtml(miniappHtml);
-		this.logCampaignExportDiagnostics('miniapp export', exportHtml || miniappHtml);
-		this.downloadCampaignTextFile(exportHtml || miniappHtml, fileName, 'text/html;charset=utf-8');
+		this.isSavingCampaignMiniapp = true;
+		this.renderViewport();
+
+		try {
+			await this.waitForCampaignActionPaint();
+			const fileName = `${this.sanitizeCampaignFileName(this.state.currentCampaign.name || this.state.currentCampaign.brief.title || Lang.get('campaignMiniAppView'))}-miniapp.html`;
+			this.logCampaignExportDiagnostics('miniapp source', miniappHtml);
+			const exportHtml = await this.buildCampaignExportHtml(miniappHtml);
+			this.logCampaignExportDiagnostics('miniapp export', exportHtml || miniappHtml);
+			this.downloadCampaignTextFile(exportHtml || miniappHtml, fileName, 'text/html;charset=utf-8');
+		} finally {
+			this.isSavingCampaignMiniapp = false;
+			this.renderViewport();
+		}
 	}
 
 	async buildCampaignExportHtml(html) {
@@ -1848,7 +2040,7 @@ class CampaignTab {
 
 		const workflow = window.PromptedPresentationWorkflow;
 		if (!workflow || typeof workflow.buildStandalonePromptableHtml !== 'function') {
-			console.log('CampaignTab: using local scrubber fallback for export');
+			//console.log('CampaignTab: using local scrubber fallback for export');
 			return this.stripCampaignPromptableEditingMarkup(htmlContent);
 		}
 
@@ -1874,7 +2066,7 @@ class CampaignTab {
 			promptableImageStyles: (htmlContent.match(/pw-promptable-image-edit-style/gi) || []).length,
 			standaloneToolbarNodes: (htmlContent.match(/pw-standalone-editor-toolbar/gi) || []).length
 		};
-		console.log('CampaignTab: export diagnostics', diagnostics);
+		//console.log('CampaignTab: export diagnostics', diagnostics);
 	}
 
 	stripCampaignPromptableEditingMarkup(html) {
@@ -2228,11 +2420,6 @@ class CampaignTab {
 		}));
 
 		if (isWorkflowExecutionAction && response?.workflow) {
-			console.log('CampaignTab: execution workflow planned', {
-				action,
-				targets: Array.isArray(response.workflow?.targets) ? response.workflow.targets : [],
-				artifactRequestTargets: Array.isArray(response.artifactRequests) ? response.artifactRequests.map(request => request?.target || '') : []
-			});
 
 			window.dispatchEvent(new CustomEvent('campaign:workflow-planned', {
 				detail: {
@@ -2322,13 +2509,6 @@ class CampaignTab {
 			return;
 		}
 
-		console.log('CampaignTab: starting artifact request', {
-			target,
-			action,
-			reason: String(detail?.reason || ''),
-			queuedArtifacts: this.state.pendingArtifacts.map(item => item.target)
-		});
-
 		this.state.pendingArtifacts = [
 			...this.state.pendingArtifacts.filter(item => !(item.target === target && item.action === action)),
 			{ ...detail, queuedAt: new Date().toISOString() }
@@ -2395,14 +2575,6 @@ class CampaignTab {
 				miniappHtml: detail.outputs.miniapp_html || detail.outputs.miniappHtml || currentOutputs.miniappHtml || ''
 			};
 			if (isPosterResponse) {
-				console.log('CampaignTab: applied poster artifact response', {
-					hasPosterPng: !!nextPosterPng,
-					hasPosterOverlayData: !!nextPosterOverlayData,
-					overlayWidth: Number(nextPosterOverlayData?.overlay?.width) || 0,
-					overlayHeight: Number(nextPosterOverlayData?.overlay?.height) || 0,
-					overlayTextCount: Array.isArray(nextPosterOverlayData?.overlay?.texts) ? nextPosterOverlayData.overlay.texts.length : 0,
-					backgroundLength: String(nextPosterBackgroundImage || '').length
-				});
 
 				if (nextPosterPng && (!nextPosterOverlayData || !nextPosterBackgroundImage)) {
 					console.warn('CampaignTab: poster artifact response missing editable overlay/background data; falling back to PNG-only poster view');
@@ -2437,9 +2609,6 @@ class CampaignTab {
 	async runArtifactSequence(requests) {
 		const queue = this.sortArtifactRequestsForStagedFeedback(requests);
 		const abortController = this.openWorkflowProgress(this.state.pendingWorkflow?.action || '', queue);
-		console.log('CampaignTab: runArtifactSequence queued', {
-			targets: queue.map(request => String(request?.target || '').trim().toLowerCase())
-		});
 		for (let index = 0; index < queue.length; index += 1) {
 			const request = queue[index];
 			const target = String(request?.target || '').trim().toLowerCase();
@@ -2461,10 +2630,6 @@ class CampaignTab {
 					.replace('{total}', String(queue.length))
 			});
 
-			console.log('CampaignTab: runArtifactSequence awaiting target', {
-				target,
-				action
-			});
 			const response = await this.handleArtifactRequested({
 				...request,
 				signal: abortController?.signal || null,
@@ -2498,11 +2663,6 @@ class CampaignTab {
 					currentStageIndex: index,
 					completedStageCount: index + 1
 				})
-			});
-
-			console.log('CampaignTab: runArtifactSequence completed target', {
-				target,
-				action
 			});
 		}
 

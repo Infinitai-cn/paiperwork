@@ -136,13 +136,6 @@ class CampaignWorkflowManager {
 			targets: fallbackTargets,
 			reason: `Deterministic ${action} execution plan triggered by the user action button.`
 		};
-
-		console.log('CampaignWorkflowManager: buildExecutionPlan', {
-			action,
-			hasImages,
-			targets: fallbackTargets
-		});
-
 		return plan;
 	}
 
@@ -323,29 +316,18 @@ class CampaignWorkflowManager {
 
 		try {
 			this.throwIfAborted(signal);
-			console.log('CampaignWorkflowManager: starting poster consumer', {
-				action: request?.action || '',
-				imageName: imageEntry.name || 'campaign-poster-reference.png',
-				imageType: imageEntry.mimeType || 'image/png',
-				promptLength: String(request?.prompt || '').length,
-				reason: String(request?.reason || '')
-			});
 
 			await this.loadArtworkScripts();
-			console.log('CampaignWorkflowManager: artwork scripts ready', {
-				hasArtworks: !!window.Artworks,
-				hasArtworksTabClass: !!window.ArtworksTab
-			});
 
 			if (!window.artworksInstance) {
 				window.artworksInstance = new window.Artworks();
 				await window.artworksInstance.initialize();
-				console.log('CampaignWorkflowManager: initialized artworksInstance for poster consumer');
+				//console.log('CampaignWorkflowManager: initialized artworksInstance for poster consumer');
 			}
 
 			if (!window.artworksTab) {
 				window.artworksTab = new window.ArtworksTab();
-				console.log('CampaignWorkflowManager: created artworksTab for poster consumer');
+				//console.log('CampaignWorkflowManager: created artworksTab for poster consumer');
 			}
 
 			const workflow = window.artworksTab;
@@ -362,12 +344,12 @@ class CampaignWorkflowManager {
 			});
 
 			if (!workflow.initialized && typeof workflow.initialize === 'function') {
-				console.log('CampaignWorkflowManager: initializing artworksTab before poster generation');
+				//console.log('CampaignWorkflowManager: initializing artworksTab before poster generation');
 				await workflow.initialize();
 			}
 
 			const modelSelector = workflow.elements?.modelSelector;
-			const selectedVisualModel = await this.ensurePosterVisualModel(workflow);
+			const selectedVisualModel = await this.ensurePosterVisualModel(workflow, { signal });
 			if (!modelSelector || !selectedVisualModel) {
 				console.warn('CampaignWorkflowManager: poster consumer missing selected visual model', {
 					hasModelSelector: !!modelSelector,
@@ -377,63 +359,43 @@ class CampaignWorkflowManager {
 				return this.buildArtifactFailure('poster', request.action, Lang.get('campaignPosterVisualModelRequired'));
 			}
 
-			console.log('CampaignWorkflowManager: poster workflow ready to launch', {
-				selectedModel: selectedVisualModel,
-				initialized: !!workflow.initialized,
-				hasPromptInput: !!workflow.elements?.promptInput,
-				hasOverlayModeButton: !!workflow.elements?.modeButtons?.overlay,
-				hasGenerateButton: !!workflow.elements?.generateBtn
-			});
-
 			if (workflow.elements?.modeButtons?.overlay) {
 				workflow.elements.modeButtons.overlay.click();
-				console.log('CampaignWorkflowManager: selected overlay mode for poster workflow');
+				//console.log('CampaignWorkflowManager: selected overlay mode for poster workflow');
 			}
 
 			if (workflow.elements?.promptInput) {
 				workflow.elements.promptInput.value = this.buildPosterPrompt(request);
 				workflow.elements.promptInput.dispatchEvent(new Event('input', { bubbles: true }));
-				console.log('CampaignWorkflowManager: poster prompt applied to artwork workflow', {
-					promptLength: String(workflow.elements.promptInput.value || '').length
-				});
 			}
 
 			const previousPreview = window.__lastArtworkPreviewWindow || null;
 			const imageFile = this.dataUrlToFile(imageEntry.dataUrl, imageEntry.name || 'campaign-poster-reference.png', imageEntry.mimeType || 'image/png');
 			workflow.handleImageSelection(imageFile);
-			console.log('CampaignWorkflowManager: poster image handed to artwork workflow', {
-				fileName: imageFile.name,
-				fileType: imageFile.type,
-				fileSize: imageFile.size
-			});
 			await this.waitFor(() => !!workflow.imageBase64 && workflow.elements?.generateBtn && !workflow.elements.generateBtn.disabled, 4000, signal);
 			this.throwIfAborted(signal);
-			console.log('CampaignWorkflowManager: poster workflow input ready, invoking generateArtwork', {
-				hasImageBase64: !!workflow.imageBase64,
-				generateDisabled: !!workflow.elements?.generateBtn?.disabled
-			});
 
 			window.__campaignManagedArtworkProgress = true;
-			await workflow.generateArtwork();
-			console.log('CampaignWorkflowManager: artwork workflow finished generateArtwork, waiting for preview window');
+			while (true) {
+				try {
+					await workflow.generateArtwork();
+					break;
+				} catch (error) {
+					if (this.isAbortError(error)) {
+						throw error;
+					}
+
+					const recoveredModel = await this.recoverPosterVisualModelSelection(workflow, error, signal);
+					if (!recoveredModel) {
+						return this.buildArtifactFailure('poster', request.action, this.getPosterVisualModelRecoveryMessage(error));
+					}
+				}
+			}
+			//console.log('CampaignWorkflowManager: artwork workflow finished generateArtwork, waiting for preview window');
 			const previewWindow = await this.waitForArtworkPreview(previousPreview, signal);
-			console.log('CampaignWorkflowManager: poster preview window detected', {
-				hasPreviewWindow: !!previewWindow,
-				hasCanvasPreviewManager: !!previewWindow?.canvasPreviewManager
-			});
 			const posterPng = await this.captureArtworkPreviewPng(previewWindow, signal);
 			const posterOverlayData = await this.captureArtworkPreviewOverlayData(previewWindow, signal);
 			const posterBackgroundImage = this.captureArtworkPreviewBackgroundImage(previewWindow, imageEntry.dataUrl);
-			console.log('CampaignWorkflowManager: poster PNG captured', {
-				length: String(posterPng || '').length
-			});
-			console.log('CampaignWorkflowManager: poster overlay/background captured', {
-				hasOverlayData: !!posterOverlayData,
-				overlayWidth: Number(posterOverlayData?.overlay?.width) || 0,
-				overlayHeight: Number(posterOverlayData?.overlay?.height) || 0,
-				overlayTextCount: Array.isArray(posterOverlayData?.overlay?.texts) ? posterOverlayData.overlay.texts.length : 0,
-				backgroundLength: String(posterBackgroundImage || '').length
-			});
 			if (previewWindow && typeof previewWindow.close === 'function') {
 				previewWindow.close();
 			}
@@ -459,7 +421,8 @@ class CampaignWorkflowManager {
 		return match?.[1] || 'image/png';
 	}
 
-	async ensurePosterVisualModel(workflow) {
+	async ensurePosterVisualModel(workflow, options = {}) {
+		const signal = options?.signal || null;
 		const modelSelector = workflow?.elements?.modelSelector;
 		let selectedModel = String(modelSelector?.value || workflow?.artworksInstance?.selectedModel || '').trim();
 		if (selectedModel) {
@@ -470,39 +433,155 @@ class CampaignWorkflowManager {
 			await workflow.loadSavedModelSelection();
 			selectedModel = String(modelSelector?.value || workflow?.artworksInstance?.selectedModel || '').trim();
 			if (selectedModel) {
-				console.log('CampaignWorkflowManager: restored saved visual model via artworksTab', {
-					selectedModel
-				});
 				return selectedModel;
 			}
 		}
 
 		selectedModel = await this.loadSavedVisualModelPreference();
-		if (!selectedModel || !modelSelector) {
-			return '';
-		}
+		if (selectedModel) {
+			const appliedSavedModel = await this.applyPosterVisualModelSelection(workflow, selectedModel);
+			if (appliedSavedModel) {
+				return appliedSavedModel;
+			}
 
-		const optionExists = Array.from(modelSelector.options || []).some(option => option.value === selectedModel);
-		if (!optionExists) {
 			console.warn('CampaignWorkflowManager: saved visual model is not available in current artwork selector', {
 				savedModel: selectedModel
 			});
+		}
+
+		return this.promptPosterVisualModelSelection(workflow, {
+			signal,
+			message: Lang.get('campaignPosterVisualModelModalBody')
+		});
+	}
+
+	collectPosterVisualModelOptions(workflow) {
+		const artworksInstance = workflow?.artworksInstance;
+		const selectorOptions = Array.from(workflow?.elements?.modelSelector?.options || [])
+			.map(option => String(option?.value || '').trim())
+			.filter(Boolean);
+		const selectorOptionSet = new Set(selectorOptions);
+		const allModels = [
+			...(Array.isArray(artworksInstance?.localVisualModels) ? artworksInstance.localVisualModels : []),
+			...(Array.isArray(artworksInstance?.cloudVisualModels) ? artworksInstance.cloudVisualModels : [])
+		];
+		const dedupe = new Set();
+
+		return allModels.filter(model => {
+			const name = String(model?.name || '').trim();
+			if (!name || dedupe.has(name) || (selectorOptionSet.size && !selectorOptionSet.has(name))) {
+				return false;
+			}
+			dedupe.add(name);
+			return true;
+		}).map(model => ({
+			name: String(model.name || '').trim(),
+			provider: String(model.provider || '').trim().toLowerCase()
+		}));
+	}
+
+	async applyPosterVisualModelSelection(workflow, selectedModel) {
+		const modelName = String(selectedModel || '').trim();
+		const modelSelector = workflow?.elements?.modelSelector;
+		if (!modelName || !modelSelector) {
 			return '';
 		}
 
-		modelSelector.value = selectedModel;
+		const optionExists = Array.from(modelSelector.options || []).some(option => option.value === modelName);
+		if (!optionExists) {
+			return '';
+		}
+
+		modelSelector.value = modelName;
 		if (workflow.artworksInstance) {
-			workflow.artworksInstance.selectedModel = selectedModel;
+			workflow.artworksInstance.selectedModel = modelName;
 		}
 		modelSelector.dispatchEvent(new Event('change', { bubbles: true }));
 		if (typeof workflow.updateGenerateButtonState === 'function') {
 			workflow.updateGenerateButtonState();
 		}
 
-		console.log('CampaignWorkflowManager: restored saved visual model from settings for poster consumer', {
-			selectedModel
+		return modelName;
+	}
+
+	async promptPosterVisualModelSelection(workflow, options = {}) {
+		const signal = options?.signal || null;
+		this.throwIfAborted(signal);
+
+		const models = this.collectPosterVisualModelOptions(workflow);
+		if (!models.length || !this.tab || typeof this.tab.promptForPosterVisualModel !== 'function') {
+			return '';
+		}
+
+		const selectedModel = await this.tab.promptForPosterVisualModel({
+			models,
+			selectedModel: String(workflow?.elements?.modelSelector?.value || workflow?.artworksInstance?.selectedModel || '').trim(),
+			message: String(options?.message || Lang.get('campaignPosterVisualModelModalBody') || '').trim(),
+			errorMessage: String(options?.errorMessage || '').trim()
 		});
-		return selectedModel;
+
+		this.throwIfAborted(signal);
+		if (!selectedModel) {
+			return '';
+		}
+
+		return this.applyPosterVisualModelSelection(workflow, selectedModel);
+	}
+
+	async recoverPosterVisualModelSelection(workflow, error, signal) {
+		if (this.isCloudApiKeyError(error)) {
+			this.openCloudApiKeyManagerSoon();
+		}
+
+		if (!this.isPosterVisualModelRecoverableError(error)) {
+			return '';
+		}
+
+		const failedModel = String(workflow?.elements?.modelSelector?.value || workflow?.artworksInstance?.selectedModel || '').trim();
+		const recoveredModel = await this.promptPosterVisualModelSelection(workflow, {
+			signal,
+			message: Lang.get('campaignPosterVisualModelModalBody'),
+			errorMessage: this.getPosterVisualModelRecoveryMessage(error)
+		});
+
+		if (!recoveredModel || recoveredModel === failedModel) {
+			return '';
+		}
+
+		return recoveredModel;
+	}
+
+	isPosterVisualModelRecoverableError(error) {
+		const cloudAccessError = this.getCloudAccessErrorDetails(error);
+		if (cloudAccessError?.body || this.isCloudApiKeyError(error)) {
+			return true;
+		}
+
+		const message = String(error?.message || error || '').toLowerCase();
+		return message.includes('subscription')
+			|| message.includes('upgrade')
+			|| message.includes('unauthorized')
+			|| message.includes('forbidden')
+			|| message.includes('visual model')
+			|| message.includes('vision model')
+			|| message.includes('does not support image')
+			|| message.includes('does not support visual')
+			|| message.includes('processing images')
+			|| message.includes('try selecting a different visual model')
+			|| message.includes('select a different visual model');
+	}
+
+	getPosterVisualModelRecoveryMessage(error) {
+		const cloudAccessError = this.getCloudAccessErrorDetails(error);
+		if (cloudAccessError?.body) {
+			return cloudAccessError.body;
+		}
+
+		if (this.isCloudApiKeyError(error)) {
+			return Lang.get('ollamaApiKeyRequired');
+		}
+
+		return String(error?.message || error || Lang.get('campaignPosterVisualModelRequired')).trim();
 	}
 
 	async loadSavedVisualModelPreference() {
