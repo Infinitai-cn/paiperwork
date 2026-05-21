@@ -185,12 +185,7 @@ class CampaignTab {
 	async loadSavedCampaigns() {
 		const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
 		const databaseApi = this.getDatabaseApi();
-		console.log('CampaignTab: loadSavedCampaigns start', {
-			hashedMasterKeyPresent: !!hashedMasterKey,
-			hashPrefix: String(hashedMasterKey || '').slice(0, 8),
-			hasWindowDatabaseApi: !!(typeof window !== 'undefined' && window.PaiperworkDB),
-			hasResolvedDatabaseApi: !!databaseApi
-		});
+
 		if (!hashedMasterKey || !databaseApi || typeof databaseApi.getCampaigns !== 'function') {
 			console.warn('CampaignTab: loadSavedCampaigns aborted before DB read', {
 				hashedMasterKeyPresent: !!hashedMasterKey,
@@ -204,10 +199,7 @@ class CampaignTab {
 
 		try {
 			const campaigns = await databaseApi.getCampaigns(hashedMasterKey);
-			console.log('CampaignTab: loadSavedCampaigns DB result', {
-				count: Array.isArray(campaigns) ? campaigns.length : 0,
-				campaignIds: Array.isArray(campaigns) ? campaigns.map(campaign => String(campaign?.id || '')) : []
-			});
+
 			this.state.savedCampaigns = Array.isArray(campaigns)
 				? campaigns.map(campaign => ({
 					id: campaign.id,
@@ -215,10 +207,7 @@ class CampaignTab {
 					dateCreated: this.formatCampaignDate(campaign.updated_at || campaign.created_at)
 				}))
 				: [];
-			console.log('CampaignTab: loadSavedCampaigns mapped state', {
-				count: this.state.savedCampaigns.length,
-				names: this.state.savedCampaigns.map(campaign => campaign.name)
-			});
+
 		} catch (error) {
 			console.warn('CampaignTab: failed to load saved campaigns', error);
 			this.state.savedCampaigns = [];
@@ -1180,14 +1169,6 @@ class CampaignTab {
 			this.campaignPosterRenderer = renderer;
 			await renderer.loadBackground(outputs.posterBackgroundImage);
 			await renderer.loadOverlayData(this.cloneCampaignJson(outputs.posterOverlayData));
-			console.log('CampaignTab: poster editor loaded regenerated poster state', {
-				backgroundLength: String(outputs.posterBackgroundImage || '').length,
-				overlayWidth: Number(outputs.posterOverlayData?.overlay?.width) || 0,
-				overlayHeight: Number(outputs.posterOverlayData?.overlay?.height) || 0,
-				overlayTextCount: Array.isArray(outputs.posterOverlayData?.overlay?.texts) ? outputs.posterOverlayData.overlay.texts.length : 0,
-				canvasWidth: Number(renderer.canvas?.width) || 0,
-				canvasHeight: Number(renderer.canvas?.height) || 0
-			});
 			renderer.setOnChange(() => {
 				this.scheduleCampaignPosterStateSync();
 				this.updateCampaignPosterActionState();
@@ -1848,7 +1829,7 @@ class CampaignTab {
 
 		const workflow = window.PromptedPresentationWorkflow;
 		if (!workflow || typeof workflow.buildStandalonePromptableHtml !== 'function') {
-			console.log('CampaignTab: using local scrubber fallback for export');
+			//console.log('CampaignTab: using local scrubber fallback for export');
 			return this.stripCampaignPromptableEditingMarkup(htmlContent);
 		}
 
@@ -1874,7 +1855,7 @@ class CampaignTab {
 			promptableImageStyles: (htmlContent.match(/pw-promptable-image-edit-style/gi) || []).length,
 			standaloneToolbarNodes: (htmlContent.match(/pw-standalone-editor-toolbar/gi) || []).length
 		};
-		console.log('CampaignTab: export diagnostics', diagnostics);
+		//console.log('CampaignTab: export diagnostics', diagnostics);
 	}
 
 	stripCampaignPromptableEditingMarkup(html) {
@@ -2228,11 +2209,6 @@ class CampaignTab {
 		}));
 
 		if (isWorkflowExecutionAction && response?.workflow) {
-			console.log('CampaignTab: execution workflow planned', {
-				action,
-				targets: Array.isArray(response.workflow?.targets) ? response.workflow.targets : [],
-				artifactRequestTargets: Array.isArray(response.artifactRequests) ? response.artifactRequests.map(request => request?.target || '') : []
-			});
 
 			window.dispatchEvent(new CustomEvent('campaign:workflow-planned', {
 				detail: {
@@ -2322,13 +2298,6 @@ class CampaignTab {
 			return;
 		}
 
-		console.log('CampaignTab: starting artifact request', {
-			target,
-			action,
-			reason: String(detail?.reason || ''),
-			queuedArtifacts: this.state.pendingArtifacts.map(item => item.target)
-		});
-
 		this.state.pendingArtifacts = [
 			...this.state.pendingArtifacts.filter(item => !(item.target === target && item.action === action)),
 			{ ...detail, queuedAt: new Date().toISOString() }
@@ -2395,14 +2364,6 @@ class CampaignTab {
 				miniappHtml: detail.outputs.miniapp_html || detail.outputs.miniappHtml || currentOutputs.miniappHtml || ''
 			};
 			if (isPosterResponse) {
-				console.log('CampaignTab: applied poster artifact response', {
-					hasPosterPng: !!nextPosterPng,
-					hasPosterOverlayData: !!nextPosterOverlayData,
-					overlayWidth: Number(nextPosterOverlayData?.overlay?.width) || 0,
-					overlayHeight: Number(nextPosterOverlayData?.overlay?.height) || 0,
-					overlayTextCount: Array.isArray(nextPosterOverlayData?.overlay?.texts) ? nextPosterOverlayData.overlay.texts.length : 0,
-					backgroundLength: String(nextPosterBackgroundImage || '').length
-				});
 
 				if (nextPosterPng && (!nextPosterOverlayData || !nextPosterBackgroundImage)) {
 					console.warn('CampaignTab: poster artifact response missing editable overlay/background data; falling back to PNG-only poster view');
@@ -2437,9 +2398,6 @@ class CampaignTab {
 	async runArtifactSequence(requests) {
 		const queue = this.sortArtifactRequestsForStagedFeedback(requests);
 		const abortController = this.openWorkflowProgress(this.state.pendingWorkflow?.action || '', queue);
-		console.log('CampaignTab: runArtifactSequence queued', {
-			targets: queue.map(request => String(request?.target || '').trim().toLowerCase())
-		});
 		for (let index = 0; index < queue.length; index += 1) {
 			const request = queue[index];
 			const target = String(request?.target || '').trim().toLowerCase();
@@ -2461,10 +2419,6 @@ class CampaignTab {
 					.replace('{total}', String(queue.length))
 			});
 
-			console.log('CampaignTab: runArtifactSequence awaiting target', {
-				target,
-				action
-			});
 			const response = await this.handleArtifactRequested({
 				...request,
 				signal: abortController?.signal || null,
@@ -2498,11 +2452,6 @@ class CampaignTab {
 					currentStageIndex: index,
 					completedStageCount: index + 1
 				})
-			});
-
-			console.log('CampaignTab: runArtifactSequence completed target', {
-				target,
-				action
 			});
 		}
 

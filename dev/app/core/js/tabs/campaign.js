@@ -136,13 +136,6 @@ class CampaignWorkflowManager {
 			targets: fallbackTargets,
 			reason: `Deterministic ${action} execution plan triggered by the user action button.`
 		};
-
-		console.log('CampaignWorkflowManager: buildExecutionPlan', {
-			action,
-			hasImages,
-			targets: fallbackTargets
-		});
-
 		return plan;
 	}
 
@@ -323,29 +316,18 @@ class CampaignWorkflowManager {
 
 		try {
 			this.throwIfAborted(signal);
-			console.log('CampaignWorkflowManager: starting poster consumer', {
-				action: request?.action || '',
-				imageName: imageEntry.name || 'campaign-poster-reference.png',
-				imageType: imageEntry.mimeType || 'image/png',
-				promptLength: String(request?.prompt || '').length,
-				reason: String(request?.reason || '')
-			});
 
 			await this.loadArtworkScripts();
-			console.log('CampaignWorkflowManager: artwork scripts ready', {
-				hasArtworks: !!window.Artworks,
-				hasArtworksTabClass: !!window.ArtworksTab
-			});
 
 			if (!window.artworksInstance) {
 				window.artworksInstance = new window.Artworks();
 				await window.artworksInstance.initialize();
-				console.log('CampaignWorkflowManager: initialized artworksInstance for poster consumer');
+				//console.log('CampaignWorkflowManager: initialized artworksInstance for poster consumer');
 			}
 
 			if (!window.artworksTab) {
 				window.artworksTab = new window.ArtworksTab();
-				console.log('CampaignWorkflowManager: created artworksTab for poster consumer');
+				//console.log('CampaignWorkflowManager: created artworksTab for poster consumer');
 			}
 
 			const workflow = window.artworksTab;
@@ -362,7 +344,7 @@ class CampaignWorkflowManager {
 			});
 
 			if (!workflow.initialized && typeof workflow.initialize === 'function') {
-				console.log('CampaignWorkflowManager: initializing artworksTab before poster generation');
+				//console.log('CampaignWorkflowManager: initializing artworksTab before poster generation');
 				await workflow.initialize();
 			}
 
@@ -377,63 +359,29 @@ class CampaignWorkflowManager {
 				return this.buildArtifactFailure('poster', request.action, Lang.get('campaignPosterVisualModelRequired'));
 			}
 
-			console.log('CampaignWorkflowManager: poster workflow ready to launch', {
-				selectedModel: selectedVisualModel,
-				initialized: !!workflow.initialized,
-				hasPromptInput: !!workflow.elements?.promptInput,
-				hasOverlayModeButton: !!workflow.elements?.modeButtons?.overlay,
-				hasGenerateButton: !!workflow.elements?.generateBtn
-			});
-
 			if (workflow.elements?.modeButtons?.overlay) {
 				workflow.elements.modeButtons.overlay.click();
-				console.log('CampaignWorkflowManager: selected overlay mode for poster workflow');
+				//console.log('CampaignWorkflowManager: selected overlay mode for poster workflow');
 			}
 
 			if (workflow.elements?.promptInput) {
 				workflow.elements.promptInput.value = this.buildPosterPrompt(request);
 				workflow.elements.promptInput.dispatchEvent(new Event('input', { bubbles: true }));
-				console.log('CampaignWorkflowManager: poster prompt applied to artwork workflow', {
-					promptLength: String(workflow.elements.promptInput.value || '').length
-				});
 			}
 
 			const previousPreview = window.__lastArtworkPreviewWindow || null;
 			const imageFile = this.dataUrlToFile(imageEntry.dataUrl, imageEntry.name || 'campaign-poster-reference.png', imageEntry.mimeType || 'image/png');
 			workflow.handleImageSelection(imageFile);
-			console.log('CampaignWorkflowManager: poster image handed to artwork workflow', {
-				fileName: imageFile.name,
-				fileType: imageFile.type,
-				fileSize: imageFile.size
-			});
 			await this.waitFor(() => !!workflow.imageBase64 && workflow.elements?.generateBtn && !workflow.elements.generateBtn.disabled, 4000, signal);
 			this.throwIfAborted(signal);
-			console.log('CampaignWorkflowManager: poster workflow input ready, invoking generateArtwork', {
-				hasImageBase64: !!workflow.imageBase64,
-				generateDisabled: !!workflow.elements?.generateBtn?.disabled
-			});
 
 			window.__campaignManagedArtworkProgress = true;
 			await workflow.generateArtwork();
-			console.log('CampaignWorkflowManager: artwork workflow finished generateArtwork, waiting for preview window');
+			//console.log('CampaignWorkflowManager: artwork workflow finished generateArtwork, waiting for preview window');
 			const previewWindow = await this.waitForArtworkPreview(previousPreview, signal);
-			console.log('CampaignWorkflowManager: poster preview window detected', {
-				hasPreviewWindow: !!previewWindow,
-				hasCanvasPreviewManager: !!previewWindow?.canvasPreviewManager
-			});
 			const posterPng = await this.captureArtworkPreviewPng(previewWindow, signal);
 			const posterOverlayData = await this.captureArtworkPreviewOverlayData(previewWindow, signal);
 			const posterBackgroundImage = this.captureArtworkPreviewBackgroundImage(previewWindow, imageEntry.dataUrl);
-			console.log('CampaignWorkflowManager: poster PNG captured', {
-				length: String(posterPng || '').length
-			});
-			console.log('CampaignWorkflowManager: poster overlay/background captured', {
-				hasOverlayData: !!posterOverlayData,
-				overlayWidth: Number(posterOverlayData?.overlay?.width) || 0,
-				overlayHeight: Number(posterOverlayData?.overlay?.height) || 0,
-				overlayTextCount: Array.isArray(posterOverlayData?.overlay?.texts) ? posterOverlayData.overlay.texts.length : 0,
-				backgroundLength: String(posterBackgroundImage || '').length
-			});
 			if (previewWindow && typeof previewWindow.close === 'function') {
 				previewWindow.close();
 			}
@@ -470,9 +418,6 @@ class CampaignWorkflowManager {
 			await workflow.loadSavedModelSelection();
 			selectedModel = String(modelSelector?.value || workflow?.artworksInstance?.selectedModel || '').trim();
 			if (selectedModel) {
-				console.log('CampaignWorkflowManager: restored saved visual model via artworksTab', {
-					selectedModel
-				});
 				return selectedModel;
 			}
 		}
@@ -499,9 +444,6 @@ class CampaignWorkflowManager {
 			workflow.updateGenerateButtonState();
 		}
 
-		console.log('CampaignWorkflowManager: restored saved visual model from settings for poster consumer', {
-			selectedModel
-		});
 		return selectedModel;
 	}
 
