@@ -7,3 +7,5 @@ paiperwork.code-workspace
 **/logs/
 **/*_test.go
 **/*.md
+dist/
+**/dist/
