@@ -243,6 +243,8 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         campaignArtifactLaunchFailed: "Could not start the requested campaign artifact workflow.",
         campaignPosterImageRequired: "Poster generation requires at least one uploaded campaign image.",
         campaignPosterVisualModelRequired: "Poster generation requires a selected visual model in the Artworks tab.",
+        campaignPosterVisualModelModalTitle: "Select visual model for the poster",
+        campaignPosterVisualModelModalBody: "Choose the visual model for the campaign poster before generation starts. The selected model will also be saved as the default visual model in the Artworks tab.",
         campaignChooseImageButton: "Choose file",
         campaignOrchestratorUnavailable: "Campaign orchestration is not available right now.",
         campaignOrchestratorEmptyResponse: "The campaign orchestrator returned an empty response.",

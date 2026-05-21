@@ -181,6 +181,8 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 campaignArtifactLaunchFailed: "无法启动所请求的活动产物工作流。",
                 campaignPosterImageRequired: "海报生成至少需要一张已上传的活动图片。",
                 campaignPosterVisualModelRequired: "海报生成需要在 Artworks 标签页中选择一个视觉模型。",
+                campaignPosterVisualModelModalTitle: "为海报选择视觉模型",
+                campaignPosterVisualModelModalBody: "请在开始生成前为活动海报选择视觉模型。所选模型也会保存为 Artworks 标签页中的默认视觉模型。",
                 campaignChooseImageButton: "选择文件",
                 campaignOrchestratorUnavailable: "当前无法使用活动编排功能。",
                 campaignOrchestratorEmptyResponse: "活动编排器返回了空响应。",

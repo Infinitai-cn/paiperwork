@@ -180,6 +180,8 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         campaignArtifactLaunchFailed: "No se pudo iniciar el flujo solicitado del artefacto de campana.",
         campaignPosterImageRequired: "La generacion del poster requiere al menos una imagen cargada en la campana.",
         campaignPosterVisualModelRequired: "La generacion del poster requiere un modelo visual seleccionado en la pestana Artworks.",
+        campaignPosterVisualModelModalTitle: "Seleccionar modelo visual para el poster",
+        campaignPosterVisualModelModalBody: "Elige el modelo visual para el poster de la campana antes de que empiece la generacion. El modelo seleccionado tambien se guardara como modelo visual predeterminado en la pestana Artworks.",
         campaignChooseImageButton: "Elegir archivo",
         campaignOrchestratorUnavailable: "La orquestacion de campanas no esta disponible en este momento.",
         campaignOrchestratorEmptyResponse: "El orquestador de campanas devolvio una respuesta vacia.",

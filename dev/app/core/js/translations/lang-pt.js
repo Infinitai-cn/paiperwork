@@ -185,6 +185,8 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         campaignArtifactLaunchFailed: "Nao foi possivel iniciar o fluxo solicitado do artefato da campanha.",
         campaignPosterImageRequired: "A geracao do poster requer pelo menos uma imagem enviada na campanha.",
         campaignPosterVisualModelRequired: "A geracao do poster requer um modelo visual selecionado na aba Artworks.",
+        campaignPosterVisualModelModalTitle: "Selecionar modelo visual para o poster",
+        campaignPosterVisualModelModalBody: "Escolha o modelo visual para o poster da campanha antes de a geracao comecar. O modelo selecionado tambem sera salvo como modelo visual padrao na aba Artworks.",
         campaignChooseImageButton: "Escolher arquivo",
         campaignOrchestratorUnavailable: "A orquestracao de campanha nao esta disponivel no momento.",
         campaignOrchestratorEmptyResponse: "O orquestrador de campanha retornou uma resposta vazia.",

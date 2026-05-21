@@ -182,6 +182,8 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         campaignArtifactLaunchFailed: "Der angeforderte Kampagnen-Artefakt-Workflow konnte nicht gestartet werden.",
         campaignPosterImageRequired: "Die Poster-Generierung erfordert mindestens ein hochgeladenes Kampagnenbild.",
         campaignPosterVisualModelRequired: "Die Poster-Generierung erfordert ein ausgewaehltes visuelles Modell im Artworks-Tab.",
+        campaignPosterVisualModelModalTitle: "Visuelles Modell fuer das Poster auswaehlen",
+        campaignPosterVisualModelModalBody: "Waehlen Sie vor dem Start der Generierung das visuelle Modell fuer das Kampagnenposter aus. Das ausgewaehlte Modell wird auch als Standardmodell im Artworks-Tab gespeichert.",
         campaignChooseImageButton: "Datei auswählen",
         campaignOrchestratorUnavailable: "Die Kampagnen-Orchestrierung ist derzeit nicht verfuegbar.",
         campaignOrchestratorEmptyResponse: "Der Kampagnen-Orchestrator hat eine leere Antwort geliefert.",

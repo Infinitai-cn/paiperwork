@@ -182,6 +182,8 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         campaignArtifactLaunchFailed: "Impossible de demarrer le workflow d'artefact de campagne demande.",
         campaignPosterImageRequired: "La generation de l'affiche requiert au moins une image importee dans la campagne.",
         campaignPosterVisualModelRequired: "La generation de l'affiche requiert un modele visuel selectionne dans l'onglet Artworks.",
+        campaignPosterVisualModelModalTitle: "Selectionner le modele visuel pour l'affiche",
+        campaignPosterVisualModelModalBody: "Choisissez le modele visuel pour l'affiche de campagne avant le debut de la generation. Le modele selectionne sera aussi enregistre comme modele visuel par defaut dans l'onglet Artworks.",
         campaignChooseImageButton: "Choisir un fichier",
         campaignOrchestratorUnavailable: "L'orchestration de campagne n'est pas disponible pour le moment.",
         campaignOrchestratorEmptyResponse: "L'orchestrateur de campagne a renvoye une reponse vide.",
