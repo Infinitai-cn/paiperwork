@@ -232,7 +232,7 @@ class CampaignWorkflowManager {
 				return this.buildArtifactCancelled('presentation', request.action);
 			}
 			console.error('CampaignWorkflowManager: presentation consumer failed', error);
-			return this.buildArtifactFailure('presentation', request.action, Lang.get('campaignArtifactLaunchFailed'));
+			return this.buildArtifactFailureFromError('presentation', request.action, error);
 		} finally {
 			releaseAbort();
 			restoreOverlay();
@@ -293,7 +293,7 @@ class CampaignWorkflowManager {
 				return this.buildArtifactCancelled('miniapp', request.action);
 			}
 			console.error('CampaignWorkflowManager: miniapp consumer failed', error);
-			return this.buildArtifactFailure('miniapp', request.action, Lang.get('campaignArtifactLaunchFailed'));
+			return this.buildArtifactFailureFromError('miniapp', request.action, error);
 		} finally {
 			releaseAbort();
 			restoreOverlay();
@@ -303,7 +303,16 @@ class CampaignWorkflowManager {
 	async consumePosterRequest(request) {
 		const signal = request?.signal || null;
 		let releaseAbort = () => {};
-		const imageEntry = Array.isArray(request?.images) ? request.images.find(image => image?.dataUrl) : null;
+		const uploadedImageEntry = Array.isArray(request?.images) ? request.images.find(image => image?.dataUrl) : null;
+		const fallbackPosterBackgroundImage = String(request?.campaign?.outputs?.poster_background_image || '').trim();
+		const imageEntry = uploadedImageEntry || (fallbackPosterBackgroundImage
+			? {
+				id: 'campaign-poster-existing-background',
+				name: 'campaign-poster-current-background.png',
+				mimeType: this.getImageMimeTypeFromDataUrl(fallbackPosterBackgroundImage),
+				dataUrl: fallbackPosterBackgroundImage
+			}
+			: null);
 		if (!imageEntry) {
 			console.warn('CampaignWorkflowManager: poster request skipped because no campaign image was provided', {
 				action: request?.action || '',
@@ -418,6 +427,13 @@ class CampaignWorkflowManager {
 			console.log('CampaignWorkflowManager: poster PNG captured', {
 				length: String(posterPng || '').length
 			});
+			console.log('CampaignWorkflowManager: poster overlay/background captured', {
+				hasOverlayData: !!posterOverlayData,
+				overlayWidth: Number(posterOverlayData?.overlay?.width) || 0,
+				overlayHeight: Number(posterOverlayData?.overlay?.height) || 0,
+				overlayTextCount: Array.isArray(posterOverlayData?.overlay?.texts) ? posterOverlayData.overlay.texts.length : 0,
+				backgroundLength: String(posterBackgroundImage || '').length
+			});
 			if (previewWindow && typeof previewWindow.close === 'function') {
 				previewWindow.close();
 			}
@@ -431,11 +447,16 @@ class CampaignWorkflowManager {
 				return this.buildArtifactCancelled('poster', request.action);
 			}
 			console.error('CampaignWorkflowManager: poster consumer failed', error);
-			return this.buildArtifactFailure('poster', request.action, Lang.get('campaignArtifactLaunchFailed'));
+			return this.buildArtifactFailureFromError('poster', request.action, error);
 		} finally {
 			window.__campaignManagedArtworkProgress = false;
 			releaseAbort();
 		}
+	}
+
+	getImageMimeTypeFromDataUrl(dataUrl) {
+		const match = String(dataUrl || '').match(/^data:([^;,]+)[;,]/i);
+		return match?.[1] || 'image/png';
 	}
 
 	async ensurePosterVisualModel(workflow) {
@@ -502,7 +523,7 @@ class CampaignWorkflowManager {
 	async loadArtworkScripts() {
 		const scripts = [
 			{ src: 'js/tabs/artworks.js', globalName: 'Artworks' },
-			{ src: 'js/tabs/artworkpreviewwindow.js', globalName: null },
+			{ src: 'js/tabs/artworkpreviewwindow.js', globalName: 'ArtworkPreviewWindow' },
 			{ src: 'js/tabs/artworkstab.js', globalName: 'ArtworksTab' },
 			{ src: 'js/tabs/artworkcanvasrenderer.js', globalName: 'ArtworkCanvasRenderer' },
 			{ src: 'js/tabs/canvasinteractionhandler.js', globalName: 'CanvasInteractionHandler' },
@@ -610,7 +631,7 @@ class CampaignWorkflowManager {
 		}
 
 		window._campaignScriptLoadingPromises[scriptSrc] = new Promise((resolve, reject) => {
-			const existingScript = document.querySelector(`script[src="${scriptSrc}"]`);
+			const existingScript = this.findExistingScriptBySrc(scriptSrc);
 			if (existingScript) {
 				if (this.resolveLoadedGlobal(globalName)) {
 					resolve();
@@ -645,6 +666,23 @@ class CampaignWorkflowManager {
 		});
 
 		return window._campaignScriptLoadingPromises[scriptSrc];
+	}
+
+	findExistingScriptBySrc(scriptSrc) {
+		const normalizedTarget = this.normalizeScriptUrl(scriptSrc);
+		return Array.from(document.querySelectorAll('script[src]')).find(script => {
+			const candidate = script.getAttribute('src') || script.src || '';
+			return this.normalizeScriptUrl(candidate) === normalizedTarget;
+		}) || null;
+	}
+
+	normalizeScriptUrl(scriptSrc) {
+		try {
+			const url = new URL(String(scriptSrc || ''), window.location.href);
+			return `${url.origin}${url.pathname}`;
+		} catch (_error) {
+			return String(scriptSrc || '').trim();
+		}
 	}
 
 	buildArtifactStarted(target, action) {
@@ -696,6 +734,71 @@ class CampaignWorkflowManager {
 				.replace('{target}', targetLabel)
 				.replace('{reason}', message)
 		};
+	}
+
+	buildArtifactFailureFromError(target, action, error) {
+		const cloudAccessError = this.getCloudAccessErrorDetails(error);
+		if (cloudAccessError?.body) {
+			return this.buildArtifactFailure(target, action, cloudAccessError.body);
+		}
+
+		if (this.isCloudApiKeyError(error)) {
+			this.openCloudApiKeyManagerSoon();
+			return this.buildArtifactFailure(target, action, Lang.get('ollamaApiKeyRequired'));
+		}
+
+		const detailMessage = String(error?.message || error || '').trim();
+		return this.buildArtifactFailure(
+			target,
+			action,
+			detailMessage || Lang.get('campaignArtifactLaunchFailed')
+		);
+	}
+
+	getCloudAccessErrorDetails(error) {
+		if (!window.OllamaAPI || typeof window.OllamaAPI.getOllamaCloudAccessErrorDetails !== 'function') {
+			return null;
+		}
+
+		return window.OllamaAPI.getOllamaCloudAccessErrorDetails(error);
+	}
+
+	isCloudApiKeyError(error) {
+		const cloudAccessError = this.getCloudAccessErrorDetails(error);
+		if (cloudAccessError?.type) {
+			return false;
+		}
+
+		const message = String(error?.message || error || '').toLowerCase();
+		const directStatus = Number(error?.status || error?.statusCode || error?.response?.status || NaN);
+		if (directStatus === 401 || directStatus === 403) {
+			return true;
+		}
+
+		return /(^|\D)401(\D|$)/.test(message)
+			|| /(^|\D)403(\D|$)/.test(message)
+			|| message.includes('unauthorized')
+			|| message.includes('forbidden')
+			|| message.includes('cloudproxy401')
+			|| message.includes('keylen=0')
+			|| message.includes('invalid api key')
+			|| message.includes('missing api key')
+			|| message.includes('api key required')
+			|| message.includes('ollama api key required')
+			|| message.includes('api key appears invalid')
+			|| message.includes('api key appears expired');
+	}
+
+	openCloudApiKeyManagerSoon() {
+		if (!window.chatTab || typeof window.chatTab.openOllamaApiKeyManager !== 'function') {
+			return;
+		}
+
+		window.setTimeout(() => {
+			window.chatTab.openOllamaApiKeyManager(true).catch((modalError) => {
+				console.error('CampaignWorkflowManager: failed to open cloud API key manager', modalError);
+			});
+		}, 50);
 	}
 
 	getTargetLabel(target) {

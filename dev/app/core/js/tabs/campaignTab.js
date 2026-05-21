@@ -14,6 +14,7 @@ class CampaignTab {
 		this.campaignPosterRenderer = null;
 		this.campaignPosterInteractionHandler = null;
 		this.campaignPosterSyncTimer = null;
+		this.skipCampaignPosterStateSyncOnce = false;
 		this.campaignPosterZoom = 1;
 		this.campaignPosterMinZoom = 0.25;
 		this.campaignPosterMaxZoom = 3;
@@ -387,7 +388,7 @@ class CampaignTab {
 			.campaign-progress-cancel { border: 0; border-radius: 999px; padding: 11px 16px; font-weight: 700; cursor: pointer; background: #b91c1c; color: #ffffff; }
 			.campaign-progress-cancel:disabled { opacity: 0.65; cursor: not-allowed; }
 			.campaign-modal-header, .campaign-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px; border-bottom: 1px solid var(--card-border, rgba(15, 23, 42, 0.08)); color: var(--text-color, #0f172a); }
-			.campaign-modal-footer { border-bottom: 0; border-top: 0; }
+			.campaign-modal-footer { display: grid; grid-template-columns: minmax(375px, 450px) minmax(0, 1fr); align-items: center; justify-content: initial; border-bottom: 0; border-top: 0; column-gap: 16px; }
 			.campaign-modal-title { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--heading-color, var(--text-color, #0f172a)); }
 			.campaign-modal-subtitle { display: none; }
 			.campaign-modal-close { background: var(--button-secondary-bg, #fff); color: var(--button-secondary-text, #0f172a); }
@@ -459,7 +460,8 @@ class CampaignTab {
 			.campaign-output-image { object-fit: contain; background: color-mix(in srgb, var(--card-bg, #ffffff) 88%, transparent); }
 			.campaign-presentation-shell, .campaign-miniapp-shell { display: grid; grid-template-rows: minmax(0, 1fr) auto; height: 100%; min-height: 100%; }
 			.campaign-presentation-frame-wrap, .campaign-miniapp-frame-wrap { min-height: 0; }
-			.campaign-presentation-actions, .campaign-miniapp-actions { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 12px 14px; }
+			.campaign-presentation-actions, .campaign-miniapp-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 12px 12px 14px; }
+			.campaign-presentation-action-group, .campaign-miniapp-action-group { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; margin-left: auto; flex-wrap: wrap; }
 			.campaign-artifact-progress { width: 96px; height: 8px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--campaign-accent-tint, #fed7aa) 52%, var(--card-bg, #ffffff)); position: relative; flex: 0 0 auto; }
 			.campaign-artifact-progress::after { content: ''; position: absolute; inset: 0; width: 40%; border-radius: inherit; background: linear-gradient(90deg, transparent 0%, var(--campaign-accent-strong, #c2410c) 25%, color-mix(in srgb, var(--campaign-accent-strong, #c2410c) 70%, #ffffff) 50%, var(--campaign-accent-strong, #c2410c) 75%, transparent 100%); animation: campaignArtifactIndeterminate 1s ease-in-out infinite; }
 			.campaign-presentation-action, .campaign-miniapp-action { border: 0; border-radius: 999px; padding: 9px 14px; cursor: pointer; font: inherit; font-weight: 700; background: color-mix(in srgb, var(--campaign-accent-tint, #fed7aa) 40%, var(--card-bg, #ffffff)); color: var(--campaign-accent-strong, #c2410c); }
@@ -473,10 +475,10 @@ class CampaignTab {
 			.campaign-poster-editor-button { border: 0; border-radius: 999px; padding: 8px 12px; cursor: pointer; font: inherit; font-weight: 700; background: color-mix(in srgb, var(--campaign-accent-tint, #fed7aa) 40%, var(--card-bg, #ffffff)); color: var(--campaign-accent-strong, #c2410c); }
 			.campaign-poster-editor-button:disabled { opacity: 0.45; cursor: not-allowed; }
 			.campaign-poster-editor-stage { min-height: 0; height: 100%; padding: 12px; overflow: auto; }
-			.campaign-poster-editor-canvas-wrap { min-height: 100%; display: grid; place-items: center; }
-			.campaign-poster-editor-canvas { display: block; max-width: 100%; max-height: 100%; height: auto; border-radius: 14px; box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12); background: #ffffff; }
-			.campaign-poster-image-wrap { min-height: 0; padding: 12px; display: grid; place-items: center; overflow: auto; }
-			.campaign-poster-image-wrap .campaign-output-image { width: auto; max-width: 100%; height: auto; min-height: 0; max-height: 100%; }
+			.campaign-poster-editor-canvas-wrap { min-width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; }
+			.campaign-poster-editor-canvas { display: block; max-width: none; max-height: none; height: auto; border-radius: 14px; box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12); background: #ffffff; }
+			.campaign-poster-image-wrap { min-height: 0; padding: 12px; display: flex; align-items: center; justify-content: center; overflow: auto; }
+			.campaign-poster-image-wrap .campaign-output-image { width: auto; max-width: none; height: auto; min-height: 0; max-height: none; }
 			.campaign-poster-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 12px 16px; border-top: 1px solid color-mix(in srgb, var(--campaign-accent-soft, #ea580c) 16%, var(--card-border, #dbe4ee)); background: color-mix(in srgb, var(--card-bg, #ffffff) 96%, transparent); }
 			.campaign-poster-action-group { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; margin-left: auto; flex-wrap: wrap; }
 			.campaign-poster-action { border: 0; border-radius: 999px; padding: 9px 14px; cursor: pointer; font: inherit; font-weight: 700; background: color-mix(in srgb, var(--campaign-accent-tint, #fed7aa) 40%, var(--card-bg, #ffffff)); color: var(--campaign-accent-strong, #c2410c); }
@@ -491,15 +493,17 @@ class CampaignTab {
 			.campaign-placeholder-copy p { margin: 0; }
 			.campaign-status { color: var(--label-color, #64748b); font-size: 0.95rem; }
 			.campaign-status:empty { display: none; }
-			.campaign-footer-status { margin-left: auto; min-width: 0; text-align: right; color: var(--label-color, #475569); font-size: 0.92rem; }
+			.campaign-footer-status { min-width: 0; justify-self: end; text-align: right; color: var(--label-color, #475569); font-size: 0.92rem; }
 			.campaign-footer-status:empty { display: none; }
-			.campaign-footer-actions { margin-top: 8px; flex-shrink: 0; }
+			.campaign-footer-actions { margin-top: 8px; flex-shrink: 0; justify-self: center; }
 			@keyframes campaignArtifactIndeterminate {
 				0% { transform: translateX(-120%); }
 				100% { transform: translateX(280%); }
 			}
 			@media (max-width: 980px) {
 				.campaign-modal-body { grid-template-columns: 1fr; }
+				.campaign-modal-footer { grid-template-columns: 1fr; row-gap: 10px; }
+				.campaign-footer-actions, .campaign-footer-status { justify-self: center; text-align: center; }
 				.campaign-poster-actions { flex-wrap: wrap; justify-content: center; }
 				.campaign-poster-action-group { margin-left: 0; justify-content: center; }
 			}
@@ -1046,9 +1050,11 @@ class CampaignTab {
 						<iframe class="campaign-output-frame" title="${this.escapeHtml(Lang.get('campaignPresentationView'))}" srcdoc="${this.escapeHtml(outputs.presentationHtml)}"></iframe>
 					</div>
 					<div class="campaign-presentation-actions">
-						${isPresentationRegenerating ? '<div class="campaign-artifact-progress" aria-hidden="true"></div>' : ''}
-						<button class="campaign-presentation-action${isPresentationRegenerating ? ' is-cancelling' : ''}" type="button" data-campaign-presentation-action="${isPresentationRegenerating ? 'cancel' : 'regenerate'}"${this.state.isWorkflowPending ? ' disabled' : ''}>${this.escapeHtml(isPresentationRegenerating ? (Lang.get('cancelButton') || Lang.get('cancel') || 'Cancel') : Lang.get('regenerateMessage'))}</button>
-						<button class="campaign-presentation-action" type="button" data-campaign-presentation-action="save"${this.state.isWorkflowPending || isPresentationRegenerating ? ' disabled' : ''}>${this.escapeHtml(Lang.get('saveToDiskButton'))}</button>
+						<div class="campaign-presentation-action-group">
+							${isPresentationRegenerating ? '<div class="campaign-artifact-progress" aria-hidden="true"></div>' : ''}
+							<button class="campaign-presentation-action${isPresentationRegenerating ? ' is-cancelling' : ''}" type="button" data-campaign-presentation-action="${isPresentationRegenerating ? 'cancel' : 'regenerate'}"${this.state.isWorkflowPending ? ' disabled' : ''}>${this.escapeHtml(isPresentationRegenerating ? (Lang.get('cancelButton') || Lang.get('cancel') || 'Cancel') : Lang.get('regenerateMessage'))}</button>
+							<button class="campaign-presentation-action" type="button" data-campaign-presentation-action="save"${this.state.isWorkflowPending || isPresentationRegenerating ? ' disabled' : ''}>${this.escapeHtml(Lang.get('saveToDiskButton'))}</button>
+						</div>
 					</div>
 				</div>
 			`;
@@ -1067,9 +1073,11 @@ class CampaignTab {
 						<iframe class="campaign-output-frame" title="${this.escapeHtml(Lang.get('campaignMiniAppView'))}" srcdoc="${this.escapeHtml(outputs.miniappHtml)}"></iframe>
 					</div>
 					<div class="campaign-miniapp-actions">
-						${isMiniappRegenerating ? '<div class="campaign-artifact-progress" aria-hidden="true"></div>' : ''}
-						<button class="campaign-miniapp-action${isMiniappRegenerating ? ' is-cancelling' : ''}" type="button" data-campaign-miniapp-action="${isMiniappRegenerating ? 'cancel' : 'regenerate'}"${this.state.isWorkflowPending ? ' disabled' : ''}>${this.escapeHtml(isMiniappRegenerating ? (Lang.get('cancelButton') || Lang.get('cancel') || 'Cancel') : Lang.get('regenerateMessage'))}</button>
-						<button class="campaign-miniapp-action" type="button" data-campaign-miniapp-action="save"${this.state.isWorkflowPending || isMiniappRegenerating ? ' disabled' : ''}>${this.escapeHtml(Lang.get('saveToDiskButton'))}</button>
+						<div class="campaign-miniapp-action-group">
+							${isMiniappRegenerating ? '<div class="campaign-artifact-progress" aria-hidden="true"></div>' : ''}
+							<button class="campaign-miniapp-action${isMiniappRegenerating ? ' is-cancelling' : ''}" type="button" data-campaign-miniapp-action="${isMiniappRegenerating ? 'cancel' : 'regenerate'}"${this.state.isWorkflowPending ? ' disabled' : ''}>${this.escapeHtml(isMiniappRegenerating ? (Lang.get('cancelButton') || Lang.get('cancel') || 'Cancel') : Lang.get('regenerateMessage'))}</button>
+							<button class="campaign-miniapp-action" type="button" data-campaign-miniapp-action="save"${this.state.isWorkflowPending || isMiniappRegenerating ? ' disabled' : ''}>${this.escapeHtml(Lang.get('saveToDiskButton'))}</button>
+						</div>
 					</div>
 				</div>
 			`;
@@ -1171,13 +1179,22 @@ class CampaignTab {
 			this.campaignPosterCanvas = canvas;
 			this.campaignPosterRenderer = renderer;
 			await renderer.loadBackground(outputs.posterBackgroundImage);
-			renderer.loadOverlayData(this.cloneCampaignJson(outputs.posterOverlayData));
+			await renderer.loadOverlayData(this.cloneCampaignJson(outputs.posterOverlayData));
+			console.log('CampaignTab: poster editor loaded regenerated poster state', {
+				backgroundLength: String(outputs.posterBackgroundImage || '').length,
+				overlayWidth: Number(outputs.posterOverlayData?.overlay?.width) || 0,
+				overlayHeight: Number(outputs.posterOverlayData?.overlay?.height) || 0,
+				overlayTextCount: Array.isArray(outputs.posterOverlayData?.overlay?.texts) ? outputs.posterOverlayData.overlay.texts.length : 0,
+				canvasWidth: Number(renderer.canvas?.width) || 0,
+				canvasHeight: Number(renderer.canvas?.height) || 0
+			});
 			renderer.setOnChange(() => {
 				this.scheduleCampaignPosterStateSync();
 				this.updateCampaignPosterActionState();
 			});
 			this.campaignPosterInteractionHandler = new CanvasInteractionHandlerCtor(renderer, canvas, () => {
 				this.scheduleCampaignPosterStateSync();
+				this.updateCampaignPosterActionState();
 			});
 			canvas.setAttribute('aria-label', Lang.get('campaignPosterView'));
 			this.applyCampaignPosterZoom();
@@ -1209,7 +1226,11 @@ class CampaignTab {
 	}
 
 	teardownCampaignPosterEditor() {
-		this.flushCampaignPosterStateSync();
+		if (this.skipCampaignPosterStateSyncOnce) {
+			this.skipCampaignPosterStateSyncOnce = false;
+		} else {
+			this.flushCampaignPosterStateSync();
+		}
 
 		this.campaignPosterEditorHost = null;
 		this.campaignPosterCanvas = null;
@@ -1391,8 +1412,9 @@ class CampaignTab {
 			return;
 		}
 
-		if (!Array.isArray(payload.images) || !payload.images.some(image => image?.dataUrl)) {
-			this.showWarning(Lang.get('campaignPosterImageRequired'));
+		const posterImages = this.getPosterRegenerationImages(payload);
+		if (!posterImages.length) {
+			this.setFooterStatus(Lang.get('campaignPosterImageRequired'));
 			return;
 		}
 
@@ -1412,11 +1434,11 @@ class CampaignTab {
 			await this.handleArtifactRequested({
 				target: 'poster',
 				action: 'generate',
-				reason: 'Regenerate only the poster using the latest poster brief section, campaign brief, palette guidance, and the current uploaded campaign image.',
+				reason: 'Regenerate only the poster using the latest poster brief section, campaign brief, palette guidance, and the latest available poster image source (prefer a newly uploaded image, otherwise reuse the current poster background image).',
 				model: payload.model,
 				campaign: payload.campaign,
 				prompt: payload.prompt || '',
-				images: Array.isArray(payload.images) ? payload.images : [],
+				images: posterImages,
 				signal: abortController?.signal || null
 			});
 		} finally {
@@ -1427,6 +1449,36 @@ class CampaignTab {
 				this.renderViewport();
 			}
 		}
+	}
+
+	getPosterRegenerationImages(payload) {
+		const uploadedImages = Array.isArray(payload?.images)
+			? payload.images.filter(image => image?.dataUrl)
+			: [];
+		if (uploadedImages.length) {
+			return uploadedImages;
+		}
+
+		const currentPosterBackgroundImage = String(
+			payload?.campaign?.outputs?.poster_background_image
+			|| this.state.currentCampaign?.outputs?.posterBackgroundImage
+			|| ''
+		).trim();
+		if (!currentPosterBackgroundImage) {
+			return [];
+		}
+
+		return [{
+			id: 'campaign-poster-existing-background',
+			name: 'campaign-poster-current-background.png',
+			mimeType: this.getCampaignImageMimeType(currentPosterBackgroundImage),
+			dataUrl: currentPosterBackgroundImage
+		}];
+	}
+
+	getCampaignImageMimeType(dataUrl) {
+		const match = String(dataUrl || '').match(/^data:([^;,]+)[;,]/i);
+		return match?.[1] || 'image/png';
 	}
 
 	async saveCampaignPosterToDisk() {
@@ -1726,14 +1778,17 @@ class CampaignTab {
 		}
 	}
 
-	saveCampaignPresentationToDisk() {
+	async saveCampaignPresentationToDisk() {
 		const presentationHtml = String(this.state.currentCampaign?.outputs?.presentationHtml || '').trim();
 		if (!presentationHtml) {
 			return;
 		}
 
 		const fileName = `${this.sanitizeCampaignFileName(this.state.currentCampaign.name || this.state.currentCampaign.brief.title || Lang.get('campaignPresentationView'))}-presentation.html`;
-		this.downloadCampaignTextFile(presentationHtml, fileName, 'text/html;charset=utf-8');
+		this.logCampaignExportDiagnostics('presentation source', presentationHtml);
+		const exportHtml = await this.buildCampaignExportHtml(presentationHtml);
+		this.logCampaignExportDiagnostics('presentation export', exportHtml || presentationHtml);
+		this.downloadCampaignTextFile(exportHtml || presentationHtml, fileName, 'text/html;charset=utf-8');
 	}
 
 	async regenerateCampaignMiniapp() {
@@ -1772,14 +1827,91 @@ class CampaignTab {
 		}
 	}
 
-	saveCampaignMiniappToDisk() {
+	async saveCampaignMiniappToDisk() {
 		const miniappHtml = String(this.state.currentCampaign?.outputs?.miniappHtml || '').trim();
 		if (!miniappHtml) {
 			return;
 		}
 
 		const fileName = `${this.sanitizeCampaignFileName(this.state.currentCampaign.name || this.state.currentCampaign.brief.title || Lang.get('campaignMiniAppView'))}-miniapp.html`;
-		this.downloadCampaignTextFile(miniappHtml, fileName, 'text/html;charset=utf-8');
+		this.logCampaignExportDiagnostics('miniapp source', miniappHtml);
+		const exportHtml = await this.buildCampaignExportHtml(miniappHtml);
+		this.logCampaignExportDiagnostics('miniapp export', exportHtml || miniappHtml);
+		this.downloadCampaignTextFile(exportHtml || miniappHtml, fileName, 'text/html;charset=utf-8');
+	}
+
+	async buildCampaignExportHtml(html) {
+		const htmlContent = String(html || '').trim();
+		if (!htmlContent) {
+			return '';
+		}
+
+		const workflow = window.PromptedPresentationWorkflow;
+		if (!workflow || typeof workflow.buildStandalonePromptableHtml !== 'function') {
+			console.log('CampaignTab: using local scrubber fallback for export');
+			return this.stripCampaignPromptableEditingMarkup(htmlContent);
+		}
+
+		try {
+			const standaloneHtml = await workflow.buildStandalonePromptableHtml(htmlContent, null, { includeEditorShell: false });
+			return this.stripCampaignPromptableEditingMarkup(standaloneHtml || htmlContent);
+		} catch (error) {
+			console.warn('CampaignTab: failed to build non-editable export HTML, falling back to current HTML', error);
+			return this.stripCampaignPromptableEditingMarkup(htmlContent);
+		}
+	}
+
+	logCampaignExportDiagnostics(label, html) {
+		const htmlContent = String(html || '');
+		const diagnostics = {
+			label,
+			length: htmlContent.length,
+			hasContenteditable: /contenteditable\s*=\s*["']?true/i.test(htmlContent),
+			editableTextMarkers: (htmlContent.match(/data-pw-editable-text/gi) || []).length,
+			editableMarkers: (htmlContent.match(/data-pw-editable=/gi) || []).length,
+			imageSelectedMarkers: (htmlContent.match(/data-pw-image-selected/gi) || []).length,
+			promptableTextStyles: (htmlContent.match(/pw-promptable-text-edit-style/gi) || []).length,
+			promptableImageStyles: (htmlContent.match(/pw-promptable-image-edit-style/gi) || []).length,
+			standaloneToolbarNodes: (htmlContent.match(/pw-standalone-editor-toolbar/gi) || []).length
+		};
+		console.log('CampaignTab: export diagnostics', diagnostics);
+	}
+
+	stripCampaignPromptableEditingMarkup(html) {
+		const htmlContent = String(html || '').trim();
+		if (!htmlContent) {
+			return '';
+		}
+
+		try {
+			const parser = new DOMParser();
+			const documentRef = parser.parseFromString(htmlContent, 'text/html');
+			if (!documentRef) {
+				return htmlContent;
+			}
+
+			Array.from(documentRef.querySelectorAll('#pw-standalone-editor-toolbar, #pw-standalone-editor-image-input, #pw-standalone-editor-style, #pw-standalone-editor-script, #pw-promptable-text-edit-style, #pw-promptable-image-edit-style')).forEach(node => node.remove());
+
+			Array.from(documentRef.querySelectorAll('[contenteditable], [spellcheck], [data-pw-editable], [data-pw-editable-text], [data-pw-image-selected]')).forEach(node => {
+				node.removeAttribute('contenteditable');
+				node.removeAttribute('spellcheck');
+				node.removeAttribute('data-pw-editable');
+				node.removeAttribute('data-pw-editable-text');
+				node.removeAttribute('data-pw-image-selected');
+			});
+
+			if (documentRef.body) {
+				documentRef.body.classList.remove('pw-standalone-editing');
+			}
+			if (documentRef.documentElement) {
+				documentRef.documentElement.classList.remove('pw-standalone-editing');
+			}
+
+			return `<!DOCTYPE html>\n${documentRef.documentElement.outerHTML}`;
+		} catch (error) {
+			console.warn('CampaignTab: failed to strip promptable editing markup from export HTML', error);
+			return htmlContent;
+		}
 	}
 
 	openStudio() {
@@ -2130,6 +2262,11 @@ class CampaignTab {
 		}
 
 		if (detail.outputs && typeof detail.outputs === 'object') {
+			if (target === 'poster'
+				&& (detail.outputs.poster_png || detail.outputs.posterPng || detail.outputs.poster_overlay_data || detail.outputs.posterOverlayData)) {
+				this.skipCampaignPosterStateSyncOnce = true;
+			}
+
 			this.state.currentCampaign.outputs = {
 				posterPng: detail.outputs.poster_png || detail.outputs.posterPng || this.state.currentCampaign.outputs.posterPng || '',
 				posterOverlayData: detail.outputs.poster_overlay_data || detail.outputs.posterOverlayData || this.cloneCampaignJson(this.state.currentCampaign.outputs.posterOverlayData) || null,
@@ -2228,13 +2365,49 @@ class CampaignTab {
 		}
 
 		if (detail.outputs && typeof detail.outputs === 'object') {
+			const currentOutputs = this.state.currentCampaign.outputs || {};
+			const hasPosterPng = Object.prototype.hasOwnProperty.call(detail.outputs, 'poster_png')
+				|| Object.prototype.hasOwnProperty.call(detail.outputs, 'posterPng');
+			const hasPosterOverlayData = Object.prototype.hasOwnProperty.call(detail.outputs, 'poster_overlay_data')
+				|| Object.prototype.hasOwnProperty.call(detail.outputs, 'posterOverlayData');
+			const hasPosterBackgroundImage = Object.prototype.hasOwnProperty.call(detail.outputs, 'poster_background_image')
+				|| Object.prototype.hasOwnProperty.call(detail.outputs, 'posterBackgroundImage');
+			const isPosterResponse = target === 'poster' && (hasPosterPng || hasPosterOverlayData || hasPosterBackgroundImage);
+			const nextPosterPng = hasPosterPng
+				? (detail.outputs.poster_png || detail.outputs.posterPng || '')
+				: (currentOutputs.posterPng || '');
+			const nextPosterOverlayData = isPosterResponse
+				? this.cloneCampaignJson(detail.outputs.poster_overlay_data ?? detail.outputs.posterOverlayData ?? null)
+				: (this.cloneCampaignJson(detail.outputs.poster_overlay_data || detail.outputs.posterOverlayData) || this.cloneCampaignJson(currentOutputs.posterOverlayData) || null);
+			const nextPosterBackgroundImage = isPosterResponse
+				? String(detail.outputs.poster_background_image ?? detail.outputs.posterBackgroundImage ?? '').trim()
+				: String(detail.outputs.poster_background_image || detail.outputs.posterBackgroundImage || currentOutputs.posterBackgroundImage || '').trim();
+
+			if (isPosterResponse) {
+				this.skipCampaignPosterStateSyncOnce = true;
+			}
+
 			this.state.currentCampaign.outputs = {
-				posterPng: detail.outputs.poster_png || detail.outputs.posterPng || this.state.currentCampaign.outputs.posterPng || '',
-				posterOverlayData: detail.outputs.poster_overlay_data || detail.outputs.posterOverlayData || this.cloneCampaignJson(this.state.currentCampaign.outputs.posterOverlayData) || null,
-				posterBackgroundImage: detail.outputs.poster_background_image || detail.outputs.posterBackgroundImage || this.state.currentCampaign.outputs.posterBackgroundImage || '',
-				presentationHtml: detail.outputs.presentation_html || detail.outputs.presentationHtml || this.state.currentCampaign.outputs.presentationHtml || '',
-				miniappHtml: detail.outputs.miniapp_html || detail.outputs.miniappHtml || this.state.currentCampaign.outputs.miniappHtml || ''
+				posterPng: nextPosterPng,
+				posterOverlayData: nextPosterOverlayData,
+				posterBackgroundImage: nextPosterBackgroundImage,
+				presentationHtml: detail.outputs.presentation_html || detail.outputs.presentationHtml || currentOutputs.presentationHtml || '',
+				miniappHtml: detail.outputs.miniapp_html || detail.outputs.miniappHtml || currentOutputs.miniappHtml || ''
 			};
+			if (isPosterResponse) {
+				console.log('CampaignTab: applied poster artifact response', {
+					hasPosterPng: !!nextPosterPng,
+					hasPosterOverlayData: !!nextPosterOverlayData,
+					overlayWidth: Number(nextPosterOverlayData?.overlay?.width) || 0,
+					overlayHeight: Number(nextPosterOverlayData?.overlay?.height) || 0,
+					overlayTextCount: Array.isArray(nextPosterOverlayData?.overlay?.texts) ? nextPosterOverlayData.overlay.texts.length : 0,
+					backgroundLength: String(nextPosterBackgroundImage || '').length
+				});
+
+				if (nextPosterPng && (!nextPosterOverlayData || !nextPosterBackgroundImage)) {
+					console.warn('CampaignTab: poster artifact response missing editable overlay/background data; falling back to PNG-only poster view');
+				}
+			}
 			if (target === 'poster' || target === 'presentation' || target === 'miniapp') {
 				this.state.activeViewport = target;
 				this.renderViewSwitcher();
