@@ -1950,12 +1950,13 @@ class ArtworksTab {
                                             - Glow effect: Use the "glow" object with properties: enabled (boolean), color (hex or rgba), blur (pixels), offsetX (pixels, usually 0), offsetY (pixels, usually 0). Example: {"enabled": true, "color": "rgba(255,255,255,0.9)", "blur": 18, "offsetX": 0, "offsetY": 0}. Glow is best for a soft halo around short headline text.
                                             - Text stroke (outline): Use the "outline" object with properties: enabled (boolean), color (hex), width (pixels). Example: {"enabled": true, "color": "#000000", "width": 3}. Outline works well for strong headline separation from busy backgrounds.
                                             - Gradient text: Do NOT simulate gradient text by duplicating or stacking the same words in multiple text elements. Use a single solid-color impactful headline instead.
-                                            - Pattern/texture text: Not directly supported in JSON — instead, use a backgroundColor panel with a solid or semi-transparent color to create texture-like backgrounds behind text.
+                                            - Pattern/texture text: Not directly supported in JSON. Do not compensate by putting most text in backgroundColor boxes. Prefer a clean solid text treatment instead.
                                             - Rotation/scale transforms: Use the "rotation" property (in degrees) to rotate text. Positive values rotate clockwise. Use maxWidth and fontSize to effectively scale text.
                                             - Opacity/alpha: Use the "opacity" property (0-1) to make text semi-transparent. Values closer to 0 are more transparent, 1 is fully opaque.
                                             - Text clipping: Not directly supported — instead, use maxWidth to constrain text width and ensure text stays within desired bounds.
-                                            - Compositing modes: Not directly supported — instead, use opacity and backgroundColor to achieve desired visual layering effects.
-                                            - Background panels: Use "backgroundColor" (hex color, optionally with alpha like "rgba(0,0,0,0.5)") and "backgroundPadding" (e.g., "10px 15px") to create readable text containers.
+                                            - Compositing modes: Not directly supported — instead, use opacity, contrast-aware text color, shadow, glow, and outline to achieve desired visual layering effects.
+                                            - Background panels: Use "backgroundColor" (hex color, optionally with alpha like "rgba(0,0,0,0.5)") and "backgroundPadding" (e.g., "10px 15px") only as a last resort when readability cannot be solved cleanly with text color, shadow, glow, or outline.
+                                            - Panel restraint: Avoid putting background panels behind most text nodes. In a typical poster, use zero background panels or at most one key panel for the single hardest-to-read text block. Do not give every headline/subheadline/footer its own box unless the image is extremely busy everywhere.
 
                                             OUTPUT FORMAT (MANDATORY):
                                             You MUST respond with a SINGLE valid JSON object wrapped in a markdown code block with language identifier "json". Do NOT include any explanatory text before or after the JSON. Do NOT output HTML, CSS, or any other format. The JSON must be parseable by standard JSON.parse().
@@ -2173,7 +2174,8 @@ class ArtworksTab {
                                             - When a website style reference is provided and there are multiple text blocks, prefer one website font family per text block so the design uses as many different linked website fonts as possible without harming readability.
                                             - When website webfont descriptors are provided, prefer those exact linked font URLs over substitutes.
                                             - Use fontWeight "bold" or 700 for headlines, "normal" or 400 for body text.
-                                            - Add semi-transparent backgroundColor panels behind text when needed for readability.
+                                                - Prefer readability fixes in this order: text color, shadow, glow, outline, then backgroundColor panel only if those still do not produce clear contrast.
+                                                - Keep backgroundColor panels rare and intentional. In most outputs, no more than one text element should need a panel.
                                             - You may use subtle glow, shadow, or outline on key headline text when it improves readability against the image.
                                             - Do not stack too many effects on the same text block. Prefer at most one of shadow or glow, and use outline only when the background is visually busy.
                                             - Never create fake gradient headlines by repeating the same text in darker or lighter stacked layers.
