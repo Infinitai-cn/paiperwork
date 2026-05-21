@@ -23,11 +23,13 @@ class CampaignTab {
 		this.isSavingCampaignPoster = false;
 		this.isSavingCampaignMiniapp = false;
 		this.hasManualOutputEdits = false;
+		this.posterVisualModelPromptResolver = null;
 		this.state = {
 			activeViewport: 'brief',
 			draftPrompt: '',
 			isWorkflowPending: false,
 			artifactRegeneration: this.createArtifactRegenerationState(),
+			posterVisualModelPrompt: this.createPosterVisualModelPromptState(),
 			chatMessages: [],
 			imageRegistry: [],
 			pendingArtifacts: [],
@@ -102,6 +104,16 @@ class CampaignTab {
 				isPending: false,
 				abortController: null
 			}
+		};
+	}
+
+	createPosterVisualModelPromptState() {
+		return {
+			isOpen: false,
+			message: '',
+			errorMessage: '',
+			selectedModel: '',
+			models: []
 		};
 	}
 
@@ -355,6 +367,20 @@ class CampaignTab {
 			.campaign-modal-dialog { position: relative; height: 100%; width: 100%; display: grid; grid-template-rows: auto 1fr auto; background: linear-gradient(180deg, var(--bg-color, #f8fafc) 0%, var(--bg-color-secondary, #e2e8f0) 100%); }
 			.campaign-progress-overlay { position: absolute; inset: 0; z-index: 4; display: none; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(14px); }
 			.campaign-progress-overlay.is-open { display: flex; }
+			.campaign-poster-model-overlay { position: absolute; inset: 0; z-index: 5; display: none; align-items: center; justify-content: center; padding: 24px; background: rgba(15, 23, 42, 0.42); backdrop-filter: blur(16px); }
+			.campaign-poster-model-overlay.is-open { display: flex; }
+			.campaign-poster-model-card { width: min(520px, calc(100vw - 48px)); display: grid; gap: 16px; padding: 24px; border-radius: 24px; background: color-mix(in srgb, var(--card-bg, #ffffff) 90%, rgba(15, 23, 42, 0.12)); border: 1px solid color-mix(in srgb, var(--card-border, #cbd5e1) 72%, rgba(255, 255, 255, 0.4)); box-shadow: 0 28px 90px rgba(15, 23, 42, 0.24); color: var(--card-text, var(--text-color, #0f172a)); }
+			.campaign-poster-model-title { margin: 0; font-size: 1.18rem; font-weight: 800; color: var(--heading-color, var(--text-color, #0f172a)); }
+			.campaign-poster-model-body { margin: 0; line-height: 1.6; color: var(--label-color, #475569); }
+			.campaign-poster-model-error { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, #fecaca 58%, var(--card-bg, #ffffff)); border: 1px solid color-mix(in srgb, #dc2626 34%, var(--card-border, #dbe4ee)); color: #991b1b; line-height: 1.5; }
+			.campaign-poster-model-field { display: grid; gap: 8px; }
+			.campaign-poster-model-label { font-size: 0.82rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--campaign-accent-strong, #c2410c); }
+			.campaign-poster-model-select { width: 100%; border: 1px solid var(--card-border, #cbd5e1); border-radius: 14px; padding: 11px 12px; background: var(--input-background, #ffffff); color: var(--text-color, #0f172a); font: inherit; }
+			.campaign-poster-model-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+			.campaign-poster-model-button { border: 0; border-radius: 999px; padding: 10px 16px; cursor: pointer; font: inherit; font-weight: 700; }
+			.campaign-poster-model-button.secondary { background: var(--button-secondary-bg, #ffffff); color: var(--button-secondary-text, #0f172a); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--card-border, #cbd5e1) 72%, transparent); }
+			.campaign-poster-model-button.primary { background: var(--campaign-accent-soft, #ea580c); color: #fff7ed; box-shadow: 0 10px 24px rgba(234, 88, 12, 0.22); }
+			.campaign-poster-model-button:disabled { opacity: 0.55; cursor: not-allowed; }
 			.campaign-progress-card { width: min(520px, calc(100vw - 48px)); display: grid; gap: 14px; padding: 24px; border-radius: 24px; background: color-mix(in srgb, var(--card-bg, #ffffff) 86%, rgba(15, 23, 42, 0.14)); border: 1px solid color-mix(in srgb, var(--card-border, #cbd5e1) 72%, rgba(255, 255, 255, 0.4)); box-shadow: 0 28px 90px rgba(15, 23, 42, 0.24); color: var(--card-text, var(--text-color, #0f172a)); }
 			.campaign-progress-eyebrow { font-size: 0.76rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--campaign-accent-strong, #c2410c); }
 			.campaign-progress-title { margin: 0; font-size: 1.3rem; font-weight: 800; color: var(--heading-color, var(--text-color, #0f172a)); }
@@ -612,6 +638,7 @@ class CampaignTab {
 						</div>
 					</div>
 				</div>
+				<div class="campaign-poster-model-overlay" id="campaign-poster-model-overlay" aria-hidden="true"></div>
 			</div>
 		`;
 	}
@@ -679,12 +706,37 @@ class CampaignTab {
 		this.modalElement.addEventListener('change', event => {
 			if (event.target.id === 'campaign-upload-input') {
 				this.handleUploadSelection(event.target.files);
+				return;
+			}
+
+			if (event.target.id === 'campaign-poster-model-select') {
+				this.state.posterVisualModelPrompt = {
+					...this.createPosterVisualModelPromptState(),
+					...this.state.posterVisualModelPrompt,
+					selectedModel: String(event.target.value || '').trim()
+				};
+				this.renderPosterVisualModelPrompt();
 			}
 		});
 
 		this.modalElement.addEventListener('click', event => {
+			const promptCancelButton = event.target.closest('[data-campaign-poster-model-cancel]');
+			if (promptCancelButton) {
+				this.resolvePosterVisualModelPrompt('');
+				return;
+			}
+
+			const promptConfirmButton = event.target.closest('[data-campaign-poster-model-confirm]');
+			if (promptConfirmButton) {
+				this.confirmPosterVisualModelPrompt();
+				return;
+			}
+
 			const closeRequested = event.target.closest('[data-campaign-close="true"]');
 			if (closeRequested) {
+				if (this.state.posterVisualModelPrompt?.isOpen) {
+					return;
+				}
 				if (this.state.workflowProgress?.isOpen) {
 					return;
 				}
@@ -855,7 +907,115 @@ class CampaignTab {
 		this.renderImageRegistry();
 		this.renderViewport();
 		this.renderWorkflowProgress();
+		this.renderPosterVisualModelPrompt();
 		this.updatePromptComposerState();
+	}
+
+	promptForPosterVisualModel(options = {}) {
+		const models = Array.isArray(options.models)
+			? options.models
+				.map(model => ({
+					name: String(model?.name || '').trim(),
+					provider: String(model?.provider || '').trim().toLowerCase()
+				}))
+				.filter(model => model.name)
+			: [];
+
+		if (!models.length) {
+			return Promise.resolve('');
+		}
+
+		if (this.posterVisualModelPromptResolver) {
+			this.resolvePosterVisualModelPrompt('');
+		}
+
+		const preferredModel = String(options.selectedModel || '').trim();
+		const selectedModel = models.some(model => model.name === preferredModel)
+			? preferredModel
+			: models[0].name;
+
+		this.state.posterVisualModelPrompt = {
+			isOpen: true,
+			message: String(options.message || Lang.get('campaignPosterVisualModelModalBody') || '').trim(),
+			errorMessage: String(options.errorMessage || '').trim(),
+			selectedModel,
+			models
+		};
+		this.renderPosterVisualModelPrompt();
+
+		return new Promise(resolve => {
+			this.posterVisualModelPromptResolver = resolve;
+		});
+	}
+
+	confirmPosterVisualModelPrompt() {
+		const selectedModel = String(this.state.posterVisualModelPrompt?.selectedModel || '').trim();
+		if (!selectedModel) {
+			this.state.posterVisualModelPrompt = {
+				...this.state.posterVisualModelPrompt,
+				errorMessage: Lang.get('artworkPleaseSelectVisualModel') || ''
+			};
+			this.renderPosterVisualModelPrompt();
+			return;
+		}
+
+		this.resolvePosterVisualModelPrompt(selectedModel);
+	}
+
+	resolvePosterVisualModelPrompt(selectedModel) {
+		const resolver = this.posterVisualModelPromptResolver;
+		this.posterVisualModelPromptResolver = null;
+		this.state.posterVisualModelPrompt = this.createPosterVisualModelPromptState();
+		this.renderPosterVisualModelPrompt();
+		if (typeof resolver === 'function') {
+			resolver(String(selectedModel || '').trim());
+		}
+	}
+
+	renderPosterVisualModelPrompt() {
+		const overlay = this.modalElement?.querySelector('#campaign-poster-model-overlay');
+		if (!overlay) {
+			return;
+		}
+
+		const promptState = this.state.posterVisualModelPrompt || this.createPosterVisualModelPromptState();
+		overlay.classList.toggle('is-open', !!promptState.isOpen);
+		overlay.setAttribute('aria-hidden', promptState.isOpen ? 'false' : 'true');
+
+		if (!promptState.isOpen) {
+			overlay.innerHTML = '';
+			return;
+		}
+
+		const optionMarkup = promptState.models.map(model => {
+			const providerLabel = model.provider === 'cloud'
+				? (Lang.get('artworkCloudVisualModelsHeader') || 'Cloud')
+				: (Lang.get('artworkLocalVisualModelsHeader') || 'Local');
+			return `<option value="${this.escapeHtml(model.name)}"${model.name === promptState.selectedModel ? ' selected' : ''}>${this.escapeHtml(`${model.name} (${providerLabel})`)}</option>`;
+		}).join('');
+
+		overlay.innerHTML = `
+			<div class="campaign-poster-model-card" role="dialog" aria-modal="true" aria-labelledby="campaign-poster-model-title">
+				<h3 class="campaign-poster-model-title" id="campaign-poster-model-title">${this.escapeHtml(Lang.get('campaignPosterVisualModelModalTitle') || Lang.get('artworkSelectVisualModel') || '')}</h3>
+				<p class="campaign-poster-model-body">${this.escapeHtml(promptState.message || Lang.get('campaignPosterVisualModelModalBody') || '')}</p>
+				${promptState.errorMessage ? `<div class="campaign-poster-model-error">${this.escapeHtml(promptState.errorMessage)}</div>` : ''}
+				<div class="campaign-poster-model-field">
+					<label class="campaign-poster-model-label" for="campaign-poster-model-select">${this.escapeHtml(Lang.get('artworkSelectVisualModel') || '')}</label>
+					<select id="campaign-poster-model-select" class="campaign-poster-model-select">${optionMarkup}</select>
+				</div>
+				<div class="campaign-poster-model-actions">
+					<button class="campaign-poster-model-button secondary" type="button" data-campaign-poster-model-cancel="true">${this.escapeHtml(Lang.get('cancelButton') || Lang.get('closeButton') || 'Cancel')}</button>
+					<button class="campaign-poster-model-button primary" type="button" data-campaign-poster-model-confirm="true">${this.escapeHtml(Lang.get('selectButton') || 'Select')}</button>
+				</div>
+			</div>
+		`;
+
+		window.requestAnimationFrame(() => {
+			const select = overlay.querySelector('#campaign-poster-model-select');
+			if (select) {
+				select.focus();
+			}
+		});
 	}
 
 	renderChatLog(options = {}) {
