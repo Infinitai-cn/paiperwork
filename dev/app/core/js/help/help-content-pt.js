@@ -2051,6 +2051,7 @@ window.helpContent = {
 
                 <div class="note">
                     <p><strong>Importante:</strong> A geração da campanha exige uma imagem enviada porque o fluxo do poster depende dela. As outras saídas compartilham a mesma estratégia de campanha, mas o poster usa especificamente a referência visual enviada.</p>
+                    <p><strong>Requisito do poster:</strong> A geração e a regeneração do poster também exigem que um modelo visual esteja selecionado no card da aba Artworks antes de executar o fluxo da campanha.</p>
                 </div>
             `,
             },
@@ -2141,6 +2142,7 @@ window.helpContent = {
                     <li>Você pode selecionar elementos da sobreposição, movê-los, excluí-los e desfazer exclusões recentes</li>
                     <li>O estado atual do poster pode ser exportado como PNG</li>
                     <li><strong>Regenerate</strong> executa novamente apenas o fluxo do poster usando a seção mais recente do briefing do poster, o briefing de campanha, a orientação de paleta e a imagem enviada</li>
+                    <li><strong>Modelo visual obrigatório</strong> - Selecione um modelo visual no card da aba Artworks antes de gerar ou regenerar o poster da campanha</li>
                 </ul>
 
                 <h4>Edição da apresentação</h4>

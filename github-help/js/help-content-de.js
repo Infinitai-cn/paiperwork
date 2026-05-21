@@ -2043,6 +2043,7 @@ window.helpContent = {
 
                 <div class="note">
                     <p><strong>Wichtig:</strong> Für die Kampagnengenerierung ist ein hochgeladenes Bild erforderlich, da der Poster-Workflow davon abhängt. Die anderen Ausgaben teilen dieselbe Kampagnenstrategie, aber das Poster verwendet gezielt die hochgeladene visuelle Referenz.</p>
+                    <p><strong>Poster-Voraussetzung:</strong> Für das Erzeugen und erneute Erzeugen des Posters muss außerdem vor dem Start des Kampagnen-Workflows im Artworks-Tab eine visuelle Modellkarte ausgewählt sein.</p>
                 </div>
             `,
             },
@@ -2133,6 +2134,7 @@ window.helpContent = {
                     <li>Sie können Overlay-Elemente auswählen, verschieben, löschen und kürzlich gelöschte Elemente rückgängig machen</li>
                     <li>Der aktuelle Poster-Zustand kann als PNG exportiert werden</li>
                     <li><strong>Regenerate</strong> startet nur den Poster-Workflow erneut und verwendet dabei den neuesten Poster-Brief-Abschnitt, den Campaign Brief, die Paletten-Hinweise und das hochgeladene Bild</li>
+                    <li><strong>Visuelles Modell erforderlich</strong> - Wählen Sie im Artworks-Tab eine visuelle Modellkarte aus, bevor Sie das Kampagnen-Poster erzeugen oder erneut erzeugen</li>
                 </ul>
 
                 <h4>Präsentations-Bearbeitung</h4>

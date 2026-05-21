@@ -1804,6 +1804,7 @@ window.helpContent = {
 
                 <div class="note">
                     <p><strong>Important:</strong> Campaign generation requires an uploaded image because the poster workflow depends on it. The other outputs share the same campaign strategy, but the poster specifically uses the uploaded visual reference.</p>
+                    <p><strong>Poster requirement:</strong> Poster generation and poster regeneration also require a visual model to be selected in the Artworks tab card before you run the campaign workflow.</p>
                 </div>
             `,
             },
@@ -1894,6 +1895,7 @@ window.helpContent = {
                     <li>You can select overlay elements, move them, delete them, and undo recent deletions</li>
                     <li>The current poster state can be exported as a PNG</li>
                     <li><strong>Regenerate</strong> reruns only the poster workflow using the latest poster brief section, campaign brief, palette guidance, and uploaded image</li>
+                    <li><strong>Visual model required</strong> - Select a visual model in the Artworks tab card before generating or regenerating the campaign poster</li>
                 </ul>
 
                 <h4>Presentation Editing</h4>
