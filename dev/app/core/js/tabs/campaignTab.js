@@ -19,7 +19,9 @@ class CampaignTab {
 		this.campaignPosterMinZoom = 0.25;
 		this.campaignPosterMaxZoom = 3;
 		this.campaignPosterZoomStep = 0.25;
+		this.isSavingCampaignPresentation = false;
 		this.isSavingCampaignPoster = false;
+		this.isSavingCampaignMiniapp = false;
 		this.hasManualOutputEdits = false;
 		this.state = {
 			activeViewport: 'brief',
@@ -1032,6 +1034,9 @@ class CampaignTab {
 		if (this.state.activeViewport === 'presentation' && outputs.presentationHtml) {
 			const presentationRegeneration = this.getArtifactRegenerationState('presentation');
 			const isPresentationRegenerating = presentationRegeneration.isPending;
+			const presentationSaveLabel = this.isSavingCampaignPresentation
+				? Lang.get('artworkExportingHTML')
+				: Lang.get('saveToDiskButton');
 			preview.classList.add('has-output');
 			preview.innerHTML = `
 				<div class="campaign-presentation-shell">
@@ -1042,7 +1047,7 @@ class CampaignTab {
 						<div class="campaign-presentation-action-group">
 							${isPresentationRegenerating ? '<div class="campaign-artifact-progress" aria-hidden="true"></div>' : ''}
 							<button class="campaign-presentation-action${isPresentationRegenerating ? ' is-cancelling' : ''}" type="button" data-campaign-presentation-action="${isPresentationRegenerating ? 'cancel' : 'regenerate'}"${this.state.isWorkflowPending ? ' disabled' : ''}>${this.escapeHtml(isPresentationRegenerating ? (Lang.get('cancelButton') || Lang.get('cancel') || 'Cancel') : Lang.get('regenerateMessage'))}</button>
-							<button class="campaign-presentation-action" type="button" data-campaign-presentation-action="save"${this.state.isWorkflowPending || isPresentationRegenerating ? ' disabled' : ''}>${this.escapeHtml(Lang.get('saveToDiskButton'))}</button>
+							<button class="campaign-presentation-action" type="button" data-campaign-presentation-action="save"${this.state.isWorkflowPending || isPresentationRegenerating || this.isSavingCampaignPresentation ? ' disabled' : ''}>${this.escapeHtml(presentationSaveLabel)}</button>
 						</div>
 					</div>
 				</div>
@@ -1055,6 +1060,9 @@ class CampaignTab {
 		if (this.state.activeViewport === 'miniapp' && outputs.miniappHtml) {
 			const miniappRegeneration = this.getArtifactRegenerationState('miniapp');
 			const isMiniappRegenerating = miniappRegeneration.isPending;
+			const miniappSaveLabel = this.isSavingCampaignMiniapp
+				? Lang.get('artworkExportingHTML')
+				: Lang.get('saveToDiskButton');
 			preview.classList.add('has-output');
 			preview.innerHTML = `
 				<div class="campaign-miniapp-shell">
@@ -1065,7 +1073,7 @@ class CampaignTab {
 						<div class="campaign-miniapp-action-group">
 							${isMiniappRegenerating ? '<div class="campaign-artifact-progress" aria-hidden="true"></div>' : ''}
 							<button class="campaign-miniapp-action${isMiniappRegenerating ? ' is-cancelling' : ''}" type="button" data-campaign-miniapp-action="${isMiniappRegenerating ? 'cancel' : 'regenerate'}"${this.state.isWorkflowPending ? ' disabled' : ''}>${this.escapeHtml(isMiniappRegenerating ? (Lang.get('cancelButton') || Lang.get('cancel') || 'Cancel') : Lang.get('regenerateMessage'))}</button>
-							<button class="campaign-miniapp-action" type="button" data-campaign-miniapp-action="save"${this.state.isWorkflowPending || isMiniappRegenerating ? ' disabled' : ''}>${this.escapeHtml(Lang.get('saveToDiskButton'))}</button>
+							<button class="campaign-miniapp-action" type="button" data-campaign-miniapp-action="save"${this.state.isWorkflowPending || isMiniappRegenerating || this.isSavingCampaignMiniapp ? ' disabled' : ''}>${this.escapeHtml(miniappSaveLabel)}</button>
 						</div>
 					</div>
 				</div>
@@ -1475,7 +1483,7 @@ class CampaignTab {
 		}
 
 		try {
-			await new Promise(resolve => window.requestAnimationFrame(resolve));
+			await this.waitForCampaignActionPaint();
 			this.flushCampaignPosterStateSync();
 			const renderer = this.campaignPosterRenderer;
 			const posterPng = renderer && typeof renderer.exportPNG === 'function'
@@ -1495,6 +1503,14 @@ class CampaignTab {
 				this.renderViewport();
 			}
 		}
+	}
+
+	waitForCampaignActionPaint() {
+		return new Promise(resolve => {
+			window.requestAnimationFrame(() => {
+				window.requestAnimationFrame(resolve);
+			});
+		});
 	}
 
 	scheduleCampaignPosterStateSync() {
@@ -1768,16 +1784,29 @@ class CampaignTab {
 	}
 
 	async saveCampaignPresentationToDisk() {
+		if (this.isSavingCampaignPresentation) {
+			return;
+		}
+
 		const presentationHtml = String(this.state.currentCampaign?.outputs?.presentationHtml || '').trim();
 		if (!presentationHtml) {
 			return;
 		}
 
-		const fileName = `${this.sanitizeCampaignFileName(this.state.currentCampaign.name || this.state.currentCampaign.brief.title || Lang.get('campaignPresentationView'))}-presentation.html`;
-		this.logCampaignExportDiagnostics('presentation source', presentationHtml);
-		const exportHtml = await this.buildCampaignExportHtml(presentationHtml);
-		this.logCampaignExportDiagnostics('presentation export', exportHtml || presentationHtml);
-		this.downloadCampaignTextFile(exportHtml || presentationHtml, fileName, 'text/html;charset=utf-8');
+		this.isSavingCampaignPresentation = true;
+		this.renderViewport();
+
+		try {
+			await this.waitForCampaignActionPaint();
+			const fileName = `${this.sanitizeCampaignFileName(this.state.currentCampaign.name || this.state.currentCampaign.brief.title || Lang.get('campaignPresentationView'))}-presentation.html`;
+			this.logCampaignExportDiagnostics('presentation source', presentationHtml);
+			const exportHtml = await this.buildCampaignExportHtml(presentationHtml);
+			this.logCampaignExportDiagnostics('presentation export', exportHtml || presentationHtml);
+			this.downloadCampaignTextFile(exportHtml || presentationHtml, fileName, 'text/html;charset=utf-8');
+		} finally {
+			this.isSavingCampaignPresentation = false;
+			this.renderViewport();
+		}
 	}
 
 	async regenerateCampaignMiniapp() {
@@ -1817,16 +1846,29 @@ class CampaignTab {
 	}
 
 	async saveCampaignMiniappToDisk() {
+		if (this.isSavingCampaignMiniapp) {
+			return;
+		}
+
 		const miniappHtml = String(this.state.currentCampaign?.outputs?.miniappHtml || '').trim();
 		if (!miniappHtml) {
 			return;
 		}
 
-		const fileName = `${this.sanitizeCampaignFileName(this.state.currentCampaign.name || this.state.currentCampaign.brief.title || Lang.get('campaignMiniAppView'))}-miniapp.html`;
-		this.logCampaignExportDiagnostics('miniapp source', miniappHtml);
-		const exportHtml = await this.buildCampaignExportHtml(miniappHtml);
-		this.logCampaignExportDiagnostics('miniapp export', exportHtml || miniappHtml);
-		this.downloadCampaignTextFile(exportHtml || miniappHtml, fileName, 'text/html;charset=utf-8');
+		this.isSavingCampaignMiniapp = true;
+		this.renderViewport();
+
+		try {
+			await this.waitForCampaignActionPaint();
+			const fileName = `${this.sanitizeCampaignFileName(this.state.currentCampaign.name || this.state.currentCampaign.brief.title || Lang.get('campaignMiniAppView'))}-miniapp.html`;
+			this.logCampaignExportDiagnostics('miniapp source', miniappHtml);
+			const exportHtml = await this.buildCampaignExportHtml(miniappHtml);
+			this.logCampaignExportDiagnostics('miniapp export', exportHtml || miniappHtml);
+			this.downloadCampaignTextFile(exportHtml || miniappHtml, fileName, 'text/html;charset=utf-8');
+		} finally {
+			this.isSavingCampaignMiniapp = false;
+			this.renderViewport();
+		}
 	}
 
 	async buildCampaignExportHtml(html) {
