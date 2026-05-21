@@ -2183,7 +2183,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         promptableSidebarEmpty: 'Ainda não existem apresentações guardadas.',
         promptableSidebarLoading: 'A carregar apresentações guardadas...',
         saveToDiskButton: 'Guardar no disco',
-        campaignPosterRenderingButton: 'A renderizar...',
+        campaignPosterRenderingButton: 'A exportar PNG...',
         saveToDiskSuccess: 'Apresentação guardada no disco.',
         saveToDiskSuccessHtml: 'Apresentação HTML guardada no disco.',
         saveToDiskSuccessPdf: 'Apresentação PDF guardada no disco.',

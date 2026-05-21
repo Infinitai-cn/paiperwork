@@ -2465,7 +2465,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         promptableSidebarEmpty: "Aucune présentation enregistrée pour le moment.",
         promptableSidebarLoading: "Chargement des présentations enregistrées...",
         saveToDiskButton: "Enregistrer sur le disque",
-        campaignPosterRenderingButton: "Rendu en cours...",
+        campaignPosterRenderingButton: "Export du PNG...",
         saveToDiskSuccess: "Présentation enregistrée sur le disque.",
         saveToDiskSuccessHtml: "Présentation HTML enregistrée sur le disque.",
         saveToDiskSuccessPdf: "Présentation PDF enregistrée sur le disque.",

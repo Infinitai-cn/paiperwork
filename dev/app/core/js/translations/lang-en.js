@@ -2489,7 +2489,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         presentationNameDialogTitle: 'Name your presentation',
         presentationNamePlaceholder: 'Enter presentation name',
         saveToDiskButton: 'Save to disk',
-        campaignPosterRenderingButton: 'Rendering...',
+        campaignPosterRenderingButton: 'Exporting PNG...',
         saveToDiskSuccess: 'Presentation saved to disk.',
         saveToDiskSuccessHtml: 'HTML presentation saved to disk.',
         saveToDiskSuccessPdf: 'PDF presentation saved to disk.',

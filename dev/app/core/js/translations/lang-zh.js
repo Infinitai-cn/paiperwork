@@ -2511,7 +2511,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 promptableSidebarEmpty: '尚无已保存的演示文稿。',
                 promptableSidebarLoading: '正在加载已保存的演示文稿...',
                 saveToDiskButton: '保存到磁盘',
-                campaignPosterRenderingButton: '渲染中...',
+                campaignPosterRenderingButton: '正在导出 PNG...',
                 saveToDiskSuccess: '演示文稿已保存到磁盘。',
                 saveToDiskSuccessHtml: 'HTML 演示文稿已保存到磁盘。',
                 saveToDiskSuccessPdf: 'PDF 演示文稿已保存到磁盘。',
