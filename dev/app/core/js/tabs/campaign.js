@@ -56,7 +56,7 @@ class CampaignWorkflowManager {
 				systemPrompt,
 				contextSize,
 				previousContext,
-				null,
+				payload?.abortSignal || null,
 				`campaign_orch_${Date.now()}`,
 				null
 			);
@@ -82,6 +82,13 @@ class CampaignWorkflowManager {
 			};
 		} catch (error) {
 			console.error('CampaignWorkflowManager: orchestrator workflow failed', error);
+			if (error?.name === 'AbortError') {
+				return {
+					chatMessage: Lang.get('campaignWorkflowCancelledStatus'),
+					statusMessage: Lang.get('campaignWorkflowCancelledStatus'),
+					cancelled: true
+				};
+			}
 			return {
 				chatMessage: Lang.get('campaignOrchestratorFailed'),
 				statusMessage: Lang.get('campaignOrchestratorFailed')
