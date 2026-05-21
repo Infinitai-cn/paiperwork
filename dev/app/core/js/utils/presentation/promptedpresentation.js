@@ -1484,7 +1484,7 @@ class PromptedPresentationWorkflow {
 		for (const query of queries) {
 			let urls = [];
 			try {
-				urls = await this.searchPromptableImageUrls(query, 8);
+				urls = await this.searchPromptableImageUrls(query, 8, abortSignal);
 			} catch (_searchError) {
 				continue;
 			}
@@ -3261,7 +3261,7 @@ class PromptedPresentationWorkflow {
 		return Array.from(new Set(urls)).filter(Boolean);
 	}
 
-	static async searchPromptableImageUrls(query, count = 18) {
+	static async searchPromptableImageUrls(query, count = 18, abortSignal = null) {
 		const q = String(query || '').trim();
 		if (!q) {
 			return [];
@@ -3270,7 +3270,9 @@ class PromptedPresentationWorkflow {
 		let urls = [];
 
 		try {
-			const multiResp = await fetch(`/api/proxy/image-search-multi?q=${encodeURIComponent(q)}`);
+			const multiResp = await fetch(`/api/proxy/image-search-multi?q=${encodeURIComponent(q)}`, {
+				signal: abortSignal
+			});
 			if (multiResp && multiResp.ok) {
 				const multiData = await multiResp.json();
 				let multiList = [];
@@ -3297,17 +3299,25 @@ class PromptedPresentationWorkflow {
 				});
 			}
 		} catch (error) {
+			if (error?.name === 'AbortError') {
+				throw error;
+			}
 			console.warn('[PromptablePresentation] Multi image search failed', error);
 		}
 
 		if (urls.length < count) {
 			try {
-				const singleResp = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(q)}`);
+				const singleResp = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(q)}`, {
+					signal: abortSignal
+				});
 				if (singleResp && singleResp.ok) {
 					const singleData = await singleResp.json();
 					urls = urls.concat(this.extractPromptableSearchImageUrls(singleData));
 				}
 			} catch (error) {
+				if (error?.name === 'AbortError') {
+					throw error;
+				}
 				console.warn('[PromptablePresentation] Single image search fallback failed', error);
 			}
 		}

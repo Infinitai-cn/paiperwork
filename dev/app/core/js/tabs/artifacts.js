@@ -433,10 +433,15 @@ class ArtifactsWindow {
 		return await this.readArtifactBlobAsDataUrl(await response.blob());
 	}
 
-	static async searchArtifactImageUrls(query, count = 18) {
+	static getActiveArtifactAbortSignal() {
+		return this.currentAbortController?.signal || null;
+	}
+
+	static async searchArtifactImageUrls(query, count = 18, abortSignal = null) {
 		const helper = this.getArtifactImageEditorHelper();
+		const signal = abortSignal || this.getActiveArtifactAbortSignal();
 		if (helper && typeof helper.searchPromptableImageUrls === 'function') {
-			return await helper.searchPromptableImageUrls(query, count);
+			return await helper.searchPromptableImageUrls(query, count, signal);
 		}
 
 		const q = String(query || '').trim();
@@ -446,7 +451,7 @@ class ArtifactsWindow {
 
 		let urls = [];
 		try {
-			const multiResp = await fetch(`/api/proxy/image-search-multi?q=${encodeURIComponent(q)}`);
+			const multiResp = await fetch(`/api/proxy/image-search-multi?q=${encodeURIComponent(q)}`, { signal: signal || undefined });
 			if (multiResp && multiResp.ok) {
 				const multiData = await multiResp.json();
 				const multiList = Array.isArray(multiData && multiData.images)
@@ -471,12 +476,15 @@ class ArtifactsWindow {
 					}
 				});
 			}
-		} catch (_error) {
+		} catch (error) {
+			if (error?.name === 'AbortError') {
+				throw error;
+			}
 		}
 
 		if (urls.length < count) {
 			try {
-				const singleResp = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(q)}`);
+				const singleResp = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(q)}`, { signal: signal || undefined });
 				if (singleResp && singleResp.ok) {
 					const singleData = await singleResp.json();
 					const visit = (value, depth = 0) => {
@@ -504,7 +512,10 @@ class ArtifactsWindow {
 					};
 					visit(singleData, 0);
 				}
-			} catch (_error) {
+			} catch (error) {
+				if (error?.name === 'AbortError') {
+					throw error;
+				}
 			}
 		}
 
@@ -1024,7 +1035,7 @@ class ArtifactsWindow {
 		}
 
 		try {
-			const urls = await this.searchArtifactImageUrls(query, 18);
+			const urls = await this.searchArtifactImageUrls(query, 18, this.getActiveArtifactAbortSignal());
 			this.renderArtifactImageSearchResults(urls);
 			if (!urls.length) {
 				this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('webSearchNoResultsFound') || 'No results found') : 'No results found', 'muted');
@@ -1032,6 +1043,10 @@ class ArtifactsWindow {
 			}
 			this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('clickThumbnailToReplace') || 'Click a thumbnail to replace the selected image.') : 'Click a thumbnail to replace the selected image.', 'info');
 		} catch (error) {
+			if (error?.name === 'AbortError') {
+				this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('artifactStatusCancelled', 'Cancelled')) : 'Cancelled', 'muted');
+				return;
+			}
 			console.error('[ArtifactsWindow] Image search failed', error);
 			this.updateArtifactImageEditorStatus(String(error && error.message ? error.message : error), 'error');
 		} finally {
@@ -1064,8 +1079,12 @@ class ArtifactsWindow {
 		this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('searchingImagesLabel') || 'Searching images...') : 'Searching images...', 'info');
 		let dataUrl = normalizedUrl;
 		try {
-			dataUrl = await this.fetchArtifactImageAsDataUrl(normalizedUrl);
+			dataUrl = await this.fetchArtifactImageAsDataUrl(normalizedUrl, this.getActiveArtifactAbortSignal());
 		} catch (error) {
+			if (error?.name === 'AbortError') {
+				this.updateArtifactImageEditorStatus(window.Lang ? (Lang.get('artifactStatusCancelled', 'Cancelled')) : 'Cancelled', 'muted');
+				return;
+			}
 			this.updateArtifactImageEditorStatus(String(error && error.message ? error.message : error), 'error');
 			return;
 		}

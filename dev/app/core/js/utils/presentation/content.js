@@ -58,15 +58,34 @@ class Content {
         } catch (e) { /* ignore */ }
     }
 
-    async searchSlideImage(slideData) {
+    async searchSlideImage(slideData, abortSignal = null) {
         let searchQuery;
         if (slideData.imageQuery && typeof slideData.imageQuery === 'string' && slideData.imageQuery.trim().length > 2) {
             searchQuery = this.cleanThinkTags(slideData.imageQuery.trim());
         } else {
             searchQuery = slideData.title ? slideData.title.substring(0, 50) : 'professional presentation';
         }
+        const signal = abortSignal || window.SlideForgeAbortController?.signal || null;
+        const delayWithAbort = (ms) => new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(resolve, Math.max(0, ms || 0));
+            if (!signal) {
+                return;
+            }
+
+            const handleAbort = () => {
+                clearTimeout(timeoutId);
+                reject(new DOMException('Aborted', 'AbortError'));
+            };
+
+            if (signal.aborted) {
+                handleAbort();
+                return;
+            }
+
+            signal.addEventListener('abort', handleAbort, { once: true });
+        });
         try {
-            const response = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(searchQuery)}`);
+            const response = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(searchQuery)}`, { signal });
             if (!response.ok) {
                 if (response.status === 503) {
                     throw new Error(Lang.get('imageSearchServiceUnavailable'));
@@ -80,7 +99,7 @@ class Content {
             const result = await response.json();
             if (result.success && result.imageUrl) {
                 // Download image and convert to base64
-                const imgResponse = await fetch(result.imageUrl);
+                const imgResponse = await fetch(result.imageUrl, { signal });
                 if (!imgResponse.ok) throw new Error(Lang.get('failedToDownloadImage'));
                 const blob = await imgResponse.blob();
                 const base64 = await new Promise((resolve, reject) => {
@@ -100,14 +119,14 @@ class Content {
                 const first4Words = slideData.imageQuery.trim().split(/\s+/).slice(0, 4).join(' ');
                 if (first4Words.length > 0) {
                     retried = true;
-                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    await delayWithAbort(3000);
                     try {
                         const retryQuery = this.cleanThinkTags(first4Words);
-                        const retryResponse = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(retryQuery)}`);
+                        const retryResponse = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(retryQuery)}`, { signal });
                         if (retryResponse.ok) {
                             const retryResult = await retryResponse.json();
                             if (retryResult.success && retryResult.imageUrl) {
-                                const imgResponse = await fetch(retryResult.imageUrl);
+                                const imgResponse = await fetch(retryResult.imageUrl, { signal });
                                 if (!imgResponse.ok) throw new Error(Lang.get('failedToDownloadImageRetry'));
                                 const blob = await imgResponse.blob();
                                 const base64 = await new Promise((resolve, reject) => {
@@ -156,14 +175,14 @@ class Content {
         }
     }
 
-    async downloadAllSlideImages(parsedSlides, logCallback) {
+    async downloadAllSlideImages(parsedSlides, logCallback, abortSignal = null) {
         logCallback && logCallback('[Content] [Images] Downloading images for all slides...');
-        const coverImage = await this.searchSlideImage(parsedSlides.cover);
+        const coverImage = await this.searchSlideImage(parsedSlides.cover, abortSignal);
         logCallback && logCallback('[Content] [Images] Cover image downloaded.');
         const slideImages = [];
         // Download all images, keep track of successful ones
         for (let i = 0; i < parsedSlides.slides.length; i++) {
-            const img = await this.searchSlideImage(parsedSlides.slides[i]);
+            const img = await this.searchSlideImage(parsedSlides.slides[i], abortSignal);
             logCallback && logCallback(`[Content] [Images] Slide ${i + 1} image downloaded.`);
             slideImages.push(img);
         }
