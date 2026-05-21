@@ -1468,7 +1468,11 @@ class CampaignTab {
 		}
 
 		this.isSavingCampaignPoster = true;
-		this.renderViewport();
+		if (this.state.activeViewport === 'poster') {
+			this.updateCampaignPosterActionState();
+		} else {
+			this.renderViewport();
+		}
 
 		try {
 			await new Promise(resolve => window.requestAnimationFrame(resolve));
@@ -1485,7 +1489,11 @@ class CampaignTab {
 			this.downloadCampaignPng(posterPng, fileName);
 		} finally {
 			this.isSavingCampaignPoster = false;
-			this.renderViewport();
+			if (this.state.activeViewport === 'poster') {
+				this.updateCampaignPosterActionState();
+			} else {
+				this.renderViewport();
+			}
 		}
 	}
 
