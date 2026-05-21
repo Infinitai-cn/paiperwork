@@ -2539,7 +2539,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         noSlidesGenerated: "La IA no generó diapositivas.",
         docxWordXmlNotFound: "Estructura DOCX inválida: word/document.xml no encontrado.",
         noTextExtractedFromDocx: "No se extrajo texto del archivo DOCX.",
-        noModelSelected: "No se seleccionó modelo de IA. Por favor elige un modelo antes de generar.",
+        noModelSelected: "No se seleccionó modelo de IA. Por favor elige un modelo en la pestaña Chat antes de generar.",
         whatsappNoModelSelected: "No se seleccionó modelo de IA, por favor selecciona un modelo en la pestaña Chat primero.",
         requestingAgainDueToIncompleteAIReply: 'Solicitando de nuevo la presentación debido a una respuesta incompleta de la IA',
         extractingTextFromDocument: 'Extrayendo texto del documento...',

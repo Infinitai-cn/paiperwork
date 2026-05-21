@@ -2643,7 +2643,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         noValidJsonOrMarkdownDetected: "Aucun JSON ou markdown valide détecté dans la réponse de l'IA.",
         docxWordXmlNotFound: "Structure DOCX invalide : word/document.xml introuvable.",
         noTextExtractedFromDocx: "Aucun texte extrait du fichier DOCX.",
-        noModelSelected: "Aucun modèle IA sélectionné. Veuillez choisir un modèle avant de générer.",
+        noModelSelected: "Aucun modèle IA sélectionné. Veuillez choisir un modèle dans l'onglet Chat avant de générer.",
         whatsappNoModelSelected: "Aucun modèle IA sélectionné, veuillez d'abord sélectionner un modèle dans l'onglet Chat.",
         requestingAgainDueToIncompleteAIReply: 'Nouvelle requête pour la présentation en raison d\'une réponse IA incomplète',
         extractingTextFromDocument: 'Extraction du texte du document...',

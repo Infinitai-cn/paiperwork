@@ -2667,7 +2667,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         noValidJsonOrMarkdownDetected: 'No valid JSON or markdown detected in AI reply.',
         docxWordXmlNotFound: 'DOCX structure invalid: word/document.xml not found.',
         noTextExtractedFromDocx: 'No text was extracted from the DOCX file.',
-        noModelSelected: 'No AI model selected. Please choose a model before generating.',
+        noModelSelected: 'No AI model selected. Please choose a model in Chat tab before generating.',
         whatsappNoModelSelected: 'No AI model selected, please select a model in Chat Tab first.',
 
         // Presentation retry message when AI returns incomplete JSON

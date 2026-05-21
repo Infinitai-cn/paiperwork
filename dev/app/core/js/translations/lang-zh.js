@@ -2689,7 +2689,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 noValidJsonOrMarkdownDetected: '在 AI 回复中未检测到有效的 JSON 或 markdown。',
                 docxWordXmlNotFound: 'DOCX 结构无效：未找到 word/document.xml。',
                 noTextExtractedFromDocx: '未从 DOCX 文件中提取到文本。',
-                noModelSelected: '未选择 AI 模型。请在生成前选择模型。',
+                                noModelSelected: '未选择 AI 模型。请先在聊天标签页中选择模型，然后再生成。',
                 whatsappNoModelSelected: '未选择 AI 模型，请先在聊天选项卡中选择模型。',
                 requestingAgainDueToIncompleteAIReply: '由于 AI 回复不完整，正在重新请求演示',
                 extractingTextFromDocument: '从文档中提取文本...',

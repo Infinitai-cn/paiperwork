@@ -2645,7 +2645,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         noValidJsonOrMarkdownDetected: "Kein gültiges JSON oder Markdown in der KI‑Antwort erkannt.",
         docxWordXmlNotFound: "Ungültige DOCX‑Struktur: word/document.xml nicht gefunden.",
         noTextExtractedFromDocx: "Aus der DOCX‑Datei wurde kein Text extrahiert.",
-        noModelSelected: "Kein KI‑Modell ausgewählt. Bitte wählen Sie ein Modell bevor Sie generieren.",
+        noModelSelected: "Kein KI‑Modell ausgewählt. Bitte wählen Sie vor dem Generieren ein Modell im Chat-Tab aus.",
         whatsappNoModelSelected: "Kein KI‑Modell ausgewählt, bitte wählen Sie zuerst ein Modell im Chat-Tab aus.",
         requestingAgainDueToIncompleteAIReply: 'Erneute Anforderung der Präsentation aufgrund einer unvollständigen KI-Antwort',
         extractingTextFromDocument: 'Text aus dem Dokument extrahieren...',

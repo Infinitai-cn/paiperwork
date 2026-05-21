@@ -2361,7 +2361,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         noValidJsonOrMarkdownDetected: 'Nenhum JSON ou markdown válido detectado na resposta da IA.',
         docxWordXmlNotFound: 'Estrutura DOCX inválida: word/document.xml não encontrado.',
         noTextExtractedFromDocx: 'Nenhum texto extraído do ficheiro DOCX.',
-        noModelSelected: 'Nenhum modelo de IA seleccionado. Por favor escolha um modelo antes de gerar.',
+        noModelSelected: 'Nenhum modelo de IA seleccionado. Por favor escolha um modelo na aba Chat antes de gerar.',
         whatsappNoModelSelected: 'Nenhum modelo de IA selecionado, por favor selecione um modelo na aba Chat primeiro.',
         requestingAgainDueToIncompleteAIReply: 'Solicitando novamente a apresentação devido à resposta incompleta da IA',
         extractingTextFromDocument: 'Extraindo texto do documento...',
