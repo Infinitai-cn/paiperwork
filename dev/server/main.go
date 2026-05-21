@@ -10101,11 +10101,11 @@ func proxyImageSearch(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[%s] Image search request for: %s", time.Now().Format(time.RFC3339), query)
 
 	// Try Pixabay first (more reliable for demo)
-	imageURL, err := searchPixabayImage(query)
+	imageURL, err := searchPixabayImage(r.Context(), query)
 	if err != nil {
 		log.Printf("Pixabay search failed: %v", err)
 		// Try Pexels as backup
-		imageURL, err = searchPexelsImage(query)
+		imageURL, err = searchPexelsImage(r.Context(), query)
 		if err != nil {
 			log.Printf("Pexels search also failed: %v", err)
 			// Return error response
@@ -10159,7 +10159,7 @@ func proxyFetchImage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := &http.Client{Timeout: 20 * time.Second}
-	req, err := http.NewRequest("GET", parsed.String(), nil)
+	req, err := http.NewRequestWithContext(r.Context(), "GET", parsed.String(), nil)
 	if err != nil {
 		http.Error(w, "Failed to create request", http.StatusInternalServerError)
 		return
@@ -10214,7 +10214,7 @@ func proxyFetchImage(w http.ResponseWriter, r *http.Request) {
 }
 
 // Search for images using Pexels API (primary source)
-func searchPexelsImage(query string) (string, error) {
+func searchPexelsImage(ctx context.Context, query string) (string, error) {
 	// Pexels API endpoint
 	apiURL := fmt.Sprintf("https://api.pexels.com/v1/search?query=%s&per_page=1&orientation=landscape",
 		url.QueryEscape(query))
@@ -10223,7 +10223,7 @@ func searchPexelsImage(query string) (string, error) {
 		Timeout: 10 * time.Second,
 	}
 
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -10262,7 +10262,7 @@ func searchPexelsImage(query string) (string, error) {
 }
 
 // Search for images using Pixabay API (backup source)
-func searchPixabayImage(query string) (string, error) {
+func searchPixabayImage(ctx context.Context, query string) (string, error) {
 	// Pixabay API endpoint
 	apiURL := fmt.Sprintf("https://pixabay.com/api/?key=9656065-a4094594c34f9ac14c7fc4c39&q=%s&image_type=photo&per_page=3&min_width=640&orientation=horizontal",
 		url.QueryEscape(query))
@@ -10271,7 +10271,12 @@ func searchPixabayImage(query string) (string, error) {
 		Timeout: 10 * time.Second,
 	}
 
-	resp, err := client.Get(apiURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -10322,12 +10327,12 @@ func proxyImageSearchMulti(w http.ResponseWriter, r *http.Request) {
 
 	var images []string
 	// Try Pixabay first (up to 5 results)
-	pixabayImages, err := searchPixabayImagesMulti(query, 12)
+	pixabayImages, err := searchPixabayImagesMulti(r.Context(), query, 12)
 	if err == nil && len(pixabayImages) > 0 {
 		images = append(images, pixabayImages...)
 	}
 	// Try Pexels (up to 5 results)
-	pexelsImages, err := searchPexelsImagesMulti(query, 12)
+	pexelsImages, err := searchPexelsImagesMulti(r.Context(), query, 12)
 	if err == nil && len(pexelsImages) > 0 {
 		images = append(images, pexelsImages...)
 	}
@@ -10351,10 +10356,14 @@ func proxyImageSearchMulti(w http.ResponseWriter, r *http.Request) {
 }
 
 // Multi-image search for Pixabay (returns up to n images)
-func searchPixabayImagesMulti(query string, n int) ([]string, error) {
+func searchPixabayImagesMulti(ctx context.Context, query string, n int) ([]string, error) {
 	apiURL := fmt.Sprintf("https://pixabay.com/api/?key=9656065-a4094594c34f9ac14c7fc4c39&q=%s&image_type=photo&per_page=%d&min_width=640&orientation=horizontal", url.QueryEscape(query), n)
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(apiURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -10384,10 +10393,10 @@ func searchPixabayImagesMulti(query string, n int) ([]string, error) {
 }
 
 // Multi-image search for Pexels (returns up to n images)
-func searchPexelsImagesMulti(query string, n int) ([]string, error) {
+func searchPexelsImagesMulti(ctx context.Context, query string, n int) ([]string, error) {
 	apiURL := fmt.Sprintf("https://api.pexels.com/v1/search?query=%s&per_page=%d&orientation=landscape", url.QueryEscape(query), n)
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 	if err != nil {
 		return nil, err
 	}
