@@ -7071,6 +7071,12 @@ class PaiperworkDB {
             const jsonString = JSON.stringify(encryptedValue);
            //console.log('Stringified encrypted value:', jsonString);
 
+            // Ensure there is a settings row for this master key before updating.
+            db.run(`
+                INSERT OR IGNORE INTO user_settings (masterkey_hash, insights_enabled)
+                VALUES (?, ?)
+            `, [hashedMasterKey, jsonString]);
+
             db.run(`
                 UPDATE user_settings 
                 SET insights_enabled = ? 
