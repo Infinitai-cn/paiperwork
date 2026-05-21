@@ -2361,6 +2361,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         promptableSidebarLoading: "Cargando presentaciones guardadas...",
         saveToDiskButton: "Guardar en disco",
         campaignPosterRenderingButton: "Exportando PNG...",
+        campaignMiniappExportingButton: "Exportando HTML...",
         saveToDiskSuccess: "Presentación guardada en disco.",
         saveToDiskSuccessHtml: "Presentación HTML guardada en disco.",
         saveToDiskSuccessPdf: "Presentación PDF guardada en disco.",

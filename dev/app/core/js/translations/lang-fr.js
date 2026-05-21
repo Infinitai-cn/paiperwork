@@ -2466,6 +2466,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         promptableSidebarLoading: "Chargement des présentations enregistrées...",
         saveToDiskButton: "Enregistrer sur le disque",
         campaignPosterRenderingButton: "Export du PNG...",
+        campaignMiniappExportingButton: "Export HTML en cours...",
         saveToDiskSuccess: "Présentation enregistrée sur le disque.",
         saveToDiskSuccessHtml: "Présentation HTML enregistrée sur le disque.",
         saveToDiskSuccessPdf: "Présentation PDF enregistrée sur le disque.",

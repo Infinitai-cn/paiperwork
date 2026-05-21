@@ -2512,6 +2512,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 promptableSidebarLoading: '正在加载已保存的演示文稿...',
                 saveToDiskButton: '保存到磁盘',
                 campaignPosterRenderingButton: '正在导出 PNG...',
+                campaignMiniappExportingButton: '正在导出 HTML...',
                 saveToDiskSuccess: '演示文稿已保存到磁盘。',
                 saveToDiskSuccessHtml: 'HTML 演示文稿已保存到磁盘。',
                 saveToDiskSuccessPdf: 'PDF 演示文稿已保存到磁盘。',

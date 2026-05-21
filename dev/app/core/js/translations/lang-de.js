@@ -2468,6 +2468,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         promptableSidebarLoading: "Gespeicherte Präsentationen werden geladen...",
         saveToDiskButton: "Auf Datenträger speichern",
         campaignPosterRenderingButton: "PNG wird exportiert...",
+        campaignMiniappExportingButton: "HTML wird exportiert...",
         saveToDiskSuccess: "Präsentation wurde auf Datenträger gespeichert.",
         saveToDiskSuccessHtml: "HTML-Präsentation wurde auf Datenträger gespeichert.",
         saveToDiskSuccessPdf: "PDF-Präsentation wurde auf Datenträger gespeichert.",
