@@ -1761,6 +1761,174 @@ window.helpContent = {
         ],
     },
 
+    campaign: {
+        title: "Campaign",
+        intro:
+            "Campaign Studio helps you shape a complete campaign brief with AI sparring, then generate and refine a poster, presentation, and mini app from one shared source of truth.",
+        articles: [
+            {
+                id: "campaign-overview",
+                title: "What Campaign Studio Is For",
+                content: `
+                <p>Campaign Studio is designed for users who want to go from a rough idea to a coordinated campaign package without managing separate tools for strategy, copy, and artifact generation.</p>
+
+                <h4>Main Goal</h4>
+                <p>The feature combines strategic brainstorming with structured campaign production. Instead of prompting separately for a poster, a slide deck, and a mini app, you build one campaign brief and let the system reuse it across all three outputs.</p>
+
+                <h4>What It Can Generate</h4>
+                <ul>
+                    <li><strong>Poster</strong> - A visual poster generated from the campaign brief, the poster-specific brief section, and the uploaded campaign image</li>
+                    <li><strong>Presentation</strong> - A promptable HTML presentation aligned with the same campaign direction</li>
+                    <li><strong>Mini App</strong> - A promptable HTML mini app guided by the campaign brief and mini app-specific feature constraints</li>
+                </ul>
+
+                <h4>Key Capabilities</h4>
+                <ul>
+                    <li><strong>Single source of truth</strong> - The editable campaign brief drives every output</li>
+                    <li><strong>AI sparring</strong> - The orchestrator helps refine positioning, audience, tone, and copy before generation</li>
+                    <li><strong>Saved campaigns</strong> - Save campaigns to the encrypted local database and reopen them later</li>
+                    <li><strong>Targeted regeneration</strong> - Regenerate only the presentation, mini app, or poster without rerunning the entire studio workflow</li>
+                    <li><strong>Variant-safe editing</strong> - Manual output edits are preserved in memory and can be saved as new variants instead of silently overwriting a master campaign</li>
+                </ul>
+
+                <h4>Typical Workflow</h4>
+                <ol>
+                    <li>Open the Campaign tab and click <strong>Open Studio</strong></li>
+                    <li>Upload the main campaign image</li>
+                    <li>Use the orchestrator chat to shape the campaign strategy</li>
+                    <li>Review and edit the Campaign Brief</li>
+                    <li>Click <strong>Generate Campaign</strong> to create the presentation, mini app, and poster</li>
+                    <li>Open each viewport and refine the results</li>
+                    <li>Save the campaign when the brief and outputs are in a state you want to keep</li>
+                </ol>
+
+                <div class="note">
+                    <p><strong>Important:</strong> Campaign generation requires an uploaded image because the poster workflow depends on it. The other outputs share the same campaign strategy, but the poster specifically uses the uploaded visual reference.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-orchestrator",
+                title: "How to Use the Orchestrator",
+                content: `
+                <p>The Campaign orchestrator is meant to act as a strategic sparring partner, not as a one-click generator. Its job is to improve the brief before you generate outputs.</p>
+
+                <h4>Best Intended Use</h4>
+                <ul>
+                    <li><strong>Refine positioning</strong> - Ask it to sharpen the campaign angle, promise, or value proposition</li>
+                    <li><strong>Improve audience fit</strong> - Ask it to challenge whether the campaign is speaking to the right people</li>
+                    <li><strong>Strengthen messaging</strong> - Use it to improve titles, subtitles, key points, the poster brief section, or tone</li>
+                    <li><strong>Tune the mini app</strong> - Tell it what kinds of features to add, remove, avoid, or emphasize in the mini app</li>
+                    <li><strong>Pressure-test ideas</strong> - Ask what feels too generic, weak, crowded, or unclear before generating outputs</li>
+                </ul>
+
+                <h4>What the Orchestrator Does Not Do</h4>
+                <ul>
+                    <li>It does not automatically generate poster, presentation, or mini app outputs on its own</li>
+                    <li>It does not decide when execution starts</li>
+                    <li>It does not replace the editable brief; it helps improve it</li>
+                </ul>
+
+                <h4>Good Prompt Examples</h4>
+                <ul>
+                    <li><strong>Strategy:</strong> "This feels too generic. Make the campaign more specific to small local coffee shops."</li>
+                    <li><strong>Tone:</strong> "Keep the campaign persuasive but less corporate and more direct."</li>
+                    <li><strong>Poster brief section:</strong> "Shorten the poster language and make it feel more urgent."</li>
+                    <li><strong>Mini app tuning:</strong> "For the mini app, avoid header buttons and keep the layout compact and app-like instead of looking like a landing page."</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Tip:</strong> Treat the orchestrator like a creative teammate. Use it to iterate on the brief until the campaign direction is strong, then generate. The better the brief, the more coherent the three outputs will be.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-brief",
+                title: "Working with the Campaign Brief",
+                content: `
+                <p>The Campaign Brief is the central editing surface in Campaign Studio. It is intentionally editable so you can combine orchestrator suggestions with your own manual decisions.</p>
+
+                <h4>Editable Brief Areas</h4>
+                <ul>
+                    <li><strong>Title and Subtitle</strong> - Main campaign headline and supporting line</li>
+                    <li><strong>Core Message</strong> - Main idea the campaign should communicate</li>
+                    <li><strong>Audience</strong> - The target group for the campaign</li>
+                    <li><strong>Tone</strong> - The voice and feeling the outputs should carry</li>
+                    <li><strong>Key Points</strong> - Supporting ideas the campaign should emphasize</li>
+                    <li><strong>Campaign Color Palette</strong> - Visual direction for presentation and mini app styling</li>
+                    <li><strong>Poster Section</strong> - Dedicated poster header, subheader, body, and footer section</li>
+                    <li><strong>Mini App Section</strong> - Dedicated fields to add or remove mini app functionality</li>
+                </ul>
+
+                <h4>Mini App Add / Remove Fields</h4>
+                <p>The Mini App section contains two specific fields:</p>
+                <ul>
+                    <li><strong>Add to the mini app</strong> - Use this for features or interaction patterns you want to include or emphasize</li>
+                    <li><strong>Remove from the mini app</strong> - Use this for features, controls, or layout elements you want the mini app to avoid</li>
+                </ul>
+                <p>These fields are not meant to become visible copy inside the app. They are interpreted as functional guidance for mini app generation and regeneration.</p>
+
+                <h4>Best Practices for the Brief</h4>
+                <ul>
+                    <li>Keep the title and subtitle concise</li>
+                    <li>Use key points for supporting ideas, not long paragraphs</li>
+                    <li>Use the poster section only for concise poster text, not full strategy notes</li>
+                    <li>Use the mini app section for feature constraints such as what to include, avoid, simplify, or remove</li>
+                    <li>Review the brief after each orchestrator exchange so you know exactly what will drive generation</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Important:</strong> The brief is not just a preview. It is the editable campaign source used by regeneration flows, so manual brief changes directly affect future presentation, mini app, and poster output.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-output-editing",
+                title: "Editing Poster, Presentation, and Mini App Outputs",
+                content: `
+                <p>After generation, each Campaign output has its own editing workflow. This lets you refine the generated artifacts without restarting the whole campaign.</p>
+
+                <h4>Poster Editing</h4>
+                <ul>
+                    <li>The poster opens inside the Campaign viewport with an editable canvas-based overlay</li>
+                    <li>You can select overlay elements, move them, delete them, and undo recent deletions</li>
+                    <li>The current poster state can be exported as a PNG</li>
+                    <li><strong>Regenerate</strong> reruns only the poster workflow using the latest poster brief section, campaign brief, palette guidance, and uploaded image</li>
+                </ul>
+
+                <h4>Presentation Editing</h4>
+                <ul>
+                    <li>The presentation is loaded into an editable iframe-based workspace</li>
+                    <li>You can edit text directly inside the rendered presentation</li>
+                    <li>You can click images and replace them using the existing promptable presentation editing tools</li>
+                    <li><strong>Regenerate</strong> reruns only the presentation workflow from the latest campaign brief and current campaign context</li>
+                    <li><strong>Save to disk</strong> exports the current HTML presentation including your edits</li>
+                </ul>
+
+                <h4>Mini App Editing</h4>
+                <ul>
+                    <li>The mini app uses the same promptable iframe editing model as the presentation</li>
+                    <li>You can edit text directly in the rendered result</li>
+                    <li>You can replace images while preserving the current app direction</li>
+                    <li><strong>Regenerate</strong> reruns only the mini app workflow while reusing the latest brief and mini app customization fields</li>
+                    <li><strong>Save to disk</strong> exports the current HTML mini app including your edits</li>
+                </ul>
+
+                <h4>Regeneration and Cancel Behavior</h4>
+                <ul>
+                    <li>Presentation and Mini App have targeted <strong>Regenerate</strong> actions that switch to <strong>Cancel</strong> while they are running</li>
+                    <li>An inline indeterminate progress bar appears beside the active regenerate button</li>
+                    <li>Cancel stops the targeted regeneration without starting the full blocking campaign workflow modal</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Tip:</strong> Use the brief to improve strategic direction first, then use per-output editing for local refinements such as layout, image replacement, or final copy cleanup. This keeps regeneration focused and reduces unnecessary rework.</p>
+                </div>
+            `,
+            },
+        ],
+    },
+
     artworks: {
         title: "Artworks",
         intro:

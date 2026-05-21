@@ -40,14 +40,12 @@
         <script src="js/utils/engine/ollamahandling.js"></script>
         <script src="js/utils/engine/streamprocessor.js"></script>
         <script src="js/utils/feats/codepreview.js"></script>
-        <script src="js/utils/settings/subjectiveinteractions.js"></script>
         <script src="js/tabs/chattab.js"></script>
         <script src="js/tabs/chat.js"></script>
         <script src="js/tabs/databasetab.js"></script>
         <script src="js/utils/feats/websearch.js"></script>
         <script src="js/utils/export.js"></script>
         <script src="js/utils/tabloader.js"></script>
-
         <script src="js/app.js"></script>
         <style>
             /* Ensure gpt-oss reasoning buttons have a small gap and don't touch */
@@ -69,6 +67,7 @@
                     <img id="app-logo" src="images/Paiperwork-APP-light.png" alt="Paiperwork Logo" class="app-logo">
                 </div>
                 <button id="back-button" class="back-button">Back</button>
+                <button id="help-button" class="back-button help-button">Help</button>
                 <div class="history-header">
                     <button class="new-conversation-btn">New Chat</button>
                 </div>
@@ -101,9 +100,10 @@
                         <button class="tab-button" data-tab="artwork" data-icon-label="AR" data-description="Generate creative artworks with AI assistance.">Artwork</button>
                         <button class="tab-button" data-tab="presentation" data-icon-label="SF" data-description="Create stunning presentations automatically.">SlideForge</button>
                         <button class="tab-button" data-tab="artifacts" data-icon-label="AT" data-description="Build reusable AI artifacts and outputs.">Artifacts</button>
+                        <button class="tab-button" data-tab="campaign" data-icon-label="CP" data-description="Build poster, presentation, and mini app campaigns from one orchestrated brief.">Campaign</button>
+                        <button class="tab-button" data-tab="connectors" data-icon-label="CN" data-description="Connect Paiperwork to external messaging apps.">Connectors</button>
                         <button class="tab-button" data-tab="models" data-icon-label="ML" data-description="Access and manage AI models and configurations.">Models</button>
                         <button class="tab-button" data-tab="database" data-icon-label="DB" data-description="Manage and query your databases efficiently.">Database</button>
-                        <button class="tab-button" data-tab="connectors" data-icon-label="CN" data-description="Connect Paiperwork to external messaging apps.">Connectors</button>
                     </div>
 
                     <div class="tab-content">
@@ -171,6 +171,11 @@
                             <!-- Content will be loaded by ArtworksTab.js -->
                             <div class="loading-placeholder">
                                 <p id="loading-design">Loading design tools...</p>
+                            </div>
+                        </div>
+                        <div class="tab-pane" id="campaign-tab">
+                            <div class="loading-placeholder">
+                                <p id="loading-campaign">Loading Campaign Studio...</p>
                             </div>
                         </div>
                         <!-- SlideForge Tab -->
@@ -260,11 +265,19 @@
 
                 // Update all text content with error handling
                 updateElementText('back-button', 'backButton');
+                updateElementText('help-button', 'helpButton');
 
                 const backButton = document.getElementById('back-button');
                 if (backButton) {
                     backButton.addEventListener('click', async () => {
                         await navigateAfterStoppingConnectors('../welcome.html');
+                    });
+                }
+
+                const helpButton = document.getElementById('help-button');
+                if (helpButton) {
+                    helpButton.addEventListener('click', () => {
+                        window.open('js/help/help.html', '_blank');
                     });
                 }
 

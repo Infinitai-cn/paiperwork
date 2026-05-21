@@ -2926,12 +2926,71 @@ class PromptedPresentationWorkflow {
 		this.promptableImageEditorStatus.style.opacity = type === 'muted' ? '0.75' : '1';
 	}
 
-	static ensurePromptableImageEditorPanel() {
-		if (this.promptableImageEditorPanel && this.overlay && this.overlay.contains(this.promptableImageEditorPanel)) {
+	static ensurePromptableInlineOverlayHost(frame = null) {
+		const activeFrame = frame || this.promptableEditingFrame || this.promptableFrame;
+		if (!activeFrame || !activeFrame.parentElement) {
+			return null;
+		}
+
+		const parent = activeFrame.parentElement;
+		if (this.promptableInlineOverlayHost && this.promptableInlineOverlayHost.parentNode !== parent) {
+			this.clearPromptableInlineOverlayHost();
+		}
+
+		if (this.promptableInlineOverlayHost && this.promptableInlineOverlayHost.parentNode === parent) {
+			return this.promptableInlineOverlayHost;
+		}
+
+		const computedParentStyle = window.getComputedStyle ? window.getComputedStyle(parent) : null;
+		if (computedParentStyle && computedParentStyle.position === 'static') {
+			this.promptableInlineOverlayParent = parent;
+			this.promptableInlineOverlayParentOriginalPosition = parent.style.position;
+			parent.style.position = 'relative';
+		} else {
+			this.promptableInlineOverlayParent = null;
+			this.promptableInlineOverlayParentOriginalPosition = '';
+		}
+
+		const host = document.createElement('div');
+		host.className = 'pw-promptable-inline-overlay-host';
+		host.style.position = 'absolute';
+		host.style.inset = '0';
+		host.style.zIndex = '3';
+		host.style.pointerEvents = 'none';
+		parent.appendChild(host);
+		this.promptableInlineOverlayHost = host;
+		return host;
+	}
+
+	static clearPromptableInlineOverlayHost() {
+		if (this.promptableInlineOverlayHost && this.promptableInlineOverlayHost.parentNode) {
+			this.promptableInlineOverlayHost.parentNode.removeChild(this.promptableInlineOverlayHost);
+		}
+		this.promptableInlineOverlayHost = null;
+
+		if (this.promptableInlineOverlayParent) {
+			this.promptableInlineOverlayParent.style.position = this.promptableInlineOverlayParentOriginalPosition || '';
+		}
+
+		this.promptableInlineOverlayParent = null;
+		this.promptableInlineOverlayParentOriginalPosition = '';
+	}
+
+	static getPromptableImageEditorOverlay(frame = null) {
+		if (this.overlay && document.body.contains(this.overlay)) {
+			return this.overlay;
+		}
+
+		return this.ensurePromptableInlineOverlayHost(frame);
+	}
+
+	static ensurePromptableImageEditorPanel(frame = null) {
+		const overlayHost = this.getPromptableImageEditorOverlay(frame);
+		if (this.promptableImageEditorPanel && overlayHost && overlayHost.contains(this.promptableImageEditorPanel)) {
 			return;
 		}
 
-		if (!this.overlay) {
+		if (!overlayHost) {
 			return;
 		}
 
@@ -2951,6 +3010,7 @@ class PromptedPresentationWorkflow {
 		panel.style.background = 'var(--presentation-modal-bg, var(--panel-background, #222426))';
 		panel.style.boxShadow = 'var(--presentation-modal-box-shadow, 0 8px 32px rgba(0,0,0,0.18))';
 		panel.style.zIndex = '10030';
+		panel.style.pointerEvents = 'auto';
 
 		const title = document.createElement('div');
 		title.textContent = window.Lang
@@ -3065,7 +3125,7 @@ class PromptedPresentationWorkflow {
 		panel.appendChild(actionRow);
 		panel.appendChild(fileInput);
 
-		this.overlay.appendChild(panel);
+		overlayHost.appendChild(panel);
 
 		this.promptableImageEditorPanel = panel;
 		this.promptableImageEditorInput = searchInput;
@@ -3132,17 +3192,18 @@ class PromptedPresentationWorkflow {
 			'muted'
 		);
 
-		this.positionPromptableImageEditorPanelCentered();
+		this.positionPromptableImageEditorPanelCentered(frame);
 	}
 
 	static positionPromptableImageEditorPanelCentered(frame = null) {
 		const panel = this.promptableImageEditorPanel;
 		const activeFrame = frame || this.promptableEditingFrame || this.promptableFrame || (this.renderArea ? this.renderArea.querySelector('.promptable-presentation-frame') : null);
-		if (!panel || !this.overlay) {
+		const overlayHost = this.getPromptableImageEditorOverlay(activeFrame);
+		if (!panel || !overlayHost) {
 			return;
 		}
 
-		const overlayRect = this.overlay.getBoundingClientRect();
+		const overlayRect = overlayHost.getBoundingClientRect();
 		if (!overlayRect || !Number.isFinite(overlayRect.top)) {
 			return;
 		}
@@ -3268,6 +3329,14 @@ class PromptedPresentationWorkflow {
 			return;
 		}
 		this.currentPresentationHtml = this.serializePromptableFrameDocument(targetFrame);
+
+		if (typeof this.onPromptableHtmlMutated === 'function') {
+			try {
+				this.onPromptableHtmlMutated(this.currentPresentationHtml, targetFrame);
+			} catch (error) {
+				console.error('[PromptablePresentation] onPromptableHtmlMutated callback failed', error);
+			}
+		}
 	}
 
 	static getPromptableImageStableId(imageElement) {
@@ -3290,7 +3359,7 @@ class PromptedPresentationWorkflow {
 		}
 
 		this.resetPromptableImageSelectionVisuals();
-		this.ensurePromptableImageEditorPanel();
+		this.ensurePromptableImageEditorPanel(frame);
 
 		const imageId = this.getPromptableImageStableId(imageElement);
 		if (!this.promptableImageOriginalSrcById) {
@@ -3585,6 +3654,7 @@ class PromptedPresentationWorkflow {
 		this.promptableImageEditorRestoreBtn = null;
 		this.promptableImageEditorImportBtn = null;
 		this.promptableImageEditorFileInput = null;
+		this.clearPromptableInlineOverlayHost();
 	}
 
 	static isPromptableEditableTextCandidate(element) {
@@ -4088,6 +4158,8 @@ class PromptedPresentationWorkflow {
 			return;
 		}
 
+		this.clearPromptableInlineOverlayHost();
+
 		this.ensureRequestProgressStyles();
 
 		const overlay = document.createElement('div');
@@ -4281,6 +4353,9 @@ class PromptedPresentationWorkflow {
 		this.promptableImageEditorRestoreBtn = null;
 		this.promptableImageEditorImportBtn = null;
 		this.promptableImageEditorFileInput = null;
+		this.promptableInlineOverlayHost = null;
+		this.promptableInlineOverlayParent = null;
+		this.promptableInlineOverlayParentOriginalPosition = '';
 
 		const modeToggleWrap = document.createElement('div');
 		modeToggleWrap.style.display = 'flex';

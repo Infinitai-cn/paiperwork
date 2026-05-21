@@ -19,7 +19,7 @@ class DatabaseTab {
         // Load statistics (will reuse open handles when available)
         await this.refreshDatabaseStats();
 
-        if (!openState.main || !openState.rag || !openState.presentations || !openState.artifacts || !openState.kb || !openState.whatsapp) {
+        if (!openState.main || !openState.rag || !openState.presentations || !openState.artifacts || !openState.campaigns || !openState.kb || !openState.whatsapp) {
             //console.info('DatabaseTab: One or more DB roles were not open; opened on-demand for stats.');
         }
         
@@ -321,6 +321,11 @@ class DatabaseTab {
                             <div class="db-breakdown-meta">${openState.artifacts ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseCountLabel') || 'Count'}: ${breakdown.artifacts?.count || 0}</div>
                         </div>
                         <div class="db-breakdown-card">
+                            <div class="db-breakdown-title">${Lang.get('campaignTab') || 'Campaigns'}</div>
+                            <div class="db-breakdown-size">${breakdown.campaigns?.formatted || '-'}</div>
+                            <div class="db-breakdown-meta">${openState.campaigns ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseCountLabel') || 'Count'}: ${breakdown.campaigns?.count || 0} | ${Lang.get('databasePayloadLabel') || 'Payload'}: ${breakdown.campaigns?.payloadFormatted || '0 B'}</div>
+                        </div>
+                        <div class="db-breakdown-card">
                             <div class="db-breakdown-title">${Lang.get('knowledgeBaseTitle') || 'Knowledge Base'}</div>
                             <div class="db-breakdown-size">${breakdown.knowledgeBase?.formatted || '-'}</div>
                             <div class="db-breakdown-meta">${openState.kb ? (Lang.get('databaseOpenStatus') || 'Open') : (Lang.get('databaseClosedStatus') || 'Closed')} | ${Lang.get('databaseCollectionsLabel') || 'Collections'}: ${breakdown.knowledgeBase?.collections || 0}</div>
@@ -585,7 +590,7 @@ class DatabaseTab {
         if (active && this.initialized) {
             // Check if DBs are already open before acting on them.
             const openState = PaiperworkDB.getOpenDatabaseState(this.hashedMasterKey);
-            if (!openState.main || !openState.rag || !openState.presentations || !openState.artifacts || !openState.kb || !openState.whatsapp) {
+            if (!openState.main || !openState.rag || !openState.presentations || !openState.artifacts || !openState.campaigns || !openState.kb || !openState.whatsapp) {
                 //console.info('DatabaseTab: Refreshing stats with on-demand DB open.', openState);
             }
             // Refresh when tab becomes active

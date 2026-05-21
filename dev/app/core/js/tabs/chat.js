@@ -502,6 +502,10 @@ class Chat {
                 return false;
             }
 
+            if (typeof window.ensureSubjectiveInteractionsLoaded === 'function') {
+                await window.ensureSubjectiveInteractionsLoaded();
+            }
+
             if (!SubjectiveInteractions.isMessageInsightWorthy(prompt)) {
                 return false;
             }

@@ -1999,6 +1999,173 @@ window.helpContent = {
             },
         ],
     },
+    campaign: {
+        title: "Campaign",
+        intro:
+            "Campaign Studio vous aide à construire un brief de campagne complet avec un sparring IA, puis à générer et affiner une affiche, une présentation et une mini-app à partir d'une seule source commune.",
+        articles: [
+            {
+                id: "campaign-overview",
+                title: "À quoi sert Campaign Studio",
+                content: `
+                <p>Campaign Studio est conçu pour les utilisateurs qui veulent passer d'une idée brute à un ensemble de campagne coordonné sans gérer des outils séparés pour la stratégie, le texte et la génération d'artefacts.</p>
+
+                <h4>Objectif principal</h4>
+                <p>La fonctionnalité combine brainstorming stratégique et production structurée de campagne. Au lieu de solliciter séparément une affiche, un diaporama et une mini-app, vous construisez un seul brief de campagne que le système réutilise pour les trois sorties.</p>
+
+                <h4>Ce qu'il peut générer</h4>
+                <ul>
+                    <li><strong>Affiche</strong> - Une affiche visuelle générée à partir du brief de campagne, de la section du brief spécifique à l'affiche et de l'image de campagne téléversée</li>
+                    <li><strong>Présentation</strong> - Une présentation HTML pilotable par prompt, alignée sur la même direction de campagne</li>
+                    <li><strong>Mini-app</strong> - Une mini-app HTML pilotable par prompt, guidée par le brief de campagne et des contraintes fonctionnelles spécifiques à la mini-app</li>
+                </ul>
+
+                <h4>Fonctionnalités clés</h4>
+                <ul>
+                    <li><strong>Source unique de vérité</strong> - Le brief de campagne éditable pilote toutes les sorties</li>
+                    <li><strong>Sparring IA</strong> - L'orchestrateur aide à affiner le positionnement, l'audience, le ton et le texte avant la génération</li>
+                    <li><strong>Campagnes enregistrées</strong> - Enregistrez les campagnes dans la base locale chiffrée et rouvrez-les plus tard</li>
+                    <li><strong>Régénération ciblée</strong> - Régénérez seulement la présentation, la mini-app ou l'affiche sans relancer tout le flux du studio</li>
+                    <li><strong>Édition sûre par variantes</strong> - Les modifications manuelles des sorties sont conservées en mémoire et peuvent être enregistrées comme de nouvelles variantes au lieu d'écraser silencieusement une campagne principale</li>
+                </ul>
+
+                <h4>Flux de travail typique</h4>
+                <ol>
+                    <li>Ouvrez l'onglet Campaign et cliquez sur <strong>Open Studio</strong></li>
+                    <li>Téléversez l'image principale de la campagne</li>
+                    <li>Utilisez le chat de l'orchestrateur pour construire la stratégie de campagne</li>
+                    <li>Relisez et modifiez le Campaign Brief</li>
+                    <li>Cliquez sur <strong>Generate Campaign</strong> pour créer la présentation, la mini-app et l'affiche</li>
+                    <li>Ouvrez chaque vue et affinez les résultats</li>
+                    <li>Enregistrez la campagne lorsque le brief et les sorties sont dans l'état que vous souhaitez conserver</li>
+                </ol>
+
+                <div class="note">
+                    <p><strong>Important :</strong> La génération de campagne nécessite une image téléversée, car le flux d'affiche en dépend. Les autres sorties partagent la même stratégie de campagne, mais l'affiche utilise spécifiquement la référence visuelle téléversée.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-orchestrator",
+                title: "Comment utiliser l'orchestrateur",
+                content: `
+                <p>L'orchestrateur Campaign doit agir comme un partenaire de sparring stratégique, et non comme un générateur en un clic. Son rôle est d'améliorer le brief avant que vous ne génériez les sorties.</p>
+
+                <h4>Meilleure utilisation prévue</h4>
+                <ul>
+                    <li><strong>Affiner le positionnement</strong> - Demandez-lui de renforcer l'angle de campagne, la promesse ou la proposition de valeur</li>
+                    <li><strong>Améliorer l'adéquation avec l'audience</strong> - Demandez-lui de remettre en question le fait que la campagne parle aux bonnes personnes</li>
+                    <li><strong>Renforcer le message</strong> - Utilisez-le pour améliorer les titres, sous-titres, points clés, la section du brief de l'affiche ou le ton</li>
+                    <li><strong>Ajuster la mini-app</strong> - Indiquez quels types de fonctionnalités ajouter, retirer, éviter ou mettre en avant dans la mini-app</li>
+                    <li><strong>Tester la solidité des idées</strong> - Demandez ce qui semble trop générique, faible, chargé ou peu clair avant la génération</li>
+                </ul>
+
+                <h4>Ce que l'orchestrateur ne fait pas</h4>
+                <ul>
+                    <li>Il ne génère pas automatiquement l'affiche, la présentation ou la mini-app de lui-même</li>
+                    <li>Il ne décide pas quand l'exécution commence</li>
+                    <li>Il ne remplace pas le brief éditable ; il aide à l'améliorer</li>
+                </ul>
+
+                <h4>Bons exemples de prompts</h4>
+                <ul>
+                    <li><strong>Stratégie :</strong> "Cela semble trop générique. Rends la campagne plus spécifique aux petits cafés locaux."</li>
+                    <li><strong>Ton :</strong> "Garde la campagne persuasive, mais moins corporate et plus directe."</li>
+                    <li><strong>Section du brief de l'affiche :</strong> "Raccourcis le langage de l'affiche et rends-le plus urgent."</li>
+                    <li><strong>Ajustement de mini-app :</strong> "Pour la mini-app, évite les boutons d'en-tête et garde une mise en page compacte avec une sensation d'application plutôt que de landing page."</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Conseil :</strong> Traitez l'orchestrateur comme un coéquipier créatif. Servez-vous-en pour itérer sur le brief jusqu'à ce que la direction de campagne soit solide, puis générez. Plus le brief est bon, plus les trois sorties seront cohérentes.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-brief",
+                title: "Travailler avec le Campaign Brief",
+                content: `
+                <p>Le Campaign Brief est la surface d'édition centrale dans Campaign Studio. Il est volontairement modifiable afin que vous puissiez combiner les suggestions de l'orchestrateur avec vos propres décisions manuelles.</p>
+
+                <h4>Zones éditables du brief</h4>
+                <ul>
+                    <li><strong>Titre et sous-titre</strong> - Titre principal de la campagne et ligne d'appui</li>
+                    <li><strong>Message central</strong> - Idée principale que la campagne doit transmettre</li>
+                    <li><strong>Audience</strong> - Le groupe cible de la campagne</li>
+                    <li><strong>Ton</strong> - La voix et l'ambiance que les sorties doivent porter</li>
+                    <li><strong>Points clés</strong> - Idées de soutien que la campagne doit mettre en avant</li>
+                    <li><strong>Palette de couleurs de la campagne</strong> - Direction visuelle pour le style de la présentation et de la mini-app</li>
+                    <li><strong>Section Affiche</strong> - Section dédiée à l'en-tête, au sous-en-tête, au corps et au pied de l'affiche</li>
+                    <li><strong>Section Mini-App</strong> - Champs dédiés pour ajouter ou supprimer des fonctionnalités de mini-app</li>
+                </ul>
+
+                <h4>Champs d'ajout / suppression de la mini-app</h4>
+                <p>La section Mini-App contient deux champs spécifiques :</p>
+                <ul>
+                    <li><strong>Ajouter à la mini-app</strong> - Utilisez ceci pour les fonctionnalités ou schémas d'interaction que vous voulez inclure ou mettre en avant</li>
+                    <li><strong>Supprimer de la mini-app</strong> - Utilisez ceci pour les fonctionnalités, contrôles ou éléments de mise en page que la mini-app doit éviter</li>
+                </ul>
+                <p>Ces champs ne sont pas destinés à devenir du texte visible dans l'application. Ils sont interprétés comme des indications fonctionnelles pour la génération et la régénération de la mini-app.</p>
+
+                <h4>Bonnes pratiques pour le brief</h4>
+                <ul>
+                    <li>Gardez le titre et le sous-titre concis</li>
+                    <li>Utilisez les points clés pour les idées de soutien, pas pour de longs paragraphes</li>
+                    <li>Utilisez la section affiche uniquement pour un texte d'affiche concis, pas pour des notes stratégiques complètes</li>
+                    <li>Utilisez la section mini-app pour des contraintes fonctionnelles comme ce qu'il faut inclure, éviter, simplifier ou supprimer</li>
+                    <li>Revoyez le brief après chaque échange avec l'orchestrateur afin de savoir exactement ce qui guidera la génération</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Important :</strong> Le brief n'est pas seulement un aperçu. C'est la source de campagne éditable utilisée par les flux de régénération, donc les modifications manuelles affectent directement les futures sorties de présentation, mini-app et affiche.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-output-editing",
+                title: "Modifier les sorties Affiche, Présentation et Mini-App",
+                content: `
+                <p>Après la génération, chaque sortie Campaign dispose de son propre flux d'édition. Cela vous permet d'affiner les artefacts générés sans redémarrer toute la campagne.</p>
+
+                <h4>Édition de l'affiche</h4>
+                <ul>
+                    <li>L'affiche s'ouvre dans la vue Campaign avec une superposition éditable basée sur canvas</li>
+                    <li>Vous pouvez sélectionner les éléments de superposition, les déplacer, les supprimer et annuler les suppressions récentes</li>
+                    <li>L'état actuel de l'affiche peut être exporté en PNG</li>
+                    <li><strong>Regenerate</strong> relance uniquement le flux de l'affiche en utilisant la dernière section du brief de l'affiche, le brief de campagne, les indications de palette et l'image téléversée</li>
+                </ul>
+
+                <h4>Édition de la présentation</h4>
+                <ul>
+                    <li>La présentation est chargée dans un espace de travail éditable basé sur iframe</li>
+                    <li>Vous pouvez modifier le texte directement dans la présentation rendue</li>
+                    <li>Vous pouvez cliquer sur les images et les remplacer avec les outils existants d'édition de présentation par prompt</li>
+                    <li><strong>Regenerate</strong> relance uniquement le flux de présentation à partir du dernier brief de campagne et du contexte actuel de la campagne</li>
+                    <li><strong>Save to disk</strong> exporte la présentation HTML actuelle, modifications incluses</li>
+                </ul>
+
+                <h4>Édition de la mini-app</h4>
+                <ul>
+                    <li>La mini-app utilise le même modèle d'édition promptable en iframe que la présentation</li>
+                    <li>Vous pouvez modifier le texte directement dans le résultat rendu</li>
+                    <li>Vous pouvez remplacer les images tout en conservant la direction actuelle de l'application</li>
+                    <li><strong>Regenerate</strong> relance uniquement le flux de mini-app en réutilisant le dernier brief et les champs de personnalisation de la mini-app</li>
+                    <li><strong>Save to disk</strong> exporte la mini-app HTML actuelle, modifications incluses</li>
+                </ul>
+
+                <h4>Comportement de régénération et d'annulation</h4>
+                <ul>
+                    <li>La Présentation et la Mini-App disposent d'actions <strong>Regenerate</strong> ciblées qui passent à <strong>Cancel</strong> pendant l'exécution</li>
+                    <li>Une barre de progression indéterminée en ligne apparaît à côté du bouton de régénération actif</li>
+                    <li>Cancel arrête la régénération ciblée sans lancer la fenêtre modale bloquante du flux complet de Campaign</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Conseil :</strong> Utilisez d'abord le brief pour améliorer la direction stratégique, puis l'édition spécifique à chaque sortie pour les ajustements locaux comme la mise en page, le remplacement d'image ou le nettoyage final du texte. Cela garde la régénération ciblée et réduit les retouches inutiles.</p>
+                </div>
+            `,
+            },
+        ],
+    },
     presentation: {
         title: "Présentation",
         intro: "Créez des diaporamas à partir de documents en utilisant l'extraction assistée par IA et un éditeur de prévisualisation.",

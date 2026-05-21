@@ -441,3 +441,7 @@ Only return JSON. Do not include any other text outside the JSON object. If a cl
         }, 300);
     }
 }
+
+if (typeof window !== 'undefined') {
+    window.SubjectiveInteractions = SubjectiveInteractions;
+}

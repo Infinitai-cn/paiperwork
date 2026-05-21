@@ -176,6 +176,20 @@ body {
     background-color: var(--accent-color-hover, #4338ca);
 }
 
+.conversation-history-sidebar #back-button {
+    margin-bottom: 8px;
+}
+
+.help-button {
+    background-color: var(--button-secondary-bg, var(--button-bg, #404040));
+    color: var(--button-secondary-text, var(--button-text, #f7f7f7));
+    border: 1px solid var(--button-secondary-border, var(--border-color, #404040));
+}
+
+.help-button:hover {
+    background-color: var(--button-secondary-hover-bg, var(--hover-bg, #3a3f47));
+}
+
 .main-container {
     position: relative;
     width: 100%;

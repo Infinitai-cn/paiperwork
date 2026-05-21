@@ -214,6 +214,62 @@ if (typeof window !== 'undefined') {
     };
 }
 
+async function ensureSubjectiveInteractionsLoaded() {
+    if (typeof window === 'undefined') {
+        throw new Error('SubjectiveInteractions can only be loaded in the browser');
+    }
+
+    if (window.SubjectiveInteractions) {
+        return window.SubjectiveInteractions;
+    }
+
+    if (typeof SubjectiveInteractions !== 'undefined') {
+        window.SubjectiveInteractions = SubjectiveInteractions;
+        return window.SubjectiveInteractions;
+    }
+
+    if (!window._subjectiveInteractionsLoadPromise) {
+        const scriptSrc = 'js/utils/settings/subjectiveinteractions.js';
+
+        if (window.tabLoader && typeof window.tabLoader.loadScript === 'function') {
+            window._subjectiveInteractionsLoadPromise = window.tabLoader.loadScript(scriptSrc);
+        } else {
+            window._subjectiveInteractionsLoadPromise = new Promise((resolve, reject) => {
+                const existingScript = document.querySelector(`script[src="${scriptSrc}"]`);
+                if (existingScript) {
+                    existingScript.addEventListener('load', () => resolve());
+                    existingScript.addEventListener('error', () => reject(new Error('Failed to load subjectiveinteractions.js')));
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.type = 'text/javascript';
+                script.src = scriptSrc;
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error('Failed to load subjectiveinteractions.js'));
+                document.head.appendChild(script);
+            });
+        }
+    }
+
+    await window._subjectiveInteractionsLoadPromise;
+
+    if (window.SubjectiveInteractions) {
+        return window.SubjectiveInteractions;
+    }
+
+    if (typeof SubjectiveInteractions !== 'undefined') {
+        window.SubjectiveInteractions = SubjectiveInteractions;
+        return window.SubjectiveInteractions;
+    }
+
+    throw new Error('SubjectiveInteractions is not available after loading');
+}
+
+if (typeof window !== 'undefined') {
+    window.ensureSubjectiveInteractionsLoaded = ensureSubjectiveInteractionsLoaded;
+}
+
 function getTabLauncherIcon(tab) {
     const icons = {
         chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18.5A8.38 8.38 0 0 1 3.5 12 8.5 8.5 0 0 1 12 3.5 8.5 8.5 0 0 1 20.5 12 8.5 8.5 0 0 1 12 20.5c-1.52 0-2.95-.4-4.18-1.1L4 20z"/><path d="M8.5 10.5h.01"/><path d="M12 10.5h.01"/><path d="M15.5 10.5h.01"/></svg>',
@@ -223,6 +279,7 @@ function getTabLauncherIcon(tab) {
         paperwork: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h5.5A2.5 2.5 0 0 1 20 9.5v8A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5z"/></svg>',
         research: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
         artwork: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1 0 1.8-.8 1.8-1.8 0-.42-.14-.8-.14-1.2 0-1 1-1.7 2-1.7h1.3A3.57 3.57 0 0 0 20.5 12 8.5 8.5 0 0 0 12 3.5z"/><circle cx="7.5" cy="11" r=".8" fill="currentColor" stroke="none"/><circle cx="10.5" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="14.5" cy="8.5" r=".8" fill="currentColor" stroke="none"/><circle cx="16.5" cy="12" r=".8" fill="currentColor" stroke="none"/></svg>',
+        campaign: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h10"/><path d="M4 12h16"/><path d="M4 17.5h9"/><path d="M17.5 4 20 6.5l-5.5 5.5H12v-2.5z"/></svg>',
         presentation: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v10H4z"/><path d="M12 15.5v5"/><path d="M9 20.5h6"/><path d="M8 9.5l2.5 2.5L16 7"/></svg>',
         artifacts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8 19 6.8v10.4l-7 4-7-4V6.8z"/><path d="M12 2.8v8.4"/><path d="M19 6.8 12 11.2 5 6.8"/></svg>',
         models: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 4v10l-7 4-7-4V7z"/><path d="M5 7l7 4 7-4"/><path d="M12 11v10"/></svg>',
@@ -269,6 +326,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         paperwork: 'paperworkTab',
         research: 'researchTab',
         artwork: 'artworkTab',
+        campaign: 'campaignTab',
         presentation: 'presentationTab',
         artifacts: 'artifactsTab',
         models: 'modelsTab',
@@ -351,12 +409,48 @@ document.addEventListener('DOMContentLoaded', async function () {
                //console.log('App.js: Initializing ChatTab');
                 await ChatTab.initialize();
                //console.log('App.js: ChatTab UI initialization complete');
+
+                await ensureChatTabVisibleWhenModelMissing(settings);
             }
         } catch (error) {
             console.error('Initialization error:', error);
         }
     }
 });
+
+async function ensureChatTabVisibleWhenModelMissing(settings = null) {
+    const chatButton = document.querySelector('.tab-button[data-tab="chat"]');
+    if (!chatButton || typeof chatButton.click !== 'function') {
+        return;
+    }
+
+    const hasPersistedModel = !!String(settings && settings.model ? settings.model : '').trim();
+    if (hasPersistedModel) {
+        return;
+    }
+
+    let modelSelector = document.getElementById('model-selector');
+    if (!modelSelector && window.chatTab && typeof window.chatTab.switchToChatTabFromModelWarning === 'function') {
+        window.chatTab.switchToChatTabFromModelWarning();
+        return;
+    }
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+        if (modelSelector && modelSelector.options && modelSelector.options.length > 0) {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 120));
+        modelSelector = document.getElementById('model-selector');
+    }
+
+    const selectedValue = modelSelector ? String(modelSelector.value || '').trim() : '';
+    const selectedIndex = modelSelector ? modelSelector.selectedIndex : -1;
+    const noModelSelected = !selectedValue || selectedIndex === 0;
+
+    if (noModelSelected) {
+        chatButton.click();
+    }
+}
 
 function hideLocalOnlyTabsForCloudOnly() {
     let localOnlyTabs;
@@ -505,6 +599,22 @@ function setupTabSwitching() {
         }
     };
 
+    const scrollActiveTabCardIntoView = selectedButton => {
+        if (!tabContainer || !selectedButton) {
+            return;
+        }
+
+        tabContainer.scrollTop = 0;
+
+        requestAnimationFrame(() => {
+            tabContainer.scrollTop = 0;
+            if (typeof selectedButton.scrollIntoView === 'function') {
+                selectedButton.scrollIntoView({ block: 'start', inline: 'nearest' });
+            }
+            tabContainer.scrollTop = 0;
+        });
+    };
+
     const deactivateTab = async (tabName, nextTabName = null) => {
         if (!tabName) {
             return;
@@ -579,6 +689,8 @@ function setupTabSwitching() {
             button.insertAdjacentElement('afterend', tabContent);
         }
 
+        scrollActiveTabCardIntoView(button);
+
         // Get corresponding tab pane and activate it
         const tabId = `${button.dataset.tab}-tab`;
         const tabElement = document.getElementById(tabId);
@@ -612,6 +724,8 @@ function setupTabSwitching() {
             if (window.researchTab && typeof window.researchTab.clearModelWarningIfModelSelected === 'function') {
                 window.researchTab.clearModelWarningIfModelSelected();
             }
+        } else if (button.dataset.tab === 'campaign') {
+            await handleCampaignTab();
         } else if (button.dataset.tab === 'presentation') {
             await handlepresentationtab();
         } else if (button.dataset.tab === 'database') {
@@ -1211,6 +1325,42 @@ async function handleArtworksTab() {
     }
 }
 
+async function handleCampaignTab() {
+    try {
+        if (window.tabLoader && typeof window.tabLoader.loadTabScripts === 'function') {
+            await window.tabLoader.loadTabScripts('campaign');
+        }
+
+        if (!window.CampaignTab) {
+            throw new Error('CampaignTab is not available');
+        }
+
+        if (window.campaignTab) {
+            await window.campaignTab.initialize();
+        } else {
+            window.campaignTab = new window.CampaignTab();
+            await window.campaignTab.initialize();
+        }
+    } catch (error) {
+        console.error('Error initializing Campaign tab:', error);
+
+        const campaignTab = document.getElementById('campaign-tab');
+        if (campaignTab) {
+            campaignTab.innerHTML = `
+                <div style="text-align:center; padding:20px; color:#e74c3c;">
+                    <h3>${Lang.get('failedLoadCampaignStudio') || 'Failed to load Campaign Studio'}</h3>
+                    <p>${error.message}</p>
+                    <button onclick="window.handleCampaignTab()"
+                            style="padding:8px 16px; background:#4f46e5; color:white;
+                            border:none; border-radius:4px; margin-top:10px; cursor:pointer;">
+                       ${Lang.get('retryButton') || 'Retry'}
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
 // Initializes and displays the SlideForge tab and its document processing tools
 async function handlepresentationtab() {
    //console.log('App: SlideForge tab clicked');
@@ -1482,5 +1632,6 @@ function cancelOllamaGeneration() {
 window.cancelOllamaGeneration = cancelOllamaGeneration;
 window.handlePaperworkTab = handlePaperworkTab;
 window.handleArtworksTab = handleArtworksTab;
+window.handleCampaignTab = handleCampaignTab;
 window.handlepresentationtab = handlepresentationtab;
 window.handleDatabaseTab = handleDatabaseTab;

@@ -2000,6 +2000,173 @@ window.helpContent = {
             },
         ],
     },
+    campaign: {
+        title: "Campaign",
+        intro:
+            "O Campaign Studio ajuda você a estruturar um briefing completo de campanha com sparring de IA e depois gerar e refinar um poster, uma apresentação e um mini app a partir de uma única fonte compartilhada.",
+        articles: [
+            {
+                id: "campaign-overview",
+                title: "Para que serve o Campaign Studio",
+                content: `
+                <p>O Campaign Studio foi projetado para usuários que querem sair de uma ideia inicial e chegar a um pacote de campanha coordenado sem precisar gerenciar ferramentas separadas para estratégia, texto e geração de artefatos.</p>
+
+                <h4>Objetivo principal</h4>
+                <p>O recurso combina brainstorming estratégico com produção estruturada de campanha. Em vez de pedir separadamente um poster, um conjunto de slides e um mini app, você monta um único briefing de campanha e o sistema o reutiliza nas três saídas.</p>
+
+                <h4>O que ele pode gerar</h4>
+                <ul>
+                    <li><strong>Poster</strong> - Um poster visual gerado a partir do briefing de campanha, da seção específica do briefing para o poster e da imagem de campanha enviada</li>
+                    <li><strong>Apresentação</strong> - Uma apresentação HTML editável por prompt, alinhada à mesma direção da campanha</li>
+                    <li><strong>Mini App</strong> - Um mini app HTML editável por prompt, guiado pelo briefing de campanha e por restrições funcionais específicas do mini app</li>
+                </ul>
+
+                <h4>Principais capacidades</h4>
+                <ul>
+                    <li><strong>Fonte única de verdade</strong> - O briefing de campanha editável orienta todas as saídas</li>
+                    <li><strong>Sparring com IA</strong> - O orquestrador ajuda a refinar posicionamento, público, tom e texto antes da geração</li>
+                    <li><strong>Campanhas salvas</strong> - Salve campanhas no banco de dados local criptografado e reabra depois</li>
+                    <li><strong>Regeneração direcionada</strong> - Regere apenas a apresentação, o mini app ou o poster sem refazer todo o fluxo do estúdio</li>
+                    <li><strong>Edição segura por variantes</strong> - Edições manuais das saídas são preservadas em memória e podem ser salvas como novas variantes em vez de sobrescrever silenciosamente uma campanha principal</li>
+                </ul>
+
+                <h4>Fluxo de trabalho típico</h4>
+                <ol>
+                    <li>Abra a aba Campaign e clique em <strong>Open Studio</strong></li>
+                    <li>Envie a imagem principal da campanha</li>
+                    <li>Use o chat do orquestrador para moldar a estratégia da campanha</li>
+                    <li>Revise e edite o Campaign Brief</li>
+                    <li>Clique em <strong>Generate Campaign</strong> para criar a apresentação, o mini app e o poster</li>
+                    <li>Abra cada visualização e refine os resultados</li>
+                    <li>Salve a campanha quando o briefing e as saídas estiverem no estado que você deseja manter</li>
+                </ol>
+
+                <div class="note">
+                    <p><strong>Importante:</strong> A geração da campanha exige uma imagem enviada porque o fluxo do poster depende dela. As outras saídas compartilham a mesma estratégia de campanha, mas o poster usa especificamente a referência visual enviada.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-orchestrator",
+                title: "Como usar o orquestrador",
+                content: `
+                <p>O orquestrador do Campaign foi pensado para atuar como um parceiro estratégico de sparring, e não como um gerador de um clique. O trabalho dele é melhorar o briefing antes de você gerar as saídas.</p>
+
+                <h4>Melhor uso esperado</h4>
+                <ul>
+                    <li><strong>Refinar o posicionamento</strong> - Peça para ele deixar mais claro o ângulo, a promessa ou a proposta de valor da campanha</li>
+                    <li><strong>Melhorar a adequação ao público</strong> - Peça que ele questione se a campanha está falando com as pessoas certas</li>
+                    <li><strong>Fortalecer a mensagem</strong> - Use-o para melhorar títulos, subtítulos, pontos-chave, a seção do briefing do poster ou o tom</li>
+                    <li><strong>Ajustar o mini app</strong> - Diga que tipos de funcionalidades adicionar, remover, evitar ou destacar no mini app</li>
+                    <li><strong>Testar ideias</strong> - Pergunte o que parece genérico demais, fraco, carregado ou pouco claro antes de gerar</li>
+                </ul>
+
+                <h4>O que o orquestrador não faz</h4>
+                <ul>
+                    <li>Ele não gera automaticamente as saídas de poster, apresentação ou mini app por conta própria</li>
+                    <li>Ele não decide quando a execução começa</li>
+                    <li>Ele não substitui o briefing editável; ele ajuda a melhorá-lo</li>
+                </ul>
+
+                <h4>Bons exemplos de prompt</h4>
+                <ul>
+                    <li><strong>Estratégia:</strong> "Isso parece genérico demais. Deixe a campanha mais específica para pequenas cafeterias locais."</li>
+                    <li><strong>Tom:</strong> "Mantenha a campanha persuasiva, mas menos corporativa e mais direta."</li>
+                    <li><strong>Seção do briefing do poster:</strong> "Encurte a linguagem do poster e faça parecer mais urgente."</li>
+                    <li><strong>Ajuste do mini app:</strong> "Para o mini app, evite botões no cabeçalho e mantenha o layout compacto e com cara de app em vez de página de destino."</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Dica:</strong> Trate o orquestrador como um colega criativo. Use-o para iterar sobre o briefing até que a direção da campanha esteja forte e só então gere. Quanto melhor o briefing, mais coerentes serão as três saídas.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-brief",
+                title: "Trabalhando com o Campaign Brief",
+                content: `
+                <p>O Campaign Brief é a superfície central de edição dentro do Campaign Studio. Ele é intencionalmente editável para que você possa combinar sugestões do orquestrador com suas próprias decisões manuais.</p>
+
+                <h4>Áreas editáveis do briefing</h4>
+                <ul>
+                    <li><strong>Título e subtítulo</strong> - Título principal da campanha e linha de apoio</li>
+                    <li><strong>Mensagem central</strong> - Ideia principal que a campanha deve comunicar</li>
+                    <li><strong>Público</strong> - O grupo-alvo da campanha</li>
+                    <li><strong>Tom</strong> - A voz e a sensação que as saídas devem transmitir</li>
+                    <li><strong>Pontos-chave</strong> - Ideias de apoio que a campanha deve enfatizar</li>
+                    <li><strong>Paleta de cores da campanha</strong> - Direção visual para o estilo da apresentação e do mini app</li>
+                    <li><strong>Seção do poster</strong> - Seção dedicada ao cabeçalho, subcabeçalho, corpo e rodapé do poster</li>
+                    <li><strong>Seção do mini app</strong> - Campos dedicados para adicionar ou remover funcionalidades do mini app</li>
+                </ul>
+
+                <h4>Campos de adicionar / remover no mini app</h4>
+                <p>A seção do Mini App contém dois campos específicos:</p>
+                <ul>
+                    <li><strong>Adicionar ao mini app</strong> - Use isto para funcionalidades ou padrões de interação que você quer incluir ou enfatizar</li>
+                    <li><strong>Remover do mini app</strong> - Use isto para funcionalidades, controles ou elementos de layout que você quer que o mini app evite</li>
+                </ul>
+                <p>Esses campos não são feitos para se tornarem texto visível dentro do app. Eles são interpretados como orientação funcional para a geração e regeneração do mini app.</p>
+
+                <h4>Boas práticas para o briefing</h4>
+                <ul>
+                    <li>Mantenha o título e o subtítulo concisos</li>
+                    <li>Use os pontos-chave para ideias de apoio, não para parágrafos longos</li>
+                    <li>Use a seção do poster apenas para texto curto do poster, não para notas estratégicas completas</li>
+                    <li>Use a seção do mini app para restrições funcionais, como o que incluir, evitar, simplificar ou remover</li>
+                    <li>Revise o briefing após cada troca com o orquestrador para saber exatamente o que vai orientar a geração</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Importante:</strong> O briefing não é apenas uma prévia. Ele é a fonte editável da campanha usada pelos fluxos de regeneração, portanto mudanças manuais afetam diretamente futuras saídas de apresentação, mini app e poster.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-output-editing",
+                title: "Edição de saídas de poster, apresentação e mini app",
+                content: `
+                <p>Depois da geração, cada saída do Campaign tem seu próprio fluxo de edição. Isso permite refinar os artefatos gerados sem reiniciar toda a campanha.</p>
+
+                <h4>Edição do poster</h4>
+                <ul>
+                    <li>O poster abre dentro da visualização do Campaign com uma sobreposição editável baseada em canvas</li>
+                    <li>Você pode selecionar elementos da sobreposição, movê-los, excluí-los e desfazer exclusões recentes</li>
+                    <li>O estado atual do poster pode ser exportado como PNG</li>
+                    <li><strong>Regenerate</strong> executa novamente apenas o fluxo do poster usando a seção mais recente do briefing do poster, o briefing de campanha, a orientação de paleta e a imagem enviada</li>
+                </ul>
+
+                <h4>Edição da apresentação</h4>
+                <ul>
+                    <li>A apresentação é carregada em um espaço de trabalho editável baseado em iframe</li>
+                    <li>Você pode editar texto diretamente dentro da apresentação renderizada</li>
+                    <li>Você pode clicar em imagens e substituí-las usando as ferramentas existentes de edição de apresentação por prompt</li>
+                    <li><strong>Regenerate</strong> executa novamente apenas o fluxo da apresentação a partir do briefing de campanha mais recente e do contexto atual da campanha</li>
+                    <li><strong>Save to disk</strong> exporta a apresentação HTML atual incluindo suas edições</li>
+                </ul>
+
+                <h4>Edição do mini app</h4>
+                <ul>
+                    <li>O mini app usa o mesmo modelo de edição por iframe editável que a apresentação</li>
+                    <li>Você pode editar texto diretamente no resultado renderizado</li>
+                    <li>Você pode substituir imagens mantendo a direção atual do app</li>
+                    <li><strong>Regenerate</strong> executa novamente apenas o fluxo do mini app reutilizando o briefing mais recente e os campos de personalização do mini app</li>
+                    <li><strong>Save to disk</strong> exporta o mini app HTML atual incluindo suas edições</li>
+                </ul>
+
+                <h4>Comportamento de regeneração e cancelamento</h4>
+                <ul>
+                    <li>Apresentação e Mini App têm ações direcionadas de <strong>Regenerate</strong> que mudam para <strong>Cancel</strong> enquanto estão em execução</li>
+                    <li>Uma barra de progresso indeterminada em linha aparece ao lado do botão de regeneração ativo</li>
+                    <li>Cancel interrompe a regeneração direcionada sem iniciar o modal bloqueante do fluxo completo do Campaign</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Dica:</strong> Use primeiro o briefing para melhorar a direção estratégica e depois a edição por saída para refinamentos locais, como layout, substituição de imagem ou limpeza final do texto. Isso mantém a regeneração focada e reduz retrabalho desnecessário.</p>
+                </div>
+            `,
+            },
+        ],
+    },
     presentation: {
         title: "Apresentação",
         intro: "Crie slides a partir de documentos usando extração assistida por IA e um editor de visualização.",

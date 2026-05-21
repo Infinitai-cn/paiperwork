@@ -1319,8 +1319,36 @@ class ArtworksTab {
         return lines.join('\n');
     }
 
+    isExternalProgressManaged() {
+        return window.__campaignManagedArtworkProgress === true;
+    }
+
+    concealPreviewWindowForExternalWorkflow(previewWindow) {
+        if (!this.isExternalProgressManaged() || !previewWindow) {
+            return;
+        }
+
+        if (previewWindow.container) {
+            previewWindow.container.style.visibility = 'hidden';
+            previewWindow.container.style.opacity = '0';
+            previewWindow.container.style.pointerEvents = 'none';
+        }
+
+        if (previewWindow.overlay) {
+            previewWindow.overlay.style.visibility = 'hidden';
+            previewWindow.overlay.style.opacity = '0';
+            previewWindow.overlay.style.pointerEvents = 'none';
+        }
+    }
+
     // Shows a floating progress indicator window during image analysis/generation
     showProgressIndicator() {
+        if (this.isExternalProgressManaged()) {
+            window.isGenerating = true;
+            this.disableChatControls();
+            return;
+        }
+
         // First, check if we already have a floating window
         let progressWindow = document.querySelector('.artwork-progress-window');
 
@@ -1913,7 +1941,7 @@ class ArtworksTab {
 
                                  case 'overlay': // Text Overlay mode
                                         systemPrompt = `You are an expert designer specializing in creating text overlays on product images. Your task is to analyze the image and produce a JSON configuration that describes text overlays, SVG shapes/lines/ornaments, and their visual properties for rendering onto the background image.
-
+                                            REQUIREMENT: Never overlap text elements on top of each other. Always ensure strong readability and contrast against the background image.
                                             SUPPORTED TEXT EFFECTS:
                                             The rendering engine supports the following text effects. Use them to create visually compelling designs:
                                             - Font family, size, weight, style: You may use system fonts OR web fonts (including Google Fonts). Use fontWeight "bold" or 700 for headlines, "normal" or 400 for body text. Use fontStyle "italic" for emphasis.
@@ -1922,12 +1950,13 @@ class ArtworksTab {
                                             - Glow effect: Use the "glow" object with properties: enabled (boolean), color (hex or rgba), blur (pixels), offsetX (pixels, usually 0), offsetY (pixels, usually 0). Example: {"enabled": true, "color": "rgba(255,255,255,0.9)", "blur": 18, "offsetX": 0, "offsetY": 0}. Glow is best for a soft halo around short headline text.
                                             - Text stroke (outline): Use the "outline" object with properties: enabled (boolean), color (hex), width (pixels). Example: {"enabled": true, "color": "#000000", "width": 3}. Outline works well for strong headline separation from busy backgrounds.
                                             - Gradient text: Do NOT simulate gradient text by duplicating or stacking the same words in multiple text elements. Use a single solid-color impactful headline instead.
-                                            - Pattern/texture text: Not directly supported in JSON — instead, use a backgroundColor panel with a solid or semi-transparent color to create texture-like backgrounds behind text.
+                                            - Pattern/texture text: Not directly supported in JSON. Do not compensate by putting most text in backgroundColor boxes. Prefer a clean solid text treatment instead.
                                             - Rotation/scale transforms: Use the "rotation" property (in degrees) to rotate text. Positive values rotate clockwise. Use maxWidth and fontSize to effectively scale text.
                                             - Opacity/alpha: Use the "opacity" property (0-1) to make text semi-transparent. Values closer to 0 are more transparent, 1 is fully opaque.
                                             - Text clipping: Not directly supported — instead, use maxWidth to constrain text width and ensure text stays within desired bounds.
-                                            - Compositing modes: Not directly supported — instead, use opacity and backgroundColor to achieve desired visual layering effects.
-                                            - Background panels: Use "backgroundColor" (hex color, optionally with alpha like "rgba(0,0,0,0.5)") and "backgroundPadding" (e.g., "10px 15px") to create readable text containers.
+                                            - Compositing modes: Not directly supported — instead, use opacity, contrast-aware text color, shadow, glow, and outline to achieve desired visual layering effects.
+                                            - Background panels: Use "backgroundColor" (hex color, optionally with alpha like "rgba(0,0,0,0.5)") and "backgroundPadding" (e.g., "10px 15px") only as a last resort when readability cannot be solved cleanly with text color, shadow, glow, or outline.
+                                            - Panel restraint: Avoid putting background panels behind most text nodes. In a typical poster, use zero background panels or at most one key panel for the single hardest-to-read text block. Do not give every headline/subheadline/footer its own box unless the image is extremely busy everywhere.
 
                                             OUTPUT FORMAT (MANDATORY):
                                             You MUST respond with a SINGLE valid JSON object wrapped in a markdown code block with language identifier "json". Do NOT include any explanatory text before or after the JSON. Do NOT output HTML, CSS, or any other format. The JSON must be parseable by standard JSON.parse().
@@ -2024,6 +2053,109 @@ class ArtworksTab {
                                               }
                                             }
 
+                                                                                        VALID EXAMPLE (structure only, adapt positions/colors/content to the uploaded image):
+                                                                                        \`\`\`json
+                                                                                        {
+                                                                                            "overlay": {
+                                                                                                "width": 1200,
+                                                                                                "height": 1600,
+                                                                                                "webFonts": [],
+                                                                                                "texts": [
+                                                                                                    {
+                                                                                                        "id": "headline",
+                                                                                                        "text": "Brew Bold",
+                                                                                                        "x": 600,
+                                                                                                        "y": 420,
+                                                                                                        "fontSize": 118,
+                                                                                                        "fontFamily": "Arial",
+                                                                                                        "fontWeight": 700,
+                                                                                                        "fontStyle": "normal",
+                                                                                                        "color": "#FFF7ED",
+                                                                                                        "textAlign": "center",
+                                                                                                        "lineHeight": 1.05,
+                                                                                                        "maxWidth": 760,
+                                                                                                        "opacity": 1,
+                                                                                                        "rotation": 0,
+                                                                                                        "letterSpacing": 1.5,
+                                                                                                        "backgroundColor": "#0F172ACC",
+                                                                                                        "backgroundPadding": "18px 26px",
+                                                                                                        "shadow": {
+                                                                                                            "enabled": true,
+                                                                                                            "color": "#000000",
+                                                                                                            "blur": 18,
+                                                                                                            "offsetX": 0,
+                                                                                                            "offsetY": 8
+                                                                                                        },
+                                                                                                        "glow": {
+                                                                                                            "enabled": false,
+                                                                                                            "color": "#FFFFFF",
+                                                                                                            "blur": 0,
+                                                                                                            "offsetX": 0,
+                                                                                                            "offsetY": 0
+                                                                                                        },
+                                                                                                        "outline": {
+                                                                                                            "enabled": false,
+                                                                                                            "color": "#000000",
+                                                                                                            "width": 0
+                                                                                                        }
+                                                                                                    },
+                                                                                                    {
+                                                                                                        "id": "subhead",
+                                                                                                        "text": "Small batch flavor for every morning.",
+                                                                                                        "x": 600,
+                                                                                                        "y": 575,
+                                                                                                        "fontSize": 42,
+                                                                                                        "fontFamily": "Arial",
+                                                                                                        "fontWeight": 400,
+                                                                                                        "fontStyle": "normal",
+                                                                                                        "color": "#F8FAFC",
+                                                                                                        "textAlign": "center",
+                                                                                                        "lineHeight": 1.3,
+                                                                                                        "maxWidth": 700,
+                                                                                                        "opacity": 1,
+                                                                                                        "rotation": 0,
+                                                                                                        "letterSpacing": 0,
+                                                                                                        "backgroundColor": "#00000066",
+                                                                                                        "backgroundPadding": "10px 16px",
+                                                                                                        "shadow": {
+                                                                                                            "enabled": false,
+                                                                                                            "color": "#000000",
+                                                                                                            "blur": 0,
+                                                                                                            "offsetX": 0,
+                                                                                                            "offsetY": 0
+                                                                                                        },
+                                                                                                        "glow": {
+                                                                                                            "enabled": false,
+                                                                                                            "color": "#FFFFFF",
+                                                                                                            "blur": 0,
+                                                                                                            "offsetX": 0,
+                                                                                                            "offsetY": 0
+                                                                                                        },
+                                                                                                        "outline": {
+                                                                                                            "enabled": false,
+                                                                                                            "color": "#000000",
+                                                                                                            "width": 0
+                                                                                                        }
+                                                                                                    }
+                                                                                                ],
+                                                                                                "ornaments": [
+                                                                                                    {
+                                                                                                        "id": "divider-1",
+                                                                                                        "type": "line",
+                                                                                                        "x1": 290,
+                                                                                                        "y1": 660,
+                                                                                                        "x2": 910,
+                                                                                                        "y2": 660,
+                                                                                                        "color": "#FDBA74",
+                                                                                                        "strokeWidth": 4,
+                                                                                                        "opacity": 0.9,
+                                                                                                        "rotation": 0
+                                                                                                    }
+                                                                                                ]
+                                                                                            }
+                                                                                        }
+                                                                                        \`\`\`
+
                                             POSITIONING GUIDELINES:
                                             - All coordinates are in PIXELS relative to the background image dimensions (0,0 = top-left corner).
                                             - Use the image width/height from the image information provided in the user prompt to calculate positions.
@@ -2042,7 +2174,8 @@ class ArtworksTab {
                                             - When a website style reference is provided and there are multiple text blocks, prefer one website font family per text block so the design uses as many different linked website fonts as possible without harming readability.
                                             - When website webfont descriptors are provided, prefer those exact linked font URLs over substitutes.
                                             - Use fontWeight "bold" or 700 for headlines, "normal" or 400 for body text.
-                                            - Add semi-transparent backgroundColor panels behind text when needed for readability.
+                                                - Prefer readability fixes in this order: text color, shadow, glow, outline, then backgroundColor panel only if those still do not produce clear contrast.
+                                                - Keep backgroundColor panels rare and intentional. In most outputs, no more than one text element should need a panel.
                                             - You may use subtle glow, shadow, or outline on key headline text when it improves readability against the image.
                                             - Do not stack too many effects on the same text block. Prefer at most one of shadow or glow, and use outline only when the background is visually busy.
                                             - Never create fake gradient headlines by repeating the same text in darker or lighter stacked layers.
@@ -2365,6 +2498,8 @@ class ArtworksTab {
                             }
                         );
 
+                        this.concealPreviewWindowForExternalWorkflow(previewWindow);
+
                         // Debug log: Step 4 - preview window created
 
                         // Set up cleanup function for when preview window is closed
@@ -2377,6 +2512,18 @@ class ArtworksTab {
                                 }
                             });
                         }
+
+						try {
+							window.__lastArtworkPreviewWindow = previewWindow;
+							window.dispatchEvent(new CustomEvent('artwork:preview-ready', {
+								detail: {
+									previewWindow,
+									mode: this.activeMode
+								}
+							}));
+						} catch (previewEventError) {
+							console.warn('ArtworksTab: failed to publish preview-ready event', previewEventError);
+						}
                     } else {
                         console.error('ArtworkPreviewWindow not available, skipping in-tab fallback rendering');
                     }
@@ -2595,51 +2742,136 @@ class ArtworksTab {
 
         let text = response.trim();
 
+        const buildResponseSnippet = source => String(source || '')
+            .replace(/\s+/g, ' ')
+            .slice(0, 1200);
+
+        const parseOverlayCandidate = candidate => {
+            if (!candidate || typeof candidate !== 'string') {
+                return null;
+            }
+
+            try {
+                const parsed = JSON.parse(candidate.trim());
+                return parsed && parsed.overlay ? parsed : null;
+            } catch (_error) {
+                return null;
+            }
+        };
+
+        const extractBalancedOverlayObject = source => {
+            const overlayKeyIndex = String(source || '').search(/"overlay"\s*:/);
+            if (overlayKeyIndex < 0) {
+                return null;
+            }
+
+            let objectStart = -1;
+            for (let index = overlayKeyIndex; index >= 0; index -= 1) {
+                const char = source[index];
+                if (char === '{') {
+                    objectStart = index;
+                    break;
+                }
+            }
+
+            if (objectStart < 0) {
+                return null;
+            }
+
+            let depth = 0;
+            let inString = false;
+            let escaping = false;
+
+            for (let index = objectStart; index < source.length; index += 1) {
+                const char = source[index];
+
+                if (escaping) {
+                    escaping = false;
+                    continue;
+                }
+
+                if (char === '\\') {
+                    escaping = true;
+                    continue;
+                }
+
+                if (char === '"') {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (inString) {
+                    continue;
+                }
+
+                if (char === '{') {
+                    depth += 1;
+                    continue;
+                }
+
+                if (char === '}') {
+                    depth -= 1;
+                    if (depth === 0) {
+                        return source.slice(objectStart, index + 1);
+                    }
+                }
+            }
+
+            return null;
+        };
+
 
         // Try to extract JSON from markdown code block first
         const jsonBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (jsonBlockMatch) {
             const jsonStr = jsonBlockMatch[1].trim();
-            try {
-                const parsed = JSON.parse(jsonStr);
-                if (parsed && parsed.overlay) {
-                    //console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from fenced block');
-                    return parsed;
-                }
-            } catch (e) {
-                console.warn('ArtworksTab[overlay-chain]: Fenced JSON parse failed', e);
-                // Fall through to try parsing the full response
+            const parsedFencedJson = parseOverlayCandidate(jsonStr);
+            if (parsedFencedJson) {
+                return parsedFencedJson;
             }
+
+            const extractedFencedOverlay = extractBalancedOverlayObject(jsonStr);
+            const parsedExtractedFencedOverlay = parseOverlayCandidate(extractedFencedOverlay);
+            if (parsedExtractedFencedOverlay) {
+                return parsedExtractedFencedOverlay;
+            }
+
+            console.warn('ArtworksTab[overlay-chain]: Fenced JSON parse failed');
+            // Fall through to try parsing the full response
         }
 
         // Try parsing the entire response as JSON
-        try {
-            const parsed = JSON.parse(text);
-            if (parsed && parsed.overlay) {
-                //console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from full response');
-                return parsed;
-            }
-        } catch (e) {
-            console.warn('ArtworksTab[overlay-chain]: Full response JSON parse failed', e);
-            // Fall through to try finding JSON object in text
+        const parsedFullResponse = parseOverlayCandidate(text);
+        if (parsedFullResponse) {
+            return parsedFullResponse;
         }
+
+        console.warn('ArtworksTab[overlay-chain]: Full response JSON parse failed');
 
         // Try to find a JSON object in the response using regex
         const jsonMatch = text.match(/\{[\s\S]*"overlay"\s*:[\s\S]*\}/);
         if (jsonMatch) {
-            try {
-                const parsed = JSON.parse(jsonMatch[0]);
-                if (parsed && parsed.overlay) {
-                    //console.log('ArtworksTab[overlay-chain]: Parsed overlay JSON from regex object extraction');
-                    return parsed;
-                }
-            } catch (e) {
-                console.warn('ArtworksTab[overlay-chain]: Regex-extracted JSON parse failed', e);
-                // Failed to parse
+            const parsedRegexJson = parseOverlayCandidate(jsonMatch[0]);
+            if (parsedRegexJson) {
+                return parsedRegexJson;
             }
+
+            console.warn('ArtworksTab[overlay-chain]: Regex-extracted JSON parse failed');
         }
 
-        console.warn('ArtworksTab[overlay-chain]: Failed to parse overlay JSON from response');
+        const balancedOverlayObject = extractBalancedOverlayObject(text);
+        const parsedBalancedOverlayObject = parseOverlayCandidate(balancedOverlayObject);
+        if (parsedBalancedOverlayObject) {
+            return parsedBalancedOverlayObject;
+        }
+
+        console.warn('ArtworksTab[overlay-chain]: Failed to parse overlay JSON from response', {
+            responseLength: text.length,
+            hasJsonFence: /```json/i.test(text),
+            hasOverlayKey: /"overlay"\s*:/.test(text),
+            balancedOverlayLength: balancedOverlayObject ? balancedOverlayObject.length : 0,
+            responseSnippet: buildResponseSnippet(text)
+        });
 
         return null;
     }

@@ -106,6 +106,94 @@ class ChatTab {
         }
     }
 
+    switchToChatTabFromModelWarning() {
+        if (window.tabManager && typeof window.tabManager.switchTab === 'function') {
+            window.tabManager.switchTab('chat-tab');
+        } else {
+            const chatButton = document.querySelector('.tab-button[data-tab="chat"]');
+            if (chatButton) {
+                chatButton.click();
+            }
+        }
+
+        window.setTimeout(() => {
+            const modelSelector = document.getElementById('model-selector');
+            if (modelSelector) {
+                modelSelector.focus();
+            }
+        }, 120);
+    }
+
+    showMissingSavedModelWarning(missingModel) {
+        const existing = document.getElementById('chat-missing-model-warning');
+        if (existing) {
+            this.switchToChatTabFromModelWarning();
+            return;
+        }
+
+        this.switchToChatTabFromModelWarning();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'chat-missing-model-warning';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20000;
+        `;
+
+        const dialog = document.createElement('div');
+        dialog.style.cssText = `
+            width: min(460px, calc(100vw - 32px));
+            background: var(--card-bg, #1f2937);
+            color: var(--text-color, #ffffff);
+            border: 1px solid var(--border-color, #374151);
+            border-radius: 10px;
+            padding: 18px;
+            box-sizing: border-box;
+            text-align: center;
+        `;
+
+        const titleText = (window.Lang && Lang.get('modelDeleted2')) || 'Model Missing';
+        const messageText = ((window.Lang && Lang.get('chatSavedModelMissingWarning'))
+            || 'The previously selected model "{model}" is no longer available. Please select a model in the Chat tab.')
+            .replace('{model}', String(missingModel || ''));
+        const buttonText = (window.Lang && Lang.get('switchToChatTab')) || 'Switch to Chat Tab';
+
+        dialog.innerHTML = `
+            <h3 style="margin: 0 0 10px 0; font-size: 18px;">${titleText}</h3>
+            <p style="margin: 0 0 14px 0; line-height: 1.45;">${messageText}</p>
+            <button id="chat-missing-model-warning-ok" style="padding: 9px 18px; border: none; border-radius: 8px; background: var(--accent-color, #4f46e5); color: #fff; cursor: pointer; font-weight: 600;">${buttonText}</button>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        const closeWarning = () => {
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+            this.switchToChatTabFromModelWarning();
+        };
+
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay) {
+                closeWarning();
+            }
+        });
+
+        const okButton = document.getElementById('chat-missing-model-warning-ok');
+        if (okButton) {
+            okButton.addEventListener('click', closeWarning);
+        }
+    }
+
     async stopConnectorServerForSessionReset() {
         if (!window.PaiperworkSessionReset) {
             return;
@@ -856,6 +944,11 @@ class ChatTab {
 
         // Set up insights toggle
         const insightsEnabled = localStorage.getItem('insightsEnabled') === 'true';
+        if (insightsEnabled && typeof window.ensureSubjectiveInteractionsLoaded === 'function') {
+            window.ensureSubjectiveInteractionsLoaded().catch(error => {
+                console.error('ChatTab: failed to pre-load subjective interactions helpers', error);
+            });
+        }
         document.querySelectorAll('.toggle-option').forEach(button => {
             const isOn = button.getAttribute('data-value') === 'on';
             if ((isOn && insightsEnabled) || (!isOn && !insightsEnabled)) {
@@ -4070,6 +4163,10 @@ class ChatTab {
                         await PaiperworkDB.saveInsightsEnabled(hashedMasterKey, isToggleOn);
                        //console.log('INSIGHTS TOGGLE: State saved to database:', isToggleOn);
 
+                        if (isToggleOn && typeof window.ensureSubjectiveInteractionsLoaded === 'function') {
+                            await window.ensureSubjectiveInteractionsLoaded();
+                        }
+
                         // CORRECTED LOGIC: This toggle ONLY controls whether insights are included in system prompts
                         // Insights are ALWAYS loaded from the database - this just controls their USAGE
                         if (isToggleOn) {
@@ -4495,6 +4592,10 @@ class ChatTab {
                     const insightsEnabled = settings.insights_enabled === true || String(settings.insights_enabled).toLowerCase() === 'true';
                     localStorage.setItem('insightsEnabled', insightsEnabled.toString());
 
+                    if (insightsEnabled && typeof window.ensureSubjectiveInteractionsLoaded === 'function') {
+                        await window.ensureSubjectiveInteractionsLoaded();
+                    }
+
                     // Update toggle UI
                     document.querySelectorAll('.toggle-option').forEach(btn => {
                         const isOn = btn.getAttribute('data-value') === 'on';
@@ -4569,6 +4670,9 @@ class ChatTab {
                                 }
                                 await PaiperworkDB.saveModel(hashedMasterKey, '');
                                 console.warn('ChatTab: Previously selected model not found:', settings.model);
+								if (!String(modelSelector.value || '').trim()) {
+									this.showMissingSavedModelWarning(settings.model);
+								}
                             }
                         }
                     } catch (error) {
@@ -5231,6 +5335,10 @@ class ChatTab {
     async openInsightsEditor() {
         const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
         if (!hashedMasterKey) return;
+
+        if (typeof window.ensureSubjectiveInteractionsLoaded === 'function') {
+            await window.ensureSubjectiveInteractionsLoaded();
+        }
 
         // Load insights from database
         const insights = await SubjectiveInteractions.loadInsights(hashedMasterKey);

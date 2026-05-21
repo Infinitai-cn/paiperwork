@@ -21,6 +21,7 @@ class ArtworkCanvasRenderer {
         this._loadedStylesheetHrefs = new Set();
         this._fontLoadGeneration = 0;
         this._fontLoadingNoticeElement = null;
+        this._textLayoutCache = new WeakMap();
         this._undoStack = [];
         this._maxUndoSteps = 30;
         this._verticalCenterGuide = null;
@@ -1016,18 +1017,60 @@ class ArtworkCanvasRenderer {
         ctx.textAlign = textAlign;
         ctx.textBaseline = 'top';
 
-        const rawLines = String(block?.text || '').split('\n');
-        const maxWidth = Number(block?.maxWidth) || 0;
-        const lines = maxWidth > 0 ? this.wrapTextToMaxWidth(ctx, rawLines, maxWidth) : rawLines;
-        const lineHeight = (Number(block?.lineHeight) || 1.3) * fontSize;
-        const lineWidths = lines.map((line) => ctx.measureText(line).width);
-        const textWidth = lineWidths.length ? Math.max(...lineWidths) : 0;
-        const textHeight = lines.length * lineHeight;
-
         const hasBackground = !!block?.backgroundColor;
         const padding = hasBackground
             ? this.parsePadding(block?.backgroundPadding || '8px 12px')
             : { top: 0, right: 0, bottom: 0, left: 0 };
+
+        const layoutCacheKey = JSON.stringify({
+            text: String(block?.text || ''),
+            maxWidth: Number(block?.maxWidth) || 0,
+            lineHeight: Number(block?.lineHeight) || 1.3,
+            fontFamily: block?.fontFamily || 'Arial',
+            fontWeight,
+            fontStyle,
+            fontSize,
+            textAlign,
+            hasBackground,
+            backgroundPadding: block?.backgroundPadding || ''
+        });
+
+        const cachedLayout = this._textLayoutCache.get(block);
+        let measurement = cachedLayout && cachedLayout.key === layoutCacheKey
+            ? cachedLayout.value
+            : null;
+
+        if (!measurement) {
+            const rawLines = String(block?.text || '').split('\n');
+            const maxWidth = Number(block?.maxWidth) || 0;
+            const lines = maxWidth > 0 ? this.wrapTextToMaxWidth(ctx, rawLines, maxWidth) : rawLines;
+            const lineHeight = (Number(block?.lineHeight) || 1.3) * fontSize;
+            const lineWidths = lines.map((line) => ctx.measureText(line).width);
+            const textWidth = lineWidths.length ? Math.max(...lineWidths) : 0;
+            const textHeight = lines.length * lineHeight;
+
+            measurement = {
+                lineHeight,
+                lines,
+                lineWidths,
+                textWidth,
+                textHeight,
+                hasBackground,
+                padding,
+            };
+            this._textLayoutCache.set(block, {
+                key: layoutCacheKey,
+                value: measurement
+            });
+        }
+
+        const {
+            lineHeight,
+            lines,
+            lineWidths,
+            textWidth,
+            textHeight,
+        } = measurement;
 
         const contentLeft = textAlign === 'center'
             ? anchorX - (textWidth / 2)
@@ -1065,8 +1108,8 @@ class ArtworkCanvasRenderer {
             outerTop,
             outerWidth,
             outerHeight,
-            hasBackground,
-            padding,
+            hasBackground: measurement.hasBackground,
+            padding: measurement.padding,
         };
     }
 

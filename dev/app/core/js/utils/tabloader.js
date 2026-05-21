@@ -70,6 +70,9 @@ class TabLoader {
             'artifacts': {
                 scripts: ['js/tabs/artifacts.js', 'js/tabs/artifactstab.js']
             },
+            'campaign': {
+                scripts: ['js/tabs/campaignTab.js']
+            },
 
         };
 
@@ -125,7 +128,7 @@ class TabLoader {
     }
 
     // Initializes the UI components or class instances for the specified tab after its scripts are loaded.
-    initializeTabComponent(tabName) {
+    async initializeTabComponent(tabName) {
        //console.log(`TabLoader: Initializing component for tab "${tabName}"`);
 
         if (tabName === 'documents') {
@@ -252,6 +255,15 @@ class TabLoader {
             case 'artifacts':
                 if (window.artifactsTab && !window.artifactsTab.isInitialized) {
                     window.artifactsTab.initialize();
+                }
+                break;
+
+            case 'campaign':
+                if (!window.campaignTab && window.CampaignTab) {
+                    window.campaignTab = new window.CampaignTab();
+                }
+                if (window.campaignTab && !window.campaignTab.isInitialized) {
+                    await window.campaignTab.initialize();
                 }
                 break;
 
@@ -461,6 +473,24 @@ class TabLoader {
                             clearInterval(checkInterval);
                             console.error('TabLoader: Connectors not available');
                             reject(new Error('Timeout waiting for Connectors Tab'));
+                        }
+                    }, this.pollIntervalMs);
+                });
+            }
+            if (tabName === 'campaign') {
+                await new Promise((resolve, reject) => {
+                    let attempts = 0;
+                    const maxAttempts = this.getTabLoadMaxAttempts();
+
+                    const checkInterval = setInterval(() => {
+                        attempts++;
+                        if (window.CampaignTab) {
+                            clearInterval(checkInterval);
+                            resolve();
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(checkInterval);
+                            console.error('TabLoader: CampaignTab not available');
+                            reject(new Error('Timeout waiting for CampaignTab'));
                         }
                     }, this.pollIntervalMs);
                 });

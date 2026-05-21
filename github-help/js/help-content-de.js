@@ -2000,6 +2000,173 @@ window.helpContent = {
             },
         ],
     },
+    campaign: {
+        title: "Campaign",
+        intro:
+            "Campaign Studio hilft Ihnen, mit KI-gestütztem Sparring einen vollständigen Kampagnen-Entwurf zu formen und daraus Poster, Präsentation und Mini-App aus einer gemeinsamen Quelle zu erzeugen und zu verfeinern.",
+        articles: [
+            {
+                id: "campaign-overview",
+                title: "Wofür Campaign Studio gedacht ist",
+                content: `
+                <p>Campaign Studio ist für Nutzer gedacht, die von einer groben Idee zu einem abgestimmten Kampagnenpaket gelangen möchten, ohne getrennte Werkzeuge für Strategie, Text und Artefakt-Erzeugung zu verwalten.</p>
+
+                <h4>Hauptziel</h4>
+                <p>Die Funktion verbindet strategisches Brainstorming mit strukturierter Kampagnenproduktion. Anstatt Poster, Foliensatz und Mini-App getrennt zu prompten, erstellen Sie einen Campaign Brief, den das System für alle drei Ausgaben wiederverwendet.</p>
+
+                <h4>Was erzeugt werden kann</h4>
+                <ul>
+                    <li><strong>Poster</strong> - Ein visuelles Poster, das aus dem Campaign Brief, dem poster-spezifischen Brief-Abschnitt und dem hochgeladenen Kampagnenbild erzeugt wird</li>
+                    <li><strong>Präsentation</strong> - Eine promptbare HTML-Präsentation, die auf dieselbe Kampagnenrichtung abgestimmt ist</li>
+                    <li><strong>Mini-App</strong> - Eine promptbare HTML-Mini-App, die durch den Campaign Brief und Mini-App-spezifische Funktionsvorgaben gesteuert wird</li>
+                </ul>
+
+                <h4>Zentrale Fähigkeiten</h4>
+                <ul>
+                    <li><strong>Single Source of Truth</strong> - Der bearbeitbare Campaign Brief steuert jede Ausgabe</li>
+                    <li><strong>KI-Sparring</strong> - Der Orchestrator hilft, Positionierung, Zielgruppe, Ton und Text vor der Generierung zu verfeinern</li>
+                    <li><strong>Gespeicherte Kampagnen</strong> - Kampagnen können in der verschlüsselten lokalen Datenbank gespeichert und später erneut geöffnet werden</li>
+                    <li><strong>Gezielte Regenerierung</strong> - Es kann nur Präsentation, Mini-App oder Poster neu erzeugt werden, ohne den gesamten Studio-Workflow erneut auszuführen</li>
+                    <li><strong>Varianten-sichere Bearbeitung</strong> - Manuelle Änderungen an Ausgaben bleiben im Speicher erhalten und können als neue Varianten gespeichert werden, statt stillschweigend eine Master-Kampagne zu überschreiben</li>
+                </ul>
+
+                <h4>Typischer Ablauf</h4>
+                <ol>
+                    <li>Öffnen Sie den Campaign-Tab und klicken Sie auf <strong>Open Studio</strong></li>
+                    <li>Laden Sie das Hauptbild der Kampagne hoch</li>
+                    <li>Nutzen Sie den Orchestrator-Chat, um die Kampagnenstrategie zu formen</li>
+                    <li>Prüfen und bearbeiten Sie den Campaign Brief</li>
+                    <li>Klicken Sie auf <strong>Generate Campaign</strong>, um Präsentation, Mini-App und Poster zu erzeugen</li>
+                    <li>Öffnen Sie jede Ansicht und verfeinern Sie die Ergebnisse</li>
+                    <li>Speichern Sie die Kampagne, wenn Brief und Ausgaben in einem Zustand sind, den Sie behalten möchten</li>
+                </ol>
+
+                <div class="note">
+                    <p><strong>Wichtig:</strong> Für die Kampagnengenerierung ist ein hochgeladenes Bild erforderlich, da der Poster-Workflow davon abhängt. Die anderen Ausgaben teilen dieselbe Kampagnenstrategie, aber das Poster verwendet gezielt die hochgeladene visuelle Referenz.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-orchestrator",
+                title: "Wie Sie den Orchestrator verwenden",
+                content: `
+                <p>Der Campaign-Orchestrator ist als strategischer Sparringspartner gedacht, nicht als Ein-Klick-Generator. Seine Aufgabe ist es, den Brief zu verbessern, bevor Sie Ausgaben erzeugen.</p>
+
+                <h4>Beste Verwendung</h4>
+                <ul>
+                    <li><strong>Positionierung schärfen</strong> - Bitten Sie ihn, den Kampagnenwinkel, das Versprechen oder das Wertversprechen zu präzisieren</li>
+                    <li><strong>Zielgruppen-Fit verbessern</strong> - Lassen Sie prüfen, ob die Kampagne die richtigen Menschen anspricht</li>
+                    <li><strong>Messaging stärken</strong> - Nutzen Sie ihn, um Titel, Untertitel, Kernpunkte, den Poster-Brief-Abschnitt oder den Ton zu verbessern</li>
+                    <li><strong>Mini-App abstimmen</strong> - Sagen Sie, welche Funktionen in der Mini-App ergänzt, entfernt, vermieden oder betont werden sollen</li>
+                    <li><strong>Ideen auf Belastbarkeit prüfen</strong> - Fragen Sie, was vor der Generierung zu allgemein, schwach, überladen oder unklar wirkt</li>
+                </ul>
+
+                <h4>Was der Orchestrator nicht tut</h4>
+                <ul>
+                    <li>Er erzeugt nicht eigenständig Poster-, Präsentations- oder Mini-App-Ausgaben</li>
+                    <li>Er entscheidet nicht, wann die Ausführung startet</li>
+                    <li>Er ersetzt den bearbeitbaren Brief nicht; er hilft, ihn zu verbessern</li>
+                </ul>
+
+                <h4>Gute Prompt-Beispiele</h4>
+                <ul>
+                    <li><strong>Strategie:</strong> "Das wirkt zu allgemein. Mach die Kampagne spezifischer für kleine lokale Cafés."</li>
+                    <li><strong>Ton:</strong> "Halte die Kampagne überzeugend, aber weniger korporativ und direkter."</li>
+                    <li><strong>Poster-Brief-Abschnitt:</strong> "Verkürze die Sprache des Posters und lass sie dringlicher wirken."</li>
+                    <li><strong>Mini-App-Feinabstimmung:</strong> "Vermeide in der Mini-App Header-Buttons und halte das Layout kompakt und app-artig statt wie eine Landingpage."</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Tipp:</strong> Behandeln Sie den Orchestrator wie einen kreativen Teamkollegen. Iterieren Sie mit ihm am Brief, bis die Kampagnenrichtung stark ist, und generieren Sie erst dann. Je besser der Brief, desto kohärenter sind die drei Ausgaben.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-brief",
+                title: "Arbeiten mit dem Campaign Brief",
+                content: `
+                <p>Der Campaign Brief ist die zentrale Bearbeitungsfläche in Campaign Studio. Er ist bewusst editierbar, damit Sie Vorschläge des Orchestrators mit eigenen Entscheidungen kombinieren können.</p>
+
+                <h4>Bearbeitbare Brief-Bereiche</h4>
+                <ul>
+                    <li><strong>Titel und Untertitel</strong> - Hauptüberschrift der Kampagne und unterstützende Zeile</li>
+                    <li><strong>Kernbotschaft</strong> - Die Hauptidee, die die Kampagne vermitteln soll</li>
+                    <li><strong>Zielgruppe</strong> - Die Zielgruppe der Kampagne</li>
+                    <li><strong>Ton</strong> - Die Stimme und Stimmung, die die Ausgaben tragen sollen</li>
+                    <li><strong>Kernpunkte</strong> - Unterstützende Ideen, die die Kampagne betonen soll</li>
+                    <li><strong>Farbpalette der Kampagne</strong> - Visuelle Richtung für Präsentation und Mini-App</li>
+                    <li><strong>Poster-Abschnitt</strong> - Eigener Abschnitt für Poster-Header, Subheader, Body und Footer</li>
+                    <li><strong>Mini-App-Abschnitt</strong> - Eigene Felder zum Hinzufügen oder Entfernen von Mini-App-Funktionen</li>
+                </ul>
+
+                <h4>Felder zum Hinzufügen / Entfernen in der Mini-App</h4>
+                <p>Der Mini-App-Abschnitt enthält zwei spezifische Felder:</p>
+                <ul>
+                    <li><strong>Zur Mini-App hinzufügen</strong> - Nutzen Sie dies für Funktionen oder Interaktionsmuster, die enthalten oder betont werden sollen</li>
+                    <li><strong>Aus der Mini-App entfernen</strong> - Nutzen Sie dies für Funktionen, Steuerelemente oder Layout-Elemente, die die Mini-App vermeiden soll</li>
+                </ul>
+                <p>Diese Felder sind nicht dafür gedacht, als sichtbarer Text in der App zu erscheinen. Sie werden als funktionale Anleitung für Generierung und Regenerierung der Mini-App interpretiert.</p>
+
+                <h4>Best Practices für den Brief</h4>
+                <ul>
+                    <li>Halten Sie Titel und Untertitel knapp</li>
+                    <li>Nutzen Sie Kernpunkte für unterstützende Ideen, nicht für lange Absätze</li>
+                    <li>Verwenden Sie den Poster-Abschnitt nur für knappen Poster-Text, nicht für vollständige Strategie-Notizen</li>
+                    <li>Nutzen Sie den Mini-App-Abschnitt für Funktionsvorgaben wie Einfügen, Vermeiden, Vereinfachen oder Entfernen</li>
+                    <li>Prüfen Sie den Brief nach jedem Austausch mit dem Orchestrator, damit klar bleibt, was die Generierung steuern wird</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Wichtig:</strong> Der Brief ist nicht nur eine Vorschau. Er ist die bearbeitbare Kampagnenquelle, die von Regenerierungsabläufen genutzt wird, sodass manuelle Änderungen direkt spätere Präsentations-, Mini-App- und Poster-Ausgaben beeinflussen.</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-output-editing",
+                title: "Bearbeiten von Poster-, Präsentations- und Mini-App-Ausgaben",
+                content: `
+                <p>Nach der Generierung hat jede Campaign-Ausgabe ihren eigenen Bearbeitungsablauf. So können Sie die erzeugten Artefakte verfeinern, ohne die gesamte Kampagne neu zu starten.</p>
+
+                <h4>Poster-Bearbeitung</h4>
+                <ul>
+                    <li>Das Poster wird innerhalb der Campaign-Ansicht mit einer bearbeitbaren, canvas-basierten Overlay-Oberfläche geöffnet</li>
+                    <li>Sie können Overlay-Elemente auswählen, verschieben, löschen und kürzlich gelöschte Elemente rückgängig machen</li>
+                    <li>Der aktuelle Poster-Zustand kann als PNG exportiert werden</li>
+                    <li><strong>Regenerate</strong> startet nur den Poster-Workflow erneut und verwendet dabei den neuesten Poster-Brief-Abschnitt, den Campaign Brief, die Paletten-Hinweise und das hochgeladene Bild</li>
+                </ul>
+
+                <h4>Präsentations-Bearbeitung</h4>
+                <ul>
+                    <li>Die Präsentation wird in einen bearbeitbaren, iframe-basierten Arbeitsbereich geladen</li>
+                    <li>Text kann direkt in der gerenderten Präsentation bearbeitet werden</li>
+                    <li>Bilder können angeklickt und mit den vorhandenen promptbaren Präsentationswerkzeugen ersetzt werden</li>
+                    <li><strong>Regenerate</strong> startet nur den Präsentations-Workflow erneut und nutzt den neuesten Campaign Brief sowie den aktuellen Kampagnenkontext</li>
+                    <li><strong>Save to disk</strong> exportiert die aktuelle HTML-Präsentation inklusive Ihrer Änderungen</li>
+                </ul>
+
+                <h4>Mini-App-Bearbeitung</h4>
+                <ul>
+                    <li>Die Mini-App verwendet dasselbe promptbare iframe-Bearbeitungsmodell wie die Präsentation</li>
+                    <li>Text kann direkt im gerenderten Ergebnis bearbeitet werden</li>
+                    <li>Bilder können ersetzt werden, ohne die aktuelle App-Richtung zu verlieren</li>
+                    <li><strong>Regenerate</strong> startet nur den Mini-App-Workflow erneut und verwendet dabei den neuesten Brief sowie die Mini-App-Anpassungsfelder erneut</li>
+                    <li><strong>Save to disk</strong> exportiert die aktuelle HTML-Mini-App inklusive Ihrer Änderungen</li>
+                </ul>
+
+                <h4>Regenerierungs- und Abbruchverhalten</h4>
+                <ul>
+                    <li>Präsentation und Mini-App haben gezielte <strong>Regenerate</strong>-Aktionen, die während der Ausführung zu <strong>Cancel</strong> wechseln</li>
+                    <li>Neben dem aktiven Regenerate-Button erscheint ein inline eingeblendeter, unbestimmter Fortschrittsbalken</li>
+                    <li>Cancel stoppt die gezielte Regenerierung, ohne den blockierenden, vollständigen Campaign-Workflow-Dialog zu starten</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>Tipp:</strong> Verbessern Sie zuerst mit dem Brief die strategische Richtung und nutzen Sie dann die ausgabespezifische Bearbeitung für lokale Verfeinerungen wie Layout, Bildersatz oder letzte Textkorrekturen. So bleibt die Regenerierung fokussiert und unnötige Nacharbeit wird reduziert.</p>
+                </div>
+            `,
+            },
+        ],
+    },
     presentation: {
         title: "Präsentation",
         intro: "Erstellen Sie Folienpräsentationen aus Dokumenten mithilfe KI-gestützter Extraktion und eines Vorschau-Editors.",

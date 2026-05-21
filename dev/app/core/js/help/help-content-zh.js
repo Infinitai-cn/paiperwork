@@ -2005,6 +2005,173 @@ window.helpContent = {
             },
         ],
     },
+    campaign: {
+        title: "Campaign",
+        intro:
+            "Campaign Studio 可帮助你通过 AI 协作打磨完整的 campaign brief，然后基于同一份共享来源生成并完善海报、演示文稿和迷你应用。",
+        articles: [
+            {
+                id: "campaign-overview",
+                title: "Campaign Studio 的用途",
+                content: `
+                <p>Campaign Studio 面向那些希望从一个粗略想法出发，快速形成一整套协调 campaign 成果的用户，而不需要分别管理策略、文案和产物生成工具。</p>
+
+                <h4>主要目标</h4>
+                <p>这个功能把策略性头脑风暴和结构化 campaign 产出结合在一起。你不需要分别为海报、演示文稿和迷你应用单独编写提示词，而是先构建一份 campaign brief，然后让系统把它复用于三种输出。</p>
+
+                <h4>它可以生成什么</h4>
+                <ul>
+                    <li><strong>海报</strong> - 基于 campaign brief、海报专用 brief 部分以及上传的 campaign 图片生成的视觉海报</li>
+                    <li><strong>演示文稿</strong> - 与同一 campaign 方向保持一致的可提示编辑 HTML 演示文稿</li>
+                    <li><strong>迷你应用</strong> - 由 campaign brief 和迷你应用特定功能约束共同驱动的可提示编辑 HTML 迷你应用</li>
+                </ul>
+
+                <h4>关键能力</h4>
+                <ul>
+                    <li><strong>单一事实来源</strong> - 可编辑的 campaign brief 驱动所有输出</li>
+                    <li><strong>AI 协作打磨</strong> - 编排器会在生成之前帮助你完善定位、受众、语气和文案</li>
+                    <li><strong>已保存的 campaign</strong> - 你可以把 campaign 保存到本地加密数据库，并在之后重新打开</li>
+                    <li><strong>定向再生成</strong> - 你可以只再生成演示文稿、迷你应用或海报，而不必重新运行整个 Studio 工作流</li>
+                    <li><strong>安全的变体编辑</strong> - 手动修改的输出会保留在内存中，并可另存为新变体，而不会悄悄覆盖主 campaign</li>
+                </ul>
+
+                <h4>典型工作流程</h4>
+                <ol>
+                    <li>打开 Campaign 标签页并点击 <strong>Open Studio</strong></li>
+                    <li>上传 campaign 主图</li>
+                    <li>使用编排器聊天来塑造 campaign 策略</li>
+                    <li>查看并编辑 Campaign Brief</li>
+                    <li>点击 <strong>Generate Campaign</strong> 生成演示文稿、迷你应用和海报</li>
+                    <li>打开每个视图并继续完善结果</li>
+                    <li>当 brief 和输出达到你想保留的状态时保存 campaign</li>
+                </ol>
+
+                <div class="note">
+                    <p><strong>重要：</strong>Campaign 生成需要上传图片，因为海报工作流依赖该图片。其他输出共享相同的 campaign 策略，但海报会特别使用这张上传的视觉参考。</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-orchestrator",
+                title: "如何使用编排器",
+                content: `
+                <p>Campaign 编排器的定位是战略协作伙伴，而不是一键生成器。它的任务是在你开始生成输出之前先帮助你改进 brief。</p>
+
+                <h4>最佳使用方式</h4>
+                <ul>
+                    <li><strong>优化定位</strong> - 让它帮助你 sharpen campaign 的角度、承诺或价值主张</li>
+                    <li><strong>提升受众匹配度</strong> - 让它质疑当前 campaign 是否真的在和正确的人群沟通</li>
+                    <li><strong>强化信息表达</strong> - 用它来改进标题、副标题、关键点、海报 brief 部分或整体语气</li>
+                    <li><strong>微调迷你应用</strong> - 告诉它希望在迷你应用里添加、移除、避免或强调哪些功能</li>
+                    <li><strong>压力测试想法</strong> - 在生成之前先问它，哪些地方显得太泛、太弱、太拥挤或不够清晰</li>
+                </ul>
+
+                <h4>编排器不会做什么</h4>
+                <ul>
+                    <li>它不会自行自动生成海报、演示文稿或迷你应用输出</li>
+                    <li>它不会决定何时开始执行</li>
+                    <li>它不会取代可编辑 brief；它只是帮助你把 brief 打磨得更好</li>
+                </ul>
+
+                <h4>好的提示词示例</h4>
+                <ul>
+                    <li><strong>策略：</strong>“这个方向太泛了。请把 campaign 调整得更适合本地小型咖啡馆。”</li>
+                    <li><strong>语气：</strong>“保持说服力，但不要太企业化，要更直接一些。”</li>
+                    <li><strong>海报 brief 部分：</strong>“把海报上的语言压缩一些，并让它更有紧迫感。”</li>
+                    <li><strong>迷你应用微调：</strong>“迷你应用里不要有页眉按钮，布局要更紧凑、更像 app，而不是 landing page。”</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>提示：</strong>把编排器当成一个创意同伴。先通过它反复打磨 brief，直到 campaign 方向足够强，再开始生成。Brief 越好，三种输出之间的一致性就越高。</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-brief",
+                title: "如何使用 Campaign Brief",
+                content: `
+                <p>Campaign Brief 是 Campaign Studio 中央的编辑区域。它被设计为可编辑状态，以便你把编排器的建议与自己的手动决策结合起来。</p>
+
+                <h4>可编辑的 brief 区域</h4>
+                <ul>
+                    <li><strong>标题和副标题</strong> - campaign 的主标题和支持性说明</li>
+                    <li><strong>核心信息</strong> - campaign 想要传达的核心想法</li>
+                    <li><strong>受众</strong> - campaign 的目标人群</li>
+                    <li><strong>语气</strong> - 输出内容应当体现的语气与感觉</li>
+                    <li><strong>关键点</strong> - campaign 需要强调的支撑信息</li>
+                    <li><strong>Campaign 色彩方案</strong> - 用于演示文稿和迷你应用风格的视觉方向</li>
+                    <li><strong>海报部分</strong> - 专门用于海报标题、副标题、正文和页脚的部分</li>
+                    <li><strong>迷你应用部分</strong> - 用于添加或移除迷你应用功能的专门字段</li>
+                </ul>
+
+                <h4>迷你应用添加 / 移除字段</h4>
+                <p>迷你应用部分包含两个具体字段：</p>
+                <ul>
+                    <li><strong>添加到迷你应用</strong> - 用于说明你想加入或强调的功能或交互模式</li>
+                    <li><strong>从迷你应用移除</strong> - 用于说明你希望迷你应用避免的功能、控件或布局元素</li>
+                </ul>
+                <p>这些字段并不是要变成应用中可见的文案。系统会把它们当作迷你应用生成和再生成时的功能性指导。</p>
+
+                <h4>Brief 最佳实践</h4>
+                <ul>
+                    <li>保持标题和副标题简洁</li>
+                    <li>关键点用于支持性想法，不要写成长段文字</li>
+                    <li>海报部分只用于简洁的海报文字，不要塞入完整策略说明</li>
+                    <li>迷你应用部分用于功能约束，例如包含什么、避免什么、简化什么或移除什么</li>
+                    <li>每次与编排器交流后都复查 brief，确保你清楚知道后续生成将依据什么</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>重要：</strong>Brief 不只是预览。它是再生成流程实际使用的可编辑 campaign 来源，因此手动修改会直接影响之后的演示文稿、迷你应用和海报输出。</p>
+                </div>
+            `,
+            },
+            {
+                id: "campaign-output-editing",
+                title: "编辑海报、演示文稿和迷你应用输出",
+                content: `
+                <p>生成完成后，Campaign 的每一种输出都有自己的编辑流程。这样你就可以在不重启整个 campaign 的情况下继续优化已生成的产物。</p>
+
+                <h4>海报编辑</h4>
+                <ul>
+                    <li>海报会在 Campaign 视图中以可编辑的 canvas 叠加层形式打开</li>
+                    <li>你可以选择叠加元素、移动它们、删除它们，并撤销最近的删除</li>
+                    <li>当前海报状态可以导出为 PNG</li>
+                    <li><strong>Regenerate</strong> 只会重新运行海报工作流，并使用最新的海报 brief 部分、campaign brief、色板指引和上传图片</li>
+                </ul>
+
+                <h4>演示文稿编辑</h4>
+                <ul>
+                    <li>演示文稿会被加载到一个基于 iframe 的可编辑工作区中</li>
+                    <li>你可以直接在渲染后的演示文稿里编辑文字</li>
+                    <li>你可以点击图片，并使用现有的可提示演示文稿编辑工具来替换图片</li>
+                    <li><strong>Regenerate</strong> 只会基于最新的 campaign brief 和当前 campaign 上下文重新运行演示文稿工作流</li>
+                    <li><strong>Save to disk</strong> 会导出当前 HTML 演示文稿，包括你的编辑内容</li>
+                </ul>
+
+                <h4>迷你应用编辑</h4>
+                <ul>
+                    <li>迷你应用使用和演示文稿相同的可提示 iframe 编辑模型</li>
+                    <li>你可以直接在渲染结果中编辑文字</li>
+                    <li>你可以在保持当前应用方向的前提下替换图片</li>
+                    <li><strong>Regenerate</strong> 只会重新运行迷你应用工作流，并复用最新 brief 与迷你应用自定义字段</li>
+                    <li><strong>Save to disk</strong> 会导出当前 HTML 迷你应用，包括你的编辑内容</li>
+                </ul>
+
+                <h4>再生成与取消行为</h4>
+                <ul>
+                    <li>演示文稿和迷你应用都有定向的 <strong>Regenerate</strong> 操作，在运行时会切换成 <strong>Cancel</strong></li>
+                    <li>活动的再生成按钮旁边会出现一条行内不定进度条</li>
+                    <li>Cancel 会停止当前定向再生成，而不会启动完整且阻塞的 Campaign 工作流弹窗</li>
+                </ul>
+
+                <div class="note">
+                    <p><strong>提示：</strong>先用 brief 改善整体战略方向，再使用单个输出的编辑流程做局部微调，例如布局、图片替换或最终文案清理。这样可以让再生成更聚焦，并减少不必要的返工。</p>
+                </div>
+            `,
+            },
+        ],
+    },
     presentation: {
         title: "演示",
         intro: "使用 AI 辅助的提取和预览编辑器，从文档创建幻灯片演示文稿。",
