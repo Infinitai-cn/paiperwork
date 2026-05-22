@@ -418,6 +418,47 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 });
 
+function updateChatModelSelectorHint() {
+    const modelSelector = document.getElementById('model-selector');
+    const hint = document.getElementById('chat-model-selector-hint');
+    if (!hint) {
+        return;
+    }
+
+    if (!modelSelector) {
+        hint.style.display = 'none';
+        return;
+    }
+
+    const selectedValue = String(modelSelector.value || '').trim();
+    const selectedIndex = modelSelector.selectedIndex;
+    const noModelSelected = !selectedValue || selectedIndex === 0;
+
+    if (noModelSelected) {
+        const hintText = document.getElementById('chat-model-selector-hint-text');
+        if (hintText) {
+            hintText.textContent = (window.Lang && typeof Lang.get === 'function')
+                ? Lang.get('chatModelSelectorHint')
+                : 'Select a model to start using Paiperwork';
+        }
+
+        const rect = modelSelector.getBoundingClientRect();
+        hint.style.display = 'block';
+        hint.style.left = `${Math.max(12, rect.left - hint.offsetWidth - 14)}px`;
+        hint.style.top = `${rect.top + window.scrollY + rect.height / 2 - hint.offsetHeight / 2}px`;
+        hint.style.maxWidth = '240px';
+        hint.style.width = 'auto';
+        hint.style.right = 'auto';
+
+        if (!modelSelector.__modelSelectorHintBound) {
+            modelSelector.addEventListener('change', updateChatModelSelectorHint);
+            modelSelector.__modelSelectorHintBound = true;
+        }
+    } else {
+        hint.style.display = 'none';
+    }
+}
+
 async function ensureChatTabVisibleWhenModelMissing(settings = null) {
     const chatButton = document.querySelector('.tab-button[data-tab="chat"]');
     if (!chatButton || typeof chatButton.click !== 'function') {
@@ -449,6 +490,7 @@ async function ensureChatTabVisibleWhenModelMissing(settings = null) {
 
     if (noModelSelected) {
         chatButton.click();
+        window.setTimeout(updateChatModelSelectorHint, 120);
     }
 }
 
@@ -971,6 +1013,8 @@ async function handleChatTab() {
             } catch (error) {
                 console.error('Error setting model:', error);
             }
+
+            updateChatModelSelectorHint();
         }
     }, 100);
 }

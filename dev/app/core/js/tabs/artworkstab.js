@@ -83,8 +83,7 @@ class ArtworksTab {
         if (this.initialized) return true;
 
         try {
-           //console.log('ArtworksTab: Starting initialization');
-
+            
             // Add CSS styles
             this.addStyles();
 
