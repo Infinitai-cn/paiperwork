@@ -438,6 +438,7 @@ class CampaignTab {
 			.campaign-prompt-actions { display: flex; justify-content: flex-end; min-height: 0; }
 			.campaign-send-button { display: inline-flex; align-items: center; justify-content: center; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 12px; line-height: 1; font-size: 13px; box-sizing: border-box; appearance: none; -webkit-appearance: none; border: 0; border-radius: 8px; cursor: pointer; font-weight: 700; background: var(--accent-color, #4f46e5); color: var(--accent-text, #ffffff); }
 			.campaign-send-button:disabled { opacity: 0.55; cursor: not-allowed; }
+			.campaign-send-button.cancel-state { background: #dc2626; }
 			.campaign-uploads-section { margin-top: 2px; }
 			.campaign-upload-picker { display: flex; justify-content: flex-start; }
 			.campaign-upload-trigger { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 14px; border: 0; border-radius: 10px; cursor: pointer; font: inherit; font-weight: 700; background: var(--accent-color, #4f46e5); color: var(--accent-text, #ffffff); }
@@ -787,7 +788,11 @@ class CampaignTab {
 
 			const sendButton = event.target.closest('#campaign-send-button');
 			if (sendButton) {
-				this.submitPromptMessage();
+				if (this.state.isWorkflowPending && this.state.pendingWorkflow?.action === 'discuss') {
+					this.cancelPendingWorkflowRequest();
+				} else {
+					this.submitPromptMessage();
+				}
 				return;
 			}
 
@@ -873,7 +878,7 @@ class CampaignTab {
 			if (promptInput.value !== this.state.draftPrompt) {
 				promptInput.value = this.state.draftPrompt;
 			}
-				promptInput.disabled = this.state.isWorkflowPending;
+			promptInput.disabled = this.state.isWorkflowPending && this.state.pendingWorkflow?.action !== 'discuss';
 		}
 
 		const sendButton = this.modalElement.querySelector('#campaign-send-button');
@@ -2331,6 +2336,20 @@ class CampaignTab {
 		this.setFooterStatus(Lang.get('campaignWorkflowCancellingStatus'));
 	}
 
+	cancelPendingWorkflowRequest() {
+		const pending = this.state.pendingWorkflow;
+		if (!pending || pending.action !== 'discuss') {
+			return;
+		}
+
+		const abortController = pending.abortController || pending.payload?.abortController;
+		if (abortController && !abortController.signal?.aborted) {
+			abortController.abort();
+		}
+
+		this.setFooterStatus(Lang.get('campaignWorkflowCancellingStatus'));
+	}
+
 	isWorkflowExecutionAction(action) {
 		return action === 'generate';
 	}
@@ -2339,13 +2358,21 @@ class CampaignTab {
 		const promptInput = this.modalElement?.querySelector('#campaign-prompt-input');
 		const sendButton = this.modalElement?.querySelector('#campaign-send-button');
 		if (promptInput) {
-			promptInput.disabled = this.state.isWorkflowPending;
+			promptInput.disabled = this.state.isWorkflowPending && this.state.pendingWorkflow?.action !== 'discuss';
 		}
 		if (!sendButton) {
 			return;
 		}
 
-		sendButton.disabled = this.state.isWorkflowPending || !String(this.state.draftPrompt || '').trim();
+		if (this.state.isWorkflowPending && this.state.pendingWorkflow?.action === 'discuss') {
+			sendButton.disabled = false;
+			sendButton.textContent = Lang.get('cancelButton') || 'Cancel';
+			sendButton.classList.add('cancel-state');
+		} else {
+			sendButton.disabled = !String(this.state.draftPrompt || '').trim() || this.state.isWorkflowPending;
+			sendButton.textContent = Lang.get('sendButton') || 'Send';
+			sendButton.classList.remove('cancel-state');
+		}
 	}
 
 	hasCampaignContent() {
@@ -2371,9 +2398,18 @@ class CampaignTab {
 		}
 
 		const payload = this.buildWorkflowPayload('discuss');
-		this.appendChatMessage('user', prompt);
-		this.state.isWorkflowPending = true;
+        const abortController = new AbortController();
+        payload.abortController = abortController;
+        payload.abortSignal = abortController.signal;
 
+        this.appendChatMessage('user', prompt);
+        this.state.isWorkflowPending = true;
+        this.state.pendingWorkflow = {
+            action: 'discuss',
+            requestedAt: new Date().toISOString(),
+            payload,
+            abortController
+        };
 		window.dispatchEvent(new CustomEvent('campaign:workflow-requested', {
 			detail: {
 				action: 'discuss',
@@ -2391,10 +2427,21 @@ class CampaignTab {
 		const action = detail.action || '';
 		const payload = detail.payload || this.buildWorkflowPayload(action);
 		const isWorkflowExecutionAction = this.isWorkflowExecutionAction(action);
+
+		let abortController = null;
+		if (action === 'discuss') {
+			abortController = payload.abortController instanceof AbortController ? payload.abortController : new AbortController();
+			if (!payload.abortSignal) {
+				payload.abortSignal = abortController.signal;
+			}
+			payload.abortController = abortController;
+		}
+
 		this.state.pendingWorkflow = {
 			action,
 			requestedAt: new Date().toISOString(),
-			payload
+			payload,
+			abortController
 		};
 
 		const modelLabel = payload?.model?.label || Lang.get('campaignModelUnknown');

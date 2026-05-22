@@ -1824,6 +1824,9 @@ class OllamaAPI {
             return '';
         } catch (err) {
             console.error('OrchestratorCall error', err);
+            if (err?.name === 'AbortError') {
+                throw err;
+            }
             return '';
         }
     }
