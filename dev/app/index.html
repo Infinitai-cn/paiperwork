@@ -171,7 +171,8 @@
             es: 'La versión online de Paiperwork requiere una clave API de <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a> para operar modelos cloud gratuitos de Ollama, crea una cuenta de Ollama, crea una clave API en settings>keys y guárdala en tu ordenador, introduce la clave cuando Paiperwork la solicite.',
             fr: 'La version en ligne de Paiperwork nécessite une clé API depuis <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a> pour utiliser les modèles cloud gratuits d\'Ollama, créez un compte Ollama, créez une clé API dans settings>keys et stockez-la sur votre ordinateur, saisissez la clé lorsque Paiperwork la demande.',
             de: 'Die Online-Version von Paiperwork benötigt einen API-Schlüssel von <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a>, um kostenlose Ollama-Cloud-Modelle zu nutzen, erstellen Sie ein Ollama-Konto, erstellen Sie einen API-Schlüssel in settings>keys und speichern Sie ihn auf Ihrem Computer, geben Sie den Schlüssel ein, wenn Paiperwork danach fragt.',
-            pt: 'A versão online do Paiperwork requer uma chave de API da <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a> para operar modelos cloud gratuitos da Ollama, crie uma conta Ollama, crie uma chave de API em settings>keys e guarde-a no seu computador, informe a chave quando o Paiperwork solicitar.'
+            pt: 'A versão online do Paiperwork requer uma chave de API da <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a> para operar modelos cloud gratuitos da Ollama, crie uma conta Ollama, crie uma chave API em settings>keys e guarde-a no seu computador, informe a chave quando o Paiperwork solicitar.',
+            hi: 'ऑनलाइन Paiperwork संस्करण को Ollama के मुफ्त क्लाउड मॉडल चलाने के लिए <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">ollama.com</a> से एक API की की आवश्यकता होती है, एक Ollama खाता बनाएं, settings>keys में एक API की बनाएं और इसे अपने कंप्यूटर पर सुरक्षित रखें, और जब Paiperwork इसे मांगे तो की दर्ज करें।'
         };
 
         return notices[lang] || notices.en;
@@ -305,8 +306,9 @@
                 <!-- Language selector moved below start button -->
                 <div class="language-selector-container">
                     <label for="language-selector">Language:</label>
-                    <select id="language-selector">
+                            <select id="language-selector">
                         <option value="en">English</option>
+                        <option value="hi">हिन्दी</option>
                         <option value="es">Español</option>
                         <option value="zh">中文</option>
                         <option value="fr">Français</option>
