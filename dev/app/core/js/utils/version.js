@@ -117,7 +117,10 @@ const AppVersion = {
                 margin-bottom: 15px;
                 color: var(--text-color);
             ">
-                ${Array.isArray(updateData.notes) ? updateData.notes.join('') : updateData.notes}
+                ${Array.isArray(updateData.notes) ? updateData.notes.map(note => {
+                    const trimmed = String(note || '').trim();
+                    return trimmed ? (trimmed.match(/^<[^>]+>/) ? trimmed : `<p>${trimmed}</p>`) : '';
+                }).join('') : updateData.notes}
             </div>
         </div>` : ''}
         <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
