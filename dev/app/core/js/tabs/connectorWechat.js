@@ -54,6 +54,13 @@
     }
 
     function createLoginModal(onClose) {
+        const wechatLoginModalTitle = (window.Lang && typeof Lang.get === 'function' && Lang.get('wechatLoginModalTitle')) || 'WeChat QR login';
+        const wechatLoginModalClosePairingAria = (window.Lang && typeof Lang.get === 'function' && Lang.get('wechatLoginModalClosePairingAria')) || 'Close pairing';
+        const wechatLoginModalStartingStatus = (window.Lang && typeof Lang.get === 'function' && Lang.get('wechatLoginModalStartingStatus')) || 'Starting WeChat login...';
+        const wechatLoginModalNote = (window.Lang && typeof Lang.get === 'function' && Lang.get('wechatLoginModalNote')) || 'Scan the QR in the WeChat app to continue.';
+        const wechatLoginModalCloseButton = (window.Lang && typeof Lang.get === 'function' && Lang.get('wechatLoginModalCloseButton')) || 'Close';
+        const wechatLoginModalWaitingForQRCode = (window.Lang && typeof Lang.get === 'function' && Lang.get('wechatLoginModalWaitingForQRCode')) || 'Waiting for QR code...';
+
         let modal = document.getElementById(modalId);
         if (!modal) {
             modal = document.createElement('div');
@@ -80,15 +87,15 @@
 
         modal.innerHTML = `
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
-                <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text-color, #111111);">WeChat QR login</h2>
-                <button id="${closeXId}" type="button" aria-label="Close pairing" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--border-color, #ccc);border-radius:999px;background:var(--button-secondary-bg, #f3f4f6);color:var(--button-secondary-text, #111111);cursor:pointer;font-size:20px;line-height:1;">&times;</button>
+                <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text-color, #111111);">${wechatLoginModalTitle}</h2>
+                <button id="${closeXId}" type="button" aria-label="${wechatLoginModalClosePairingAria}" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--border-color, #ccc);border-radius:999px;background:var(--button-secondary-bg, #f3f4f6);color:var(--button-secondary-text, #111111);cursor:pointer;font-size:20px;line-height:1;">&times;</button>
             </div>
-            <div id="${statusId}" style="margin-bottom:12px;font-size:14px;color:var(--text-color, #4d4d4d);">Starting WeChat login...</div>
+            <div id="${statusId}" style="margin-bottom:12px;font-size:14px;color:var(--text-color, #4d4d4d);">${wechatLoginModalStartingStatus}</div>
             <div id="${qrContainerId}" style="text-align:center;margin-bottom:12px;min-height:240px;display:flex;align-items:center;justify-content:center;background:var(--button-secondary-bg, #f8f8f8);border-radius:12px;padding:12px;">
-                <div style="color:var(--disabled-color, #777);font-size:13px;">Waiting for QR code...</div>
+                <div style="color:var(--disabled-color, #777);font-size:13px;">${wechatLoginModalWaitingForQRCode}</div>
             </div>
-            <div id="wx-qr-note" style="font-size:13px;color:var(--text-color, #4d4d4d);margin-bottom:16px;">Scan the QR in the WeChat app to continue.</div>
-            <button id="${closeButtonId}" style="width:100%;padding:10px;background:var(--button-bg, #4CAF50);color:var(--button-text, #ffffff);border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Close</button>
+            <div id="wx-qr-note" style="font-size:13px;color:var(--text-color, #4d4d4d);margin-bottom:16px;">${wechatLoginModalNote}</div>
+            <button id="${closeButtonId}" style="width:100%;padding:10px;background:var(--button-bg, #4CAF50);color:var(--button-text, #ffffff);border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">${wechatLoginModalCloseButton}</button>
         `;
 
         if (!document.body.contains(modal)) {
