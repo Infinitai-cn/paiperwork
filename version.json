@@ -1,10 +1,10 @@
 {
-    "version": "1.2.9",
-    "releaseDate": "2026-05-21",
+    "version": "1.3.0",
+    "releaseDate": "2026-05-22",
     "notes": [
         "<p><strong>What's new:</strong></p>",
-        "<p>- New Campaign Studio Tab, Bob will coach and help you with your marketing strategy and create a presentation, poster and mini app.</p>",
-        "<p>- Mini app: system prompt enhancement</p>", 
+        "<p>- Added Hindi language support to Paiperwork.</p>",
+        "<p>- Fixed missing localized translations</p>", 
         "<p>Bug fixes</p>"
     ],
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",

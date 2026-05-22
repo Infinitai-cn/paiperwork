@@ -321,7 +321,7 @@ If unsure, choose "chat".
                         <button id="whatsapp-bot-mode-btn" class="connectors-mode-button" title="${Lang.get('whatsappBotModeButtonTitle') || 'Bot mode'}">${Lang.get('whatsappBotModeButton') || 'Bot'}</button>
                     </div>
                     <div class="whatsapp-model-lock-button-container">
-                        <button id="whatsapp-model-lock-btn" class="connectors-mode-button connectors-mode-button-full" title="Lock AI model">Lock AI model</button>
+                        <button id="whatsapp-model-lock-btn" class="connectors-mode-button connectors-mode-button-full" title="${Lang.get('whatsappModelLockButtonTitle') || 'Lock AI model'}">${Lang.get('whatsappModelLockButton') || 'Lock AI model'}</button>
                     </div>
                     <div class="whatsapp-clear-contexts-button-container" style="margin-top:12px;">
                         <button id="whatsapp-clear-contexts-btn" class="connectors-mode-button connectors-mode-button-full connectors-mode-button-neutral" title="Clear WhatsApp Contexts">Clear WhatsApp Contexts</button>
@@ -339,13 +339,13 @@ If unsure, choose "chat".
                         <button id="wechat-pair-btn" class="connectors-whatsapp-button connectors-wechat-button" title="${Lang.get('startWechatServerButton') || 'Start server'}">${Lang.get('startWechatServerButton') || 'Start server'}</button>
                     </div>
                     <div class="wechat-model-lock-button-container">
-                        <button id="wechat-model-lock-btn" class="connectors-mode-button connectors-mode-button-full" title="Lock AI model">Lock AI model</button>
+                        <button id="wechat-model-lock-btn" class="connectors-mode-button connectors-mode-button-full" title="${Lang.get('wechatModelLockButtonTitle') || 'Lock AI model'}">${Lang.get('wechatModelLockButton') || 'Lock AI model'}</button>
                     </div>
                     <div class="wechat-clear-contexts-button-container" style="margin-top:12px;">
-                        <button id="wechat-clear-contexts-btn" class="connectors-mode-button connectors-mode-button-full connectors-mode-button-neutral" title="Clear WeChat Contexts">Clear WeChat Contexts</button>
+                        <button id="wechat-clear-contexts-btn" class="connectors-mode-button connectors-mode-button-full connectors-mode-button-neutral" title="${Lang.get('wechatClearContextsButton') || 'Clear WeChat Contexts'}">${Lang.get('wechatClearContextsButton') || 'Clear WeChat Contexts'}</button>
                     </div>
                     <div class="wechat-delete-all-devices-button-container" style="margin-top:12px;">
-                        <button id="wechat-delete-all-paired-btn" class="connectors-mode-button connectors-mode-button-full connectors-mode-button-neutral" title="Delete paired account(s)">Delete paired account(s)</button>
+                        <button id="wechat-delete-all-paired-btn" class="connectors-mode-button connectors-mode-button-full connectors-mode-button-neutral" title="${Lang.get('wechatDeleteAllPairedButtonTitle') || 'Delete paired account(s)'}">${Lang.get('wechatDeleteAllPairedButton') || 'Delete paired account(s)'}</button>
                     </div>
                 </div>
 
@@ -630,12 +630,12 @@ If unsure, choose "chat".
         let disabled = false;
 
         if (this.wechatServerStopping) {
-            buttonText = 'Stopping the server...';
-            buttonTitle = 'Stopping the server...';
+            buttonText = Lang.get('serverStoppingButton') || 'Stopping the server...';
+            buttonTitle = Lang.get('serverStoppingButton') || 'Stopping the server...';
             disabled = true;
         } else if (this.wechatServerStarted) {
-            buttonText = 'Stop server';
-            buttonTitle = 'Stop server';
+            buttonText = Lang.get('stopServerButton') || 'Stop server';
+            buttonTitle = Lang.get('stopServerButton') || 'Stop server';
         } else if (this.wechatServerStarting) {
             buttonText = Lang.get('serverStartingButton') || 'Starting server...';
             buttonTitle = buttonText;
@@ -1141,12 +1141,12 @@ If unsure, choose "chat".
             if (!this.wechatLoginSessionId) {
                 throw new Error('missing login session id');
             }
-            this._setWechatLoginModalStatus('Scan the QR code with WeChat to login.');
+            this._setWechatLoginModalStatus(this._getLocalizedText('wechatLoginStatusScanQr', 'Scan the QR code with WeChat to login.'));
             await this._refreshWechatLoginQr();
             this._startWechatLoginStatusPolling();
         } catch (err) {
             console.warn('ConnectorsTab: WeChat login flow failed', err);
-            this._setWechatLoginModalStatus('Failed to start WeChat login flow. Check logs.');
+            this._setWechatLoginModalStatus(this._getLocalizedText('wechatLoginFlowFailed', 'Failed to start WeChat login flow. Check logs.'));
         }
     }
 
@@ -1185,17 +1185,23 @@ If unsure, choose "chat".
             modal.style.fontFamily = 'var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)';
         }
 
+        const wechatLoginModalTitle = this._getLocalizedText('wechatLoginModalTitle', 'WeChat QR login');
+        const wechatLoginModalClosePairingAria = this._getLocalizedText('wechatLoginModalClosePairingAria', 'Close pairing');
+        const wechatLoginModalWaitingForQr = this._getLocalizedText('wechatLoginModalWaitingForQr', 'Waiting for QR code...');
+        const wechatLoginModalNote = this._getLocalizedText('wechatLoginModalNote', 'Scan the QR in the WeChat app to continue.');
+        const wechatLoginModalCloseButton = this._getLocalizedText('wechatLoginModalCloseButton', this._getLocalizedText('close', 'Close'));
+
         modal.innerHTML = `
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;">
-                <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text-color, #111111);">WeChat QR login</h2>
-                <button id="wx-close-modal-x" type="button" aria-label="Close pairing" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--border-color, #ccc);border-radius:999px;background:var(--button-secondary-bg, #f3f4f6);color:var(--button-secondary-text, #111111);cursor:pointer;font-size:20px;line-height:1;">&times;</button>
+                <h2 style="margin:0;font-size:18px;font-weight:700;color:var(--text-color, #111111);">${this._escapeHtml(wechatLoginModalTitle)}</h2>
+                <button id="wx-close-modal-x" type="button" aria-label="${this._escapeHtml(wechatLoginModalClosePairingAria)}" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--border-color, #ccc);border-radius:999px;background:var(--button-secondary-bg, #f3f4f6);color:var(--button-secondary-text, #111111);cursor:pointer;font-size:20px;line-height:1;">&times;</button>
             </div>
-            <div id="wx-status" style="margin-bottom:12px;font-size:14px;color:var(--text-color, #4d4d4d);">Starting WeChat login...</div>
+            <div id="wx-status" style="margin-bottom:12px;font-size:14px;color:var(--text-color, #4d4d4d);">${this._escapeHtml(this._getLocalizedText('wechatLoginModalStartingStatus', 'Starting WeChat login...'))}</div>
             <div id="wx-qr-container" style="text-align:center;margin-bottom:12px;min-height:240px;display:flex;align-items:center;justify-content:center;background:var(--button-secondary-bg, #f8f8f8);border-radius:12px;padding:12px;">
-                <div style="color:var(--disabled-color, #777);font-size:13px;">Waiting for QR code...</div>
+                <div style="color:var(--disabled-color, #777);font-size:13px;">${this._escapeHtml(wechatLoginModalWaitingForQr)}</div>
             </div>
-            <div id="wx-qr-note" style="font-size:13px;color:var(--text-color, #4d4d4d);margin-bottom:16px;">Scan the QR in the WeChat app to continue.</div>
-            <button id="wx-close-modal" style="width:100%;padding:10px;background:var(--button-bg, #4CAF50);color:var(--button-text, #ffffff);border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Close</button>
+            <div id="wx-qr-note" style="font-size:13px;color:var(--text-color, #4d4d4d);margin-bottom:16px;">${this._escapeHtml(wechatLoginModalNote)}</div>
+            <button id="wx-close-modal" style="width:100%;padding:10px;background:var(--button-bg, #4CAF50);color:var(--button-text, #ffffff);border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">${this._escapeHtml(wechatLoginModalCloseButton)}</button>
         `;
 
         if (!document.body.contains(modal)) {
@@ -1300,12 +1306,12 @@ If unsure, choose "chat".
             //console.info('ConnectorsTab: WeChat login status response', data);
             const statusText = String(data.status || '').trim();
             if (data.error) {
-                this._setWechatLoginModalStatus('WeChat login error: ' + data.error);
+                this._setWechatLoginModalStatus(this._getLocalizedText('wechatLoginModalErrorStatus', 'WeChat login error: ') + data.error);
                 this._stopWechatLoginFlow();
                 return;
             }
             if (statusText && statusText !== this.wechatLoginCurrentStatus) {
-                this._setWechatLoginModalStatus('Login status: ' + statusText.replace(/_/g, ' '));
+                this._setWechatLoginModalStatus(this._getLocalizedText('wechatLoginModalStatusPrefix', 'Login status: ') + statusText.replace(/_/g, ' '));
             }
             const accountId = String(data.account_id || data.ilink_bot_id || data.ilinkBotId || '').trim();
             const loginToken = String(data.bot_token || data.token || data.botToken || '').trim();
@@ -2276,16 +2282,16 @@ If unsure, choose "chat".
         }
 
         if (this.serverStopping) {
-            this.whatsappButton.textContent = 'Stopping the server...';
-            this.whatsappButton.title = 'Stopping the server...';
+            this.whatsappButton.textContent = Lang.get('serverStoppingButton') || 'Stopping the server...';
+            this.whatsappButton.title = Lang.get('serverStoppingButton') || 'Stopping the server...';
             this.whatsappButton.disabled = true;
         } else if (this.serverStarted) {
-            this.whatsappButton.textContent = 'Stop server';
-            this.whatsappButton.title = 'Stop server';
+            this.whatsappButton.textContent = Lang.get('stopServerButton') || 'Stop server';
+            this.whatsappButton.title = Lang.get('stopServerButton') || 'Stop server';
             this.whatsappButton.disabled = false;
         } else if (this._isWhatsappRestartBlocked()) {
-            this.whatsappButton.textContent = 'Please wait...';
-            this.whatsappButton.title = 'Please wait before starting the server again';
+            this.whatsappButton.textContent = Lang.get('whatsappPleaseWaitButton') || 'Please wait...';
+            this.whatsappButton.title = Lang.get('whatsappPleaseWaitBeforeStartTitle') || 'Please wait before starting the server again';
             this.whatsappButton.disabled = true;
         } else if (this.serverStarting) {
             this.whatsappButton.textContent = Lang.get('serverStartingButton') || 'Starting server...';
@@ -2316,9 +2322,9 @@ If unsure, choose "chat".
             this.whatsappDeleteAllPairedButton.disabled = deleteAllDisabled;
             this.whatsappDeleteAllPairedButton.textContent = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedButton')) || 'Delete paired device(s)';
             if (this.serverStarted && !this.serverStarting && !this.serverStopping) {
-                this.whatsappDeleteAllPairedButton.title = 'Stop the WhatsApp server before deleting paired device(s)';
+                this.whatsappDeleteAllPairedButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappStopServerBeforeDeletingTitle')) || 'Stop the WhatsApp server before deleting paired device(s)';
             } else if (this._isWhatsappRestartBlocked()) {
-                this.whatsappDeleteAllPairedButton.title = 'Please wait before deleting paired device(s)';
+                this.whatsappDeleteAllPairedButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedWaitTitle')) || 'Please wait before deleting paired device(s)';
             } else {
                 this.whatsappDeleteAllPairedButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappDeleteAllPairedButtonTitle')) || 'Delete paired device(s)';
             }
@@ -2344,11 +2350,11 @@ If unsure, choose "chat".
             this.whatsappClearContextsButton.disabled = clearContextsDisabled;
             this.whatsappClearContextsButton.textContent = (window.Lang && typeof Lang.get === 'function' && Lang.get('clearWhatsappPhoneContextsButton')) || 'Clear WhatsApp Contexts';
             if (this.serverStarted && !this.serverStarting && !this.serverStopping) {
-                this.whatsappClearContextsButton.title = 'Stop the WhatsApp server before clearing WhatsApp contexts';
+                this.whatsappClearContextsButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappStopServerBeforeClearingContextsTitle')) || 'Stop the WhatsApp server before clearing WhatsApp contexts';
             } else if (this._isWhatsappRestartBlocked()) {
-                this.whatsappClearContextsButton.title = 'Please wait before clearing WhatsApp contexts';
+                this.whatsappClearContextsButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('whatsappClearContextsWaitTitle')) || 'Please wait before clearing WhatsApp contexts';
             } else {
-                this.whatsappClearContextsButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('clearWhatsappPhoneContextsButton')) || 'Clear WhatsApp Contexts';
+                this.whatsappClearContextsButton.title = (window.Lang && typeof Lang.get === 'function' && Lang.get('clearWhatsappPhoneContextsButtonTitle')) || 'Clear WhatsApp Contexts';
             }
             if (clearContextsDisabled) {
                 this.whatsappClearContextsButton.style.backgroundColor = 'var(--button-secondary-disabled-bg, #e5e7eb)';
@@ -2497,8 +2503,12 @@ If unsure, choose "chat".
 
         if (this.whatsappModelLockButton) {
             this.whatsappModelLockButton.classList.toggle('active', normalizedLocked);
-            this.whatsappModelLockButton.textContent = normalizedLocked ? 'AI model locked' : 'Lock AI model';
-            this.whatsappModelLockButton.title = normalizedLocked ? 'AI model locked' : 'Lock AI model';
+            this.whatsappModelLockButton.textContent = normalizedLocked
+                ? Lang.get('whatsappModelLockedButton') || 'AI model locked'
+                : Lang.get('whatsappModelLockButton') || 'Lock AI model';
+            this.whatsappModelLockButton.title = normalizedLocked
+                ? Lang.get('whatsappModelLockedButtonTitle') || 'AI model locked'
+                : Lang.get('whatsappModelLockButtonTitle') || 'Lock AI model';
             this.whatsappModelLockButton.setAttribute('aria-pressed', normalizedLocked ? 'true' : 'false');
         }
 
@@ -4372,7 +4382,7 @@ If unsure, choose "chat".
         this.setWhatsappModalActivitySpinner(false);
         if (qrLegend) {
             qrLegend.style.display = 'block';
-            qrLegend.innerHTML = 'Scan this QR code in WhatsApp.<br><span style="font-size:12px;color:var(--wa-modal-muted, #6d7784);">Phone: Settings > Linked devices > Link a device</span>';
+            qrLegend.innerHTML = this._getLocalizedText('whatsappLoginModalQrLegend', 'Scan this QR code in WhatsApp.<br><span style="font-size:12px;color:var(--wa-modal-muted, #6d7784);">Phone: Settings > Linked devices > Link a device</span>');
         }
         if (statusDiv) {
             statusDiv.style.fontSize = '14px';
@@ -4403,13 +4413,14 @@ If unsure, choose "chat".
         if (!countdownDiv) return;
 
         if (remainingMs <= 0) {
-            countdownDiv.textContent = 'QR code expired, waiting for refresh...';
+            countdownDiv.textContent = this._getLocalizedText('whatsappQrCodeExpiredMessage', 'QR code expired, waiting for refresh...');
             countdownDiv.style.display = 'block';
             return;
         }
 
         const seconds = Math.max(0, Math.ceil(remainingMs / 1000));
-        countdownDiv.textContent = `QR code valid for ${seconds}s`;
+        const validForTemplate = this._getLocalizedText('whatsappQrCodeValidFor', 'QR code valid for {seconds}s');
+        countdownDiv.textContent = String(validForTemplate).replace('{seconds}', String(seconds));
         countdownDiv.style.display = 'block';
     }
 
@@ -5361,16 +5372,21 @@ If unsure, choose "chat".
             //console.log('ConnectorsTab: wa-pair-modal already exists');
         }
 
+        const whatsappLoginModalTitle = this._getLocalizedText('whatsappLoginModalTitle', 'Pair WhatsApp');
+        const whatsappLoginModalClosePairingAria = this._getLocalizedText('whatsappLoginModalClosePairingAria', 'Close pairing');
+        const whatsappLoginModalStartingText = this._getLocalizedText('whatsappLoginModalStartingStatus', 'Server starting...');
+        const whatsappLoginModalCloseButton = this._getLocalizedText('whatsappLoginModalCloseButton', this._getLocalizedText('close', 'Close'));
+
         // Create modal content
         modal.innerHTML = `
             <div class="wa-pair-modal-content">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px;">
-                    <h2 id="wa-modal-title" style="margin: 0; font-size: 18px; font-weight: 600; color: var(--wa-modal-text, var(--text-color, #111111));">Pair WhatsApp</h2>
-                    <button id="wa-close-modal-x" type="button" aria-label="Close pairing" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--wa-modal-close-x-border, var(--border-color, #ccc));border-radius:999px;background:var(--wa-modal-close-x-bg, var(--panel-background, #f3f4f6));color:var(--wa-modal-close-x-text, var(--text-color, #111111));cursor:pointer;font-size:20px;line-height:1;transition:background-color 0.2s ease,border-color 0.2s ease,color 0.2s ease;">&times;</button>
+                    <h2 id="wa-modal-title" style="margin: 0; font-size: 18px; font-weight: 600; color: var(--wa-modal-text, var(--text-color, #111111));">${this._escapeHtml(whatsappLoginModalTitle)}</h2>
+                    <button id="wa-close-modal-x" type="button" aria-label="${this._escapeHtml(whatsappLoginModalClosePairingAria)}" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--wa-modal-close-x-border, var(--border-color, #ccc));border-radius:999px;background:var(--wa-modal-close-x-bg, var(--panel-background, #f3f4f6));color:var(--wa-modal-close-x-text, var(--text-color, #111111));cursor:pointer;font-size:20px;line-height:1;transition:background-color 0.2s ease,border-color 0.2s ease,color 0.2s ease;">&times;</button>
                 </div>
                 <div id="wa-start-status" style="display: none; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: #0b74de; margin-bottom: 8px;">
                     <div class="wa-loading-spinner" style="width: 16px; height: 16px; border: 3px solid var(--wa-modal-spinner-track, #c4c4c4); border-top-color: var(--wa-modal-spinner-accent, #0b74de); border-top-left-radius: 50%; border-radius: 50%; margin: 0; animation: wa-spin 0.9s linear infinite;"></div>
-                    <span id="wa-start-status-text">Server starting...</span>
+                    <span id="wa-start-status-text">${this._escapeHtml(whatsappLoginModalStartingText)}</span>
                 </div>
                 <div id="wa-qr-container" style="text-align: center; margin-top: 16px; margin-bottom: 16px; background: var(--wa-modal-qr-surface, transparent); border-radius: 12px; padding: 12px;"></div>
                 <div id="wa-qr-legend" style="text-align: center; font-size: 13px; color: var(--wa-modal-status-color, #4d4d4d); margin-top: 4px; margin-bottom: 8px; display: none;"></div>
@@ -5381,7 +5397,7 @@ If unsure, choose "chat".
                 <div id="wa-session-restore-status" style="text-align: center; font-size: 12px; color: var(--wa-modal-muted, #7a7a7a); margin-top: 6px; min-height: 16px; display: none;"></div>
                 <div id="wa-qr-countdown" style="text-align: center; font-size: 13px; color: var(--wa-modal-status-color, #4d4d4d); margin-top: 6px; min-height: 18px; display: none;"></div>
                 <div id="wa-qr-refresh-note" style="text-align: center; font-size: 13px; color: var(--wa-modal-link, #007bff); margin-top: 8px; min-height: 18px; visibility: hidden; opacity: 0; transition: opacity 0.25s;"></div>
-                <button id="wa-close-modal" style="margin-top: 18px; width: 100%; padding: 10px; background: var(--wa-modal-close-btn-bg, #4CAF50); color: var(--wa-modal-close-btn-text, #ffffff); border: 1px solid transparent; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; box-shadow: var(--wa-modal-shadow, 0 4px 20px rgba(0,0,0,0.15));">Close</button>
+                <button id="wa-close-modal" style="margin-top: 18px; width: 100%; padding: 10px; background: var(--wa-modal-close-btn-bg, #4CAF50); color: var(--wa-modal-close-btn-text, #ffffff); border: 1px solid transparent; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; box-shadow: var(--wa-modal-shadow, 0 4px 20px rgba(0,0,0,0.15));">${this._escapeHtml(whatsappLoginModalCloseButton)}</button>
             </div>
         `;
 

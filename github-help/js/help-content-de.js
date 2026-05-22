@@ -3136,7 +3136,7 @@ window.helpContent = {
                     <li><code>ändere das aktuelle modell zu &lt;modellname&gt;</code></li>
                     <li><code>nutze &lt;modellname&gt;</code></li>
                 </ul>
-                <p>Wenn WhatsApp keine Modelle wechseln soll, aktivieren Sie im Verbindungen-Tab <strong>Lock AI model</strong>.</p>
+                <p>Wenn WhatsApp keine Modelle wechseln soll, aktivieren Sie im Verbindungen-Tab <strong>KI-Modell sperren</strong>.</p>
                 <p>Im Chat können Sie wie gewohnt mit Ihrem KI-Modell über WhatsApp sprechen. Wenn Sie aktuelle Web-Ergebnisse benötigen, wechseln Sie in den <strong>Internetmodus</strong>. Wenn eine Antwort HTML enthält, sendet Paiperwork sie als anklickbare HTML-Datei zur Vorschau oder zum Download zurück.</p>
                 <h4>Chat-Beispiele</h4>
                 <ul>
