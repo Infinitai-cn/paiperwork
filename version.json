@@ -5,7 +5,7 @@
         "<p><strong>What's new:</strong></p>",
         "<p>- Added Hindi language support to Paiperwork.</p>",
         "<p>- Fixed missing localized translations</p>", 
-        "<p>Bug fixes</p>"
+        "<p>- Bug fixes</p>"
     ],
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
     "requiredUpdate": false
