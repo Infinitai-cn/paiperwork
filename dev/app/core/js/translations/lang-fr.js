@@ -386,6 +386,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
 
         // Model Management
         selectModel: "Sélectionner un modèle...",
+        chatModelSelectorHint: "Sélectionnez un modèle pour commencer à utiliser Paiperwork",
         modelDeleted: "Notice : Le modèle précédemment sélectionné \"{model}\" a été supprimé. Veuillez sélectionner un nouveau modèle.",
         chatSavedModelMissingWarning: "Le modèle précédemment sélectionné \"{model}\" n'est plus disponible. Veuillez sélectionner un modèle dans l'onglet Chat.",
         selectModelPrompt: "Veuillez sélectionner un modèle avant d'envoyer un message.",

@@ -447,6 +447,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
 
         // Model Management
         selectModel: "Select a model...",
+        chatModelSelectorHint: "Select a model to start using Paiperwork",
         modelDeleted: "Notice: The previously selected model \"{model}\" has been deleted. Please select a new model.",
         chatSavedModelMissingWarning: "The previously selected model \"{model}\" is no longer available. Please select a model in the Chat tab.",
         selectModelPrompt: "Please select a model before sending a message.",

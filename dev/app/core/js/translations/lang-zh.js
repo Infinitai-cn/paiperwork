@@ -386,6 +386,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
 
                 // Model Management
                 selectModel: "选择模型...",
+                chatModelSelectorHint: "请选择一个模型以开始使用 Paiperwork",
                 modelDeleted: "注意：之前选择的模型 \"{model}\" 已被删除。请选择新模型。",
                 chatSavedModelMissingWarning: "之前选择的模型 \"{model}\" 已不可用。请在聊天标签页中选择一个模型。",
                 selectModelPrompt: "发送消息前请选择模型。",
