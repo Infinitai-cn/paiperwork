@@ -3704,13 +3704,17 @@ class ChatTab {
 
             // Find the parent panel of the model selector or the chat tab container
             let targetContainer = modelSelector.parentElement;
+            const modelSelectorWrapper = modelSelector.closest('.model-selector-wrapper');
 
             // If the model selector is directly in the chat tab, find a better insertion point
             const chatTab = document.getElementById('chat-tab');
             if (chatTab && chatTab.contains(modelSelector)) {
-                // Insert after the model selector within the chat tab
+                // Insert after the model selector wrapper within the chat tab if present
                 targetContainer = chatTab;
             }
+            // Use the wrapper as the preferred insertion anchor when available
+            const insertionAnchor = modelSelectorWrapper || modelSelector;
+
             // Check if this model supports thinking
             const supportsThinking = window.isThinkingModel && window.isThinkingModel(modelName);
             // Determine base model without quant suffix for special-casing
@@ -3749,7 +3753,7 @@ class ChatTab {
                     min-height: 40px !important;
                     max-height: 40px !important;
                     width: calc(100% - 32px) !important;
-                    margin: 8px 16px !important;
+                    margin: 0 16px 4px !important;
                     border: 1px solid var(--border-color) !important;
                     border-radius: 6px !important;
                     background-color: var(--button-bg, #f3f4f6) !important;
@@ -3942,14 +3946,14 @@ class ChatTab {
 
                         // Insert reasoning selector before the thinking button
                         if (targetContainer === chatTab) {
-                            const modelSelectorIndex = Array.from(chatTab.children).indexOf(modelSelector);
+                            const modelSelectorIndex = Array.from(chatTab.children).indexOf(insertionAnchor);
                             if (modelSelectorIndex !== -1 && modelSelectorIndex < chatTab.children.length - 1) {
                                 chatTab.insertBefore(reasoningSelector, chatTab.children[modelSelectorIndex + 1]);
                             } else {
-                                modelSelector.insertAdjacentElement('afterend', reasoningSelector);
+                                insertionAnchor.insertAdjacentElement('afterend', reasoningSelector);
                             }
                         } else {
-                            modelSelector.insertAdjacentElement('afterend', reasoningSelector);
+                            insertionAnchor.insertAdjacentElement('afterend', reasoningSelector);
                         }
                     } else {
                         // ensure visible
@@ -3959,18 +3963,18 @@ class ChatTab {
 
                 // Find the correct insertion point
                 if (targetContainer === chatTab) {
-                    // Insert after the model selector
-                    const modelSelectorIndex = Array.from(chatTab.children).indexOf(modelSelector);
+                    // Insert after the model selector wrapper or selector
+                    const modelSelectorIndex = Array.from(chatTab.children).indexOf(insertionAnchor);
                     if (modelSelectorIndex !== -1 && modelSelectorIndex < chatTab.children.length - 1) {
-                        // Insert after model selector
+                        // Insert after wrapper/selector
                         chatTab.insertBefore(thinkingButton, chatTab.children[modelSelectorIndex + 1]);
                     } else {
-                        // Insert after model selector (at the end if it's the last child)
-                        modelSelector.insertAdjacentElement('afterend', thinkingButton);
+                        // Insert after wrapper/selector (at the end if it's the last child)
+                        insertionAnchor.insertAdjacentElement('afterend', thinkingButton);
                     }
                 } else {
                     // Insert after model selector in its parent container
-                    modelSelector.insertAdjacentElement('afterend', thinkingButton);
+                    insertionAnchor.insertAdjacentElement('afterend', thinkingButton);
                 }
 
                //console.log('🧠 ChatTab: Thinking toggle button added to DOM after model selector');
