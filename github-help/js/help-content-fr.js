@@ -3131,7 +3131,7 @@ window.helpContent = {
                     <li><code>changer le modèle actuel pour &lt;nom du modèle&gt;</code></li>
                     <li><code>utiliser le modèle &lt;nom du modèle&gt;</code></li>
                 </ul>
-                <p>Si vous ne voulez pas autoriser le changement de modèle depuis WhatsApp, activez <strong>Lock AI model</strong> dans l'onglet Connecteurs.</p>
+                <p>Si vous ne voulez pas autoriser le changement de modèle depuis WhatsApp, activez <strong>Verrouiller le modèle IA</strong> dans l'onglet Connecteurs.</p>
                 <p>Le chat vous permet d'échanger normalement avec votre modèle d'IA depuis WhatsApp. Lorsque vous avez besoin de résultats web en direct, passez en <strong>mode Internet</strong>. Si une réponse contient du HTML, Paiperwork la renvoie comme fichier HTML cliquable pour aperçu ou téléchargement.</p>
                 <h4>Exemples d'utilisation du chat</h4>
                 <ul>
