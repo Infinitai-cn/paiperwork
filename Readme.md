@@ -4,6 +4,8 @@
 
 Paiperwork is a local-first AI Javascript Desktop application (not intended for phone use) that transforms how you work with documents, data, and knowledge. Built with a Go backend server and modern JavaScript frontend, it provides a comprehensive suite of AI-powered tools while keeping all your data secure and private on your local machine.
 
+**Token-Efficient Workflows** - Paiperwork is designed for the new token economy: all workflows are deterministic, and only input/output data is counted as tokens. There is no cron scheduling, no memory files, and no inference loops, so it avoids hidden token usage and stays efficient by default.
+
 ![Paiperwork app screenshot](github-help/images/Paiperwork-chat.png)
 
 ## Demo Videos
@@ -128,7 +130,6 @@ Want to contribute or build from source? Check out our [**Developer Guide**](dev
 - **Code Preview** - See generated HTML code in action
 - **Presentations** - Build slide decks from campaign briefs, visual assets, or research summaries with structured layouts and mobile-friendly formatting
 - **Artifacts** - Generate visual artifacts such as mini-apps, posters, and interactive content from a single source of campaign truth
-- **Connectors** - Route WhatsApp and WeChat conversations into AI workflows, including research, document checks, and artifact generation
 - **Campaign** - Orchestrate campaign strategy with an AI-guided brief before generating coordinated outputs across multiple formats
 
 ## Model Management
@@ -142,6 +143,7 @@ Want to contribute or build from source? Check out our [**Developer Guide**](dev
 - **Optimization Tools** - Clean and maintain your local database
 - **Multilingual Interface** - Select your preferred language for the application
 - **Performance Controls** - Balance capability and resource usage
+- **Connectors** - Route WhatsApp and WeChat conversations into AI workflows, including research, document checks, and artifact generation
 
 ---
 
