@@ -439,6 +439,11 @@ class CampaignTab {
 			.campaign-send-button { display: inline-flex; align-items: center; justify-content: center; height: 30px; min-height: 30px; max-height: 30px; margin: 0; padding: 0 12px; line-height: 1; font-size: 13px; box-sizing: border-box; appearance: none; -webkit-appearance: none; border: 0; border-radius: 8px; cursor: pointer; font-weight: 700; background: var(--accent-color, #4f46e5); color: var(--accent-text, #ffffff); }
 			.campaign-send-button:disabled { opacity: 0.55; cursor: not-allowed; }
 			.campaign-send-button.cancel-state { background: #dc2626; }
+			.campaign-send-button .campaign-send-progress { display: none; position: relative; width: 22px; height: 4px; min-width: 22px; border-radius: 999px; background: rgba(255,255,255,0.25); overflow: hidden; margin-right: 8px; }
+			.campaign-send-button.is-loading .campaign-send-progress { display: inline-flex; }
+			.campaign-send-button .campaign-send-progress::before { content: ''; position: absolute; inset: 0; width: 120%; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 45%, transparent 100%); transform: translateX(-100%); animation: campaignSendProgress 1s linear infinite; }
+			.campaign-send-button .campaign-send-text { display: inline-block; }
+			@keyframes campaignSendProgress { to { transform: translateX(100%); } }
 			.campaign-uploads-section { margin-top: 2px; }
 			.campaign-upload-picker { display: flex; justify-content: flex-start; }
 			.campaign-upload-trigger { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 14px; border: 0; border-radius: 10px; cursor: pointer; font: inherit; font-weight: 700; background: var(--accent-color, #4f46e5); color: var(--accent-text, #ffffff); }
@@ -600,7 +605,10 @@ class CampaignTab {
 							<div class="campaign-prompt-composer">
 								<textarea id="campaign-prompt-input" class="campaign-prompt-input"></textarea>
 								<div class="campaign-prompt-actions">
-									<button id="campaign-send-button" class="campaign-send-button" type="button"></button>
+									<button id="campaign-send-button" class="campaign-send-button" type="button">
+								<span class="campaign-send-progress" aria-hidden="true"></span>
+								<span class="campaign-send-text"></span>
+							</button>
 								</div>
 							</div>
 							<div class="campaign-uploads-section">
@@ -883,7 +891,12 @@ class CampaignTab {
 
 		const sendButton = this.modalElement.querySelector('#campaign-send-button');
 		if (sendButton) {
-			sendButton.textContent = Lang.get('sendButton') || 'Send';
+			const sendText = sendButton.querySelector('.campaign-send-text');
+			if (sendText) {
+				sendText.textContent = Lang.get('sendButton') || 'Send';
+			} else {
+				sendButton.textContent = Lang.get('sendButton') || 'Send';
+			}
 		}
 
 		const progressCancelButton = this.modalElement.querySelector('#campaign-progress-cancel');
@@ -2366,12 +2379,24 @@ class CampaignTab {
 
 		if (this.state.isWorkflowPending && this.state.pendingWorkflow?.action === 'discuss') {
 			sendButton.disabled = false;
-			sendButton.textContent = Lang.get('cancelButton') || 'Cancel';
+			const sendText = sendButton.querySelector('.campaign-send-text');
+			if (sendText) {
+				sendText.textContent = Lang.get('cancelButton') || 'Cancel';
+			} else {
+				sendButton.textContent = Lang.get('cancelButton') || 'Cancel';
+			}
 			sendButton.classList.add('cancel-state');
+			sendButton.classList.add('is-loading');
 		} else {
 			sendButton.disabled = !String(this.state.draftPrompt || '').trim() || this.state.isWorkflowPending;
-			sendButton.textContent = Lang.get('sendButton') || 'Send';
+			const sendText = sendButton.querySelector('.campaign-send-text');
+			if (sendText) {
+				sendText.textContent = Lang.get('sendButton') || 'Send';
+			} else {
+				sendButton.textContent = Lang.get('sendButton') || 'Send';
+			}
 			sendButton.classList.remove('cancel-state');
+			sendButton.classList.remove('is-loading');
 		}
 	}
 
