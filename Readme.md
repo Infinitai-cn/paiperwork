@@ -126,6 +126,10 @@ Want to contribute or build from source? Check out our [**Developer Guide**](dev
 - **Text Overlay Generator** - Create responsive text overlays for images
 - **Design Rationale Analysis** - Get professional insights into design principles
 - **Code Preview** - See generated HTML code in action
+- **Presentations** - Build slide decks from campaign briefs, visual assets, or research summaries with structured layouts and mobile-friendly formatting
+- **Artifacts** - Generate visual artifacts such as mini-apps, posters, and interactive content from a single source of campaign truth
+- **Connectors** - Route WhatsApp and WeChat conversations into AI workflows, including research, document checks, and artifact generation
+- **Campaign** - Orchestrate campaign strategy with an AI-guided brief before generating coordinated outputs across multiple formats
 
 ## Model Management
 - **Ollama Integration** - Browse, download, and manage AI models
