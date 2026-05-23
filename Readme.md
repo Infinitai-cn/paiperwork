@@ -6,7 +6,12 @@ Paiperwork is a local-first AI Javascript Desktop application (not intended for 
 
 **Token-Efficient Workflows** - Paiperwork is designed for the new token economy: all workflows are deterministic, and only input/output data is counted as tokens. There is no cron scheduling, no memory files, and no inference loops, so it avoids hidden token usage and stays efficient by default.
 
-![Paiperwork app screenshot](github-help/images/Paiperwork-chat.png)
+<p align="center">
+  <img src="github-help/images/Paiperwork-chat.png" alt="Paiperwork app screenshot" width="280" style="margin: 0 8px 12px; border-radius: 12px;" />
+  <img src="github-help/images/Campaign-studio-demo.png" alt="Campaign Studio Demo" width="280" style="margin: 0 8px 12px; border-radius: 12px;" />
+  <img src="github-help/images/Presentations-demo.png" alt="Presentations Demo" width="280" style="margin: 0 8px 12px; border-radius: 12px;" />
+  <img src="github-help/images/Artifacts-demo.png" alt="Artifacts Demo" width="280" style="margin: 0 8px 12px; border-radius: 12px;" />
+</p>
 
 ## Demo Videos
 
