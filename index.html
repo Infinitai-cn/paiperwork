@@ -148,6 +148,7 @@
             padding: 0;
             background: transparent;
             box-shadow: none;
+            align-self: start;
         }
 
         .feature-card.feature-card-image img {
@@ -741,8 +742,8 @@
             // Update language label
             document.querySelector('.language-label').textContent = t.languageLabel;
             
-            // Update feature cards
-            const featureCards = document.querySelectorAll('.feature-card');
+            // Update feature cards (skip the full-width image card)
+            const featureCards = document.querySelectorAll('.feature-card:not(.feature-card-image)');
             const featureKeys = [
                 'tryOnline',
                 'demos',
@@ -761,8 +762,14 @@
             featureCards.forEach((card, index) => {
                 if (featureKeys[index]) {
                     const feature = t.features[featureKeys[index]];
-                    card.querySelector('.feature-title').textContent = feature.title;
-                    card.querySelector('p').textContent = feature.description;
+                    const titleElement = card.querySelector('.feature-title');
+                    const descriptionElement = card.querySelector('p');
+                    if (titleElement) {
+                        titleElement.textContent = feature.title;
+                    }
+                    if (descriptionElement) {
+                        descriptionElement.textContent = feature.description;
+                    }
                 }
             });
             
