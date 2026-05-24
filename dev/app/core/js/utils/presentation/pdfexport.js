@@ -46,7 +46,16 @@ class pdfExport {
                 parseInt(hex.slice(4, 6), 16)
             ];
         }
-
+        // 8-digit hex: #RRGGBBAA — extract RGB, ignore alpha (PDF text is opaque)
+        if (/^#([0-9a-f]{8})$/.test(color)) {
+            const hex = color.slice(1);
+            return [
+                parseInt(hex.slice(0, 2), 16),
+                parseInt(hex.slice(2, 4), 16),
+                parseInt(hex.slice(4, 6), 16)
+                 // hex.slice(6, 8) is the alpha channel — ignored for PDF text
+            ];
+         }
         const rgbMatch = color.match(/^rgba?\(([^)]+)\)$/);
         if (rgbMatch) {
             const parts = rgbMatch[1].split(',').map(part => Number(part.trim()));
