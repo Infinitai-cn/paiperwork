@@ -1536,7 +1536,7 @@ class ArtworksTab {
             }
             
             .artwork-generate-btn:hover:not([disabled]) {
-                background-color: var(--accent-color-dark, #3c35b5);
+                background-color: var(--accent-color-hover, #3c35b5);
                 transform: translateY(-2px);
                 box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             }

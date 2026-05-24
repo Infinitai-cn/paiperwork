@@ -191,7 +191,7 @@ class DataVizTab {
                 color: white !important;
                 transform: translateY(-3px);
                 box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
-                border-color: #4f46e5 !important;
+                border-color: #b06629!important;
             }
             
             .dataviz-button.active {

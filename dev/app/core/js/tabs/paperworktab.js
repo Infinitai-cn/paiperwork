@@ -277,14 +277,14 @@ class PaperworkTab {
             color: white !important;
             transform: translateY(-3px);
             box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
-            border-color: #4f46e5 !important;
+            border-color: #b06629!important;
         }
                 #paperwork-tab .paperwork-button:hover {
             background-color: var(--preview-button-hover)  !important; /* Same purple color as DataViz */
             color: white !important;
             transform: translateY(-3px);
             box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
-            border-color: #4f46e5 !important;
+            border-color: #b06629!important;
         }
         .paperwork-button.active {
             background-color: var(--primary-color, #4f46e5);

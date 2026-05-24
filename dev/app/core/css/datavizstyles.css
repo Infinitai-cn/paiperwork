@@ -59,15 +59,15 @@
 
 /* Improved hover and active states - using app theme variables */
 .dataviz-button:hover {
-    background-color: var(--preview-button-hover, #4f46e5) !important;
+    background-color: var(--preview-button-hover, #b06629) !important;
     color: white !important;
     transform: translateY(-3px);
     box-shadow: 0 5px 15px rgba(79, 70, 229, 0.3);
-    border-color: #4f46e5 !important;
+    border-color: #b06629 !important;
 }
 
 .dataviz-button.active {
-    background-color: var(--primary-color, #4f46e5);
+    background-color: var(--primary-color, #b06629);
     color: white;
     transform: scale(0.98);
     box-shadow: 0 1px 4px rgba(0,0,0,0.1) inset;
