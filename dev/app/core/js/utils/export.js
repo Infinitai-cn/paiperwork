@@ -1835,7 +1835,7 @@ class Export {
         // Copy styles from delete button but change color
         exportButton.style.cssText = deleteButton.style.cssText;
         exportButton.style.marginBottom = '10px';
-        exportButton.style.backgroundColor = '#4f46e5'; // Use accent color instead of delete button red
+        exportButton.style.backgroundColor = 'var(--accent-color, #4f46e5)'; // Use accent color instead of delete button red
 
         // Insert before delete button
         deleteButton.parentNode.insertBefore(exportButton, deleteButton);

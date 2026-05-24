@@ -344,9 +344,9 @@ class CampaignTab {
 			.campaign-tab-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--heading-color, var(--text-color, #0f172a)); }
 			.campaign-tab-copy { margin: 8px 0 0; color: var(--label-color, var(--text-color, #475569)); line-height: 1.5; max-width: 860px; }
 			.campaign-open-button, .campaign-action-button, .campaign-modal-close { border: 0; border-radius: 999px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
-			.campaign-open-button { min-width: 220px; min-height: 54px; margin-top: 2px; justify-self: center; align-self: center; padding: 14px 24px; border: none; border-radius: 12px; background: linear-gradient(135deg, #0f766e 0%, #0d9488 52%, #155e75 100%); color: #ffffff; font-size: 16px; font-weight: 700; letter-spacing: 0.2px; box-shadow: 0 12px 24px rgba(13, 148, 136, 0.28); transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease; }
-			.campaign-open-button:hover { transform: translateY(-1px); box-shadow: 0 16px 28px rgba(13, 148, 136, 0.34); filter: brightness(1.03); }
-			.campaign-open-button:focus-visible { outline: 2px solid var(--accent-color, #4f46e5); outline-offset: 3px; }
+			.campaign-open-button { min-width: 220px; min-height: 54px; margin-top: 2px; justify-self: center; align-self: center; padding: 14px 24px; border: none; border-radius: 12px; background: linear-gradient(135deg, var(--accent-color, #b06629) 0%, var(--accent-color-hover, #76441b) 100%); color: #ffffff; font-size: 16px; font-weight: 700; letter-spacing: 0.2px; box-shadow: 0 12px 24px rgba(118, 68, 27, 0.28); transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease; }
+			.campaign-open-button:hover { transform: translateY(-1px); box-shadow: 0 16px 28px rgba(118, 68, 27, 0.34); filter: brightness(1.03); }
+			.campaign-open-button:focus-visible { outline: 2px solid var(--accent-color, #b06629); outline-offset: 3px; }
 			.campaign-action-button.primary { background: linear-gradient(135deg, #0f766e, #155e75); color: #fff; }
 			.campaign-action-button { background: var(--button-secondary-bg, #e2e8f0); color: var(--button-secondary-text, #0f172a); }
 			.campaign-action-button:disabled { opacity: 0.55; cursor: not-allowed; }

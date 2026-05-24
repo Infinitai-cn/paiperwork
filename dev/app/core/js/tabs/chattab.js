@@ -5685,7 +5685,7 @@ class ChatTab {
 
             exportButton.style.cssText = deleteButton.style.cssText;
             exportButton.style.marginBottom = '10px';
-            exportButton.style.backgroundColor = '#4f46e5';
+            exportButton.style.backgroundColor = 'var(--accent-color, #4f46e5)';
 
             deleteButton.parentNode.insertBefore(exportButton, deleteButton);
 

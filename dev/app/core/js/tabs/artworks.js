@@ -377,7 +377,7 @@ class Artworks {
         }
         
         .artwork-generate-btn:hover {
-            background-color: var(--accent-hover-color, #4338ca);
+            background-color: var(--accent-color-hover, #4338ca);
         }
         
         .artwork-generate-btn:disabled {

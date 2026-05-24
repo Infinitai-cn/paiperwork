@@ -997,7 +997,7 @@ class DataViz {
             const exportButton = document.createElement('button');
             exportButton.innerHTML = Lang.get('datavizExportPNG');
             exportButton.className = 'export-button';
-            exportButton.style.background = '#4f46e5';
+            exportButton.style.background = '#b06629';
             exportButton.style.color = 'white';
             exportButton.style.border = 'none';
             exportButton.style.borderRadius = '4px';
