@@ -23,6 +23,7 @@ window.VISUAL_MODELS = [
     'qwen3:30b-a3b-thinking-2507',
     'qwen3.6:35b-a3b-q8_0',
     'qwen3.6:35b-a3b-coding-nvfp4',
+    'qwen3.6:35b-mlx',
     'gemma4:26b-a4b-it-q8_0',
     'gemma4:31b',
     'qwen3-vl:235b-instruct',
@@ -31,7 +32,6 @@ window.VISUAL_MODELS = [
     'ministral-3:3b',
     'ministral-3:8b',
     'ministral-3:14b',
-    'gemini-3-flash-preview',
     'mistral-large-3:675b',
     'qwen3-vl:235b',
 ];
