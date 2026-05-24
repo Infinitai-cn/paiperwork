@@ -76,8 +76,8 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
 
         // ===== INDEX.HTML (PT) =====
         indexPageTitle: "Paiperwork - Interface IA Javascript Local",
-        mainHeading: "Interface WebUi Javascript Segura para Ollama",
-        indexIntroHeading: "Converse com IA, extraia informações dos seus documentos, crie apresentações, miniapps, cartazes e muito mais...",
+        mainHeading: "Construído para a economia token, eficiente, rápido, seguro",
+        indexIntroHeading: "Deixe o trabalho de papel no escritório, o trabalho termina aqui",
         indexIntroSubtitle: "Controle remoto por Whatsapp e Wechat habilitado.",
         indexIntroSubtitleHosted: "Controle remoto a partir do WhatsApp e WeChat habilitado na versão instalada localmente.",
         indexDemosTitle: "Demos",
@@ -85,7 +85,7 @@ if (typeof window.portugueseTranslationsLoaded === 'undefined') {
         indexVideosTitle: "Vídeos",
         indexVideosDescription: "Veja vídeos do Paiperwork em ação para descobrir alguns dos seus recursos.",
         requirementsHeading: "Requisitos:",
-        requirementsText: "deve estar instalado e rodando localmente na porta (padrão) 11434, certifique-se de ter atualizado para a versão mais recente.",
+        requirementsText: "Se você quiser usar modelos locais, %OLLAMA% deve estar instalado e rodando localmente na porta (padrão) 11434, certifique-se de ter atualizado para a versão mais recente.",
         ollamaLinkText: "Ollama",
         startButtonIndex: "Iniciar",
         languageSelectorLabel: "Idioma:",

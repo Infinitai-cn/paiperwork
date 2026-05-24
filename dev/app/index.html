@@ -216,12 +216,12 @@
         // Update main heading
         const mainHeading = document.querySelector('h1');
         if (mainHeading) {
-            mainHeading.textContent = Lang.get('mainHeading') || 'Secure WebUi Interface for Ollama';
+            mainHeading.textContent = Lang.get('mainHeading') || 'Built for the token economy, efficient, fast, secure';
         }
 
         const introHeading = document.getElementById('index-intro-heading');
         if (introHeading) {
-            introHeading.textContent = Lang.get('indexIntroHeading') || 'Chat with Ai, extract information from your documents, create presentations, miniapps, posters and much more...';
+            introHeading.textContent = Lang.get('indexIntroHeading') || 'Leave the paperwork at the office, Work ends here';
         }
 
         const introSubtitle = document.getElementById('index-intro-subtitle');
@@ -245,9 +245,10 @@
             if (isHostedMode()) {
                 requirementsText.innerHTML = getHostedRequirementsText(Lang.getCurrentLanguage());
             } else {
-                const translatedText = Lang.get('requirementsText') || 'must be installed and running locally on its (default) port 11434, make sure you have updated to the latest version.';
+                const translatedText = Lang.get('requirementsText') || 'If you want to use local models, %OLLAMA% must be installed and running locally on its (default) port 11434, make sure you have updated to the latest version.';
                 const ollamaLinkText = Lang.get('ollamaLinkText') || 'Ollama';
-                requirementsText.innerHTML = `<a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">${ollamaLinkText}</a> ${translatedText}`;
+                const linkedOllama = `<a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">${ollamaLinkText}</a>`;
+                requirementsText.innerHTML = translatedText.replace('%OLLAMA%', linkedOllama);
             }
         }
         
@@ -288,9 +289,9 @@
 <body>
     <div class="landing-container">
         <img id="logo" class="logo" alt="Paiperwork Logo">
-        <h1>Secure WebUi Interface for Ollama</h1>
+        <h1>Built for the token economy, efficient, fast, secure</h1>
         <div class="intro-copy">
-            <h2 id="index-intro-heading">Chat with Ai, extract information from your documents, create presentations, miniapps, posters and much more...</h2>
+            <h2 id="index-intro-heading">Leave the paperwork at the office, Work ends here</h2>
             <p id="index-intro-subtitle">Whatsapp and Wechat remote control enabled.</p>
         </div>
         
@@ -298,7 +299,7 @@
             <div class="center-content">
                 <div class="requirements">
                     <h2>Requirements:</h2>
-                    <p><a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">Ollama</a> must be installed and running locally on it's (default) port 11434, make sure you have updated to the latest version.</p>
+                    <p>If you want to use local models, <a href="https://ollama.com" target="_blank" style="color: var(--link-color, #0078d4); text-decoration: underline;">Ollama</a> must be installed and running locally on its (default) port 11434, make sure you have updated to the latest version.</p>
                 </div>
 
                 <button onclick="window.location.href='welcome.html'" class="run-local-button">Start</button>

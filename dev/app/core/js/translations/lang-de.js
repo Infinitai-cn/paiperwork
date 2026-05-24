@@ -68,8 +68,8 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
 
         // ===== INDEX.HTML (DE) =====
         indexPageTitle: "Paiperwork - Lokale Javascript KI-Schnittstelle",
-        mainHeading: "Sichere Javascript WebUi-Schnittstelle für Ollama",
-        indexIntroHeading: "Chatten Sie mit KI, extrahieren Sie Informationen aus Ihren Dokumenten, erstellen Sie Präsentationen, Miniapps, poster und vieles mehr...",
+        mainHeading: "Gebaut für die Token-Ökonomie, effizient, schnell, sicher",
+        indexIntroHeading: "Lass die Bürokratie im Büro, hier endet die Arbeit",
         indexIntroSubtitle: "Fernsteuerung über Whatsapp und Wechat aktiviert.",
         indexIntroSubtitleHosted: "Fernsteuerung von WhatsApp und WeChat in der lokal installierten Version aktiviert.",
         indexDemosTitle: "Demos",
@@ -77,7 +77,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         indexVideosTitle: "Videos",
         indexVideosDescription: "Sehen Sie sich Videos von Paiperwork in Aktion an, um einige seiner Funktionen zu entdecken.",
         requirementsHeading: "Anforderungen:",
-        requirementsText: "muss lokal auf dem (Standard-)Port 11434 installiert und ausgeführt werden, stellen Sie sicher, dass Sie auf die neueste Version aktualisiert haben.",
+        requirementsText: "Wenn Sie lokale Modelle verwenden möchten, muss %OLLAMA% lokal auf seinem (Standard-)Port 11434 installiert und ausgeführt werden, stellen Sie sicher, dass Sie auf die neueste Version aktualisiert haben.",
         ollamaLinkText: "Ollama",
         startButtonIndex: "Starten",
         languageSelectorLabel: "Sprache:",
