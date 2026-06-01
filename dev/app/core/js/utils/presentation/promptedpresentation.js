@@ -1966,9 +1966,7 @@ class PromptedPresentationWorkflow {
 			}
 		}
 
-		const options = { ...(baseOptions || {}) };
-
-		return { routing, options };
+		return { routing };
 	}
 
 	static buildArtisticPresentationSystemPrompt() {
