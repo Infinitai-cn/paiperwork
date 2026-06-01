@@ -355,6 +355,9 @@ class ArtifactsWindow {
 		}
 
 		const options = { ...(baseOptions || {}) };
+		if (routing && routing.source === 'cloud' && Object.prototype.hasOwnProperty.call(options, 'num_ctx')) {
+			delete options.num_ctx;
+		}
 		return { routing, options };
 	}
 
@@ -1953,7 +1956,7 @@ class ArtifactsWindow {
 		};
 	}
 
-	static async streamArtifactHtml(userPrompt = '', abortSignal = null, onDelta = null) {
+	static async streamArtifactHtml(userPrompt = '', abortSignal = null, onDelta = null, includeContext = true) {
 		const model = this.ensureChatModelSelectedForGeneration();
 		if (!model) {
 			throw new Error('No model selected.');
@@ -1972,7 +1975,7 @@ class ArtifactsWindow {
 		});
 
 		const isCloudRouting = routing && routing.source === 'cloud';
-		if (!isCloudRouting && Array.isArray(this.artifactLocalContext) && this.artifactLocalContext.length) {
+		if (!isCloudRouting && includeContext && Array.isArray(this.artifactLocalContext) && this.artifactLocalContext.length) {
 			requestBody.context = this.artifactLocalContext;
 		}
 
@@ -2218,9 +2221,14 @@ class ArtifactsWindow {
 			}
 
 			this.setGenerationStatus(this.t('artifactStatusGenerating', 'Generating artifact...'), 'idle');
-			const streamResult = await this.streamArtifactHtml(effectiveUserPrompt, abortController.signal, (delta) => {
-				fenceExtractor.push(delta);
-			});
+			const streamResult = await this.streamArtifactHtml(
+				effectiveUserPrompt,
+				abortController.signal,
+				(delta) => {
+					fenceExtractor.push(delta);
+				},
+				!this.isArtifactModificationModeEnabled
+			);
 
 			const fenceState = fenceExtractor.finish();
 			flushSmoothQueue();
@@ -2339,7 +2347,9 @@ class ArtifactsWindow {
 			normalizedRequest ? `Modification request:\n${normalizedRequest}` : '',
 			normalizedWebContext,
 			'Current artifact HTML to modify:',
+			'```html',
 			normalizedHtml,
+			'```',
 		].filter(Boolean).join('\n\n');
 	}
 
@@ -3174,15 +3184,19 @@ class ArtifactsWindow {
 					}
 				}
 
-				if (this.isArtifactModificationModeEnabled && currentHtmlToModify) {
-					effectiveUserPrompt = this.buildArtifactModificationPrompt(promptText, currentHtmlToModify, webSearchSourceText);
-				}
-
-				this.setGenerationStatus(this.t('artifactStatusGenerating', 'Generating artifact...'), 'idle');
-				const streamResult = await this.streamArtifactHtml(effectiveUserPrompt, abortController.signal, (delta) => {
+			if (this.isArtifactModificationModeEnabled && currentHtmlToModify) {
+				effectiveUserPrompt = this.buildArtifactModificationPrompt(promptText, currentHtmlToModify, webSearchSourceText);
+				this.resetArtifactConversationContext();
+			}
+			this.setGenerationStatus(this.t('artifactStatusGenerating', 'Generating artifact...'), 'idle');
+			const streamResult = await this.streamArtifactHtml(
+				effectiveUserPrompt,
+				abortController.signal,
+				(delta) => {
 					fenceExtractor.push(delta);
-				});
-
+				},
+				!this.isArtifactModificationModeEnabled
+			);
 				const fenceState = fenceExtractor.finish();
 				flushSmoothQueue();
 
