@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinitai - Meeting Assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-panel: #1e293b;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --accent: #06b6d4;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --success: #10b981;
+            --danger: #ef4444;
+            --radius: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --glass: rgba(30, 41, 59, 0.7);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: var(--radius);
+            font-family: inherit;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(0); }
+
+        .btn-secondary {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.5rem 1rem;
+        }
+        .btn-secondary:hover { border-color: var(--primary); color: var(--primary); }
+
+        .btn-icon {
+            background: transparent;
+            color: var(--text-muted);
+            padding: 0.5rem;
+            font-size: 1.1rem;
+        }
+        .btn-icon:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+
+        input, textarea {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.85rem 1rem;
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 1.05rem;
+            width: 100%;
+            transition: border-color 0.2s;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        input:focus, textarea:focus { border-color: var(--primary); }
+        textarea { resize: vertical; min-height: 100px; }
+
+        select {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.85rem 1rem;
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 1.05rem;
+            width: 100%;
+            height: 48px;
+            transition: border-color 0.2s;
+            cursor: pointer;
+            -webkit-appearance: auto;
+            -moz-appearance: auto;
+            appearance: auto;
+        }
+        select:focus { border-color: var(--primary); }
+        select option {
+            font-size: 1.05rem;
+            padding: 0.4rem 0.6rem;
+        }
+
+        header {
+            height: 60px;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .brand {
+            display: flex;
+            flex-direction: column;
+        }
+        .brand h1 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            background: linear-gradient(to right, var(--accent), var(--primary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .brand span { font-size: 0.75rem; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; }
+
+        .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        aside {
+            width: 340px;
+            background: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header { padding: 1rem; border-bottom: 1px solid var(--border); }
+        .sidebar-search { position: relative; margin-bottom: 0.8rem; }
+        .sidebar-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .sidebar-search input { padding-left: 2.2rem; font-size: 0.9rem; }
+
+        .customer-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .customer-item {
+            padding: 0.8rem;
+            border-radius: var(--radius);
+            cursor: pointer;
+            margin-bottom: 0.3rem;
+            transition: background 0.2s;
+            border: 1px solid transparent;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .customer-item:hover { background: rgba(255,255,255,0.03); }
+        .customer-item.active {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+        }
+        .customer-item .c-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.4rem;
+        }
+        .customer-item .c-name {
+            font-weight: 600;
+            display: block;
+            flex: 1;
+            margin-right: 0.5rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .customer-item .delete-customer-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            padding: 2px 6px;
+            border-radius: 6px;
+            opacity: 0;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .customer-item:hover .delete-customer-btn,
+        .customer-item.active .delete-customer-btn {
+            opacity: 1;
+        }
+        .customer-item .delete-customer-btn:hover {
+            color: var(--danger);
+            background: rgba(239, 68, 68, 0.15);
+        }
+        .customer-item .c-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+        .customer-item .c-meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        .customer-item .c-meta span i {
+            font-size: 0.7rem;
+            color: var(--accent);
+        }
+
+        .empty-state {
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            background: radial-gradient(circle at top right, #1e293b 0%, #0f172a 60%);
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+        .form-group.full-width { grid-column: 1 / -1; }
+        label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+            margin-top: 1rem;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.4rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+        .meeting-entry {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+        .meeting-entry::after {
+            content: '';
+            position: absolute;
+            left: -1.6rem;
+            top: 0.5rem;
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            background: var(--bg-dark);
+            border: 2px solid var(--accent);
+        }
+        .meeting-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .meeting-body {
+            background: rgba(15, 23, 42, 0.5);
+            padding: 1rem;
+            border-radius: var(--radius);
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .field-row { margin-bottom: 0.5rem; }
+        .field-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .field-value { white-space: pre-wrap; line-height: 1.4; }
+
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 100;
+        }
+        .toast {
+            background: var(--bg-panel);
+            border-left: 4px solid var(--primary);
+            color: var(--text-main);
+            padding: 1rem 1.5rem;
+            border-radius: 4px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 0.9rem;
+            max-width: 350px;
+        }
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--danger); }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-box {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem 2rem;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4);
+            transform: scale(0.95);
+            transition: transform 0.2s;
+        }
+        .modal-overlay.visible .modal-box {
+            transform: scale(1);
+        }
+        .modal-box h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .modal-box h3 .warn-icon {
+            color: #f59e0b;
+            font-size: 1.3rem;
+        }
+        .modal-box p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 1.2rem;
+            line-height: 1.5;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 0.6rem;
+            justify-content: flex-end;
+        }
+        .modal-actions button {
+            padding: 0.5rem 1.2rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+        .btn-danger:hover { background: #dc2626; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .main-container { flex-direction: column; }
+            aside { width: 100%; height: 220px; border-right: none; border-bottom: 1px solid var(--border); }
+            main { padding: 1rem; }
+            .header-actions span { display: none; }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+    <style id="pw-artifact-image-edit-style">img { cursor: pointer !important; }</style>
+</head>
+<body>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+
+<header>
+    <div class="brand">
+        <h1>Infinitai</h1>
+        <span data-i18n="subtitle">Meeting assistant</span>
+    </div>
+    <div class="header-actions">
+        <button class="btn-icon" id="langToggle" title="Switch Language">
+            <i class="fas fa-globe"></i> <span id="langText">EN</span>
+        </button>
+        <input type="file" id="importFile" class="hidden" accept=".db,.sqlite,.sqlite3">
+        <button class="btn-secondary" id="importBtn">
+            <i class="fas fa-file-import"></i> <span data-i18n="import">Import</span>
+        </button>
+        <button class="btn-secondary" id="exportBtn">
+            <i class="fas fa-file-export"></i> <span data-i18n="export">Export</span>
+        </button>
+    </div>
+</header>
+
+<div class="main-container">
+    <aside>
+        <div class="sidebar-header">
+            <button class="btn-primary" id="newCustomerBtn" style="width: 100%; margin-bottom: 0.8rem;">
+                <i class="fas fa-plus"></i> <span data-i18n="newCustomer">New Customer</span>
+            </button>
+            <div class="sidebar-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchCustomer" data-i18n-placeholder="searchPlaceholder" placeholder="Search customers...">
+            </div>
+        </div>
+        <div class="customer-list" id="customerList"><div class="empty-state">No customers yet</div></div>
+    </aside>
+
+    <main id="mainContent">
+        <div id="welcomeState" class="card" style="text-align: center; margin-top: 20%; opacity: 0.6;">
+            <i class="fas fa-robot" style="font-size: 3rem; margin-bottom: 1rem; color: var(--accent);"></i>
+            <h2 data-i18n="welcomeTitle">Welcome to Infinitai</h2>
+            <p data-i18n="welcomeDesc" style="margin-top: 0.5rem;">Select a customer or create a new one to start managing meetings.</p>
+        </div>
+
+        <div id="customerView" class="hidden">
+            <div class="content-header">
+                <button class="btn-primary" id="addMeetingBtn">
+                    <i class="fas fa-calendar-plus"></i> <span data-i18n="addMeeting">Add Meeting</span>
+                </button>
+            </div>
+
+            <div id="meetingFormContainer" class="card" style="border-left: 4px solid var(--accent);">
+                <h3 style="margin-bottom: 1rem; color: var(--accent);" data-i18n="newMeetingEntry">New Meeting Entry</h3>
+                <div class="form-grid">
+                    <div class="form-group full-width">
+                        <label data-i18n="problem">Customer Problem</label>
+                        <textarea id="m_problem" rows="2"></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label data-i18n="solution">Requested Solution</label>
+                        <textarea id="m_solution" rows="2"></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label data-i18n="minutes">Meeting Minutes</label>
+                        <textarea id="m_minutes" rows="12" style="font-family: 'JetBrains Mono', monospace;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="nextMeetingDate">Next Meeting Date</label>
+                        <input type="date" id="m_nextDate">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="deliverables">Next Meeting Deliverables</label>
+                        <input type="text" id="m_deliverables">
+                    </div>
+                    <div class="form-group full-width">
+                        <label data-i18n="extraNotes">Extra Notes</label>
+                        <textarea id="m_extra" rows="2"></textarea>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; text-align: right; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button class="btn-secondary" id="cancelMeetingBtn" data-i18n="cancel">Cancel</button>
+                    <button class="btn-primary" id="saveMeetingBtn" data-i18n="save">Save Meeting</button>
+                </div>
+            </div>
+
+            <div id="customerFormContainer" class="card hidden">
+                <h3 style="margin-bottom: 1rem;" data-i18n="customerDetails">Customer Details</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label data-i18n="customerName">Customer Name</label>
+                        <input type="text" id="c_name">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="date">Date</label>
+                        <input type="date" id="c_date">
+                    </div>
+                    <div class="form-group full-width">
+                        <label data-i18n="address">Address</label>
+                        <input type="text" id="c_address">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="numWorkers">Number of Workers</label>
+                        <input type="number" id="c_workers" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label data-i18n="literacy">Computer Literacy</label>
+                        <select id="c_literacy">
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; text-align: right; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button class="btn-primary" id="saveCustomerBtn" data-i18n="saveCustomer">Save Customer</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom: 1rem; color: var(--text-muted); font-size: 1rem; text-transform: uppercase;" data-i18n="meetingHistory">Meeting History</h3>
+                <div id="meetingTimeline" class="timeline"><div class="empty-state" style="padding-left:0">No meetings recorded</div></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+        <h3><i class="fas fa-exclamation-triangle warn-icon"></i> <span id="confirmTitle">Confirm Deletion</span></h3>
+        <p id="confirmMessage">Are you sure you want to delete this customer and all associated meetings? This action cannot be undone.</p>
+        <div class="modal-actions">
+            <button class="btn-secondary" id="confirmCancel">Cancel</button>
+            <button class="btn-danger" id="confirmDelete">Delete</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+    (function() {
+        'use strict';
+
+        var i18n = {
+            en: {
+                subtitle: "Meeting assistant",
+                import: "Import",
+                export: "Export",
+                newCustomer: "New Customer",
+                searchPlaceholder: "Search customers...",
+                noCustomers: "No customers yet",
+                welcomeTitle: "Welcome to Infinitai",
+                welcomeDesc: "Select a customer or create a new one to start managing meetings.",
+                customerName: "Customer Name",
+                date: "Date",
+                address: "Address",
+                numWorkers: "Number of Workers",
+                literacy: "Computer Literacy",
+                problem: "Customer Problem",
+                solution: "Requested Solution",
+                minutes: "Meeting Minutes",
+                nextMeetingDate: "Next Meeting Date",
+                deliverables: "Next Meeting Deliverables",
+                extraNotes: "Extra Notes",
+                addMeeting: "Add Meeting",
+                cancel: "Cancel",
+                save: "Save Meeting",
+                saveCustomer: "Save Customer",
+                customerDetails: "Customer Details",
+                meetingHistory: "Meeting History",
+                newMeetingEntry: "New Meeting Entry",
+                literacymap: { "Low": "Low", "Medium": "Medium", "High": "High" },
+                confirmDeleteTitle: "Confirm Deletion",
+                confirmDeleteMsg: "Are you sure you want to delete this customer and all associated meetings? This action cannot be undone.",
+                confirmCancel: "Cancel",
+                confirmDelete: "Delete",
+                noMeetings: "No meetings recorded"
+            },
+            zh: {
+                subtitle: "会议助手",
+                import: "导入",
+                export: "导出",
+                newCustomer: "新建客户",
+                searchPlaceholder: "搜索客户...",
+                noCustomers: "暂无客户",
+                welcomeTitle: "欢迎使用 Infinitai",
+                welcomeDesc: "选择一个客户或创建新客户以开始管理会议。",
+                customerName: "客户名称",
+                date: "日期",
+                address: "地址",
+                numWorkers: "员工人数",
+                literacy: "计算机素养",
+                problem: "客户问题",
+                solution: "请求的解决方案",
+                minutes: "会议纪要",
+                nextMeetingDate: "下次会议日期",
+                deliverables: "下次会议交付物",
+                extraNotes: "额外备注",
+                addMeeting: "添加会议",
+                cancel: "取消",
+                save: "保存会议",
+                saveCustomer: "保存客户",
+                customerDetails: "客户详情",
+                meetingHistory: "会议历史",
+                newMeetingEntry: "新会议记录",
+                literacymap: { "Low": "低", "Medium": "中", "High": "高" },
+                confirmDeleteTitle: "确认删除",
+                confirmDeleteMsg: "您确定要删除此客户及其所有关联的会议吗？此操作无法撤销。",
+                confirmCancel: "取消",
+                confirmDelete: "删除",
+                noMeetings: "暂无会议记录"
+            }
+        };
+
+        var db;
+        var SQL;
+        var currentLang = 'en';
+        var currentCustomerId = null;
+        var isCreatingNewCustomer = false;
+        var pendingDeleteCustomerId = null;
+        var appReady = false;
+
+        function initApp() {
+            initEventListeners();
+            applyLanguage(currentLang);
+            initDatabase();
+        }
+
+        function initDatabase() {
+            try {
+                if (typeof initSqlJs !== 'function') {
+                    console.error('initSqlJs not available');
+                    showToast('Database engine failed to load', 'error');
+                    return;
+                }
+
+                var locateFileFn = function(file) {
+                    return 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/' + file;
+                };
+
+                initSqlJs({ locateFile: locateFileFn }).then(function(sqlLib) {
+                    SQL = sqlLib;
+                    try {
+                        var savedDb = localStorage.getItem('infinitai_db');
+                        if (savedDb) {
+                            var parsed = JSON.parse(savedDb);
+                            var uInt8Array = new Uint8Array(parsed);
+                            db = new SQL.Database(uInt8Array);
+                            try {
+                                db.exec("SELECT 1 FROM sqlite_master WHERE name='customers' LIMIT 1");
+                            } catch(e2) {
+                                createSchema(db);
+                            }
+                        } else {
+                            db = new SQL.Database();
+                            createSchema(db);
+                        }
+                    } catch (e) {
+                        console.error("DB Load Error", e);
+                        db = new SQL.Database();
+                        createSchema(db);
+                    }
+                    appReady = true;
+                    loadCustomerList();
+                    renderCustomerList();
+                    showToast('Ready', 'success');
+                }).catch(function(err) {
+                    console.error('sql.js init error:', err);
+                    showToast('Database engine error: ' + err.message, 'error');
+                });
+            } catch (e) {
+                console.error('initDatabase error:', e);
+            }
+        }
+
+        function createSchema(database) {
+            database.run(
+                'CREATE TABLE IF NOT EXISTS customers (' +
+                'id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+                'name TEXT NOT NULL,' +
+                'created_date TEXT,' +
+                'address TEXT,' +
+                'worker_count INTEGER,' +
+                'computer_literacy TEXT' +
+                ');' +
+                'CREATE TABLE IF NOT EXISTS meetings (' +
+                'id INTEGER PRIMARY KEY AUTOINCREMENT,' +
+                'customer_id INTEGER,' +
+                'timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,' +
+                'problem TEXT,' +
+                'solution TEXT,' +
+                'minutes TEXT,' +
+                'next_meeting_date TEXT,' +
+                'deliverables TEXT,' +
+                'extra_notes TEXT,' +
+                'FOREIGN KEY(customer_id) REFERENCES customers(id)' +
+                ');'
+            );
+        }
+
+        function saveDb() {
+            if (!db || !SQL) return;
+            try {
+                var data = db.export();
+                var arr = Array.from(data);
+                localStorage.setItem('infinitai_db', JSON.stringify(arr));
+            } catch (e) {
+                console.error('saveDb error:', e);
+                showToast('Storage error - data may not persist', 'error');
+            }
+        }
+
+        function getCustomers() {
+            if (!db) return [];
+            try {
+                var stmt = db.prepare("SELECT * FROM customers ORDER BY id DESC");
+                var customers = [];
+                while (stmt.step()) {
+                    customers.push(stmt.getAsObject());
+                }
+                stmt.free();
+                return customers;
+            } catch (e) {
+                console.error('getCustomers error:', e);
+                return [];
+            }
+        }
+
+        function getMeetings(customerId) {
+            if (!db) return [];
+            try {
+                var stmt = db.prepare("SELECT * FROM meetings WHERE customer_id = ? ORDER BY id DESC");
+                stmt.bind([customerId]);
+                var meetings = [];
+                while (stmt.step()) {
+                    meetings.push(stmt.getAsObject());
+                }
+                stmt.free();
+                return meetings;
+            } catch (e) {
+                console.error('getMeetings error:', e);
+                return [];
+            }
+        }
+
+        function renderCustomerList(filter) {
+            filter = filter || '';
+            var listEl = document.getElementById('customerList');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+
+            var customers = getCustomers();
+            var filtered = customers.filter(function(c) {
+                return c.name.toLowerCase().includes(filter.toLowerCase());
+            });
+
+            if (filtered.length === 0) {
+                var emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-state';
+                emptyDiv.textContent = i18n[currentLang].noCustomers;
+                listEl.appendChild(emptyDiv);
+                return;
+            }
+
+            filtered.forEach(function(c) {
+                var div = document.createElement('div');
+                div.className = 'customer-item' + (c.id === currentCustomerId ? ' active' : '');
+                var literacyText = i18n[currentLang].literacymap[c.computer_literacy] || c.computer_literacy || '-';
+                div.innerHTML =
+                    '<div class="c-header">' +
+                        '<span class="c-name">' + escapeHtml(c.name) + '</span>' +
+                        '<button class="delete-customer-btn" data-id="' + c.id + '" title="Delete customer"><i class="fas fa-times"></i></button>' +
+                    '</div>' +
+                    '<div class="c-meta">' +
+                        '<span><i class="fas fa-map-marker-alt"></i> ' + escapeHtml(c.address || '-') + '</span>' +
+                        '<span><i class="fas fa-users"></i> ' + (c.worker_count || '-') + '</span>' +
+                        '<span><i class="fas fa-laptop"></i> ' + escapeHtml(literacyText) + '</span>' +
+                    '</div>';
+
+                (function(customerId) {
+                    div.addEventListener('click', function(e) {
+                        if (e.target.closest('.delete-customer-btn')) return;
+                        loadCustomer(customerId);
+                    });
+
+                    var delBtn = div.querySelector('.delete-customer-btn');
+                    if (delBtn) {
+                        delBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            showConfirmModal(customerId);
+                        });
+                    }
+                })(c.id);
+
+                listEl.appendChild(div);
+            });
+        }
+
+        function loadCustomer(id) {
+            if (!appReady) {
+                showToast('Please wait, loading...', 'error');
+                return;
+            }
+            currentCustomerId = id;
+            isCreatingNewCustomer = false;
+
+            renderCustomerList(document.getElementById('searchCustomer').value);
+
+            try {
+                var stmt = db.prepare("SELECT * FROM customers WHERE id = ?");
+                stmt.bind([id]);
+                var customer = stmt.getAsObject();
+                stmt.free();
+            } catch (e) {
+                console.error('loadCustomer query error:', e);
+                return;
+            }
+
+            if (!customer) return;
+
+            document.getElementById('welcomeState').classList.add('hidden');
+            document.getElementById('customerView').classList.remove('hidden');
+            document.getElementById('customerFormContainer').classList.add('hidden');
+            document.getElementById('meetingFormContainer').classList.add('hidden');
+
+            renderMeetings(id);
+        }
+
+        function renderMeetings(customerId) {
+            var timeline = document.getElementById('meetingTimeline');
+            if (!timeline) return;
+            timeline.innerHTML = '';
+            var meetings = getMeetings(customerId);
+
+            if (meetings.length === 0) {
+                var emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-state';
+                emptyDiv.style.paddingLeft = '0';
+                emptyDiv.textContent = i18n[currentLang].noMeetings;
+                timeline.appendChild(emptyDiv);
+                return;
+            }
+
+            meetings.forEach(function(m) {
+                var div = document.createElement('div');
+                div.className = 'meeting-entry';
+
+                var nextRow = '';
+                if (m.next_meeting_date || m.deliverables) {
+                    var parts = [];
+                    if (m.next_meeting_date) {
+                        parts.push('<div class="field-row"><div class="field-label">' + i18n[currentLang].nextMeetingDate + '</div><div class="field-value">' + escapeHtml(m.next_meeting_date) + '</div></div>');
+                    }
+                    if (m.deliverables) {
+                        parts.push('<div class="field-row"><div class="field-label">' + i18n[currentLang].deliverables + '</div><div class="field-value">' + escapeHtml(m.deliverables) + '</div></div>');
+                    }
+                    nextRow = '<div style="margin-top:0.5rem; padding-top:0.5rem; border-top:1px dashed var(--border);">' + parts.join('') + '</div>';
+                }
+
+                var extraRow = m.extra_notes ? '<div class="field-row"><div class="field-label">' + i18n[currentLang].extraNotes + '</div><div class="field-value">' + escapeHtml(m.extra_notes) + '</div></div>' : '';
+
+                div.innerHTML =
+                    '<div class="meeting-header">' +
+                        '<span>' + (m.timestamp ? m.timestamp.split(' ')[0] : '-') + '</span>' +
+                        '<span>ID: #' + m.id + '</span>' +
+                    '</div>' +
+                    '<div class="meeting-body">' +
+                        (m.problem ? '<div class="field-row"><div class="field-label">' + i18n[currentLang].problem + '</div><div class="field-value">' + escapeHtml(m.problem) + '</div></div>' : '') +
+                        (m.solution ? '<div class="field-row"><div class="field-label">' + i18n[currentLang].solution + '</div><div class="field-value">' + escapeHtml(m.solution) + '</div></div>' : '') +
+                        (m.minutes ? '<div class="field-row"><div class="field-label">' + i18n[currentLang].minutes + '</div><div class="field-value">' + escapeHtml(m.minutes) + '</div></div>' : '') +
+                        nextRow +
+                        extraRow +
+                    '</div>';
+
+                timeline.appendChild(div);
+            });
+        }
+
+        function startNewCustomer() {
+            if (!appReady) {
+                showToast('Please wait, database is loading...', 'error');
+                return;
+            }
+            currentCustomerId = null;
+            isCreatingNewCustomer = true;
+
+            document.getElementById('welcomeState').classList.add('hidden');
+            document.getElementById('customerView').classList.remove('hidden');
+            document.getElementById('customerFormContainer').classList.remove('hidden');
+            document.getElementById('meetingFormContainer').classList.add('hidden');
+            document.getElementById('meetingTimeline').innerHTML = '';
+
+            var nameInput = document.getElementById('c_name');
+            var dateInput = document.getElementById('c_date');
+            var addressInput = document.getElementById('c_address');
+            var workersInput = document.getElementById('c_workers');
+            var literacySelect = document.getElementById('c_literacy');
+
+            if (nameInput) nameInput.value = '';
+            if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+            if (addressInput) addressInput.value = '';
+            if (workersInput) workersInput.value = '';
+            if (literacySelect) literacySelect.value = 'Medium';
+        }
+
+        function saveCustomerData() {
+            if (!appReady) {
+                showToast('Please wait, database is loading...', 'error');
+                return;
+            }
+
+            var nameEl = document.getElementById('c_name');
+            var name = nameEl ? nameEl.value : '';
+            if (!name.trim()) {
+                showToast(i18n[currentLang].customerName + ' is required', 'error');
+                return;
+            }
+
+            var dateEl = document.getElementById('c_date');
+            var addressEl = document.getElementById('c_address');
+            var workersEl = document.getElementById('c_workers');
+            var literacyEl = document.getElementById('c_literacy');
+
+            var date = dateEl ? dateEl.value : '';
+            var address = addressEl ? addressEl.value : '';
+            var workers = workersEl ? (workersEl.value !== '' ? parseInt(workersEl.value) : 0) : 0;
+            var literacy = literacyEl ? literacyEl.value : 'Medium';
+
+            if (isCreatingNewCustomer) {
+                db.run("INSERT INTO customers (name, created_date, address, worker_count, computer_literacy) VALUES (?, ?, ?, ?, ?)",
+                    [name, date, address, workers, literacy]);
+                var res = db.exec("SELECT last_insert_rowid() as id");
+                var newId = res && res[0] && res[0].values && res[0].values[0] ? res[0].values[0][0] : 1;
+                showToast('Customer Created Successfully', 'success');
+                loadCustomer(newId);
+            } else {
+                db.run("UPDATE customers SET name=?, created_date=?, address=?, worker_count=?, computer_literacy=? WHERE id=?",
+                    [name, date, address, workers, literacy, currentCustomerId]);
+                showToast('Customer Updated Successfully', 'success');
+                loadCustomer(currentCustomerId);
+            }
+            saveDb();
+            renderCustomerList();
+        }
+
+        function saveMeetingData() {
+            if (!appReady || !currentCustomerId) return;
+
+            var mProblem = document.getElementById('m_problem').value || '';
+            var mSolution = document.getElementById('m_solution').value || '';
+            var mMinutes = document.getElementById('m_minutes').value || '';
+            var mNextDate = document.getElementById('m_nextDate').value || '';
+            var mDeliverables = document.getElementById('m_deliverables').value || '';
+            var mExtra = document.getElementById('m_extra').value || '';
+
+            db.run("INSERT INTO meetings (customer_id, problem, solution, minutes, next_meeting_date, deliverables, extra_notes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [currentCustomerId, mProblem, mSolution, mMinutes, mNextDate, mDeliverables, mExtra]);
+
+            showToast('Meeting Saved Successfully', 'success');
+            saveDb();
+
+            document.getElementById('m_problem').value = '';
+            document.getElementById('m_solution').value = '';
+            document.getElementById('m_minutes').value = '';
+            document.getElementById('m_nextDate').value = '';
+            document.getElementById('m_deliverables').value = '';
+            document.getElementById('m_extra').value = '';
+            document.getElementById('meetingFormContainer').classList.add('hidden');
+
+            renderMeetings(currentCustomerId);
+        }
+
+        function showConfirmModal(customerId) {
+            pendingDeleteCustomerId = customerId;
+            var modal = document.getElementById('confirmModal');
+            document.getElementById('confirmTitle').textContent = i18n[currentLang].confirmDeleteTitle;
+            document.getElementById('confirmMessage').textContent = i18n[currentLang].confirmDeleteMsg;
+            document.getElementById('confirmCancel').textContent = i18n[currentLang].confirmCancel;
+            document.getElementById('confirmDelete').textContent = i18n[currentLang].confirmDelete;
+            modal.classList.add('visible');
+        }
+
+        function hideConfirmModal() {
+            var modal = document.getElementById('confirmModal');
+            if (modal) modal.classList.remove('visible');
+            pendingDeleteCustomerId = null;
+        }
+
+        function deleteCustomer(customerId) {
+            if (!appReady || !db) return;
+            try {
+                db.run("DELETE FROM meetings WHERE customer_id = ?", [customerId]);
+                db.run("DELETE FROM customers WHERE id = ?", [customerId]);
+                saveDb();
+                showToast('Customer Deleted Successfully', 'success');
+
+                if (currentCustomerId === customerId) {
+                    currentCustomerId = null;
+                    var cv = document.getElementById('customerView');
+                    var ws = document.getElementById('welcomeState');
+                    if (cv) cv.classList.add('hidden');
+                    if (ws) ws.classList.remove('hidden');
+                }
+                renderCustomerList(document.getElementById('searchCustomer').value);
+            } catch (e) {
+                showToast('Failed to delete customer', 'error');
+                console.error(e);
+            }
+        }
+
+        function applyLanguage(lang) {
+            document.querySelectorAll('[data-i18n]').forEach(function(el) {
+                var key = el.getAttribute('data-i18n');
+                if (i18n[lang] && i18n[lang][key]) el.textContent = i18n[lang][key];
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+                var key = el.getAttribute('data-i18n-placeholder');
+                if (i18n[lang] && i18n[lang][key]) el.placeholder = i18n[lang][key];
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(text));
+            return div.innerHTML;
+        }
+
+        function showToast(msg, type) {
+            type = type || 'success';
+            var container = document.getElementById('toastContainer');
+            if (!container) return;
+            var el = document.createElement('div');
+            el.className = 'toast ' + type;
+            el.innerHTML = '<i class="fas fa-' + (type === 'success' ? 'check-circle' : 'exclamation-circle') + '"></i> <span>' + escapeHtml(msg) + '</span>';
+            container.appendChild(el);
+            setTimeout(function() {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(10px)';
+                setTimeout(function() {
+                    if (el.parentNode) el.parentNode.removeChild(el);
+                }, 300);
+            }, 3000);
+        }
+
+        function initEventListeners() {
+            var newCustomerBtn = document.getElementById('newCustomerBtn');
+            if (newCustomerBtn) {
+                newCustomerBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    startNewCustomer();
+                });
+            }
+
+            var saveCustomerBtn = document.getElementById('saveCustomerBtn');
+            if (saveCustomerBtn) {
+                saveCustomerBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    saveCustomerData();
+                });
+            }
+
+            var addMeetingBtn = document.getElementById('addMeetingBtn');
+            if (addMeetingBtn) {
+                addMeetingBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.getElementById('meetingFormContainer').classList.remove('hidden');
+                    document.getElementById('meetingFormContainer').scrollIntoView({ behavior: 'smooth' });
+                });
+            }
+
+            var cancelMeetingBtn = document.getElementById('cancelMeetingBtn');
+            if (cancelMeetingBtn) {
+                cancelMeetingBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.getElementById('meetingFormContainer').classList.add('hidden');
+                });
+            }
+
+            var saveMeetingBtn = document.getElementById('saveMeetingBtn');
+            if (saveMeetingBtn) {
+                saveMeetingBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    saveMeetingData();
+                });
+            }
+
+            var searchInput = document.getElementById('searchCustomer');
+            if (searchInput) {
+                searchInput.addEventListener('input', function(e) {
+                    renderCustomerList(e.target.value);
+                });
+            }
+
+            var langToggle = document.getElementById('langToggle');
+            if (langToggle) {
+                langToggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    currentLang = currentLang === 'en' ? 'zh' : 'en';
+                    document.getElementById('langText').textContent = currentLang.toUpperCase();
+                    applyLanguage(currentLang);
+                    renderCustomerList(document.getElementById('searchCustomer').value);
+                    if (currentCustomerId) renderMeetings(currentCustomerId);
+                });
+            }
+
+            var exportBtn = document.getElementById('exportBtn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    exportDatabase();
+                });
+            }
+
+            var importBtn = document.getElementById('importBtn');
+            var importFileInput = document.getElementById('importFile');
+            if (importBtn && importFileInput) {
+                importBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    importFileInput.click();
+                });
+            }
+
+            if (importFileInput) {
+                importFileInput.addEventListener('change', function(e) {
+                    importDatabase(e.target.files[0]);
+                    e.target.value = '';
+                });
+            }
+
+            var confirmCancel = document.getElementById('confirmCancel');
+            if (confirmCancel) {
+                confirmCancel.addEventListener('click', hideConfirmModal);
+            }
+
+            var confirmDelete = document.getElementById('confirmDelete');
+            if (confirmDelete) {
+                confirmDelete.addEventListener('click', function(e) {
+                    if (pendingDeleteCustomerId !== null) {
+                        deleteCustomer(pendingDeleteCustomerId);
+                    }
+                    hideConfirmModal();
+                });
+            }
+
+            var confirmModal = document.getElementById('confirmModal');
+            if (confirmModal) {
+                confirmModal.addEventListener('click', function(e) {
+                    if (e.target === confirmModal) {
+                        hideConfirmModal();
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    hideConfirmModal();
+                }
+            });
+        }
+
+        function exportDatabase() {
+            if (!db || !SQL) {
+                showToast('Database not ready', 'error');
+                return;
+            }
+            try {
+                var data = db.export();
+                var blob = new Blob([data], { type: 'application/x-sqlite3' });
+                var a = document.createElement('a');
+                document.body.appendChild(a);
+                a.href = window.URL.createObjectURL(blob);
+                var fname = 'infinitai_backup_' + new Date().toISOString().slice(0, 10) + '.sqlite';
+                a.download = fname;
+                a.click();
+                setTimeout(function() {
+                    window.URL.revokeObjectURL(a.href);
+                    if (a.parentNode) a.parentNode.removeChild(a);
+                }, 0);
+                showToast('Database Exported', 'success');
+            } catch (e) {
+                showToast('Export failed: ' + e.message, 'error');
+            }
+        }
+
+        function importDatabase(file) {
+            if (!file) return;
+            if (!SQL) {
+                showToast('Database engine not ready', 'error');
+                return;
+            }
+
+            var validExtensions = ['.db', '.sqlite', '.sqlite3'];
+            var name = file.name.toLowerCase();
+            var ext = '.' + name.split('.').pop();
+            if (validExtensions.indexOf(ext) === -1) {
+                showToast('Invalid file format. Use .db, .sqlite, or .sqlite3', 'error');
+                return;
+            }
+
+            var reader = new FileReader();
+            reader.onload = function() {
+                try {
+                    var uInt8Array = new Uint8Array(this.result);
+                    var magic = '';
+                    for (var i = 0; i < 15; i++) {
+                        magic += String.fromCharCode(uInt8Array[i]);
+                    }
+                    if (magic !== 'SQLite format 3') {
+                        showToast('Not a valid SQLite database file', 'error');
+                        return;
+                    }
+                    if (uInt8Array.length < 100) {
+                        showToast('File is too small to be a valid database', 'error');
+                        return;
+                    }
+                    var importedDb = new SQL.Database(uInt8Array);
+                    var tablesResult = importedDb.exec("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
+                    var tableNames = [];
+                    if (tablesResult) {
+                        tablesResult.forEach(function(row) {
+                            row.values.forEach(function(v) {
+                                tableNames.push(v[0]);
+                            });
+                        });
+                    }
+                    if (tableNames.indexOf('customers') === -1 || tableNames.indexOf('meetings') === -1) {
+                        showToast('Database missing required tables (customers/meetings)', 'error');
+                        return;
+                    }
+                    db = importedDb;
+                    saveDb();
+                    currentCustomerId = null;
+                    loadCustomerList();
+                    renderCustomerList();
+                    document.getElementById('welcomeState').classList.remove('hidden');
+                    document.getElementById('customerView').classList.add('hidden');
+                    showToast('Database Imported Successfully', 'success');
+                } catch (err) {
+                    console.error('Import error:', err);
+                    showToast('Invalid Database File: ' + (err.message || 'Could not parse'), 'error');
+                }
+            };
+            reader.onerror = function() {
+                showToast('Error reading file', 'error');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function loadCustomerList() {
+            renderCustomerList();
+        }
+
+        // Start app when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+    })();
+</script>
+
+
+</body></html>
