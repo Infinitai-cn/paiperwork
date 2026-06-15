@@ -2908,7 +2908,7 @@ class PaiperworkDB {
        //console.log('Migrating database for masterkey:', hashedMasterKey);
 
         try {
-            const latestVersion = 33;
+            const latestVersion = 34;
             // Get current version
             const versionResult = db.exec('SELECT version FROM db_version');
             const currentVersion = versionResult.length ? versionResult[0].values[0][0] : 0;
@@ -3837,7 +3837,29 @@ class PaiperworkDB {
                 }
             }
 
-            // Update database version to 33 (Campaign Studio dedicated role DB plus persisted conversation/context and poster editor state)
+            // Version 34: Create IVF index tables in the RAG database for fast vector search.
+            if (currentVersion < 34) {
+                try {
+                    const ragDb = await this.getDatabase(hashedMasterKey, 'rag', true);
+                    ragDb.exec(`
+                        CREATE TABLE IF NOT EXISTS embedding_clusters_${hashedMasterKey} (
+                            cluster_id INTEGER PRIMARY KEY,
+                            centroid TEXT NOT NULL
+                        )
+                    `);
+                    ragDb.exec(`
+                        CREATE TABLE IF NOT EXISTS chunk_cluster_map_${hashedMasterKey} (
+                            chunk_id TEXT PRIMARY KEY,
+                            cluster_id INTEGER NOT NULL
+                        )
+                    `);
+                    await this.saveToStorage(ragDb.export(), hashedMasterKey, 'rag');
+                } catch (error) {
+                    console.error('DATABASE MIGRATION: Error creating IVF cluster tables in RAG DB', error);
+                }
+            }
+
+            // Update database version to 34 (IVF cluster index tables in RAG DB)
             if (currentVersion === 0) {
                 db.run(`INSERT INTO db_version (version) VALUES (${latestVersion})`);
             } else {

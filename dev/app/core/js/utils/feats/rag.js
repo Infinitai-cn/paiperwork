@@ -27,6 +27,24 @@ class RAG {
     `);
   }
 
+  static async ensureIVFTables(ragDb, hashedMasterKey) {
+    if (!ragDb) return;
+
+    ragDb.exec(`
+      CREATE TABLE IF NOT EXISTS embedding_clusters_${hashedMasterKey} (
+        cluster_id INTEGER PRIMARY KEY,
+        centroid TEXT NOT NULL
+      )
+    `);
+
+    ragDb.exec(`
+      CREATE TABLE IF NOT EXISTS chunk_cluster_map_${hashedMasterKey} (
+        chunk_id TEXT PRIMARY KEY,
+        cluster_id INTEGER NOT NULL
+      )
+    `);
+  }
+
 
   // Document Management Methods
 
@@ -127,6 +145,17 @@ class RAG {
         console.error(`Error processing file ${file.name}:`, error);
         throw error;
       }
+    }
+
+    if (progressCallback) {
+      progressCallback(0.95, "Building IVF search index for fast retrieval…");
+    }
+
+    // Build IVF index AFTER all documents are stored, so queries can use it immediately.
+    try {
+      await this.buildIVFIndex(hashedMasterKey);
+    } catch (indexError) {
+      console.warn("RAG: IVF index build failed (queries will fall back to hybrid search):", indexError);
     }
 
     if (progressCallback) {
@@ -754,7 +783,8 @@ class RAG {
     }
   }
 
-  // Retrieves the most relevant document chunks for a user prompt using embedding similarity.
+  // Retrieves the most relevant document chunks for a user prompt.
+  // Prefers IVF index when available; otherwise falls back to hybrid lexical+vector search.
   static async retrieveRelevantChunks(userPrompt, hashedMasterKey, limit = 5) {
     const modelSelector = document.getElementById("model-selector");
     const selectedModel = modelSelector.value;
@@ -767,17 +797,27 @@ class RAG {
 
     const db = await this.getRagDb(hashedMasterKey);
     await this.ensureRagTables(db, hashedMasterKey);
-    const topCandidates = await this.findTopChunkCandidatesByEmbedding(
-      db,
-      hashedMasterKey,
-      promptEmbedding,
-      {
-        limit,
-        candidateMultiplier: 6,
-        similarityThreshold: 0.7,
-        batchSize: 250,
-      }
-    );
+    await this.ensureIVFTables(db, hashedMasterKey);
+
+    // Prefer IVF index search; fall back to hybrid if no index exists.
+    let topCandidates;
+    const ivfReady = await this.hasIVFIndex(hashedMasterKey);
+    if (ivfReady) {
+      topCandidates = await this.findTopChunkCandidatesByIVF(
+        db,
+        hashedMasterKey,
+        promptEmbedding,
+        { limit, candidateMultiplier: 8, similarityThreshold: 0.3 }
+      );
+    } else {
+      topCandidates = await this.findTopChunkCandidatesHybrid(
+        db,
+        hashedMasterKey,
+        promptEmbedding,
+        userPrompt,
+        { limit, lexicalMultiplier: 40, lexicalMaxRowsToScan: 2000, similarityThreshold: 0.3 }
+      );
+    }
 
     if (!topCandidates.length) {
       return [];
@@ -1096,6 +1136,477 @@ class RAG {
     }
 
     return topCandidates.sort((a, b) => b.similarity - a.similarity).slice(0, maxCandidates);
+  }
+
+  // Hybrid retrieval: lexical pre-filter (capped scan) → vector re-rank on pre-filtered set.
+  // Dramatically reduces expensive embedding-decrypt + cosine-similarity operations
+  // by narrowing candidates to a small lexical pool before touching any embeddings.
+  static async findTopChunkCandidatesHybrid(
+    db,
+    hashedMasterKey,
+    queryEmbedding,
+    query,
+    {
+      limit = 5,
+      lexicalMultiplier = 40,
+      lexicalMaxRowsToScan = 2000,
+      similarityThreshold = 0.3,
+      documentId = null,
+    } = {}
+  ) {
+    // Phase 1: Fast lexical pre-filter with a capped row scan.
+    // This avoids decrypting every embedding in the database.
+    const lexicalCandidates = await this.findTopChunkCandidatesByLexical(
+      db,
+      hashedMasterKey,
+      query,
+      {
+        limit: Math.max(limit * lexicalMultiplier, limit),
+        candidateMultiplier: lexicalMultiplier,
+        similarityThreshold: 0.1,
+        batchSize: 180,
+        documentId,
+        maxRowsToScan: lexicalMaxRowsToScan,
+      }
+    );
+
+    // If lexical found nothing, fall back to a bounded embedding scan.
+    if (!lexicalCandidates.length) {
+      return this.findTopChunkCandidatesByEmbedding(
+        db,
+        hashedMasterKey,
+        queryEmbedding,
+        {
+          limit,
+          candidateMultiplier: 8,
+          similarityThreshold,
+          batchSize: 200,
+          documentId,
+          maxRowsToScan: 1600,
+        }
+      );
+    }
+
+    // Phase 2: Vector re-rank — only decrypt embeddings for the lexical pool.
+    const maxCandidates = Math.max(limit * 8, limit * 2);
+    const topCandidates = [];
+
+    // Batch-fetch encrypted embeddings for the lexical candidate chunk IDs.
+    const chunkIds = lexicalCandidates.map((c) => c.chunkId);
+    const placeholders = chunkIds.map(() => "?").join(",");
+    const batchQuery = `
+      SELECT chunk_id, document_id, chunk_embedding
+      FROM document_chunks_${hashedMasterKey}
+      WHERE chunk_id IN (${placeholders})
+    `;
+    const batchResult = db.exec(batchQuery, chunkIds);
+    const rows = batchResult?.[0]?.values || [];
+
+    for (const [chunkId, docId, encEmbedding] of rows) {
+      try {
+        const embedding = JSON.parse(
+          await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encEmbedding))
+        );
+        if (!Array.isArray(embedding) || !embedding.length) {
+          continue;
+        }
+
+        const similarity = this.calculateCosineSimilarity(queryEmbedding, embedding);
+        if (similarity < similarityThreshold) {
+          continue;
+        }
+
+        this.addChunkCandidate(
+          topCandidates,
+          { chunkId, docId, similarity },
+          maxCandidates
+        );
+      } catch (error) {
+        console.error("RAG: Error processing hybrid candidate:", error);
+      }
+    }
+
+    // If vector re-rank produced nothing useful, return the lexical results as-is.
+    if (!topCandidates.length) {
+      return lexicalCandidates.slice(0, limit);
+    }
+
+    return topCandidates.sort((a, b) => b.similarity - a.similarity).slice(0, maxCandidates);
+  }
+
+  // ─── IVF (Inverted File) Index ───────────────────────────────────────────
+
+  // Builds an IVF index over all chunk embeddings:
+  // 1. Decrypts all embeddings from the database
+  // 2. Runs k-means clustering to partition chunks into K clusters
+  // 3. Stores centroids and chunk→cluster assignments in dedicated tables.
+  // K = max(ceil(sqrt(N)), 4), capped at 256.
+  static async buildIVFIndex(hashedMasterKey, progressCallback) {
+    const ragDb = await this.getRagDb(hashedMasterKey);
+    await this.ensureRagTables(ragDb, hashedMasterKey);
+    await this.ensureIVFTables(ragDb, hashedMasterKey);
+
+    // Phase 1: Collect all (chunkId, embedding) pairs.
+    if (progressCallback) progressCallback(0.05, "Collecting embeddings for IVF index…");
+
+    const vectors = [];  // { chunkId, embedding: Float32Array-like }
+    let offset = 0;
+    const batchSize = 300;
+
+    while (true) {
+      const result = ragDb.exec(`
+        SELECT chunk_id, chunk_embedding
+        FROM document_chunks_${hashedMasterKey}
+        LIMIT ${batchSize} OFFSET ${offset}
+      `);
+      const rows = result?.[0]?.values || [];
+      if (!rows.length) break;
+
+      for (const [chunkId, encEmbedding] of rows) {
+        try {
+          const embedding = JSON.parse(
+            await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encEmbedding))
+          );
+          if (!Array.isArray(embedding) || !embedding.length) continue;
+          vectors.push({ chunkId, embedding });
+        } catch (error) {
+          console.error("RAG IVF: Error decrypting embedding for chunk", chunkId, error);
+        }
+      }
+      offset += batchSize;
+    }
+
+    const N = vectors.length;
+    if (N < 4) {
+      if (progressCallback) progressCallback(1, `Too few chunks (${N}) for IVF; skipped.`);
+      return { clusters: 0, chunks: N };
+    }
+
+    // Phase 2: Determine K and run k-means.
+    const K = Math.min(Math.max(Math.ceil(Math.sqrt(N)), 4), 256);
+    const maxIterations = 20;
+
+    if (progressCallback) progressCallback(0.15, `Clustering ${N} chunks into ${K} groups…`);
+
+    const { centroids, assignments } = this.kMeans(vectors, K, maxIterations, (iterProgress) => {
+      if (progressCallback) {
+        progressCallback(0.15 + iterProgress * 0.65, `k-means iteration progress: ${Math.round(iterProgress * 100)}%`);
+      }
+    });
+
+    // Phase 3: Store centroids and assignments.
+    if (progressCallback) progressCallback(0.85, "Storing IVF index in database…");
+
+    // Clear old index
+    ragDb.exec(`DELETE FROM embedding_clusters_${hashedMasterKey}`);
+    ragDb.exec(`DELETE FROM chunk_cluster_map_${hashedMasterKey}`);
+
+    // Store centroids
+    for (let c = 0; c < centroids.length; c++) {
+      const encCentroid = JSON.stringify(
+        await PaiperworkDB.encrypt(hashedMasterKey, JSON.stringify(Array.from(centroids[c])))
+      );
+      ragDb.exec(`
+        INSERT INTO embedding_clusters_${hashedMasterKey} (cluster_id, centroid)
+        VALUES (${c}, '${encCentroid}')
+      `);
+    }
+
+    // Store chunk→cluster mappings
+    for (const { chunkId, clusterId } of assignments) {
+      ragDb.exec(`
+        INSERT INTO chunk_cluster_map_${hashedMasterKey} (chunk_id, cluster_id)
+        VALUES ('${chunkId}', ${clusterId})
+      `);
+    }
+
+    await PaiperworkDB.saveToStorage(ragDb.export(), hashedMasterKey, 'rag');
+
+    if (progressCallback) progressCallback(1, `IVF index built: ${N} chunks in ${K} clusters.`);
+    return { clusters: K, chunks: N };
+  }
+
+  // Standard k-means clustering. Returns { centroids: Float32Array[], assignments: {chunkId, clusterId}[] }.
+  static kMeans(vectors, k, maxIterations = 20, iterationCallback) {
+    const dim = vectors[0].embedding.length;
+    const N = vectors.length;
+
+    // Initialize centroids via k-means++ for better spread.
+    const centroids = this.kMeansPlusPlusInit(vectors, k, dim);
+
+    // Float32Array views for faster math.
+    const vecs = vectors.map(v => new Float32Array(v.embedding));
+    const cents = centroids.map(c => new Float32Array(c));
+
+    const assignments = new Int32Array(N);
+    let changed = true;
+    let iter = 0;
+
+    while (changed && iter < maxIterations) {
+      changed = false;
+
+      // Assign each vector to the nearest centroid.
+      for (let i = 0; i < N; i++) {
+        let bestDist = Infinity;
+        let bestCluster = 0;
+        const vec = vecs[i];
+        for (let c = 0; c < k; c++) {
+          const dist = this.euclideanDistanceSquared(vec, cents[c]);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestCluster = c;
+          }
+        }
+        if (assignments[i] !== bestCluster) {
+          assignments[i] = bestCluster;
+          changed = true;
+        }
+      }
+
+      // Recompute centroids as mean of assigned vectors.
+      const sums = Array.from({ length: k }, () => new Float64Array(dim));
+      const counts = new Int32Array(k);
+
+      for (let i = 0; i < N; i++) {
+        const c = assignments[i];
+        counts[c]++;
+        const sum = sums[c];
+        const vec = vecs[i];
+        for (let d = 0; d < dim; d++) {
+          sum[d] += vec[d];
+        }
+      }
+
+      for (let c = 0; c < k; c++) {
+        if (counts[c] > 0) {
+          const invCount = 1 / counts[c];
+          const sum = sums[c];
+          for (let d = 0; d < dim; d++) {
+            cents[c][d] = sum[d] * invCount;
+          }
+        }
+      }
+
+      iter++;
+      if (iterationCallback) iterationCallback(iter / maxIterations);
+    }
+
+    const finalAssignments = [];
+    for (let i = 0; i < N; i++) {
+      finalAssignments.push({ chunkId: vectors[i].chunkId, clusterId: assignments[i] });
+    }
+
+    return { centroids: cents, assignments: finalAssignments };
+  }
+
+  // k-means++ centroid initialization for better convergence and spread.
+  static kMeansPlusPlusInit(vectors, k, dim) {
+    const N = vectors.length;
+    const centroids = [];
+    const vecs = vectors.map(v => new Float32Array(v.embedding));
+
+    // First centroid: random.
+    centroids.push(new Float32Array(vecs[Math.floor(Math.random() * N)]));
+
+    // Subsequent centroids: probability proportional to squared distance from nearest existing centroid.
+    for (let c = 1; c < k; c++) {
+      const distances = new Float64Array(N);
+      let totalDist = 0;
+
+      for (let i = 0; i < N; i++) {
+        let minDist = Infinity;
+        for (const cent of centroids) {
+          const d = this.euclideanDistanceSquared(vecs[i], cent);
+          if (d < minDist) minDist = d;
+        }
+        distances[i] = minDist;
+        totalDist += minDist;
+      }
+
+      if (totalDist === 0) {
+        // All remaining points identical to existing centroids; duplicate the last one.
+        centroids.push(new Float32Array(centroids[centroids.length - 1]));
+        continue;
+      }
+
+      let r = Math.random() * totalDist;
+      let chosen = 0;
+      for (let i = 0; i < N; i++) {
+        r -= distances[i];
+        if (r <= 0) {
+          chosen = i;
+          break;
+        }
+      }
+      centroids.push(new Float32Array(vecs[chosen]));
+    }
+
+    return centroids;
+  }
+
+  // Squared Euclidean distance (faster than sqrt for comparisons).
+  static euclideanDistanceSquared(a, b) {
+    let sum = 0;
+    for (let i = 0; i < a.length; i++) {
+      const diff = a[i] - b[i];
+      sum += diff * diff;
+    }
+    return sum;
+  }
+
+  // IVF-based search: finds nearest M centroids, then only scans chunks in those clusters.
+  static async findTopChunkCandidatesByIVF(
+    db,
+    hashedMasterKey,
+    queryEmbedding,
+    {
+      limit = 5,
+      candidateMultiplier = 8,
+      similarityThreshold = 0.3,
+      documentId = null,
+    } = {}
+  ) {
+    // Phase 1: Load centroids and find the nearest M clusters.
+    const centroidsResult = db.exec(`
+      SELECT cluster_id, centroid FROM embedding_clusters_${hashedMasterKey}
+    `);
+    const centroidRows = centroidsResult?.[0]?.values || [];
+
+    if (!centroidRows.length) {
+      // No IVF index built yet; fall back to bounded embedding scan.
+      return this.findTopChunkCandidatesByEmbedding(db, hashedMasterKey, queryEmbedding, {
+        limit,
+        candidateMultiplier,
+        similarityThreshold,
+        batchSize: 200,
+        documentId,
+        maxRowsToScan: 1600,
+      });
+    }
+
+    const qVec = new Float32Array(queryEmbedding);
+    const K = centroidRows.length;
+    const M = Math.max(Math.min(Math.ceil(K / 4), 8), 2); // search nearest 25% of clusters, min 2, max 8
+
+    // Compute distance to each centroid.
+    const centroidDistances = [];
+    for (const [clusterId, encCentroid] of centroidRows) {
+      try {
+        const centroidArr = JSON.parse(
+          await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encCentroid))
+        );
+        if (!Array.isArray(centroidArr) || !centroidArr.length) continue;
+        const dist = this.euclideanDistanceSquared(qVec, new Float32Array(centroidArr));
+        centroidDistances.push({ clusterId, dist });
+      } catch (error) {
+        console.error("RAG IVF: Error decrypting centroid", clusterId, error);
+      }
+    }
+
+    centroidDistances.sort((a, b) => a.dist - b.dist);
+    const nearestClusters = centroidDistances.slice(0, M).map(c => c.clusterId);
+
+    if (!nearestClusters.length) {
+      return [];
+    }
+
+    // Phase 2: Fetch chunk IDs from the nearest clusters.
+    const clusterPlaceholders = nearestClusters.map(() => "?").join(",");
+    const mapQuery = `
+      SELECT chunk_id FROM chunk_cluster_map_${hashedMasterKey}
+      WHERE cluster_id IN (${clusterPlaceholders})
+    `;
+    const mapResult = db.exec(mapQuery, nearestClusters);
+    const chunkIdRows = mapResult?.[0]?.values || [];
+
+    if (!chunkIdRows.length) {
+      return [];
+    }
+
+    const candidateChunkIds = chunkIdRows.map(([id]) => id);
+
+    // Phase 3: Fetch embeddings only for candidate chunks and compute cosine similarity.
+    const maxCandidates = Math.max(limit * candidateMultiplier, limit * 2);
+    const topCandidates = [];
+
+    // Process in batches to avoid giant SQL IN clauses.
+    const fetchBatchSize = 200;
+    for (let i = 0; i < candidateChunkIds.length; i += fetchBatchSize) {
+      const batch = candidateChunkIds.slice(i, i + fetchBatchSize);
+      const placeholders = batch.map(() => "?").join(",");
+
+      let embedQuery = `
+        SELECT chunk_id, document_id, chunk_embedding
+        FROM document_chunks_${hashedMasterKey}
+        WHERE chunk_id IN (${placeholders})
+      `;
+      const embedParams = [...batch];
+
+      if (documentId) {
+        embedQuery += " AND document_id = ?";
+        embedParams.push(documentId);
+      }
+
+      const embedResult = db.exec(embedQuery, embedParams);
+      const embedRows = embedResult?.[0]?.values || [];
+
+      for (const [chunkId, docId, encEmbedding] of embedRows) {
+        try {
+          const embedding = JSON.parse(
+            await PaiperworkDB.decrypt(hashedMasterKey, JSON.parse(encEmbedding))
+          );
+          if (!Array.isArray(embedding) || !embedding.length) continue;
+
+          const similarity = this.calculateCosineSimilarity(queryEmbedding, embedding);
+          if (similarity < similarityThreshold) continue;
+
+          this.addChunkCandidate(
+            topCandidates,
+            { chunkId, docId, similarity },
+            maxCandidates
+          );
+        } catch (error) {
+          console.error("RAG IVF: Error processing candidate", error);
+        }
+      }
+    }
+
+    return topCandidates.sort((a, b) => b.similarity - a.similarity).slice(0, maxCandidates);
+  }
+
+  // Checks whether an IVF index exists for the current master key.
+  // If chunks exist but no index, lazily triggers a background index build.
+  static _ivfBuildInProgress = new Map();
+
+  static async hasIVFIndex(hashedMasterKey) {
+    try {
+      const ragDb = await this.getRagDb(hashedMasterKey);
+      const result = ragDb.exec(`
+        SELECT COUNT(*) FROM embedding_clusters_${hashedMasterKey}
+      `);
+      const count = result?.[0]?.values?.[0]?.[0] || 0;
+      if (count > 0) return true;
+
+      // No index yet — check if there are chunks worth indexing.
+      if (this._ivfBuildInProgress.get(hashedMasterKey)) return false;
+
+      const chunkResult = ragDb.exec(`
+        SELECT COUNT(*) FROM document_chunks_${hashedMasterKey}
+      `);
+      const chunkCount = chunkResult?.[0]?.values?.[0]?.[0] || 0;
+
+      if (chunkCount >= 4) {
+        // Fire-and-forget background build. Queries use hybrid until it completes.
+        this._ivfBuildInProgress.set(hashedMasterKey, true);
+        this.buildIVFIndex(hashedMasterKey)
+          .catch(err => console.warn("RAG: Lazy IVF index build failed", err))
+          .finally(() => this._ivfBuildInProgress.delete(hashedMasterKey));
+      }
+
+      return false;
+    } catch (_error) {
+      return false;
+    }
   }
 
   static async hydrateChunkCandidates(
@@ -1541,7 +2052,8 @@ class RAG {
     }, 30000);
   }
 
-  // Searches all document chunks for matches to the query using embeddings and text fallback.
+  // Searches all document chunks. Prefers IVF index when available;
+  // otherwise falls back to hybrid lexical+vector or pure lexical.
   static async searchDocuments(query, hashedMasterKey, model) {
    //console.log(`Searching documents for: "${query}" using model: ${model}`);
 
@@ -1552,6 +2064,7 @@ class RAG {
     try {
       const db = await this.getRagDb(hashedMasterKey);
       await this.ensureRagTables(db, hashedMasterKey);
+      await this.ensureIVFTables(db, hashedMasterKey);
       const docsDb = await this.getMainDb(hashedMasterKey);
 
       let topCandidates = [];
@@ -1559,53 +2072,38 @@ class RAG {
 
       const supportsEmbeddings = await this.modelSupportsEmbeddings(model);
       if (supportsEmbeddings === false) {
+        // Model can't embed — pure lexical with capped scan.
         usedLexicalFallback = true;
         topCandidates = await this.findTopChunkCandidatesByLexical(
-          db,
-          hashedMasterKey,
-          query,
-          {
-            limit: 5,
-            candidateMultiplier: 10,
-            similarityThreshold: 0.2,
-            batchSize: 120,
-            maxRowsToScan: 1800,
-          }
+          db, hashedMasterKey, query,
+          { limit: 5, candidateMultiplier: 10, similarityThreshold: 0.2, batchSize: 120, maxRowsToScan: 1800 }
         );
       } else {
         try {
           const queryEmbedding = await this.generateEmbedding(query, model);
-
           if (!queryEmbedding || !queryEmbedding.length) {
             throw new Error("Could not generate embedding for search query");
           }
 
-          topCandidates = await this.findTopChunkCandidatesByEmbedding(
-            db,
-            hashedMasterKey,
-            queryEmbedding,
-            {
-              limit: 5,
-              candidateMultiplier: 10,
-              similarityThreshold: 0,
-              batchSize: 250,
-              maxRowsToScan: 2000,
-            }
-          );
+          // Prefer IVF index when available; hybrid lexical+vector otherwise.
+          const ivfReady = await this.hasIVFIndex(hashedMasterKey);
+          if (ivfReady) {
+            topCandidates = await this.findTopChunkCandidatesByIVF(
+              db, hashedMasterKey, queryEmbedding,
+              { limit: 5, candidateMultiplier: 8, similarityThreshold: 0 }
+            );
+          } else {
+            topCandidates = await this.findTopChunkCandidatesHybrid(
+              db, hashedMasterKey, queryEmbedding, query,
+              { limit: 5, lexicalMultiplier: 40, lexicalMaxRowsToScan: 2000, similarityThreshold: 0 }
+            );
+          }
         } catch (error) {
           console.warn("RAG: Embedding retrieval unavailable, using lexical fallback", error);
           usedLexicalFallback = true;
           topCandidates = await this.findTopChunkCandidatesByLexical(
-            db,
-            hashedMasterKey,
-            query,
-            {
-              limit: 5,
-              candidateMultiplier: 10,
-              similarityThreshold: 0.2,
-              batchSize: 120,
-              maxRowsToScan: 1800,
-            }
+            db, hashedMasterKey, query,
+            { limit: 5, candidateMultiplier: 10, similarityThreshold: 0.2, batchSize: 120, maxRowsToScan: 1800 }
           );
         }
       }
@@ -1629,34 +2127,31 @@ class RAG {
         similarity: typeof chunk.similarity === "number" ? chunk.similarity : 0,
       }));
 
-      // If vector search failed to find good matches, try a simple text-based search
+      // If vector search failed to find good matches, try a simple text-based re-score
       const hasGoodMatches = normalizedChunks.some((chunk) => chunk.similarity > 0.5);
 
       if (!hasGoodMatches && normalizedChunks.length > 0 && !usedLexicalFallback) {
-       //console.log("No good embedding matches, falling back to text search");
+       //console.log("No good embedding matches, applying lexical re-score");
         const terms = query
           .toLowerCase()
           .split(/\s+/)
           .filter((term) => term.length > 2);
 
-        // Score chunks based on term frequency
         normalizedChunks.forEach((chunk) => {
           const text = chunk.text.toLowerCase();
           let textScore = 0;
 
           terms.forEach((term) => {
             const count = (text.match(new RegExp(term, "g")) || []).length;
-            textScore += count * 0.1; // Adjust weight as needed
+            textScore += count * 0.1;
           });
 
-          // Combine with existing similarity (which might be 0)
           chunk.similarity = Math.max(chunk.similarity, textScore);
         });
       }
 
-      // Sort by similarity (highest first) and take top results
       normalizedChunks.sort((a, b) => b.similarity - a.similarity);
-      return normalizedChunks.slice(0, 5); // Return top 5 results
+      return normalizedChunks.slice(0, 5);
     } catch (error) {
       console.error("Error searching documents:", error);
       throw new Error(`Search failed: ${error.message}`);
@@ -1747,6 +2242,7 @@ class RAG {
     try {
       const db = await this.getRagDb(hashedMasterKey);
       await this.ensureRagTables(db, hashedMasterKey);
+      await this.ensureIVFTables(db, hashedMasterKey);
       const docsDb = await this.getMainDb(hashedMasterKey);
       if (!db || !docsDb) {
         throw new Error("Database not available");
@@ -1816,6 +2312,7 @@ class RAG {
 
       const supportsEmbeddings = await this.modelSupportsEmbeddings(model);
       if (supportsEmbeddings === false) {
+        // Model can't embed — pure lexical with capped scan.
         usedLexicalFallback = true;
         topCandidates = await this.findTopChunkCandidatesByLexical(
           db,
@@ -1837,19 +2334,35 @@ class RAG {
             throw new Error("Failed to generate embedding for query");
           }
 
-          topCandidates = await this.findTopChunkCandidatesByEmbedding(
-            db,
-            hashedMasterKey,
-            queryEmbedding,
-            {
-              limit: 5,
-              candidateMultiplier: 8,
-              similarityThreshold: 0.3,
-              batchSize: 200,
-              documentId: constraints?.documentId || null,
-              maxRowsToScan,
-            }
-          );
+          // Prefer IVF index when available; hybrid lexical+vector otherwise.
+          const ivfReady = await this.hasIVFIndex(hashedMasterKey);
+          if (ivfReady) {
+            topCandidates = await this.findTopChunkCandidatesByIVF(
+              db,
+              hashedMasterKey,
+              queryEmbedding,
+              {
+                limit: 5,
+                candidateMultiplier: 8,
+                similarityThreshold: 0.3,
+                documentId: constraints?.documentId || null,
+              }
+            );
+          } else {
+            topCandidates = await this.findTopChunkCandidatesHybrid(
+              db,
+              hashedMasterKey,
+              queryEmbedding,
+              query,
+              {
+                limit: 5,
+                lexicalMultiplier: 40,
+                lexicalMaxRowsToScan: maxRowsToScan,
+                similarityThreshold: 0.3,
+                documentId: constraints?.documentId || null,
+              }
+            );
+          }
         } catch (error) {
           console.warn("RAG: Falling back to lexical retrieval for constrained search", error);
           usedLexicalFallback = true;
@@ -1870,6 +2383,7 @@ class RAG {
       }
 
       if (!topCandidates.length && query && !usedLexicalFallback) {
+        // Final fallback: pure lexical with relaxed threshold.
         topCandidates = await this.findTopChunkCandidatesByLexical(
           db,
           hashedMasterKey,
