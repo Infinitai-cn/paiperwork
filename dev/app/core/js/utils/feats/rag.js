@@ -761,9 +761,36 @@ class RAG {
 
       // Delete from chunks table if it exists
       if (chunkTableExists) {
+        // Clean up IVF index entries FIRST (before deleting the chunks themselves,
+        // so we can still look up chunk IDs).
+        try {
+          ragDb.exec(`
+            DELETE FROM chunk_cluster_map_${hashedMasterKey}
+            WHERE chunk_id IN (
+              SELECT chunk_id FROM ${chunkTableName} WHERE ${chunkIdCol} = '${documentId}'
+            )
+          `);
+        } catch (_e) {
+          // IVF tables may not exist yet (pre-migration). That's fine.
+        }
+
+        // Now delete the chunks themselves.
         ragDb.exec(
           `DELETE FROM ${chunkTableName} WHERE ${chunkIdCol} = '${documentId}'`
         );
+
+        // If the index is now empty, clear centroids so hasIVFIndex returns false
+        // and a lazy rebuild happens next time.
+        try {
+          const remaining = ragDb.exec(`
+            SELECT COUNT(*) FROM chunk_cluster_map_${hashedMasterKey}
+          `)?.[0]?.values?.[0]?.[0] || 0;
+          if (remaining === 0) {
+            ragDb.exec(`DELETE FROM embedding_clusters_${hashedMasterKey}`);
+          }
+        } catch (_e) {
+          // Ignore if IVF tables don't exist.
+        }
       }
 
       // Delete document record
