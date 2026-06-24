@@ -1208,16 +1208,24 @@ class OllamaAPI {
             return null;
         }
     }
-    // Sends a prompt to the Ollama API for text models, handling streaming and thinking mode.
+    // Unified send method. Accepts optional `options` object for extended features:
+    //   options.modelOverride - override the model selector value
+    //   options.images        - array of base64 image strings to attach
     // `forceThink` can be used by callers to explicitly enable/disable native "think"
     // behavior for a single request. `null` means respect the user/global setting.
-    static async sendToOllama(userPrompt, systemPrompt, contextSize, previousContext = null, abortSignal = null, requestId = null, streamProcessor = null, forceThink = null) {
+    static async sendToOllama(userPrompt, systemPrompt, contextSize, previousContext = null, abortSignal = null, requestId = null, streamProcessor = null, forceThink = null, options = {}) {
 		this.clearPendingCloudAccessError();
        //console.log('Normal OllamaAPI: Sending to Ollama...');
 
-        const modelSelector = document.getElementById('model-selector');
-        const selectedModel = modelSelector.value;
-        const webSearchEnabled = document.getElementById('web-search').classList.contains('active');
+        // Model selection: allow override from options, otherwise use the DOM selector.
+        let selectedModel;
+        if (options && options.modelOverride) {
+            selectedModel = options.modelOverride;
+        } else {
+            const modelSelector = document.getElementById('model-selector');
+            selectedModel = modelSelector ? modelSelector.value : '';
+        }
+        const webSearchEnabled = document.getElementById('web-search')?.classList.contains('active');
         const modelParams = this.getModelParameters(selectedModel);
 
         // Check if this is a visual model
@@ -1258,29 +1266,35 @@ class OllamaAPI {
            //console.log('🧠 OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
         }
 
-        if (isVisualModel) {
-            // First check if we have real images saved from the previous message
-            if (window.currentMessageImages && window.currentMessageImages.length > 0) {
-               //console.log(`OllamaAPI: Using ${window.currentMessageImages.length} saved real images from previous message`);
+        // ── Image handling ──────────────────────────────────────────────
+        // Priority: 1) explicitly passed options.images  2) window.currentMessageImages
+        //           3) OllamaAPI.lastUsedImages (for multi-turn visual conversations)
+        const explicitImages = (options && Array.isArray(options.images) && options.images.length > 0) ? options.images : null;
 
+        if (explicitImages) {
+            const cleaned = explicitImages.map(img => {
+                let data = String(img || '');
+                if (data.includes('base64,')) data = data.split('base64,')[1];
+                return data;
+            }).filter(Boolean);
+            if (cleaned.length) {
+                jsonPost.images = cleaned;
+                OllamaAPI.lastUsedImages = [...cleaned];
+            }
+        } else if (isVisualModel) {
+            if (window.currentMessageImages && window.currentMessageImages.length > 0) {
                 const savedImages = window.currentMessageImages.map(img => {
                     let imgData = img.src || img;
-                    if (imgData.includes('base64,')) {
-                        imgData = imgData.split('base64,')[1];
-                    }
+                    if (imgData.includes('base64,')) imgData = imgData.split('base64,')[1];
                     return imgData;
                 });
-
                 jsonPost.images = savedImages;
                 OllamaAPI.lastUsedImages = [...savedImages];
-            }
-            else if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
-               //console.log(`OllamaAPI: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
+            } else if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
                 jsonPost.images = [...OllamaAPI.lastUsedImages];
-            } else {
-               //console.log(`OllamaAPI: No images used yet, not adding any images`);
             }
         }
+        // ── End image handling ──────────────────────────────────────────
 
         try {
             const routing = await this.getApiRoutingForModel(selectedModel);
@@ -1367,6 +1381,15 @@ class OllamaAPI {
             if (!response.ok) {
                 const errorText = await response.text();
                 throw new Error(`Ollama request failed (${response.status}): ${errorText || response.statusText}`);
+            }
+
+            // After successful API response, schedule image data reset (visual model flow).
+            if (jsonPost.images && jsonPost.images.length > 0) {
+                setTimeout(() => {
+                    if (window.chat && typeof window.chat.resetImageData === 'function') {
+                        window.chat.resetImageData();
+                    }
+                }, 100);
             }
 
             // If we have a stream processor, we need to handle the response here
@@ -2644,191 +2667,37 @@ class OllamaAPI {
             window.isGenerating = false;
         }
     }
-    // Sends a prompt with image data to the Ollama API for visual models, handles single and multi-image cases.
-    static async sendToOllamaWithImage(userPrompt, systemPrompt, contextSize, imageData, previousContext = null, abortSignal = null, requestId = null, multiImages = null, modelOverride = null) {
-       //console.log('Picture OllamaAPI: Sending to Ollama...');
-        try {
-            // Use the model override if provided, otherwise fall back to selectors
-            let selectedModel;
-            if (modelOverride) {
-                selectedModel = modelOverride;
-               //console.log('OllamaAPI: Using provided model override:', selectedModel);
-            } else if (window.artworksTab && window.artworksTab.artworksInstance && window.artworksTab.artworksInstance.selectedModel) {
-                selectedModel = window.artworksTab.artworksInstance.selectedModel;
-               //console.log('OllamaAPI: Using artwork tab model:', selectedModel);
-            } else {
-                const modelSelector = document.getElementById('model-selector');
-                selectedModel = modelSelector.value;
-               //console.log('OllamaAPI: Using chat tab model:', selectedModel);
+    // Thin wrapper around sendToOllama for image requests. Builds the images array
+    // from the legacy parameters and delegates to the unified method.
+    static async sendToOllamaWithImage(userPrompt, systemPrompt, contextSize, imageData, previousContext = null, abortSignal = null, requestId = null, multiImages = null, modelOverride = null, streamProcessor = null) {
+        let images = null;
+
+        if (multiImages && Array.isArray(multiImages) && multiImages.length > 0) {
+            if (!window.cleanedImageBase64Array || window.cleanedImageBase64Array.length === 0) {
+                console.error('OllamaAPI: No cleaned image data array available');
+                throw new Error('Missing image data for visual model');
             }
-            const modelParams = this.getModelParameters(selectedModel);
-            const localContextPayload = window.currentCheckpoint?.lastContext || OllamaAPI.previousContext;
-            // Create the request body
-            const jsonPost = {
-                model: selectedModel,
-                keep_alive: "-1s",
-                stream: true,
-                system: systemPrompt,
-                prompt: userPrompt,
-                raw: false,
-                options: {
-                    num_ctx: parseInt(contextSize),
-                    ...modelParams  // Spread in any parameters that exist
-                },
-                request_id: requestId || `ollama_image_${Date.now()}`
-            };
-
-            if (multiImages && Array.isArray(multiImages) && multiImages.length > 0) {
-               //console.log(`OllamaAPI: Preparing multi-image request with ${multiImages.length} images`);
-
-                // Make sure we have the cleanedImageBase64Array
-                if (!window.cleanedImageBase64Array || window.cleanedImageBase64Array.length === 0) {
-                    console.error('OllamaAPI: No cleaned image data array available');
-                    throw new Error('Missing image data for visual model');
-                }
-
-                // Create images array with the actual images
-                const imagesArray = [...window.cleanedImageBase64Array];
-
-                jsonPost.images = imagesArray;
-                OllamaAPI.lastUsedImages = [...imagesArray];
-
-            } else if (imageData && typeof imageData === 'string' && imageData.trim().length > 0) {
-                // Single image mode
-               //console.log('OllamaAPI: Preparing single image request for model:', selectedModel);
-
-                // Store the cleaned base64 image if we don't have it already
-                if (!window.cleanedImageBase64) {
-                    // Ensure the image is properly formatted as base64
-                    let base64Image = imageData;
-                    if (base64Image.includes('base64,')) {
-                        base64Image = base64Image.split('base64,')[1];
-                    }
-
-                    if (!base64Image || base64Image.trim() === '') {
-                        console.error('OllamaAPI: Invalid base64 image data');
-                        throw new Error('Invalid image format for visual model');
-                    }
-
-                    // Store the cleaned base64 for future requests
-                    window.cleanedImageBase64 = base64Image;
-                }
-
-                // For single image, we don't need padding since max is 1
-                jsonPost.images = [window.cleanedImageBase64];
-                OllamaAPI.lastUsedImages = [...jsonPost.images];
-
-            } else {
-                // No image data provided but we're in visual mode
-                if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
-                   //console.log(`OllamaAPI Image: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
-                    jsonPost.images = [...OllamaAPI.lastUsedImages];
-                } else {
-                    console.error('OllamaAPI: No valid image data provided for visual model');
-                    throw new Error('Missing or invalid image data for visual model');
-                }
+            images = [...window.cleanedImageBase64Array];
+        } else if (imageData && typeof imageData === 'string' && imageData.trim().length > 0) {
+            let base64Image = imageData;
+            if (base64Image.includes('base64,')) {
+                base64Image = base64Image.split('base64,')[1];
             }
-
-            // Rest of method for sending request
-           //console.log('OllamaAPI: Sending image request with abort signal:', !!abortSignal);
-            const routing = await this.getApiRoutingForModel(selectedModel);
-            jsonPost.model = routing.modelName || jsonPost.model;
-            const isCloudRouting = routing.source === 'cloud';
-            const cloudHistoryBlock = isCloudRouting
-                ? this.buildCloudConversationHistoryBlock(userPrompt)
-                : '';
-            const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
-                ? window.__paiperworkWhatsappActiveRequest
-                : null;
-            const wechatRequestScope = (typeof window !== 'undefined' && window.__paiperworkwechatActiveRequest)
-                ? window.__paiperworkwechatActiveRequest
-                : null;
-            const whatsappHistoryBlock = whatsappRequestScope
-                ? this.buildCloudConversationHistoryBlock(userPrompt, { maxTurns: 30 })
-                : '';
-            const wechatHistoryBlock = wechatRequestScope
-                ? this.buildWechatConversationHistoryBlock(userPrompt, { maxTurns: 30 })
-                : '';
-
-            if (!isCloudRouting && !whatsappRequestScope && !wechatRequestScope && localContextPayload) {
-                jsonPost.context = localContextPayload;
-            } else {
-                delete jsonPost.context;
+            if (!base64Image || base64Image.trim() === '') {
+                console.error('OllamaAPI: Invalid base64 image data');
+                throw new Error('Invalid image format for visual model');
             }
-
-            if (isCloudRouting && cloudHistoryBlock) {
-                jsonPost.prompt = `${cloudHistoryBlock}\n\nCurrent user message:\n${userPrompt}`;
-            } else if (!isCloudRouting && whatsappHistoryBlock) {
-                jsonPost.prompt = `${whatsappHistoryBlock}\n\nCurrent user message:\n${userPrompt}`;
-            } else if (!isCloudRouting && wechatHistoryBlock) {
-                jsonPost.prompt = `${wechatHistoryBlock}\n\nCurrent user message:\n${userPrompt}`;
-            }
-
-            const requestPayload = jsonPost;
-
-            const fetchOptions = {
-                method: 'POST',
-                headers: routing.headers,
-                body: JSON.stringify(requestPayload)
-            };
-
-            if (abortSignal instanceof AbortSignal) {
-                fetchOptions.signal = abortSignal;
-            }
-
-           //console.log('OllamaAPI: Fetch options include signal:', !!fetchOptions.signal);
-           //console.log(`OllamaAPI: Sending request with ${jsonPost.images.length} images`);
-
-            const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
-
-            // After successful API call, conditionally schedule an image reset
-            if (response.ok) {
-                // Use setTimeout to ensure this happens after processing completes
-                setTimeout(() => {
-                    if (window.chat && typeof window.chat.resetImageData === 'function') {
-                       //console.log('OllamaAPI: Resetting image data for visual models');
-                        window.chat.resetImageData();
-                    }
-                }, 100);
-            }
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                if (response.status === 429) {
-                    throw new Error(`${this.getOllamaRateLimitMessage()}${errorText ? `\n${errorText}` : ''}`);
-                }
-                if (response.status === 403 && this.isOllamaSubscriptionRequiredError({ status: response.status, message: errorText })) {
-                    throw new Error(`${this.getOllamaSubscriptionRequiredMessage()}${errorText ? `\n${errorText}` : ''}`);
-                }
-
-                if (response.status === 500) {
-                    this.showBlockingOllamaWarning(Lang.get('ollamaContextSizeError'), { scope: 'image-send-500' });
-                    return null;
-                }
-
-                console.error('OllamaAPI: Error response from server:', errorText);
-                throw new Error(`Server error: ${response.status} - ${errorText.substring(0, 100)}`);
-            }
-
-            return response;
-        } catch (error) {
-            console.error('OllamaAPI: Error sending image:', error);
-
-            if (error.name === 'AbortError') {
-               //console.log('OllamaAPI: Request was aborted by user');
-                throw error; // Rethrow so the caller knows it was aborted
-            }
-
-            const cloudAccessError = this.getOllamaCloudAccessErrorDetails(error);
-            if (cloudAccessError) {
-                this.rememberCloudAccessError(error);
-                this.showBlockingOllamaWarning(cloudAccessError.body, { scope: `image-send-${cloudAccessError.type}` });
-            } else {
-                this.clearPendingCloudAccessError();
-                this.showBlockingOllamaWarning(Lang.get('ollamaConnectionError') + ': ' + error.message, { scope: 'image-send-connection' });
-            }
-            return null;
+            window.cleanedImageBase64 = base64Image;
+            images = [base64Image];
         }
+
+        // Also support the artworks tab model override path (falls back to chat model in sendToOllama).
+        let effectiveModelOverride = modelOverride;
+        if (!effectiveModelOverride && window.artworksTab?.artworksInstance?.selectedModel) {
+            effectiveModelOverride = window.artworksTab.artworksInstance.selectedModel;
+        }
+
+        return this.sendToOllama(userPrompt, systemPrompt, contextSize, previousContext, abortSignal, requestId, streamProcessor, null, { images, modelOverride: effectiveModelOverride });
     }
 
     static updateContextRemaining(usedContext) {

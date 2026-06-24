@@ -76,6 +76,15 @@ const MODEL_PARAMETERS = {
     'top_k': 20,
     'top_p': 0.95
    },
+    'qwen3.6:27b-q8_0': {
+    'presence_penalty': 1.5,
+    'temperature': 1,
+    'top_k': 20,
+    'top_p': 0.95,
+    'min_p': 0.0,
+    'repetition_penalty': 1.0,
+    'rpresence_penalty': 0,
+   },
     'qwen3.5:9b-q8_0': {
     'presence_penalty': 1.5,
     'temperature': 1,

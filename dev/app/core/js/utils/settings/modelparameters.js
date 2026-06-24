@@ -62,14 +62,6 @@ const MODEL_PARAMETERS = {
         presence_penalty:0.0, 
         repetition_penalty:1.5
     },
-    'glm-4.7-flash:q8_0': {
-        temperature: 1,
-        top_p: 0.95,
-    },
-    'glm-4.7-flash:q4_K_M': {
-        temperature: 1,
-        top_p: 0.95,
-    },
     'qwen3.5:27b-q8_0': {
     'presence_penalty': 1.5,
     'temperature': 1,
