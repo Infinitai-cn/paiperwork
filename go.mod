@@ -3,13 +3,13 @@ module Paiperwork
 go 1.25.4
 
 require (
+	github.com/PuerkitoBio/goquery v1.12.0
 	github.com/aldinokemal/go-whatsapp-web-multidevice v0.0.0
-	go.mau.fi/whatsmeow v0.0.0-20260327181659-02ec817e7cf4
+	github.com/lich0821/wcfLink v0.1.0
 )
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
-	github.com/PuerkitoBio/goquery v1.12.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
@@ -66,13 +66,14 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.mau.fi/libsignal v0.2.1 // indirect
 	go.mau.fi/util v0.9.7 // indirect
+	go.mau.fi/whatsmeow v0.0.0-20260327181659-02ec817e7cf4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.49.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/exp v0.0.0-20260312153236-7ab1446f8b90 // indirect
 	golang.org/x/image v0.38.0 // indirect
-	golang.org/x/net v0.52.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.70.0 // indirect
