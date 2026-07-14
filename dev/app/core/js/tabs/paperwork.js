@@ -445,6 +445,22 @@ class UIHelpers {
 
             if (!response.ok) {
                 const errorText = await response.text();
+
+                // Detect Ollama Cloud response truncation (unexpected EOF).
+                // The AI generated content but the connection was closed mid-transfer.
+                // Don't show a misleading "failed to connect" modal for this.
+                let isTruncated = false;
+                try {
+                    const errJson = JSON.parse(errorText);
+                    if (errJson.error === 'CLOUD_RESPONSE_TRUNCATED') {
+                        isTruncated = true;
+                    }
+                } catch (_) { /* not JSON, ignore */ }
+
+                if (isTruncated) {
+                    throw new Error('CLOUD_RESPONSE_TRUNCATED');
+                }
+
                 if (response.status === 429) {
                     throw new Error(`${(window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.'}${errorText ? `\n${errorText}` : ''}`);
                 }
@@ -472,6 +488,12 @@ class UIHelpers {
             // For other errors
             if (String(error?.message || '').toLowerCase().includes('429') || String(error?.message || '').toLowerCase().includes('too many requests') || String(error?.message || '').toLowerCase().includes('weekly usage') || String(error?.message || '').toLowerCase().includes('daily limit')) {
                 alert((window.Lang && Lang.get('ollamaRateLimitExceeded')) || 'Ollama Cloud usage limit reached. You may have hit a daily or weekly limit. Please wait for reset. Visit: https://ollama.com/settings to confirm your usage.');
+            } else if (error?.message === 'CLOUD_RESPONSE_TRUNCATED') {
+                // Ollama Cloud closed the connection mid-response — the AI generated
+                // content but it was too large for the transfer. Don't show a misleading
+                // "failed to connect" modal; return gracefully so the user isn't blocked.
+                console.warn('Ollama Cloud response was truncated (unexpected EOF). The AI generated content but it could not be fully transferred.');
+                return `AI response was truncated during transfer. Please try again with a smaller request or a different model.`;
             } else {
                 alert(Lang.get('paperworkAIServiceFailed'));
             }
@@ -1670,7 +1692,7 @@ class UIHelpers {
             }
             
             .paperwork-loading-container {
-                background-color: white;
+                background-color: var(--modal-background, #ffffff);
                 padding: 20px;
                 border-radius: 8px;
                 text-align: center;
@@ -1679,15 +1701,15 @@ class UIHelpers {
             .paperwork-loading-spinner {
                 width: 40px;
                 height: 40px;
-                border: 4px solid #f3f3f3;
-                border-top: 4px solid var(--primary-color, #4f46e5);
+                border: 4px solid var(--border-color, #e5e7eb);
+                border-top: 4px solid var(--accent-color, #4f46e5);
                 border-radius: 50%;
                 margin: 0 auto 15px auto;
                 animation: paperwork-spin 1s linear infinite;
             }
             
             .paperwork-loading-message {
-                color: #333;
+                color: var(--text-color, #333);
                 font-size: 16px;
             }
             
