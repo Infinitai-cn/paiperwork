@@ -2158,7 +2158,7 @@ code {
 }
 
 .tab-button[data-tab="documents"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%), linear-gradient(135deg, #1d4ed8, #2563eb 48%, #3b82f6);
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #2563eb, #3b82f6 48%, #60a5fa);
 }
 
 .tab-button[data-tab="translate"] {
@@ -2166,27 +2166,31 @@ code {
 }
 
 .tab-button[data-tab="dataviz"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 34%), linear-gradient(135deg, #b45309, #d97706 48%, #f59e0b);
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #1d4ed8, #2563eb 48%, #3b82f6);
 }
 
 .tab-button[data-tab="paperwork"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%), linear-gradient(135deg, #7c3aed, #8b5cf6 48%, #a78bfa);
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #1e40af, #1d4ed8 48%, #2563eb);
 }
 
 .tab-button[data-tab="research"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%), linear-gradient(135deg, #0f766e, #0891b2 48%, #06b6d4);
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #172554, #1e40af 48%, #1d4ed8);
 }
 
 .tab-button[data-tab="artwork"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.16), transparent 34%), linear-gradient(135deg, #dc2626, #ea580c 48%, #f97316);
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #f97316, #fb923c 48%, #fdba74);
 }
 
 .tab-button[data-tab="presentation"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%), linear-gradient(135deg, #1d4ed8, #2563eb 48%, #60a5fa);
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #ea580c, #f97316 48%, #fb923c);
 }
 
 .tab-button[data-tab="artifacts"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%), linear-gradient(135deg, #4338ca, #4f46e5 48%, #6366f1);
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #c2410c, #ea580c 48%, #f97316);
+}
+
+.tab-button[data-tab="campaign"] {
+    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #9a3412, #c2410c 48%, #ea580c);
 }
 
 .tab-button[data-tab="models"] {
