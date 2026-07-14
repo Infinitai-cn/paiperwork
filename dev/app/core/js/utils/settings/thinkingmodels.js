@@ -24,6 +24,7 @@ window.THINKING_MODELS = [
     'qwen3.6:35b-a3b-coding-nvfp4',
     'qwen3.6:35b-mlx',
     'qwen3.6:27b-mlx',
+    'qwen3.6:27b-mtp-q8_0',
     'magistral:24b',
     'gpt-oss',
     'qwen3:30b-a3b-thinking-2507',
