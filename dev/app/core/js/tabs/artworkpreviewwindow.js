@@ -1482,6 +1482,10 @@ class ArtworkPreviewWindow {
             return;
         }
 
+        console.log('[replaceImage] Fetched dataUrl length:', dataUrl.length, 'first 80 chars:', String(dataUrl).slice(0, 80));
+        console.log('[replaceImage] Target tagName:', this.styleTransferImageEditorTarget?.tagName,
+            'targetId:', this.styleTransferImageEditorTarget?.dataset?.pwStyleTransferImageId);
+
         this.applyStyleTransferImageReplacement(dataUrl);
         this.updateStyleTransferImageEditorStatus(
             window.Lang ? (Lang.get('imageReplacedStatus') || 'Image replaced. You can restore the original at any time.') : 'Image replaced. You can restore the original at any time.',
@@ -1564,17 +1568,23 @@ class ArtworkPreviewWindow {
 
     applyStyleTransferImageReplacement(dataUrl) {
         if (!this.styleTransferImageEditorTarget) {
+            console.warn('[applyReplacement] No target set, aborting.');
             return;
         }
 
         const target = this.styleTransferImageEditorTarget;
         const targetId = target.dataset.pwStyleTransferImageId;
+        console.log('[applyReplacement] targetId:', targetId, 'tagName:', target.tagName,
+            'dataUrl length:', (dataUrl || '').length);
+
         if (target.tagName === 'IMG') {
             target.setAttribute('src', dataUrl);
             target.removeAttribute('srcset');
             target.src = dataUrl;
+            console.log('[applyReplacement] IMG src set. New src:', String(target.getAttribute('src') || '').slice(0, 80));
         } else {
             target.style.backgroundImage = `url("${dataUrl}")`;
+            console.log('[applyReplacement] backgroundImage set.');
         }
 
         if (targetId) {
@@ -1633,10 +1643,127 @@ class ArtworkPreviewWindow {
         }
 
         const sourceCode = this.codeEditor.textContent || this.codeEditor.innerText;
-        const updatedCode = this.serializeSourceDocument(this.styleTransferImageEditorFrameDoc, sourceCode);
-        this.updateCodeEditorSource(updatedCode);
-        if (this.currentView === 'preview') {
-            this.updatePreview();
+
+        // Instead of relying on outerHTML (which can drop/truncate data: URLs set
+        // dynamically in sandboxed iframes), apply image replacements directly to the
+        // source code string so the code editor stays in sync.
+        //
+        // IMPORTANT: the code editor stores the AI-generated source (which may contain
+        // BACKGROUND_IMAGE_PLACEHOLDER), but the iframe DOM has resolved data: URLs.
+        // Resolve placeholders first so the regex values align with the DOM-stored originals.
+        //
+        // We do NOT call updatePreview() here — the iframe DOM was already updated
+        // in-place by applyStyleTransferImageReplacement (target.src = dataUrl).
+        // Re-rendering the iframe would destroy that change and reset the DOM.
+        let updatedCode = sourceCode;
+        if (this.backgroundImage) {
+            updatedCode = this.resolveBackgroundImageReferences(updatedCode, this.backgroundImage);
+        }
+
+        const allReplacements = this.styleTransferImageReplacementsById || {};
+        const allOriginals = this.styleTransferImageOriginalSrcById || {};
+        console.log('[commitStyleTransfer] Replacements:', JSON.stringify(allReplacements).slice(0, 200));
+        console.log('[commitStyleTransfer] Originals:', JSON.stringify(allOriginals).slice(0, 200));
+        console.log('[commitStyleTransfer] backgroundImage:', String(this.backgroundImage || '').slice(0, 80));
+
+        let appliedCount = 0;
+        for (const [targetId, replacement] of Object.entries(allReplacements)) {
+            const original = allOriginals[targetId];
+            if (!original) {
+                console.warn('[commitStyleTransfer] No original stored for targetId:', targetId);
+                continue;
+            }
+            if (replacement === original) {
+                console.log('[commitStyleTransfer] Replacement matches original, skipping:', targetId);
+                continue;
+            }
+
+            console.log('[commitStyleTransfer] Attempting replace — targetId:', targetId,
+                'original:', String(original).slice(0, 80),
+                'replacement:', String(replacement).slice(0, 80));
+
+            // Build a unique fingerprint from the original src for matching.
+            // Using the full data URL in a regex can exceed engine limits (>100KB).
+            // Use the first 80 chars of the original — data URLs have unique prefixes
+            // that are sufficient to identify the correct <img> tag.
+            const fingerprint = String(original).slice(0, 80);
+            const escapedFingerprint = fingerprint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            const beforeLen = updatedCode.length;
+            let matched = false;
+
+            // Try quoted src attribute first
+            const srcRegex = new RegExp(
+                `(<img\\s+[^>]*src\\s*=\\s*["'])${escapedFingerprint}[^"']*(["'][^>]*>)`,
+                'gi'
+            );
+            if (srcRegex.test(updatedCode)) {
+                srcRegex.lastIndex = 0;
+                // Replace the matched src with the new replacement, keeping the fingerprint
+                // portion so we can verify it matched the right element.
+                updatedCode = updatedCode.replace(srcRegex, (match, prefix, suffix) => {
+                    return `${prefix}${replacement}${suffix}`;
+                });
+                matched = true;
+            } else {
+                // Fallback: unquoted src
+                const unquotedRegex = new RegExp(
+                    `(<img\\s+[^>]*src\\s*=\\s*)${escapedFingerprint}[^"'\s>]*([^>]*>)`,
+                    'gi'
+                );
+                updatedCode = updatedCode.replace(unquotedRegex, (match, prefix, suffix) => {
+                    return `${prefix}"${replacement}"${suffix}`;
+                });
+                if (updatedCode.length !== beforeLen) matched = true;
+            }
+
+            // CSS background-image fallback using the same fingerprint approach
+            if (!matched) {
+                const bgRegex = new RegExp(
+                    `(background(?:-image)?\\s*:\\s*url\\s*\\(\\s*["']?)${escapedFingerprint}[^"')]*(["']?\\s*\\))`,
+                    'gi'
+                );
+                updatedCode = updatedCode.replace(bgRegex, (match, prefix, suffix) => {
+                    return `${prefix}${replacement}${suffix}`;
+                });
+                if (updatedCode.length !== beforeLen) matched = true;
+            }
+
+            if (matched) {
+                appliedCount++;
+                console.log('[commitStyleTransfer] Replacement applied for targetId:', targetId);
+            } else {
+                // Last resort: try matching BACKGROUND_IMAGE_PLACEHOLDER directly
+                // (in case resolveBackgroundImageReferences didn't run or the original
+                // was stored from a different render cycle).
+                console.warn('[commitStyleTransfer] Regex did NOT match resolved original. Trying placeholder fallback...');
+                const placeholderRegex = new RegExp(
+                    `(<img\\s+[^>]*src\\s*=\\s*["'])BACKGROUND_IMAGE_PLACEHOLDER(["'][^>]*>)`,
+                    'gi'
+                );
+                if (placeholderRegex.test(updatedCode)) {
+                    placeholderRegex.lastIndex = 0;
+                    updatedCode = updatedCode.replace(placeholderRegex, `$1${replacement}$2`);
+                    appliedCount++;
+                    console.log('[commitStyleTransfer] Placeholder fallback applied for targetId:', targetId);
+                } else {
+                    console.warn('[commitStyleTransfer] ALL regex strategies failed for targetId:', targetId,
+                        '\n  original (first 80):', String(original).slice(0, 80),
+                        '\n  replacement (first 80):', String(replacement).slice(0, 80),
+                        '\n  sourceCode has BACKGROUND_IMAGE_PLACEHOLDER:', updatedCode.includes('BACKGROUND_IMAGE_PLACEHOLDER'),
+                        '\n  sourceCode <img> tags:', (updatedCode.match(/<img[^>]*>/gi) || []).map(s => s.slice(0, 120)));
+                }
+            }
+        }
+
+        if (appliedCount > 0) {
+            console.log('[commitStyleTransfer] Applied', appliedCount, 'replacements. Updating code editor (no DOM reset).');
+            this.updateCodeEditorSource(updatedCode);
+            // Do NOT call updatePreview() — the iframe DOM was already updated in-place
+            // by applyStyleTransferImageReplacement. Re-rendering would reset the DOM.
+            this.previewDirty = true; // Mark dirty so next manual refresh picks up changes
+        } else {
+            console.warn('[commitStyleTransfer] No replacements applied. Code editor NOT updated.');
         }
     }
     
@@ -1673,18 +1800,28 @@ class ArtworkPreviewWindow {
         const exportBtn = this.container.querySelector('.export-btn');
         if (exportBtn) {
             exportBtn.addEventListener('click', async () => {
-                if (this.isStyleTransferPreview) {
-                    this.exportPreviewHtml();
-                  } else if (this.isTextOverlayPreview && this.canvasPreviewManager) {
-                      // Wait for canvas to be fully initialized before exporting
-                    if (this.canvasPreviewManager._initPromise) {
-                        await this.canvasPreviewManager._initPromise;
-                      }
-                      // Use canvas export for text overlay previews
-                    await this.canvasPreviewManager.exportCanvas();
-                  }
-              });
-          }
+                // Show "Exporting..." while the export runs
+                const originalHTML = exportBtn.innerHTML;
+                const exportingText = this.isStyleTransferPreview
+                    ? (Lang.get('artworkExportingHTML') || 'Exporting HTML…')
+                    : (Lang.get('artworkExportingPNG') || 'Exporting PNG…');
+                exportBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="8 12 12 16 16 12"></polyline><line x1="12" y1="8" x2="12" y2="16"></line></svg> ${exportingText}`;
+                exportBtn.disabled = true;
+                try {
+                    if (this.isStyleTransferPreview) {
+                        await this.exportPreviewHtml();
+                    } else if (this.isTextOverlayPreview && this.canvasPreviewManager) {
+                        if (this.canvasPreviewManager._initPromise) {
+                            await this.canvasPreviewManager._initPromise;
+                        }
+                        await this.canvasPreviewManager.exportCanvas();
+                    }
+                } finally {
+                    exportBtn.innerHTML = originalHTML;
+                    exportBtn.disabled = false;
+                }
+            });
+        }
         // Maximize button (may be removed for text-overlay previews)
         const maximizeBtn = this.container.querySelector('.preview-window-maximize-btn');
         if (maximizeBtn) {
@@ -2098,6 +2235,15 @@ class ArtworkPreviewWindow {
                 // reports no usable height, fall back to `900px`.
                 try {
                     newIframe.addEventListener('load', () => {
+                        // ALWAYS make the iframe visible once loaded — do this first
+                        // so the user sees content even if sizing/editing setup fails.
+                        try {
+                            this.setGenericHtmlPreviewReady(true);
+                        } catch (_visErr) {
+                            // Last resort: force visibility directly
+                            try { newIframe.style.visibility = 'visible'; newIframe.style.opacity = '1'; } catch (_) {}
+                        }
+
                         try {
                             const frameDoc = newIframe.contentDocument || newIframe.contentWindow?.document;
                             if (!frameDoc) return;
@@ -2128,7 +2274,6 @@ class ArtworkPreviewWindow {
                             // Enable in-iframe editing for style-transfer previews
                             try {
                                 this.enableStyleTransferPreviewEditing(frameDoc);
-                                this.setGenericHtmlPreviewReady(true);
                             } catch (editErr) {
                                 console.warn('ArtworkPreviewWindow: Failed to enable style-transfer editing', editErr);
                             }
@@ -2137,7 +2282,12 @@ class ArtworkPreviewWindow {
                         }
                     }, { once: true });
                 } catch (_e) {
-                    // ignore
+                    // If we can't even attach the load listener, make the iframe visible now
+                    try {
+                        this.setGenericHtmlPreviewReady(true);
+                    } catch (_) {
+                        try { newIframe.style.visibility = 'visible'; newIframe.style.opacity = '1'; } catch (_) {}
+                    }
                 }
 
                 this.previewDirty = false;
@@ -2892,12 +3042,94 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             reader.readAsDataURL(blob);
         });
     }
+
+    // HD cap: 1920×1080. Images exceeding either dimension are scaled down proportionally.
+    static HD_MAX_WIDTH = 1920;
+    static HD_MAX_HEIGHT = 1080;
+
+    computeResizedDimensions(naturalW, naturalH) {
+        let w = naturalW || 1;
+        let h = naturalH || 1;
+        if (w <= ArtworkPreviewWindow.HD_MAX_WIDTH && h <= ArtworkPreviewWindow.HD_MAX_HEIGHT) {
+            return { width: w, height: h };
+        }
+        const scale = Math.min(
+            ArtworkPreviewWindow.HD_MAX_WIDTH / w,
+            ArtworkPreviewWindow.HD_MAX_HEIGHT / h
+        );
+        return { width: Math.round(w * scale), height: Math.round(h * scale) };
+    }
+
+    async resizeBlobIfOversized(blob) {
+        if (!blob || !/^image\//.test(blob.type)) return blob;
+        try {
+            // createImageBitmap is preferred (fast, off-main-thread decode) but
+            // fall back to Image + canvas if unavailable (e.g. older browsers).
+            let bmpW, bmpH;
+            if (typeof createImageBitmap === 'function') {
+                const bmp = await createImageBitmap(blob);
+                bmpW = bmp.width;
+                bmpH = bmp.height;
+                const { width, height } = this.computeResizedDimensions(bmpW, bmpH);
+                if (width === bmpW && height === bmpH) {
+                    bmp.close();
+                    return blob;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) { bmp.close(); return blob; }
+                ctx.drawImage(bmp, 0, 0, width, height);
+                bmp.close();
+                const resized = await new Promise((resolve, reject) => {
+                    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))), 'image/png');
+                });
+                console.log(`[resizeBlob] ${bmpW}x${bmpH} → ${width}x${height} (HD cap)`);
+                return resized;
+            }
+            // Fallback: load via Image + canvas
+            const dataUrl = await this.blobToDataUrl(blob);
+            if (!dataUrl) return blob;
+            const img = await new Promise((resolve, reject) => {
+                const image = new Image();
+                image.onload = () => resolve(image);
+                image.onerror = () => reject(new Error('Image load failed'));
+                image.src = dataUrl;
+            });
+            bmpW = img.naturalWidth || img.width || 1;
+            bmpH = img.naturalHeight || img.height || 1;
+            const dims = this.computeResizedDimensions(bmpW, bmpH);
+            if (dims.width === bmpW && dims.height === bmpH) return blob;
+            const canvas = document.createElement('canvas');
+            canvas.width = dims.width;
+            canvas.height = dims.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return blob;
+            ctx.drawImage(img, 0, 0, dims.width, dims.height);
+            const resized = await new Promise((resolve, reject) => {
+                canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Canvas toBlob failed'))), 'image/png');
+            });
+            console.log(`[resizeBlob] ${bmpW}x${bmpH} → ${dims.width}x${dims.height} (HD cap, fallback path)`);
+            return resized;
+        } catch (_) {
+            return blob;
+        }
+    }
+
     async fetchAssetAsDataUrl(rawSrc, baseUrl) {
         let src = String(rawSrc || '').trim();
         if (!src) return null;
 
         // Already a data URL
         if (/^data:/i.test(src)) return src;
+
+        // Blob URLs: try to convert directly. Blobs created via URL.createObjectURL
+        // in the same origin should be fetchable. Log explicitly for debugging.
+        const isBlob = /^blob:/i.test(src);
+        if (isBlob) {
+            console.log('[fetchAssetAsDataUrl] Blob URL detected:', String(src).slice(0, 80));
+        }
 
         // Resolve relative URLs against base
         try {
@@ -2914,18 +3146,20 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         try {
             const response = await fetch(src, { cache: 'force-cache' });
             if (response && response.ok) {
-                const blob = await response.blob();
+                let blob = await response.blob();
+                blob = await this.resizeBlobIfOversized(blob);
                 const dataUrl = await this.blobToDataUrl(blob);
                 if (dataUrl) {
+                    if (isBlob) console.log('[fetchAssetAsDataUrl] ✓ Blob URL inlined successfully, length:', dataUrl.length);
                     this._assetDataUrlCache.set(src, dataUrl);
                     return dataUrl;
                 }
             } else {
-                console.warn(`[fetchAssetAsDataUrl] HTTP ${response?.status || 'unknown'} for ${src}`);
+                console.warn(`[fetchAssetAsDataUrl] HTTP ${response?.status || 'unknown'} for ${isBlob ? 'blob:' : ''}${String(src).slice(0, 80)}`);
             }
         } catch (_err) {
             // fetch may fail due to CORS or network; fall back to image->canvas approach
-            console.warn(`[fetchAssetAsDataUrl] Fetch failed for ${src}: ${_err.message || 'CORS or network error'}`);
+            console.warn(`[fetchAssetAsDataUrl] Fetch failed for ${isBlob ? 'blob URL ' : ''}${String(src).slice(0, 80)}: ${_err.message || 'CORS or network error'}`);
         }
 
         // Fallback: attempt to draw the image into a canvas (requires CORS headers to succeed)
@@ -2938,21 +3172,27 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
                 image.src = src;
             });
 
+            const { width, height } = this.computeResizedDimensions(
+                img.naturalWidth || img.width || 1,
+                img.naturalHeight || img.height || 1
+            );
             const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth || img.width || 1;
-            canvas.height = img.naturalHeight || img.height || 1;
+            canvas.width = width;
+            canvas.height = height;
             const ctx = canvas.getContext('2d');
             if (!ctx) return null;
-            ctx.drawImage(img, 0, 0);
+            ctx.drawImage(img, 0, 0, width, height);
             let dataUrl = null;
             try {
                 dataUrl = canvas.toDataURL('image/png');
             } catch (err) {
-                // toDataURL can fail if the image tainted the canvas (CORS)
                 console.warn(`[fetchAssetAsDataUrl] Canvas toDataURL failed for ${src}: CORS restriction or tainted canvas`);
                 return null;
             }
             if (dataUrl) {
+                if (width !== (img.naturalWidth || img.width)) {
+                    console.log(`[fetchAssetAsDataUrl] Resized ${img.naturalWidth}x${img.naturalHeight} → ${width}x${height}`);
+                }
                 this._assetDataUrlCache.set(src, dataUrl);
                 return dataUrl;
             }
@@ -3203,19 +3443,25 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
         try {
             // Inline <img> elements and their srcset attributes
             const imgs = Array.from(doc.querySelectorAll('img'));
+            console.log('[inlineImages] Found', imgs.length, '<img> elements to process');
             for (const img of imgs) {
                 try {
                     const srcAttr = img.getAttribute('src') || img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('data-original');
                     if (srcAttr) {
+                        console.log('[inlineImages] Processing img src:', String(srcAttr).slice(0, 80),
+                            'isBlob:', String(srcAttr).startsWith('blob:'),
+                            'isData:', String(srcAttr).startsWith('data:'));
                         const abs = resolveUrl(srcAttr);
                         let dataUrl = this._assetDataUrlCache?.get(abs) || null;
                         if (!dataUrl) dataUrl = await this.fetchAssetAsDataUrl(abs, baseUrl);
                         if (dataUrl) {
                             img.setAttribute('src', dataUrl);
                             inlineSuccessCount++;
+                            console.log('[inlineImages] ✓ Inlined img src, dataUrl length:', dataUrl.length);
                         } else {
                             inlineFailureCount++;
                             failedUrls.push(abs);
+                            console.warn('[inlineImages] ✗ Failed to inline img src:', String(abs).slice(0, 80));
                         }
                     }
 
@@ -3355,6 +3601,75 @@ img, svg, canvas { max-width: 100% !important; height: auto !important; }
             const serialized = this.serializeSourceDocument(doc, sourceHtml);
             return serialized.replace('</head>', warningComment + '</head>');
         }
+    }
+
+    async getPreviewExportSourceHtml() {
+        // Get the latest HTML from the code editor (includes text edits and
+        // image replacements applied by commitStyleTransferPreviewImageChange).
+        let html = (this.codeEditor && (this.codeEditor.textContent || this.codeEditor.innerText)) || this.generatedCode || '';
+        if (!html || !html.trim()) {
+            return '';
+        }
+
+        // Apply any pending image replacements that haven't been committed yet.
+        // Resolve placeholders first so the source values align with the DOM-stored
+        // originals (same as commitStyleTransferPreviewImageChange).
+        const replacements = this.styleTransferImageReplacementsById || {};
+        const originals = this.styleTransferImageOriginalSrcById || {};
+        if (this.backgroundImage && Object.keys(replacements).length > 0) {
+            html = this.resolveBackgroundImageReferences(html, this.backgroundImage);
+        }
+        for (const [targetId, replacement] of Object.entries(replacements)) {
+            const original = originals[targetId];
+            if (!original || replacement === original) continue;
+
+            // Use fingerprint (first 80 chars) to avoid regex engine size limits
+            // when the original src is a large data URL.
+            const fingerprint = String(original).slice(0, 80);
+            const escapedFingerprint = fingerprint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            // Try quoted src
+            const srcRegex = new RegExp(
+                `(<img\\s+[^>]*src\\s*=\\s*["'])${escapedFingerprint}[^"']*(["'][^>]*>)`,
+                'gi'
+            );
+            if (srcRegex.test(html)) {
+                srcRegex.lastIndex = 0;
+                html = html.replace(srcRegex, `$1${replacement}$2`);
+            } else {
+                // Try unquoted src
+                const unquotedRegex = new RegExp(
+                    `(<img\\s+[^>]*src\\s*=\\s*)${escapedFingerprint}[^"'\s>]*([^>]*>)`,
+                    'gi'
+                );
+                html = html.replace(unquotedRegex, `$1"${replacement}"$2`);
+            }
+
+            // Also replace CSS background-image references
+            const bgRegex = new RegExp(
+                `(background(?:-image)?\\s*:\\s*url\\s*\\(\\s*["']?)${escapedFingerprint}[^"')]*(["']?\\s*\\))`,
+                'gi'
+            );
+            html = html.replace(bgRegex, `$1${replacement}$2`);
+        }
+
+        // Resolve background image placeholders with the actual uploaded image
+        if (this.backgroundImage) {
+            html = this.resolveBackgroundImageReferences(html, this.backgroundImage);
+        }
+
+        // Fix AI-generated hero heights: the AI often uses small vh values (20-35vh)
+        // which look fine in the constrained preview iframe but too short in a full
+        // browser window. Boost them to a minimum of 45vh for standalone export.
+        html = html.replace(
+            /(height\s*:\s*)(1[5-9]|2\d|3[0-5])vh(\s*[;!])/gi,
+            '$145vh$3'
+        );
+
+        // Strip internal-only preview comments that should not appear in exports
+        html = this.stripInternalPreviewComments(html);
+
+        return html;
     }
 
     async exportPreviewHtml() {

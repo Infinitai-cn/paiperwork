@@ -2401,7 +2401,7 @@ class ArtworksTab {
                         (this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked)) {
                         const injectedImageUrl = imageUrl || this.imageBase64;
                         if (injectedImageUrl) {
-                            fullResponse = this.replaceBackgroundPlaceholders(fullResponse, injectedImageUrl);
+                            fullResponse = await this.replaceBackgroundPlaceholders(fullResponse, injectedImageUrl);
                         }
                     }
 
@@ -2445,7 +2445,9 @@ class ArtworksTab {
                         // Keep overlay HTML lightweight in the editor and resolve the image only at preview/export time.
                         if (this.activeMode !== 'overlay' &&
                             this.elements.useAsBackgroundCheckbox && this.elements.useAsBackgroundCheckbox.checked) {
-                            const injectedImageUrl = imageUrl;
+                            // Use the already-resolved data URL from the earlier replaceBackgroundPlaceholders
+                            // call (which converted blob → data URL) to keep the HTML self-contained.
+                            const injectedImageUrl = fullResponse.match(/url\('data:image\/[^')]+'\)/)?.[0]?.replace(/url\(['"]|['"]\)/g, '') || imageUrl;
 
                             fullResponse = fullResponse.replace(
                                 /url\(['"]?BACKGROUND_IMAGE_PLACEHOLDER['"]?\)/gi,
@@ -2715,20 +2717,45 @@ class ArtworksTab {
     }
 
     // Replaces BACKGROUND_IMAGE_PLACEHOLDER references in generated HTML with a real image URL
-    replaceBackgroundPlaceholders(html, imageUrl) {
+    async replaceBackgroundPlaceholders(html, imageUrl) {
         if (!html || typeof html !== 'string' || !imageUrl) return html;
 
+        // Convert blob URLs to data URLs so the exported HTML is self-contained.
+        // Blob URLs are ephemeral and won't work in standalone HTML files.
+        let resolvedUrl = imageUrl;
+        if (/^blob:/i.test(String(imageUrl))) {
+            try {
+                console.log('[replaceBackgroundPlaceholders] Converting blob URL to data URL:', String(imageUrl).slice(0, 60));
+                const response = await fetch(imageUrl);
+                if (response && response.ok) {
+                    const blob = await response.blob();
+                    resolvedUrl = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = () => reject(reader.error);
+                        reader.readAsDataURL(blob);
+                    });
+                    console.log('[replaceBackgroundPlaceholders] ✓ Blob converted, dataUrl length:', resolvedUrl.length);
+                } else {
+                    console.warn('[replaceBackgroundPlaceholders] ✗ Failed to fetch blob URL, keeping as-is');
+                }
+            } catch (err) {
+                console.warn('[replaceBackgroundPlaceholders] ✗ Error converting blob URL:', err.message);
+                // Keep the original blob URL as fallback
+            }
+        }
+
         const urlPattern = /url\(\s*(['"]?)BACKGROUND_IMAGE_PLACEHOLDER\1\s*\)/gi;
-        html = html.replace(urlPattern, `url('${imageUrl}')`);
+        html = html.replace(urlPattern, `url('${resolvedUrl}')`);
 
         const imgSrcPattern = /(<img\b[^>]*\bsrc\s*=\s*)(['"]?)BACKGROUND_IMAGE_PLACEHOLDER\2([^>]*>)/gi;
         html = html.replace(imgSrcPattern, (_, prefix, quote, suffix) => {
-            return `${prefix}'${imageUrl}'${suffix}`;
+            return `${prefix}'${resolvedUrl}'${suffix}`;
         });
 
         const imgSrcNoQuotePattern = /(<img\b[^>]*\bsrc\s*=\s*)BACKGROUND_IMAGE_PLACEHOLDER([^>]*>)/gi;
         html = html.replace(imgSrcNoQuotePattern, (_, prefix, suffix) => {
-            return `${prefix}'${imageUrl}'${suffix}`;
+            return `${prefix}'${resolvedUrl}'${suffix}`;
         });
 
         return html;

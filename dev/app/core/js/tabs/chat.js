@@ -3743,7 +3743,10 @@ class Chat {
                     }
 
                     if (!deletionSuccess) {
-                        throw new Error('Database deletion failed with all strategies');
+                        // The message pair may not be in the database yet (e.g. during
+                        // active streaming or before the save cycle).  Silently skip
+                        // the DB step and continue removing from the UI.
+                        console.warn('No database record found for message pair — removing from UI only.');
                     }
 
                     await new Promise(resolve => setTimeout(resolve, 100));

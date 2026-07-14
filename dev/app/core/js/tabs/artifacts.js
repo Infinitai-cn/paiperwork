@@ -3518,7 +3518,188 @@ class ArtifactsWindow {
 		}
 		const html = this.currentArtifactHtml || this.getDefaultArtifactHtml();
 		this.clearArtifactImageEditorArtifacts();
-		this.renderFrame.srcdoc = this.normalizeYouTubeEmbeds(html);
+		this.renderFrame.srcdoc = this.injectArtifactErrorDetection(this.normalizeYouTubeEmbeds(html));
+		this.scheduleArtifactErrorCheck();
+	}
+
+	// Injects a small script into the artifact HTML that captures console errors
+	// and reports them back to the parent window via postMessage.
+	// Injected at the very start of <head> so it catches errors from ALL subsequent scripts.
+	static injectArtifactErrorDetection(html) {
+		const script = `
+<script data-pw-artifact-error-detect>(function(){
+	var errors=[];
+	var maxErrors=15;
+	var reported=false;
+	function report(){
+		if(reported||errors.length===0)return;
+		reported=true;
+		try{parent.postMessage({pwArtifactErrors:errors.slice()},'*');}catch(e){}
+	}
+	function add(level,args){
+		if(errors.length>=maxErrors)return;
+		try{
+			var msg=Array.from(args||[]).map(function(a){
+				try{return typeof a==='object'?JSON.stringify(a).slice(0,500):String(a).slice(0,500);}
+				catch(e){return String(a).slice(0,200);}
+			}).join(' ');
+			errors.push('['+level+'] '+msg);
+		}catch(e){}
+	}
+	var origError=console.error;
+	console.error=function(){origError.apply(console,arguments);add('error',arguments);};
+	var origWarn=console.warn;
+	console.warn=function(){origWarn.apply(console,arguments);add('warn',arguments);};
+	window.addEventListener('error',function(e){
+		add('error',[e.message||'Unknown error','(line '+(e.lineno||'?')+', col '+(e.colno||'?')+')']);
+	});
+	window.addEventListener('unhandledrejection',function(e){
+		add('error',[e.reason&&e.reason.message||String(e.reason||'Unhandled rejection')]);
+	});
+	// Report after short delays to capture async errors too
+	setTimeout(report,400);setTimeout(report,1200);setTimeout(report,3500);setTimeout(report,7000);
+})();</script>
+`;
+		// Inject at the very beginning of <head> so it runs before any other scripts
+		if (/<head[^>]*>/i.test(html)) {
+			return html.replace(/<head[^>]*>/i, '$&' + script);
+		}
+		// If no <head>, inject at the start of the document
+		if (/<html[^>]*>/i.test(html)) {
+			return html.replace(/<html[^>]*>/i, '$&<head>' + script + '</head>');
+		}
+		return script + html;
+	}
+
+	// Schedules a check for artifact errors. Called after rendering.
+	static scheduleArtifactErrorCheck() {
+		// Clear any previous errors and timeout
+		this._artifactErrors = [];
+		this._artifactErrorModalShown = false;
+		if (this._artifactErrorTimer) clearTimeout(this._artifactErrorTimer);
+
+		// Set up a one-time postMessage listener for error reports from the iframe
+		if (!this._artifactErrorListenerSet) {
+			this._artifactErrorListenerSet = true;
+			window.addEventListener('message', (event) => {
+				if (event.data && event.data.pwArtifactErrors && Array.isArray(event.data.pwArtifactErrors)) {
+					this.showArtifactErrorModal(event.data.pwArtifactErrors);
+				}
+			});
+		}
+
+		// Give the artifact time to load and run scripts, then do a direct check
+		this._artifactErrorTimer = setTimeout(() => {
+			this.checkArtifactErrors();
+		}, 3000);
+	}
+
+	// Checks for errors reported by the artifact iframe via postMessage.
+	static checkArtifactErrors() {
+		// postMessage errors are handled by the listener set up in the constructor.
+		// Also do a direct check in case the iframe is same-origin accessible.
+		try {
+			const win = this.renderFrame && this.renderFrame.contentWindow;
+			if (win && win.__pwArtifactErrors && Array.isArray(win.__pwArtifactErrors)) {
+				this.showArtifactErrorModal(win.__pwArtifactErrors);
+			}
+		} catch (_) { /* cross-origin, ignore */ }
+	}
+
+	// Shows a modal with detected artifact errors and a button to send them to the AI.
+	static showArtifactErrorModal(errors) {
+		if (!errors || !errors.length) return;
+		// Don't show multiple modals for the same artifact
+		if (this._artifactErrorModalShown) return;
+		this._artifactErrorModalShown = true;
+
+		const errorsText = errors.slice(0, 10).join('\n');
+
+		// Inject modal styles once
+		if (!document.getElementById('pw-artifact-error-styles')) {
+			const styleEl = document.createElement('style');
+			styleEl.id = 'pw-artifact-error-styles';
+			styleEl.textContent = `
+				.artifact-error-modal { position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.65); backdrop-filter:blur(6px); }
+				.artifact-error-modal-content { background:var(--modal-background,#1e1e2e); border:1px solid var(--border-color,#404060); border-radius:14px; padding:24px; max-width:560px; width:90vw; max-height:80vh; overflow-y:auto; box-shadow:0 16px 48px rgba(0,0,0,0.45); color:var(--text-color,#e0e0e0); }
+				.artifact-error-modal-content h3 { margin:0 0 8px; font-size:17px; color:#f87171; }
+				.artifact-error-modal-content p { margin:0 0 14px; font-size:13px; line-height:1.5; color:var(--text-color,#ccc); }
+				.artifact-error-log { background:var(--bg-color,#111); border:1px solid var(--border-color,#333); border-radius:8px; padding:12px; font-size:12px; line-height:1.5; max-height:260px; overflow-y:auto; white-space:pre-wrap; word-break:break-all; color:#f87171; margin-bottom:16px; }
+				.artifact-error-buttons { display:flex; gap:10px; justify-content:flex-end; }
+				.artifact-error-send-btn { padding:8px 18px; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; background:var(--accent-color,#4f46e5); color:#fff; }
+				.artifact-error-send-btn:hover { filter:brightness(1.1); }
+				.artifact-error-dismiss-btn { padding:8px 18px; border:1px solid var(--border-color,#555); border-radius:8px; cursor:pointer; font-size:13px; background:transparent; color:var(--text-color,#ccc); }
+			`;
+			document.head.appendChild(styleEl);
+		}
+
+		const modal = document.createElement('div');
+		modal.className = 'artifact-error-modal';
+		modal.innerHTML = `
+			<div class="artifact-error-modal-content">
+				<h3>${this.t('artifactErrorTitle', 'Console Errors Detected')}</h3>
+				<p>${this.t('artifactErrorDescription', 'The displayed mini-app contains syntax errors. Click send to have the AI model fix them.')}</p>
+				<pre class="artifact-error-log">${this.escapeHtml(errorsText)}</pre>
+				<div class="artifact-error-buttons">
+					<button class="artifact-error-send-btn">${this.t('artifactErrorSendBtn', 'Send to AI to fix')}</button>
+					<button class="artifact-error-dismiss-btn">${this.t('artifactErrorDismissBtn', 'Dismiss')}</button>
+				</div>
+			</div>
+		`;
+		document.body.appendChild(modal);
+
+		modal.querySelector('.artifact-error-send-btn').addEventListener('click', () => {
+			modal.remove();
+			this._artifactErrorModalShown = false;
+			this.sendArtifactErrorsToAI(errors);
+		});
+
+		modal.querySelector('.artifact-error-dismiss-btn').addEventListener('click', () => {
+			modal.remove();
+			this._artifactErrorModalShown = false;
+		});
+
+		// Auto-dismiss after 60 seconds
+		setTimeout(() => {
+			if (modal.parentNode) {
+				modal.remove();
+				this._artifactErrorModalShown = false;
+			}
+		}, 60000);
+	}
+
+	// Sends the detected errors to the AI model as a fix request using the same
+	// inference pipeline used for artifact generation.
+	static async sendArtifactErrorsToAI(errors) {
+		if (!errors || !errors.length) return;
+		const errorsText = errors.slice(0, 10).join('\n');
+		const currentHtml = this.currentArtifactHtml || '';
+
+		const fixPrompt = [
+			'The HTML mini-app below is producing console errors. Fix ALL of these errors while keeping the functionality intact.',
+			'',
+			'Console errors:',
+			errorsText,
+			'',
+			'Current HTML:',
+			'```html',
+			currentHtml,
+			'```',
+			'',
+			'Return ONLY the corrected HTML inside a code block (```html ... ```). Do not add explanations.',
+		].join('\n');
+
+		try {
+			await this.generateArtifactHtmlFromPrompt(fixPrompt, {
+				abortSignal: null,
+			});
+		} catch (err) {
+			console.error('[ArtifactsWindow] Error sending fix request to AI:', err);
+		}
+	}
+
+	static escapeHtml(str) {
+		return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 	}
 
 	static async refreshSavedArtifacts() {
