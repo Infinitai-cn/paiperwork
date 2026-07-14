@@ -2671,6 +2671,22 @@ var cloudAPIHTTPClient = &http.Client{
 	},
 }
 
+// cloudAPINonStreamingHTTPClient is used for non-streaming requests (generate, show, embed)
+// where a single large response is expected. Uses HTTP/2 for better connection resilience
+// and a generous timeout to handle large-context summarization without unexpected EOFs.
+var cloudAPINonStreamingHTTPClient = &http.Client{
+	Timeout: 180 * time.Second,
+	Transport: &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   20,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   15 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ForceAttemptHTTP2:     true,
+	},
+}
+
 // Admin configuration loaded at startup.
 var (
 	adminAPIKey   string
@@ -2880,8 +2896,10 @@ func isTransientCloudNetworkError(err error) bool {
 		return false
 	}
 
+	// io.EOF / unexpected EOF are NOT transient — the remote server already
+	// closed the connection. Retrying wastes time and delays the user experience.
 	if errors.Is(err, io.EOF) {
-		return true
+		return false
 	}
 
 	var netErr net.Error
@@ -2892,8 +2910,7 @@ func isTransientCloudNetworkError(err error) bool {
 	}
 
 	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "unexpected eof") ||
-		strings.Contains(msg, "connection reset") ||
+	return strings.Contains(msg, "connection reset") ||
 		strings.Contains(msg, "broken pipe") ||
 		strings.Contains(msg, "timeout")
 }
@@ -3011,26 +3028,89 @@ func proxyOllamaCloudAPIPath(path string) http.HandlerFunc {
 		req.Header.Set("Accept", "application/json")
 
 		wantsStream := cloudRequestWantsStream(bodyBytes)
-		maxAttempts := 2
-		resp, err := cloudAPIHTTPClient.Do(req)
-		if err != nil {
-			shouldRetry := maxAttempts > 1 && isTransientCloudNetworkError(err) && !(r.Method == http.MethodPost && wantsStream)
-			if shouldRetry {
-				log.Printf("[CloudProxyRetry] path=%s method=%s modelHint=%s err=%v (attempt 1/%d)", path, r.Method, extractCloudModelHint(bodyBytes), err, maxAttempts)
-				time.Sleep(200 * time.Millisecond)
 
-				retryReq, reqErr := http.NewRequest(r.Method, targetURL, strings.NewReader(string(bodyBytes)))
-				if reqErr != nil {
-					http.Error(w, "Failed to create cloud retry request", http.StatusInternalServerError)
-					return
-				}
-				retryReq.Header = req.Header.Clone()
-				resp, err = cloudAPIHTTPClient.Do(retryReq)
+		// Select client: non-streaming POST requests use a client with timeout + HTTP/2
+		// to avoid unexpected EOF from Ollama Cloud's load balancer / request-size limits.
+		// Streaming requests keep the original HTTP/1.1 client for stability.
+		baseClient := cloudAPIHTTPClient
+		isNonStreaming := r.Method == http.MethodPost && !wantsStream
+		if isNonStreaming {
+			baseClient = cloudAPINonStreamingHTTPClient
+		}
+
+		// Non-streaming generate requests get 3 attempts with exponential backoff.
+		// Ollama Cloud's infrastructure may truncate large responses, and a longer
+		// wait between retries gives their rate-limiter / load-balancer time to reset.
+		maxAttempts := 2
+		if isNonStreaming {
+			maxAttempts = 3
+		}
+
+		var resp *http.Response
+		var lastErr error
+		client := baseClient
+		for attempt := 1; attempt <= maxAttempts; attempt++ {
+			resp, err = client.Do(req)
+			if err == nil {
+				break // success
 			}
+			lastErr = err
+
+			canRetry := attempt < maxAttempts && isTransientCloudNetworkError(err)
+			if !canRetry {
+				break
+			}
+
+			backoff := time.Duration(attempt) * 400 * time.Millisecond
+			if isNonStreaming {
+				backoff = time.Duration(attempt) * 1200 * time.Millisecond
+			}
+			log.Printf("[CloudProxyRetry] path=%s method=%s modelHint=%s err=%v backoff=%v (attempt %d/%d)",
+				path, r.Method, extractCloudModelHint(bodyBytes), err, backoff, attempt, maxAttempts)
+			time.Sleep(backoff)
+
+			// On final retry for non-streaming, use a fresh client with DisableKeepAlives
+			// to rule out connection-pool / keep-alive issues causing repeated EOF.
+			if isNonStreaming && attempt == maxAttempts-1 {
+				client = &http.Client{
+					Timeout: 180 * time.Second,
+					Transport: &http.Transport{
+						Proxy:                 http.ProxyFromEnvironment,
+						TLSHandshakeTimeout:   15 * time.Second,
+						ExpectContinueTimeout: 1 * time.Second,
+						ForceAttemptHTTP2:     true,
+						DisableKeepAlives:     true,
+					},
+				}
+			}
+
+			retryReq, reqErr := http.NewRequest(r.Method, targetURL, strings.NewReader(string(bodyBytes)))
+			if reqErr != nil {
+				http.Error(w, "Failed to create cloud retry request", http.StatusInternalServerError)
+				return
+			}
+			retryReq.Header = req.Header.Clone()
+			req = retryReq
 		}
 		if err != nil {
-			log.Printf("Error proxying Ollama cloud %s: %v (stream=%v modelHint=%s)", path, err, wantsStream, extractCloudModelHint(bodyBytes))
-			http.Error(w, "Failed to reach Ollama cloud", http.StatusBadGateway)
+			isEOF := strings.Contains(strings.ToLower(lastErr.Error()), "eof")
+			log.Printf("Error proxying Ollama cloud %s: %v (stream=%v modelHint=%s attempts=%d eof=%v)",
+				path, lastErr, wantsStream, extractCloudModelHint(bodyBytes), maxAttempts, isEOF)
+
+			// Return JSON so the client can distinguish EOF (response truncated by
+			// Ollama Cloud's infrastructure) from a genuine connection failure.
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadGateway)
+			errCode := "CLOUD_PROXY_ERROR"
+			errMsg := "Failed to reach Ollama cloud"
+			if isEOF {
+				errCode = "CLOUD_RESPONSE_TRUNCATED"
+				errMsg = "Ollama cloud closed the connection before the full response was received. The AI may have generated content that was too large for the transfer."
+			}
+			json.NewEncoder(w).Encode(map[string]string{
+				"error":   errCode,
+				"message": errMsg,
+			})
 			return
 		}
 		defer resp.Body.Close()
@@ -8813,6 +8893,16 @@ func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 
 	targetURLString := validatedTargetURL.String()
 
+	// Resolve Bing click-tracking redirect URLs to their actual destination
+	if strings.Contains(targetURLString, "bing.com/ck/") || strings.Contains(targetURLString, "bing.com/ck/a") {
+		if resolved, ok := resolveBingRedirectURL(targetURLString); ok {
+			log.Printf("Content extraction: resolved Bing redirect %s -> %s", targetURLString, resolved)
+			if validated, err := validateOutboundURL(resolved); err == nil {
+				targetURLString = validated.String()
+			}
+		}
+	}
+
 	log.Printf("Content extraction request for URL: %s", targetURLString)
 
 	// Create HTTP client with timeout
@@ -8853,11 +8943,12 @@ func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	// Check content type
+	// Check content type — if it's a PDF, return 415 so the client falls back
+	// to extractPdfContent (the research pipeline has full PDF support).
 	contentType := resp.Header.Get("Content-Type")
 	if !strings.Contains(contentType, "text/html") && !strings.Contains(contentType, "application/xhtml+xml") {
-		log.Printf("Unsupported content type: %s", contentType)
-		http.Error(w, "URL does not point to HTML content", http.StatusBadRequest)
+		log.Printf("Unsupported content type: %s (returning 415 for client PDF fallback)", contentType)
+		http.Error(w, "URL content type not supported for direct HTML extraction", http.StatusUnsupportedMediaType)
 		return
 	}
 
@@ -8872,6 +8963,12 @@ func fetchAndExtractContent(w http.ResponseWriter, r *http.Request) {
 
 	// Simple content extraction - in reality, you'd want to use a more robust algorithm
 	extractedContent, contentType := extractMainContent(body, targetURLString)
+
+	// Log warning when extraction yields little or no content
+	if len(extractedContent) < 50 {
+		log.Printf("Content extraction WARNING: only %d chars extracted from %s (content-type: %s, body size: %d bytes)",
+			len(extractedContent), targetURLString, contentType, len(body))
+	}
 
 	// Return the extracted content as JSON
 	w.Header().Set("Content-Type", "application/json")
@@ -9756,6 +9853,52 @@ func sortedStringSet(values map[string]struct{}) []string {
 	return result
 }
 
+// resolveBingRedirectURL extracts the actual destination URL from Bing click-tracking redirects.
+// Bing encodes the target URL in the "u" query parameter as base64 (with a leading "a1" prefix).
+func resolveBingRedirectURL(bingURL string) (string, bool) {
+	parsed, err := url.Parse(bingURL)
+	if err != nil {
+		return "", false
+	}
+
+	uParam := parsed.Query().Get("u")
+	if uParam == "" {
+		return "", false
+	}
+
+	// Bing uses "a1" prefix + base64-encoded URL
+	if strings.HasPrefix(uParam, "a1") {
+		decoded, err := base64.RawURLEncoding.DecodeString(uParam[2:])
+		if err == nil {
+			resolved := string(decoded)
+			// Verify it looks like a valid URL
+			if strings.HasPrefix(resolved, "http://") || strings.HasPrefix(resolved, "https://") {
+				return resolved, true
+			}
+		}
+	}
+
+	// Try standard base64 without the "a1" prefix
+	decoded, err := base64.RawURLEncoding.DecodeString(uParam)
+	if err == nil {
+		resolved := string(decoded)
+		if strings.HasPrefix(resolved, "http://") || strings.HasPrefix(resolved, "https://") {
+			return resolved, true
+		}
+	}
+
+	// Try with padding
+	decoded, err = base64.URLEncoding.DecodeString(uParam)
+	if err == nil {
+		resolved := string(decoded)
+		if strings.HasPrefix(resolved, "http://") || strings.HasPrefix(resolved, "https://") {
+			return resolved, true
+		}
+	}
+
+	return "", false
+}
+
 // Content extraction helper function
 func extractMainContent(body []byte, url string) (string, string) {
 	// Convert body to string
@@ -9783,7 +9926,9 @@ func extractWeatherContent(htmlContent, url string) string {
 		tempPattern := regexp.MustCompile(`<span[^>]*class="CurrentConditions[^"]*">([^<]+)</span>`)
 		tempMatches := tempPattern.FindAllStringSubmatch(htmlContent, 2)
 		if len(tempMatches) > 0 && len(tempMatches[0]) > 1 {
-			extracted.WriteString("🌡️ Current conditions: " + tempMatches[0][1] + "\n\n")
+			extracted.WriteString("🌡️ Current conditions: ")
+			extracted.WriteString(tempMatches[0][1])
+			extracted.WriteString("\n\n")
 			siteSpecific = true
 		}
 	} else if strings.Contains(url, "accuweather") {
@@ -9791,7 +9936,9 @@ func extractWeatherContent(htmlContent, url string) string {
 		tempPattern := regexp.MustCompile(`<div[^>]*class="temperature">([^<]+)</div>`)
 		tempMatches := tempPattern.FindAllStringSubmatch(htmlContent, 1)
 		if len(tempMatches) > 0 && len(tempMatches[0]) > 1 {
-			extracted.WriteString("🌡️ Temperature: " + tempMatches[0][1] + "\n\n")
+			extracted.WriteString("🌡️ Temperature: ")
+			extracted.WriteString(tempMatches[0][1])
+			extracted.WriteString("\n\n")
 			siteSpecific = true
 		}
 	}
@@ -9803,7 +9950,9 @@ func extractWeatherContent(htmlContent, url string) string {
 		tempMatches := tempPattern.FindAllString(htmlContent, 10)
 
 		if len(tempMatches) > 0 {
-			extracted.WriteString("🌡️ Temperature: " + strings.Join(tempMatches[:1], ", ") + "\n\n")
+			extracted.WriteString("🌡️ Temperature: ")
+			extracted.WriteString(strings.Join(tempMatches[:1], ", "))
+			extracted.WriteString("\n\n")
 		}
 	}
 
@@ -9820,7 +9969,8 @@ func extractWeatherContent(htmlContent, url string) string {
 			cleaned = regexp.MustCompile(`\s+`).ReplaceAllString(cleaned, " ")
 
 			if len(cleaned) > 10 && len(cleaned) < 300 {
-				extracted.WriteString(cleaned + "\n\n")
+				extracted.WriteString(cleaned)
+				extracted.WriteString("\n\n")
 			}
 		}
 	}
@@ -9840,29 +9990,149 @@ func extractGeneralContent(htmlContent string) string {
 	noStyles := regexp.MustCompile(`(?s)<style.*?</style>`).ReplaceAllString(noScripts, " ")
 	noComments := regexp.MustCompile(`(?s)<!--.*?-->`).ReplaceAllString(noStyles, " ")
 
-	// Extract content from paragraphs
-	paragraphPattern := regexp.MustCompile(`<p[^>]*>(.*?)</p>`)
-	matches := paragraphPattern.FindAllStringSubmatch(noComments, -1)
+	// Remove common non-content elements
+	noNav := regexp.MustCompile(`(?s)<nav[^>]*>.*?</nav>`).ReplaceAllString(noComments, " ")
+	noHeader := regexp.MustCompile(`(?s)<header[^>]*>.*?</header>`).ReplaceAllString(noNav, " ")
+	noFooter := regexp.MustCompile(`(?s)<footer[^>]*>.*?</footer>`).ReplaceAllString(noHeader, " ")
+	noAside := regexp.MustCompile(`(?s)<aside[^>]*>.*?</aside>`).ReplaceAllString(noFooter, " ")
+	noForm := regexp.MustCompile(`(?s)<form[^>]*>.*?</form>`).ReplaceAllString(noAside, " ")
+
+	// CRITICAL FIX: (?s) flag so .*? matches newlines — multiline <p> tags are now captured
+	// Also extract from article, section, div, li, headings, blockquote, dd, td, th, pre, summary
+	blockPatterns := []string{
+		`<p[^>]*>`,
+		`<article[^>]*>`,
+		`<section[^>]*>`,
+		`<div[^>]*>`,
+		`<li[^>]*>`,
+		`<h[1-6][^>]*>`,
+		`<blockquote[^>]*>`,
+		`<dd[^>]*>`,
+		`<td[^>]*>`,
+		`<th[^>]*>`,
+		`<pre[^>]*>`,
+		`<summary[^>]*>`,
+		`<dt[^>]*>`,
+		`<figcaption[^>]*>`,
+	}
+
+	closingTags := map[string]string{
+		`<p[^>]*>`:          `</p>`,
+		`<article[^>]*>`:    `</article>`,
+		`<section[^>]*>`:    `</section>`,
+		`<div[^>]*>`:        `</div>`,
+		`<li[^>]*>`:         `</li>`,
+		`<h[1-6][^>]*>`:     `</h[1-6]>`,
+		`<blockquote[^>]*>`: `</blockquote>`,
+		`<dd[^>]*>`:         `</dd>`,
+		`<td[^>]*>`:         `</td>`,
+		`<th[^>]*>`:         `</th>`,
+		`<pre[^>]*>`:        `</pre>`,
+		`<summary[^>]*>`:    `</summary>`,
+		`<dt[^>]*>`:         `</dt>`,
+		`<figcaption[^>]*>`: `</figcaption>`,
+	}
 
 	var content strings.Builder
-	for _, match := range matches {
-		if len(match) > 1 {
-			// Clean up HTML tags and whitespace
-			cleaned := regexp.MustCompile(`<[^>]*>`).ReplaceAllString(match[1], " ")
-			cleaned = strings.TrimSpace(cleaned)
-			cleaned = regexp.MustCompile(`\s+`).ReplaceAllString(cleaned, " ")
+	seen := make(map[string]bool) // deduplicate content blocks
 
-			// Only include paragraphs with substantial content
-			if len(cleaned) > 40 {
-				content.WriteString(cleaned + "\n\n")
+	for _, openPattern := range blockPatterns {
+		closeTag := closingTags[openPattern]
+		if closeTag == "" {
+			closeTag = `</[^>]+>` // fallback
+		}
+		// Build pattern with (?s) for multiline matching
+		fullPattern := regexp.MustCompile(`(?s)` + openPattern + `(.*?)` + closeTag)
+		matches := fullPattern.FindAllStringSubmatch(noForm, -1)
+
+		for _, match := range matches {
+			if len(match) > 1 {
+				// Strip inner HTML tags
+				cleaned := regexp.MustCompile(`<[^>]*>`).ReplaceAllString(match[1], " ")
+				cleaned = strings.TrimSpace(cleaned)
+				cleaned = regexp.MustCompile(`\s+`).ReplaceAllString(cleaned, " ")
+
+				// Deduplicate and filter noise
+				if len(cleaned) > 30 && !seen[cleaned] {
+					// Skip common nav/footer boilerplate
+					lower := strings.ToLower(cleaned)
+					if strings.Contains(lower, "cookie") && strings.Contains(lower, "privacy") {
+						continue
+					}
+					if len(cleaned) < 200 && (strings.HasPrefix(lower, "©") || strings.HasPrefix(lower, "all rights reserved")) {
+						continue
+					}
+					seen[cleaned] = true
+					content.WriteString(cleaned)
+					content.WriteString("\n\n")
+				}
 			}
 		}
 	}
 
-	// Limit the result length
 	result := content.String()
-	if len(result) > 2000 {
-		return result[:2000] + "..."
+
+	// Fallback: if no structured content found, try extracting <title> and <meta> tags
+	// first — these are often the only meaningful text in JS-rendered SPAs.
+	if len(result) < 100 {
+		titleRe := regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+		if m := titleRe.FindStringSubmatch(htmlContent); len(m) > 1 {
+			t := strings.TrimSpace(regexp.MustCompile(`<[^>]*>`).ReplaceAllString(m[1], " "))
+			t = regexp.MustCompile(`\s+`).ReplaceAllString(t, " ")
+			if len(t) > 3 {
+				content.WriteString("Title: ")
+				content.WriteString(t)
+				content.WriteString("\n\n")
+			}
+		}
+
+		metaDescRe := regexp.MustCompile(`(?is)<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']`)
+		if m := metaDescRe.FindStringSubmatch(htmlContent); len(m) > 1 {
+			d := strings.TrimSpace(m[1])
+			if len(d) > 10 {
+				content.WriteString("Description: ")
+				content.WriteString(d)
+				content.WriteString("\n\n")
+			}
+		}
+		// Also try meta description with content before name attribute
+		metaDescRe2 := regexp.MustCompile(`(?is)<meta[^>]+content=["']([^"']+)["'][^>]+name=["']description["']`)
+		if m := metaDescRe2.FindStringSubmatch(htmlContent); len(m) > 1 {
+			d := strings.TrimSpace(m[1])
+			if len(d) > 10 {
+				content.WriteString("Description: ")
+				content.WriteString(d)
+				content.WriteString("\n\n")
+			}
+		}
+
+		result = content.String()
+	}
+
+	// Final fallback: strip ALL tags from the HTML (before nav/footer removal) and
+	// extract any remaining visible text. Use noComments (scripts/styles/comments
+	// removed) rather than noForm so we don't miss content in nav/header/footer.
+	if len(result) < 100 {
+		allText := regexp.MustCompile(`<[^>]*>`).ReplaceAllString(noComments, " ")
+		// Decode common HTML entities including numeric (&#x...;, &#...;)
+		allText = regexp.MustCompile(`&(?:[a-z]+|#x?[0-9a-f]+);`).ReplaceAllString(allText, " ")
+		allText = regexp.MustCompile(`\s+`).ReplaceAllString(allText, " ")
+		allText = strings.TrimSpace(allText)
+
+		if len(allText) > 50 {
+			// Use all visible text directly — the Latin-only sentence regex
+			// ([A-Z][^.!?]*[.!?]) fails for Chinese, Japanese, Korean, etc.
+			result = allText
+		}
+	}
+
+	// Increased limit so the AI has more context to work with
+	if len(result) > 10000 {
+		return result[:10000] + "..."
+	}
+
+	if len(result) < 50 {
+		return "" // Return empty so the caller can handle it properly
 	}
 
 	return result
