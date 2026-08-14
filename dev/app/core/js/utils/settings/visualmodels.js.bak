@@ -24,6 +24,7 @@ window.VISUAL_MODELS = [
     'qwen3:30b-a3b-thinking-2507',
     'qwen3.6:35b-a3b-q8_0',
     'qwen3.6:35b-a3b-coding-nvfp4',
+    'qwen3.6:27b-mtp-q8_0',
     'gemma4:26b-a4b-it-q8_0',
     'gemma4:31b',
     'gemma4:31b-it-qat',
