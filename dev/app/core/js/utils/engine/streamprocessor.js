@@ -617,8 +617,8 @@ class StreamProcessor {
                 const base = (window.getBaseModelName && window.getBaseModelName(modelForThisResponse)) || (modelForThisResponse || '').toLowerCase();
                 const baseOnly = (base || '').split(':')[0];
                //console.log('🧠 StreamProcessor: normalized baseOnly=', baseOnly);
-                if (baseOnly === 'gpt-oss') {
-                    // If the gpt-oss-specific localStorage key is explicitly true, enable thinking
+                if (window.isReasoningEffortModel && window.isReasoningEffortModel(modelForThisResponse)) {
+                    // If the reasoning-effort-specific localStorage key is explicitly true, enable thinking
                     const gptOssFlag = localStorage.getItem('thinkingEnabledGptOss');
                    //console.log('🧠 StreamProcessor: thinkingEnabledGptOss from storage=', gptOssFlag);
                     if (gptOssFlag === 'true') {
