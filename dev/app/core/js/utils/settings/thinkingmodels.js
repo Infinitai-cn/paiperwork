@@ -25,6 +25,7 @@ window.THINKING_MODELS = [
     'qwen3.6:35b-mlx',
     'qwen3.6:27b-mlx',
     'qwen3.6:27b-mtp-q8_0',
+    'qwen3.8:27b',
     'magistral:24b',
     'gpt-oss',
     'qwen3:30b-a3b-thinking-2507',
@@ -100,6 +101,25 @@ window.isThinkingModel = function(modelName) {
     
    //console.log('ThinkingModels: Model', modelName, 'supports thinking:', isSupported);
     return isSupported;
+};
+
+// Reasoning-effort models: models that expose a Low/Mid/High reasoning effort
+// selector instead of a plain thinking on/off toggle. Currently the gpt-oss
+// family (20b/120b) and Qwen3.8 (27b), which supports reasoning_effort
+// (low / medium / xhigh).
+window.isReasoningEffortModel = function(modelName) {
+    if (!modelName) return false;
+
+    const base = (window.getBaseModelName && window.getBaseModelName(modelName)) || String(modelName);
+    const baseOnly = String(base).toLowerCase().split(':')[0].trim();
+    if (!baseOnly) return false;
+
+    // gpt-oss family: 'gpt-oss', 'gpt-oss:20b', 'gpt-oss:120b', ...
+    if (baseOnly === 'gpt-oss') return true;
+    // Qwen3.8 family: 'qwen3.8', 'qwen3.8:27b', 'qwen3.8-27b', ...
+    if (baseOnly.startsWith('qwen3.8')) return true;
+
+    return false;
 };
 
 //console.log('ThinkingModels: Thinking models support loaded');

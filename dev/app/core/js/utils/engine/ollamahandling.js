@@ -2898,8 +2898,23 @@ class OllamaAPI {
 
         const selectedModel = document.getElementById('model-selector')?.value || '';
         const baseModel = ((window.getBaseModelName ? window.getBaseModelName(selectedModel) : (selectedModel || '').toLowerCase()) || '').split(':')[0];
-        const appliesReasoningPrefix = baseModel === 'gpt-oss' && !!reasoningLevel;
-        const reasoningKey = appliesReasoningPrefix ? (reasoningLevel === 'mid' ? 'medium' : reasoningLevel) : '';
+        // Reasoning-effort models (gpt-oss family, Qwen3.8) expose a Low/Mid/High selector.
+        // Map the UI levels to each model's accepted reasoning_effort values:
+        //   gpt-oss : low / medium / high
+        //   Qwen3.8 : low / medium / xhigh
+        const isReasoningEffortModel = !!(window.isReasoningEffortModel && window.isReasoningEffortModel(selectedModel));
+        const isQwen38 = baseModel.startsWith('qwen3.8');
+        const appliesReasoningPrefix = isReasoningEffortModel && !!reasoningLevel;
+        let reasoningKey = '';
+        if (appliesReasoningPrefix) {
+            if (reasoningLevel === 'mid') {
+                reasoningKey = 'medium';
+            } else if (reasoningLevel === 'high' && isQwen38) {
+                reasoningKey = 'xhigh';
+            } else {
+                reasoningKey = reasoningLevel;
+            }
+        }
 
         const cacheKey = [
             `sysRev:${this._getRevision(this.systemPromptRevision, hashedMasterKey)}`,

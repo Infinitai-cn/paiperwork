@@ -1317,10 +1317,8 @@ class ChatTab {
 
                 // Ensure the reasoning selector visibility reflects the newly selected model
                 try {
-                    const base = (window.getBaseModelName && window.getBaseModelName(selectedModel)) || (selectedModel || '').toLowerCase();
-                    const baseOnly = (base || '').split(':')[0];
                     const reasoningSelector = document.getElementById('gptoss-reasoning-selector');
-                    if (baseOnly === 'gpt-oss') {
+                    if (window.isReasoningEffortModel && window.isReasoningEffortModel(selectedModel)) {
                         // ensure selector exists and default is set
                             if (reasoningSelector) {
                             reasoningSelector.style.display = '';
@@ -3719,11 +3717,11 @@ class ChatTab {
             const supportsThinking = window.isThinkingModel && window.isThinkingModel(modelName);
             // Determine base model without quant suffix for special-casing
             const baseModelForCheck = (window.getBaseModelName && window.getBaseModelName(modelName)) || (modelName || '').toLowerCase();
-            // Normalize to the token before any ':' so variants like 'gpt-oss:20b' are recognized as gpt-oss
-            const baseOnly = (baseModelForCheck || '').split(':')[0];
-            const isGptOss = baseOnly === 'gpt-oss';
-            const shouldShowThinkingUI = !!supportsThinking || isGptOss;
-           //console.log('🧠 ChatTab: updateThinkingToggleUI model=', modelName, 'baseModelForCheck=', baseModelForCheck, 'baseOnly=', baseOnly, 'supportsThinking=', supportsThinking, 'isGptOss=', isGptOss);
+            // Reasoning-effort models (gpt-oss family, Qwen3.8) show a Low/Mid/High selector
+            // instead of a plain on/off toggle. Variants like 'gpt-oss:20b' / 'qwen3.8:27b' are detected here.
+            const isReasoningEffortModel = !!(window.isReasoningEffortModel && window.isReasoningEffortModel(modelName));
+            const shouldShowThinkingUI = !!supportsThinking || isReasoningEffortModel;
+           //console.log('🧠 ChatTab: updateThinkingToggleUI model=', modelName, 'baseModelForCheck=', baseModelForCheck, 'supportsThinking=', supportsThinking, 'isReasoningEffortModel=', isReasoningEffortModel);
 
             if (shouldShowThinkingUI && !existingThinkingButton) {
                //console.log('🧠 ChatTab: Creating thinking toggle button');
@@ -3774,8 +3772,8 @@ class ChatTab {
                 `;
 
                 //  CRITICAL FIX: Load initial state BEFORE adding click handler
-                if (isGptOss) {
-                    // gpt-oss: always active and non-interactive
+                if (isReasoningEffortModel) {
+                    // reasoning-effort model (gpt-oss, Qwen3.8): always active and non-interactive
                     thinkingButton.classList.add('active');
                     thinkingButton.style.backgroundColor = 'var(--accent-color, #4f46e5)';
                     thinkingButton.style.borderColor = 'var(--accent-color, #4f46e5)';
@@ -3873,8 +3871,8 @@ class ChatTab {
                     thinkingButton._thinkingClickHandler = _thinkingHandler;
                 }
 
-                // If this is gpt-oss, create a 3-state reasoning selector (Low/Mid/High) placed before the thinking button
-                if (isGptOss) {
+                // If this is a reasoning-effort model (gpt-oss, Qwen3.8), create a 3-state reasoning selector (Low/Mid/High) placed before the thinking button
+                if (isReasoningEffortModel) {
                     // Only create if it doesn't already exist
                     let reasoningSelector = document.getElementById('gptoss-reasoning-selector');
                     if (!reasoningSelector) {
@@ -3987,8 +3985,8 @@ class ChatTab {
             } else if (shouldShowThinkingUI && existingThinkingButton) {
                //console.log('🧠 ChatTab: Thinking toggle button already exists for supported model - updating state if needed');
 
-                // If the selected model is gpt-oss, enforce active + disabled state
-                if (isGptOss) {
+                // If the selected model is a reasoning-effort model (gpt-oss, Qwen3.8), enforce active + disabled state
+                if (isReasoningEffortModel) {
                     // Remove any existing click handler to ensure it cannot be toggled
                     try {
                         if (existingThinkingButton._thinkingClickHandler) {
@@ -4075,7 +4073,7 @@ class ChatTab {
                 // Manage the reasoning selector visibility for existing button updates
                 try {
                     let reasoningSelector = document.getElementById('gptoss-reasoning-selector');
-                    if (isGptOss) {
+                    if (isReasoningEffortModel) {
                         // show or create if missing
                         if (!reasoningSelector) {
                             // trigger a fresh UI creation by calling updateThinkingToggleUI again after a small delay
@@ -4891,16 +4889,16 @@ class ChatTab {
             }
         }
 
-        // --- Temporary thinking toggle for gpt-oss ---
-        // If the selected model is a gpt-oss model, and thinking is currently disabled,
+        // --- Temporary thinking toggle for reasoning-effort models (gpt-oss, Qwen3.8) ---
+        // If the selected model is a reasoning-effort model, and thinking is currently disabled,
         // enable it temporarily in localStorage so streamprocessor can show native thinking
         // UI. We'll restore the previous values after the send finishes.
         const modelVal = modelSelector?.value || '';
-        const isGptOss = modelVal.toLowerCase().includes('gpt-oss') || modelVal.toLowerCase().startsWith('gpt-oss');
+        const isReasoningEffortModel = !!(window.isReasoningEffortModel && window.isReasoningEffortModel(modelVal));
         let _prevThinking = null;
         let _prevThinkingGptOss = null;
         let _weToggledThinking = false;
-        if (isGptOss) {
+        if (isReasoningEffortModel) {
             try {
                 _prevThinking = localStorage.getItem('thinkingEnabled');
                 _prevThinkingGptOss = localStorage.getItem('thinkingEnabledGptOss');
@@ -4948,7 +4946,7 @@ class ChatTab {
                 // alert(Lang.get('errorSendingMessage'));
             } finally {
                 // Restore any thinking flags we changed for gpt-oss
-                if (isGptOss && _weToggledThinking) {
+                if (isReasoningEffortModel && _weToggledThinking) {
                     try {
                         // Restore per-model key
                         if (_prevThinkingGptOss === null) {
