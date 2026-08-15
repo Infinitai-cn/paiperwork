@@ -866,7 +866,7 @@ class Chat {
                     <p>${Lang.get('datavizSelectChartPrompt')}</p>
                     <div style="margin-top: 20px;">
                         <button onclick="document.querySelector('.dataviz-floating-window .close-button').click()" 
-                                style="background: #4f46e5; color: white; border: none; border-radius: 4px; padding: 10px 15px; cursor: pointer;">
+                                style="background: var(--accent-color, #4f46e5); color: white; border: none; border-radius: 4px; padding: 10px 15px; cursor: pointer;">
                             ${Lang.get('datavizOkSelect')}
                         </button>
                     </div>

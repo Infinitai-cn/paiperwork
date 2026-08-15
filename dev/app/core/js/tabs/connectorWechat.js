@@ -1101,7 +1101,7 @@ class ConnectorWechat {
             document.querySelectorAll('.session-item').forEach(item => {
                 const isActive = String(item.dataset.groupId || '') === String(groupId);
                 item.classList.toggle('active', isActive);
-                item.style.backgroundColor = isActive ? 'rgba(79, 70, 229, 0.08)' : '';
+                item.style.backgroundColor = isActive ? 'var(--accent-soft, rgba(79, 70, 229, 0.08))' : '';
                 item.style.borderLeft = isActive ? '3px solid #4f46e5' : '';
             });
         } catch (err) {

@@ -20,11 +20,24 @@
                 height: 100%;
                 z-index: 0;
                 overflow: hidden;
+                background: var(--bg-color);
             }
 
             .background-svg {
                 width: 100%;
                 height: 100%;
+            }
+
+            /* Warm accent glow overlay (theme-driven) */
+            .gradient-overlay {
+                position: absolute;
+                inset: 0;
+                z-index: 1;
+                pointer-events: none;
+                background:
+                    radial-gradient(circle at 18% 22%, var(--accent-soft), transparent 42%),
+                    radial-gradient(circle at 82% 78%, var(--accent-soft), transparent 46%);
+                opacity: 0.55;
             }
 
 
@@ -238,12 +251,12 @@
 
             /* Logo glow effect */
             .logo {
-                filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.5));
+                filter: drop-shadow(0 0 20px var(--accent-soft, rgba(214, 172, 82, 0.4)));
                 transition: filter 0.3s ease;
             }
 
             .logo:hover {
-                filter: drop-shadow(0 0 30px rgba(168, 85, 247, 0.7));
+                filter: drop-shadow(0 0 30px var(--accent-color, rgba(214, 172, 82, 0.6)));
             }
         </style>
         <script>
@@ -377,24 +390,24 @@
                 <defs>
                     <!-- Gradients -->
                     <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.6" />
-                        <stop offset="100%" style="stop-color:#a855f7;stop-opacity:0.3" />
+                        <stop offset="0%" style="stop-color:var(--accent-color);stop-opacity:0.55" />
+                        <stop offset="100%" style="stop-color:var(--accent-color-hover);stop-opacity:0.28" />
                     </linearGradient>
                     <linearGradient id="gradient2" x1="100%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color:#ec4899;stop-opacity:0.5" />
-                        <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:0.3" />
+                        <stop offset="0%" style="stop-color:var(--accent-color-hover);stop-opacity:0.45" />
+                        <stop offset="100%" style="stop-color:var(--accent-color);stop-opacity:0.28" />
                     </linearGradient>
                     <radialGradient id="glow1" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" style="stop-color:#6366f1;stop-opacity:0.8" />
-                        <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0" />
+                        <stop offset="0%" style="stop-color:var(--accent-color);stop-opacity:0.7" />
+                        <stop offset="100%" style="stop-color:var(--accent-color);stop-opacity:0" />
                     </radialGradient>
                     <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" style="stop-color:#a855f7;stop-opacity:0.6" />
-                        <stop offset="100%" style="stop-color:#a855f7;stop-opacity:0" />
+                        <stop offset="0%" style="stop-color:var(--accent-color-hover);stop-opacity:0.55" />
+                        <stop offset="100%" style="stop-color:var(--accent-color-hover);stop-opacity:0" />
                     </radialGradient>
                     <radialGradient id="glow3" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" style="stop-color:#ec4899;stop-opacity:0.5" />
-                        <stop offset="100%" style="stop-color:#ec4899;stop-opacity:0" />
+                        <stop offset="0%" style="stop-color:var(--accent-color);stop-opacity:0.45" />
+                        <stop offset="100%" style="stop-color:var(--accent-color);stop-opacity:0" />
                     </radialGradient>
 
                     <!-- Glow filters -->

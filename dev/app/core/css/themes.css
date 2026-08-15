@@ -21,6 +21,12 @@
         --accent-color: #B5893F;
         --accent-color-hover: #C99A4A;
         --accent-text: #201A12;
+        --accent-soft: rgba(214, 172, 82, 0.18);
+        --hover-color: #332B1E;
+        --active-item-bg: rgba(214, 172, 82, 0.14);
+        --secondary-text-color: rgba(243, 237, 225, 0.62);
+        --text-muted: rgba(243, 237, 225, 0.62);
+        --surface-color: #2A2318;
 
         /* Knowledge collection card variables */
         --card-bg: #2A2318;
@@ -226,6 +232,12 @@
         --accent-color: #B0512B;
         --accent-color-hover: #8F3E1F;
         --accent-text: #F5F1E8;
+        --accent-soft: rgba(176, 81, 43, 0.10);
+        --hover-color: #F3EDE1;
+        --active-item-bg: rgba(176, 81, 43, 0.10);
+        --secondary-text-color: #6E6555;
+        --text-muted: #6E6555;
+        --surface-color: #FBF8F2;
 
         /* Sidebar tab cards (Infinitai theme) */
         --tab-bg: #FBF8F2;
