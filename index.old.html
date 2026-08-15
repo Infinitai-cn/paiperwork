@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paiperwork - AI Office assitant</title>
+    <style>
+        /* Basic styling for the landing page */
+        :root {
+            --primary-color: #007bff;
+            --text-color: #333;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary-color: #3a9fff;
+                --text-color: #f0f0f0;
+                --bg-color: #121212;
+                --card-bg: #1e1e1e;
+                --shadow-color: rgba(255, 255, 255, 0.05);
+            }
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .logo {
+            max-width: 300px;
+            margin-bottom: 2rem;
+        }
+
+        .tagline {
+            font-size: 1.8rem;
+            margin-bottom: 2rem;
+            font-weight: 300;
+        }
+
+        .description {
+            max-width: 800px;
+            margin: 0 auto 3rem auto;
+            font-size: 1.1rem;
+        }
+
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .cta-button {
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            padding: 1rem 2rem;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+            border: 2px solid var(--primary-color);
+        }
+
+        .cta-button:hover {
+            background-color: transparent;
+            color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .language-selector-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .language-selector {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .language-selector:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .language-selector:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.3);
+        }
+
+        .language-label {
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background-color: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px var(--shadow-color);
+            transition: transform 0.2s;
+        }
+
+        .feature-card-anchor {
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-card.feature-card-image {
+            grid-column: 1 / -1;
+            padding: 0;
+            background: transparent;
+            box-shadow: none;
+            align-self: start;
+        }
+
+        .feature-card.feature-card-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 12px;
+            object-fit: contain;
+        }
+
+        .feature-title {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        footer {
+            margin-top: 4rem;
+            padding: 1rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Logo that changes based on theme -->
+        <img id="main-logo" class="logo" src="/paiperwork/github-help/images/Paiperwork-APP-light.png" alt="Paiperwork Logo">
+        
+        <h1 class="tagline">AI-Powered Document Processing</h1>
+        
+        <div class="description">
+            <p>Paiperwork transforms how you work with documents. Our AI-powered platform makes it easy to extract, analyze, 
+            visualize and produce information from all your documents, enabling faster insights and better decision making.</p>
+            <p class="security-note">Note: You may need to enable Paiperwork in Privacy and security in your system settings if it's detected as not safe when you try to open it.</p>
+        </div>
+        
+        <div class="cta-buttons">
+            <a href="https://github.com/Infinitai-cn/paiperwork/releases/latest" class="cta-button" target="_blank" rel="noopener noreferrer">Download App</a>
+            <a href="/paiperwork/github-help/help.html" class="cta-button" id="documentation-link" target="_blank">Documentation</a>
+            <a href="https://github.com/Infinitai-cn/paiperwork" class="cta-button" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+        </div>
+
+        <div class="language-selector-container">
+            <span class="language-label">Language:</span>
+            <select class="language-selector" id="language-select">
+                <option value="en">English</option>
+                <option value="hi">हिन्दी</option>
+                <option value="zh">中文</option>
+                <option value="es">Español</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="pt">Português</option>
+            </select>
+        </div>
+        
+        <div class="features">
+            <a class="feature-card feature-card-anchor" href="https://huggingface.co/spaces/Infinitai/Paiperwork" target="_blank" rel="noopener noreferrer">
+                <h3 class="feature-title">Try online</h3>
+                <p>You can use Paiperwork for free in Huggingface using Ollama free cloud models (API Key required, read the documentation, start section to get an API key from Ollama).</p>
+            </a>
+
+            <a class="feature-card feature-card-anchor" href="/paiperwork/demos.html" target="_blank" rel="noopener noreferrer">
+                <h3 class="feature-title">Demos</h3>
+                <p>Demos showcase different creations using Paiperwork. Click to open a dedicated demos page with one card per HTML demo file.</p>
+            </a>
+
+            <a class="feature-card feature-card-anchor" href="/paiperwork/github-help/video-demos.html" target="_blank" rel="noopener noreferrer">
+                <h3 class="feature-title">Videos</h3>
+                <p>See videos of Paiperwork in action to discover some of its features.</p>
+            </a>
+
+            <div class="feature-card feature-card-image">
+                <img src="/paiperwork/github-help/images/Campaign-studio-demo.png" alt="Campaign Studio Demo" />
+            </div>
+
+            <div class="feature-card">
+                <h3 class="feature-title">Smart Document Analysis</h3>
+                <p>Extract key information from documents automatically with advanced AI processing.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Data Visualization</h3>
+                <p>Transform document data into meaningful visualizations for better insights.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Chat Interface</h3>
+                <p>Ask questions about your documents and get intelligent answers instantly.</p>
+            </div>
+
+            <div class="feature-card feature-card-image">
+                <img src="/paiperwork/github-help/images/Presentations-demo.png" alt="Presentations Demo" />
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Research Assistant</h3>
+                <p>Organize research materials and discover connections between documents.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Visual Mode</h3>
+                <p>Interact with images, generate artworks, and extract text from pictures with advanced OCR capabilities.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Custom AI Models</h3>
+                <p>Download and configure Ollama models with customizable parameters like temperature and top-k for tailored AI experiences.</p>
+            </div>
+
+            <div class="feature-card feature-card-image">
+                <img src="/paiperwork/github-help/images/Artifacts-demo.png" alt="Artifacts Demo" />
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">AI Insights</h3>
+                <p>Enjoy smarter conversations through AI that learns from your interaction patterns and adapts to your preferences.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Knowledge Base</h3>
+                <p>Build your own searchable knowledge repository with important research and information for quick AI-powered retrieval.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3 class="feature-title">Presentations</h3>
+                <p>Create presentations using document summaries and styled graphics.</p>
+            </div>
+        </div>
+        
+        <footer>
+            <p>© 2025 Paiperwork by Infinitai. Open source project.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Translations for all supported languages
+        const translations = {
+            en: {
+                title: "Paiperwork - AI Document Processing",
+                tagline: "AI-Powered Document Processing",
+                description: "Paiperwork transforms how you work with documents. Our AI-powered platform makes it easy to extract, analyze, visualize and produce information from all your documents, enabling faster insights and better decision making.",
+                securityNote: "Note: You may need to enable Paiperwork in Privacy and security in your system settings if it's detected as not safe when you try to open it.",
+                downloadApp: "Download App",
+                documentation: "Documentation", 
+                viewOnGitHub: "View on GitHub",
+                languageLabel: "Language:",
+                features: {
+                    smartDocAnalysis: {
+                        title: "Smart Document Analysis",
+                        description: "Extract key information from documents automatically with advanced AI processing."
+                    },
+                    dataVisualization: {
+                        title: "Data Visualization", 
+                        description: "Transform document data into meaningful visualizations for better insights."
+                    },
+                    chatInterface: {
+                        title: "Chat Interface",
+                        description: "Ask questions about your documents and get intelligent answers instantly."
+                    },
+                    researchAssistant: {
+                        title: "Research Assistant",
+                        description: "Organize research materials and discover connections between documents."
+                    },
+                    visualMode: {
+                        title: "Visual Mode",
+                        description: "Interact with images, generate artworks, and extract text from pictures with advanced OCR capabilities."
+                    },
+                    customAiModels: {
+                        title: "Custom AI Models",
+                        description: "Download and configure Ollama models with customizable parameters like temperature and top-k for tailored AI experiences."
+                    },
+                    aiInsights: {
+                        title: "AI Insights",
+                        description: "Enjoy smarter conversations through AI that learns from your interaction patterns and adapts to your preferences."
+                    },
+                    knowledgeBase: {
+                        title: "Knowledge Base",
+                        description: "Build your own searchable knowledge repository with important research and information for quick AI-powered retrieval."
+                    },
+                    presentations: {
+                        title: "Presentations",
+                        description: "Create presentations using document summaries and styled graphics."
+                    },
+                    tryOnline: {
+                        title: "Try online",
+                        description: "You can use Paiperwork for free in Huggingface using Ollama free cloud models (API Key required, read the documentation, start section to get an API key from Ollama)."
+                    },
+                    demos: {
+                        title: "Demos",
+                        description: "Demos showcase different creations using Paiperwork. Click to open a dedicated demos page with one card per HTML demo file."
+                    },
+                    videos: {
+                        title: "Videos",
+                        description: "See videos of Paiperwork in action to discover some of its features."
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. Open source project."
+            },
+            hi: {
+                title: "Paiperwork - एआई दस्तावेज़ प्रसंस्करण",
+                tagline: "एआई-संचालित दस्तावेज़ प्रसंस्करण",
+                description: "Paiperwork आपके दस्तावेजों के साथ काम करने के तरीके को बदल देता है। हमारा एआई-संचालित प्लेटफ़ॉर्म आपके सभी दस्तावेज़ों से जानकारी निकालना, विश्लेषण करना, विज़ुअलाइज़ करना और उत्पन्न करना आसान बनाता है, जिससे तेज़ अंतर्दृष्टि और बेहतर निर्णय लेने में मदद मिलती है।",
+                securityNote: "ध्यान दें: यदि सिस्टम Paiperwork को सुरक्षित नहीं मानता है, तो इसे खोलने का प्रयास करते समय आपको अपने सिस्टम सेटिंग्स में गोपनीयता और सुरक्षा में Paiperwork सक्षम करना पड़ सकता है।",
+                downloadApp: "ऐप डाउनलोड करें",
+                documentation: "डॉक्यूमेंटेशन",
+                viewOnGitHub: "GitHub पर देखें",
+                languageLabel: "भाषा:",
+                features: {
+                    smartDocAnalysis: {
+                        title: "स्मार्ट दस्तावेज़ विश्लेषण",
+                        description: "उन्नत एआई प्रसंस्करण के साथ दस्तावेज़ों से स्वचालित रूप से महत्वपूर्ण जानकारी निकालें।"
+                    },
+                    dataVisualization: {
+                        title: "डेटा विज़ुअलाइज़ेशन",
+                        description: "बेहतर अंतर्दृष्टि के लिए दस्तावेज़ डेटा को अर्थपूर्ण विज़ुअलाइज़ेशन में बदलें।"
+                    },
+                    chatInterface: {
+                        title: "चैट इंटरफ़ेस",
+                        description: "अपने दस्तावेज़ों के बारे में प्रश्न पूछें और तुरंत बुद्धिमानीपूर्ण उत्तर प्राप्त करें।"
+                    },
+                    researchAssistant: {
+                        title: "अनुसंधान सहायक",
+                        description: "अनुसंधान सामग्री व्यवस्थित करें और दस्तावेज़ों के बीच संबंध खोजें।"
+                    },
+                    visualMode: {
+                        title: "विज़ुअल मोड",
+                        description: "छवियों के साथ इंटरैक्ट करें, कलाकृतियाँ बनाएं, और उन्नत OCR क्षमताओं के साथ चित्रों से पाठ निकालें।"
+                    },
+                    customAiModels: {
+                        title: "कस्टम एआई मॉडल",
+                        description: "तापमान और टॉप-के जैसे कस्टमाइज़ेबल पैरामीटर के साथ Ollama मॉडल डाउनलोड और कॉन्फ़िगर करें, ताकि आपके लिए अनुकूलित एआई अनुभव मिल सके।"
+                    },
+                    aiInsights: {
+                        title: "एआई अंतर्दृष्टि",
+                        description: "एक ऐसी एआई के माध्यम से अधिक बुद्धिमान बातचीत का आनंद लें जो आपके इंटरैक्शन पैटर्न से सीखती है और आपकी प्राथमिकताओं के अनुसार अनुकूलित होती है।"
+                    },
+                    knowledgeBase: {
+                        title: "नॉलेज बेस",
+                        description: "तेज़ एआई-समर्थित पुनर्प्राप्ति के लिए महत्वपूर्ण अनुसंधान और जानकारी के साथ अपना खुद का खोजने योग्य ज्ञान भंडार बनाएं।"
+                    },
+                    presentations: {
+                        title: "प्रस्तुतियाँ",
+                        description: "दस्तावेज़ सारांश और स्टाइलिश ग्राफ़िक्स का उपयोग करके प्रस्तुतियाँ बनाएं।"
+                    },
+                    tryOnline: {
+                        title: "ऑनलाइन आज़माएँ",
+                        description: "आप Huggingface पर Ollama फ्री क्लाउड मॉडल का उपयोग करके Paiperwork को मुफ्त में आज़मा सकते हैं (API की आवश्यक है; Ollama API की प्राप्त करने के लिए दस्तावेज़ में start अनुभाग पढ़ें)।"
+                    },
+                    demos: {
+                        title: "डेमो",
+                        description: "डेमो Paiperwork का उपयोग करके विभिन्न क्रिएशन दिखाते हैं। प्रत्येक HTML डेमो फ़ाइल के लिए एक कार्ड के साथ एक समर्पित डेमो पेज खोलने के लिए क्लिक करें।"
+                    },
+                    videos: {
+                        title: "वीडियो",
+                        description: "Paiperwork को क्रियाशीलता में देखना आपको इसकी कुछ विशेषताएं खोजने में मदद करेगा।"
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. ओपन सोर्स प्रोजेक्ट।"
+            },
+            zh: {
+                title: "Paiperwork - AI 文档处理",
+                tagline: "AI 驱动的文档处理",
+                description: "Paiperwork 改变您处理文档的方式。我们的 AI 驱动平台使您能够轻松地从所有文档中提取、分析、可视化和生成信息，实现更快的洞察和更好的决策制定。",
+                securityNote: "注意：如果系统检测到 Paiperwork 不安全，您可能需要在系统设置的隐私和安全中启用 Paiperwork。",
+                downloadApp: "下载应用",
+                documentation: "文档",
+                viewOnGitHub: "在 GitHub 查看",
+                languageLabel: "语言：",
+                features: {
+                    smartDocAnalysis: {
+                        title: "智能文档分析",
+                        description: "使用先进的 AI 处理自动从文档中提取关键信息。"
+                    },
+                    dataVisualization: {
+                        title: "数据可视化",
+                        description: "将文档数据转换为有意义的可视化图表以获得更好的洞察。"
+                    },
+                    chatInterface: {
+                        title: "聊天界面",
+                        description: "询问有关您的文档的问题并即时获得智能答案。"
+                    },
+                    researchAssistant: {
+                        title: "研究助手",
+                        description: "组织研究材料并发现文档之间的联系。"
+                    },
+                    visualMode: {
+                        title: "视觉模式",
+                        description: "与图像交互，生成艺术作品，并使用先进的 OCR 功能从图片中提取文本。"
+                    },
+                    customAiModels: {
+                        title: "自定义 AI 模型",
+                        description: "下载和配置 Ollama 模型，具有可定制的参数，如温度和 top-k，以获得量身定制的 AI 体验。"
+                    },
+                    aiInsights: {
+                        title: "AI 洞察",
+                        description: "通过学习您的交互模式并适应您的偏好的 AI 享受更智能的对话。"
+                    },
+                    knowledgeBase: {
+                        title: "知识库",
+                        description: "构建您自己的可搜索知识存储库，包含重要的研究和信息，以便快速进行 AI 驱动的检索。"
+                    },
+                    presentations: {
+                        title: "演示文稿",
+                        description: "使用文档摘要和样式化图形创建演示文稿。"
+                    },
+                    tryOnline: {
+                        title: "在线试用",
+                        description: "您可以在 Huggingface 免费使用 Paiperwork，并通过 Ollama 免费云模型运行（需要 API Key，请阅读文档的 start 部分以获取 Ollama API key）。"
+                    },
+                    demos: {
+                        title: "演示示例",
+                        description: "演示示例展示使用 Paiperwork 创作的不同作品。点击后会打开专门的演示页面，并为每个 HTML 演示文件显示一张卡片。"
+                    },
+                    videos: {
+                        title: "视频",
+                        description: "查看 Paiperwork 的演示视频，发现其功能。"
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. 开源项目。"
+            },
+            es: {
+                title: "Paiperwork - Procesamiento de Documentos con IA",
+                tagline: "Procesamiento de Documentos Impulsado por IA",
+                description: "Paiperwork transforma cómo trabajas con documentos. Nuestra plataforma impulsada por IA facilita extraer, analizar, visualizar y producir información de todos tus documentos, permitiendo insights más rápidos y mejor toma de decisiones.",
+                securityNote: "Nota: Es posible que necesites habilitar Paiperwork en Privacidad y seguridad en la configuración de tu sistema si es detectado como no seguro al intentar abrirlo.",
+                downloadApp: "Descargar App",
+                documentation: "Documentación",
+                viewOnGitHub: "Ver en GitHub",
+                languageLabel: "Idioma:",
+                features: {
+                    smartDocAnalysis: {
+                        title: "Análisis Inteligente de Documentos",
+                        description: "Extrae información clave de documentos automáticamente con procesamiento avanzado de IA."
+                    },
+                    dataVisualization: {
+                        title: "Visualización de Datos",
+                        description: "Transforma datos de documentos en visualizaciones significativas para mejores insights."
+                    },
+                    chatInterface: {
+                        title: "Interfaz de Chat",
+                        description: "Haz preguntas sobre tus documentos y obtén respuestas inteligentes al instante."
+                    },
+                    researchAssistant: {
+                        title: "Asistente de Investigación",
+                        description: "Organiza materiales de investigación y descubre conexiones entre documentos."
+                    },
+                    visualMode: {
+                        title: "Modo Visual",
+                        description: "Interactúa con imágenes, genera obras de arte y extrae texto de imágenes con capacidades avanzadas de OCR."
+                    },
+                    customAiModels: {
+                        title: "Modelos de IA Personalizados",
+                        description: "Descarga y configura modelos Ollama con parámetros personalizables como temperatura y top-k para experiencias de IA a medida."
+                    },
+                    aiInsights: {
+                        title: "Insights de IA",
+                        description: "Disfruta de conversaciones más inteligentes a través de IA que aprende de tus patrones de interacción y se adapta a tus preferencias."
+                    },
+                    knowledgeBase: {
+                        title: "Base de Conocimiento",
+                        description: "Construye tu propio repositorio de conocimiento consultable con investigación e información importante para recuperación rápida impulsada por IA."
+                    },
+                    presentations: {
+                        title: "Presentaciones",
+                        description: "Crea presentaciones usando resúmenes de documentos y gráficos con estilo."
+                    },
+                    tryOnline: {
+                        title: "Probar online",
+                        description: "Puedes usar Paiperwork gratis en Huggingface usando modelos cloud gratuitos de Ollama (se requiere API Key; lee la documentación, sección start, para obtener una API key de Ollama)."
+                    },
+                    demos: {
+                        title: "Demos",
+                        description: "Las demos muestran diferentes creaciones con Paiperwork. Haz clic para abrir una página dedicada con una tarjeta por cada archivo HTML de demostración."
+                    },
+                    videos: {
+                        title: "Videos",
+                        description: "Vea videos de Paiperwork en acción para descubrir algunas de sus características."
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. Proyecto de código abierto."
+            },
+            fr: {
+                title: "Paiperwork - Traitement de Documents IA",
+                tagline: "Traitement de Documents Alimenté par l'IA",
+                description: "Paiperwork transforme la façon dont vous travaillez avec les documents. Notre plateforme alimentée par l'IA facilite l'extraction, l'analyse, la visualisation et la production d'informations à partir de tous vos documents, permettant des insights plus rapides et une meilleure prise de décision.",
+                securityNote: "Note : Vous devrez peut-être activer Paiperwork dans Confidentialité et sécurité dans les paramètres de votre système s'il est détecté comme non sûr lors de l'ouverture.",
+                downloadApp: "Télécharger l'App",
+                documentation: "Documentation",
+                viewOnGitHub: "Voir sur GitHub",
+                languageLabel: "Langue :",
+                features: {
+                    smartDocAnalysis: {
+                        title: "Analyse Intelligente de Documents",
+                        description: "Extrayez automatiquement les informations clés des documents avec un traitement IA avancé."
+                    },
+                    dataVisualization: {
+                        title: "Visualisation de Données",
+                        description: "Transformez les données de documents en visualisations significatives pour de meilleurs insights."
+                    },
+                    chatInterface: {
+                        title: "Interface de Chat",
+                        description: "Posez des questions sur vos documents et obtenez des réponses intelligentes instantanément."
+                    },
+                    researchAssistant: {
+                        title: "Assistant de Recherche",
+                        description: "Organisez les matériaux de recherche et découvrez les connexions entre les documents."
+                    },
+                    visualMode: {
+                        title: "Mode Visuel",
+                        description: "Interagissez avec les images, générez des œuvres d'art et extrayez du texte des images avec des capacités OCR avancées."
+                    },
+                    customAiModels: {
+                        title: "Modèles IA Personnalisés",
+                        description: "Téléchargez et configurez les modèles Ollama avec des paramètres personnalisables comme la température et top-k pour des expériences IA sur mesure."
+                    },
+                    aiInsights: {
+                        title: "Insights IA",
+                        description: "Profitez de conversations plus intelligentes grâce à l'IA qui apprend de vos modèles d'interaction et s'adapte à vos préférences."
+                    },
+                    knowledgeBase: {
+                        title: "Base de Connaissances",
+                        description: "Construisez votre propre dépôt de connaissances consultable avec des recherches et informations importantes pour une récupération rapide alimentée par l'IA."
+                    },
+                    presentations: {
+                        title: "Présentations",
+                        description: "Créez des présentations en utilisant des résumés de documents et des graphiques stylisés."
+                    },
+                    tryOnline: {
+                        title: "Essayer en ligne",
+                        description: "Vous pouvez utiliser Paiperwork gratuitement sur Huggingface avec les modèles cloud gratuits d'Ollama (API Key requise, lisez la documentation, section start, pour obtenir une clé API Ollama)."
+                    },
+                    demos: {
+                        title: "Démos",
+                        description: "Les démos présentent différentes créations réalisées avec Paiperwork. Cliquez pour ouvrir une page dédiée avec une carte par fichier de démo HTML."
+                    },
+                    videos: {
+                        title: "Vidéos",
+                        description: "Voir des vidéos de Paiperwork en action pour découvrir certaines de ses fonctionnalités."
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. Projet open source."
+            },
+            de: {
+                title: "Paiperwork - KI-Dokumentenverarbeitung",
+                tagline: "KI-gestützte Dokumentenverarbeitung",
+                description: "Paiperwork verändert, wie Sie mit Dokumenten arbeiten. Unsere KI-gestützte Plattform macht es einfach, Informationen aus all Ihren Dokumenten zu extrahieren, zu analysieren, zu visualisieren und zu produzieren, was schnellere Einsichten und bessere Entscheidungsfindung ermöglicht.",
+                securityNote: "Hinweis: Sie müssen möglicherweise Paiperwork in Datenschutz und Sicherheit in Ihren Systemeinstellungen aktivieren, wenn es als unsicher erkannt wird, wenn Sie versuchen, es zu öffnen.",
+                downloadApp: "App Herunterladen",
+                documentation: "Dokumentation",
+                viewOnGitHub: "Auf GitHub Ansehen",
+                languageLabel: "Sprache:",
+                features: {
+                    smartDocAnalysis: {
+                        title: "Intelligente Dokumentenanalyse",
+                        description: "Extrahieren Sie automatisch wichtige Informationen aus Dokumenten mit fortschrittlicher KI-Verarbeitung."
+                    },
+                    dataVisualization: {
+                        title: "Datenvisualisierung",
+                        description: "Verwandeln Sie Dokumentendaten in bedeutungsvolle Visualisierungen für bessere Einsichten."
+                    },
+                    chatInterface: {
+                        title: "Chat-Schnittstelle",
+                        description: "Stellen Sie Fragen zu Ihren Dokumenten und erhalten Sie sofort intelligente Antworten."
+                    },
+                    researchAssistant: {
+                        title: "Forschungsassistent",
+                        description: "Organisieren Sie Forschungsmaterialien und entdecken Sie Verbindungen zwischen Dokumenten."
+                    },
+                    visualMode: {
+                        title: "Visueller Modus",
+                        description: "Interagieren Sie mit Bildern, generieren Sie Kunstwerke und extrahieren Sie Text aus Bildern mit fortschrittlichen OCR-Funktionen."
+                    },
+                    customAiModels: {
+                        title: "Benutzerdefinierte KI-Modelle",
+                        description: "Laden Sie Ollama-Modelle herunter und konfigurieren Sie sie mit anpassbaren Parametern wie Temperatur und Top-k für maßgeschneiderte KI-Erfahrungen."
+                    },
+                    aiInsights: {
+                        title: "KI-Einsichten",
+                        description: "Genießen Sie intelligentere Gespräche durch KI, die aus Ihren Interaktionsmustern lernt und sich an Ihre Vorlieben anpasst."
+                    },
+                    knowledgeBase: {
+                        title: "Wissensbasis",
+                        description: "Bauen Sie Ihr eigenes durchsuchbares Wissensrepository mit wichtigen Forschungen und Informationen für schnelle KI-gestützte Abfragen auf."
+                    },
+                    presentations: {
+                        title: "Präsentationen",
+                        description: "Erstellen Sie Präsentationen mit Dokumentenzusammenfassungen und stilvollen Grafiken."
+                    },
+                    tryOnline: {
+                        title: "Online ausprobieren",
+                        description: "Sie können Paiperwork kostenlos auf Huggingface mit kostenlosen Ollama-Cloud-Modellen nutzen (API Key erforderlich, lesen Sie die Dokumentation im Abschnitt start, um einen Ollama-API-Schlüssel zu erhalten)."
+                    },
+                    demos: {
+                        title: "Demos",
+                        description: "Demos zeigen verschiedene mit Paiperwork erstellte Inhalte. Klicken Sie, um eine eigene Demoseite mit einer Karte pro HTML-Demodatei zu öffnen."
+                    },
+                    videos: {
+                        title: "Videos",
+                        description: "Sehen Sie Videos von Paiperwork in Aktion, um einige seiner Funktionen zu entdecken."
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. Open-Source-Projekt."
+            },
+            pt: {
+                title: "Paiperwork - Processamento de Documentos com IA",
+                tagline: "Processamento de Documentos Alimentado por IA",
+                description: "O Paiperwork transforma como você trabalha com documentos. Nossa plataforma alimentada por IA facilita extrair, analisar, visualizar e produzir informações de todos os seus documentos, permitindo insights mais rápidos e melhor tomada de decisões.",
+                securityNote: "Nota: Você pode precisar habilitar o Paiperwork em Privacidade e segurança nas configurações do seu sistema se for detectado como não seguro ao tentar abri-lo.",
+                downloadApp: "Baixar App",
+                documentation: "Documentação",
+                viewOnGitHub: "Ver no GitHub",
+                languageLabel: "Idioma:",
+                features: {
+                    smartDocAnalysis: {
+                        title: "Análise Inteligente de Documentos",
+                        description: "Extraia informações importantes de documentos automaticamente com processamento avançado de IA."
+                    },
+                    dataVisualization: {
+                        title: "Visualização de Dados",
+                        description: "Transforme dados de documentos em visualizações significativas para melhores insights."
+                    },
+                    chatInterface: {
+                        title: "Interface de Chat",
+                        description: "Faça perguntas sobre seus documentos e obtenha respostas inteligentes instantaneamente."
+                    },
+                    researchAssistant: {
+                        title: "Assistente de Pesquisa",
+                        description: "Organize materiais de pesquisa e descubra conexões entre documentos."
+                    },
+                    visualMode: {
+                        title: "Modo Visual",
+                        description: "Interaja com imagens, gere obras de arte e extraia texto de imagens com capacidades avançadas de OCR."
+                    },
+                    customAiModels: {
+                        title: "Modelos de IA Personalizados",
+                        description: "Baixe e configure modelos Ollama com parâmetros personalizáveis como temperatura e top-k para experiências de IA sob medida."
+                    },
+                    aiInsights: {
+                        title: "Insights de IA",
+                        description: "Desfrute de conversas mais inteligentes através de IA que aprende com seus padrões de interação e se adapta às suas preferências."
+                    },
+                    knowledgeBase: {
+                        title: "Base de Conhecimento",
+                        description: "Construa seu próprio repositório de conhecimento pesquisável com pesquisa e informações importantes para recuperação rápida alimentada por IA."
+                    },
+                    presentations: {
+                        title: "Apresentações",
+                        description: "Crie apresentações usando resumos de documentos e gráficos estilizados."
+                    },
+                    tryOnline: {
+                        title: "Experimentar online",
+                        description: "Você pode usar o Paiperwork gratuitamente no Huggingface usando modelos cloud gratuitos da Ollama (API Key obrigatória; leia a documentação, seção start, para obter uma API key da Ollama)."
+                    },
+                    demos: {
+                        title: "Demos",
+                        description: "As demos mostram diferentes criações com o Paiperwork. Clique para abrir uma página dedicada com um cartão para cada arquivo HTML de demonstração."
+                    },
+                    videos: {
+                        title: "Vídeos",
+                        description: "Veja vídeos do Paiperwork em ação para descobrir alguns de seus recursos."
+                    }
+                },
+                footer: "© 2025 Paiperwork by Infinitai. Projeto de código aberto."
+            }
+        };
+
+        // Set logo based on theme
+        function setAppropriateMainLogo() {
+            const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const logoImg = document.getElementById("main-logo");
+            if (logoImg) {
+                logoImg.src = isDarkMode
+                    ? "/paiperwork/github-help/images/Paiperwork-APP-dark.png"
+                    : "/paiperwork/github-help/images/Paiperwork-APP-light.png";
+            }
+        }
+
+        // Update page content based on selected language
+        function updatePageLanguage(lang) {
+            const t = translations[lang] || translations.en;
+            
+            // Update page title
+            document.title = t.title;
+            
+            // Update main content
+            document.querySelector('.tagline').textContent = t.tagline;
+            document.querySelector('.description p').textContent = t.description;
+            document.querySelector('.description .security-note').textContent = t.securityNote;
+            
+            // Update CTA buttons
+            const ctaButtons = document.querySelectorAll('.cta-button');
+            ctaButtons[0].textContent = t.downloadApp;
+            ctaButtons[1].textContent = t.documentation;
+            ctaButtons[2].textContent = t.viewOnGitHub;
+            
+            // Update language label
+            document.querySelector('.language-label').textContent = t.languageLabel;
+            
+            // Update feature cards (skip the full-width image card)
+            const featureCards = document.querySelectorAll('.feature-card:not(.feature-card-image)');
+            const featureKeys = [
+                'tryOnline',
+                'demos',
+                'videos',
+                'smartDocAnalysis',
+                'dataVisualization',
+                'chatInterface',
+                'researchAssistant',
+                'visualMode',
+                'customAiModels',
+                'aiInsights',
+                'knowledgeBase',
+                'presentations'
+            ];
+            
+            featureCards.forEach((card, index) => {
+                if (featureKeys[index]) {
+                    const feature = t.features[featureKeys[index]];
+                    const titleElement = card.querySelector('.feature-title');
+                    const descriptionElement = card.querySelector('p');
+                    if (titleElement) {
+                        titleElement.textContent = feature.title;
+                    }
+                    if (descriptionElement) {
+                        descriptionElement.textContent = feature.description;
+                    }
+                }
+            });
+            
+            // Update footer
+            document.querySelector('footer p').textContent = t.footer;
+        }
+
+        // Initial logo setup
+        setAppropriateMainLogo();
+        
+        // Listen for theme changes
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", setAppropriateMainLogo);
+        
+        // Handle language selection
+        document.addEventListener('DOMContentLoaded', function() {
+            const languageSelector = document.getElementById('language-select');
+            const documentationLink = document.getElementById('documentation-link');
+            
+            // Get stored language preference or default to English
+            let storedLanguage = 'en';
+            try {
+                storedLanguage = localStorage.getItem('preferredLanguage') || 'en';
+            } catch (_err) {
+                storedLanguage = 'en';
+            }
+            languageSelector.value = storedLanguage;
+            
+            // Update page with stored language
+            updatePageLanguage(storedLanguage);
+            
+            // Update documentation link with current language
+            function updateDocumentationLink(language) {
+                const baseUrl = '/paiperwork/github-help/help.html';
+                documentationLink.href = `${baseUrl}?lang=${language}`;
+            }
+            
+            // Set initial documentation link
+            updateDocumentationLink(storedLanguage);
+            
+            // Handle language selector change
+            languageSelector.addEventListener('change', function() {
+                const selectedLanguage = this.value;
+                try {
+                    localStorage.setItem('preferredLanguage', selectedLanguage);
+                } catch (_err) {
+                    // Storage can be blocked in some embedded/strict browser modes.
+                }
+                updateDocumentationLink(selectedLanguage);
+                updatePageLanguage(selectedLanguage);
+                
+                //console.log('Language changed to:', selectedLanguage);
+            });
+        });
+    </script>
+</body>
+
+</html>
