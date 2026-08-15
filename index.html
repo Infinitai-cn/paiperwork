@@ -373,7 +373,7 @@ body.menu-open .nav{background:transparent;border-color:transparent;backdrop-fil
 .stage__top .t{flex:1;margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stage__fps{color:var(--gold)}
 .scene{
-  position:relative;height:430px;display:grid;place-items:center;
+  position:relative;width:100%;aspect-ratio:1/1;display:grid;place-items:center;
   perspective:1100px;overflow:hidden;
   background:radial-gradient(130% 100% at 50% 0%,#2e2517 0%,#1a140c 75%);
 }
@@ -583,7 +583,7 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
   .stats{grid-template-columns:1fr 1fr;gap:36px 20px}
   .footer__grid{grid-template-columns:1fr;gap:36px}
   .stage__tag--1{right:8px}
-  .scene{height:340px}
+  .scene{height:auto}
   .cube{--s:110px}
   .orbit{width:230px;height:230px}
 }
@@ -1002,7 +1002,7 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
         </span>
       </div>
       <h3>Paiperwork: Local first</h3>
-      <p>Your documents and scenes live on your hardware. The cloud is optional — and usually off.</p>
+      <p>Your documents live on your hardware. The cloud is optional — and usually off.</p>
     </article>
     <article class="pcard reveal" style="--d:.12s">
       <div class="pcard__top">
@@ -1122,10 +1122,10 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
       <div class="footer__col">
         <h4>Resources</h4>
         <ul>
-          <li><a href="/paiperwork/github-help/help.html">Documentation</a></li>
-          <li><a href="https://github.com/Infinitai-cn/paiperwork/releases/latest">Downloads</a></li>
-          <li><a href="https://huggingface.co/spaces/Infinitai/Paiperwork">Try online</a></li>
-          <li><a href="https://github.com/Infinitai-cn/paiperwork">View on GitHub</a></li>
+          <li><a href="/paiperwork/github-help/help.html" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+          <li><a href="https://github.com/Infinitai-cn/paiperwork/releases/latest" target="_blank" rel="noopener noreferrer">Downloads</a></li>
+          <li><a href="https://huggingface.co/spaces/Infinitai/Paiperwork" target="_blank" rel="noopener noreferrer">Try online</a></li>
+          <li><a href="https://github.com/Infinitai-cn/paiperwork" target="_blank" rel="noopener noreferrer">View on GitHub</a></li>
         </ul>
       </div>
       <div class="footer__col">
