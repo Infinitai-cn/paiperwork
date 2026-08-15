@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Infinitai — Intelligence, on your terms</title>
-<meta name="description" content="Infinitai builds focused software: Paiperwork, an AI paperwork assistant for Ollama, and Ania3D, an AI scene composer and photorealistic renderer for macOS.">
+<meta name="description" content="Infinitai builds focused software: Paiperwork, an AI paperwork assistant for Ollama, and Ania3D, an AI scene composer and photorealistic renderer for macOS based on three.js.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='32' fill='%23B0512B'/%3E%3Ctext x='32' y='44' font-size='36' text-anchor='middle' fill='%23F5F1E8' font-family='Georgia'%3E%E2%9C%B3%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -490,6 +490,10 @@ body.menu-open .nav{background:transparent;border-color:transparent;backdrop-fil
   -webkit-mask-image:radial-gradient(ellipse at center,#000 30%,transparent 72%);
   mask-image:radial-gradient(ellipse at center,#000 30%,transparent 72%);
 }
+.shot__frame img{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;
+}
+.shot__frame:has(img)::after{opacity:0}
 .shot__tag{
   position:absolute;top:14px;left:14px;z-index:2;
   font:600 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;
@@ -944,8 +948,7 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
       <p class="label reveal">02 · Ania3D</p>
       <h2 class="reveal" style="--d:.1s">Compose worlds on <em>your</em> terms.</h2>
       <p class="product__lead reveal" style="--d:.2s">
-        Ania3D turns plain language into 3D. Describe a scene and your local LLM
-        builds it — geometry, materials, lighting, camera. Render it photorealistic
+        Ania3D is a three.js easy to use frontend. It turns plain language into 3D and helps you organize the stage for your scene. Import 3D models (GlB and GlTF), LLM generated scenes, geometry, materials, lighting, camera. Render it photorealistic
         with a click, or generate images and video right inside the viewport.
       </p>
       <ul class="feat">
@@ -1032,52 +1035,36 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
   <div class="gallery__head reveal">
     <p class="label">Ania3D · gallery</p>
     <h2>Straight from the <em>viewport.</em></h2>
-    <p>Real scenes and renders, captured live in Ania3D. Drop your screenshots into these frames.</p>
+    <p>Real scenes and renders, captured live in Ania3D (Ai generated media based on scene objects and camera view).</p>
   </div>
   <div class="gallery__grid">
     <figure class="shot reveal">
-      <!-- REPLACE: <img src="images/ania3d-shot-1.png" alt="Path-traced harbor at dusk"> -->
       <div class="shot__frame">
+        <img src="/paiperwork/github-help/images/viewport-1.png" alt="Path-traced 2Bots">
         <span class="shot__tag">Path tracing</span>
-        <div class="shot__ph">
-          <svg width="42" height="42" viewBox="0 0 42 42" fill="none"><circle cx="21" cy="21" r="12.5" stroke="currentColor" stroke-width="1.5"/><path d="M21 8.5l6.2 12.5L21 33.5l-6.2-12.5L21 8.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-          <span>Screenshot 01</span>
-        </div>
       </div>
-      <figcaption class="shot__cap"><b>Path-traced harbor at dusk</b><span>soft shadows · real reflections</span></figcaption>
+      <figcaption class="shot__cap"><b>Path-traced 2Bots in an abandoned city</b><span>soft shadows · Color casting</span></figcaption>
     </figure>
     <figure class="shot reveal" style="--d:.12s">
-      <!-- REPLACE: <img src="images/ania3d-shot-2.png" alt="Scene composed from a sentence"> -->
       <div class="shot__frame">
+        <img src="/paiperwork/github-help/images/viewport-2.png" alt="Scene composed from a background video">
         <span class="shot__tag">AI composition</span>
-        <div class="shot__ph">
-          <svg width="42" height="42" viewBox="0 0 42 42" fill="none"><path d="M21 6.5l3.1 7.9 7.9 3.1-7.9 3.1L21 28.5l-3.1-7.9-7.9-3.1 7.9-3.1L21 6.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M32 26.5l1.5 3.8 3.8 1.5-3.8 1.5L32 37l-1.5-3.7-3.8-1.5 3.8-1.5L32 26.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-          <span>Screenshot 02</span>
-        </div>
       </div>
-      <figcaption class="shot__cap"><b>Described in one sentence</b><span>built by your local LLM</span></figcaption>
+      <figcaption class="shot__cap"><b>Animated video background</b><span>Shadow plane</span></figcaption>
     </figure>
     <figure class="shot reveal" style="--d:.2s">
-      <!-- REPLACE: <img src="images/ania3d-shot-3.png" alt="Rain, fog and rolling sea"> -->
       <div class="shot__frame">
+        <img src="/paiperwork/github-help/images/viewport-3.png" alt="Corridor and bot with water">
         <span class="shot__tag">Living weather</span>
-        <div class="shot__ph">
-          <svg width="42" height="42" viewBox="0 0 42 42" fill="none"><path d="M13 24.5a6.5 6.5 0 011.3-12.9 8.5 8.5 0 0116 3.2 5.5 5.5 0 01-1.8 9.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 27.5L14.5 31M22 27.5l-1.5 3.5M28 27.5l-1.5 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-          <span>Screenshot 03</span>
-        </div>
       </div>
-      <figcaption class="shot__cap"><b>Stormy coast, animated</b><span>rain · fog · rolling sea</span></figcaption>
+      <figcaption class="shot__cap"><b>Corridor and bot with water</b><span>Path tracing, camera effects</span></figcaption>
     </figure>
     <figure class="shot reveal" style="--d:.28s">
-      <!-- REPLACE: <img src="images/ania3d-shot-4.png" alt="AI video placed in the scene"> -->
       <div class="shot__frame">
+        <img src="/paiperwork/github-help/images/viewport-4.png" alt="Background image and 3D car">
         <span class="shot__tag">AI media</span>
-        <div class="shot__ph">
-          <svg width="42" height="42" viewBox="0 0 42 42" fill="none"><rect x="6" y="8.5" width="30" height="25" rx="3" stroke="currentColor" stroke-width="1.5"/><circle cx="15.5" cy="17" r="2.6" stroke="currentColor" stroke-width="1.5"/><path d="M9.5 29.5l8-8 5.5 5.5 4.5-4.5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span>Screenshot 04</span>
-        </div>
       </div>
-      <figcaption class="shot__cap"><b>Video, placed in-scene</b><span>Kling · MiniMax · ComfyUI</span></figcaption>
+      <figcaption class="shot__cap"><b>Car placed infront of an image</b><span>Image, Transparent shadows, Color casting</span></figcaption>
     </figure>
   </div>
 </section>
