@@ -7,27 +7,27 @@
     <title>Paiperwork Demos Showcase</title>
     <style>
         :root {
-            --ink: #0d1b2a;
-            --ink-soft: #294162;
-            --bg: #f4f8fc;
-            --card: #ffffff;
-            --line: #d4e1ef;
-            --accent: #007bff;
-            --accent-dark: #005ec4;
-            --glow: rgba(0, 123, 255, 0.15);
-            --shadow: rgba(13, 27, 42, 0.1);
+            --ink: #221D15;
+            --ink-soft: #6E6555;
+            --bg: #F5F1E8;
+            --card: #FBF8F2;
+            --line: #E3DDCE;
+            --accent: #B0512B;
+            --accent-dark: #8F3E1F;
+            --glow: rgba(176, 81, 43, 0.15);
+            --shadow: rgba(34, 29, 21, 0.10);
         }
 
         @media (prefers-color-scheme: dark) {
             :root {
-                --ink: #ecf5ff;
-                --ink-soft: #bdd6ef;
-                --bg: #08111d;
-                --card: #102238;
-                --line: #214267;
-                --accent: #4aa7ff;
-                --accent-dark: #2192ff;
-                --glow: rgba(74, 167, 255, 0.22);
+                --ink: #F3EDE1;
+                --ink-soft: #C9BEA6;
+                --bg: #201A12;
+                --card: #2A2318;
+                --line: #4A3F2E;
+                --accent: #B5893F;
+                --accent-dark: #C99A4A;
+                --glow: rgba(214, 172, 82, 0.22);
                 --shadow: rgba(0, 0, 0, 0.35);
             }
         }
@@ -41,8 +41,8 @@
             min-height: 100vh;
             font-family: "Avenir Next", "Segoe UI", sans-serif;
             color: var(--ink);
-            background: radial-gradient(circle at 15% 20%, rgba(0, 123, 255, 0.14), transparent 40%),
-                radial-gradient(circle at 85% 80%, rgba(0, 123, 255, 0.1), transparent 45%),
+            background: radial-gradient(circle at 15% 20%, var(--glow), transparent 40%),
+                radial-gradient(circle at 85% 80%, var(--glow), transparent 45%),
                 var(--bg);
             overflow-x: hidden;
         }
@@ -66,14 +66,14 @@
             padding: 1.75rem;
             border-radius: 18px;
             border: 1px solid var(--line);
-            background: linear-gradient(140deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.35));
+            background: linear-gradient(140deg, rgba(251, 248, 242, 0.8), rgba(251, 248, 242, 0.4));
             box-shadow: 0 15px 32px var(--shadow);
             backdrop-filter: blur(4px);
         }
 
         @media (prefers-color-scheme: dark) {
             .hero {
-                background: linear-gradient(140deg, rgba(16, 34, 56, 0.9), rgba(16, 34, 56, 0.6));
+                background: linear-gradient(140deg, rgba(42, 35, 24, 0.92), rgba(42, 35, 24, 0.62));
             }
         }
 
@@ -149,7 +149,7 @@
             content: "";
             position: absolute;
             inset: 0;
-            background: linear-gradient(135deg, rgba(0, 123, 255, 0.12), transparent 52%);
+            background: linear-gradient(135deg, var(--glow), transparent 52%);
             pointer-events: none;
         }
 
@@ -182,13 +182,13 @@
             border: 1px dashed var(--line);
             padding: 1rem;
             color: var(--ink-soft);
-            background: rgba(255, 255, 255, 0.42);
+            background: rgba(251, 248, 242, 0.5);
         }
 
         @media (prefers-color-scheme: dark) {
             .empty,
             .error {
-                background: rgba(16, 34, 56, 0.38);
+                background: rgba(42, 35, 24, 0.5);
             }
         }
 
@@ -204,12 +204,12 @@
     <svg class="bg-layer" viewBox="0 0 1400 900" preserveAspectRatio="none" aria-hidden="true">
         <defs>
             <linearGradient id="waveA" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#007bff" stop-opacity="0.18"></stop>
-                <stop offset="100%" stop-color="#00b2ff" stop-opacity="0.03"></stop>
+                <stop offset="0%" style="stop-color:var(--accent);stop-opacity:0.18"></stop>
+                <stop offset="100%" style="stop-color:var(--accent-dark);stop-opacity:0.05"></stop>
             </linearGradient>
             <linearGradient id="waveB" x1="1" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#007bff" stop-opacity="0.12"></stop>
-                <stop offset="100%" stop-color="#00b2ff" stop-opacity="0"></stop>
+                <stop offset="0%" style="stop-color:var(--accent);stop-opacity:0.12"></stop>
+                <stop offset="100%" style="stop-color:var(--accent-dark);stop-opacity:0"></stop>
             </linearGradient>
         </defs>
         <path d="M0,110 C260,30 430,170 680,120 C920,70 1130,10 1400,70 L1400,0 L0,0 Z" fill="url(#waveA)"></path>

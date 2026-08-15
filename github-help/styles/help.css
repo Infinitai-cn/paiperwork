@@ -1,35 +1,35 @@
 /* Dark/Light mode variables */
         :root {
             /* Light mode (default) */
-            --bg-color: #ffffff;
-            --bg-muted: #f5f5f5;
-            --text-color: #333333;
-            --text-muted: #666666;
-            --border-color: #e0e0e0;
-            --border-color-light: #eeeeee;
-            --accent-color: #0066cc;
-            --accent-color-light: #e6f0ff;
-            --accent-color-dark: #004499;
-            --accent-text: #0055aa;
-            --code-bg: #f5f6f7;
-            --shadow-color: rgba(0, 0, 0, 0.1);
+            --bg-color: #F5F1E8;
+            --bg-muted: #F3EDE1;
+            --text-color: #221D15;
+            --text-muted: #6E6555;
+            --border-color: #E3DDCE;
+            --border-color-light: #EFEADF;
+            --accent-color: #B0512B;
+            --accent-color-light: rgba(176, 81, 43, 0.12);
+            --accent-color-dark: #8F3E1F;
+            --accent-text: #B0512B;
+            --code-bg: #FBF8F2;
+            --shadow-color: rgba(34, 29, 21, 0.12);
             --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
         /* Dark mode */
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg-color: #1e1e1e;
-                --bg-muted: #2d2d2d;
-                --text-color: #e0e0e0;
-                --text-muted: #a0a0a0;
-                --border-color: #444444;
-                --border-color-light: #333333;
-                --accent-color: #3b97ff;
-                --accent-color-light: #1e3555;
-                --accent-color-dark: #7db9ff;
-                --accent-text: #b8d7ff;
-                --code-bg: #2d2d30;
-                --shadow-color: rgba(0, 0, 0, 0.3);
+                --bg-color: #201A12;
+                --bg-muted: #2A2318;
+                --text-color: #F3EDE1;
+                --text-muted: #C9BEA6;
+                --border-color: #4A3F2E;
+                --border-color-light: #3A3124;
+                --accent-color: #B5893F;
+                --accent-color-light: rgba(181, 137, 63, 0.16);
+                --accent-color-dark: #D6AC52;
+                --accent-text: #E8CE94;
+                --code-bg: #1A150D;
+                --shadow-color: rgba(0, 0, 0, 0.35);
             }
         }
 

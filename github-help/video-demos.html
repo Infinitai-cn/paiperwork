@@ -7,38 +7,40 @@
     <style>
         :root {
             color-scheme: light dark;
-            --bg: #f7fbff;
-            --surface: #ffffff;
-            --border: #d9e3f2;
-            --text: #0f172a;
-            --muted: #667085;
-            --accent: #4f46e5;
-            --accent-soft: rgba(79, 70, 229, 0.12);
-            --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
-            --modal-bg: #ffffff;
-            --modal-header-bg: rgba(255, 255, 255, 0.96);
-            --modal-header-text: #0f172a;
-            --modal-close: #475569;
+            --bg: #F5F1E8;
+            --surface: #FBF8F2;
+            --border: #E3DDCE;
+            --text: #221D15;
+            --muted: #6E6555;
+            --accent: #B0512B;
+            --accent-soft: rgba(176, 81, 43, 0.12);
+            --accent-text: #F5F1E8;
+            --shadow: 0 18px 45px rgba(34, 29, 21, 0.10);
+            --modal-bg: #FBF8F2;
+            --modal-header-bg: rgba(251, 248, 242, 0.96);
+            --modal-header-text: #221D15;
+            --modal-close: #6E6555;
             --video-bg: #000;
-            --button-hover: #3730a3;
+            --button-hover: #8F3E1F;
         }
         
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg: #121827;
-                --surface: #1f2937;
-                --border: #334155;
-                --text: #e2e8f0;
-                --muted: #94a3b8;
-                --accent: #8b5cf6;
-                --accent-soft: rgba(139, 92, 246, 0.16);
-                --shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
-                --modal-bg: #0f172a;
-                --modal-header-bg: rgba(15, 23, 42, 0.95);
-                --modal-header-text: #f8fafc;
-                --modal-close: #cbd5e1;
+                --bg: #201A12;
+                --surface: #2A2318;
+                --border: #4A3F2E;
+                --text: #F3EDE1;
+                --muted: #C9BEA6;
+                --accent: #B5893F;
+                --accent-soft: rgba(214, 172, 82, 0.18);
+                --accent-text: #201A12;
+                --shadow: 0 18px 45px rgba(0, 0, 0, 0.4);
+                --modal-bg: #2A2318;
+                --modal-header-bg: rgba(42, 35, 24, 0.95);
+                --modal-header-text: #F3EDE1;
+                --modal-close: #C9BEA6;
                 --video-bg: #000;
-                --button-hover: #7c3aed;
+                --button-hover: #C99A4A;
             }
         }
 
@@ -137,7 +139,7 @@
             width: 100%;
             border: none;
             background: var(--accent);
-            color: #fff;
+            color: var(--accent-text, #fff);
             border-radius: 14px;
             padding: 12px 14px;
             font-size: 0.98rem;
@@ -151,7 +153,7 @@
         .modal {
             position: fixed;
             inset: 0;
-            background: rgba(10, 25, 47, 0.6);
+            background: rgba(10, 8, 5, 0.6);
             display: none;
             align-items: center;
             justify-content: center;
@@ -169,7 +171,7 @@
             background: var(--modal-bg);
             border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 24px 80px rgba(15, 23, 42, 0.32);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4);
         }
 
         .modal-header {
