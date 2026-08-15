@@ -2045,8 +2045,8 @@ class ChatTab {
                 item.style.borderLeft = '';
             });
             sessionItem.classList.add('active');
-            sessionItem.style.backgroundColor = 'rgba(79, 70, 229, 0.08)';
-            sessionItem.style.borderLeft = '3px solid #4f46e5';
+            sessionItem.style.backgroundColor = 'var(--active-item-bg, rgba(214, 172, 82, 0.14))';
+            sessionItem.style.borderLeft = '3px solid var(--accent-color, #4f46e5)';
         });
 
         // Add delete handler
@@ -2145,8 +2145,8 @@ class ChatTab {
             const isActiveGroup = window.currentConversationGroup && window.currentConversationGroup === session.group_id;
             if (isActiveGroup) {
                 sessionItem.classList.add('active');
-                sessionItem.style.backgroundColor = 'rgba(79, 70, 229, 0.08)';
-                sessionItem.style.borderLeft = '3px solid #4f46e5';
+                sessionItem.style.backgroundColor = 'var(--active-item-bg, rgba(214, 172, 82, 0.14))';
+                sessionItem.style.borderLeft = '3px solid var(--accent-color, #4f46e5)';
             }
 
             // Create a container for session content
@@ -2216,8 +2216,8 @@ class ChatTab {
                 sessionItem.classList.add('active');
 
                 // Apply visual highlighting for active session
-                sessionItem.style.backgroundColor = 'rgba(79, 70, 229, 0.08)';
-                sessionItem.style.borderLeft = '3px solid #4f46e5';
+                sessionItem.style.backgroundColor = 'var(--active-item-bg, rgba(214, 172, 82, 0.14))';
+                sessionItem.style.borderLeft = '3px solid var(--accent-color, #4f46e5)';
             });
 
             // Add delete handler
@@ -2971,7 +2971,7 @@ class ChatTab {
 
                 // Update the visual feedback based on model type
                 fileInputArea.style.borderColor = 'var(--accent-color, #4f46e5)';
-                fileInputArea.style.backgroundColor = 'rgba(79, 70, 229, 0.05)';
+                fileInputArea.style.backgroundColor = 'var(--accent-soft, rgba(79, 70, 229, 0.05))';
 
                 // Update the placeholder text dynamically based on model type
                 const uploadText = fileInputArea.querySelector('.upload-text');
@@ -3047,7 +3047,7 @@ class ChatTab {
                 // Show visual feedback on the file input area
                 if (e.target !== fileInputArea) {
                     fileInputArea.style.borderColor = 'var(--accent-color, #4f46e5)';
-                    fileInputArea.style.backgroundColor = 'rgba(79, 70, 229, 0.05)';
+                    fileInputArea.style.backgroundColor = 'var(--accent-soft, rgba(79, 70, 229, 0.05))';
                 }
 
                 // Update the placeholder text dynamically based on model type

@@ -107,11 +107,17 @@ body {
 .selection-button {
     padding: 15px 30px;
     font-size: 18px;
-    background-color: #404040;
-    color: white;
-    border: none;
+    background-color: var(--button-bg, #404040);
+    color: var(--button-text, white);
+    border: 1px solid var(--border-color);
     border-radius: 5px;
     cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.selection-button:hover {
+    background-color: var(--button-secondary-hover-bg, var(--hover-bg, #505050));
+    border-color: var(--accent-color);
 }
 
 /* Button variants */
@@ -815,7 +821,7 @@ body {
 #system-prompt:focus {
     outline: none;
     border-color: var(--accent-color, #4f46e5);
-    box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
+    box-shadow: 0 0 0 1px var(--accent-soft, rgba(79, 70, 229, 0.2));
 }
 
 
@@ -864,9 +870,9 @@ body {
     width: 80px;
     /* Reduced width */
     height: 70px;
-    background-color: #404040;
-    color: white;
-    border: none;
+    background-color: var(--button-bg, #404040);
+    color: var(--button-text, white);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     cursor: pointer;
 }
@@ -1783,7 +1789,7 @@ code {
 
 .upload-zone.highlight {
     border-color: var(--accent-color, #4f46e5);
-    background-color: rgba(79, 70, 229, 0.05);
+    background-color: var(--accent-soft, rgba(79, 70, 229, 0.05));
 }
 
 /* Search container styling */
@@ -1943,7 +1949,7 @@ code {
 }
 
 .document-action-btn:hover {
-    background: var(--hover-bg, rgba(79, 70, 229, 0.1));
+    background: var(--hover-bg, var(--accent-soft, rgba(79, 70, 229, 0.1)));
 }
 
 .empty-state {
@@ -2289,17 +2295,17 @@ code {
 /* Image upload area */
 .image-upload-area {
     margin: 10px 0;
-    border: 2px dashed #ddd;
+    border: 2px dashed var(--border-color, #ddd);
     border-radius: 8px;
     padding: 15px;
     text-align: center;
-    background-color: #f9fafb;
+    background-color: var(--button-secondary-bg, #f9fafb);
     transition: all 0.3s ease;
 }
 
 .image-upload-area:hover {
-    border-color: #4f46e5;
-    background-color: #f5f7ff;
+    border-color: var(--accent-color, #4f46e5);
+    background-color: var(--accent-soft, #f5f7ff);
 }
 
 .upload-label {
@@ -2307,11 +2313,11 @@ code {
     flex-direction: column;
     align-items: center;
     cursor: pointer;
-    color: #666;
+    color: var(--label-color, #666);
 }
 
 .upload-label:hover {
-    color: #4f46e5;
+    color: var(--accent-color, #4f46e5);
 }
 
 .upload-label svg {

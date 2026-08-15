@@ -898,7 +898,7 @@ async function handleDataVizTab() {
                 <h3>${Lang.get('errorLoadingModels')}</h3>
                 <p>${error.message || Lang.get('errorTryAgain')}</p>
                 <button onclick="window.tabLoader.retryLoad('dataviz')" 
-                        style="padding: 8px 16px; margin-top: 10px; background: #4f46e5; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        style="padding: 8px 16px; margin-top: 10px; background: var(--accent-color, #4f46e5); color: white; border: none; border-radius: 4px; cursor: pointer;">
                     ${Lang.get('retryButton')}
                 </button>
             </div>

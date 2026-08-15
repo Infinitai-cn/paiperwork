@@ -509,14 +509,14 @@ function setupDocumentUI(documentsTab) {
             </div>
             <div class="upload-text" style="font-size: 14px;">
                 <p>${Lang.get('ragDragDropText')}</p>
-                <p><span class="browse-text" style="color: #4f46e5; text-decoration: underline; cursor: pointer;">${Lang.get('ragBrowseFiles')}</span></p>
+                <p><span class="browse-text" style="color: var(--accent-color, #4f46e5); text-decoration: underline; cursor: pointer;">${Lang.get('ragBrowseFiles')}</span></p>
             </div>
             <input type="file" id="file-input" multiple accept=".pdf,.txt,.md" style="display: none;">
         </div>
         
         <div class="upload-progress" id="upload-progress" style="display: none;">
             <div class="progress-bar-container" style="height: 6px; background-color: #e0e0e0; border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
-                <div class="progress-bar-fill" id="progress-bar-fill" style="height: 100%; background-color: #4f46e5; width: 0%; transition: width 0.3s ease;"></div>
+                <div class="progress-bar-fill" id="progress-bar-fill" style="height: 100%; background-color: var(--accent-color, #4f46e5); width: 0%; transition: width 0.3s ease;"></div>
             </div>
             <div class="progress-status" id="progress-status">${Lang.get('ragProcessingStatus')}</div>
         </div>
@@ -630,7 +630,7 @@ async function handleFiles(files) {
     const progressBarFill = document.getElementById('progress-bar-fill');
     if (progressBarFill) {
         progressBarFill.style.width = '0%';
-        progressBarFill.style.backgroundColor = '#4f46e5';
+        progressBarFill.style.backgroundColor = 'var(--accent-color, #4f46e5)';
         progressBarFill.style.transition = 'width 0.3s ease';
         progressBarFill.style.height = '100%';
     }
@@ -719,7 +719,7 @@ async function handleFiles(files) {
     if (progressBarFill) {
         progressBarFill.style.width = '0%';
         // Make sure the progress bar fill has the right color
-        progressBarFill.style.backgroundColor = '#4f46e5'; // Accent color
+        progressBarFill.style.backgroundColor = 'var(--accent-color, #4f46e5)'; // Accent color
         progressBarFill.style.transition = 'width 0.3s ease';
         progressBarFill.style.height = '100%';
        //console.log('Progress bar reset to 0% and styled properly');
