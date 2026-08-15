@@ -3928,18 +3928,14 @@ class ChatTab {
                                 // notify other in-tab listeners if needed
                                 window.dispatchEvent(new CustomEvent('gptOssReasoningChanged', { detail: { level: btn.dataset.level } }));
 
-                                // Changing the reasoning level only affects the `reasoning:` prefix
-                                // assembled into the system prompt. It does NOT invalidate the
-                                // conversation context, so we only invalidate the system prompt
-                                // cache (no context reset, no continue button). The new level is
-                                // picked up on the next request by buildCompleteSystemPrompt.
+                                // If this is a real user click (not a programmatic .click()), trigger system-prompt-change flow
                                 try {
-                                    if (event && event.isTrusted && window.OllamaAPI && typeof window.OllamaAPI.notifySystemPromptChanged === 'function') {
-                                        const hashedMasterKey = sessionStorage.getItem('hashedMasterKey') || '';
-                                        window.OllamaAPI.notifySystemPromptChanged(hashedMasterKey);
+                                    if (event && event.isTrusted && window.chatInstance && typeof window.chatInstance.handleSystemPromptChange === 'function') {
+                                        // Directly call the handler; the system prompt content is assembled later in buildCompleteSystemPrompt
+                                        window.chatInstance.handleSystemPromptChange();
                                     }
                                 } catch (e) {
-                                    console.warn('ChatTab: error invalidating system prompt cache after reasoning change', e);
+                                    console.warn('ChatTab: error calling handleSystemPromptChange after reasoning change', e);
                                 }
                             });
 
