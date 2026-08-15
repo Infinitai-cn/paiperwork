@@ -531,6 +531,29 @@ body.menu-open .nav{background:transparent;border-color:transparent;backdrop-fil
 @media(max-width:600px){.product__btns{flex-wrap:wrap}}
 .cta__note{font:600 12.5px var(--sans);letter-spacing:.06em;color:var(--ink-2)}
 
+/* ============ MODAL ============ */
+.modal-overlay{
+  position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+  background:rgba(32,26,18,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  padding:24px;
+}
+.modal-overlay.open{display:flex}
+.modal-panel{
+  background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:24px;
+  max-width:440px;width:100%;padding:42px 34px;text-align:center;
+  box-shadow:0 44px 90px -44px rgba(0,0,0,.5);
+}
+.modal-panel .mark{color:var(--gold);font-size:22px}
+.modal-panel h3{font-family:var(--serif);font-size:26px;letter-spacing:-.01em;margin:16px 0 10px}
+.modal-panel p{color:var(--ink-2);font-size:16px;line-height:1.6;margin:0 0 28px}
+.modal-close{
+  display:inline-flex;align-items:center;gap:.5rem;
+  font:600 14px/1 var(--sans);padding:.75rem 1.5rem;border-radius:999px;cursor:pointer;
+  background:var(--ink);color:var(--ivory);border:none;
+  transition:background .35s var(--ease),transform .35s var(--ease);
+}
+.modal-close:hover{background:var(--clay);transform:translateY(-2px)}
+
 /* ============ FOOTER ============ */
 footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
 .footer__grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:48px;padding-bottom:56px;border-bottom:1px solid var(--line-dark)}
@@ -982,10 +1005,10 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
         <div><b>4</b><span>AI media modes</span></div>
         <div><b>0<i> markup</i></b><span>on your providers</span></div>
       </div>
-      <a class="btn btn--primary reveal" style="--d:.5s; margin-top:32px" href="#" aria-disabled="true">
+      <button type="button" class="btn btn--primary reveal" style="--d:.5s; margin-top:32px" id="download-ania3d-btn">
         Download Ania3D
         <svg class="arr" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
+      </button>
     </div>
   </div>
 </section>
@@ -1086,6 +1109,16 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
     <p class="cta__note">macOS · Windows · Linux &nbsp;—&nbsp; Free &amp; open source · No credit card · No cloud · No noise</p>
   </div>
 </section>
+
+<!-- ============ ANIA3D MODAL ============ -->
+<div class="modal-overlay" id="ania3d-modal" role="dialog" aria-modal="true" aria-labelledby="ania3d-modal-title">
+  <div class="modal-panel">
+    <span class="mark">✳</span>
+    <h3 id="ania3d-modal-title">Ania3D</h3>
+    <p>Ania3D will be available in the last quarter of 2026, thanks for your patience!</p>
+    <button type="button" class="modal-close" id="ania3d-modal-close">Close</button>
+  </div>
+</div>
 
 </main>
 
@@ -1258,6 +1291,19 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden) playDemo();
     });
+  }
+
+  /* ---- Ania3D download modal ---- */
+  var aniaBtn = document.getElementById("download-ania3d-btn");
+  var aniaModal = document.getElementById("ania3d-modal");
+  var aniaClose = document.getElementById("ania3d-modal-close");
+  function openAniaModal(){ if(aniaModal) aniaModal.classList.add("open"); }
+  function closeAniaModal(){ if(aniaModal) aniaModal.classList.remove("open"); }
+  if(aniaBtn) aniaBtn.addEventListener("click", function(e){ e.preventDefault(); openAniaModal(); });
+  if(aniaClose) aniaClose.addEventListener("click", closeAniaModal);
+  if(aniaModal){
+    aniaModal.addEventListener("click", function(e){ if(e.target === aniaModal) closeAniaModal(); });
+    document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeAniaModal(); });
   }
 })();
 </script>
