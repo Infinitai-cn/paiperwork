@@ -1,11 +1,9 @@
 window.THINKING_MODELS = [
-    'deepseek-r1:1.5b',
-    'deepseek-r1:7b',
-    'deepseek-r1:8b',
-    'deepseek-r1:14b',
-    'deepseek-r1:32b',
-    'deepseek-r1:70b',
-    'deepseek-r1:671b',
+    // DeepSeek R1 family (all sizes support native thinking)
+    'deepseek-r1',
+    // Qwen3 — explicit size entries kept because only the listed variants are
+    // guaranteed thinking-capable (avoids matching non-thinking variants such
+    // as 'qwen3:4b-instruct-2507').
     'qwen3:0.5b',
     'qwen3:1.7b',
     'qwen3:3b',
@@ -13,30 +11,20 @@ window.THINKING_MODELS = [
     'qwen3:14b',
     'qwen3:32b',
     'qwen3:70b',
-    'qwen3.5:9b-q8_0',
-    'qwen3.5:27b-q8_0',
-    'qwen3.5:35b-a3b',
-    'qwen3.5:35b',
-    'qwen3.5:397b',
-    'qwen3.6:27b-q8_0',
-    'qwen3.6:35b-a3b-q8_0',
-    'qwen3.6:27b-coding-mxfp8',
-    'qwen3.6:35b-a3b-coding-nvfp4',
-    'qwen3.6:35b-mlx',
-    'qwen3.6:27b-mlx',
-    'qwen3.6:27b-mtp-q8_0',
-    'qwen3.8:27b',
-    'magistral:24b',
-    'gpt-oss',
     'qwen3:30b-a3b-thinking-2507',
+    // Qwen3.5 / 3.6 / 3.8 — all variants support thinking. Family entries cover
+    // any current or future tag (sizes, quants, mtp, mlx, coding, etc.).
+    'qwen3.5',
+    'qwen3.6',
+    'qwen3.8',
+    'magistral',
+    'gpt-oss',
     'deepseek-v3.1',
     'glm-4.7',
     'glm-5',
     'glm-5.1',
-    'glm-4.7-flash:q4_K_M',
-    'glm-4.7-flash:q8_0',
-    'gemma4:26b-a4b-it-q8_0',
-    'gemma4:31b',
+    'glm-4.7-flash',
+    'gemma4',
     'deepseek-v4-pro',
     'deepseek-v4-flash',
 ];
@@ -65,41 +53,55 @@ window.normalizeThinkingModelName = function(modelName) {
     return normalized;
 };
 
+// Extract the family token of a model name: the part before any ':' after
+// removing quantization suffixes.
+//   'qwen3.8:27b-mtp-q8_0' -> 'qwen3.8'
+//   'qwen3.8-27b'          -> 'qwen3.8-27b'
+//   'gpt-oss:20b'          -> 'gpt-oss'
+window.getModelFamily = function(modelName) {
+    if (!modelName) return '';
+
+    const base = (window.getBaseModelName && window.getBaseModelName(modelName)) || String(modelName);
+    return String(base).toLowerCase().split(':')[0].trim();
+};
+
 // Improved function to check if a model supports thinking
 window.isThinkingModel = function(modelName) {
     if (!modelName) return false;
-    
-    // Normalize selected model so quantized aliases resolve to the same token.
+
+    // Reasoning-effort models (gpt-oss family, Qwen3.8) always support thinking,
+    // regardless of the exact tag variant (e.g. 'qwen3.8-27b' vs 'qwen3.8:27b').
+    if (window.isReasoningEffortModel && window.isReasoningEffortModel(modelName)) return true;
+
     const normalizedSelectedModel = window.normalizeThinkingModelName(modelName);
-    
-   //console.log('ThinkingModels: Checking model:', modelName, 'Base name:', baseModelName);
-    
-    // Check if the base model name matches any thinking model
+    const selectedFamily = window.getModelFamily(modelName);
+
+    // Check if the model matches any thinking entry.
+    // Family entries (no ':') match ANY variant of that family, so new
+    // tags/sizes never need re-adding.
     const isSupported = window.THINKING_MODELS.some(thinkingModel => {
-        const normalizedThinkingModel = window.normalizeThinkingModelName(thinkingModel);
+        const normalizedEntry = window.normalizeThinkingModelName(thinkingModel);
 
-        // Exact match is always allowed
-        if (normalizedSelectedModel === normalizedThinkingModel) return true;
+        // 1) Exact match is always allowed (covers dash-form tags like 'qwen3.8-27b').
+        if (normalizedSelectedModel === normalizedEntry) return true;
 
-        // If the thinking model entry includes an explicit variant (e.g. 'qwen3:3b'), require exact match
-        if (normalizedThinkingModel.includes(':')) {
-            return normalizedSelectedModel === normalizedThinkingModel;
+        // 2) Explicit variant entries (e.g. 'qwen3:3b', 'glm-4.7-flash:q4_K_M')
+        //    require an exact match. This preserves precision for models where
+        //    only the listed variants are guaranteed thinking-capable.
+        if (normalizedEntry.includes(':')) {
+            return normalizedSelectedModel === normalizedEntry;
         }
 
-        // Otherwise the entry is a base model (e.g. 'qwen3').
-        // Only accept baseModel:VARIANT where VARIANT is a pure size token like '3b' or '1.5b'
-        // This prevents matching extended qualifiers like '4b-instruct-2507'.
-        if (normalizedSelectedModel.startsWith(normalizedThinkingModel + ':')) {
-            const afterColon = normalizedSelectedModel.slice(normalizedThinkingModel.length + 1);
-            // Accept variants such as '3b', '1.5b', '24b' etc. (integers or decimals followed by 'b')
-            const pureSizeRegex = /^\d+(?:\.\d+)?b$/i;
-            return pureSizeRegex.test(afterColon);
-        }
+        // 3) Family entry: match any variant of that family. Boundary checks
+        //    prevent a family like 'qwen3' from matching 'qwen3.5' / 'qwen3.6'.
+        const entryFamily = window.getModelFamily(thinkingModel);
+        if (selectedFamily === entryFamily) return true;                         // 'qwen3.8:27b-mtp-q8_0'
+        if (selectedFamily.startsWith(entryFamily + '-')) return true;           // 'qwen3.8-27b'
+        if (normalizedSelectedModel.startsWith(entryFamily + ':')) return true;  // 'qwen3.8:27b'
 
         return false;
     });
-    
-   //console.log('ThinkingModels: Model', modelName, 'supports thinking:', isSupported);
+
     return isSupported;
 };
 
