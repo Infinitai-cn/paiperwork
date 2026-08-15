@@ -1,10 +1,9 @@
 {
-    "version": "1.3.2",
-    "releaseDate": "2026-07-14",
+    "version": "1.3.3",
+    "releaseDate": "2026-08-15",
     "notes": [
         "<p><strong>What's new:</strong></p>",
-        "<p>- Improved RAG indexing and retrieval, faster search, much less memory resources used.</p>",
-        "<p>- Previously indexed documents in the Documents Tab require to be removed and added again for this new indexing improvement to be applied on them.</p>", 
+        "<p>- Qwen3.8 support.</p>",
         "<p>- Bug fixes</p>"
     ],
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
