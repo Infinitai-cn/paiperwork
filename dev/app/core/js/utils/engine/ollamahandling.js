@@ -1237,7 +1237,9 @@ class OllamaAPI {
 
         // Allow callers to explicitly force think on/off via `forceThink` (null = respect user setting)
         const thinkingEnabled = (typeof forceThink === 'boolean') ? forceThink : this._cachedThinkingEnabled;
-        const supportsNativeThinking = window.isThinkingModel && window.isThinkingModel(selectedModel);
+        // Reasoning-effort models (gpt-oss, Qwen3.8) are always treated as native thinking models
+        const supportsNativeThinking = !!(window.isThinkingModel && window.isThinkingModel(selectedModel)) ||
+            !!(window.isReasoningEffortModel && window.isReasoningEffortModel(selectedModel));
 
         let enhancedPrompt = userPrompt;
         const localContextPayload = window.currentCheckpoint?.lastContext || OllamaAPI.previousContext;
@@ -2237,7 +2239,9 @@ class OllamaAPI {
                     : (localStorage.getItem('thinkingEnabled') === 'true');
 
             const thinkingEnabled = this._cachedThinkingEnabled;
-            const supportsNativeThinking = window.isThinkingModel && window.isThinkingModel(selectedModel);
+            // Reasoning-effort models (gpt-oss, Qwen3.8) are always treated as native thinking models
+            const supportsNativeThinking = !!(window.isThinkingModel && window.isThinkingModel(selectedModel)) ||
+                !!(window.isReasoningEffortModel && window.isReasoningEffortModel(selectedModel));
 
             // Create AI message container
             aiDiv = document.createElement('div');
