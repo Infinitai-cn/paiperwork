@@ -1156,8 +1156,8 @@ body {
 .code-block {
     margin: 1.5em 0;
     position: relative;
-    background-color: #000000;
-    color: #ffffff;
+    background-color: var(--code-bg, #1A150D);
+    color: var(--code-text, #F3EDE1);
     padding: 0;
     border-radius: 5px;
     margin: 10px 0;
@@ -1165,7 +1165,7 @@ body {
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 14px;
     line-height: 1.4;
-    border: 1px solid #404040;
+    border: 1px solid var(--border-color, #404040);
 }
 
 .code-block pre {
@@ -1176,8 +1176,8 @@ body {
 
 .code-header {
     padding: 8px 16px;
-    background-color: var(--code-header-bg);
-    border-top: 1px solid #404040;
+    background-color: var(--code-header-bg, var(--code-bg));
+    border-top: 1px solid var(--border-color, #404040);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1205,20 +1205,20 @@ body {
 .code-copy-btn {
     padding: 2px 8px;
     font-size: 12px;
-    color: #fff;
-    background-color: #404040;
-    border: none;
+    color: var(--button-secondary-text, var(--button-text, #ffffff));
+    background-color: var(--button-secondary-bg, var(--button-bg, #404040));
+    border: 1px solid var(--button-secondary-border, var(--border-color, #404040));
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s;
 }
 
 .code-copy-btn:hover {
-    background-color: #505050;
+    background-color: var(--button-secondary-hover-bg, var(--hover-bg, #505050));
 }
 
 .code-language {
-    color: var(--text-color-secondary);
+    color: var(--label-color, var(--text-color-secondary));
     font-size: 0.9em;
 }
 
@@ -1686,40 +1686,49 @@ body {
 }
 
 
-/* Syntax highlighting classes */
+/* Syntax highlighting classes (theme-driven via --syntax-* variables in themes.css) */
 .syntax-tag {
-    color: #569cd6;
-    /* Blue for tags */
+    color: var(--syntax-tag-color, #22863A);
 }
 
 .syntax-attr {
-    color: #9cdcfe;
-    /* Light blue for attributes */
+    color: var(--syntax-attr-color, #6F42C1);
 }
 
 .syntax-string {
-    color: #ce9178;
-    /* Orange-red for strings */
+    color: var(--syntax-string-color, #032F62);
 }
 
 .syntax-comment {
-    color: #6a9955;
-    /* Green for comments */
+    color: var(--syntax-comment-color, #6A737D);
 }
 
 .syntax-keyword {
-    color: #c586c0;
-    /* Purple for keywords */
+    color: var(--syntax-keyword-color, #D73A49);
 }
 
 .syntax-builtin {
-    color: #4ec9b0;
-    /* Teal for built-ins */
+    color: var(--syntax-builtin-color, #005CC5);
 }
 
 .syntax-doctype {
-    color: #808080;
-    /* Gray for doctypes */
+    color: var(--syntax-doctype-color, #6A737D);
+}
+
+.syntax-operator {
+    color: var(--syntax-operator-color, #4A4235);
+}
+
+.syntax-special-char {
+    color: var(--syntax-special-char-color, #4A4235);
+}
+
+.syntax-attr-name {
+    color: var(--syntax-attr-color, #6F42C1);
+}
+
+.syntax-attr-value {
+    color: var(--syntax-string-color, #032F62);
 }
 
 code {
@@ -2003,19 +2012,17 @@ code {
     gap: 14px;
     padding: 16px 18px;
     min-height: 92px;
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    background:
-        radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%),
-        linear-gradient(135deg, #635bff, #7b5cff 48%, #8e71ff);
-    color: #ffffff;
+    border: 1px solid var(--tab-border, rgba(34, 29, 21, 0.14));
+    background: var(--tab-bg, #FBF8F2);
+    color: var(--tab-text, #221D15);
     cursor: pointer;
     font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.01em;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
     text-align: left;
     border-radius: 18px;
-    box-shadow: 0 12px 24px rgba(68, 56, 126, 0.18);
+    box-shadow: 0 12px 24px rgba(34, 29, 21, 0.10);
     position: relative;
     overflow: hidden;
     width: 100%;
@@ -2032,22 +2039,25 @@ code {
 /* Improved hover state */
 .tab-button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 16px 30px rgba(68, 56, 126, 0.24);
-    filter: saturate(1.05);
+    background: var(--tab-bg-hover, #F3EDE1);
+    border-color: var(--tab-active-border, #B0512B);
+    box-shadow: 0 16px 30px rgba(34, 29, 21, 0.12);
 }
 
 /* Active state */
 .tab-button.active {
-    color: white;
+    color: var(--tab-active-text, #8F3E1F);
+    background: var(--tab-active-bg, rgba(176, 81, 43, 0.08));
+    border-color: var(--tab-active-border, #B0512B);
     transform: none;
     border-bottom-left-radius: 10px;
     border-bottom-right-radius: 10px;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95), 0 18px 34px rgba(68, 56, 126, 0.28);
+    box-shadow: 0 18px 34px rgba(34, 29, 21, 0.10);
 }
 
 /* Remove existing empty space fix since we're using grid now */
 .tab-button:last-child {
-    border-right: 1px solid rgba(255, 255, 255, 0.5);
+    border-right: 1px solid var(--tab-border, rgba(34, 29, 21, 0.14));
 }
 
 .tab-card-icon {
@@ -2057,7 +2067,7 @@ code {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
+    color: var(--tab-icon, #B0512B);
 }
 
 .tab-container:not(.has-active-tab) .tab-card-icon {
@@ -2090,7 +2100,7 @@ code {
     font-size: 14px;
     font-weight: 700;
     line-height: 1.15;
-    color: #ffffff;
+    color: var(--tab-text, #221D15);
 }
 
 .tab-container:not(.has-active-tab) .tab-card-title {
@@ -2102,7 +2112,7 @@ code {
     font-size: 11px;
     font-weight: 500;
     line-height: 1.35;
-    color: rgba(255, 255, 255, 0.82);
+    color: var(--tab-text-muted, #6E6555);
 }
 
 .tab-container:not(.has-active-tab) .tab-card-description {
@@ -2120,7 +2130,7 @@ code {
     align-self: center;
     font-size: 22px;
     line-height: 1;
-    color: rgba(255, 255, 255, 0.88);
+    color: var(--tab-text-muted, #6E6555);
     transform: translateX(0);
     transition: transform 0.2s ease, opacity 0.2s ease;
 }
@@ -2135,7 +2145,8 @@ code {
 }
 
 .tab-button.active .tab-card-icon {
-    background: rgba(255, 255, 255, 0.24);
+    background: var(--tab-active-bg, rgba(176, 81, 43, 0.08));
+    border-radius: 50%;
 }
 
 @media (max-width: 520px) {
@@ -2157,53 +2168,7 @@ code {
     }
 }
 
-.tab-button[data-tab="documents"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #2563eb, #3b82f6 48%, #60a5fa);
-}
-
-.tab-button[data-tab="translate"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%), linear-gradient(135deg, #0f766e, #0f9f8f 48%, #14b8a6);
-}
-
-.tab-button[data-tab="dataviz"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #1d4ed8, #2563eb 48%, #3b82f6);
-}
-
-.tab-button[data-tab="paperwork"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #1e40af, #1d4ed8 48%, #2563eb);
-}
-
-.tab-button[data-tab="research"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #172554, #1e40af 48%, #1d4ed8);
-}
-
-.tab-button[data-tab="artwork"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #f97316, #fb923c 48%, #fdba74);
-}
-
-.tab-button[data-tab="presentation"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #ea580c, #f97316 48%, #fb923c);
-}
-
-.tab-button[data-tab="artifacts"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #c2410c, #ea580c 48%, #f97316);
-}
-
-.tab-button[data-tab="campaign"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.26), transparent 36%), linear-gradient(135deg, #9a3412, #c2410c 48%, #ea580c);
-}
-
-.tab-button[data-tab="models"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%), linear-gradient(135deg, #5b21b6, #6d28d9 48%, #7c3aed);
-}
-
-.tab-button[data-tab="database"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%), linear-gradient(135deg, #be185d, #db2777 48%, #ec4899);
-}
-
-.tab-button[data-tab="connectors"] {
-    background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 34%), linear-gradient(135deg, #312e81, #4338ca 48%, #4f46e5);
-}
+/* Tab cards are theme-driven (see --tab-* variables in themes.css) */
 
 /* Make sure the tab content has the right positioning */
 .tab-content {

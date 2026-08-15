@@ -4,53 +4,67 @@
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --bg-color: #181818;
-        --text-color: white;
-        --button-bg: #404040;
-        --border-color: #404040;
-        --label-color: #d0d0d0;
-        --button-text: #f7f7f7;
+        --bg-color: #201A12;
+        --text-color: #F3EDE1;
+        --button-bg: #3A3124;
+        --border-color: #3E3527;
+        --label-color: #C9BEA6;
+        --button-text: #F3EDE1;
         --danger-color: #dc3545;
-        --back-button-text: white;
-        --chat-bubble-bg: #2b2b2b;
-        --input-bg: #404040;
-        --inline-code-bg: #181818;
-        --inline-code-text: rgb(149, 185, 244);
-        --modal-background: #2d2d2d;
-        --heading-color: #cedbf1;
-        --accent-color: #b06629;
-        --accent-color-hover: #76441b;
-        --accent-text: white;
+        --back-button-text: #F3EDE1;
+        --chat-bubble-bg: #2B2417;
+        --input-bg: #332B1E;
+        --inline-code-bg: #17120A;
+        --inline-code-text: #E8CE94;
+        --modal-background: #2A2318;
+        --heading-color: #F7F1E3;
+        --accent-color: #B5893F;
+        --accent-color-hover: #C99A4A;
+        --accent-text: #201A12;
 
         /* Knowledge collection card variables */
-        --card-bg: #2b2b2b;
-        --card-text: #e0e0e0;
-        --card-title: #f5f5f5;
-        --card-meta: #b0b0b0;
-        --card-border: #404040;
+        --card-bg: #2A2318;
+        --card-text: #E9E2D2;
+        --card-title: #F7F1E3;
+        --card-meta: #B8AD94;
+        --card-border: #3E3527;
 
         /* HTML Preview specific variables */
-        --preview-header-bg: #2a2a2a;
-        --preview-border: #555;
+        --preview-header-bg: #2E2619;
+        --preview-border: #4A3F2E;
         --preview-shadow: rgba(0, 0, 0, 0.5);
-        --preview-button-hover: #76441b;
-        --preview-toolbar-bg: #333;
-        --preview-toolbar-text: #ddd;
-        --code-bg-color: #2d2d2d;
-        --code-text-color: #e0e0e0;
-        --code-border-color: #444;
+        --preview-button-hover: #C99A4A;
+        --preview-toolbar-bg: #332B1E;
+        --preview-toolbar-text: #E9E2D2;
+        --code-bg-color: #2A2318;
+        --code-text-color: #E9E2D2;
+        --code-border-color: #4A3F2E;
+        --code-bg: #1A150D;
+        --code-header-bg: #2A2318;
+        --code-text: #F3EDE1;
 
-        --chart-bg: #2d2d2d;
-        --chart-text: #e0e0e0;
-        --chart-title: #f0f0f0;
-        --chart-grid: #555;
-        --chart-axis: #888;
-        --chart-tooltip-bg: rgba(40, 40, 40, 0.9);
-        --chart-tooltip-text: #ffffff;
-        --chart-point-stroke: #181818;
-        --chart-legend-bg: rgba(40, 40, 40, 0.5);
-        --chart-plot-bg: #222;
-        --chart-plot-border: #444;
+        /* Code syntax highlighting (VS Code Dark+) */
+        --syntax-tag-color: #569CD6;
+        --syntax-attr-color: #9CDCFE;
+        --syntax-string-color: #CE9178;
+        --syntax-comment-color: #6A9955;
+        --syntax-doctype-color: #808080;
+        --syntax-keyword-color: #C586C0;
+        --syntax-builtin-color: #4EC9B0;
+        --syntax-operator-color: #D4D4D4;
+        --syntax-special-char-color: #D4D4D4;
+
+        --chart-bg: #2A2318;
+        --chart-text: #E9E2D2;
+        --chart-title: #F7F1E3;
+        --chart-grid: #4A3F2E;
+        --chart-axis: #8A7F66;
+        --chart-tooltip-bg: rgba(20, 16, 10, 0.92);
+        --chart-tooltip-text: #F3EDE1;
+        --chart-point-stroke: #201A12;
+        --chart-legend-bg: rgba(42, 35, 24, 0.5);
+        --chart-plot-bg: #241E14;
+        --chart-plot-border: #3E3527;
 
         /* Database tab specific variables */
         --db-success-color: #10b981;
@@ -58,37 +72,48 @@
         --db-error-color: #ef4444;
         --db-warning-bg: rgba(245, 158, 11, 0.08);
         --db-success-bg: rgba(16, 185, 129, 0.08);
-        --db-stats-card-shadow: rgba(0, 0, 0, 0.1);
-        --db-notification-shadow: rgba(0, 0, 0, 0.25);
-        --db-spinner-bg: rgba(30, 30, 30, 0.2);
-        --bg-color-secondary: #242424;
-        --export-step-bg: rgba(127, 127, 127, 0.08);
-        --export-step-active-border: var(--accent-color, #4f46e5);
-        --export-step-active-bg: rgba(79, 70, 229, 0.14);
+        --db-stats-card-shadow: rgba(0, 0, 0, 0.35);
+        --db-notification-shadow: rgba(0, 0, 0, 0.45);
+        --db-spinner-bg: rgba(32, 26, 18, 0.4);
+        --bg-color-secondary: #2A2318;
+        --export-step-bg: rgba(243, 237, 225, 0.05);
+        --export-step-active-border: var(--accent-color, #B5893F);
+        --export-step-active-bg: rgba(181, 137, 63, 0.16);
         --export-step-done-border: #1f8b4c;
         --export-step-done-bg: rgba(31, 139, 76, 0.14);
         --export-step-failed-border: #c0392b;
         --export-step-failed-bg: rgba(192, 57, 43, 0.16);
 
-        --button-secondary-bg: #2d2d2d;
-        --button-secondary-text: #e0e0e0;
-        --button-secondary-border: #4b5563;
-        --button-secondary-hover-bg: #3a3f47;
-        --button-secondary-hover-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
-        --button-secondary-disabled-bg: #3a3a3a;
-        --button-secondary-disabled-border: #4a4a4a;
-        --button-secondary-disabled-text: #8f96a3;
+        --button-secondary-bg: #2E2619;
+        --button-secondary-text: #E9E2D2;
+        --button-secondary-border: #4A3F2E;
+        --button-secondary-hover-bg: #3A3124;
+        --button-secondary-hover-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+        --button-secondary-disabled-bg: #332B1E;
+        --button-secondary-disabled-border: #4A3F2E;
+        --button-secondary-disabled-text: #8A7F66;
         --danger-color-hover: #bb2d3b;
-        --preview-text-color: #e0e0e0;
-        --document-bg: #262626;
-        --document-text: #e0e0e0;
-        --disabled-color: #444;
-        --hover-bg: #23272e;
-        --model-group-color: #ffffff;
-        --model-group-bg: #3b414a;
+        --preview-text-color: #E9E2D2;
+        --document-bg: #241E14;
+        --document-text: #E9E2D2;
+        --disabled-color: #4A3F2E;
+        --hover-bg: #332B1E;
+        --model-group-color: #F3EDE1;
+        --model-group-bg: #3A3124;
         
         /* presentation Canvas background */
-        --canvas-bg: #24272D;
+        --canvas-bg: #241E14;
+
+        /* Sidebar tab cards (Infinitai theme) */
+        --tab-bg: #2A2318;
+        --tab-bg-hover: #332B1E;
+        --tab-border: rgba(243, 237, 225, 0.16);
+        --tab-text: #F3EDE1;
+        --tab-text-muted: rgba(243, 237, 225, 0.62);
+        --tab-icon: #B5893F;
+        --tab-active-bg: rgba(181, 137, 63, 0.14);
+        --tab-active-border: #B5893F;
+        --tab-active-text: #E8CE94;
 
         /* Alias tokens used by tab modules */
         --background-color: var(--bg-color);
@@ -97,63 +122,63 @@
         --input-background: var(--input-bg);
         --error-color: var(--danger-color);
         --error-hover: var(--danger-color-hover);
-        --modal-overlay-bg: rgba(30, 30, 30, 0.7);
+        --modal-overlay-bg: rgba(10, 8, 5, 0.7);
         --wa-modal-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
-        --wa-modal-bg: #20242b;
-        --wa-modal-text: #f3f6fb;
-        --wa-modal-border: #3f4754;
-        --wa-modal-close-x-bg: #2b313c;
-        --wa-modal-close-x-border: #4a5565;
-        --wa-modal-close-x-text: #f3f6fb;
-        --wa-modal-close-x-hover-bg: #394252;
-        --wa-modal-close-x-hover-border: #64748b;
+        --wa-modal-bg: #2A2318;
+        --wa-modal-text: #F3EDE1;
+        --wa-modal-border: #4A3F2E;
+        --wa-modal-close-x-bg: #332B1E;
+        --wa-modal-close-x-border: #4A3F2E;
+        --wa-modal-close-x-text: #F3EDE1;
+        --wa-modal-close-x-hover-bg: #3A3124;
+        --wa-modal-close-x-hover-border: #5A4E39;
         --wa-modal-close-x-hover-text: #ffffff;
-        --wa-modal-qr-surface: #171b22;
-        --wa-modal-surface-hover: #232a34;
-        --wa-modal-secondary-btn-bg: #2b313c;
-        --wa-modal-secondary-btn-border: #4a5565;
-        --wa-modal-secondary-btn-text: #f3f6fb;
-        --wa-modal-secondary-btn-hover-bg: #394252;
-        --wa-modal-secondary-btn-hover-border: #64748b;
+        --wa-modal-qr-surface: #1E1810;
+        --wa-modal-surface-hover: #2E2619;
+        --wa-modal-secondary-btn-bg: #332B1E;
+        --wa-modal-secondary-btn-border: #4A3F2E;
+        --wa-modal-secondary-btn-text: #F3EDE1;
+        --wa-modal-secondary-btn-hover-bg: #3A3124;
+        --wa-modal-secondary-btn-hover-border: #5A4E39;
         --wa-modal-secondary-btn-hover-text: #ffffff;
-        --wa-modal-status-color: #b8c3d1;
-        --wa-modal-status-strong: #e7edf6;
-        --wa-modal-muted: #9aa7b8;
-        --wa-modal-link: #7db5ff;
-        --wa-modal-qr-border: #4b5563;
+        --wa-modal-status-color: #B8AD94;
+        --wa-modal-status-strong: #F7F1E3;
+        --wa-modal-muted: #9A8F77;
+        --wa-modal-link: #D6AC52;
+        --wa-modal-qr-border: #4A3F2E;
         --wa-modal-close-btn-bg: #2f6f3c;
         --wa-modal-close-btn-text: #ffffff;
-        --wa-modal-spinner-track: #5b6470;
-        --wa-modal-spinner-accent: #7db5ff;
+        --wa-modal-spinner-track: #5A4E39;
+        --wa-modal-spinner-accent: #D6AC52;
 
         /* Artworks progress modal (dark theme defaults) */
-        --artwork-progress-overlay-bg: rgba(10, 15, 22, 0.62);
-        --artwork-progress-bg: #22262d;
-        --artwork-progress-border: #3a4351;
-        --artwork-progress-shadow: 0 16px 40px rgba(0, 0, 0, 0.42);
-        --artwork-progress-header-bg: #28303a;
-        --artwork-progress-header-border: #3a4351;
-        --artwork-progress-title: #eef4ff;
-        --artwork-progress-text: #d7e0ec;
-        --artwork-progress-muted: #9aa7b8;
-        --artwork-progress-close-color: #c7d2e2;
-        --artwork-progress-close-hover-bg: rgba(125, 181, 255, 0.14);
+        --artwork-progress-overlay-bg: rgba(10, 8, 5, 0.66);
+        --artwork-progress-bg: #2A2318;
+        --artwork-progress-border: #4A3F2E;
+        --artwork-progress-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+        --artwork-progress-header-bg: #332B1E;
+        --artwork-progress-header-border: #4A3F2E;
+        --artwork-progress-title: #F7F1E3;
+        --artwork-progress-text: #E9E2D2;
+        --artwork-progress-muted: #9A8F77;
+        --artwork-progress-close-color: #C9BEA6;
+        --artwork-progress-close-hover-bg: rgba(214, 172, 82, 0.16);
         --artwork-progress-close-hover-color: #ffffff;
-        --artwork-progress-spinner-track: rgba(125, 181, 255, 0.18);
-        --artwork-progress-spinner-accent: var(--accent-color, #7db5ff);
+        --artwork-progress-spinner-track: rgba(214, 172, 82, 0.2);
+        --artwork-progress-spinner-accent: var(--accent-color, #B5893F);
 
     /* SlideForge modal & controls (dark theme defaults) */
-    --presentation-loading-border: rgba(255,255,255,0.06);
-    --presentation-loading-accent: var(--accent-color, #4f46e5);
-    --presentation-loading-text: var(--text-color, #ffffff);
-    --presentation-modal-bg: #222426;
-    --presentation-modal-text: var(--text-color, #ffffff);
-    --presentation-modal-box-shadow: 0 8px 32px rgba(0,0,0,0.28);
-    --presentation-modal-close-color: #ffffff;
+    --presentation-loading-border: rgba(243, 237, 225, 0.08);
+    --presentation-loading-accent: var(--accent-color, #B5893F);
+    --presentation-loading-text: var(--text-color, #F3EDE1);
+    --presentation-modal-bg: #2A2318;
+    --presentation-modal-text: var(--text-color, #F3EDE1);
+    --presentation-modal-box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32);
+    --presentation-modal-close-color: #F3EDE1;
     --presentation-modal-close-bg: #e53935;
-    --presentation-modal-close-box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    --presentation-modal-close-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     --presentation-modal-close-hover-bg: #b71c1c;
-    --presentation-modal-close-hover-shadow: 0 4px 16px rgba(229,57,53,0.25);
+    --presentation-modal-close-hover-shadow: 0 4px 16px rgba(229, 57, 53, 0.25);
     /* Close button specific colors for modal (dark) */
     --presentation-modal-close-icon-color: #ffffff;
     --presentation-modal-close-bg: #e53935; /* already present but keep for clarity */
@@ -162,76 +187,101 @@
     --presentation-modal-close-hover-color: #ffffff;
 
     /* Export button defaults */
-    --presentation-export-bg: var(--accent-color, #4f46e5);
-    --presentation-export-color: var(--accent-text, #ffffff);
+    --presentation-export-bg: var(--accent-color, #B5893F);
+    --presentation-export-color: var(--accent-text, #201A12);
     --presentation-export-border: transparent;
-    --presentation-export-box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-    --presentation-export-hover-bg: var(--accent-color-hover, #4338ca);
-    --presentation-export-hover-color: #ffffff;
-    --presentation-export-hover-box-shadow: 0 4px 16px rgba(67,56,202,0.12);
-    --presentation-export-focus-outline: rgba(255,255,255,0.9);
-    --presentation-web-state-active-color: #c7d2fe;
-    --presentation-web-state-inactive-color: var(--text-color, #ffffff);
+    --presentation-export-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    --presentation-export-hover-bg: var(--accent-color-hover, #C99A4A);
+    --presentation-export-hover-color: #201A12;
+    --presentation-export-hover-box-shadow: 0 4px 16px rgba(181, 137, 63, 0.2);
+    --presentation-export-focus-outline: rgba(243, 237, 225, 0.9);
+    --presentation-web-state-active-color: #E8CE94;
+    --presentation-web-state-inactive-color: var(--text-color, #F3EDE1);
 
     /* Browse button defaults */
-    --presentation-browse-color: #ffffff;
+    --presentation-browse-color: #F3EDE1;
     --presentation-browse-hover-color: #ffffff;
     --presentation-browse-hover-border: transparent;
     /* Remove-file button color (visible when showing remove '×' on dark backgrounds) */
-    --presentation-remove-file-color: #fafafa;
+    --presentation-remove-file-color: #F3EDE1;
     }
 }
 
 @media (prefers-color-scheme: light) {
     :root {
-        --bg-color: white;
-        --text-color: black;
-        --button-bg: #ececec;
-        --button-text: #404040;
-        --border-color: lightgray;
-        --label-color: #404040;
+        --bg-color: #F5F1E8;
+        --text-color: #221D15;
+        --button-bg: #FBF8F2;
+        --button-text: #221D15;
+        --border-color: rgba(34, 29, 21, 0.14);
+        --label-color: #6E6555;
         --danger-color: #dc3545;
-        --back-button-text: #404040;
-        --chat-bubble-bg: #ecf2ff;
-        --input-bg: #f0f0f0;
-        --inline-code-bg: #888888;
-        --inline-code-text: rgb(255, 255, 255);
-        --modal-background: darkgray;
-        --heading-color: #2d3748;
-        --accent-color: #4f46e5;
-        --accent-color-hover: #3730a3;
-        --accent-text: white;
+        --back-button-text: #221D15;
+        --chat-bubble-bg: #F3EDE1;
+        --input-bg: #FBF8F2;
+        --inline-code-bg: #F3EDE1;
+        --inline-code-text: #8F3E1F;
+        --modal-background: #FBF8F2;
+        --heading-color: #221D15;
+        --accent-color: #B0512B;
+        --accent-color-hover: #8F3E1F;
+        --accent-text: #F5F1E8;
+
+        /* Sidebar tab cards (Infinitai theme) */
+        --tab-bg: #FBF8F2;
+        --tab-bg-hover: #F3EDE1;
+        --tab-border: rgba(34, 29, 21, 0.14);
+        --tab-text: #221D15;
+        --tab-text-muted: #6E6555;
+        --tab-icon: #B0512B;
+        --tab-active-bg: rgba(176, 81, 43, 0.08);
+        --tab-active-border: #B0512B;
+        --tab-active-text: #8F3E1F;
 
         /* Knowledge collection card variables */
-        --card-bg: white;
-        --card-text: #1e293b;
-        --card-title: #2d3748;
-        --card-meta: #64748b;
-        --card-border: #e2e8f0;
+        --card-bg: #FBF8F2;
+        --card-text: #221D15;
+        --card-title: #221D15;
+        --card-meta: #6E6555;
+        --card-border: rgba(34, 29, 21, 0.14);
 
         /* HTML Preview specific variables */
-        --preview-header-bg: #f0f0f0;
-        --preview-border: #ccc;
-        --preview-shadow: rgba(0, 0, 0, 0.2);
-        --preview-button-hover: #ddd;
-        --preview-toolbar-bg: #e5e5e5;
-        --preview-toolbar-text: #333;
-        --code-bg-color: #f5f7fa;
-        --code-text-color: #334155;
-        --code-border-color: #e2e8f0;
+        --preview-header-bg: #FBF8F2;
+        --preview-border: #D8D1C0;
+        --preview-shadow: rgba(34, 29, 21, 0.12);
+        --preview-button-hover: #F3EDE1;
+        --preview-toolbar-bg: #F3EDE1;
+        --preview-toolbar-text: #221D15;
+        --code-bg-color: #FBF8F2;
+        --code-text-color: #221D15;
+        --code-border-color: rgba(34, 29, 21, 0.14);
+        --code-bg: #FBF8F2;
+        --code-header-bg: #F3EDE1;
+        --code-text: #221D15;
+
+        /* Code syntax highlighting (VS Code Light+) */
+        --syntax-tag-color: #22863A;
+        --syntax-attr-color: #6F42C1;
+        --syntax-string-color: #032F62;
+        --syntax-comment-color: #6A737D;
+        --syntax-doctype-color: #6A737D;
+        --syntax-keyword-color: #D73A49;
+        --syntax-builtin-color: #005CC5;
+        --syntax-operator-color: #4A4235;
+        --syntax-special-char-color: #4A4235;
 
         /* Chart theme variables */
-        --chart-bg: #ffffff;
-        --chart-text: #333333;
-        --chart-title: #2d3748;
-        --chart-grid: #e0e0e0;
-        --chart-axis: #adb5bd;
-        --chart-tooltip-bg: rgba(0, 0, 0, 0.8);
-        --chart-tooltip-text: #ffffff;
-        --chart-point-stroke: #ffffff;
-        --chart-legend-bg: rgba(0, 0, 0, 0.03);
-        --chart-plot-bg: #f8f9fa;
-        --chart-plot-border: #e9ecef;
+        --chart-bg: #FBF8F2;
+        --chart-text: #221D15;
+        --chart-title: #221D15;
+        --chart-grid: #D8D1C0;
+        --chart-axis: #8A8170;
+        --chart-tooltip-bg: rgba(34, 29, 21, 0.85);
+        --chart-tooltip-text: #F5F1E8;
+        --chart-point-stroke: #F5F1E8;
+        --chart-legend-bg: rgba(34, 29, 21, 0.04);
+        --chart-plot-bg: #FBF8F2;
+        --chart-plot-border: rgba(34, 29, 21, 0.1);
 
         /* Database tab specific variables */
         --db-success-color: #10b981;
@@ -239,37 +289,37 @@
         --db-error-color: #ef4444;
         --db-warning-bg: rgba(245, 158, 11, 0.08);
         --db-success-bg: rgba(16, 185, 129, 0.08);
-        --db-stats-card-shadow: rgba(0, 0, 0, 0.05);
-        --db-notification-shadow: rgba(0, 0, 0, 0.15);
-        --db-spinner-bg: rgba(0, 0, 0, 0.1);
-        --bg-color-secondary: #f9fafb;
-        --export-step-bg: rgba(127, 127, 127, 0.06);
-        --export-step-active-border: var(--accent-color, #4f46e5);
-        --export-step-active-bg: rgba(79, 70, 229, 0.08);
+        --db-stats-card-shadow: rgba(34, 29, 21, 0.08);
+        --db-notification-shadow: rgba(34, 29, 21, 0.14);
+        --db-spinner-bg: rgba(34, 29, 21, 0.08);
+        --bg-color-secondary: #F3EDE1;
+        --export-step-bg: rgba(34, 29, 21, 0.05);
+        --export-step-active-border: var(--accent-color, #B0512B);
+        --export-step-active-bg: rgba(176, 81, 43, 0.08);
         --export-step-done-border: #1f8b4c;
         --export-step-done-bg: rgba(31, 139, 76, 0.08);
         --export-step-failed-border: #c0392b;
         --export-step-failed-bg: rgba(192, 57, 43, 0.08);
 
-        --button-secondary-bg: #f5f5f5;
-        --button-secondary-text: #333;
-        --button-secondary-border: #cbd5e1;
-        --button-secondary-hover-bg: #e5e7eb;
-        --button-secondary-hover-shadow: 0 8px 18px rgba(100, 116, 139, 0.18);
-        --button-secondary-disabled-bg: #e5e7eb;
-        --button-secondary-disabled-border: #cbd5e1;
-        --button-secondary-disabled-text: #6b7280;
+        --button-secondary-bg: #FBF8F2;
+        --button-secondary-text: #221D15;
+        --button-secondary-border: rgba(34, 29, 21, 0.2);
+        --button-secondary-hover-bg: #F3EDE1;
+        --button-secondary-hover-shadow: 0 8px 18px rgba(34, 29, 21, 0.12);
+        --button-secondary-disabled-bg: #EDE7D8;
+        --button-secondary-disabled-border: #D8D1C0;
+        --button-secondary-disabled-text: #8A8170;
         --danger-color-hover: #c82333;
-        --preview-text-color: #333;
-        --document-bg: #ffffff;
-        --document-text: #333333;
-        --disabled-color: #e0e0e0;
-        --hover-bg: #f5f5f5;
-        --model-group-color: #475569;
-        --model-group-bg: #f1f5f9;
+        --preview-text-color: #221D15;
+        --document-bg: #FBF8F2;
+        --document-text: #221D15;
+        --disabled-color: #D8D1C0;
+        --hover-bg: #F3EDE1;
+        --model-group-color: #6E6555;
+        --model-group-bg: #F3EDE1;
         
         /* presentation Canvas background */
-        --canvas-bg: #ffffff;
+        --canvas-bg: #FBF8F2;
 
         /* Alias tokens used by tab modules */
         --background-color: var(--bg-color);
@@ -278,63 +328,63 @@
         --input-background: var(--input-bg);
         --error-color: var(--danger-color);
         --error-hover: var(--danger-color-hover);
-        --modal-overlay-bg: rgba(0, 0, 0, 0.38);
-        --wa-modal-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-        --wa-modal-bg: #ffffff;
-        --wa-modal-text: #1f2937;
-        --wa-modal-border: #d7dee8;
-        --wa-modal-close-x-bg: #f8fafc;
-        --wa-modal-close-x-border: #d7dee8;
-        --wa-modal-close-x-text: #334155;
-        --wa-modal-close-x-hover-bg: #eef2f7;
-        --wa-modal-close-x-hover-border: #c7d2e0;
-        --wa-modal-close-x-hover-text: #111827;
-        --wa-modal-qr-surface: #f8fafc;
-        --wa-modal-surface-hover: #eef2f7;
-        --wa-modal-secondary-btn-bg: #f8fafc;
-        --wa-modal-secondary-btn-border: #d7dee8;
-        --wa-modal-secondary-btn-text: #334155;
-        --wa-modal-secondary-btn-hover-bg: #eef2f7;
-        --wa-modal-secondary-btn-hover-border: #c7d2e0;
-        --wa-modal-secondary-btn-hover-text: #111827;
-        --wa-modal-status-color: #666666;
-        --wa-modal-status-strong: #2f3742;
-        --wa-modal-muted: #6d7784;
-        --wa-modal-link: #0b74de;
-        --wa-modal-qr-border: #d1d5db;
-        --wa-modal-close-btn-bg: #4CAF50;
+        --modal-overlay-bg: rgba(34, 29, 21, 0.35);
+        --wa-modal-shadow: 0 4px 20px rgba(34, 29, 21, 0.14);
+        --wa-modal-bg: #FBF8F2;
+        --wa-modal-text: #221D15;
+        --wa-modal-border: rgba(34, 29, 21, 0.14);
+        --wa-modal-close-x-bg: #F3EDE1;
+        --wa-modal-close-x-border: rgba(34, 29, 21, 0.18);
+        --wa-modal-close-x-text: #6E6555;
+        --wa-modal-close-x-hover-bg: #EDE7D8;
+        --wa-modal-close-x-hover-border: rgba(34, 29, 21, 0.25);
+        --wa-modal-close-x-hover-text: #221D15;
+        --wa-modal-qr-surface: #F3EDE1;
+        --wa-modal-surface-hover: #EDE7D8;
+        --wa-modal-secondary-btn-bg: #F3EDE1;
+        --wa-modal-secondary-btn-border: rgba(34, 29, 21, 0.18);
+        --wa-modal-secondary-btn-text: #221D15;
+        --wa-modal-secondary-btn-hover-bg: #EDE7D8;
+        --wa-modal-secondary-btn-hover-border: rgba(34, 29, 21, 0.25);
+        --wa-modal-secondary-btn-hover-text: #221D15;
+        --wa-modal-status-color: #6E6555;
+        --wa-modal-status-strong: #221D15;
+        --wa-modal-muted: #8A8170;
+        --wa-modal-link: #B0512B;
+        --wa-modal-qr-border: #D8D1C0;
+        --wa-modal-close-btn-bg: #2f6f3c;
         --wa-modal-close-btn-text: #ffffff;
-        --wa-modal-spinner-track: #c4c4c4;
-        --wa-modal-spinner-accent: #0b74de;
+        --wa-modal-spinner-track: #D8D1C0;
+        --wa-modal-spinner-accent: #B0512B;
 
         /* Artworks progress modal (light theme defaults) */
-        --artwork-progress-overlay-bg: rgba(15, 23, 42, 0.26);
-        --artwork-progress-bg: #ffffff;
-        --artwork-progress-border: #dbe4f0;
-        --artwork-progress-shadow: 0 16px 36px rgba(15, 23, 42, 0.14);
-        --artwork-progress-header-bg: #f8fafc;
-        --artwork-progress-header-border: #e2e8f0;
-        --artwork-progress-title: #1e293b;
-        --artwork-progress-text: #334155;
-        --artwork-progress-muted: #64748b;
-        --artwork-progress-close-color: #64748b;
-        --artwork-progress-close-hover-bg: rgba(100, 116, 139, 0.12);
-        --artwork-progress-close-hover-color: #1e293b;
-        --artwork-progress-spinner-track: rgba(79, 70, 229, 0.16);
-        --artwork-progress-spinner-accent: var(--accent-color, #4f46e5);
+        --artwork-progress-overlay-bg: rgba(34, 29, 21, 0.24);
+        --artwork-progress-bg: #FBF8F2;
+        --artwork-progress-border: rgba(34, 29, 21, 0.12);
+        --artwork-progress-shadow: 0 16px 36px rgba(34, 29, 21, 0.14);
+        --artwork-progress-header-bg: #F3EDE1;
+        --artwork-progress-header-border: rgba(34, 29, 21, 0.12);
+        --artwork-progress-title: #221D15;
+        --artwork-progress-text: #221D15;
+        --artwork-progress-muted: #6E6555;
+        --artwork-progress-close-color: #6E6555;
+        --artwork-progress-close-hover-bg: rgba(176, 81, 43, 0.1);
+        --artwork-progress-close-hover-color: #221D15;
+        --artwork-progress-spinner-track: rgba(176, 81, 43, 0.14);
+        --artwork-progress-spinner-accent: var(--accent-color, #B0512B);
 
     /* SlideForge modal & controls (light theme defaults) */
-    --presentation-loading-border: rgba(0,0,0,0.06);
-    --presentation-loading-accent: var(--accent-color, #4f46e5);
-    --presentation-loading-text: var(--text-color, #1a1a1a);
-    --presentation-modal-bg: #ffffff;
-    --presentation-modal-text: var(--text-color, #1a1a1a);
-    --presentation-modal-box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    --presentation-loading-border: rgba(34, 29, 21, 0.08);
+    --presentation-loading-accent: var(--accent-color, #B0512B);
+    --presentation-loading-text: var(--text-color, #221D15);
+    --presentation-modal-bg: #FBF8F2;
+    --presentation-modal-text: var(--text-color, #221D15);
+    --presentation-modal-box-shadow: 0 8px 32px rgba(34, 29, 21, 0.1);
     --presentation-modal-close-color: #ffffff;
     --presentation-modal-close-bg: #e53935;
-    --presentation-modal-close-box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    --presentation-modal-close-box-shadow: 0 2px 8px rgba(34, 29, 21, 0.1);
     --presentation-modal-close-hover-bg: #c92b2b;
-    --presentation-modal-close-hover-shadow: 0 4px 16px rgba(229,57,53,0.12);
+    --presentation-modal-close-hover-shadow: 0 4px 16px rgba(229, 57, 53, 0.14);
     /* Close button specific colors for modal (light) */
     --presentation-modal-close-icon-color: #ffffff;
     --presentation-modal-close-bg: #e53935; /* red background with white icon works on dark hover */
@@ -343,23 +393,23 @@
     --presentation-modal-close-hover-color: #ffffff;
 
     /* Export button defaults */
-    --presentation-export-bg: var(--accent-color, #4f46e5);
-    --presentation-export-color: var(--accent-text, #ffffff);
+    --presentation-export-bg: var(--accent-color, #B0512B);
+    --presentation-export-color: var(--accent-text, #F5F1E8);
     --presentation-export-border: transparent;
-    --presentation-export-box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    --presentation-export-hover-bg: var(--accent-color-hover, #3730a3);
-    --presentation-export-hover-color: #ffffff;
-    --presentation-export-hover-box-shadow: 0 4px 16px rgba(55,48,163,0.08);
-    --presentation-export-focus-outline: rgba(0,0,0,0.12);
-    --presentation-web-state-active-color: #3730a3;
-    --presentation-web-state-inactive-color: var(--text-color, #1a1a1a);
+    --presentation-export-box-shadow: 0 2px 8px rgba(176, 81, 43, 0.16);
+    --presentation-export-hover-bg: var(--accent-color-hover, #8F3E1F);
+    --presentation-export-hover-color: #F5F1E8;
+    --presentation-export-hover-box-shadow: 0 4px 16px rgba(143, 62, 31, 0.2);
+    --presentation-export-focus-outline: rgba(34, 29, 21, 0.12);
+    --presentation-web-state-active-color: #8F3E1F;
+    --presentation-web-state-inactive-color: var(--text-color, #221D15);
 
     /* Browse button defaults */
-    --presentation-browse-color: #ffffff;
-    --presentation-browse-hover-color: #ffffff;
+    --presentation-browse-color: #6E6555;
+    --presentation-browse-hover-color: #221D15;
     --presentation-browse-hover-border: transparent;
     /* Remove-file button color (visible when showing remove '×' on light backgrounds) */
-    --presentation-remove-file-color: #111111;
+    --presentation-remove-file-color: #221D15;
     }
 }
 
