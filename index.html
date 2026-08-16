@@ -490,10 +490,11 @@ body.menu-open .nav{background:transparent;border-color:transparent;backdrop-fil
   -webkit-mask-image:radial-gradient(ellipse at center,#000 30%,transparent 72%);
   mask-image:radial-gradient(ellipse at center,#000 30%,transparent 72%);
 }
-.shot__frame img{
-  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;
+.shot__frame img,
+.shot__frame video{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:1;background:#000;
 }
-.shot__frame:has(img)::after{opacity:0}
+.shot__frame:has(img)::after,.shot__frame:has(video)::after{opacity:0}
 .shot__tag{
   position:absolute;top:14px;left:14px;z-index:2;
   font:600 10.5px var(--sans);letter-spacing:.14em;text-transform:uppercase;
@@ -1087,21 +1088,21 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
   <div class="gallery__grid">
     <figure class="shot reveal">
       <div class="shot__frame">
-        <img src="/paiperwork/github-help/images/viewport-1.png" alt="Path-traced 2Bots">
-        <span class="shot__tag">Path tracing</span>
-      </div>
-      <figcaption class="shot__cap"><b>2Bots in an abandoned city</b><span>Path traced 3D Scene, Ai background</span></figcaption>
-    </figure>
-    <figure class="shot reveal" style="--d:.12s">
-      <div class="shot__frame">
-        <img src="/paiperwork/github-help/images/viewport-2.png" alt="Scene composed from a background video">
+        <img src="/paiperwork/github-help/images/viewport-2.png" alt="Valkirie">
         <span class="shot__tag">AI composition</span>
       </div>
       <figcaption class="shot__cap"><b>Valkirie</b><span>3D model, Animated Ai video background, Shadow plane</span></figcaption>
     </figure>
+    <figure class="shot reveal" style="--d:.12s">
+      <div class="shot__frame">
+        <video class="shot__video" src="/paiperwork/github-help/images/Valki-fire.mp4" autoplay muted loop playsinline preload="auto"></video>
+        <span class="shot__tag">AI video</span>
+      </div>
+      <figcaption class="shot__cap"><b>Valkirie — fire</b><span>Animated AI video, no sound</span></figcaption>
+    </figure>
     <figure class="shot reveal" style="--d:.2s">
       <div class="shot__frame">
-        <img src="/paiperwork/github-help/images/viewport-3.png" alt="Corridor and bot with water">
+        <video class="shot__video" src="/paiperwork/github-help/images/Valki-snow.mp4" autoplay muted loop playsinline preload="auto"></video>
         <span class="shot__tag">Living weather</span>
       </div>
       <figcaption class="shot__cap"><b>Flooded Corridor</b><span>Path tracing, Water mesh, camera effects, PT</span></figcaption>
@@ -1326,23 +1327,28 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
   }, {threshold:.6});
   document.querySelectorAll("[data-count]").forEach(function(el){ cIO.observe(el); });
 
-  /* ---- Ania3D demo video (window): force autoplay + keep looping ---- */
-  var demoVideo = document.querySelector(".scene__video");
-  if (demoVideo) {
-    demoVideo.loop = true;
-    demoVideo.muted = true;
-    demoVideo.playsInline = true;
-    var playDemo = function () {
-      var p = demoVideo.play();
+  /* ---- Ania3D demo videos (window + viewport shots): force autoplay + keep looping ---- */
+  var demoVideos = document.querySelectorAll(".scene__video, .shot__frame video");
+  demoVideos.forEach(function (v) {
+    v.loop = true;
+    v.muted = true;
+    v.playsInline = true;
+    var play = function () {
+      var p = v.play();
       if (p && p.catch) p.catch(function () { /* autoplay blocked until first interaction */ });
     };
-    playDemo();
-    demoVideo.addEventListener("loadedmetadata", playDemo);
-    demoVideo.addEventListener("canplay", playDemo);
-    document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) playDemo();
-    });
-  }
+    play();
+    v.addEventListener("loadedmetadata", play);
+    v.addEventListener("canplay", play);
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) {
+      demoVideos.forEach(function (v) {
+        var p = v.play();
+        if (p && p.catch) p.catch(function () {});
+      });
+    }
+  });
 
   /* ---- Ania3D download modal ---- */
   var aniaBtn = document.getElementById("download-ania3d-btn");
