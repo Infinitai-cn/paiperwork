@@ -519,6 +519,19 @@ body.menu-open .nav{background:transparent;border-color:transparent;backdrop-fil
   transition:border-color .3s var(--ease),color .3s var(--ease);
 }
 .credits__list li:hover{border-color:var(--clay);color:var(--clay)}
+.gallery__videos{margin-top:56px;text-align:center}
+.gallery__videos .label{justify-content:center}
+.gallery__videos-row{
+  display:flex;justify-content:center;align-items:flex-start;gap:28px;flex-wrap:wrap;margin-top:28px;
+}
+.gallery__video{
+  width:min(340px,42vw);aspect-ratio:9/16;object-fit:cover;border-radius:20px;
+  border:1px solid var(--line);background:#000;display:block;
+  box-shadow:0 34px 60px -38px rgba(34,29,21,.28);
+}
+.gallery__videos-note{
+  max-width:52ch;margin:22px auto 0;color:var(--ink-2);font-size:14px;line-height:1.6;
+}
 
 /* ============ CTA ============ */
 .cta{padding:0 0 140px}
@@ -1102,6 +1115,15 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
     </figure>
   </div>
 
+  <div class="gallery__videos reveal">
+    <p class="label">Ania3D · AI video</p>
+    <div class="gallery__videos-row">
+      <video class="gallery__video" src="/paiperwork/github-help/images/2Bots%20Chapter%201%20-%20The%20ladder.mp4" controls playsinline preload="metadata"></video>
+      <video class="gallery__video" src="/paiperwork/github-help/images/2Bots%20Chapter%202%20-%20Titanica.mp4" controls playsinline preload="metadata"></video>
+    </div>
+    <p class="gallery__videos-note">These videos have been created using video compositing software and Ania3D AI video output.</p>
+  </div>
+
   <div class="gallery__credits reveal">
     <p class="label">3D credits</p>
     <p>3D models for these renders created by:</p>
@@ -1304,7 +1326,7 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
   }, {threshold:.6});
   document.querySelectorAll("[data-count]").forEach(function(el){ cIO.observe(el); });
 
-  /* ---- Ania3D demo video: force autoplay + keep looping ---- */
+  /* ---- Ania3D demo video (window): force autoplay + keep looping ---- */
   var demoVideo = document.querySelector(".scene__video");
   if (demoVideo) {
     demoVideo.loop = true;
