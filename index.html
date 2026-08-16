@@ -534,6 +534,44 @@ body.menu-open .nav{background:transparent;border-color:transparent;backdrop-fil
   max-width:52ch;margin:22px auto 0;color:var(--ink-2);font-size:14px;line-height:1.6;
 }
 
+/* ============ RENDER SHOWCASE ============ */
+.showcase{margin-top:56px}
+.showcase .label{justify-content:center}
+.showcase__hint{color:var(--ink-2);font-size:13px;text-align:center;margin-top:10px}
+.showcase__strip{
+  margin-top:22px;display:flex;gap:14px;overflow-x:auto;padding:6px 2px 14px;
+  scroll-snap-type:x proximity;
+}
+.showcase__strip::-webkit-scrollbar{height:8px}
+.showcase__strip::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+.showcase__thumb{
+  flex:0 0 auto;width:220px;aspect-ratio:16/9;border-radius:14px;overflow:hidden;cursor:pointer;
+  border:1px solid var(--line);background:var(--paper);padding:0;scroll-snap-align:start;
+  box-shadow:0 18px 34px -26px rgba(34,29,21,.4);
+  transition:transform .35s var(--ease),border-color .3s var(--ease);
+}
+.showcase__thumb:hover{transform:translateY(-3px);border-color:var(--clay)}
+.showcase__thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.showcase__empty{color:var(--ink-2);font-size:14px;text-align:center;margin-top:22px}
+
+/* showcase lightbox */
+.showcase-lightbox{
+  position:fixed;inset:0;z-index:220;display:none;align-items:center;justify-content:center;
+  background:rgba(32,26,18,.8);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);padding:24px;
+}
+.showcase-lightbox.open{display:flex}
+.showcase-lightbox__panel{max-width:min(1100px,94vw);max-height:88vh}
+.showcase-lightbox__panel img{
+  max-width:100%;max-height:88vh;width:auto;height:auto;object-fit:contain;border-radius:16px;
+  box-shadow:0 50px 100px -40px rgba(0,0,0,.7);display:block;margin:0 auto;
+}
+.showcase-lightbox__close{
+  position:absolute;top:20px;right:24px;width:44px;height:44px;border-radius:50%;cursor:pointer;
+  background:var(--cream);color:var(--night);border:none;font-size:17px;line-height:1;
+  transition:background .3s,transform .3s;
+}
+.showcase-lightbox__close:hover{background:var(--gold);transform:rotate(90deg)}
+
 /* ============ CTA ============ */
 .cta{padding:0 0 140px}
 .cta__panel{
@@ -1125,6 +1163,13 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
     <p class="gallery__videos-note">These videos have been created using video compositing software and Ania3D AI video output.</p>
   </div>
 
+  <div class="showcase reveal">
+    <p class="label">Render showcase</p>
+    <p class="showcase__hint">Click a thumbnail to view it full size.</p>
+    <div class="showcase__strip" id="render-showcase-strip"></div>
+    <p class="showcase__empty" id="render-showcase-empty" hidden>No renders in the showcase yet.</p>
+  </div>
+
   <div class="gallery__credits reveal">
     <p class="label">3D credits</p>
     <p>3D models for these renders created by:</p>
@@ -1172,6 +1217,14 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
   </div>
 </div>
 
+<!-- ============ RENDER SHOWCASE LIGHTBOX ============ -->
+<div class="showcase-lightbox" id="showcase-lightbox" role="dialog" aria-modal="true" aria-label="Render showcase image">
+  <div class="showcase-lightbox__panel">
+    <img id="showcase-lightbox-img" alt="Render showcase image">
+  </div>
+  <button type="button" class="showcase-lightbox__close" id="showcase-lightbox-close" aria-label="Close">✕</button>
+</div>
+
 </main>
 
 <!-- ============ FOOTER ============ -->
@@ -1180,7 +1233,7 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
     <div class="footer__grid">
       <div class="footer__brand">
         <a class="brand" href="#top"><span class="brand__mark">✳</span>Infinitai</a>
-        <p class="footer__tag">Quiet software for loud problems.</p>
+        <p class="footer__tag">Quiet software we love.</p>
       </div>
       <div class="footer__col">
         <h4>Products</h4>
@@ -1362,6 +1415,63 @@ footer{background:var(--night);color:var(--cream);padding:80px 0 40px}
     aniaModal.addEventListener("click", function(e){ if(e.target === aniaModal) closeAniaModal(); });
     document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeAniaModal(); });
   }
+
+  /* ---- Render showcase: load thumbnails from folder + lightbox ---- */
+  var showcaseStrip = document.getElementById("render-showcase-strip");
+  var showcaseEmpty = document.getElementById("render-showcase-empty");
+  var showcaseLb = document.getElementById("showcase-lightbox");
+  var showcaseImg = document.getElementById("showcase-lightbox-img");
+  var showcaseCloseBtn = document.getElementById("showcase-lightbox-close");
+  var showcaseBase = "/paiperwork/github-help/images/render-showcase/";
+
+  function openShowcase(name) {
+    if (!showcaseLb || !showcaseImg) return;
+    showcaseImg.src = showcaseBase + encodeURIComponent(name);
+    showcaseLb.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeShowcase() {
+    if (!showcaseLb) return;
+    showcaseLb.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+  function loadRenderShowcase() {
+    if (!showcaseStrip) return;
+    fetch("https://api.github.com/repos/Infinitai-cn/paiperwork/contents/github-help/images/render-showcase")
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (items) {
+        if (!Array.isArray(items)) throw new Error("Unexpected response");
+        var images = items.filter(function (f) { return f && f.type === "file" && /\.png$/i.test(f.name || ""); });
+        if (!images.length) {
+          if (showcaseEmpty) showcaseEmpty.hidden = false;
+          return;
+        }
+        images.forEach(function (f) {
+          var thumb = document.createElement("button");
+          thumb.type = "button";
+          thumb.className = "showcase__thumb";
+          thumb.title = f.name;
+          thumb.setAttribute("aria-label", "Open render " + f.name);
+          var img = document.createElement("img");
+          img.src = showcaseBase + encodeURIComponent(f.name);
+          img.loading = "lazy";
+          img.alt = (f.name || "").replace(/\.png$/i, "");
+          thumb.appendChild(img);
+          thumb.addEventListener("click", function () { openShowcase(f.name); });
+          showcaseStrip.appendChild(thumb);
+        });
+      })
+      .catch(function () {
+        if (showcaseEmpty) {
+          showcaseEmpty.textContent = "The render showcase is empty right now — new renders appear here automatically.";
+          showcaseEmpty.hidden = false;
+        }
+      });
+  }
+  if (showcaseCloseBtn) showcaseCloseBtn.addEventListener("click", closeShowcase);
+  if (showcaseLb) showcaseLb.addEventListener("click", function (e) { if (e.target === showcaseLb) closeShowcase(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeShowcase(); });
+  loadRenderShowcase();
 })();
 </script>
 </body>
