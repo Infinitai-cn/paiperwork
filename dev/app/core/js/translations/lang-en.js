@@ -376,6 +376,7 @@ if (typeof window.englishTranslationsLoaded === 'undefined') {
         artifactStatusDone: "Done",
         artifactStatusFailed: "Generation failed",
         artifactStatusCancelled: "Cancelled",
+        artifactThinkingBadge: "🧠 Model is Thinking…",
         artifactErrorTitle: "Console Errors Detected",
         artifactErrorDescription: "The displayed mini-app contains syntax errors. Click send to have the AI model fix them.",
         artifactErrorSendBtn: "Send to AI to fix",

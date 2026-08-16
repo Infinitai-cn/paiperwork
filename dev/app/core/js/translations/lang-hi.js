@@ -350,6 +350,7 @@ if (typeof window.indiTranslationsLoaded === 'undefined') {
                 artifactStatusDone: "हो गया",
                 artifactStatusFailed: "पीढ़ी विफल रही",
                 artifactStatusCancelled: "रद्द कर दिया गया",
+                artifactThinkingBadge: "🧠 मॉडल सोच रहा है…",
                 artifactErrorTitle: "कंसोल त्रुटियाँ पाई गईं",
                 artifactErrorDescription: "प्रदर्शित मिनी-ऐप में सिंटैक्स त्रुटियाँ हैं। AI मॉडल से ठीक कराने के लिए भेजें पर क्लिक करें।",
                 artifactErrorSendBtn: "AI को ठीक करने के लिए भेजें",

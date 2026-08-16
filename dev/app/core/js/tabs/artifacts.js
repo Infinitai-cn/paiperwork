@@ -170,6 +170,10 @@ class ArtifactsWindow {
 	50% { transform: translateX(60%); }
 	100% { transform: translateX(260%); }
 }
+@keyframes artifactsThinkingSpin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
 `;
 		document.head.appendChild(style);
 	}
@@ -195,6 +199,71 @@ class ArtifactsWindow {
 		this.requestProgressTrack.style.opacity = '0';
 		this.requestProgressTrack.style.boxShadow = 'none';
 		this.requestProgressBar.style.animationPlayState = 'paused';
+	}
+
+	static ensureArtifactThinkingBadge() {
+		if (this.thinkingBadge && this.thinkingBadge.isConnected) {
+			return this.thinkingBadge;
+		}
+		if (!this.renderArea || typeof document === 'undefined') {
+			return null;
+		}
+
+		const badge = document.createElement('div');
+		badge.className = 'artifacts-thinking-badge';
+		badge.setAttribute('role', 'status');
+		badge.setAttribute('aria-live', 'polite');
+
+		const spinner = document.createElement('span');
+		spinner.style.width = '14px';
+		spinner.style.height = '14px';
+		spinner.style.border = '2px solid rgba(255, 255, 255, 0.25)';
+		spinner.style.borderTopColor = '#ffffff';
+		spinner.style.borderRadius = '50%';
+		spinner.style.flex = '0 0 auto';
+		spinner.style.animation = 'artifactsThinkingSpin 0.8s linear infinite';
+
+		const label = document.createElement('span');
+		label.textContent = this.t('artifactThinkingBadge', '🧠 Model is Thinking…');
+
+		badge.appendChild(spinner);
+		badge.appendChild(label);
+
+		badge.style.position = 'absolute';
+		badge.style.top = '16px';
+		badge.style.left = '50%';
+		badge.style.transform = 'translateX(-50%)';
+		badge.style.zIndex = '999';
+		badge.style.display = 'flex';
+		badge.style.alignItems = 'center';
+		badge.style.gap = '10px';
+		badge.style.padding = '10px 18px';
+		badge.style.borderRadius = '999px';
+		badge.style.background = 'rgba(10, 10, 14, 0.78)';
+		badge.style.backdropFilter = 'blur(6px)';
+		badge.style.webkitBackdropFilter = 'blur(6px)';
+		badge.style.border = '1px solid rgba(148, 163, 184, 0.32)';
+		badge.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.35)';
+		badge.style.color = '#ffffff';
+		badge.style.fontSize = '13px';
+		badge.style.fontWeight = '600';
+		badge.style.letterSpacing = '0.2px';
+		badge.style.opacity = '0';
+		badge.style.transition = 'opacity 160ms ease';
+		badge.style.pointerEvents = 'none';
+		badge.style.userSelect = 'none';
+
+		this.thinkingBadge = badge;
+		this.renderArea.appendChild(badge);
+		return badge;
+	}
+
+	static setArtifactThinkingVisible(isVisible) {
+		const badge = this.ensureArtifactThinkingBadge();
+		if (!badge) {
+			return;
+		}
+		badge.style.opacity = isVisible ? '1' : '0';
 	}
 
 	static escapeHtml(text) {
@@ -1273,6 +1342,64 @@ class ArtifactsWindow {
 		].join(' ');
 	}
 
+	// Resolves the model-specific reasoning effort key for reasoning-effort models
+	// (gpt-oss family, Qwen3.8). Mirrors OllamaAPI.buildCompleteSystemPrompt:
+	//   gpt-oss : low / medium / high
+	//   Qwen3.8 : low / medium / xhigh  (mid -> medium, high -> xhigh)
+	// Returns '' for non reasoning-effort models or when no level is configured.
+	static buildArtifactReasoningEffort(model) {
+		if (!(window.isReasoningEffortModel && window.isReasoningEffortModel(model))) {
+			return '';
+		}
+
+		let reasoningLevel = '';
+		try {
+			if (window.gptOssReasoningLevel) {
+				reasoningLevel = (window.gptOssReasoningLevel || '').toLowerCase().trim();
+			}
+		} catch (_wErr) {
+			// ignore
+		}
+		if (!reasoningLevel) {
+			try {
+				const activeBtn = document.querySelector('#gptoss-reasoning-selector .gptoss-reasoning-btn.active');
+				if (activeBtn && activeBtn.dataset && activeBtn.dataset.level) {
+					reasoningLevel = (activeBtn.dataset.level || '').toLowerCase().trim();
+				}
+			} catch (_domErr) {
+				// ignore
+			}
+		}
+		if (!reasoningLevel) {
+			reasoningLevel = (localStorage.getItem('gptOssReasoningLevel') || '').toLowerCase().trim();
+		}
+		if (!reasoningLevel) {
+			return '';
+		}
+
+		const baseModel = ((window.getBaseModelName ? window.getBaseModelName(model) : (model || '').toLowerCase()) || '').split(':')[0];
+		const isQwen38 = String(baseModel || '').startsWith('qwen3.8');
+		let reasoningKey = '';
+		if (reasoningLevel === 'mid') {
+			reasoningKey = 'medium';
+		} else if (reasoningLevel === 'high' && isQwen38) {
+			reasoningKey = 'xhigh';
+		} else {
+			reasoningKey = reasoningLevel;
+		}
+		return reasoningKey;
+	}
+
+	// Builds the artifact system prompt, prepending the reasoning-effort directive
+	// (e.g. "reasoning:medium\n\n") for gpt-oss / Qwen3.8 when a level is selected.
+	static buildArtifactSystemPromptWithReasoning(model) {
+		const reasoningKey = this.buildArtifactReasoningEffort(model);
+		if (!reasoningKey) {
+			return this.buildArtifactSystemPrompt();
+		}
+		return `reasoning:${reasoningKey}\n\n${this.buildArtifactSystemPrompt()}`;
+	}
+
 	static isLikelyHlsStreamUrl(rawUrl) {
 		const url = String(rawUrl || '').trim();
 		if (!url) {
@@ -1962,13 +2089,25 @@ class ArtifactsWindow {
 			throw new Error('No model selected.');
 		}
 
+		// Native thinking support: respect the user/global thinking toggle for models
+		// that support Ollama's native thinking flag (Ollama 0.9.0+).
+		const thinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+			? window.ThinkingState.getEffectiveThinkingEnabled()
+			: (localStorage.getItem('thinkingEnabled') === 'true');
+		const supportsNativeThinking = !!(window.isThinkingModel && window.isThinkingModel(model)) ||
+			!!(window.isReasoningEffortModel && window.isReasoningEffortModel(model));
+
 		const requestBody = {
 			model,
-			system: this.buildArtifactSystemPrompt(),
+			system: this.buildArtifactSystemPromptWithReasoning(model),
 			prompt: String(userPrompt || ''),
 			stream: true,
 			options: {},
 		};
+
+		if (supportsNativeThinking) {
+			requestBody.think = !!thinkingEnabled;
+		}
 
 		const { routing, options: requestOptions } = await this.buildArtifactRoutingAndOptions(model, {
 			num_ctx: this.getSelectedContextSize(),
@@ -2023,79 +2162,98 @@ class ArtifactsWindow {
 		let aggregated = '';
 		let finalContext = null;
 
-		while (true) {
-			const { value, done } = await reader.read();
-			streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-			const lines = streamBuffer.split('\n');
-			streamBuffer = lines.pop() || '';
+		try {
+			while (true) {
+				const { value, done } = await reader.read();
+				streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+				const lines = streamBuffer.split('\n');
+				streamBuffer = lines.pop() || '';
 
-			for (const line of lines) {
-				const trimmedLine = String(line || '').trim();
-				if (!trimmedLine || trimmedLine === '[DONE]' || trimmedLine === 'data: [DONE]') {
-					continue;
+				for (const line of lines) {
+					const trimmedLine = String(line || '').trim();
+					if (!trimmedLine || trimmedLine === '[DONE]' || trimmedLine === 'data: [DONE]') {
+						continue;
+					}
+
+					const normalizedLine = trimmedLine.startsWith('data:')
+						? trimmedLine.slice(5).trim()
+						: trimmedLine;
+					if (!normalizedLine || normalizedLine === '[DONE]') {
+						continue;
+					}
+
+					try {
+						const data = JSON.parse(normalizedLine);
+						const responseChunk = data.response || data.message?.content || '';
+
+						// Show the "Model is Thinking" badge while native thinking content streams.
+						if (supportsNativeThinking && thinkingEnabled && typeof data.thinking === 'string' && data.thinking.length > 0) {
+							this.setArtifactThinkingVisible(true);
+						}
+						if (Array.isArray(data.context)) {
+							finalContext = data.context;
+						}
+						if (typeof responseChunk === 'string' && responseChunk.length > 0) {
+							// Response content has started, so native thinking is complete.
+							this.setArtifactThinkingVisible(false);
+							aggregated += responseChunk;
+							if (onDelta) {
+								onDelta(responseChunk);
+							}
+						}
+						if (data.done) {
+							this.setArtifactThinkingVisible(false);
+						}
+					} catch (_error) {
+						aggregated += normalizedLine;
+						if (onDelta) {
+							onDelta(normalizedLine);
+						}
+					}
 				}
 
-				const normalizedLine = trimmedLine.startsWith('data:')
-					? trimmedLine.slice(5).trim()
-					: trimmedLine;
-				if (!normalizedLine || normalizedLine === '[DONE]') {
-					continue;
+				if (done) {
+					break;
 				}
+			}
 
+			if (streamBuffer.trim()) {
 				try {
-					const data = JSON.parse(normalizedLine);
+					const normalized = streamBuffer.trim().startsWith('data:')
+						? streamBuffer.trim().slice(5).trim()
+						: streamBuffer.trim();
+					const data = JSON.parse(normalized);
 					const responseChunk = data.response || data.message?.content || '';
 					if (Array.isArray(data.context)) {
 						finalContext = data.context;
 					}
 					if (typeof responseChunk === 'string' && responseChunk.length > 0) {
+						this.setArtifactThinkingVisible(false);
 						aggregated += responseChunk;
 						if (onDelta) {
 							onDelta(responseChunk);
 						}
 					}
+					if (data.done) {
+						this.setArtifactThinkingVisible(false);
+					}
 				} catch (_error) {
-					aggregated += normalizedLine;
+					aggregated += streamBuffer.trim();
 					if (onDelta) {
-						onDelta(normalizedLine);
+						onDelta(streamBuffer.trim());
 					}
 				}
 			}
 
-			if (done) {
-				break;
+			if (!isCloudRouting && Array.isArray(finalContext)) {
+				this.artifactLocalContext = finalContext;
 			}
-		}
 
-		if (streamBuffer.trim()) {
-			try {
-				const normalized = streamBuffer.trim().startsWith('data:')
-					? streamBuffer.trim().slice(5).trim()
-					: streamBuffer.trim();
-				const data = JSON.parse(normalized);
-				const responseChunk = data.response || data.message?.content || '';
-				if (Array.isArray(data.context)) {
-					finalContext = data.context;
-				}
-				if (typeof responseChunk === 'string' && responseChunk.length > 0) {
-					aggregated += responseChunk;
-					if (onDelta) {
-						onDelta(responseChunk);
-					}
-				}
-			} catch (_error) {
-				aggregated += streamBuffer.trim();
-				if (onDelta) {
-					onDelta(streamBuffer.trim());
-				}
-			}
+			return { text: aggregated, context: finalContext, isCloudRouting };
+		} finally {
+			// Always hide the thinking badge, including on abort or stream errors.
+			this.setArtifactThinkingVisible(false);
 		}
-
-		if (!isCloudRouting && Array.isArray(finalContext)) {
-			this.artifactLocalContext = finalContext;
-		}
-
-		return { text: aggregated, context: finalContext, isCloudRouting };
 	}
 
 	static async saveArtifactToLibrary({ htmlContent = '', title = '', prompt = '' } = {}) {
@@ -2739,6 +2897,7 @@ class ArtifactsWindow {
 		renderArea.style.boxShadow = 'var(--presentation-modal-box-shadow, 0 8px 32px rgba(0,0,0,0.18))';
 		renderArea.style.overflow = 'hidden';
 		renderArea.style.display = 'block';
+		renderArea.style.position = 'relative';
 
 		const editorShell = document.createElement('div');
 		editorShell.className = 'artifacts-code-shell';
@@ -2971,6 +3130,8 @@ class ArtifactsWindow {
 			this.codePreview = null;
 			this.codePreviewLayer = null;
 			this.renderFrame = null;
+			this.renderArea = null;
+			this.thinkingBadge = null;
 			this.sidebarList = null;
 			this.sidebarEmpty = null;
 			this.closeWindowHandler = null;
@@ -3287,6 +3448,7 @@ class ArtifactsWindow {
 		this.codeViewBtn = codeViewBtn;
 		this.artifactViewBtn = artifactViewBtn;
 		this.renderFrame = bodyFrame;
+		this.renderArea = renderArea;
 		this.sidebarList = sidebarList;
 		this.sidebarEmpty = sidebarEmpty;
 		this.artifactImageOriginalSrcById = {};

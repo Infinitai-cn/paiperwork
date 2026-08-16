@@ -327,6 +327,7 @@ if (typeof window.frenchTranslationsLoaded === 'undefined') {
         artifactStatusDone: "Termine",
         artifactStatusFailed: "Echec de la generation",
         artifactStatusCancelled: "Annule",
+        artifactThinkingBadge: "🧠 Le modèle réfléchit…",
         artifactErrorTitle: "Erreurs de console détectées",
         artifactErrorDescription: "La mini-application contient des erreurs de syntaxe. Cliquez sur envoyer pour que le modèle IA les corrige.",
         artifactErrorSendBtn: "Envoyer à l'IA pour corriger",
