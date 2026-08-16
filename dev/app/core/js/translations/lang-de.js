@@ -330,6 +330,7 @@ if (typeof window.germanTranslationsLoaded === 'undefined') {
         artifactStatusDone: "Fertig",
         artifactStatusFailed: "Generierung fehlgeschlagen",
         artifactStatusCancelled: "Abgebrochen",
+        artifactThinkingBadge: "🧠 Modell denkt…",
         artifactErrorTitle: "Konsolenfehler erkannt",
         artifactErrorDescription: "Die Mini-App enthält Syntaxfehler. Klicken Sie auf Senden, damit das KI-Modell sie behebt.",
         artifactErrorSendBtn: "An KI zum Beheben senden",

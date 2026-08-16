@@ -326,6 +326,7 @@ if (typeof window.chineseTranslationsLoaded === 'undefined') {
                 artifactStatusDone: "完成",
                 artifactStatusFailed: "生成失败",
                 artifactStatusCancelled: "已取消",
+                artifactThinkingBadge: "🧠 模型正在思考…",
         artifactErrorTitle: "检测到控制台错误",
         artifactErrorDescription: "显示的迷你应用包含语法错误。点击发送让AI模型修复它们。",
         artifactErrorSendBtn: "发送给AI修复",

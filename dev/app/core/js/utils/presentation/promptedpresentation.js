@@ -83,6 +83,10 @@ class PromptedPresentationWorkflow {
 	50% { transform: translateX(60%); }
 	100% { transform: translateX(260%); }
 }
+@keyframes promptableThinkingSpin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
 `;
 		document.head.appendChild(style);
 	}
@@ -108,6 +112,136 @@ class PromptedPresentationWorkflow {
 		this.requestProgressTrack.style.opacity = '0';
 		this.requestProgressTrack.style.boxShadow = 'none';
 		this.requestProgressBar.style.animationPlayState = 'paused';
+	}
+
+	static ensurePromptableThinkingBadge() {
+		if (this.thinkingBadge && this.thinkingBadge.isConnected) {
+			return this.thinkingBadge;
+		}
+		if (!this.promptableBadgeHost || typeof document === 'undefined') {
+			return null;
+		}
+
+		const badge = document.createElement('div');
+		badge.className = 'promptable-thinking-badge';
+		badge.setAttribute('role', 'status');
+		badge.setAttribute('aria-live', 'polite');
+
+		const spinner = document.createElement('span');
+		spinner.style.width = '14px';
+		spinner.style.height = '14px';
+		spinner.style.border = '2px solid rgba(255, 255, 255, 0.25)';
+		spinner.style.borderTopColor = '#ffffff';
+		spinner.style.borderRadius = '50%';
+		spinner.style.flex = '0 0 auto';
+		spinner.style.animation = 'promptableThinkingSpin 0.8s linear infinite';
+
+		const label = document.createElement('span');
+		label.textContent = window.Lang
+			? (Lang.get('artifactThinkingBadge') || '🧠 Model is Thinking…')
+			: '🧠 Model is Thinking…';
+
+		badge.appendChild(spinner);
+		badge.appendChild(label);
+
+		badge.style.position = 'absolute';
+		badge.style.top = '16px';
+		badge.style.left = '50%';
+		badge.style.transform = 'translateX(-50%)';
+		badge.style.zIndex = '999';
+		badge.style.display = 'flex';
+		badge.style.alignItems = 'center';
+		badge.style.gap = '10px';
+		badge.style.padding = '10px 18px';
+		badge.style.borderRadius = '999px';
+		badge.style.background = 'rgba(10, 10, 14, 0.78)';
+		badge.style.backdropFilter = 'blur(6px)';
+		badge.style.webkitBackdropFilter = 'blur(6px)';
+		badge.style.border = '1px solid rgba(148, 163, 184, 0.32)';
+		badge.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.35)';
+		badge.style.color = '#ffffff';
+		badge.style.fontSize = '13px';
+		badge.style.fontWeight = '600';
+		badge.style.letterSpacing = '0.2px';
+		badge.style.opacity = '0';
+		badge.style.transition = 'opacity 160ms ease';
+		badge.style.pointerEvents = 'none';
+		badge.style.userSelect = 'none';
+
+		this.thinkingBadge = badge;
+		this.promptableBadgeHost.appendChild(badge);
+		return badge;
+	}
+
+	static setPromptableThinkingVisible(isVisible) {
+		const badge = this.ensurePromptableThinkingBadge();
+		if (!badge) {
+			return;
+		}
+		badge.style.opacity = isVisible ? '1' : '0';
+	}
+
+	// Resolves the model-specific reasoning effort key for reasoning-effort models
+	// (gpt-oss family, Qwen3.8). Mirrors OllamaAPI.buildCompleteSystemPrompt:
+	//   gpt-oss : low / medium / high
+	//   Qwen3.8 : low / medium / xhigh  (mid -> medium, high -> xhigh)
+	// Returns '' for non reasoning-effort models or when no level is configured.
+	static buildPresentationReasoningEffort(model) {
+		if (!(window.isReasoningEffortModel && window.isReasoningEffortModel(model))) {
+			return '';
+		}
+
+		let reasoningLevel = '';
+		try {
+			if (window.gptOssReasoningLevel) {
+				reasoningLevel = (window.gptOssReasoningLevel || '').toLowerCase().trim();
+			}
+		} catch (_wErr) {
+			// ignore
+		}
+		if (!reasoningLevel) {
+			try {
+				const activeBtn = document.querySelector('#gptoss-reasoning-selector .gptoss-reasoning-btn.active');
+				if (activeBtn && activeBtn.dataset && activeBtn.dataset.level) {
+					reasoningLevel = (activeBtn.dataset.level || '').toLowerCase().trim();
+				}
+			} catch (_domErr) {
+				// ignore
+			}
+		}
+		if (!reasoningLevel) {
+			reasoningLevel = (localStorage.getItem('gptOssReasoningLevel') || '').toLowerCase().trim();
+		}
+		if (!reasoningLevel) {
+			return '';
+		}
+
+		const baseModel = ((window.getBaseModelName ? window.getBaseModelName(model) : (model || '').toLowerCase()) || '').split(':')[0];
+		const isQwen38 = String(baseModel || '').startsWith('qwen3.8');
+		let reasoningKey = '';
+		if (reasoningLevel === 'mid') {
+			reasoningKey = 'medium';
+		} else if (reasoningLevel === 'high' && isQwen38) {
+			reasoningKey = 'xhigh';
+		} else {
+			reasoningKey = reasoningLevel;
+		}
+		return reasoningKey;
+	}
+
+	// Builds the presentation system prompt, prepending the reasoning-effort directive
+	// (e.g. "reasoning:medium\n\n") for gpt-oss / Qwen3.8 when a level is selected.
+	static buildPresentationSystemPromptWithReasoning(mode, model) {
+		const reasoningKey = this.buildPresentationReasoningEffort(model);
+		if (!reasoningKey) {
+			return mode === 'pdf'
+				? this.buildPdfPresentationSystemPrompt()
+				: this.buildArtisticPresentationSystemPrompt();
+		}
+		const basePrompt = mode === 'pdf'
+			? this.buildPdfPresentationSystemPrompt()
+			: this.buildArtisticPresentationSystemPrompt();
+		return `reasoning:${reasoningKey}\n\n${basePrompt}`;
 	}
 
 	static showStreamingHtmlPreview(statusText = '') {
@@ -4028,10 +4162,16 @@ class PromptedPresentationWorkflow {
 			throw new Error(window.Lang ? (Lang.get('selectModelPrompt') || 'Please select a model first.') : 'Please select a model first.');
 		}
 
+		// Native thinking support: respect the user/global thinking toggle for models
+		// that support Ollama's native thinking flag (Ollama 0.9.0+).
+		const thinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getEffectiveThinkingEnabled === 'function')
+			? window.ThinkingState.getEffectiveThinkingEnabled()
+			: (localStorage.getItem('thinkingEnabled') === 'true');
+		const supportsNativeThinking = !!(window.isThinkingModel && window.isThinkingModel(model)) ||
+			!!(window.isReasoningEffortModel && window.isReasoningEffortModel(model));
+
 		const promptPayload = userText;
-		const systemPrompt = mode === 'pdf'
-			? this.buildPdfPresentationSystemPrompt()
-			: this.buildArtisticPresentationSystemPrompt();
+		const systemPrompt = this.buildPresentationSystemPromptWithReasoning(mode, model);
 		/*console.log(
 			`[PromptedPresentationWorkflow] generatePresentationHtml payload\n${JSON.stringify({
 				mode,
@@ -4050,6 +4190,9 @@ class PromptedPresentationWorkflow {
 			stream: true,
 			options: {},
 		};
+		if (supportsNativeThinking) {
+			requestBody.think = !!thinkingEnabled;
+		}
 		const { routing, options: requestOptions } = await this.buildPresentationRoutingAndOptions(model, {
 			num_ctx: this.getSelectedContextSize(),
 		});
@@ -4090,75 +4233,94 @@ class PromptedPresentationWorkflow {
 		let streamBuffer = '';
 		let aggregated = '';
 
-		while (true) {
-			const { value, done } = await reader.read();
-			streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-			const lines = streamBuffer.split('\n');
-			streamBuffer = lines.pop() || '';
+		try {
+			while (true) {
+				const { value, done } = await reader.read();
+				streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+				const lines = streamBuffer.split('\n');
+				streamBuffer = lines.pop() || '';
 
-			for (const line of lines) {
-				const trimmedLine = String(line || '').trim();
-				if (!trimmedLine || trimmedLine === '[DONE]' || trimmedLine === 'data: [DONE]') {
-					continue;
+				for (const line of lines) {
+					const trimmedLine = String(line || '').trim();
+					if (!trimmedLine || trimmedLine === '[DONE]' || trimmedLine === 'data: [DONE]') {
+						continue;
+					}
+
+					const normalizedLine = trimmedLine.startsWith('data:')
+						? trimmedLine.slice(5).trim()
+						: trimmedLine;
+					if (!normalizedLine || normalizedLine === '[DONE]') {
+						continue;
+					}
+
+					try {
+						const data = JSON.parse(normalizedLine);
+						const responseChunk = data.response || data.message?.content || '';
+
+						// Show the "Model is Thinking" badge while native thinking content streams.
+						if (supportsNativeThinking && thinkingEnabled && typeof data.thinking === 'string' && data.thinking.length > 0) {
+							this.setPromptableThinkingVisible(true);
+						}
+						if (typeof responseChunk === 'string' && responseChunk.length > 0) {
+							// Response content has started, so native thinking is complete.
+							this.setPromptableThinkingVisible(false);
+							aggregated += responseChunk;
+							if (onDelta) {
+								onDelta(responseChunk);
+							}
+						}
+						if (data.done) {
+							this.setPromptableThinkingVisible(false);
+						}
+					} catch (_error) {
+						aggregated += normalizedLine;
+						if (onDelta) {
+							onDelta(normalizedLine);
+						}
+					}
 				}
 
-				const normalizedLine = trimmedLine.startsWith('data:')
-					? trimmedLine.slice(5).trim()
-					: trimmedLine;
-				if (!normalizedLine || normalizedLine === '[DONE]') {
-					continue;
+				if (done) {
+					break;
 				}
+			}
 
+			if (streamBuffer.trim()) {
 				try {
-					const data = JSON.parse(normalizedLine);
+					const normalized = streamBuffer.trim().startsWith('data:')
+						? streamBuffer.trim().slice(5).trim()
+						: streamBuffer.trim();
+					const data = JSON.parse(normalized);
 					const responseChunk = data.response || data.message?.content || '';
 					if (typeof responseChunk === 'string' && responseChunk.length > 0) {
+						this.setPromptableThinkingVisible(false);
 						aggregated += responseChunk;
 						if (onDelta) {
 							onDelta(responseChunk);
 						}
 					}
+					if (data.done) {
+						this.setPromptableThinkingVisible(false);
+					}
 				} catch (_error) {
-					aggregated += normalizedLine;
+					aggregated += streamBuffer.trim();
 					if (onDelta) {
-						onDelta(normalizedLine);
+						onDelta(streamBuffer.trim());
 					}
 				}
 			}
 
-			if (done) {
-				break;
+			const htmlResponse = this.cleanHtmlResponse(aggregated);
+
+			if (!htmlResponse) {
+				throw new Error('Model returned an empty HTML response.');
 			}
+
+			return await this.buildStandalonePromptableHtml(htmlResponse, abortSignal);
+		} finally {
+			// Always hide the thinking badge, including on abort or stream errors.
+			this.setPromptableThinkingVisible(false);
 		}
-
-		if (streamBuffer.trim()) {
-			try {
-				const normalized = streamBuffer.trim().startsWith('data:')
-					? streamBuffer.trim().slice(5).trim()
-					: streamBuffer.trim();
-				const data = JSON.parse(normalized);
-				const responseChunk = data.response || data.message?.content || '';
-				if (typeof responseChunk === 'string' && responseChunk.length > 0) {
-					aggregated += responseChunk;
-					if (onDelta) {
-						onDelta(responseChunk);
-					}
-				}
-			} catch (_error) {
-				aggregated += streamBuffer.trim();
-				if (onDelta) {
-					onDelta(streamBuffer.trim());
-				}
-			}
-		}
-
-		const htmlResponse = this.cleanHtmlResponse(aggregated);
-
-		if (!htmlResponse) {
-			throw new Error('Model returned an empty HTML response.');
-		}
-
-		return await this.buildStandalonePromptableHtml(htmlResponse, abortSignal);
 	}
 
 	static open({ onClose } = {}) {
@@ -4238,6 +4400,7 @@ class PromptedPresentationWorkflow {
 		canvasHost.style.display = 'flex';
 		canvasHost.style.alignItems = 'stretch';
 		canvasHost.style.justifyContent = 'stretch';
+		canvasHost.style.position = 'relative';
 
 		const renderArea = document.createElement('div');
 		renderArea.className = 'promptable-presentation-render-area';
@@ -4756,6 +4919,8 @@ class PromptedPresentationWorkflow {
 				document.body.removeChild(overlay);
 			}
 			this.overlay = null;
+			this.promptableBadgeHost = null;
+			this.thinkingBadge = null;
 			this.htmlModeBtn = null;
 			this.pdfModeBtn = null;
 			this.promptableWebSearchBtn = null;
@@ -4793,6 +4958,7 @@ class PromptedPresentationWorkflow {
 		overlay.focus();
 		this.overlay = overlay;
 		this.renderArea = renderArea;
+		this.promptableBadgeHost = canvasHost;
 		this.addTextBtn = addTextBtn;
 		this.extraRequestBtn = extraRequestBtn;
 		this.sendBtn = sendBtn;

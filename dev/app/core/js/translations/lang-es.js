@@ -324,6 +324,7 @@ if (typeof window.spanishTranslationsLoaded === 'undefined') {
         artifactStatusDone: "Listo",
         artifactStatusFailed: "La generacion fallo",
         artifactStatusCancelled: "Cancelado",
+        artifactThinkingBadge: "🧠 El modelo está pensando…",
         artifactErrorTitle: "Errores de consola detectados",
         artifactErrorDescription: "La mini-aplicación contiene errores de sintaxis. Haz clic en enviar para que el modelo de IA los corrija.",
         artifactErrorSendBtn: "Enviar a la IA para corregir",
