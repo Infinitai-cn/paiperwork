@@ -7220,14 +7220,19 @@ class PaiperworkDB {
                 const codeBlocks = doc.querySelectorAll('.code-block code');
 
                 codeBlocks.forEach(codeElement => {
-                    // If there's no data-saved-code attribute but there is formatted code,
-                    // add the formatted code as a data attribute
+                    // data-saved-code is the single persisted copy of the code.
                     if (!codeElement.hasAttribute('data-saved-code') && codeElement.textContent.trim()) {
-                        // Extract the indented, formatted code from the HTML
-                        let formattedCode = codeElement.textContent;
-                        // Store it in the data-saved-code attribute
+                        const formattedCode = codeElement.textContent;
                         codeElement.setAttribute('data-saved-code', formattedCode);
                     }
+                    // Drop the legacy duplicated copies (data-clean-code attribute
+                    // and SAVED_CODE_BACKUP comment) so stored HTML keeps one copy.
+                    codeElement.removeAttribute('data-clean-code');
+                    Array.from(codeElement.childNodes).forEach(node => {
+                        if (node.nodeType === Node.COMMENT_NODE && String(node.nodeValue || '').includes('SAVED_CODE_BACKUP:')) {
+                            node.remove();
+                        }
+                    });
                 });
 
                 const links = doc.querySelectorAll('a');
@@ -7390,6 +7395,115 @@ class PaiperworkDB {
         } catch (error) {
             console.error('Error storing conversation:', error);
             return false;
+        }
+    }
+
+    // One-time migration: strips legacy duplicated code copies
+    // (data-clean-code attributes + SAVED_CODE_BACKUP comment nodes) from
+    // previously stored assistant messages, keeping ONLY the canonical
+    // data-saved-code attribute. Runs once per database (guarded by a
+    // localStorage flag keyed on the master key hash) and is idempotent.
+    static async cleanupLegacyCodeDuplicates(hashedMasterKey) {
+        if (!hashedMasterKey) return false;
+
+        const flagKey = `paiperwork_codestorage_cleanup_v1_${hashedMasterKey}`;
+        try {
+            if (localStorage.getItem(flagKey) === '1') {
+                return true; // already cleaned
+            }
+        } catch (_guardErr) {
+            // If storage is unavailable, just run the pass (it is idempotent).
+        }
+
+        try {
+            const db = await this.getDatabase(hashedMasterKey);
+            if (!db) {
+                this._markCodeCleanupDone(flagKey);
+                return false;
+            }
+
+            const tableName = `conversations_${hashedMasterKey}`;
+            const tableCheck = db.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name = ?`, [tableName]);
+            if (!tableCheck[0]?.values?.length) {
+                this._markCodeCleanupDone(flagKey);
+                return true;
+            }
+
+            const rows = db.exec(`SELECT rowid, conversation, role FROM ${tableName}`);
+            const values = rows[0]?.values;
+            if (!values || values.length === 0) {
+                this._markCodeCleanupDone(flagKey);
+                return true;
+            }
+
+            let changed = false;
+            for (const row of values) {
+                const rowid = row[0];
+                const conversationPayload = row[1];
+                const rolePayload = row[2];
+                try {
+                    const decryptedMessage = await this.decrypt(hashedMasterKey, JSON.parse(conversationPayload));
+                    if (typeof decryptedMessage !== 'string' || !decryptedMessage) continue;
+
+                    // Only assistant messages carry the code-block HTML with the legacy copies.
+                    let decryptedRole = '';
+                    if (rolePayload) {
+                        try {
+                            decryptedRole = await this.decrypt(hashedMasterKey, JSON.parse(rolePayload));
+                        } catch (_roleErr) { /* ignore */ }
+                    }
+                    if (decryptedRole !== 'assistant') continue;
+
+                    const hasLegacy = decryptedMessage.includes('data-clean-code')
+                        || decryptedMessage.includes('SAVED_CODE_BACKUP:');
+                    if (!hasLegacy) continue;
+
+                    // Strip the legacy duplicated copies, keep data-saved-code.
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(decryptedMessage, 'text/html');
+                    let cleaned = false;
+                    doc.querySelectorAll('code[data-clean-code]').forEach(el => {
+                        el.removeAttribute('data-clean-code');
+                        cleaned = true;
+                    });
+                    doc.querySelectorAll('code').forEach(el => {
+                        Array.from(el.childNodes).forEach(node => {
+                            if (node.nodeType === Node.COMMENT_NODE && String(node.nodeValue || '').includes('SAVED_CODE_BACKUP:')) {
+                                node.remove();
+                                cleaned = true;
+                            }
+                        });
+                    });
+                    if (!cleaned) continue;
+
+                    const cleanedHtml = doc.body.innerHTML;
+                    if (cleanedHtml === decryptedMessage) continue;
+
+                    const reEncrypted = await this.encrypt(hashedMasterKey, cleanedHtml);
+                    db.run(`UPDATE ${tableName} SET conversation = ? WHERE rowid = ?`, [JSON.stringify(reEncrypted), rowid]);
+                    changed = true;
+                } catch (rowErr) {
+                    // Skip rows that fail to decrypt/parse without aborting the pass.
+                    console.warn('[PaiperworkDB] cleanupLegacyCodeDuplicates: skipping row', rowErr);
+                }
+            }
+
+            if (changed) {
+                await this.saveToStorage(db.export(), hashedMasterKey);
+            }
+            this._markCodeCleanupDone(flagKey);
+            return true;
+        } catch (error) {
+            console.error('[PaiperworkDB] cleanupLegacyCodeDuplicates failed:', error);
+            return false;
+        }
+    }
+
+    static _markCodeCleanupDone(flagKey) {
+        try {
+            localStorage.setItem(flagKey, '1');
+        } catch (_err) {
+            // Non-fatal; the pass is idempotent and may run again next open.
         }
     }
 
@@ -9199,8 +9313,8 @@ class PaiperworkDB {
                                 // Show line numbers
                                //console.log(`👁️ Block ${index + 1}: Showing line numbers`);
 
-                                // Get the code content - try multiple sources
-                                let cleanCode = codeElement.dataset.cleanCode ||
+                                // Get the code content - data-saved-code is the single persisted copy
+                                let cleanCode = (window.getCodeBlockText && window.getCodeBlockText(codeElement)) ||
                                     codeElement.textContent ||
                                     codeElement.innerText || '';
 
@@ -9343,8 +9457,8 @@ class PaiperworkDB {
                 if (language === 'html' || language === 'markup') {
                     const codeElement = block.querySelector('code');
                     if (codeElement) {
-                        // Get the raw code
-                        const rawCode = codeElement.dataset.cleanCode || codeElement.textContent;
+                        // Get the raw code (data-saved-code is the single persisted copy)
+                        const rawCode = (window.getCodeBlockText && window.getCodeBlockText(codeElement)) || codeElement.textContent;
 
                         // Create a preservation element to store the raw text
                         const preserveSpan = doc.createElement('span');
@@ -9354,9 +9468,6 @@ class PaiperworkDB {
 
                         // Append the preservation element
                         codeElement.appendChild(preserveSpan);
-
-                        // Set the data attribute
-                        codeElement.dataset.cleanCode = rawCode;
                     }
                 }
             });

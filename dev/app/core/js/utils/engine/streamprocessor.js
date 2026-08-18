@@ -1092,25 +1092,11 @@ class StreamProcessor {
                 codeElement.innerHTML = cleanHtml;
 
                 if (this.state.cleanCodeContent) {
-                    // Store the original clean code with newlines intact
+                    // Store the raw clean code (newlines intact) ONCE as the single
+                    // persisted copy (data-saved-code). The formatted/displayed
+                    // version is recomputed at render time and kept only in memory.
                     const rawCleanCode = this.state.cleanCodeContent.replace(/```\s*$/, '');
-
-                    // IMPORTANT: We need to store the code in multiple ways to ensure it survives serialization
-
-                    // 1. Use setAttribute directly - more reliable than dataset for serialization
                     codeElement.setAttribute('data-saved-code', rawCleanCode);
-
-                    // 2. Also set the dataset property for internal use
-                    codeElement.dataset.cleanCode = rawCleanCode;
-
-                    // 3. Add a special comment node as a backup storage mechanism
-                    const codeComment = document.createComment(`SAVED_CODE_BACKUP:${btoa(unescape(encodeURIComponent(rawCleanCode)))
-                        }`);
-                    codeElement.appendChild(codeComment);
-
-
-
-
                 }
             }
         }
@@ -1165,7 +1151,9 @@ class StreamProcessor {
 
             const codeElement = this.state.currentCodeBlock.querySelector('code');
             if (codeElement) {
-                codeElement.dataset.cleanCode = this.state.cleanCodeContent;
+                // In-memory copy only (used by copy buttons); data-saved-code is
+                // the single persisted source and is set when the block ends.
+                codeElement._cleanCode = this.state.cleanCodeContent;
 
                 if (this.state.currentLanguage) {
                     try {
@@ -2216,16 +2204,10 @@ class StreamProcessor {
 
             // If we found the original, copy its attributes that store formatted code
             if (originalCodeElement) {
-                // Check for data-saved-code first (most reliable)
+                // data-saved-code is the single persisted copy.
                 if (originalCodeElement.hasAttribute('data-saved-code')) {
                     const savedCode = originalCodeElement.getAttribute('data-saved-code');
                     clonedCodeElement.setAttribute('data-saved-code', savedCode);
-                   //console.log('Preserved data-saved-code attribute for code block');
-                }
-
-                // Also check data-clean-code as backup
-                if (originalCodeElement.dataset.cleanCode) {
-                    clonedCodeElement.dataset.cleanCode = originalCodeElement.dataset.cleanCode;
                 }
 
                 // Ensure the cloned code element has the raw content with proper formatting
@@ -2233,6 +2215,18 @@ class StreamProcessor {
                     clonedCodeElement.textContent = originalCodeElement.textContent;
                 }
             }
+        });
+
+        // Consolidation cleanup: keep ONLY data-saved-code as the persisted copy.
+        // Strip the legacy data-clean-code attribute and SAVED_CODE_BACKUP comment
+        // nodes from the clone so stored HTML carries a single copy of the code.
+        clone.querySelectorAll('.code-block code').forEach(codeEl => {
+            codeEl.removeAttribute('data-clean-code');
+            Array.from(codeEl.childNodes).forEach(node => {
+                if (node.nodeType === Node.COMMENT_NODE && String(node.nodeValue || '').includes('SAVED_CODE_BACKUP:')) {
+                    node.remove();
+                }
+            });
         });
 
         // 5. Remove any hidden elements
@@ -3036,8 +3030,9 @@ class StreamProcessor {
             }
         }
 
-        // Store the clean version
-        codeElement.dataset.cleanCode = formattedCode;
+        // Keep the formatted version in memory only (never persisted). The single
+        // persisted copy of the code lives in data-saved-code.
+        codeElement._cleanCode = formattedCode;
 
         const lineCount = formattedCode ? formattedCode.split('\n').length : 0;
         if (copyWithLinesButton) {
@@ -3393,8 +3388,8 @@ class StreamProcessor {
                 else if (node.classList && node.classList.contains('code-block')) {
                     const codeElement = node.querySelector('code');
                     if (codeElement) {
-                        // Use the clean code data attribute if available, which doesn't contain UI elements
-                        const cleanCode = codeElement.dataset.cleanCode || codeElement.textContent;
+                        // Use the canonical code text (data-saved-code first)
+                        const cleanCode = window.getCodeBlockText(codeElement) || codeElement.textContent;
                         const language = node.querySelector('.code-language')?.textContent || '';
 
                         text += '\n\n```' + language.toLowerCase() + '\n';
@@ -3472,13 +3467,38 @@ class StreamProcessor {
 }
 
 // Global utility functions
+
+// Canonical accessor for a code block's stored text.
+// data-saved-code is the single persisted copy (raw code). data-clean-code may
+// still exist on older stored conversations (legacy formatted copy). _cleanCode
+// is the in-memory formatted copy computed at render time (never persisted).
+// preferFormatted=true is used by copy buttons (which historically copied the
+// formatted version); all other callers get the raw canonical code.
+window.getCodeBlockText = function (codeElement, preferFormatted) {
+    if (!codeElement) return '';
+    if (preferFormatted) {
+        return codeElement._cleanCode
+            || codeElement.getAttribute('data-clean-code')
+            || codeElement.getAttribute('data-saved-code')
+            || codeElement.textContent
+            || codeElement.innerText
+            || '';
+    }
+    return codeElement.getAttribute('data-saved-code')
+        || codeElement.getAttribute('data-clean-code')
+        || codeElement._cleanCode
+        || codeElement.textContent
+        || codeElement.innerText
+        || '';
+};
+
 window.copyCodeBlock = function (button) {
    //console.log('Copy button clicked');
     const codeBlock = button.closest('.code-block');
     if (codeBlock) {
         const codeElement = codeBlock.querySelector('code');
         if (codeElement) {
-            const codeText = codeElement.dataset.cleanCode || codeElement.textContent;
+            const codeText = window.getCodeBlockText(codeElement, true);
            //console.log('Copying code text:', codeText.substring(0, 30) + '...');
 
             navigator.clipboard.writeText(codeText)
@@ -3513,7 +3533,7 @@ window.copyCodeBlockWithLineNumbers = function (button) {
     const codeElement = codeBlock.querySelector('code');
     if (!codeElement) return;
 
-    const codeText = codeElement.dataset.cleanCode || codeElement.textContent;
+    const codeText = window.getCodeBlockText(codeElement, true);
     const lines = codeText.split('\n');
 
     // Format with line numbers
@@ -3609,9 +3629,8 @@ window.toggleCodeLineNumbers = function (button) {
         // Show line numbers
        //console.log('🌍 Showing line numbers');
 
-        // Get the code content - prioritize data-saved-code for loaded conversations
-        let cleanCode = codeElement.dataset.savedCode ||
-            codeElement.dataset.cleanCode ||
+        // Get the code content - data-saved-code is the single persisted copy
+        let cleanCode = window.getCodeBlockText(codeElement) ||
             codeElement.textContent ||
             codeElement.innerText || '';
 
