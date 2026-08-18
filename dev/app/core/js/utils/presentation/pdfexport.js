@@ -81,6 +81,23 @@ class pdfExport {
         return 'normal';
     }
 
+    // jsPDF's standard Helvetica font only covers WinAnsi (Latin-1). Characters
+    // above U+00FF — Chinese, Japanese, Korean, Cyrillic, Greek, Arabic, etc. —
+    // cannot be rendered by it: drawing them produces garbage/random characters
+    // in the PDF. This helper detects such text so the export can keep it in the
+    // rasterized slide image (browser renders it correctly) instead of the
+    // Helvetica searchable text layer.
+    static isSearchableWithHelvetica(text) {
+        if (!text) return true;
+        const str = String(text);
+        for (let i = 0; i < str.length; i++) {
+            if (str.charCodeAt(i) > 0xFF) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static drawSearchableTextLayer(pdf, stage) {
         const textNodes = this.getTextNodes(stage);
         textNodes.forEach(node => {
@@ -109,6 +126,14 @@ class pdfExport {
                 const lines = (Array.isArray(node.textArr) && node.textArr.length > 0)
                     ? node.textArr.map(item => item?.text || '').filter(Boolean)
                     : String(node.text() || '').split('\n');
+
+                // Non-Latin text (e.g. Chinese) cannot be drawn with jsPDF's
+                // standard Helvetica font — skip it here so it does not produce
+                // garbage characters. Such text is kept in the rasterized image
+                // (see stageToImageData) where the browser renders it correctly.
+                if (!lines.some(Boolean) || !this.isSearchableWithHelvetica(lines.join(''))) {
+                    return;
+                }
 
                 let drawX = absolutePosition.x;
                 if (textAlign === 'center' && nodeWidth > 0) {
@@ -158,6 +183,14 @@ class pdfExport {
                 const textNodes = stage.find('Text') || [];
                 textNodes.forEach(node => {
                     if (!node || typeof node.visible !== 'function') {
+                        return;
+                    }
+                    // Only hide text that the searchable layer can re-draw with
+                    // Helvetica (WinAnsi/Latin). Non-Latin text (e.g. Chinese)
+                    // must stay in the raster image — the browser renders it
+                    // correctly, while jsPDF's Helvetica cannot (garbage chars).
+                    const nodeText = typeof node.text === 'function' ? String(node.text() || '') : '';
+                    if (nodeText && !this.isSearchableWithHelvetica(nodeText)) {
                         return;
                     }
                     hiddenTextNodes.push({ node, wasVisible: node.visible() });
