@@ -4333,7 +4333,6 @@ class ChatTab {
             const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
             const newContextSize = contextSelector.value;
             const modelSelector = document.getElementById('model-selector');
-            const aiReplies = document.querySelector('.ai-replies');
 
             // Determine provider for the currently selected model so we can
             // keep separate defaults for local vs cloud.
@@ -4362,105 +4361,17 @@ class ChatTab {
                //console.log(`✅ ChatTab: Saved MANUAL context size ${newContextSize} for model ${selectedModel}`);
             }
 
-            // First check if there are any messages to continue from
-            const assistantMessages = aiReplies.querySelectorAll('.assistant-message');
-            const userMessages = aiReplies.querySelectorAll('.user-message');
-
-            // Check if there's an active conversation context
-            const hasActiveContext = (typeof OllamaAPI.hasActiveConversationContext === 'function')
-                ? OllamaAPI.hasActiveConversationContext()
-                : (OllamaAPI.previousContext !== null && OllamaAPI.previousContext !== undefined);
-
-            // Only show warning and add continue button if there's an active conversation
-            if (assistantMessages.length > 0 && window.chat && hasActiveContext) {
-                // Store the previous value to revert if user cancels
-                const previousValue = contextSelector._previousValue || this.getDefaultContextSize();
-
-                // Show warning with improved message about continue button
-                const confirmed = confirm(
-                    Lang.get('contextSizeChangeWarningWithContinue') ||
-                    'Changing the context size will reset the conversation context. A "Continue Conversation" button will be added so you can continue with the new context size. Proceed?'
-                );
-
-                if (!confirmed) {
-                    // User canceled - restore the original value
-                    contextSelector.value = previousValue;
-                   //console.log('ChatTab: Context size change canceled, reverting to:', previousValue);
-                    return;
-                }
-
-                // Proceed with saving and reset context
-                contextSelector._previousValue = newContextSize;
-                if (!isCloudProvider) {
-                    // Only update the general/local context default for local models.
-                    localStorage.setItem('contextSize', newContextSize);
-                    await PaiperworkDB.saveContextSize(hashedMasterKey, newContextSize);
-                }
-
-                // Reset the context
-                OllamaAPI.previousContext = null;
-                OllamaAPI.resetContext();
-               //console.log('ChatTab: Context reset due to context size change');
-
-                // Build conversation history in the format OllamaAPI expects
-                const conversations = [];
-
-                // Extract all conversations from the UI
-                for (let i = 0; i < Math.min(userMessages.length, assistantMessages.length); i++) {
-                    const userMessage = userMessages[i].querySelector('.message-bubble')?.innerHTML;
-                    const assistantMessage = assistantMessages[i].querySelector('.ai-response-container')?.innerHTML;
-
-                    if (userMessage) {
-                        conversations.push({
-                            role: 'user',
-                            message: userMessage,
-                            timestamp: Date.now() - (userMessages.length - i) * 60000
-                        });
-                    }
-
-                    if (assistantMessage) {
-                        conversations.push({
-                            role: 'assistant',
-                            message: assistantMessage,
-                            timestamp: Date.now() - (assistantMessages.length - i) * 60000
-                        });
-                    }
-                }
-
-                // Skip adding continue button when only the welcome message exists in the UI
-                const assistantMessagesAllHistory = aiReplies.querySelectorAll('.assistant-message');
-                const hasOnlyWelcomeHistory = (assistantMessagesAllHistory.length === 1 && assistantMessagesAllHistory[0].classList.contains('welcome-message'));
-
-                if (conversations.length > 0 && !hasOnlyWelcomeHistory) {
-                    // Remove any existing continue buttons first
-                    const existingButtons = aiReplies.querySelectorAll('.continuation-container');
-                    existingButtons.forEach(button => button.remove());
-
-                    // Create the continue button using OllamaAPI's method
-                    const continueButton = OllamaAPI.createContinueButton(conversations, aiReplies);
-
-                    // Make sure the container is appended to the chat area
-                    if (!continueButton.parentElement) {
-                        aiReplies.appendChild(continueButton);
-                    }
-
-                    // Ensure it's visible by scrolling to it
-                    setTimeout(() => {
-                        continueButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }, 100);
-                }
-            } else {
-                // No active conversation yet, just save without warning
-                contextSelector._previousValue = newContextSize;
-                if (!isCloudProvider) {
-                    // Only update the general/local context default for local models.
-                    localStorage.setItem('contextSize', newContextSize);
-                    await PaiperworkDB.saveContextSize(hashedMasterKey, newContextSize);
-                }
-
-                // Reset context for next message
-                OllamaAPI.previousContext = null;
-                OllamaAPI.resetContext();
+            // With the OpenAI-compatible endpoint the conversation context is
+            // rebuilt from the rendered messages on every request, and the
+            // context-size value no longer initializes a server-side context
+            // window (num_ctx is not applied by Ollama's OpenAI layer). So
+            // changing the size just saves the new value WITHOUT invalidating
+            // the current conversation — no reset, no "continue" step.
+            contextSelector._previousValue = newContextSize;
+            if (!isCloudProvider) {
+                // Only update the general/local context default for local models.
+                localStorage.setItem('contextSize', newContextSize);
+                await PaiperworkDB.saveContextSize(hashedMasterKey, newContextSize);
             }
         };
         if (contextSelector) {
