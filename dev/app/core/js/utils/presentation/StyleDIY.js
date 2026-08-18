@@ -787,7 +787,9 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
         return {};
     }
 
-    // Simplified Ollama API call for DIY style generation (adapted from OllamaAPI.sendToOllama)
+    // Simplified Ollama API call for DIY style generation.
+    // Uses the OpenAI-compatible /v1/chat/completions endpoint (standard messages
+    // context management; no proprietary numeric `context` round-trip).
     static async sendToOllama(userPrompt, systemPrompt, selectedModel, abortSignal = null, requestId = null) {
        //  //console.log('StyleDIY: Sending request to Ollama...', { requestId: requestId || '<none>' });
 
@@ -796,23 +798,8 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
         const selectedContext = contextSelector ? parseInt(contextSelector.value, 10) : NaN;
         const contextSize = Number.isFinite(selectedContext) && selectedContext > 0 ? selectedContext : 8192;
 
-        // Prepare request payload (simplified - no streaming, no visual, no thinking)
-        const jsonPost = {
-            model: selectedModel,
-            keep_alive: "-1s",
-            stream: false, // We want complete response, not streaming
-            system: systemPrompt,
-            prompt: userPrompt,
-            raw: false,
-            think: false,
-            options: {
-                num_ctx: contextSize,
-                ...modelParams  // Spread in any model-specific parameters
-            }
-        };
-
         try {
-            let routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+            let routing = await OllamaAPI.getOpenAIRoutingForModel(selectedModel);
 
             // Keep cloud auth flow consistent with chat before direct cloud calls.
             if (routing && routing.source === 'cloud') {
@@ -825,24 +812,21 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                     if (!hasCloudKey) {
                         throw new Error('Cloud API key required');
                     }
-                    routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+                    routing = await OllamaAPI.getOpenAIRoutingForModel(selectedModel);
                 }
             }
 
-            const payload = {
-                ...jsonPost,
-                model: routing.modelName || selectedModel
-            };
-
-            if (routing && routing.source === 'cloud') {
-                // Cloud gateway is stricter than local daemon for some fields.
-                delete payload.keep_alive;
-                delete payload.raw;
-                delete payload.think;
-                if (payload.options && Object.prototype.hasOwnProperty.call(payload.options, 'num_ctx')) {
-                    delete payload.options.num_ctx;
-                }
-            }
+            // Single-turn style generation (no streaming, no thinking).
+            const payload = OllamaAPI.buildOpenAIChatPayload({
+                model: routing.modelName || selectedModel,
+                system: systemPrompt,
+                userPrompt,
+                contextSize,
+                modelParams,
+                think: false,
+                stream: false,
+                historyMessages: []
+            });
 
             const fetchOptions = {
                 method: 'POST',
@@ -855,21 +839,18 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
             };
 
            //  //console.log('StyleDIY: Sending request to Ollama API...', { requestId: requestId || '<none>' });
-            let response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
+            let response = await fetch(`${routing.baseUrl}/chat/completions`, fetchOptions);
 
             // Retry once for cloud 400 using a minimal options payload.
             if (!response.ok && response.status === 400 && routing && routing.source === 'cloud') {
                 try {
-                    const retryPayload = {
-                        ...payload,
-                        options: { ...(payload.options || {}) }
-                    };
-                    delete retryPayload.options.num_ctx;
+                    const retryPayload = { ...payload };
+                    delete retryPayload.options;
                     const retryFetchOptions = {
                         ...fetchOptions,
                         body: JSON.stringify(retryPayload)
                     };
-                    response = await fetch(`${routing.baseUrl}/generate`, retryFetchOptions);
+                    response = await fetch(`${routing.baseUrl}/chat/completions`, retryFetchOptions);
                 } catch (_retryError) {
                     // Keep original response handling below.
                 }
@@ -886,25 +867,16 @@ OUTPUT FORMAT: <custom_style>[COMPLETE FUNCTION CODE WITH CUSTOM NAME]</custom_s
                 throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
             }
 
-
-            // Since we're not streaming, we get the complete response
+            // Non-streaming OpenAI response: choices[0].message.content.
             const data = await response.json();
-
-            // Debug: Log whether the AI response contains 'thinking' and 'response' fields
-            try {
-                const hasThinkingData = data && Object.prototype.hasOwnProperty.call(data, 'thinking');
-                const hasResponseData = !!(data && (Object.prototype.hasOwnProperty.call(data, 'response') || data?.message?.content));
-               //  //console.log('StyleDIY: Ollama non-stream response - thinking field present?', hasThinkingData, 'response field present?', hasResponseData, 'model:', selectedModel, 'requestId:', requestId || '<none>');
-            } catch (logErr) {
-                console.warn('StyleDIY: Failed to inspect Ollama response for thinking field', logErr);
-            }
-
             if (data.error) {
-                throw new Error(`Ollama error: ${data.error}`);
+                throw new Error(`Ollama error: ${data.error?.message || JSON.stringify(data.error)}`);
             }
 
-            // Return the generated response (log summary with requestId)
-            const responseText = data?.response || data?.message?.content || '';
+            const choice = Array.isArray(data.choices) && data.choices[0] ? data.choices[0] : null;
+            const responseText = (choice && choice.message && typeof choice.message.content === 'string')
+                ? choice.message.content
+                : '';
             try { //console.log('StyleDIY: Returning response length:', responseText ? String(responseText).length : 0, 'requestId:', requestId || '<none>'); 
             } catch (e) {}
             return responseText;

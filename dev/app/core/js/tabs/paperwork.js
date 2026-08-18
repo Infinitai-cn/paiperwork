@@ -405,7 +405,7 @@ class UIHelpers {
 
             const selectedModel = modelSelector.value;
            //console.log(`Using AI model: ${selectedModel}`);
-            let routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+            let routing = await OllamaAPI.getOpenAIRoutingForModel(selectedModel);
 
             // Keep cloud behavior consistent with Chat: ensure a key exists before direct cloud calls.
             if (routing && routing.source === 'cloud') {
@@ -419,28 +419,29 @@ class UIHelpers {
                         throw new Error('Cloud API key required');
                     }
                     // Refresh routing so headers include the newly-saved key.
-                    routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+                    routing = await OllamaAPI.getOpenAIRoutingForModel(selectedModel);
                 }
             }
 
-            const requestOptions = {
-                temperature: 0.7,
-                num_ctx: 8192
-            };
+            // OpenAI-compatible single-turn completion (standard messages context).
+            const payload = OllamaAPI.buildOpenAIChatPayload({
+                model: routing.modelName || selectedModel,
+                system: systemPrompt,
+                userPrompt,
+                contextSize: 8192,
+                modelParams: { temperature: 0.7 },
+                think: false,
+                stream: false,
+                historyMessages: []
+            });
 
-            const response = await fetch(`${routing.baseUrl}/generate`, {
+            const response = await fetch(`${routing.baseUrl}/chat/completions`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     ...routing.headers
                 },
-                body: JSON.stringify({
-                    model: routing.modelName || selectedModel,
-                    system: systemPrompt,
-                    prompt: userPrompt,
-                    stream: false,
-                    options: requestOptions
-                }),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -469,8 +470,8 @@ class UIHelpers {
 
             const data = await response.json();
 
-            // Get the AI response
-            let aiResponse = data?.response || data?.message?.content || '';
+            // Get the AI response (OpenAI non-streaming shape).
+            let aiResponse = data?.choices?.[0]?.message?.content || '';
 
             // Remove any thinking/reasoning blocks
             aiResponse = this.removeAIThinkingBlocks(aiResponse);

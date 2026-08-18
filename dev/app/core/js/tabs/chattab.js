@@ -4221,8 +4221,9 @@ class ChatTab {
 
                 // Check if there's an active conversation context
                 // This means the user has actually talked with the AI in this session
-                const hasActiveContext = OllamaAPI.previousContext !== null &&
-                    OllamaAPI.previousContext !== undefined;
+                const hasActiveContext = (typeof OllamaAPI.hasActiveConversationContext === 'function')
+                    ? OllamaAPI.hasActiveConversationContext()
+                    : (OllamaAPI.previousContext !== null && OllamaAPI.previousContext !== undefined);
 
                //console.log('ChatTab: Active conversation context exists:', hasActiveContext);
 
@@ -4366,8 +4367,9 @@ class ChatTab {
             const userMessages = aiReplies.querySelectorAll('.user-message');
 
             // Check if there's an active conversation context
-            const hasActiveContext = OllamaAPI.previousContext !== null &&
-                OllamaAPI.previousContext !== undefined;
+            const hasActiveContext = (typeof OllamaAPI.hasActiveConversationContext === 'function')
+                ? OllamaAPI.hasActiveConversationContext()
+                : (OllamaAPI.previousContext !== null && OllamaAPI.previousContext !== undefined);
 
             // Only show warning and add continue button if there's an active conversation
             if (assistantMessages.length > 0 && window.chat && hasActiveContext) {
@@ -5064,8 +5066,8 @@ class ChatTab {
                 const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
                 try {
-                    // Validate against the same endpoint style used by real sends.
-                    const response = await fetch('/api/cloud/generate', {
+                    // Validate against the OpenAI-compatible endpoint style used by real sends.
+                    const response = await fetch('/api/cloud/v1/chat/completions', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -5073,8 +5075,9 @@ class ChatTab {
                         },
                         body: JSON.stringify({
                             model: modelName,
+                            messages: [{ role: 'user', content: 'ping' }],
                             stream: false,
-                            prompt: 'ping'
+                            max_tokens: 1
                         }),
                         signal: controller.signal
                     });

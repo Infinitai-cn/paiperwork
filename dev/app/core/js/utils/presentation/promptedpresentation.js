@@ -2084,7 +2084,9 @@ class PromptedPresentationWorkflow {
 	}
 
 	static async buildPresentationRoutingAndOptions(model, baseOptions = {}) {
-		let routing = await OllamaAPI.getApiRoutingForModel(model);
+		// OpenAI-compatible endpoint (/v1/chat/completions) with standard
+		// message-based context management.
+		let routing = await OllamaAPI.getOpenAIRoutingForModel(model);
 
 		if (routing && routing.source === 'cloud') {
 			const ensureCloudKey = window.chatTab && typeof window.chatTab.ensureCloudApiKeyForSend === 'function'
@@ -2096,7 +2098,7 @@ class PromptedPresentationWorkflow {
 				if (!hasCloudKey) {
 					throw new Error('Cloud API key required');
 				}
-				routing = await OllamaAPI.getApiRoutingForModel(model);
+				routing = await OllamaAPI.getOpenAIRoutingForModel(model);
 			}
 		}
 
@@ -2272,24 +2274,26 @@ class PromptedPresentationWorkflow {
 			originalText
 		].join('\n');
 
-		const requestBody = {
-			model,
-			system: window.Lang
-				? (Lang.get('searchQueryOptimizerPrompt') || 'You generate concise web search queries.')
-				: 'You generate concise web search queries.',
-			prompt: queryPrompt,
-			stream: false,
-			options: {},
-		};
 		const { routing, options: requestOptions } = await this.buildPresentationRoutingAndOptions(model, {
 			num_ctx: this.getSelectedContextSize(),
 		});
-		requestBody.model = routing.modelName || requestBody.model;
-		requestBody.options = requestOptions;
-		const payload = requestBody;
+
+		// OpenAI-compatible single-turn completion (standard messages context).
+		const payload = OllamaAPI.buildOpenAIChatPayload({
+			model: routing.modelName || model,
+			system: window.Lang
+				? (Lang.get('searchQueryOptimizerPrompt') || 'You generate concise web search queries.')
+				: 'You generate concise web search queries.',
+			userPrompt: queryPrompt,
+			contextSize: this.getSelectedContextSize(),
+			modelParams: requestOptions,
+			think: false,
+			stream: false,
+			historyMessages: [],
+		});
 
 		try {
-			const response = await fetch(`${routing.baseUrl}/generate`, {
+			const response = await fetch(`${routing.baseUrl}/chat/completions`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', ...routing.headers },
 				body: JSON.stringify(payload),
@@ -2305,7 +2309,7 @@ class PromptedPresentationWorkflow {
 			}
 
 			const data = await response.json();
-			const optimized = String(data?.response || data?.message?.content || '')
+			const optimized = String(data?.choices?.[0]?.message?.content || '')
 				.trim()
 				.replace(/^```[a-zA-Z]*\s*/, '')
 				.replace(/\s*```$/, '')
@@ -4183,24 +4187,24 @@ class PromptedPresentationWorkflow {
 			}, null, 2)}`
 		);*/
 
-		const requestBody = {
-			model,
-			system: systemPrompt,
-			prompt: promptPayload,
-			stream: true,
-			options: {},
-		};
-		if (supportsNativeThinking) {
-			requestBody.think = !!thinkingEnabled;
-		}
 		const { routing, options: requestOptions } = await this.buildPresentationRoutingAndOptions(model, {
 			num_ctx: this.getSelectedContextSize(),
 		});
-		requestBody.model = routing.modelName || requestBody.model;
-		requestBody.options = requestOptions;
-		const payload = requestBody;
 
-		const response = await fetch(`${routing.baseUrl}/generate`, {
+		// OpenAI-compatible streaming with standard messages context (single-turn
+		// presentation generation; no proprietary `context` round-trip).
+		const payload = OllamaAPI.buildOpenAIChatPayload({
+			model: routing.modelName || model,
+			system: systemPrompt,
+			userPrompt: promptPayload,
+			contextSize: this.getSelectedContextSize(),
+			modelParams: requestOptions,
+			think: supportsNativeThinking ? !!thinkingEnabled : null,
+			stream: true,
+			historyMessages: [],
+		});
+
+		const response = await fetch(`${routing.baseUrl}/chat/completions`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', ...routing.headers },
 			body: JSON.stringify(payload),
@@ -4217,7 +4221,7 @@ class PromptedPresentationWorkflow {
 
 		if (!response.body || typeof response.body.getReader !== 'function') {
 			const data = await response.json();
-			const fallbackChunk = data?.response || data?.message?.content || '';
+			const fallbackChunk = data?.choices?.[0]?.message?.content || '';
 			if (fallbackChunk && onDelta) {
 				onDelta(fallbackChunk);
 			}
@@ -4241,42 +4245,25 @@ class PromptedPresentationWorkflow {
 				streamBuffer = lines.pop() || '';
 
 				for (const line of lines) {
-					const trimmedLine = String(line || '').trim();
-					if (!trimmedLine || trimmedLine === '[DONE]' || trimmedLine === 'data: [DONE]') {
+					const parsed = OllamaAPI.parseOpenAIChatStreamLine(line);
+					if (!parsed) {
 						continue;
 					}
 
-					const normalizedLine = trimmedLine.startsWith('data:')
-						? trimmedLine.slice(5).trim()
-						: trimmedLine;
-					if (!normalizedLine || normalizedLine === '[DONE]') {
-						continue;
+					// Show the "Model is Thinking" badge while native thinking content streams.
+					if (supportsNativeThinking && thinkingEnabled && typeof parsed.reasoning === 'string' && parsed.reasoning.length > 0) {
+						this.setPromptableThinkingVisible(true);
 					}
-
-					try {
-						const data = JSON.parse(normalizedLine);
-						const responseChunk = data.response || data.message?.content || '';
-
-						// Show the "Model is Thinking" badge while native thinking content streams.
-						if (supportsNativeThinking && thinkingEnabled && typeof data.thinking === 'string' && data.thinking.length > 0) {
-							this.setPromptableThinkingVisible(true);
-						}
-						if (typeof responseChunk === 'string' && responseChunk.length > 0) {
-							// Response content has started, so native thinking is complete.
-							this.setPromptableThinkingVisible(false);
-							aggregated += responseChunk;
-							if (onDelta) {
-								onDelta(responseChunk);
-							}
-						}
-						if (data.done) {
-							this.setPromptableThinkingVisible(false);
-						}
-					} catch (_error) {
-						aggregated += normalizedLine;
+					if (typeof parsed.content === 'string' && parsed.content.length > 0) {
+						// Response content has started, so native thinking is complete.
+						this.setPromptableThinkingVisible(false);
+						aggregated += parsed.content;
 						if (onDelta) {
-							onDelta(normalizedLine);
+							onDelta(parsed.content);
 						}
+					}
+					if (parsed.finishReason || parsed.done) {
+						this.setPromptableThinkingVisible(false);
 					}
 				}
 
@@ -4286,26 +4273,17 @@ class PromptedPresentationWorkflow {
 			}
 
 			if (streamBuffer.trim()) {
-				try {
-					const normalized = streamBuffer.trim().startsWith('data:')
-						? streamBuffer.trim().slice(5).trim()
-						: streamBuffer.trim();
-					const data = JSON.parse(normalized);
-					const responseChunk = data.response || data.message?.content || '';
-					if (typeof responseChunk === 'string' && responseChunk.length > 0) {
+				const parsed = OllamaAPI.parseOpenAIChatStreamLine(streamBuffer);
+				if (parsed) {
+					if (typeof parsed.content === 'string' && parsed.content.length > 0) {
 						this.setPromptableThinkingVisible(false);
-						aggregated += responseChunk;
+						aggregated += parsed.content;
 						if (onDelta) {
-							onDelta(responseChunk);
+							onDelta(parsed.content);
 						}
 					}
-					if (data.done) {
+					if (parsed.finishReason || parsed.done) {
 						this.setPromptableThinkingVisible(false);
-					}
-				} catch (_error) {
-					aggregated += streamBuffer.trim();
-					if (onDelta) {
-						onDelta(streamBuffer.trim());
 					}
 				}
 			}

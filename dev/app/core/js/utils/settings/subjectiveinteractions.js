@@ -150,17 +150,24 @@ Only return JSON. Do not include any other text outside the JSON object. If a cl
            //console.log('Starting subjective analysis for:', userPrompt);
             const analysisPrompt = this.buildInsightAnalysisPrompt(userPrompt);
             const systemPrompt = "You are an AI assistant that extracts concise insights about users from their messages. Keep responses brief, structured, and user-focused. Return only valid JSON with insight, category, and confidence. Use the same language as the user's message when possible, and avoid personal identifiers.";
-            const routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+            const routing = await OllamaAPI.getOpenAIRoutingForModel(selectedModel);
 
-            const response = await fetch(`${routing.baseUrl}/generate`, {
+            // OpenAI-compatible single-turn completion (standard messages context).
+            const payload = OllamaAPI.buildOpenAIChatPayload({
+                model: routing.modelName || selectedModel,
+                system: systemPrompt,
+                userPrompt: analysisPrompt,
+                contextSize: 8192,
+                modelParams: {},
+                think: false,
+                stream: false,
+                historyMessages: []
+            });
+
+            const response = await fetch(`${routing.baseUrl}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...routing.headers },
-                body: JSON.stringify({
-                    model: routing.modelName || selectedModel,
-                    prompt: analysisPrompt,
-                    system: systemPrompt,
-                    stream: false
-                })
+                body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
@@ -172,7 +179,7 @@ Only return JSON. Do not include any other text outside the JSON object. If a cl
             }
 
             const analysis = await response.json();
-            const rawResponse = analysis?.response || analysis?.message?.content || '';
+            const rawResponse = analysis?.choices?.[0]?.message?.content || '';
             const insightData = this.parseInsightResponse(rawResponse);
 
             insightData.insight = this.cleanThinkingContent(insightData.insight || '').trim();

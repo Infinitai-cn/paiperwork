@@ -1317,17 +1317,20 @@ class ResearchAutomation {
                 num_ctx: parseInt(this.contextSize),
                 ...modelParams
             });
-            const response = await fetch(`${routing.baseUrl}/generate`, {
+            const payload = OllamaAPI.buildOpenAIChatPayload({
+                model: routing.modelName || selectedModel,
+                system: systemPrompt,
+                userPrompt: `Query: ${query}\n\nContent: ${content.substring(0, 8000)}`,
+                contextSize: parseInt(this.contextSize),
+                modelParams: requestOptions,
+                think: false,
+                stream: false,
+                historyMessages: []
+            });
+            const response = await fetch(`${routing.baseUrl}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...routing.headers },
-                body: JSON.stringify({
-                    model: routing.modelName || selectedModel,
-                    prompt: `Query: ${query}\n\nContent: ${content.substring(0, 8000)}`,
-                    system: systemPrompt,
-                    think: false,
-                    options: requestOptions,
-                    stream: false
-                }),
+                body: JSON.stringify(payload),
                 signal: signal
             });
 
@@ -1355,11 +1358,10 @@ class ResearchAutomation {
                 operationId,
                 queryLength: query.length,
                 contentLength: content.length,
-                summaryLength: data.response?.length || 0,
-                summaryFirstSentence: data.response?.substring(0, 50) + '...' || 'No summary'
+                summaryLength: data.choices?.[0]?.message?.content?.length || 0
             });*/
 
-            return this.removeAIThinkingTags(String(data?.response || data?.message?.content || '').trim());
+            return this.removeAIThinkingTags(String(data?.choices?.[0]?.message?.content || '').trim());
         } catch (error) {
             console.error(`Research: Error in summarization ${operationId}:`, error);
             const msg = String(error?.message || '').toLowerCase();
@@ -1472,7 +1474,9 @@ class ResearchAutomation {
     }
 
     async buildResearchRoutingAndOptions(selectedModel, baseOptions = {}) {
-        let routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+        // OpenAI-compatible endpoint (/v1/chat/completions) with standard
+        // message-based context management.
+        let routing = await OllamaAPI.getOpenAIRoutingForModel(selectedModel);
 
         // Keep cloud authentication flow consistent with Chat before direct cloud requests.
         if (routing && routing.source === 'cloud') {
@@ -1486,7 +1490,7 @@ class ResearchAutomation {
                     throw new Error('Cloud API key required');
                 }
                 // Refresh routing so auth headers include the saved key.
-                routing = await OllamaAPI.getApiRoutingForModel(selectedModel);
+                routing = await OllamaAPI.getOpenAIRoutingForModel(selectedModel);
             }
         }
 
@@ -2375,20 +2379,23 @@ class ResearchAutomation {
                 throw new DOMException('Research process aborted', 'AbortError');
             }
 
-            // Proceed with the Ollama API call
-            const response = await fetch(`${routing.baseUrl}/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...routing.headers },
-                body: JSON.stringify({
-                    model: routing.modelName || selectedModel,
-                    prompt: `User query: "${mainQuery}"
+            // Proceed with the Ollama API call (OpenAI-compatible endpoint)
+            const payload = OllamaAPI.buildOpenAIChatPayload({
+                model: routing.modelName || selectedModel,
+                system: systemPrompt,
+                userPrompt: `User query: "${mainQuery}"
 
                     Please generate 3-5 research queries in the SAME language as this query.`,
-                    system: systemPrompt,
-                    think: false,
-                    options: requestOptions,
-                    stream: false
-                }),
+                contextSize: parseInt(this.contextSize),
+                modelParams: requestOptions,
+                think: false,
+                stream: false,
+                historyMessages: []
+            });
+            const response = await fetch(`${routing.baseUrl}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...routing.headers },
+                body: JSON.stringify(payload),
                 signal: this.abortController?.signal
             });
 
@@ -2411,7 +2418,7 @@ class ResearchAutomation {
                 throw new DOMException('Research process aborted', 'AbortError');
             }
 
-            const cleanedResponse = this.removeAIThinkingTags(data?.response || data?.message?.content || '');
+            const cleanedResponse = this.removeAIThinkingTags(data?.choices?.[0]?.message?.content || '');
 
             // Enhanced logging of raw response
             /*console.log('Research: Raw AI response for search queries:', {
@@ -2980,17 +2987,20 @@ class ResearchAutomation {
                 num_ctx: parseInt(this.contextSize),
                 ...modelParams
             });
-            const response = await fetch(`${routing.baseUrl}/generate`, {
+            const payload = OllamaAPI.buildOpenAIChatPayload({
+                model: routing.modelName || selectedModel,
+                system: systemPrompt,
+                userPrompt: `Research Question: ${query}\n\nAvailable Sources:\n${context}\n\nPlease generate a partial research report covering these specific sources.`,
+                contextSize: parseInt(this.contextSize),
+                modelParams: requestOptions,
+                think: false,
+                stream: false,
+                historyMessages: []
+            });
+            const response = await fetch(`${routing.baseUrl}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...routing.headers },
-                body: JSON.stringify({
-                    model: routing.modelName || selectedModel,
-                    prompt: `Research Question: ${query}\n\nAvailable Sources:\n${context}\n\nPlease generate a partial research report covering these specific sources.`,
-                    system: systemPrompt,
-                    think: false,
-                    options: requestOptions,
-                    stream: false
-                }),
+                body: JSON.stringify(payload),
                 signal: signal
             });
 
@@ -3010,7 +3020,7 @@ class ResearchAutomation {
             // Check cancellation after parse
             if (this.isCancelled) throw new DOMException('Research process aborted', 'AbortError');
 
-            return this.removeAIThinkingTags(data?.response || data?.message?.content || '');
+            return this.removeAIThinkingTags(data?.choices?.[0]?.message?.content || '');
         } catch (error) {
             // Handle cancellation errors specifically
             if (error.name === 'AbortError' || this.isCancelled) {
@@ -3079,17 +3089,20 @@ class ResearchAutomation {
                 num_ctx: parseInt(this.contextSize),
                 ...modelParams
             });
-            const response = await fetch(`${routing.baseUrl}/generate`, {
+            const payload = OllamaAPI.buildOpenAIChatPayload({
+                model: routing.modelName || selectedModel,
+                system: systemPrompt,
+                userPrompt: `Research Question: ${query}\n\nReport Sections to Combine:\n${context}\n\nPlease create a cohesive final research report.`,
+                contextSize: parseInt(this.contextSize),
+                modelParams: requestOptions,
+                think: false,
+                stream: false,
+                historyMessages: []
+            });
+            const response = await fetch(`${routing.baseUrl}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...routing.headers },
-                body: JSON.stringify({
-                    model: routing.modelName || selectedModel,
-                    prompt: `Research Question: ${query}\n\nReport Sections to Combine:\n${context}\n\nPlease create a cohesive final research report.`,
-                    system: systemPrompt,
-                    think: false,
-                    options: requestOptions,
-                    stream: false
-                }),
+                body: JSON.stringify(payload),
                 signal: signal
             });
 
@@ -3105,7 +3118,7 @@ class ResearchAutomation {
             }
 
             const data = await response.json();
-            return this.removeAIThinkingTags(data?.response || data?.message?.content || '');
+            return this.removeAIThinkingTags(data?.choices?.[0]?.message?.content || '');
         } catch (error) {
             // Handle cancellation errors specifically
             if (error.name === 'AbortError' || this.isCancelled) {
