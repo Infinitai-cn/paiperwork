@@ -1,9 +1,9 @@
 {
-    "version": "1.3.3",
-    "releaseDate": "2026-08-15",
+    "version": "1.3.4",
+    "releaseDate": "2026-08-18",
     "notes": [
         "<p><strong>What's new:</strong></p>",
-        "<p>- Qwen3.8 support.</p>",
+        "<p>- Endpoints migrated to OpenAi Compatible format</p>",
         "<p>- Bug fixes</p>"
     ],
     "downloadUrl": "https://github.com/Infinitai-cn/paiperwork/releases/latest",
