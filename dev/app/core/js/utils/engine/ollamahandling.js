@@ -34,6 +34,10 @@ class OllamaAPI {
     static currentContextSize = 8192; // Default value
     static contextLimitReached = false;
     static previousContext = null;
+    // When true (set by resetContext), OpenAI message history is intentionally
+    // cleared so the next request starts fresh. Cleared again once a "continue
+    // conversation" rebuilds history.
+    static _openAIContextReset = false;
     static scrollDebounceTimeout = null;
     static {
         window.autoScrollEnabled = window.autoScrollEnabled === undefined ? true : window.autoScrollEnabled;
@@ -726,6 +730,370 @@ class OllamaAPI {
         return { source, baseUrl, headers, modelName: normalizedModelName };
     }
 
+    // ── OpenAI-compatible endpoint (POST /v1/chat/completions) ──────────────
+    // Ollama fully supports the OpenAI Chat Completions API at:
+    //   local: http://localhost:11434/v1
+    //   cloud: /api/cloud/v1  (proxied by the Go server to https://ollama.com/v1)
+    // Context is managed the standard OpenAI way (a `messages` array) instead
+    // of the proprietary numeric token `context` array, which breaks on the
+    // llama.cpp / MLX runners that newer Ollama versions use.
+    static async getOpenAIRoutingForModel(modelName) {
+        const source = this.getModelSource(modelName) || this.getSelectedModelSource() || 'local';
+        const isCloud = source === 'cloud';
+        const baseUrl = isCloud ? '/api/cloud/v1' : 'http://localhost:11434/v1';
+        const headers = { 'Content-Type': 'application/json' };
+        let normalizedModelName = modelName;
+
+        if (isCloud) {
+            normalizedModelName = this.getCloudApiModelName(modelName);
+            const cloudApiKey = await this.getStoredCloudApiKey();
+            if (cloudApiKey) {
+                headers['Authorization'] = `Bearer ${cloudApiKey}`;
+            }
+        }
+
+        return { source, baseUrl, headers, modelName: normalizedModelName };
+    }
+
+    // Returns true when the current chat view holds a real multi-turn conversation
+    // (used by callers that previously probed the proprietary `previousContext`).
+    static hasActiveConversationContext() {
+        try {
+            const aiReplies = document.querySelector('.ai-replies');
+            if (!aiReplies) return false;
+            const userMessages = aiReplies.querySelectorAll('.user-message');
+            const assistantMessages = aiReplies.querySelectorAll('.assistant-message:not(.welcome-message)');
+            return userMessages.length > 0 || assistantMessages.length > 0;
+        } catch (_err) {
+            return false;
+        }
+    }
+
+    // Builds the prior conversation as standard OpenAI messages ({role, content}).
+    // Source of truth, in priority order:
+    //   1. options.historyMessages (caller-provided, e.g. Campaign orchestrator)
+    //   2. active WhatsApp / WeChat connector override turns
+    //   3. the rendered .ai-replies DOM (main chat)
+    static buildOpenAIConversationMessages(currentUserPrompt = '', options = {}) {
+        if (Array.isArray(options.historyMessages)) {
+            if (options.historyMessages.length === 0) {
+                return [];
+            }
+            return options.historyMessages
+                .map(m => {
+                    const role = String(m && m.role ? m.role : '').trim().toLowerCase();
+                    const content = this.normalizeConversationText(m && (m.content ?? m.text) || '', Number.isFinite(options.maxCharsPerTurn) ? options.maxCharsPerTurn : 1200);
+                    if ((role === 'user' || role === 'assistant') && content) {
+                        return { role, content };
+                    }
+                    return null;
+                })
+                .filter(Boolean);
+        }
+
+        // After an explicit context reset (context/system prompt change), the next
+        // request intentionally starts fresh until history is rebuilt.
+        if (this._openAIContextReset) {
+            return [];
+        }
+
+        const whatsappOverride = (typeof window !== 'undefined' && window.__paiperworkWhatsappContextOverride && window.__paiperworkWhatsappContextOverride.active)
+            ? window.__paiperworkWhatsappContextOverride
+            : null;
+        const wechatOverride = (typeof window !== 'undefined' && window.__paiperworkwechatContextOverride && window.__paiperworkwechatContextOverride.active)
+            ? window.__paiperworkwechatContextOverride
+            : null;
+
+        const maxTurns = Number.isFinite(options.maxTurns) ? options.maxTurns : 8;
+        const maxCharsPerTurn = Number.isFinite(options.maxCharsPerTurn) ? options.maxCharsPerTurn : 1200;
+        const maxCharsTotal = Number.isFinite(options.maxCharsTotal) ? options.maxCharsTotal : 12000;
+
+        const turns = [];
+        const override = whatsappOverride || wechatOverride;
+        if (override && Array.isArray(override.turns) && override.turns.length) {
+            for (const turn of override.turns) {
+                const role = String(turn && turn.role ? turn.role : '').trim().toLowerCase();
+                const content = this.normalizeConversationText(turn && (turn.text || turn.content || ''), maxCharsPerTurn);
+                if ((role === 'user' || role === 'assistant') && content) {
+                    turns.push({ role, content });
+                }
+            }
+        } else {
+            const aiReplies = document.querySelector('.ai-replies');
+            if (!aiReplies) return [];
+
+            const messageNodes = Array.from(aiReplies.querySelectorAll('.user-message, .assistant-message:not(.welcome-message)'));
+            if (!messageNodes.length) return [];
+
+            for (const node of messageNodes) {
+                const role = node.classList.contains('user-message') ? 'user' : 'assistant';
+                const content = this.getMessageTextForHistory(node, maxCharsPerTurn);
+                if (content) {
+                    turns.push({ role, content });
+                }
+            }
+        }
+
+        if (!turns.length) return [];
+
+        // The active prompt may already be represented in the history; remove the
+        // trailing duplicate of the current user turn so it is not sent twice.
+        const normalizedCurrentPrompt = this.normalizeConversationText(currentUserPrompt, maxCharsPerTurn);
+        if (normalizedCurrentPrompt) {
+            while (turns.length > 0) {
+                const lastTurn = turns[turns.length - 1];
+                if (lastTurn.role !== 'user') break;
+                if (lastTurn.content !== normalizedCurrentPrompt) break;
+                turns.pop();
+            }
+        }
+
+        if (!turns.length) return [];
+
+        const cappedTurns = turns.slice(-maxTurns * 2);
+        const selectedTurns = [];
+        let usedChars = 0;
+
+        for (let i = cappedTurns.length - 1; i >= 0; i--) {
+            const turn = cappedTurns[i];
+            const cost = turn.content.length;
+            if (selectedTurns.length > 0 && (usedChars + cost) > maxCharsTotal) {
+                break;
+            }
+            selectedTurns.unshift(turn);
+            usedChars += cost;
+        }
+
+        return selectedTurns;
+    }
+
+    // Converts base64 image data into OpenAI content parts for a user message.
+    static _buildOpenAIUserContent(prompt, images) {
+        const cleanedImages = (Array.isArray(images) && images.length > 0)
+            ? images.map(img => {
+                let data = String(img || '');
+                if (data.includes('base64,')) data = data.split('base64,')[1];
+                return data;
+            }).filter(Boolean)
+            : [];
+
+        if (cleanedImages.length === 0) {
+            return prompt || '';
+        }
+
+        const parts = [];
+        if (prompt) {
+            parts.push({ type: 'text', text: prompt });
+        }
+        for (const img of cleanedImages) {
+            parts.push({ type: 'image_url', image_url: `data:image/jpeg;base64,${img}` });
+        }
+        return parts;
+    }
+
+    // Builds the full OpenAI `messages` array: system + prior turns + current user turn.
+    static buildOpenAIMessages(system, userPrompt, options = {}) {
+        const messages = [];
+        if (system && String(system).trim()) {
+            messages.push({ role: 'system', content: String(system) });
+        }
+        const prior = this.buildOpenAIConversationMessages(userPrompt, options);
+        for (const m of prior) {
+            messages.push(m);
+        }
+        messages.push({ role: 'user', content: this._buildOpenAIUserContent(userPrompt, options.images) });
+        return messages;
+    }
+
+    // Builds the POST body for /v1/chat/completions with normal OpenAI context.
+    // `think` semantics: true  -> leave at model default (no field sent);
+    //                    false -> reasoning_effort "none" (explicitly disable).
+    static buildOpenAIChatPayload({ model, system, userPrompt, contextSize, modelParams, images, think = null, stream = true, historyMessages = null, maxTurns, maxCharsPerTurn, maxCharsTotal }) {
+        const messages = this.buildOpenAIMessages(system, userPrompt, {
+            images,
+            historyMessages,
+            maxTurns,
+            maxCharsPerTurn,
+            maxCharsTotal
+        });
+
+        const payload = {
+            model,
+            messages,
+            stream: stream !== false,
+            stream_options: { include_usage: true }
+        };
+
+        // Ollama's OpenAI-compatible layer maps these standard OpenAI fields, so
+        // translate the app's model parameters into top-level fields. Unknown
+        // Ollama options are kept in `options` for backward compatibility with
+        // Ollama versions that honor them, but are ignored by current ones.
+        const optionMappings = {
+            temperature: 'temperature',
+            top_p: 'top_p',
+            stop: 'stop',
+            seed: 'seed',
+            frequency_penalty: 'frequency_penalty',
+            presence_penalty: 'presence_penalty',
+            num_predict: 'max_tokens'
+        };
+        if (modelParams && typeof modelParams === 'object') {
+            for (const [ollamaKey, openAIKey] of Object.entries(optionMappings)) {
+                if (modelParams[ollamaKey] !== undefined && modelParams[ollamaKey] !== null) {
+                    payload[openAIKey] = modelParams[ollamaKey];
+                }
+            }
+        }
+
+        const options = {};
+        const numCtx = parseInt(contextSize);
+        if (Number.isFinite(numCtx) && numCtx > 0) {
+            options.num_ctx = numCtx;
+        }
+        if (modelParams && typeof modelParams === 'object') {
+            Object.assign(options, modelParams);
+        }
+        if (Object.keys(options).length > 0) {
+            payload.options = options;
+        }
+
+        if (think === false) {
+            // Explicitly disable thinking for reasoning models.
+            payload.reasoning_effort = 'none';
+        }
+        // think === true leaves reasoning at the model's default.
+
+        return payload;
+    }
+
+    // Parses one SSE line from /v1/chat/completions into a normalized object.
+    // Returns null for non-JSON fragments; `{ done: true }` for [DONE].
+    static parseOpenAIChatStreamLine(line) {
+        const trimmed = String(line || '').trim();
+        if (!trimmed) return null;
+
+        const payload = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
+        if (!payload || payload === '[DONE]') {
+            return { done: true };
+        }
+
+        try {
+            const data = JSON.parse(payload);
+            const choice = Array.isArray(data.choices) ? data.choices[0] : null;
+            const delta = (choice && choice.delta) || {};
+            let content = '';
+            if (typeof delta.content === 'string') content = delta.content;
+            let reasoning = '';
+            if (typeof delta.reasoning === 'string') reasoning = delta.reasoning;
+            else if (typeof delta.reasoning_content === 'string') reasoning = delta.reasoning_content;
+
+            const usage = data.usage || null;
+            const finishReason = choice && choice.finish_reason ? String(choice.finish_reason) : null;
+
+            return {
+                content,
+                reasoning,
+                finishReason,
+                usage,
+                done: payload === '[DONE]' || (Array.isArray(data.choices) && data.choices.length === 0)
+            };
+        } catch (_err) {
+            return null;
+        }
+    }
+
+    // Updates the context-remaining UI from an OpenAI usage object when present,
+    // otherwise falls back to a character-based estimate.
+    static updateContextFromUsage(usage, promptText = '', responseText = '') {
+        if (usage && typeof usage === 'object') {
+            const promptTokens = Number.isFinite(Number(usage.prompt_tokens)) ? Number(usage.prompt_tokens) : 0;
+            const completionTokens = Number.isFinite(Number(usage.completion_tokens)) ? Number(usage.completion_tokens) : 0;
+            const total = promptTokens + completionTokens;
+            if (total > 0) {
+                this.totalTokensUsed = total;
+                this.updateContextRemaining(total);
+                return;
+            }
+        }
+        if (promptText || responseText) {
+            this.trackCloudTokenUsage(promptText, responseText);
+        }
+    }
+
+    // Reads an OpenAI /v1/chat/completions stream and re-emits it as the legacy
+    // Ollama NDJSON shape (`{"response":...}`, `{"thinking":...}`, `{"done":true}`)
+    // so that the many existing manual stream-draining callers keep working with
+    // zero changes. Also feeds usage back into the context-remaining UI.
+    // `{done:true}` is emitted exactly once, at stream end (matching the original
+    // Ollama /api/generate stream contract), after all content/usage chunks.
+    static openAIStreamToLegacyNDJSON(response) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        const encoder = new TextEncoder();
+        let buffer = '';
+        let assistantText = '';
+        let doneReason = 'stop';
+
+        const emitLine = (controller, obj) => {
+            try {
+                controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
+            } catch (_err) {
+                // Stream may already be closed.
+            }
+        };
+
+        const processLine = (controller, line) => {
+            const parsed = OllamaAPI.parseOpenAIChatStreamLine(line);
+            if (!parsed) return;
+            if (parsed.reasoning) {
+                emitLine(controller, { thinking: parsed.reasoning });
+            }
+            if (parsed.content) {
+                assistantText += parsed.content;
+                emitLine(controller, {
+                    response: parsed.content,
+                    message: { role: 'assistant', content: parsed.content }
+                });
+            }
+            if (parsed.usage) {
+                OllamaAPI.updateContextFromUsage(parsed.usage, '', assistantText);
+            }
+            if (parsed.finishReason) {
+                doneReason = parsed.finishReason;
+            }
+        };
+
+        return new ReadableStream({
+            async start(controller) {
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+                        for (const line of lines) {
+                            if (line.trim()) processLine(controller, line);
+                        }
+                    }
+                    const tail = buffer.trim();
+                    if (tail) processLine(controller, tail);
+                    emitLine(controller, { done: true, done_reason: doneReason });
+                    controller.close();
+                } catch (err) {
+                    try {
+                        if (assistantText) {
+                            emitLine(controller, { done: true, done_reason: doneReason, interrupted: true });
+                        }
+                        controller.close();
+                    } catch (_e) {
+                        try { controller.error(err); } catch (_e2) { /* ignore */ }
+                    }
+                }
+            }
+        });
+    }
+
     static async loadOllamaModels() {
         const modelSelector = document.getElementById('model-selector');
         const onlineMode = this.isOnlineDeploymentMode();
@@ -1024,14 +1392,22 @@ class OllamaAPI {
                 return null;
             }
 
-            // For cloud-routed models, skip /generate autoload entirely to avoid startup-side auth noise.
+            // For cloud-routed models, skip autoload entirely to avoid startup-side auth noise.
             const shouldAutoload = doAutoload && hasCloudApiKey && routing.source !== 'cloud';
             if (shouldAutoload) {
                 try {
-                    const loadResp = await fetch(`${routing.baseUrl}/generate`, {
+                    // Warm the model into memory through the OpenAI-compatible endpoint
+                    // (single-turn, minimal output, no proprietary context involved).
+                    const openAIRouting = await this.getOpenAIRoutingForModel(modelName);
+                    const loadResp = await fetch(`${openAIRouting.baseUrl}/chat/completions`, {
                         method: 'POST',
-                        headers: routing.headers,
-                        body: JSON.stringify({ model: routing.modelName || modelName, keep_alive: '-1s', stream: false, prompt: '' })
+                        headers: openAIRouting.headers,
+                        body: JSON.stringify({
+                            model: openAIRouting.modelName || modelName,
+                            messages: [{ role: 'user', content: '' }],
+                            stream: false,
+                            max_tokens: 1
+                        })
                     });
                    //console.log('OllamaAPI: Autoload response status:', loadResp.status, 'ok?', loadResp.ok);
                     if (loadResp.status === 429) {
@@ -1242,35 +1618,11 @@ class OllamaAPI {
             !!(window.isReasoningEffortModel && window.isReasoningEffortModel(selectedModel));
 
         let enhancedPrompt = userPrompt;
-        const localContextPayload = window.currentCheckpoint?.lastContext || OllamaAPI.previousContext;
-        const jsonPost = {
-            model: selectedModel,
-            keep_alive: "-1s",
-            stream: true,
-            system: systemPrompt,
-            prompt: enhancedPrompt,
-            raw: false,
-            options: {
-                num_ctx: parseInt(contextSize),
-                ...modelParams  // Spread in any parameters that exist
-            },
-            request_id: requestId || `ollama_${Date.now()}`
-        };
-
-        // Add thinking parameter for Ollama 0.9.0+ native thinking support
-        if (supportsNativeThinking && thinkingEnabled) {
-            jsonPost.think = true;
-           //console.log('🧠 OllamaAPI: ✅ SET think=true in request payload');
-        } else if (supportsNativeThinking && !thinkingEnabled) {
-            jsonPost.think = false;
-           //console.log('🧠 OllamaAPI: ✅ SET think=false in request payload');
-        } else {
-           //console.log('🧠 OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
-        }
 
         // ── Image handling ──────────────────────────────────────────────
         // Priority: 1) explicitly passed options.images  2) window.currentMessageImages
         //           3) OllamaAPI.lastUsedImages (for multi-turn visual conversations)
+        let requestImages = null;
         const explicitImages = (options && Array.isArray(options.images) && options.images.length > 0) ? options.images : null;
 
         if (explicitImages) {
@@ -1280,7 +1632,7 @@ class OllamaAPI {
                 return data;
             }).filter(Boolean);
             if (cleaned.length) {
-                jsonPost.images = cleaned;
+                requestImages = cleaned;
                 OllamaAPI.lastUsedImages = [...cleaned];
             }
         } else if (isVisualModel) {
@@ -1290,48 +1642,49 @@ class OllamaAPI {
                     if (imgData.includes('base64,')) imgData = imgData.split('base64,')[1];
                     return imgData;
                 });
-                jsonPost.images = savedImages;
+                requestImages = savedImages;
                 OllamaAPI.lastUsedImages = [...savedImages];
             } else if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
-                jsonPost.images = [...OllamaAPI.lastUsedImages];
+                requestImages = [...OllamaAPI.lastUsedImages];
             }
         }
         // ── End image handling ──────────────────────────────────────────
 
         try {
-            const routing = await this.getApiRoutingForModel(selectedModel);
-            jsonPost.model = routing.modelName || jsonPost.model;
+            const routing = await this.getOpenAIRoutingForModel(selectedModel);
             const isCloudRouting = routing.source === 'cloud';
-            const cloudHistoryBlock = isCloudRouting
-                ? this.buildCloudConversationHistoryBlock(userPrompt)
-                : '';
+
             const whatsappRequestScope = (typeof window !== 'undefined' && window.__paiperworkWhatsappActiveRequest)
                 ? window.__paiperworkWhatsappActiveRequest
                 : null;
             const wechatRequestScope = (typeof window !== 'undefined' && window.__paiperworkwechatActiveRequest)
                 ? window.__paiperworkwechatActiveRequest
                 : null;
-            const whatsappHistoryBlock = whatsappRequestScope
-                ? this.buildCloudConversationHistoryBlock(userPrompt, { maxTurns: 30 })
-                : '';
-            const wechatHistoryBlock = wechatRequestScope
-                ? this.buildWechatConversationHistoryBlock(userPrompt, { maxTurns: 30 })
-                : '';
-
-            // Keep cloud/local context paths separated: cloud requests must not reuse local context arrays.
-            if (!isCloudRouting && !whatsappRequestScope && !wechatRequestScope && localContextPayload) {
-                jsonPost.context = localContextPayload;
-            } else {
-                delete jsonPost.context;
+            const historyOptions = { images: requestImages };
+            if (options && Array.isArray(options.historyMessages)) {
+                historyOptions.historyMessages = options.historyMessages;
+            }
+            if (whatsappRequestScope || wechatRequestScope) {
+                historyOptions.maxTurns = 30;
             }
 
-            if (isCloudRouting && cloudHistoryBlock) {
-                jsonPost.prompt = `${cloudHistoryBlock}\n\nCurrent user message:\n${enhancedPrompt}`;
-            } else if (!isCloudRouting && whatsappHistoryBlock) {
-                jsonPost.prompt = `${whatsappHistoryBlock}\n\nCurrent user message:\n${enhancedPrompt}`;
-            } else if (!isCloudRouting && wechatHistoryBlock) {
-                jsonPost.prompt = `${wechatHistoryBlock}\n\nCurrent user message:\n${enhancedPrompt}`;
-            }
+            // Normal OpenAI context management: `messages` array carries the full
+            // conversation (system + prior turns + current user turn). No proprietary
+            // numeric `context` round-trip is used anymore.
+            const jsonPost = this.buildOpenAIChatPayload({
+                model: routing.modelName || selectedModel,
+                system: systemPrompt,
+                userPrompt: enhancedPrompt,
+                contextSize,
+                modelParams,
+                images: requestImages,
+                think: supportsNativeThinking ? thinkingEnabled : null,
+                stream: true,
+                historyMessages: historyOptions.historyMessages,
+                maxTurns: historyOptions.maxTurns,
+                maxCharsPerTurn: historyOptions.maxCharsPerTurn,
+                maxCharsTotal: historyOptions.maxCharsTotal
+            });
 
             if (streamProcessor) {
                 streamProcessor = this.createStreamProcessorForRouting(isCloudRouting, streamProcessor);
@@ -1342,7 +1695,7 @@ class OllamaAPI {
                 streamProcessor._cachedThinkingEnabled = thinkingEnabled;
             }
 
-            const cloudPromptText = `${jsonPost.system || ''}\n${jsonPost.prompt || ''}`;
+            const cloudPromptText = `${systemPrompt || ''}\n${enhancedPrompt || ''}`;
             let cloudResponseText = '';
             const requestPayload = jsonPost;
 
@@ -1366,9 +1719,9 @@ class OllamaAPI {
                 fetchOptions.signal = abortSignal;
             }
 
-           //console.log('🧠 OllamaAPI: Sending request with thinking support:', !!jsonPost.think);
+           //console.log('🧠 OllamaAPI: Sending request with thinking support:', supportsNativeThinking ? thinkingEnabled : 'n/a');
 
-            const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
+            const response = await fetch(`${routing.baseUrl}/chat/completions`, fetchOptions);
 
             if (response.status === 429) {
                 const errorText = await response.text();
@@ -1386,12 +1739,24 @@ class OllamaAPI {
             }
 
             // After successful API response, schedule image data reset (visual model flow).
-            if (jsonPost.images && jsonPost.images.length > 0) {
+            if (requestImages && requestImages.length > 0) {
                 setTimeout(() => {
                     if (window.chat && typeof window.chat.resetImageData === 'function') {
                         window.chat.resetImageData();
                     }
                 }, 100);
+            }
+
+            // If we have a stream processor, we need to handle the response here.
+            // Without one, re-emit the OpenAI SSE stream as the legacy Ollama
+            // NDJSON shape ({response}/{thinking}/{done}) so the many existing
+            // manual stream-draining callers keep working with zero changes.
+            if (!streamProcessor) {
+                return new Response(this.openAIStreamToLegacyNDJSON(response), {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: { 'Content-Type': 'application/json' }
+                });
             }
 
             // If we have a stream processor, we need to handle the response here
@@ -1419,12 +1784,63 @@ class OllamaAPI {
                 let parseErrorCount = 0;
                 let rawChunkCount = 0;
                 let lastParsedEvent = null;
-                let finalContext = null;
                 let doneMeta = null;
                 let sawResponseAfterDone = false;
+                let streamUsage = null;
                 const streamStartedAt = Date.now();
                 let firstChunkAt = null;
                 let lastChunkAt = null;
+
+                // Normalizes one OpenAI SSE chunk into StreamProcessor calls.
+                const handleParsedChunk = (parsed) => {
+                    if (!parsed) return;
+                    parsedLineCount += 1;
+                    lastParsedEvent = {
+                        done: !!parsed.done || !!parsed.finishReason,
+                        hasResponse: !!parsed.content,
+                        hasThinking: !!parsed.reasoning,
+                        responseLength: parsed.content ? parsed.content.length : 0
+                    };
+
+                    const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
+                        ? window.ThinkingState.getUserThinkingEnabled()
+                        : (localStorage.getItem('thinkingEnabled') === 'true');
+
+                    // Native thinking/reasoning (OpenAI `delta.reasoning`).
+                    if (parsed.reasoning && supportsNativeThinking && currentThinkingEnabled) {
+                        if (streamProcessor.processThinking) {
+                            streamProcessor.processThinking(parsed.reasoning);
+                        } else {
+                            streamProcessor.processChunk(parsed.reasoning);
+                        }
+                    }
+
+                    // Regular content (OpenAI `delta.content`).
+                    if (parsed.content) {
+                        if (sawDoneEvent) {
+                            sawResponseAfterDone = true;
+                        }
+                        streamProcessor.processChunk(parsed.content);
+                        if (isCloudRouting) {
+                            cloudResponseText += parsed.content;
+                        }
+                    }
+
+                    if (parsed.usage) {
+                        streamUsage = parsed.usage;
+                    }
+
+                    if (parsed.finishReason || parsed.done) {
+                        sawDoneEvent = true;
+                        doneMeta = {
+                            done_reason: parsed.finishReason || 'stop',
+                            eval_count: streamUsage ? (streamUsage.completion_tokens ?? null) : null,
+                            prompt_eval_count: streamUsage ? (streamUsage.prompt_tokens ?? null) : null,
+                            hasContext: false,
+                            responseCharsOnDone: String(parsed.content || '').length
+                        };
+                    }
+                };
 
                 try {
                     while (true) {
@@ -1439,138 +1855,31 @@ class OllamaAPI {
                         streamBuffer = lines.pop() || '';
 
                         for (const line of lines) {
-                            if (line.trim()) {
-                                try {
-                                    const trimmedLine = String(line || '').trim();
-                                    if (!trimmedLine || trimmedLine === '[DONE]' || trimmedLine === 'data: [DONE]') {
-                                        continue;
-                                    }
-
-                                    const normalizedLine = trimmedLine.startsWith('data:')
-                                        ? trimmedLine.slice(5).trim()
-                                        : trimmedLine;
-                                    if (!normalizedLine || normalizedLine === '[DONE]') {
-                                        continue;
-                                    }
-
-                                    const data = JSON.parse(normalizedLine);
-                                    parsedLineCount += 1;
-                                    lastParsedEvent = {
-                                        done: !!data.done,
-                                        hasResponse: !!(data.response || data.message?.content),
-                                        hasThinking: !!data.thinking,
-                                        responseLength: String(data.response || data.message?.content || '').length
-                                    };
-
-                                    //  CRITICAL FIX: Always get FRESH thinking state for each chunk
-                                    const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
-                                        ? window.ThinkingState.getUserThinkingEnabled()
-                                        : (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
-                                            ? window.ThinkingState.getUserThinkingEnabled()
-                                            : (localStorage.getItem('thinkingEnabled') === 'true');
-                                    const hasThinkingData = 'thinking' in data;
-                                    const responseChunk = data.response || data.message?.content;
-                                    const hasResponseData = typeof responseChunk === 'string' && responseChunk.length > 0;
-
-                                    //  ENHANCED LOGGING: Add model info to debug (throttled)
-                                    const shouldLog = (hasThinkingData || hasResponseData) &&
-                                        (Date.now() - this._lastThinkingCheck > 5000);
-                                    if (shouldLog) {
-                                        try {
-                                         /* console.log('🧠 OllamaAPI: thinking presence check', {
-                                                thinkingEnabled: currentThinkingEnabled,
-                                                hasThinkingField: hasThinkingData,
-                                                thinkingLength: hasThinkingData && data.thinking ? (typeof data.thinking === 'string' ? data.thinking.length : (Array.isArray(data.thinking) ? data.thinking.length : 0)) : 0,
-                                                hasResponseField: hasResponseData,
-                                                responseLength: hasResponseData && data.response ? (typeof data.response === 'string' ? data.response.length : (Array.isArray(data.response) ? data.response.length : 0)) : 0,
-                                                model: selectedModel,
-                                                requestHadThinkFlag: !!jsonPost && !!jsonPost.think,
-                                                isDone: !!data.done,
-                                                timestamp: new Date().toISOString()
-                                            }); */
-                                        } catch (logErr) {
-                                            console.warn('🧠 OllamaAPI: Failed to log thinking presence', logErr);
-                                        }
-                                        this._lastThinkingCheck = Date.now();
-                                    }
-
-                                    //  CRITICAL FIX: Check if we need to start native thinking mode
-                                    // Even if we don't have thinking data yet, we might need to prepare the container
-                                    if (currentThinkingEnabled && supportsNativeThinking && !streamProcessor.thinkingMode.isNative) {
-                                       //console.log('🧠 OllamaAPI: Initializing native thinking mode for upcoming data');
-                                        streamProcessor.startNativeThinkingMode();
-                                    }
-
-                                    // 🧠 Enhanced: Handle native thinking data with detailed logging
-                                    if (data.thinking && supportsNativeThinking && currentThinkingEnabled) {
-                                       //console.log('🧠 OllamaAPI: Processing thinking data chunk, length:', data.thinking.length);
-
-                                        //  ADD: Call processThinking method if it exists
-                                        if (streamProcessor.processThinking) {
-                                            streamProcessor.processThinking(data.thinking);
-                                        } else {
-                                            console.warn('🧠 OllamaAPI: processThinking method not found on streamProcessor');
-                                            streamProcessor.processChunk(data.thinking);
-                                        }
-                                    } else if (data.thinking && supportsNativeThinking && !currentThinkingEnabled) {
-                                       //console.log('🧠 OllamaAPI: Skipping thinking data - thinking disabled');
-                                    } else if (data.thinking && !supportsNativeThinking) {
-                                       //console.log('🧠 OllamaAPI: Skipping thinking data - model not supported');
-                                    }
-
-                                    // Handle regular response data
-                                    if (responseChunk) {
-                                        if (sawDoneEvent) {
-                                            sawResponseAfterDone = true;
-                                        }
-                                        streamProcessor.processChunk(responseChunk);
-                                        if (isCloudRouting) {
-                                            cloudResponseText += responseChunk;
-                                        }
-                                    }
-
-                                    // Mark completion and keep reading until stream closes.
-                                    if (data.done) {
-                                        sawDoneEvent = true;
-                                        doneMeta = {
-                                            done_reason: data.done_reason || data.stop_reason || data.finish_reason || null,
-                                            eval_count: data.eval_count ?? null,
-                                            eval_duration: data.eval_duration ?? null,
-                                            prompt_eval_count: data.prompt_eval_count ?? null,
-                                            prompt_eval_duration: data.prompt_eval_duration ?? null,
-                                            total_duration: data.total_duration ?? null,
-                                            load_duration: data.load_duration ?? null,
-                                            hasContext: Array.isArray(data.context),
-                                            responseCharsOnDone: String(responseChunk || '').length
-                                        };
-                                        if (Array.isArray(data.context)) {
-                                            finalContext = data.context;
-                                        }
-                                    }
-                                } catch (error) {
-                                    parseErrorCount += 1;
-                                    console.error('🧠 OllamaAPI: Error processing response chunk:', error);
-                                    console.error('🧠 OllamaAPI: Problematic line:', line);
-                                    if (isCloudRouting) {
-                                        this.logCloudStreamDiagnostics('sendToOllama parse error', {
-                                            model: jsonPost.model,
-                                            lineLength: line.length,
-                                            linePreview: line.substring(0, 220),
-                                            parsedLineCount,
-                                            parseErrorCount,
-                                            rawChunkCount
-                                        });
-                                    }
-                                    this.logStreamSummary('sendToOllama parse error', {
-                                        requestId: jsonPost.request_id,
+                            if (!line.trim()) continue;
+                            try {
+                                handleParsedChunk(this.parseOpenAIChatStreamLine(line));
+                            } catch (error) {
+                                parseErrorCount += 1;
+                                console.error('🧠 OllamaAPI: Error processing response chunk:', error);
+                                if (isCloudRouting) {
+                                    this.logCloudStreamDiagnostics('sendToOllama parse error', {
                                         model: jsonPost.model,
-                                        source: isCloudRouting ? 'cloud' : 'local',
-                                        linePreview: String(line || '').substring(0, 180),
+                                        lineLength: line.length,
+                                        linePreview: line.substring(0, 220),
                                         parsedLineCount,
                                         parseErrorCount,
                                         rawChunkCount
                                     });
                                 }
+                                this.logStreamSummary('sendToOllama parse error', {
+                                    requestId: requestId || jsonPost.request_id,
+                                    model: jsonPost.model,
+                                    source: isCloudRouting ? 'cloud' : 'local',
+                                    linePreview: String(line || '').substring(0, 180),
+                                    parsedLineCount,
+                                    parseErrorCount,
+                                    rawChunkCount
+                                });
                             }
                         }
 
@@ -1590,58 +1899,7 @@ class OllamaAPI {
                             const tail = streamBuffer.trim();
                             if (tail) {
                                 try {
-                                    const normalizedTail = tail.startsWith('data:') ? tail.slice(5).trim() : tail;
-                                    if (!normalizedTail || normalizedTail === '[DONE]') {
-                                        break;
-                                    }
-
-                                    const data = JSON.parse(normalizedTail);
-                                    const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
-                                        ? window.ThinkingState.getUserThinkingEnabled()
-                                        : (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
-                                            ? window.ThinkingState.getUserThinkingEnabled()
-                                            : (localStorage.getItem('thinkingEnabled') === 'true');
-                                    const responseChunk = data.response || data.message?.content;
-
-                                    if (currentThinkingEnabled && supportsNativeThinking && !streamProcessor.thinkingMode.isNative) {
-                                        streamProcessor.startNativeThinkingMode();
-                                    }
-
-                                    if (data.thinking && supportsNativeThinking && currentThinkingEnabled) {
-                                        if (streamProcessor.processThinking) {
-                                            streamProcessor.processThinking(data.thinking);
-                                        } else {
-                                            streamProcessor.processChunk(data.thinking);
-                                        }
-                                    }
-
-                                    if (responseChunk) {
-                                        if (sawDoneEvent) {
-                                            sawResponseAfterDone = true;
-                                        }
-                                        streamProcessor.processChunk(responseChunk);
-                                        if (isCloudRouting) {
-                                            cloudResponseText += responseChunk;
-                                        }
-                                    }
-
-                                    if (data.done) {
-                                        sawDoneEvent = true;
-                                        doneMeta = {
-                                            done_reason: data.done_reason || data.stop_reason || data.finish_reason || null,
-                                            eval_count: data.eval_count ?? null,
-                                            eval_duration: data.eval_duration ?? null,
-                                            prompt_eval_count: data.prompt_eval_count ?? null,
-                                            prompt_eval_duration: data.prompt_eval_duration ?? null,
-                                            total_duration: data.total_duration ?? null,
-                                            load_duration: data.load_duration ?? null,
-                                            hasContext: Array.isArray(data.context),
-                                            responseCharsOnDone: String(responseChunk || '').length
-                                        };
-                                        if (Array.isArray(data.context)) {
-                                            finalContext = data.context;
-                                        }
-                                    }
+                                    handleParsedChunk(this.parseOpenAIChatStreamLine(tail));
                                 } catch (_tailErr) {
                                     // Ignore trailing partial line on stream end.
                                 }
@@ -1652,14 +1910,15 @@ class OllamaAPI {
 
                     // Finalize once after stream closure so delayed chunks are not dropped.
                     streamProcessor.finishResponse();
-                    if (Array.isArray(finalContext)) {
-                        OllamaAPI.previousContext = finalContext;
-                        window.currentCheckpoint = {
-                            lastContext: finalContext
-                        };
-                        OllamaAPI.updateContextRemaining(finalContext.length);
+
+                    // Normal OpenAI context accounting: prefer server-reported usage
+                    // (stream_options.include_usage), fall back to a text estimate.
+                    if (streamUsage) {
+                        OllamaAPI.updateContextFromUsage(streamUsage, cloudPromptText, cloudResponseText);
                     } else if (isCloudRouting) {
                         OllamaAPI.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
+                    } else if (streamProcessor?.responseContainer?.textContent) {
+                        OllamaAPI.trackCloudTokenUsage(cloudPromptText, streamProcessor.responseContainer.textContent);
                     }
 
                     return {
@@ -1696,7 +1955,6 @@ class OllamaAPI {
                             // Keep recovery path resilient.
                         }
 
-                        // No context array is expected in interrupted streams, but keep cloud usage accounting.
                         OllamaAPI.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
 
                         return { success: true, streamProcessor, partial: true, interrupted: true };
@@ -1706,20 +1964,18 @@ class OllamaAPI {
                 } finally {
                     const endedAt = Date.now();
                     this.logStreamSummary('sendToOllama completed', {
-                        requestId: jsonPost.request_id,
+                        requestId: requestId || jsonPost.request_id,
                         model: jsonPost.model,
                         source: isCloudRouting ? 'cloud' : 'local',
                         sawDoneEvent,
                         parsedLineCount,
                         parseErrorCount,
                         rawChunkCount,
-                        hadFinalContext: Array.isArray(finalContext),
+                        hadFinalContext: false,
                         doneMeta,
                         sawResponseAfterDone,
                         optionsDebug: {
-                            num_ctx: jsonPost?.options?.num_ctx ?? null,
-                            hasStop: !!jsonPost?.options?.stop,
-                            stopType: jsonPost?.options?.stop ? (Array.isArray(jsonPost.options.stop) ? 'array' : typeof jsonPost.options.stop) : null
+                            num_ctx: jsonPost?.options?.num_ctx ?? null
                         },
                         promptChars: cloudPromptText.length,
                         responseChars: isCloudRouting
@@ -1762,14 +2018,37 @@ class OllamaAPI {
         }
     }
 
+    // Converts a {role, text|content} turns array (e.g. Campaign orchestrator
+    // history) into standard OpenAI messages. Returns null for non-turn payloads
+    // (e.g. the old numeric token `context` arrays).
+    static _normalizeTurnsToMessages(turns) {
+        if (!Array.isArray(turns) || turns.length === 0) return null;
+        const messages = [];
+        for (const turn of turns) {
+            const role = String(turn && turn.role ? turn.role : '').trim().toLowerCase();
+            const content = String(turn && (turn.content ?? turn.text) || '').trim();
+            if ((role === 'user' || role === 'assistant') && content) {
+                messages.push({ role, content });
+            }
+        }
+        return messages.length ? messages : null;
+    }
+
     // OrchestratorCall: headless call to Ollama that returns only cleaned text.
     // Signature mirrors `sendToOllama` but this method will NOT attach a
     // StreamProcessor or render UI; it always returns a single plain string.
-    static async OrchestratorCall(userPrompt, systemPrompt, contextSize, previousContext = null, abortSignal = null, requestId = null, streamProcessor = null) {
+    // `previousContext` may be a turns array ({role,text}) which is mapped to
+    // standard OpenAI messages for context continuity.
+    static async OrchestratorCall(userPrompt, systemPrompt, contextSize, previousContext = null, abortSignal = null, requestId = null, streamProcessor = null, historyMessages = null) {
         try {
             // Force headless behavior by not passing a StreamProcessor to sendToOllama
             // and explicitly disable native thinking for orchestrator latency.
-            const response = await this.sendToOllama(userPrompt, systemPrompt, contextSize, previousContext, abortSignal, requestId, null, false);
+            const sendOptions = {};
+            const history = historyMessages || this._normalizeTurnsToMessages(previousContext);
+            if (history && history.length) {
+                sendOptions.historyMessages = history;
+            }
+            const response = await this.sendToOllama(userPrompt, systemPrompt, contextSize, previousContext, abortSignal, requestId, null, false, sendOptions);
             if (!response) return '';
 
             // If the helper returned a simple string
@@ -2227,7 +2506,7 @@ class OllamaAPI {
             const aiReplies = document.querySelector('.ai-replies');
             const modelSelector = document.getElementById('model-selector');
             const selectedModel = modelSelector.value;
-            const routing = await this.getApiRoutingForModel(selectedModel);
+            const routing = await this.getOpenAIRoutingForModel(selectedModel);
             const contextSize = document.getElementById('context-selector').value;
             const modelParams = this.getModelParameters(selectedModel);
 
@@ -2321,12 +2600,6 @@ class OllamaAPI {
 
             const isCloudRouting = routing.source === 'cloud';
 
-            // Prepare context only for local routes.
-            let context = [];
-            if (!isCloudRouting && includeContext && OllamaAPI.previousContext) {
-                context = OllamaAPI.previousContext;
-            }
-
             // Log the request details for debugging
            //console.log('Sending Ollama request with:');
            //console.log('- Model:', selectedModel);
@@ -2335,61 +2608,30 @@ class OllamaAPI {
 
             // Check if this is a visual model
             const isVisualModel = await OllamaAPI.isVisualModel(selectedModel);
-            // Prepare request body
-            const requestBody = {
-                model: selectedModel,
-                // Use the separate prompt variable for the request so originalPrompt stays intact
-                prompt: userPromptForRequest,
+
+            // Normal OpenAI context management: `messages` carries prior turns and
+            // the current user turn. No proprietary numeric `context` round-trip.
+            const historyOptions = {};
+            if (whatsappRequestScope || wechatRequestScope) {
+                historyOptions.maxTurns = 30;
+            }
+            const requestBody = this.buildOpenAIChatPayload({
+                model: routing.modelName || selectedModel,
                 system: enhancedSystemPrompt,
+                userPrompt: userPromptForRequest,
+                contextSize,
+                modelParams,
+                images: (isVisualModel && OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0)
+                    ? [...OllamaAPI.lastUsedImages]
+                    : null,
+                think: supportsNativeThinking ? thinkingEnabled : null,
                 stream: true,
-                options: {
-                    num_ctx: parseInt(contextSize),
-                    ...modelParams  // Spread in any parameters that exist
-                }
-            };
+                maxTurns: historyOptions.maxTurns,
+                maxCharsPerTurn: historyOptions.maxCharsPerTurn,
+                maxCharsTotal: historyOptions.maxCharsTotal
+            });
 
-            if (!isCloudRouting && context && context.length > 0) {
-                requestBody.context = context;
-            }
-
-            //  ADD THINKING SUPPORT: Add thinking parameter for Ollama 0.9.0+ native thinking support
-            if (supportsNativeThinking && thinkingEnabled) {
-                requestBody.think = true;
-               //console.log('🧠 WebSearch OllamaAPI: ✅ SET think=true in request payload');
-            } else if (supportsNativeThinking && !thinkingEnabled) {
-                requestBody.think = false;
-               //console.log('🧠 WebSearch OllamaAPI: ✅ SET think=false in request payload');
-            } else {
-               //console.log('🧠 WebSearch OllamaAPI: ❌ NOT setting think flag - model not supported or function missing');
-            }
-
-            //  LOG THE FINAL REQUEST PAYLOAD (excluding sensitive data):
-            /*console.log('🧠 WebSearch OllamaAPI: Final request payload thinking status:', {
-                model: requestBody.model,
-                hasThinkFlag: 'think' in requestBody,
-                thinkValue: requestBody.think,
-                hasSystemPrompt: !!requestBody.system,
-                hasStreamProcessor: !!streamProcessor
-            });*/
-
-            if (isVisualModel) {
-                if (OllamaAPI.lastUsedImages && OllamaAPI.lastUsedImages.length > 0) {
-                   //console.log(`OllamaAPI WebSearch: Reusing ${OllamaAPI.lastUsedImages.length} previously sent images`);
-                    requestBody.images = [...OllamaAPI.lastUsedImages];
-                } else {
-                   //console.log(`OllamaAPI WebSearch: No images used yet, not adding any images`);
-                }
-            }
-
-            // Send to Ollama with our enhanced prompt and fetch options
-            requestBody.model = routing.modelName || requestBody.model;
-            if (isCloudRouting) {
-                const cloudHistoryBlock = this.buildCloudConversationHistoryBlock(originalPrompt);
-                if (cloudHistoryBlock) {
-                    requestBody.prompt = `${cloudHistoryBlock}\n\nCurrent user message:\n${userPromptForRequest}`;
-                }
-            }
-            const cloudPromptText = `${requestBody.system || ''}\n${requestBody.prompt || ''}`;
+            const cloudPromptText = `${enhancedSystemPrompt || ''}\n${userPromptForRequest || ''}`;
             let cloudResponseText = '';
             const requestPayload = requestBody;
             const fetchOptions = {
@@ -2404,7 +2646,7 @@ class OllamaAPI {
 
            //console.log('OllamaAPI WebSearch: Fetch options include signal:', !!fetchOptions.signal);
 
-            const response = await fetch(`${routing.baseUrl}/generate`, fetchOptions);
+            const response = await fetch(`${routing.baseUrl}/chat/completions`, fetchOptions);
 
             if (response.status === 429) {
                 const errorText = await response.text();
@@ -2446,8 +2688,71 @@ class OllamaAPI {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let streamBuffer = '';
+            let streamUsage = null;
 
-            // Process the stream
+            const handleWebSearchChunk = (parsed) => {
+                if (!parsed) return;
+                const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
+                    ? window.ThinkingState.getUserThinkingEnabled()
+                    : (localStorage.getItem('thinkingEnabled') === 'true');
+
+                // Native thinking/reasoning (OpenAI `delta.reasoning`).
+                if (parsed.reasoning && supportsNativeThinking && currentThinkingEnabled) {
+                    if (streamProcessor.processThinking) {
+                        streamProcessor.processThinking(parsed.reasoning);
+                    } else {
+                        streamProcessor.processChunk(parsed.reasoning);
+                    }
+                }
+
+                if (parsed.usage) {
+                    streamUsage = parsed.usage;
+                }
+
+                // Regular content (OpenAI `delta.content`).
+                if (parsed.content) {
+                    streamProcessor.processChunk(parsed.content);
+                    if (isCloudRouting) {
+                        cloudResponseText += parsed.content;
+                    }
+                }
+
+                if (parsed.finishReason || parsed.done) {
+                    return 'done';
+                }
+
+                OllamaAPI.scrollToBottom();
+                return null;
+            };
+
+            const finalizeWebSearch = async () => {
+                const buttons = streamProcessor.responseContainer.querySelectorAll('.code-copy-btn');
+                buttons.forEach(button => button.style.display = 'block');
+
+                streamProcessor.finishResponse();
+
+                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
+                    window.chat.addMessageActionsToMessage(aiDiv);
+                }
+
+                // Normal OpenAI context accounting via server-reported usage.
+                if (streamUsage) {
+                    OllamaAPI.updateContextFromUsage(streamUsage, cloudPromptText, cloudResponseText);
+                } else if (isCloudRouting) {
+                    OllamaAPI.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
+                }
+
+                if (OllamaAPI.contextLimitReached) {
+                    this.handleContextLimitReached();
+                }
+
+                // Store conversation and refresh session list for web-search flow.
+                await persistWebSearchConversation();
+                OllamaAPI.scrollToBottom();
+            };
+
+            // Process the stream (OpenAI SSE).
+            let sawDoneEvent = false;
             while (true) {
                 if (abortSignal && abortSignal.aborted) {
                    //console.log('Abort signal detected during stream processing - breaking out of read loop');
@@ -2459,107 +2764,13 @@ class OllamaAPI {
                 streamBuffer = lines.pop() || '';
 
                 for (const line of lines) {
-                    if (line.trim()) {
-                        try {
-                            const data = JSON.parse(line);
-
-                            //  CRITICAL FIX: Always get FRESH thinking state for each chunk
-                            const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
-                                ? window.ThinkingState.getUserThinkingEnabled()
-                                : (localStorage.getItem('thinkingEnabled') === 'true');
-                            const hasThinkingData = 'thinking' in data;
-                            const responseChunk = data.response || data.message?.content;
-                            const hasResponseData = typeof responseChunk === 'string' && responseChunk.length > 0;
-
-                            //  ENHANCED LOGGING: Add model info to debug
-                            const shouldLog = (hasThinkingData || hasResponseData) &&
-                                (Date.now() - this._lastThinkingCheck > 5000);
-
-                            if (shouldLog) {
-                                /*console.log('🧠 WebSearch OllamaAPI: Received data chunk - Status check:', {
-                                    thinkingEnabled: currentThinkingEnabled,
-                                    supportsNativeThinking,
-                                    model: selectedModel,
-                                    hasThinkingField: hasThinkingData,
-                                    hasResponseField: hasResponseData,
-                                    thinkingLength: data.thinking ? data.thinking.length : 0,
-                                    responseLength: data.response ? data.response.length : 0,
-                                    isDone: data.done,
-                                    //  NEW: Add raw data sample for debugging
-                                    rawThinkingData: hasThinkingData ? data.thinking.substring(0, 50) + '...' : 'none',
-                                    requestHadThinkFlag: !!requestBody.think
-                                });*/
-                                this._lastThinkingCheck = Date.now();
-                            }
-
-                            //  CRITICAL FIX: Check if we need to start native thinking mode
-                            // Even if we don't have thinking data yet, we might need to prepare the container
-                            if (currentThinkingEnabled && supportsNativeThinking && !streamProcessor.thinkingMode.isNative) {
-                               //console.log('🧠 WebSearch OllamaAPI: Initializing native thinking mode for upcoming data');
-                                streamProcessor.startNativeThinkingMode();
-                            }
-
-                            // 🧠 Enhanced: Handle native thinking data with detailed logging
-                            if (data.thinking && supportsNativeThinking && currentThinkingEnabled) {
-                               //console.log('🧠 WebSearch OllamaAPI: Processing thinking data chunk, length:', data.thinking.length);
-
-                                //  ADD: Call processThinking method if it exists
-                                if (streamProcessor.processThinking) {
-                                    streamProcessor.processThinking(data.thinking);
-                                } else {
-                                    console.warn('🧠 WebSearch OllamaAPI: processThinking method not found on streamProcessor');
-                                    streamProcessor.processChunk(data.thinking);
-                                }
-                            } else if (data.thinking && supportsNativeThinking && !currentThinkingEnabled) {
-                               //console.log('🧠 WebSearch OllamaAPI: Skipping thinking data - thinking disabled');
-                            } else if (data.thinking && !supportsNativeThinking) {
-                               //console.log('🧠 WebSearch OllamaAPI: Skipping thinking data - model not supported');
-                            }
-
-                            if (data.done) {
-                                // Handle completion
-                                const buttons = streamProcessor.responseContainer.querySelectorAll('.code-copy-btn');
-                                buttons.forEach(button => button.style.display = 'block');
-
-                                streamProcessor.finishResponse();
-
-                                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
-                                    window.chat.addMessageActionsToMessage(aiDiv);
-                                }
-
-                                // Handle context management
-                                if (Array.isArray(data.context)) {
-                                    OllamaAPI.previousContext = data.context;
-                                    window.currentCheckpoint = {
-                                        lastContext: data.context
-                                    };
-                                    OllamaAPI.updateContextRemaining(data.context.length);
-                                } else if (isCloudRouting) {
-                                    OllamaAPI.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
-                                }
-
-                                if (OllamaAPI.contextLimitReached) {
-                                    this.handleContextLimitReached();
-                                }
-
-                                // Store conversation and refresh session list for web-search flow.
-                                await persistWebSearchConversation();
-                                OllamaAPI.scrollToBottom();
-
-                                return artificialResponse;
-                            } else {
-                                // Handle regular response data
-                                if (responseChunk) {
-                                    streamProcessor.processChunk(responseChunk);
-                                    if (isCloudRouting) {
-                                        cloudResponseText += responseChunk;
-                                    }
-                                }
-                                OllamaAPI.scrollToBottom();
-                            }
-                        } catch (error) {
-                            console.error('Error processing chunk:', error);
+                    if (!line.trim()) continue;
+                    try {
+                        if (handleWebSearchChunk(this.parseOpenAIChatStreamLine(line)) === 'done') {
+                            sawDoneEvent = true;
                         }
+                    } catch (error) {
+                        console.error('Error processing chunk:', error);
                     }
                 }
 
@@ -2567,58 +2778,8 @@ class OllamaAPI {
                     const tail = streamBuffer.trim();
                     if (tail) {
                         try {
-                            const data = JSON.parse(tail);
-                            const currentThinkingEnabled = (window.ThinkingState && typeof window.ThinkingState.getUserThinkingEnabled === 'function')
-                                ? window.ThinkingState.getUserThinkingEnabled()
-                                : (localStorage.getItem('thinkingEnabled') === 'true');
-                            const responseChunk = data.response || data.message?.content;
-
-                            if (currentThinkingEnabled && supportsNativeThinking && !streamProcessor.thinkingMode.isNative) {
-                                streamProcessor.startNativeThinkingMode();
-                            }
-
-                            if (data.thinking && supportsNativeThinking && currentThinkingEnabled) {
-                                if (streamProcessor.processThinking) {
-                                    streamProcessor.processThinking(data.thinking);
-                                } else {
-                                    streamProcessor.processChunk(data.thinking);
-                                }
-                            }
-
-                            if (data.done) {
-                                const buttons = streamProcessor.responseContainer.querySelectorAll('.code-copy-btn');
-                                buttons.forEach(button => button.style.display = 'block');
-
-                                streamProcessor.finishResponse();
-
-                                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
-                                    window.chat.addMessageActionsToMessage(aiDiv);
-                                }
-
-                                if (Array.isArray(data.context)) {
-                                    OllamaAPI.previousContext = data.context;
-                                    window.currentCheckpoint = {
-                                        lastContext: data.context
-                                    };
-                                    OllamaAPI.updateContextRemaining(data.context.length);
-                                } else if (isCloudRouting) {
-                                    OllamaAPI.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
-                                }
-
-                                if (OllamaAPI.contextLimitReached) {
-                                    this.handleContextLimitReached();
-                                }
-
-                                await persistWebSearchConversation();
-                                OllamaAPI.scrollToBottom();
-
-                                return artificialResponse;
-                            } else if (responseChunk) {
-                                streamProcessor.processChunk(responseChunk);
-                                if (isCloudRouting) {
-                                    cloudResponseText += responseChunk;
-                                }
-                                OllamaAPI.scrollToBottom();
+                            if (handleWebSearchChunk(this.parseOpenAIChatStreamLine(tail)) === 'done') {
+                                sawDoneEvent = true;
                             }
                         } catch (_tailErr) {
                             // Ignore trailing partial line on stream end.
@@ -2628,18 +2789,13 @@ class OllamaAPI {
                 }
             }
 
-            // Fallback: some providers may end stream without an explicit data.done marker.
-            // Persist what was received so web-search conversations are not lost.
+            // Finalize once the stream closes (whether or not a done marker was seen)
+            // so web-search conversations are persisted.
             if (streamProcessor && streamProcessor.responseContainer) {
-                streamProcessor.finishResponse();
-                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
-                    window.chat.addMessageActionsToMessage(aiDiv);
-                }
-                await persistWebSearchConversation();
-                OllamaAPI.scrollToBottom();
+                await finalizeWebSearch();
             }
 
-            // If we reach here, we're done processing but didn't get a data.done event.
+            // If we reach here, we're done processing the stream.
             return artificialResponse;
 
         } catch (error) {
@@ -2821,6 +2977,8 @@ class OllamaAPI {
         this.previousContext = null;  // Using class property
         window.currentCheckpoint = null;
         this.contextLimitReached = false;
+        // OpenAI message history starts fresh until rebuilt by a continuation.
+        this._openAIContextReset = true;
 
         if (typeof window !== 'undefined') {
             if (window.__paiperworkWhatsappContextOverride) {
@@ -3230,15 +3388,64 @@ class OllamaAPI {
             languageMap[baseCode] ||
             'English';
     }
+    // Extracts readable plain text from a stored conversation message for the
+    // continuation summary. Code blocks are deliberately DROPPED: they are not
+    // useful as summary context and, because the stored HTML duplicates the full
+    // code inside data-saved-code / data-clean-code attributes, counting tokens
+    // on them exhausts the continuation budget and silently drops the real
+    // user prompt + AI reply. HTML entities are decoded for clean text.
+    static extractConversationPlainText(content, role = '') {
+        if (content === null || content === undefined) return '';
+        let text = String(content);
+        if (!text.trim()) return '';
+
+        // User continuation turns wrap the real prompt in a hidden div.
+        if (role === 'user' && text.includes('continuation-prompt')) {
+            const match = text.match(/<div class="continuation-prompt"[^>]*>([\s\S]*?)<\/div>/i);
+            if (match && match[1] && String(match[1]).trim()) {
+                text = match[1];
+            }
+        }
+
+        // Drop code blocks entirely (also removes the duplicated code attributes).
+        text = text
+            .replace(/<pre[\s\S]*?<\/pre>/gi, ' ')
+            .replace(/<code[\s\S]*?<\/code>/gi, ' ')
+            // Strip any remaining HTML tags.
+            .replace(/<[^>]*>/g, ' ');
+
+        // Decode common HTML entities so the model receives real characters.
+        text = text
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#0*39;/g, "'")
+            .replace(/&#0*(\d+);/g, (m, d) => String.fromCharCode(Number(d)));
+
+        return text.replace(/\s+/g, ' ').trim();
+    }
+
     static prepareConversationContext(conversations, maxTokens = 2048) {
-        // First, identify the last N exchanges that fit within our token budget
+        // Clean each message ONCE up-front: drop code blocks, strip HTML and
+        // decode entities. Token counting then reflects the real conversational
+        // text instead of raw HTML (whose code attributes duplicate the code and
+        // could exhaust the budget, dropping the user prompt + AI reply).
+        const cleaned = (conversations || []).map(conv => ({
+            role: conv.role,
+            plainText: this.extractConversationPlainText(conv.message, conv.role),
+            timestamp: conv.timestamp
+        }));
+
+        // Identify the last N exchanges that fit within our token budget
         let tokenCount = 0;
         let contextMessages = [];
 
         // Start from the most recent messages, working backwards
-        for (let i = conversations.length - 1; i >= 0; i--) {
-            const conv = conversations[i];
-            const messageTokens = this.countTokens(conv.message);
+        for (let i = cleaned.length - 1; i >= 0; i--) {
+            const conv = cleaned[i];
+            const messageTokens = this.countTokens(conv.plainText);
 
             // If adding this message would exceed our budget, stop
             if (tokenCount + messageTokens > maxTokens && contextMessages.length > 0) {
@@ -3246,42 +3453,21 @@ class OllamaAPI {
             }
 
             // Add this message to our context
-            contextMessages.unshift({
-                role: conv.role,
-                content: conv.message,
-                timestamp: conv.timestamp
-            });
+            contextMessages.unshift(conv);
             tokenCount += messageTokens;
         }
 
         // Add summary prefix if we couldn't include all messages
         let contextPrompt = '';
-        if (contextMessages.length < conversations.length) {
-            const omittedCount = conversations.length - contextMessages.length;
+        if (contextMessages.length < cleaned.length) {
+            const omittedCount = cleaned.length - contextMessages.length;
             contextPrompt = Lang.get('ollamaConversationStart', { count: omittedCount });
         }
 
         // Format the context for the AI
         contextMessages.forEach(msg => {
             const rolePrefix = msg.role === 'user' ? 'User: ' : 'Assistant: ';
-
-            // Extract the actual prompt from continuation messages if present
-            let plainContent = '';
-            if (msg.role === 'user' && msg.content.includes('continuation-prompt')) {
-                // Try to extract the hidden continuation prompt first
-                const match = msg.content.match(/<div class="continuation-prompt"[^>]*>(.*?)<\/div>/);
-                if (match && match[1]) {
-                    plainContent = match[1];
-                } else {
-                    // Fall back to regular content cleaning if needed
-                    plainContent = msg.content.replace(/<[^>]*>?/gm, '');
-                }
-            } else {
-                // Regular content cleaning for non-continuation messages
-                plainContent = msg.content.replace(/<[^>]*>?/gm, '');
-            }
-
-            contextPrompt += `${rolePrefix}${plainContent}\n\n`;
+            contextPrompt += `${rolePrefix}${msg.plainText}\n\n`;
         });
 
         return {
@@ -3296,68 +3482,28 @@ class OllamaAPI {
         if (!conversations || conversations.length === 0) {
            //console.log('OllamaAPI: No conversations provided, resetting context');
             this.previousContext = [];
+            this._openAIContextReset = true;
             return [];
         }
 
         try {
-            // Get the system prompt with insights and temporal context
-            const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-            const systemPrompt = await this.buildCompleteSystemPrompt(hashedMasterKey);
-           //console.log('OllamaAPI: Got enhanced system prompt for context building');
+            // OpenAI-compatible context management needs no server-side context
+            // initialization round-trip: the conversation turns are simply kept
+            // as standard messages and replayed on the next chat request.
+            const messages = conversations
+                .map(conv => ({
+                    role: (String(conv?.role || '').trim().toLowerCase() === 'assistant') ? 'assistant' : 'user',
+                    content: String(conv?.message || conv?.content || '').replace(/<[^>]*>?/gm, '') // Strip HTML
+                }))
+                .filter(msg => msg.role === 'user' || msg.role === 'assistant');
 
-            // Format messages in the way Ollama expects
-            const messages = conversations.map(conv => ({
-                role: conv.role,
-                content: conv.message.replace(/<[^>]*>?/gm, '') // Strip HTML
-            }));
-
-            const contextSize = document.getElementById('context-selector').value || '8192';
-            const modelSelector = document.getElementById('model-selector');
-
-            // Create a special message that just initializes context without generating a response
-            const initMessage = "This is a context initialization message. Please acknowledge receipt without elaborating.";
-            const routing = await this.getApiRoutingForModel(modelSelector.value);
-
-            // Make a direct API call to build context without generating a visible response
-           //console.log('OllamaAPI: Making API call to initialize context');
-            const response = await fetch(`${routing.baseUrl}/generate`, {
-                method: 'POST',
-                headers: routing.headers,
-                body: JSON.stringify({
-                    model: routing.modelName || modelSelector.value,
-                    prompt: `${messages.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n\n')}\n\n${initMessage}`,
-                    stream: false,
-                    system: systemPrompt,
-                    options: {
-                        num_ctx: parseInt(contextSize)
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                if (this.isOllamaRateLimitStatus(response.status, errorText)) {
-                    throw new Error(`${this.getOllamaRateLimitMessage()}${errorText ? `\n${errorText}` : ''}`);
-                }
-                throw new Error(`Failed to build context: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            // Store both the context and conversations
-            if (result && result.context) {
-                this.previousContext = result.context;
-               //console.log('OllamaAPI: Context built successfully with',
-                //  this.previousContext.length, 'tokens');
-            } else {
-                console.warn('OllamaAPI: No context returned from Ollama');
-                this.previousContext = [];
-            }
-
-            // Also store previous conversations for UI purposes
+            // Store previous conversations for UI purposes.
             this.previousConversations = conversations;
 
-            return this.previousContext;
+            // History is now available again for subsequent requests.
+            this._openAIContextReset = false;
+
+            return messages;
         } catch (error) {
             console.error('OllamaAPI: Error building context from conversations:', error);
             // Still store the conversations even if context building fails
@@ -3401,7 +3547,7 @@ class OllamaAPI {
             const contextSize = document.getElementById('context-selector').value;
             const selectedModel = document.getElementById('model-selector').value;
             const modelParams = this.getModelParameters(selectedModel);
-            const routing = await this.getApiRoutingForModel(selectedModel);
+            const routing = await this.getOpenAIRoutingForModel(selectedModel);
             const aiReplies = document.querySelector('.ai-replies');
 
             // STEP 2: The user prompt will contain the continuation instructions and previous messages
@@ -3431,39 +3577,25 @@ class OllamaAPI {
             // And add it to our aiDiv instead
             aiDiv.appendChild(streamProcessor.responseContainer);
 
-            // STEP 3: Send to Ollama with CLEAR separation of system prompt and user continuation prompt
-            // Pass the abort signal to the fetch request
+            // STEP 3: Send to Ollama with CLEAR separation of system prompt and user continuation prompt.
+            // The continuation prompt is self-contained (it embeds the prepared conversation
+            // summary), so no prior messages are replayed here.
             const isCloudRouting = routing.source === 'cloud';
             let cloudResponseText = '';
-            const continuationContext = window.currentCheckpoint?.lastContext || this.previousContext || [];
-            const requestBody = {
+            const requestBody = this.buildOpenAIChatPayload({
                 model: routing.modelName || document.getElementById('model-selector').value,
-                prompt: userPrompt,
                 system: systemPrompt,
+                userPrompt,
+                contextSize,
+                modelParams,
+                think: null,
                 stream: true,
-                options: {
-                    num_ctx: parseInt(contextSize),
-                    ...modelParams
-                }
-            };
+                historyMessages: []
+            });
 
-            if (!isCloudRouting && continuationContext) {
-                requestBody.context = continuationContext;
-            }
+            const cloudPromptText = `${systemPrompt || ''}\n${userPrompt || ''}`;
 
-            if (isCloudRouting) {
-                const cloudHistoryBlock = this.buildCloudConversationHistoryBlock(
-                    Lang.get('continueConversation') || 'Continue conversation',
-                    { maxTurns: 12, maxCharsTotal: 16000 }
-                );
-                if (cloudHistoryBlock) {
-                    requestBody.prompt = `${cloudHistoryBlock}\n\nContinuation summary:\n${userPrompt}`;
-                }
-            }
-
-            const cloudPromptText = `${systemPrompt || ''}\n${requestBody.prompt || ''}`;
-
-            const response = await fetch(`${routing.baseUrl}/generate`, {
+            const response = await fetch(`${routing.baseUrl}/chat/completions`, {
                 method: 'POST',
                 headers: routing.headers,
                 body: JSON.stringify(requestBody),
@@ -3491,8 +3623,76 @@ class OllamaAPI {
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let streamBuffer = '';
+            let streamUsage = null;
 
-            // Process the stream
+            const finalizeContinuation = async () => {
+                const buttons = streamProcessor.responseContainer.querySelectorAll('.code-copy-btn');
+                buttons.forEach(button => button.style.display = 'block');
+
+                // Normal OpenAI context accounting via server-reported usage.
+                if (streamUsage) {
+                    OllamaAPI.updateContextFromUsage(streamUsage, cloudPromptText, cloudResponseText);
+                } else if (isCloudRouting) {
+                    this.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
+                }
+
+                if (this.contextLimitReached) {
+                    this.showBlockingOllamaWarning(Lang.get('ollamaContextSizeError'), { scope: 'continuation-context-limit' });
+                    this.resetContext();
+                }
+
+                streamProcessor.finishResponse();
+
+                // Add message action buttons BEFORE capturing the HTML for storage
+                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
+                    window.chat.addMessageActionsToMessage(aiDiv);
+                }
+
+                // Now capture the HTML AFTER adding buttons
+                const aiResponse = streamProcessor.responseContainer.outerHTML;
+
+                OllamaAPI.scrollToBottom();
+
+                // The continuation succeeded: history is rebuilt from the DOM again.
+                this._openAIContextReset = false;
+
+                // Use the stored conversation group from when the session was loaded
+                const targetConversationGroup = window.currentConversationGroup;
+
+                // Store this as a regular conversation turn
+                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
+                await PaiperworkDB.storeConversationOnly(
+                    hashedMasterKey,
+                    `${noticeToUser}<div class="continuation-prompt" style="display:none;">${continuationPrompt}</div>`,
+                    aiResponse,
+                    false,
+                    targetConversationGroup
+                );
+
+                if (window.chatTab && typeof window.chatTab.loadSessionsList === 'function') {
+                    const updatedSessions = await window.chatTab.loadSessionsList(hashedMasterKey);
+                    window.chatTab.renderSessionsList(updatedSessions);
+                }
+
+                // Re-enable the prompt input and restore original placeholder
+                const promptInput = document.getElementById('prompt-input');
+                if (promptInput) {
+                    promptInput.disabled = false;
+
+                    if (promptInput.dataset.originalPlaceholder) {
+                        promptInput.placeholder = promptInput.dataset.originalPlaceholder;
+                    } else {
+                        promptInput.placeholder = Lang.get('enterMessage') || 'Enter your message...';
+                    }
+
+                    promptInput.focus();
+                }
+
+                return true;
+            };
+
+            // Process the stream (OpenAI SSE).
+            let sawDoneEvent = false;
             while (true) {
                 const { value, done } = await reader.read();
                 streamBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
@@ -3500,92 +3700,25 @@ class OllamaAPI {
                 streamBuffer = lines.pop() || '';
 
                 for (const line of lines) {
-                    if (line.trim()) {
-                        try {
-                            const data = JSON.parse(line);
-
-                            if (data.done) {
-                                // Capture final content and update state
-                                const buttons = streamProcessor.responseContainer.querySelectorAll('.code-copy-btn');
-                                buttons.forEach(button => button.style.display = 'block');
-
-                                // Handle context management
-                                if (Array.isArray(data.context)) {
-                                    this.previousContext = data.context;
-                                    window.currentCheckpoint = {
-                                        lastContext: data.context
-                                    };
-                                    this.updateContextRemaining(data.context.length);
-                                } else if (isCloudRouting) {
-                                    this.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
-                                }
-
-                                if (this.contextLimitReached) {
-                                    this.showBlockingOllamaWarning(Lang.get('ollamaContextSizeError'), { scope: 'continuation-context-limit' });
-                                    this.resetContext();
-                                }
-
-                                streamProcessor.finishResponse();
-
-                                // Add message action buttons BEFORE capturing the HTML for storage
-                                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
-                                    window.chat.addMessageActionsToMessage(aiDiv);
-                                }
-
-                                // Now capture the HTML AFTER adding buttons
-                                const aiResponse = streamProcessor.responseContainer.outerHTML;
-
-                                OllamaAPI.scrollToBottom();
-
-                                // Use the stored conversation group from when the session was loaded
-                                const targetConversationGroup = window.currentConversationGroup;
-
-                                // Store this as a regular conversation turn
-                                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-                                await PaiperworkDB.storeConversationOnly(
-                                    hashedMasterKey,
-                                    `${noticeToUser}<div class="continuation-prompt" style="display:none;">${continuationPrompt}</div>`, // Modified
-                                    aiResponse,
-                                    false,
-                                    targetConversationGroup
-                                );
-
-                                if (window.chatTab && typeof window.chatTab.loadSessionsList === 'function') {
-                                    const updatedSessions = await window.chatTab.loadSessionsList(hashedMasterKey);
-                                    window.chatTab.renderSessionsList(updatedSessions);
-                                }
-
-                                // Re-enable the prompt input and restore original placeholder
-                                const promptInput = document.getElementById('prompt-input');
-                                if (promptInput) {
-                                    promptInput.disabled = false;
-
-                                    // Restore the original placeholder if one was saved
-                                    if (promptInput.dataset.originalPlaceholder) {
-                                        promptInput.placeholder = promptInput.dataset.originalPlaceholder;
-                                    } else {
-                                        // Default placeholder if none was saved
-                                        promptInput.placeholder = Lang.get('enterMessage') || 'Enter your message...';
-                                    }
-
-                                    // Focus the input to allow immediate typing
-                                    promptInput.focus();
-                                }
-
-                                return true;
-                            } else {
-                                const responseChunk = data.response || data.message?.content;
-                                if (responseChunk) {
-                                    streamProcessor.processChunk(responseChunk);
-                                    if (isCloudRouting) {
-                                        cloudResponseText += responseChunk;
-                                    }
-                                }
-                                OllamaAPI.scrollToBottom();
-                            }
-                        } catch (error) {
-                            console.error('Error processing chunk:', error);
+                    if (!line.trim()) continue;
+                    try {
+                        const parsed = this.parseOpenAIChatStreamLine(line);
+                        if (!parsed) continue;
+                        if (parsed.usage) {
+                            streamUsage = parsed.usage;
                         }
+                        if (parsed.content) {
+                            streamProcessor.processChunk(parsed.content);
+                            if (isCloudRouting) {
+                                cloudResponseText += parsed.content;
+                            }
+                        }
+                        if (parsed.finishReason || parsed.done) {
+                            sawDoneEvent = true;
+                        }
+                        OllamaAPI.scrollToBottom();
+                    } catch (error) {
+                        console.error('Error processing chunk:', error);
                     }
                 }
 
@@ -3593,74 +3726,20 @@ class OllamaAPI {
                     const tail = streamBuffer.trim();
                     if (tail) {
                         try {
-                            const data = JSON.parse(tail);
-
-                            if (data.done) {
-                                const buttons = streamProcessor.responseContainer.querySelectorAll('.code-copy-btn');
-                                buttons.forEach(button => button.style.display = 'block');
-
-                                if (Array.isArray(data.context)) {
-                                    this.previousContext = data.context;
-                                    window.currentCheckpoint = {
-                                        lastContext: data.context
-                                    };
-                                    this.updateContextRemaining(data.context.length);
-                                } else if (isCloudRouting) {
-                                    this.trackCloudTokenUsage(cloudPromptText, cloudResponseText);
+                            const parsed = this.parseOpenAIChatStreamLine(tail);
+                            if (parsed) {
+                                if (parsed.usage) {
+                                    streamUsage = parsed.usage;
                                 }
-
-                                if (this.contextLimitReached) {
-                                    this.showBlockingOllamaWarning(Lang.get('ollamaContextSizeError'), { scope: 'continuation-context-limit-tail' });
-                                    this.resetContext();
-                                }
-
-                                streamProcessor.finishResponse();
-
-                                if (window.chat && typeof window.chat.addMessageActionsToMessage === 'function') {
-                                    window.chat.addMessageActionsToMessage(aiDiv);
-                                }
-
-                                const aiResponse = streamProcessor.responseContainer.outerHTML;
-                                OllamaAPI.scrollToBottom();
-
-                                const targetConversationGroup = window.currentConversationGroup;
-                                const hashedMasterKey = sessionStorage.getItem('hashedMasterKey');
-                                await PaiperworkDB.storeConversationOnly(
-                                    hashedMasterKey,
-                                    `${noticeToUser}<div class="continuation-prompt" style="display:none;">${continuationPrompt}</div>`,
-                                    aiResponse,
-                                    false,
-                                    targetConversationGroup
-                                );
-
-                                if (window.chatTab && typeof window.chatTab.loadSessionsList === 'function') {
-                                    const updatedSessions = await window.chatTab.loadSessionsList(hashedMasterKey);
-                                    window.chatTab.renderSessionsList(updatedSessions);
-                                }
-
-                                const promptInput = document.getElementById('prompt-input');
-                                if (promptInput) {
-                                    promptInput.disabled = false;
-
-                                    if (promptInput.dataset.originalPlaceholder) {
-                                        promptInput.placeholder = promptInput.dataset.originalPlaceholder;
-                                    } else {
-                                        promptInput.placeholder = Lang.get('enterMessage') || 'Enter your message...';
-                                    }
-
-                                    promptInput.focus();
-                                }
-
-                                return true;
-                            } else {
-                                const responseChunk = data.response || data.message?.content;
-                                if (responseChunk) {
-                                    streamProcessor.processChunk(responseChunk);
+                                if (parsed.content) {
+                                    streamProcessor.processChunk(parsed.content);
                                     if (isCloudRouting) {
-                                        cloudResponseText += responseChunk;
+                                        cloudResponseText += parsed.content;
                                     }
                                 }
-                                OllamaAPI.scrollToBottom();
+                                if (parsed.finishReason || parsed.done) {
+                                    sawDoneEvent = true;
+                                }
                             }
                         } catch (_tailErr) {
                             // Ignore trailing partial line on stream end.
@@ -3671,6 +3750,12 @@ class OllamaAPI {
 
                 OllamaAPI.scrollToBottom();
             }
+
+            if (streamProcessor && streamProcessor.responseContainer) {
+                return await finalizeContinuation();
+            }
+
+            return true;
         } catch (error) {
             console.error('Error in conversation continuation:', error);
 

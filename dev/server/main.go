@@ -2972,6 +2972,19 @@ func proxyOllamaCloudTags(w http.ResponseWriter, r *http.Request) {
 }
 
 func proxyOllamaCloudAPIPath(path string) http.HandlerFunc {
+	// Native Ollama /api/<path> endpoint (e.g. generate, show, pull).
+	return proxyOllamaCloudPath("api", path)
+}
+
+// proxyOllamaCloudV1Path proxies to the OpenAI-compatible endpoint on Ollama
+// Cloud (e.g. /v1/chat/completions), which is fully supported by Ollama and
+// uses standard OpenAI message-based context management instead of the
+// proprietary token "context" array.
+func proxyOllamaCloudV1Path(path string) http.HandlerFunc {
+	return proxyOllamaCloudPath("v1", path)
+}
+
+func proxyOllamaCloudPath(basePath, path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
@@ -2996,7 +3009,7 @@ func proxyOllamaCloudAPIPath(path string) http.HandlerFunc {
 		// Defensive normalization: cloud API expects base model names (without "-cloud").
 		bodyBytes = sanitizeCloudModelFields(bodyBytes)
 
-		targetURL := "https://ollama.com/api/" + path
+		targetURL := "https://ollama.com/" + basePath + "/" + path
 		req, err := http.NewRequest(r.Method, targetURL, strings.NewReader(string(bodyBytes)))
 		if err != nil {
 			http.Error(w, "Failed to create cloud request", http.StatusInternalServerError)
@@ -10791,6 +10804,10 @@ func main() {
 	mux.HandleFunc("/api/cloud/pull", proxyOllamaCloudAPIPath("pull"))
 	mux.HandleFunc("/api/cloud/embed", proxyOllamaCloudAPIPath("embed"))
 	mux.HandleFunc("/api/cloud/embeddings", proxyOllamaCloudAPIPath("embeddings"))
+	// OpenAI-compatible endpoints on Ollama Cloud (normal message-based context).
+	mux.HandleFunc("/api/cloud/v1/chat/completions", proxyOllamaCloudV1Path("chat/completions"))
+	mux.HandleFunc("/api/cloud/v1/models", proxyOllamaCloudV1Path("models"))
+	mux.HandleFunc("/api/cloud/v1/embeddings", proxyOllamaCloudV1Path("embeddings"))
 	mux.HandleFunc("/api/extract/content", fetchAndExtractContent)
 	mux.HandleFunc("/api/extract/style", fetchWebsiteStyleAnalysis)
 	mux.HandleFunc("/api/search/bing", proxyBingSearch)

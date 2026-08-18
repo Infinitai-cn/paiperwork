@@ -33,7 +33,7 @@ window.runHtmlCode = function (button) {
     if (!codeElement) return;
 
     // Get clean HTML code
-    let htmlContent = codeElement.dataset.cleanCode || extractTextContent(codeElement);
+    let htmlContent = (window.getCodeBlockText && window.getCodeBlockText(codeElement)) || extractTextContent(codeElement);
 
 
    //console.log('HTML content to run:', htmlContent.substring(0, 50) + '...');
@@ -893,9 +893,10 @@ function setupResizeObserver(container, iframe) {
 }
 // Extract text content from code elements, properly handling HTML entities
 function extractCodeContent(codeElement) {
-    // First check if clean code is stored in data attribute
-    if (codeElement.dataset.cleanCode) {
-        return codeElement.dataset.cleanCode;
+    // First check if clean code is stored (data-saved-code is the canonical copy)
+    const savedCode = (window.getCodeBlockText && window.getCodeBlockText(codeElement)) || '';
+    if (savedCode) {
+        return savedCode;
     }
 
     const plainText = codeElement?.textContent || '';

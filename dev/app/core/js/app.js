@@ -396,6 +396,20 @@ document.addEventListener('DOMContentLoaded', async function () {
                 // Non-fatal warmup failure.
             }
 
+            // One-time background pass: strip legacy duplicated code copies
+            // (data-clean-code / SAVED_CODE_BACKUP) from previously stored
+            // conversations, keeping only the canonical data-saved-code.
+            // Fire-and-forget so it never blocks app startup.
+            try {
+                if (PaiperworkDB && typeof PaiperworkDB.cleanupLegacyCodeDuplicates === 'function') {
+                    PaiperworkDB.cleanupLegacyCodeDuplicates(hashedMasterKey).catch(err => {
+                        console.warn('[app] Legacy code cleanup failed (non-fatal):', err);
+                    });
+                }
+            } catch (_cleanupErr) {
+                // Non-fatal background maintenance.
+            }
+
             return true;
         })();
 
