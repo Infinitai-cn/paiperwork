@@ -174,6 +174,15 @@ class pdfExport {
             canvasPixelRatio = options.pixelRatio || 1;
         }
 
+        // Raster quality: render the slide at a higher resolution than the logical
+        // page size so text (and everything else) stays crisp when the image is
+        // scaled down to the PDF page. Defaults to 3x; overridable via
+        // options.pixelRatio. Capped so the raster canvas never grows unbounded.
+        const maxRasterDim = 6000;
+        const maxLogicalDim = Math.max(pageWidth, pageHeight) || 1;
+        let rasterPixelRatio = Math.max(1, Math.floor(Number(options.pixelRatio) || 3));
+        rasterPixelRatio = Math.min(rasterPixelRatio, Math.max(1, Math.floor(maxRasterDim / maxLogicalDim)));
+
         let imgData = null;
         const shouldExcludeTextFromRaster = options.includeSearchableText !== false;
         const hiddenTextNodes = [];
@@ -207,7 +216,7 @@ class pdfExport {
         try {
             if (typeof stage.toDataURL === 'function') {
                 try {
-                    const pr = options.pixelRatio || canvasPixelRatio || 1;
+                    const pr = rasterPixelRatio || options.pixelRatio || canvasPixelRatio || 1;
                     imgData = stage.toDataURL({ mimeType: 'image/png', quality: 1, pixelRatio: pr });
                 } catch (err) {
                     console.warn('[pdfExport] stage.toDataURL failed, falling back to canvas.toDataURL', err);
@@ -240,24 +249,27 @@ class pdfExport {
             img.src = imgData;
         });
 
+        // Use the high pixel-ratio canvas as the raster target so the exported PNG
+        // carries real resolution (jsPDF then scales it down to the page size,
+        // keeping text crisp).
         const off = document.createElement('canvas');
-        off.width = pageWidth;
-        off.height = pageHeight;
+        off.width = Math.max(1, Math.round(pageWidth * rasterPixelRatio));
+        off.height = Math.max(1, Math.round(pageHeight * rasterPixelRatio));
         const ctx = off.getContext('2d');
         ctx.fillStyle = options.backgroundColor || '#ffffff';
         ctx.fillRect(0, 0, off.width, off.height);
 
         try {
-            ctx.drawImage(image, 0, 0, pageWidth, pageHeight);
+            ctx.drawImage(image, 0, 0, off.width, off.height);
         } catch (err) {
             console.warn('[pdfExport] drawImage failed, attempting fallback draw', err);
-            const iw = image.width || canvas.width || pageWidth;
-            const ih = image.height || canvas.height || pageHeight;
-            const scale = Math.min(pageWidth / iw, pageHeight / ih);
+            const iw = image.width || canvas.width || off.width;
+            const ih = image.height || canvas.height || off.height;
+            const scale = Math.min(off.width / iw, off.height / ih);
             const drawW = Math.round(iw * scale);
             const drawH = Math.round(ih * scale);
-            const dx = Math.round((pageWidth - drawW) / 2);
-            const dy = Math.round((pageHeight - drawH) / 2);
+            const dx = Math.round((off.width - drawW) / 2);
+            const dy = Math.round((off.height - drawH) / 2);
             ctx.drawImage(image, dx, dy, drawW, drawH);
         }
 
